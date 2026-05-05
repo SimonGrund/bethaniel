@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blogging Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>My Blog</h1>
+        </header>
+
+        <div class="main-content">
+            <section class="editor-panel">
+                <h2>Write a New Post</h2>
+                <textarea id="blog-post-content" placeholder="Start writing your thoughts here..."></textarea>
+                <button id="save-button">Save Post</button>
+            </section>
+
+            <section class="preview-panel">
+                <h2>Published Posts</h2>
+                <div id="posts-container">
+                    <p class="placeholder">Your saved posts will appear here.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
