@@ -1,0 +1,32 @@
+{
+  "name": "bethaniel-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --watch src --ext ts --exec 'tsx src/index.ts'"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "diff": "^7.0.0",
+    "express": "^4.21.0",
+    "jszip": "^3.10.1",
+    "multer": "^1.4.5-lts.1",
+    "ollama": "^0.5.12",
+    "socket.io": "^4.8.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/diff": "^6.0.0",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "nodemon": "^3.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

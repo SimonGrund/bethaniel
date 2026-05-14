@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# ── Bethaniel — Launcher ──
+# Starts Ollama (if needed), the Bethaniel server, and opens the browser.
+#
+# Usage:
+#   ./bethaniel              # Production mode (uses built frontend)
+#   ./bethaniel --dev        # Dev mode (Vite HMR on :5173)
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+MODE="production"
+for arg in "$@"; do
+  case "$arg" in
+    --dev) MODE="development" ;;
+    *) echo "Unknown argument: $arg"; exit 1 ;;
+  esac
+done
+
+PORT="${BETHANIEL_PORT:-4000}"
+URL="http://localhost:${PORT}"
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  📖 Bethaniel — Private Copy Editor"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# ── Ensure Ollama is running ──
+if ! curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
+  echo "[*] Starting Ollama..."
+  if command -v brew > /dev/null 2>&1 && brew services list 2>/dev/null | grep -q ollama; then
+    brew services start ollama > /dev/null 2>&1 || true
+  else
+    nohup ollama serve > /tmp/bethaniel-ollama.log 2>&1 &
+  fi
+  # Wait up to 5s for Ollama
+  for i in 1 2 3 4 5; do
+    sleep 1
+    if curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
+      break
+    fi
+  done
+fi
+
+if curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
+  echo "[*] Ollama: running on http://127.0.0.1:11434"
+else
+  echo "[!] Ollama not reachable — model list will be empty"
+fi
+
+# ── Open browser shortly after server starts ──
+open_browser() {
+  sleep 1.5
+  case "$(uname -s)" in
+    Darwin) open "$URL" ;;
+    Linux)  xdg-open "$URL" > /dev/null 2>&1 || true ;;
+    *)      echo "Open in browser: $URL" ;;
+  esac
+}
+
+if [ "$MODE" = "development" ]; then
+  echo "[*] Mode: DEVELOPMENT (Vite HMR)"
+  echo "[*] Frontend: http://localhost:5173"
+  echo "[*] Backend:  http://localhost:${PORT}"
+  echo ""
+
+  # Run backend (dev) and frontend (vite) in parallel; clean exit on Ctrl-C
+  cleanup() {
+    trap - INT TERM EXIT
+    echo ""
+    echo "[*] Stopping..."
+    # Kill the whole process group; ignore errors
+    kill -- -$$ 2>/dev/null || true
+    exit 0
+  }
+  trap cleanup INT TERM
+
+  (cd backend && NODE_ENV=development PORT="$PORT" npm run dev) &
+  (cd frontend && npm run dev) &
+
+  sleep 2
+  open "http://localhost:5173" 2>/dev/null || true
+  wait
+else
+  echo "[*] Mode: PRODUCTION"
+  echo "[*] App: $URL"
+  echo ""
+
+  # Make sure frontend is built and wired
+  if [ ! -f "backend/public/index.html" ]; then
+    echo "[!] No built frontend found — running install.sh first"
+    ./install.sh
+  fi
+
+  open_browser &
+  cd backend && PORT="$PORT" npm start
+fi

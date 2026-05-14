@@ -1,0 +1,183 @@
+// ── Chapter detection — ported from ui.py ──
+
+import type { Chapter } from "./types.js";
+
+const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
+
+const CHAPTER_WORDS = [
+  "chapter",
+  "part",
+  "kapitel",
+  "kapittel",
+  "del",
+  "capítulo",
+  "capitulo",
+  "parte",
+  "chapitre",
+  "partie",
+  "capitolo",
+  "hoofdstuk",
+];
+
+const SPECIAL_SECTIONS = [
+  "prologue",
+  "epilogue",
+  "interlude",
+  "afterword",
+  "foreword",
+  "preface",
+  "introduction",
+  "appendix",
+  "prolog",
+  "epilog",
+  "forord",
+  "efterord",
+  "indledning",
+  "appendiks",
+  "vorwort",
+  "nachwort",
+  "einleitung",
+  "prólogo",
+  "epílogo",
+  "prefacio",
+  "introducción",
+  "apéndice",
+  "préface",
+  "annexe",
+  "prologo",
+  "epilogo",
+  "prefazione",
+  "introduzione",
+  "appendice",
+  "proloog",
+  "epiloog",
+  "voorwoord",
+  "nawoord",
+  "inleiding",
+];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const cwg = [...new Set(CHAPTER_WORDS)]
+  .sort((a, b) => b.length - a.length)
+  .join("|");
+const ssg = [...new Set(SPECIAL_SECTIONS)]
+  .sort((a, b) => b.length - a.length)
+  .join("|");
+
+const CHAPTER_PATTERNS: RegExp[] = [
+  new RegExp(
+    `(?:^|\\n)\\s*${escapeRegex(PAGEBREAK_MARKER)}\\s*(?:\\n|$)`,
+    "gm",
+  ),
+  /(?:^|\n)(#{1,2})\s+(.+)$/gm,
+  new RegExp(
+    `(?:^|\\n)[ \\t]*[*_]{0,3}[ \\t]*((?:${cwg})[ \\t]+[\\dIVXLCivxlc]+[.:—–-]?[^\\n]*?)[ \\t]*[*_]{0,3}[ \\t]*(?:\\n|$)`,
+    "gmi",
+  ),
+  new RegExp(
+    `(?:^|\\n)[ \\t]*[*_]{0,3}[ \\t]*((?:${cwg})(?:[ \\t]+\\S[^\\n]*?)?)[ \\t]*[*_]{0,3}[ \\t]*(?:\\n|$)`,
+    "gmi",
+  ),
+  new RegExp(`(?:^|\\n)\\s*((?:${ssg})\\s*[.:—–-]?\\s*.*?)(?:\\n|$)`, "gmi"),
+  /(?:^|\n)\s*([A-ZÆØÅÄÖÜÉÈÊÁÀÂÍÓÚÑÇ][A-ZÆØÅÄÖÜÉÈÊÁÀÂÍÓÚÑÇ ]{6,})(?:\n|$)/gm,
+  /(?:^|\n)\s*(?:\*\*|__)(.+?)(?:\*\*|__)[ \t]*(?:\n|$)/gm,
+  /(?:^|\n)\s*(\d{1,3}[.)]\s+.+)$/gm,
+];
+
+function cleanTitle(s: string): string {
+  s = s.trim();
+  s = s.replace(/^[*_]{1,3}\s*/, "");
+  s = s.replace(/\s*[*_]{1,3}$/, "");
+  return s.replace(/^#+\s*/, "").trim();
+}
+
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+export function findChapters(text: string): Chapter[] {
+  for (const pat of CHAPTER_PATTERNS) {
+    // Reset regex state
+    pat.lastIndex = 0;
+    const matches: { index: number; groups: string[]; full: string }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = pat.exec(text)) !== null) {
+      if (m[0].trim().length <= 120) {
+        matches.push({
+          index: m.index,
+          groups: [...m].slice(1),
+          full: m[0],
+        });
+      }
+    }
+
+    if (matches.length >= 2 || (matches.length === 1 && matches[0].index > 0)) {
+      const out: Chapter[] = [];
+      for (let i = 0; i < matches.length; i++) {
+        const start = matches[i].index;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        const raw =
+          [...matches[i].groups].reverse().find((g) => g && g.trim()) ??
+          matches[i].full;
+
+        let title: string;
+        if (
+          raw.includes(PAGEBREAK_MARKER) ||
+          matches[i].full.includes(PAGEBREAK_MARKER)
+        ) {
+          const sec = text.slice(start + matches[i].full.length, end);
+          const firstLine =
+            sec.split("\n").find((ln) => ln.trim()) ?? `Section ${i + 1}`;
+          title = cleanTitle(firstLine.slice(0, 80));
+        } else {
+          title = cleanTitle(raw);
+        }
+
+        out.push({
+          title,
+          level: 1,
+          start,
+          end,
+          wordCount: wordCount(text.slice(start, end)),
+        });
+      }
+      return out;
+    }
+  }
+
+  // Fallback: scene breaks
+  const brk = /(?:^|\n)\s*(?:\*\s*\*\s*\*|---+|___+)\s*(?:\n|$)/gm;
+  const breakMatches: { index: number; end: number }[] = [];
+  let bm: RegExpExecArray | null;
+  while ((bm = brk.exec(text)) !== null) {
+    breakMatches.push({ index: bm.index, end: bm.index + bm[0].length });
+  }
+
+  if (breakMatches.length >= 2) {
+    const bounds = [0, ...breakMatches.map((b) => b.end), text.length];
+    const out: Chapter[] = [];
+    for (let i = 0; i < bounds.length - 1; i++) {
+      const s = bounds[i];
+      const e = bounds[i + 1];
+      const sec = text.slice(s, e).trim();
+      if (!sec) continue;
+      const title =
+        sec.split("\n")[0].slice(0, 60).trim() || `Section ${i + 1}`;
+      out.push({
+        title,
+        level: 1,
+        start: s,
+        end: e,
+        wordCount: wordCount(sec),
+      });
+    }
+    if (out.length > 0) return out;
+  }
+
+  return [];
+}
+
+export { PAGEBREAK_MARKER };
