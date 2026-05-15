@@ -41,5 +41,7 @@ These rules apply to every chunk sent to the editor.
 - Internal thoughts are in _italics_
 - Blackskull is a shipsname but _the_ is only before it in rare cases
 - Blacksteel and Whitesteel are materials with these names
-- Givers and Takers and Giving and Taking are always capitalized when refering to the powers.
+- Givers and Takers and Giving and Taking and Give and Take are always capitalized when refering to the powers. When in doubt, leave unchanged
 - Kingsrings and Kingsring is a name of an object
+- Tiranin people have awkward english on purpose
+- The pirates have broken english on purpose.

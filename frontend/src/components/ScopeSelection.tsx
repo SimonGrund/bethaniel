@@ -51,6 +51,15 @@ export function buildUnits(
     ];
   }
 
+  // whole_book: when chapters are detected, fan out into one unit per chapter
+  // so the queue shows real progress and parallel workers can pick them up.
+  if (chapters.length > 0) {
+    return chapters.map((ch, i) => ({
+      name: shortChapterLabel(i, ch.title),
+      original: md.slice(ch.start, ch.end).trim(),
+    }));
+  }
+
   return [{ name: "Manuscript", original: md.trim() }];
 }
 

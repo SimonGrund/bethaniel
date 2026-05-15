@@ -1,4 +1,4 @@
-// ── Edit trigger — Stage III ──
+// ── Edit trigger — Stage IV ──
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
@@ -14,7 +14,7 @@ export default function EditTrigger() {
     selectedChapters,
     firstNWords,
     model,
-    taskMode,
+    selectedModes,
     copyEditOptions,
     lineEditOptions,
     targetLang,
@@ -37,7 +37,20 @@ export default function EditTrigger() {
     selectedChapters,
     firstNWords,
   );
-  const disabled = units.length === 0 || submitting;
+  const disabled =
+    units.length === 0 || selectedModes.length === 0 || submitting;
+
+  // Build combined editOptions from all selected edit modes
+  const buildEditOptions = () => {
+    const opts: Record<string, boolean> = {};
+    if (selectedModes.includes("copy_edit")) {
+      Object.assign(opts, copyEditOptions);
+    }
+    if (selectedModes.includes("line_edit")) {
+      Object.assign(opts, lineEditOptions);
+    }
+    return Object.keys(opts).length > 0 ? opts : undefined;
+  };
 
   const handleClick = async () => {
     setSubmitting(true);
@@ -45,6 +58,7 @@ export default function EditTrigger() {
       console.log("[EditTrigger] addToQueue", {
         docId: doc.id,
         unitCount: units.length,
+        modes: selectedModes,
         model,
         fast: fastMode,
       });
@@ -52,21 +66,21 @@ export default function EditTrigger() {
         docId: doc.id,
         units,
         model,
-        mode: taskMode,
+        modes: selectedModes,
         fast: fastMode,
         wordsPerChunk,
         overlapParagraphs,
         parallel,
         styleGuide: styleGuide || undefined,
-        editOptions:
-          taskMode === "copy_edit"
-            ? copyEditOptions
-            : taskMode === "line_edit"
-              ? lineEditOptions
-              : undefined,
-        targetLang: taskMode === "translate" ? targetLang : undefined,
+        editOptions: buildEditOptions(),
+        targetLang: selectedModes.includes("translate")
+          ? targetLang
+          : undefined,
       });
       console.log("[EditTrigger] taskIds:", taskIds);
+      if (taskIds.warnings.length > 0) {
+        alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);
+      }
     } catch (err) {
       console.error("Failed to add to queue:", err);
       alert(
@@ -77,6 +91,8 @@ export default function EditTrigger() {
     }
   };
 
+  const modeLabel = selectedModes.map((m) => t(`mode_${m}`)).join(" + ");
+
   return (
     <section className="stage">
       <div className="section-label">
@@ -85,8 +101,13 @@ export default function EditTrigger() {
       </div>
       <button className="btn-primary" disabled={disabled} onClick={handleClick}>
         {t("btn_add_to_queue")}
-        {units.length > 0 ? ` (${units.length})` : ""}
+        {units.length > 0 ? ` (${units.length} × ${selectedModes.length})` : ""}
       </button>
+      {selectedModes.length > 1 && (
+        <p className="mode-description" style={{ marginTop: "0.3rem" }}>
+          {modeLabel}
+        </p>
+      )}
     </section>
   );
 }

@@ -1,9 +1,9 @@
 // ── Sidebar component ──
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { fetchModels } from "../api";
+import { fetchModels, fetchSystemRecommendation } from "../api";
 
 export default function Sidebar() {
   const {
@@ -17,12 +17,28 @@ export default function Sidebar() {
     setWordsPerChunk,
     overlapParagraphs,
     setOverlapParagraphs,
-    fastMode,
-    setFastMode,
     parallel,
     setParallel,
   } = useStore();
   const t = useTranslation(lang);
+  const [showSettings, setShowSettings] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoInfo, setAutoInfo] = useState<string | null>(null);
+
+  async function autoTuneParallel() {
+    setAutoBusy(true);
+    try {
+      const r = await fetchSystemRecommendation(model);
+      setParallel(r.recommendedParallel);
+      setAutoInfo(
+        `${r.recommendedParallel} jobs — ${r.modelSizeGb} GB model + ~${r.kvPerJobGb} GB/job, ${r.usableRamGb} GB usable RAM, ${r.cpuCount} CPUs (${r.modelSource})`,
+      );
+    } catch {
+      setAutoInfo("Auto-tune failed");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
 
   useEffect(() => {
     fetchModels()
@@ -61,9 +77,14 @@ export default function Sidebar() {
       </div>
 
       <div className="sidebar-section">
-        <label className="section-label">{t("settings")}</label>
+        <button
+          className="expander-toggle"
+          onClick={() => setShowSettings(!showSettings)}
+        >
+          {showSettings ? "▾" : "▸"} {t("settings")}
+        </button>
 
-        {models.length > 0 ? (
+        {showSettings && models.length > 0 && (
           <div className="field">
             <label>{t("model")}</label>
             <select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -74,7 +95,8 @@ export default function Sidebar() {
               ))}
             </select>
           </div>
-        ) : (
+        )}
+        {showSettings && models.length === 0 && (
           <div className="warning-box">
             <p>⚠️ {t("ollama_warning")}</p>
             <button onClick={() => fetchModels().then(setModels)}>
@@ -92,60 +114,82 @@ export default function Sidebar() {
           </div>
         )}
 
-        <div className="field">
-          <label>
-            {t("words_per_chunk")}: {wordsPerChunk}
-          </label>
-          <input
-            type="range"
-            min={1000}
-            max={5000}
-            step={250}
-            value={wordsPerChunk}
-            onChange={(e) => setWordsPerChunk(Number(e.target.value))}
-          />
-        </div>
+        {showSettings && (
+          <>
+            <div className="field">
+              <label>
+                {t("words_per_chunk")}: {wordsPerChunk}
+              </label>
+              <input
+                type="range"
+                min={1000}
+                max={5000}
+                step={250}
+                value={wordsPerChunk}
+                onChange={(e) => setWordsPerChunk(Number(e.target.value))}
+              />
+            </div>
 
-        <div className="field">
-          <label>
-            {t("paragraph_overlap")}: {overlapParagraphs}
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={3}
-            step={1}
-            value={overlapParagraphs}
-            onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
-          />
-        </div>
+            <div className="field">
+              <label>
+                {t("paragraph_overlap")}: {overlapParagraphs}
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={1}
+                value={overlapParagraphs}
+                onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
+              />
+            </div>
 
-        <div className="field toggle-field">
-          <label>
-            <input
-              type="checkbox"
-              checked={fastMode}
-              onChange={(e) => setFastMode(e.target.checked)}
-            />
-            {t("fast_mode")}
-          </label>
-          <span className="help-text">{t("fast_mode_help")}</span>
-        </div>
-
-        <div className="field">
-          <label>
-            {t("parallel_chapters")}: {parallel}
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={4}
-            step={1}
-            value={parallel}
-            onChange={(e) => setParallel(Number(e.target.value))}
-          />
-          <span className="help-text">{t("parallel_help")}</span>
-        </div>
+            <div className="field">
+              <label>
+                {t("parallel_jobs")}: {parallel}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={8}
+                step={1}
+                value={parallel}
+                onChange={(e) => setParallel(Number(e.target.value))}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginTop: "0.25rem",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={autoTuneParallel}
+                  disabled={autoBusy}
+                  className="btn-secondary"
+                  style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
+                >
+                  {autoBusy ? "…" : "Auto"}
+                </button>
+                <span className="help-text">{t("parallel_help")}</span>
+              </div>
+              {autoInfo && (
+                <div
+                  className="help-text"
+                  style={{
+                    marginTop: "0.25rem",
+                    fontSize: "0.75rem",
+                    opacity: 0.8,
+                  }}
+                >
+                  {autoInfo}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );

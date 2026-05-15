@@ -70,9 +70,9 @@ export default function App() {
         <div className="content-layout">
           <div className="main-col">
             <ManuscriptUpload />
-            <StyleGuideEditor />
             <ScopeSelection />
             <ModeSelector />
+            <StyleGuideEditor />
             <EditTrigger />
             <ReviewExport />
           </div>

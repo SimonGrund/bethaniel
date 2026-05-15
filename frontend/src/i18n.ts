@@ -25,9 +25,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Returnerer en JSON-liste af rettelser. Typisk 3–10× hurtigere.",
   },
   parallel_chapters: { en: "Parallel chapters", da: "Parallelle kapitler" },
+  parallel_jobs: { en: "Parallel jobs", da: "Parallelle opgaver" },
   parallel_help: {
-    en: "Max concurrent editing workers. With large 27B+ models, leave at 1.",
-    da: "Maks. parallelle arbejdere. Med store 27B+ modeller, behold på 1.",
+    en: "Concurrent jobs. Click Auto to estimate based on RAM, CPU, and model size.",
+    da: "Samtidige opgaver. Klik Auto for at estimere ud fra RAM, CPU og modelstørrelse.",
   },
   style_guide: { en: "Style guide", da: "Stilguide" },
   style_guide_tooltip: {
@@ -65,7 +66,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   words_selected: { en: "words across", da: "ord fordelt på" },
   units: { en: "unit(s)", da: "enhed(er)" },
   sec_edit: { en: "Edit", da: "Rediger" },
-  btn_add_to_queue: { en: "Add to queue", da: "Tilføj til kø" },
+  btn_add_to_queue: { en: "Start job", da: "Start opgave" },
+  btn_change_document: { en: "Change document", da: "Skift dokument" },
   queue_panel: { en: "Queue", da: "Kø" },
   queue_empty: {
     en: "Queue is empty — add chapters above.",
@@ -129,12 +131,28 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
 
   // ── Task mode ──
   sec_mode: { en: "Task mode", da: "Opgavetype" },
+  group_editing: { en: "Editing", da: "Redigering" },
+  group_analysis: { en: "Analysis", da: "Analyse" },
+  group_translate: { en: "Translation", da: "Oversættelse" },
+  workflow_label: { en: "Workflow", da: "Arbejdsgang" },
   mode_copy_edit: { en: "Copy edit", da: "Korrektur" },
   mode_line_edit: { en: "Line edit", da: "Stilredigering" },
   mode_translate: { en: "Translation", da: "Oversættelse" },
   mode_character_catalog: { en: "Character catalog", da: "Personkatalog" },
   mode_location_catalog: { en: "Location catalog", da: "Stedkatalog" },
   mode_timeline: { en: "Timeline", da: "Tidslinje" },
+  mode_combined_analysis: {
+    en: "Combined analysis",
+    da: "Kombineret analyse",
+  },
+  mode_combined_edit: {
+    en: "Combined edit",
+    da: "Kombineret redigering",
+  },
+  mode_analysis_summary: {
+    en: "Analysis summary",
+    da: "Analyseopsummering",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",
@@ -195,6 +213,22 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   no_structured_data: {
     en: "No structured data returned.",
     da: "Ingen strukturerede data returneret.",
+  },
+  aggregated_summary: {
+    en: "Summary across all chapters",
+    da: "Opsummering på tværs af alle kapitler",
+  },
+  per_chapter_breakdown: {
+    en: "Per-chapter breakdown",
+    da: "Opdeling pr. kapitel",
+  },
+  prose_summary: {
+    en: "Prose summary",
+    da: "Prosa-opsummering",
+  },
+  detailed_analysis_data: {
+    en: "Detailed analysis data",
+    da: "Detaljerede analysedata",
   },
 };
 

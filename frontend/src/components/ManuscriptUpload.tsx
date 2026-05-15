@@ -15,6 +15,7 @@ export default function ManuscriptUpload() {
     setUploading,
     model,
     setSelectedChapters,
+    setScopeMode,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -27,10 +28,9 @@ export default function ManuscriptUpload() {
       // Fetch full text
       const full = await getDocument(meta.id);
       setDocumentMd(full.md);
-      // Reset selection
-      if (meta.chapters?.length > 0) {
-        setSelectedChapters([0]);
-      }
+      // Reset scope to whole-book and clear chapter selection for the new doc
+      setScopeMode("whole_book");
+      setSelectedChapters(meta.chapters?.length > 0 ? [0] : []);
     } catch (err) {
       console.error("Upload failed:", err);
     } finally {
@@ -94,6 +94,28 @@ export default function ManuscriptUpload() {
           <span className="sep">·</span>
           <span className="label">{t("lbl_model")}</span>
           <span className="value">{model}</span>
+          <button
+            type="button"
+            className="btn-secondary btn-small"
+            style={{ marginLeft: "auto" }}
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? t("converting") : t("btn_change_document")}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".docx,.md,.markdown"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                handleUpload(file);
+                e.target.value = "";
+              }
+            }}
+          />
         </div>
       )}
     </section>

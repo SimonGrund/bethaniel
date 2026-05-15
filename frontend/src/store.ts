@@ -35,8 +35,8 @@ interface AppState {
   setParallel: (n: number) => void;
 
   // Task mode
-  taskMode: TaskMode;
-  setTaskMode: (m: TaskMode) => void;
+  selectedModes: TaskMode[];
+  toggleMode: (m: TaskMode) => void;
   copyEditOptions: CopyEditOptions;
   setCopyEditOption: (key: keyof CopyEditOptions, val: boolean) => void;
   lineEditOptions: LineEditOptions;
@@ -93,11 +93,20 @@ export const useStore = create<AppState>((set, get) => ({
   setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
   fastMode: true,
   setFastMode: (fastMode) => set({ fastMode }),
-  parallel: 1,
+  parallel: 3,
   setParallel: (parallel) => set({ parallel }),
 
-  taskMode: "copy_edit",
-  setTaskMode: (taskMode) => set({ taskMode }),
+  selectedModes: ["copy_edit"],
+  toggleMode: (m) =>
+    set((state) => {
+      const has = state.selectedModes.includes(m);
+      if (has) {
+        // Don't allow deselecting the last mode
+        if (state.selectedModes.length <= 1) return state;
+        return { selectedModes: state.selectedModes.filter((x) => x !== m) };
+      }
+      return { selectedModes: [...state.selectedModes, m] };
+    }),
   copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
   setCopyEditOption: (key, val) =>
     set((state) => ({

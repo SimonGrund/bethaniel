@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { getStyleGuide, updateStyleGuide, uploadStyleGuide } from "../api";
+import { ANALYSIS_MODES } from "../types";
 
 export default function StyleGuideEditor() {
-  const { lang, styleGuide, setStyleGuide } = useStore();
+  const { lang, styleGuide, setStyleGuide, selectedModes } = useStore();
   const t = useTranslation(lang);
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -36,6 +37,10 @@ export default function StyleGuideEditor() {
     }
   };
 
+  // Hide when only analysis modes are selected (catalogs, timeline don't use a style guide)
+  const hasNonAnalysis = selectedModes.some((m) => !ANALYSIS_MODES.includes(m));
+  if (!hasNonAnalysis) return null;
+
   return (
     <div className="style-guide-section">
       <button
@@ -44,7 +49,7 @@ export default function StyleGuideEditor() {
       >
         {expanded ? "▾" : "▸"} {t("style_guide")}
       </button>
-      <span className="info-tooltip" title={t("style_guide_tooltip")}>
+      <span className="info-tooltip" data-tip={t("style_guide_tooltip")}>
         ⓘ
       </span>
 

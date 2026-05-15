@@ -6,13 +6,21 @@ export type TaskMode =
   | "translate"
   | "character_catalog"
   | "location_catalog"
-  | "timeline";
+  | "timeline"
+  | "combined_analysis"
+  | "combined_edit"
+  | "analysis_summary";
 
-export const EDIT_MODES: TaskMode[] = ["copy_edit", "line_edit"];
+export const EDIT_MODES: TaskMode[] = [
+  "copy_edit",
+  "line_edit",
+  "combined_edit",
+];
 export const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
   "timeline",
+  "combined_analysis",
 ];
 
 export interface CopyEditOptions {
@@ -95,6 +103,7 @@ export type TaskStatus = "queued" | "editing" | "done" | "error" | "cancelled";
 
 export interface TaskState {
   id: string;
+  jobId: string;
   status: TaskStatus;
   progress: number;
   phase: string;
@@ -106,6 +115,8 @@ export interface TaskState {
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
+  editOptions?: Record<string, boolean>;
+  targetLang?: string;
 }
 
 export interface EditUnit {
@@ -117,7 +128,7 @@ export interface QueueAddRequest {
   docId: string;
   units: EditUnit[];
   model: string;
-  mode: TaskMode;
+  modes: TaskMode[];
   fast: boolean;
   wordsPerChunk: number;
   overlapParagraphs: number;
