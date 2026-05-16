@@ -842,11 +842,12 @@ router.post("/models/download", async (req: Request, res: Response) => {
 
       // Apply modelfile settings to the downloaded model
       // In Electron: process.resourcesPath/modelfile
-      // In dev: project root (one level up from backend/)
+      // In dev: project root (one level up from backend/src/)
       const resourceBase = (process as any).resourcesPath;
+      const thisDir = new URL(".", import.meta.url).pathname;
       const modelfilePath = resourceBase
         ? join(resourceBase, "modelfile")
-        : join(__dirname, "..", "..", "modelfile");
+        : join(thisDir, "..", "..", "modelfile");
       applyModelfile(modelfilePath, MODELS_DIR_PATH, entry.fileName);
 
       progress.status = "done";
