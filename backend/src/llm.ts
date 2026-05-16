@@ -8,10 +8,14 @@ import {
   ensureModelLoaded,
   unloadCurrentModel,
   getCurrentModel,
+  getLlamaBaseUrl,
+  isLlamaServerAvailable,
 } from "./llamaServer.js";
 import { readModelConfig, type ModelSettings } from "./modelConfig.js";
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
+import { spawn } from "child_process";
 
 const LLAMA_BASE_URL = process.env.LLAMA_BASE_URL ?? "";
 const MODELS_DIR = process.env.MODELS_DIR ?? "./models";
@@ -30,28 +34,145 @@ function isLlamaCppMode(): boolean {
   return LLAMA_BASE_URL.length > 0;
 }
 
+/** Check if a model name is a local GGUF file. */
+function isGgufModel(model: string): boolean {
+  return model.endsWith(".gguf");
+}
+
+/** Cache for llama-server availability check. */
+let _llamaAvailable: boolean | null = null;
+function llamaServerAvailable(): boolean {
+  if (_llamaAvailable === null) _llamaAvailable = isLlamaServerAvailable();
+  return _llamaAvailable;
+}
+
+/** Whether to use llama-server for a given model. */
+function useLlamaServer(model: string): boolean {
+  if (isLlamaCppMode()) return true;
+  if (isGgufModel(model) && llamaServerAvailable()) return true;
+  return false;
+}
+
+/**
+ * For GGUF models in dev mode without llama-server, register them with Ollama
+ * using `POST /api/create` so they can be used through Ollama's chat API.
+ * Returns the Ollama model name to use.
+ */
+async function ensureOllamaGguf(ggufFileName: string): Promise<string> {
+  // Derive an Ollama model name from the GGUF filename
+  const ollamaName = `bethaniel-${ggufFileName.replace(/\.gguf$/i, "").toLowerCase()}`;
+
+  // Check if already registered
+  try {
+    const showRes = await fetch(`${OLLAMA_HOST}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: ollamaName }),
+    });
+    if (showRes.ok) return ollamaName;
+  } catch {
+    // Ollama not running or model not found
+  }
+
+  // Register the GGUF file with Ollama
+  const ggufPath = path.resolve(MODELS_DIR, ggufFileName);
+  if (!fs.existsSync(ggufPath)) {
+    throw new Error(`GGUF file not found: ${ggufPath}`);
+  }
+
+  const config = readModelConfig(MODELS_DIR, ggufFileName);
+  const modelfileContent = [
+    `FROM ${ggufPath}`,
+    `PARAMETER num_ctx ${config.num_ctx}`,
+    `PARAMETER num_predict ${config.num_predict}`,
+    `PARAMETER temperature ${config.temperature}`,
+    `SYSTEM """${config.system}"""`,
+  ].join("\n");
+
+  // Write Modelfile to a temp location and shell out to the `ollama` CLI.
+  // The newer Ollama HTTP /api/create endpoint requires the GGUF to be
+  // uploaded as a blob first (via /api/blobs/sha256:<digest>) which is
+  // complex; the CLI handles that for us.
+  const tmpModelfile = path.join(
+    os.tmpdir(),
+    `bethaniel-modelfile-${Date.now()}`,
+  );
+  await fs.promises.writeFile(tmpModelfile, modelfileContent, "utf8");
+
+  console.log(`[llm] Registering GGUF with Ollama as "${ollamaName}"...`);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        "ollama",
+        ["create", ollamaName, "-f", tmpModelfile],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let stderr = "";
+      child.stdout?.on("data", (d: Buffer) =>
+        process.stdout.write(`[ollama create] ${d.toString()}`),
+      );
+      child.stderr?.on("data", (d: Buffer) => {
+        stderr += d.toString();
+        process.stderr.write(`[ollama create] ${d.toString()}`);
+      });
+      child.on("error", (err) =>
+        reject(
+          new Error(
+            `Failed to invoke "ollama" CLI: ${err.message}. ` +
+              "Install Ollama from https://ollama.com or install llama.cpp.",
+          ),
+        ),
+      );
+      child.on("exit", (code) => {
+        if (code === 0) resolve();
+        else
+          reject(
+            new Error(
+              `"ollama create" exited with code ${code}: ${stderr.trim()}`,
+            ),
+          );
+      });
+    });
+  } finally {
+    fs.promises.unlink(tmpModelfile).catch(() => {});
+  }
+
+  console.log(`[llm] Registered "${ollamaName}" with Ollama`);
+  return ollamaName;
+}
+
 // ── Model listing (reads GGUF files on disk) ──
 
 /** List locally available model files. */
 export async function listModels(): Promise<string[]> {
+  const localGgufs: string[] = [];
+  try {
+    const entries = await fs.promises.readdir(MODELS_DIR);
+    localGgufs.push(
+      ...entries.filter((e) => e.endsWith(".gguf") && !e.endsWith(".partial")),
+    );
+  } catch {
+    // MODELS_DIR may not exist yet
+  }
+
   if (!isLlamaCppMode()) {
-    // Ollama fallback for dev mode
+    // Also include Ollama models in dev mode
     try {
       const res = await fetch(`${OLLAMA_HOST}/api/tags`);
       const data = (await res.json()) as { models?: { name: string }[] };
-      return data.models?.map((m) => m.name) ?? [];
+      const ollamaNames = data.models?.map((m) => m.name) ?? [];
+      // Merge, avoiding duplicates
+      for (const name of ollamaNames) {
+        if (!localGgufs.includes(name)) localGgufs.push(name);
+      }
     } catch {
-      return [];
+      // Ollama not running
     }
   }
-  try {
-    const entries = await fs.promises.readdir(MODELS_DIR);
-    return entries.filter(
-      (e) => e.endsWith(".gguf") && !e.endsWith(".partial"),
-    );
-  } catch {
-    return [];
-  }
+
+  return localGgufs;
 }
 
 /** Get on-disk size of a model in bytes. */
@@ -226,15 +347,20 @@ async function* chatStream(
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
 
-  if (!isLlamaCppMode()) {
+  if (!useLlamaServer(model)) {
     // Ollama fallback
+    let ollamaModel = model;
+    // GGUF model but no llama-server → register with Ollama
+    if (isGgufModel(model)) {
+      ollamaModel = await ensureOllamaGguf(model);
+    }
     const ollamaOpts: Record<string, unknown> = {
       temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? 0.9,
       num_ctx: cfg.num_ctx,
       num_predict: options.max_tokens ?? cfg.num_predict,
     };
-    yield* ollamaChatStream(model, messages, ollamaOpts, signal);
+    yield* ollamaChatStream(ollamaModel, messages, ollamaOpts, signal);
     return;
   }
 
@@ -252,7 +378,8 @@ async function* chatStream(
     body.response_format = options.response_format;
   }
 
-  const res = await fetch(`${LLAMA_BASE_URL}/v1/chat/completions`, {
+  const baseUrl = getLlamaBaseUrl();
+  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

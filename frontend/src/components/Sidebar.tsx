@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { fetchModels, fetchSystemRecommendation } from "../api";
+import { fetchModels, fetchModelInfo, fetchSystemRecommendation } from "../api";
 import ModelSetup from "./ModelSetup";
 
 export default function Sidebar({
@@ -31,6 +31,7 @@ export default function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoInfo, setAutoInfo] = useState<string | null>(null);
+  const [modelNames, setModelNames] = useState<Record<string, string>>({});
 
   async function autoTuneParallel() {
     setAutoBusy(true);
@@ -51,6 +52,9 @@ export default function Sidebar({
     fetchModels()
       .then(setModels)
       .catch(() => setModels([]));
+    fetchModelInfo()
+      .then(setModelNames)
+      .catch(() => {});
   }, []);
 
   const preferredModels = [
@@ -108,7 +112,7 @@ export default function Sidebar({
             <select value={model} onChange={(e) => setModel(e.target.value)}>
               {models.map((m) => (
                 <option key={m} value={m}>
-                  {m}
+                  {modelNames[m] ?? m}
                 </option>
               ))}
             </select>
@@ -207,6 +211,7 @@ export default function Sidebar({
             onModelInstalled={() => {
               onModelInstalled();
               fetchModels().then(setModels);
+              fetchModelInfo().then(setModelNames);
             }}
           />
         )}

@@ -36,6 +36,13 @@ export async function fetchModels(): Promise<string[]> {
   return data.models ?? [];
 }
 
+/** Fetch model display names map (modelId → friendly name). */
+export async function fetchModelInfo(): Promise<Record<string, string>> {
+  const res = await apiFetch("/models");
+  const data = await res.json();
+  return data.modelInfo ?? {};
+}
+
 export interface SystemRecommendation {
   recommendedParallel: number;
   totalRamGb: number;

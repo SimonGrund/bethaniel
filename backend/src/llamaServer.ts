@@ -2,7 +2,7 @@
 // Manages a single llama-server child process. Supports loading / swapping
 // GGUF models, health-polling, and graceful shutdown.
 
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, spawn, execFileSync } from "child_process";
 import * as path from "path";
 import * as http from "http";
 import * as os from "os";
@@ -13,6 +13,23 @@ const LLAMA_BIN = process.env.LLAMA_BIN ?? "llama-server";
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
 const LLAMA_HOST = "127.0.0.1";
 const MODELS_DIR = process.env.MODELS_DIR ?? "./models";
+
+/** Base URL for the llama-server HTTP API. */
+export function getLlamaBaseUrl(): string {
+  return process.env.LLAMA_BASE_URL || `http://${LLAMA_HOST}:${LLAMA_PORT}`;
+}
+
+/** Check if the llama-server binary is available. */
+export function isLlamaServerAvailable(): boolean {
+  try {
+    execFileSync(LLAMA_BIN, ["--version"], { timeout: 3000, stdio: "pipe" });
+    return true;
+  } catch {
+    // Also check if the path exists directly (Electron bundles it)
+    if (LLAMA_BIN !== "llama-server" && fs.existsSync(LLAMA_BIN)) return true;
+    return false;
+  }
+}
 
 let childProcess: ChildProcess | null = null;
 let currentModel: string | null = null;
@@ -161,6 +178,24 @@ async function doLoad(file: string): Promise<void> {
     env: { ...process.env },
   });
 
+  // Handle spawn errors (e.g. binary not found)
+  const spawnError = new Promise<never>((_, reject) => {
+    childProcess!.on("error", (err) => {
+      console.error(`[llama-server] Spawn error: ${err.message}`);
+      childProcess = null;
+      currentModel = null;
+      loadPromise = null;
+      reject(
+        new Error(
+          `Failed to start llama-server: ${err.message}. ` +
+            (LLAMA_BIN === "llama-server"
+              ? "Install llama.cpp (brew install llama.cpp) or use an Ollama model instead."
+              : `Binary not found at: ${LLAMA_BIN}`),
+        ),
+      );
+    });
+  });
+
   childProcess.stdout?.on("data", (d: Buffer) =>
     console.log("[llama-server]", d.toString().trimEnd()),
   );
@@ -175,8 +210,8 @@ async function doLoad(file: string): Promise<void> {
     }
   });
 
-  // Wait for health endpoint
-  await pollHealth();
+  // Wait for health endpoint (or spawn error)
+  await Promise.race([pollHealth(), spawnError]);
   currentModel = file;
   loadPromise = null;
   console.log(`[llama-server] Model loaded: ${file}`);

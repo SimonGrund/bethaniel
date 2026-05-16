@@ -152,21 +152,28 @@ console.log("\n━━━ Step 3b: Install backend production deps ━━━");
   // Install production deps in isolation
   run("npm install --omit=dev --ignore-scripts", { cwd: tmpDir });
 
-  // Copy resulting node_modules into backend/
+  // Rebuild native modules (better-sqlite3) for Electron in the temp dir
+  run(`npx --no-install @electron/rebuild --module-dir "${tmpDir}"`, {
+    cwd: ROOT,
+  });
+
+  // Copy rebuilt node_modules into backend/ (will be bundled by electron-builder)
   const destNm = join(backendDir, "node_modules");
+  // Save dev node_modules so we can restore after packaging
+  const savedNm = join(ROOT, ".build-saved-backend-nm");
   try {
-    await fs.rm(destNm, { recursive: true });
+    await fs.rm(savedNm, { recursive: true });
+  } catch {}
+  try {
+    await fs.rename(destNm, savedNm);
   } catch {}
   await fs.cp(join(tmpDir, "node_modules"), destNm, { recursive: true });
-
-  // Rebuild native modules (better-sqlite3) for the current arch
-  run("npx --no-install @electron/rebuild --module-dir backend", { cwd: ROOT });
 
   // Clean tmp
   try {
     await fs.rm(tmpDir, { recursive: true });
   } catch {}
-  console.log("  ✓ Backend production deps ready");
+  console.log("  ✓ Backend production deps ready (Electron-rebuilt)");
 }
 
 // ── Step 4: Build electron ──
@@ -341,6 +348,24 @@ for (const p of platforms) {
   run(
     `node_modules/.bin/electron-builder ${flag} --config electron-builder.yml`,
   );
+}
+
+// ── Restore dev backend node_modules ──
+console.log("\n━━━ Restoring dev backend node_modules ━━━");
+{
+  const backendNm = join(ROOT, "backend", "node_modules");
+  const savedNm = join(ROOT, ".build-saved-backend-nm");
+  try {
+    await fs.rm(backendNm, { recursive: true });
+  } catch {}
+  try {
+    await fs.rename(savedNm, backendNm);
+    console.log("  ✓ Dev node_modules restored");
+  } catch {
+    console.log(
+      "  ⚠ No saved node_modules found — run npm install in backend/",
+    );
+  }
 }
 
 // ── Cleanup: remove intermediate build artifacts ──

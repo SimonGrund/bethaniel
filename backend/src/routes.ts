@@ -152,7 +152,12 @@ router.delete("/documents/:id", (req: Request, res: Response) => {
 // ── List Ollama models ──
 router.get("/models", async (_req: Request, res: Response) => {
   const models = await listModels();
-  res.json({ models });
+  const modelInfo: Record<string, string> = {};
+  for (const m of models) {
+    const catalogEntry = MODEL_CATALOG.find((e) => e.fileName === m);
+    modelInfo[m] = catalogEntry?.name ?? m;
+  }
+  res.json({ models, modelInfo });
 });
 
 // ── System recommendation: estimate optimal parallel jobs ──
@@ -282,6 +287,13 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     console.log(
       `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${fast}`,
     );
+
+    if (!units || !Array.isArray(units) || units.length === 0) {
+      res
+        .status(400)
+        .json({ error: "units is required and must be a non-empty array" });
+      return;
+    }
 
     const doc = getDocument(docId);
     if (!doc) {
@@ -590,7 +602,7 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "gemma-3n-e4b",
     tier: "medium",
-    name: "Gemma 3n E4B",
+    name: "Betty — Medium",
     description:
       "Fast, efficient 4B-parameter model. Good for most editing tasks.",
     fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -603,7 +615,7 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "mistral-small-3.2-24b",
     tier: "large",
-    name: "Mistral Small 3.2 24B",
+    name: "Betty — Large",
     description:
       "High-quality 24B-parameter model. Best results, requires more RAM.",
     fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
