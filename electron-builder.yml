@@ -7,27 +7,40 @@ directories:
   output: dist
 
 files:
-  - backend/dist/**/*
-  - backend/public/**/*
-  - backend/package.json
   - electron/dist/**/*
   - package.json
-  - "!**/node_modules/.cache"
+  - "!**/node_modules"
+  - "!**/backend"
+  - "!**/frontend"
+  - "!**/scripts"
+  - "!**/.git"
 
 extraResources:
   - from: electron/resources/llama/${platform}-${arch}/
     to: llama/${platform}-${arch}/
     filter:
       - "**/*"
+  - from: backend/dist/
+    to: backend/dist/
+    filter:
+      - "**/*"
+  - from: backend/public/
+    to: backend/public/
+    filter:
+      - "**/*"
+  - from: backend/node_modules/
+    to: backend/node_modules/
+    filter:
+      - "**/*"
+  - from: backend/package.json
+    to: backend/package.json
 
 asar: true
 asarUnpack:
   - "**/*.node"
 
-# Install backend production deps into the asar
-afterPack: scripts/install-backend-deps.mjs
-
 mac:
+  identity: null
   category: public.app-category.productivity
   target:
     - target: dmg

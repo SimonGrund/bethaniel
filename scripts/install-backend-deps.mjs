@@ -6,12 +6,29 @@
 export default async function afterPack(context) {
   const { execSync } = await import("child_process");
   const { join } = await import("path");
+  const { existsSync } = await import("fs");
 
-  const appDir = context.packager.getResourcesDir
-    ? join(context.packager.getResourcesDir(), "app")
-    : join(context.appOutDir, "resources", "app");
+  // electron-builder v25: appOutDir is the platform output folder
+  // e.g. dist/mac-arm64/Bethaniel.app — resources live inside
+  const appOutDir = context.appOutDir;
+  const platform = context.packager.platform.name;
+
+  let appDir;
+  if (platform === "mac") {
+    // macOS: <appOutDir>/<name>.app/Contents/Resources/app
+    const appName = context.packager.appInfo.productFilename + ".app";
+    appDir = join(appOutDir, appName, "Contents", "Resources", "app");
+  } else {
+    // Windows / Linux: <appOutDir>/resources/app
+    appDir = join(appOutDir, "resources", "app");
+  }
 
   const backendDir = join(appDir, "backend");
+
+  if (!existsSync(backendDir)) {
+    console.log(`[afterPack] No backend dir at ${backendDir} — skipping`);
+    return;
+  }
 
   console.log(
     `[afterPack] Installing backend production deps in ${backendDir}`,

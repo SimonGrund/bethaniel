@@ -123,6 +123,52 @@ run("node scripts/wire-frontend.mjs");
 console.log("\n━━━ Step 3: Build backend ━━━");
 run("npm run build --workspace=backend");
 
+// ── Step 3b: Install backend production deps (standalone) ──
+// npm workspaces hoists deps to root, but electron-builder needs them
+// in backend/node_modules/ inside the asar. We do a standalone install.
+console.log("\n━━━ Step 3b: Install backend production deps ━━━");
+{
+  const backendDir = join(ROOT, "backend");
+  const tmpDir = join(ROOT, ".build-tmp-backend");
+
+  // Clean
+  try {
+    await fs.rm(tmpDir, { recursive: true });
+  } catch {}
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  // Copy package files
+  await fs.copyFile(
+    join(backendDir, "package.json"),
+    join(tmpDir, "package.json"),
+  );
+  try {
+    await fs.copyFile(
+      join(backendDir, "package-lock.json"),
+      join(tmpDir, "package-lock.json"),
+    );
+  } catch {} // lock may not exist standalone
+
+  // Install production deps in isolation
+  run("npm install --omit=dev --ignore-scripts", { cwd: tmpDir });
+
+  // Copy resulting node_modules into backend/
+  const destNm = join(backendDir, "node_modules");
+  try {
+    await fs.rm(destNm, { recursive: true });
+  } catch {}
+  await fs.cp(join(tmpDir, "node_modules"), destNm, { recursive: true });
+
+  // Rebuild native modules (better-sqlite3) for the current arch
+  run("npx --no-install @electron/rebuild --module-dir backend", { cwd: ROOT });
+
+  // Clean tmp
+  try {
+    await fs.rm(tmpDir, { recursive: true });
+  } catch {}
+  console.log("  ✓ Backend production deps ready");
+}
+
 // ── Step 4: Build electron ──
 
 console.log("\n━━━ Step 4: Build Electron main/preload ━━━");
@@ -292,8 +338,33 @@ for (const p of platforms) {
 
   const flag = electronBuilderFlag(p);
   console.log(`\n  Building for ${p}...`);
-  run(`npx electron-builder ${flag} --config electron-builder.yml`);
+  run(
+    `node_modules/.bin/electron-builder ${flag} --config electron-builder.yml`,
+  );
+}
+
+// ── Cleanup: remove intermediate build artifacts ──
+console.log("\n━━━ Cleaning up build artifacts ━━━");
+const distDir = join(ROOT, "dist");
+const entries = await fs.readdir(distDir, { withFileTypes: true });
+for (const entry of entries) {
+  const full = join(distDir, entry.name);
+  // Keep only installer files (.dmg, .exe, .AppImage, .deb, .snap)
+  if (entry.isDirectory()) {
+    // Remove unpacked app dirs (mac/, mac-arm64/, linux-unpacked/, win-unpacked/)
+    await fs.rm(full, { recursive: true });
+    console.log(`  removed ${entry.name}/`);
+  } else if (/\.(blockmap|yml|yaml)$/i.test(entry.name)) {
+    await fs.rm(full);
+    console.log(`  removed ${entry.name}`);
+  }
 }
 
 console.log("\n━━━ Build complete ━━━");
-console.log(`Output in: ${join(ROOT, "dist")}/`);
+const remaining = (await fs.readdir(distDir)).filter((f) => !f.startsWith("."));
+console.log(`Output in: ${distDir}/`);
+for (const f of remaining) {
+  const stat = await fs.stat(join(distDir, f));
+  const mb = (stat.size / 1024 / 1024).toFixed(1);
+  console.log(`  ${f}  (${mb} MB)`);
+}
