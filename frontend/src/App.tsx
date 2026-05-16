@@ -1,6 +1,6 @@
 // ── App shell ──
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
@@ -12,12 +12,29 @@ import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
 import QueuePanel from "./components/QueuePanel";
+import ModelSetup from "./components/ModelSetup";
 import type { TaskState } from "./types";
 import "./styles/global.css";
+
+const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function App() {
   const { lang, setTasks, tasks } = useStore();
   const t = useTranslation(lang);
+  const [modelReady, setModelReady] = useState<boolean | null>(null);
+
+  // Check if a model is installed
+  useEffect(() => {
+    fetch(`${BASE}/api/models/installed`)
+      .then((r) => r.json())
+      .then((data) => {
+        setModelReady((data.installed ?? []).length > 0);
+      })
+      .catch(() => {
+        // If endpoint doesn't exist (dev/Ollama mode), skip the gate
+        setModelReady(true);
+      });
+  }, []);
 
   // Socket.IO connection for real-time queue updates
   useEffect(() => {
@@ -56,6 +73,26 @@ export default function App() {
       return () => window.removeEventListener("beforeunload", handler);
     }
   }, [tasks]);
+
+  // Loading state
+  if (modelReady === null) {
+    return (
+      <div
+        className="app-layout"
+        style={{ justifyContent: "center", alignItems: "center" }}
+      >
+        <div className="masthead">
+          <div className="title">Bethaniel</div>
+          <div className="subtitle">{t("subtitle")}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // First-run model setup
+  if (!modelReady) {
+    return <ModelSetup onReady={() => setModelReady(true)} />;
+  }
 
   return (
     <div className="app-layout">

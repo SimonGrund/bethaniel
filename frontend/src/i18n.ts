@@ -4,15 +4,15 @@ import type { Lang } from "./types";
 
 const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   subtitle: {
-    en: "a private copy editor for pre-print",
-    da: "en privat korrekturlæser",
+    en: "But you can call me Betty",
+    da: "Men du kan kalde mig Betty",
   },
   settings: { en: "Settings", da: "Indstillinger" },
   language: { en: "Language", da: "Sprog" },
-  model: { en: "Ollama model", da: "Ollama-model" },
+  model: { en: "Local model", da: "Lokal model" },
   model_help: {
-    en: "Could not detect installed models. Type the name manually.",
-    da: "Kunne ikke finde installerede modeller. Indtast navnet manuelt.",
+    en: "No models installed yet. Download one from the setup screen.",
+    da: "Ingen modeller installeret endnu. Download én fra opsætningsskærmen.",
   },
   words_per_chunk: { en: "Words per chunk", da: "Ord pr. chunk" },
   paragraph_overlap: { en: "Paragraph overlap", da: "Paragrafoverlap" },
@@ -139,13 +139,40 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
   results_for: { en: "Results for", da: "Resultater for" },
   ollama_warning: {
-    en: "Cannot reach Ollama — is it running?",
-    da: "Kan ikke nå Ollama — kører den?",
+    en: "No local models found — download one from setup.",
+    da: "Ingen lokale modeller fundet — download én fra opsætning.",
   },
   retry: { en: "Retry", da: "Prøv igen" },
   download_md: { en: "Download Markdown", da: "Download Markdown" },
   download_docx: { en: "Download DOCX", da: "Download DOCX" },
   download_diff: { en: "Download diff report", da: "Download diff-rapport" },
+
+  // ── Model setup ──
+  model_setup_title: {
+    en: "Choose a model",
+    da: "Vælg en model",
+  },
+  model_setup_desc: {
+    en: "Bethaniel runs AI locally on your machine. Download a model to get started — your manuscripts never leave your computer.",
+    da: "Bethaniel kører AI lokalt på din maskine. Download en model for at komme i gang — dine manuskripter forlader aldrig din computer.",
+  },
+  model_requires: { en: "Requires", da: "Kræver" },
+  model_your_machine: { en: "your machine has", da: "din maskine har" },
+  model_installed: { en: "Installed", da: "Installeret" },
+  model_download: { en: "Download", da: "Download" },
+  model_delete: { en: "Delete", da: "Slet" },
+  model_insufficient_ram: {
+    en: "Insufficient RAM",
+    da: "Utilstrækkelig RAM",
+  },
+  model_continue: {
+    en: "Continue to Bethaniel",
+    da: "Fortsæt til Bethaniel",
+  },
+  no_models_warning: {
+    en: "No models installed. Download one from the initial setup.",
+    da: "Ingen modeller installeret. Download én fra den indledende opsætning.",
+  },
 
   // ── Task mode ──
   sec_mode: { en: "Task mode", da: "Opgavetype" },

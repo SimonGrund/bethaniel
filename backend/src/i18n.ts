@@ -9,10 +9,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
   settings: { en: "Settings", da: "Indstillinger" },
   language: { en: "Language", da: "Sprog" },
-  model: { en: "Ollama model", da: "Ollama-model" },
+  model: { en: "Local model", da: "Lokal model" },
   model_help: {
-    en: "Could not detect installed models. Type the name manually.",
-    da: "Kunne ikke finde installerede modeller. Indtast navnet manuelt.",
+    en: "No models installed yet. Download one from the setup screen.",
+    da: "Ingen modeller installeret endnu. Download én fra opsætningsskærmen.",
   },
   words_per_chunk: { en: "Words per chunk", da: "Ord pr. chunk" },
   paragraph_overlap: { en: "Paragraph overlap", da: "Paragrafoverlap" },

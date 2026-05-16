@@ -1,3 +1,9 @@
 .aider*
 __pycache__/
 *.pyc
+node_modules/
+dist/
+electron/dist/
+electron/resources/llama/
+*.gguf
+*.gguf.partial

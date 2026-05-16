@@ -1,13 +1,17 @@
 // ── API routes ──
 
 import { Router, Request, Response } from "express";
+import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
-import { promises as fs } from "fs";
+import { promises as fs, createWriteStream } from "fs";
 import { join } from "path";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
+import { createHash } from "crypto";
 import { docxToMarkdown, markdownToDocx } from "./conversion.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
-import { listModels, getModelSizeBytes } from "./ollama.js";
+import { listModels, getModelSizeBytes } from "./llm.js";
 import {
   buildCopyEditRewritePrompt,
   buildCopyEditCorrectionsPrompt,
@@ -558,6 +562,329 @@ router.post("/consistency", (req: Request, res: Response) => {
   }
   const report = buildConsistencyReport(doc.name, doc.md, minOccurrences ?? 2);
   res.json(report);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Hardware & Model management (Electron / llama.cpp mode)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const MODELS_DIR_PATH = process.env.MODELS_DIR ?? "./models";
+
+interface ModelCatalogEntry {
+  id: string;
+  tier: "medium" | "large";
+  name: string;
+  description: string;
+  fileName: string;
+  url: string;
+  sha256: string;
+  sizeBytes: number;
+  minRamGb: number;
+  minRamAppleSiliconGb: number;
+}
+
+const MODEL_CATALOG: ModelCatalogEntry[] = [
+  {
+    id: "gemma-3n-e4b",
+    tier: "medium",
+    name: "Gemma 3n E4B",
+    description:
+      "Fast, efficient 4B-parameter model. Good for most editing tasks.",
+    fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
+    url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
+    sha256: "",
+    sizeBytes: 3_200_000_000,
+    minRamGb: 8,
+    minRamAppleSiliconGb: 8,
+  },
+  {
+    id: "mistral-small-3.2-24b",
+    tier: "large",
+    name: "Mistral Small 3.2 24B",
+    description:
+      "High-quality 24B-parameter model. Best results, requires more RAM.",
+    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    url: "https://huggingface.co/bartowski/Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    sha256: "",
+    sizeBytes: 14_400_000_000,
+    minRamGb: 24,
+    minRamAppleSiliconGb: 16,
+  },
+];
+
+// Track active downloads so we can report progress / prevent duplicates
+const activeDownloads = new Map<
+  string,
+  { bytesDownloaded: number; totalBytes: number; status: string }
+>();
+
+function getSocketIO(): SocketServer | null {
+  // io is attached by index.ts — access it through the router
+  return (router as any)._io ?? null;
+}
+
+/** Detect hardware capabilities. */
+function detectHardware(): {
+  totalRamGb: number;
+  freeRamGb: number;
+  platform: string;
+  arch: string;
+  appleSilicon: boolean;
+  cpuCount: number;
+  gpu: { vendor: string; vramGb: number | null };
+} {
+  const osModule = require("os") as typeof import("os");
+  const totalRamGb = osModule.totalmem() / 1024 ** 3;
+  const freeRamGb = osModule.freemem() / 1024 ** 3;
+  const platform = process.platform;
+  const arch = process.arch;
+  const appleSilicon = platform === "darwin" && arch === "arm64";
+
+  let gpu: { vendor: string; vramGb: number | null } = {
+    vendor: "none",
+    vramGb: null,
+  };
+
+  if (appleSilicon) {
+    // Apple Silicon — unified memory, GPU uses system RAM
+    gpu = { vendor: "apple", vramGb: totalRamGb };
+  } else {
+    // Try NVIDIA
+    try {
+      const { execFileSync } =
+        require("child_process") as typeof import("child_process");
+      const nvidiaSmi = platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
+      const output = execFileSync(
+        nvidiaSmi,
+        ["--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+        { timeout: 3000, stdio: "pipe" },
+      )
+        .toString()
+        .trim();
+      const vramMb = parseInt(output.split("\n")[0], 10);
+      if (!isNaN(vramMb)) {
+        gpu = { vendor: "nvidia", vramGb: vramMb / 1024 };
+      }
+    } catch {
+      // no nvidia
+    }
+  }
+
+  return {
+    totalRamGb: Number(totalRamGb.toFixed(1)),
+    freeRamGb: Number(freeRamGb.toFixed(1)),
+    platform,
+    arch,
+    appleSilicon,
+    cpuCount: osModule.cpus().length,
+    gpu,
+  };
+}
+
+function getAllowedTiers(hw: ReturnType<typeof detectHardware>): string[] {
+  const fakeRam = process.env.BETHANIEL_FAKE_RAM_GB;
+  const totalRamGb = fakeRam ? parseFloat(fakeRam) : hw.totalRamGb;
+
+  const tiers: string[] = [];
+  for (const entry of MODEL_CATALOG) {
+    const minRam = hw.appleSilicon
+      ? entry.minRamAppleSiliconGb
+      : entry.minRamGb;
+    if (totalRamGb >= minRam) {
+      tiers.push(entry.tier);
+    }
+  }
+  return tiers;
+}
+
+// ── GET /api/hardware ──
+router.get("/hardware", (_req: Request, res: Response) => {
+  const hw = detectHardware();
+  const allowedTiers = getAllowedTiers(hw);
+  res.json({ ...hw, allowedTiers });
+});
+
+// ── GET /api/models/catalog ──
+router.get("/models/catalog", (_req: Request, res: Response) => {
+  const hw = detectHardware();
+  const allowedTiers = getAllowedTiers(hw);
+  const catalog = MODEL_CATALOG.map((entry) => ({
+    ...entry,
+    allowed: allowedTiers.includes(entry.tier),
+  }));
+  res.json({ catalog, allowedTiers });
+});
+
+// ── GET /api/models/installed ──
+router.get("/models/installed", async (_req: Request, res: Response) => {
+  try {
+    await fs.mkdir(MODELS_DIR_PATH, { recursive: true });
+    const entries = await fs.readdir(MODELS_DIR_PATH);
+    const installed = MODEL_CATALOG.filter((entry) =>
+      entries.includes(entry.fileName),
+    ).map((entry) => ({
+      id: entry.id,
+      tier: entry.tier,
+      name: entry.name,
+      fileName: entry.fileName,
+    }));
+    res.json({ installed });
+  } catch {
+    res.json({ installed: [] });
+  }
+});
+
+// ── POST /api/models/download ──
+router.post("/models/download", async (req: Request, res: Response) => {
+  const { modelId } = req.body;
+  const entry = MODEL_CATALOG.find((e) => e.id === modelId);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model ID" });
+    return;
+  }
+
+  // Check hardware gating
+  const hw = detectHardware();
+  const allowedTiers = getAllowedTiers(hw);
+  if (!allowedTiers.includes(entry.tier)) {
+    res.status(403).json({
+      error: `Model "${entry.name}" requires at least ${entry.minRamGb} GB RAM (${entry.minRamAppleSiliconGb} GB on Apple Silicon). Your machine has ${hw.totalRamGb} GB.`,
+    });
+    return;
+  }
+
+  // Already downloaded?
+  const destPath = join(MODELS_DIR_PATH, entry.fileName);
+  try {
+    const stat = await fs.stat(destPath);
+    if (stat.size > 0) {
+      res.json({ status: "already_installed", fileName: entry.fileName });
+      return;
+    }
+  } catch {
+    // not found — proceed
+  }
+
+  // Already downloading?
+  if (activeDownloads.has(entry.id)) {
+    res.json({ status: "downloading", ...activeDownloads.get(entry.id) });
+    return;
+  }
+
+  // Start download in background
+  await fs.mkdir(MODELS_DIR_PATH, { recursive: true });
+  const partialPath = destPath + ".partial";
+  const progress = {
+    bytesDownloaded: 0,
+    totalBytes: entry.sizeBytes,
+    status: "downloading",
+  };
+  activeDownloads.set(entry.id, progress);
+
+  res.json({ status: "started", fileName: entry.fileName });
+
+  // Async download
+  (async () => {
+    try {
+      const response = await fetch(entry.url);
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const contentLength = parseInt(
+        response.headers.get("content-length") ?? "0",
+        10,
+      );
+      if (contentLength > 0) progress.totalBytes = contentLength;
+
+      const fileStream = createWriteStream(partialPath);
+      const reader = response.body.getReader();
+      const hash = createHash("sha256");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(value);
+        hash.update(value);
+        progress.bytesDownloaded += value.byteLength;
+
+        // Emit Socket.IO progress
+        const socketIo = getSocketIO();
+        if (socketIo) {
+          socketIo.emit("model:download", {
+            modelId: entry.id,
+            bytesDownloaded: progress.bytesDownloaded,
+            totalBytes: progress.totalBytes,
+            percent: Math.round(
+              (progress.bytesDownloaded / progress.totalBytes) * 100,
+            ),
+          });
+        }
+      }
+
+      fileStream.end();
+      await new Promise<void>((resolve, reject) => {
+        fileStream.on("finish", resolve);
+        fileStream.on("error", reject);
+      });
+
+      // Verify SHA-256 if we have one
+      const digest = hash.digest("hex");
+      if (entry.sha256 && digest !== entry.sha256) {
+        await fs.unlink(partialPath).catch(() => {});
+        throw new Error(
+          `SHA-256 mismatch: expected ${entry.sha256}, got ${digest}`,
+        );
+      }
+
+      // Rename .partial → final
+      await fs.rename(partialPath, destPath);
+      progress.status = "done";
+
+      const socketIo = getSocketIO();
+      if (socketIo) {
+        socketIo.emit("model:download", {
+          modelId: entry.id,
+          bytesDownloaded: progress.totalBytes,
+          totalBytes: progress.totalBytes,
+          percent: 100,
+          status: "done",
+        });
+      }
+    } catch (err) {
+      progress.status = `error: ${err instanceof Error ? err.message : String(err)}`;
+      await fs.unlink(partialPath).catch(() => {});
+
+      const socketIo = getSocketIO();
+      if (socketIo) {
+        socketIo.emit("model:download", {
+          modelId: entry.id,
+          status: "error",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } finally {
+      activeDownloads.delete(entry.id);
+    }
+  })();
+});
+
+// ── DELETE /api/models/:fileName ──
+router.delete("/models/:fileName", async (req: Request, res: Response) => {
+  const fileName = req.params.fileName;
+  // Validate it's a known catalog entry to prevent path traversal
+  const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+  const filePath = join(MODELS_DIR_PATH, fileName);
+  try {
+    await fs.unlink(filePath);
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true }); // already gone
+  }
 });
 
 export default router;

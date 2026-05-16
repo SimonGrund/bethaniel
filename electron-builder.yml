@@ -1,0 +1,64 @@
+appId: com.bethaniel.app
+productName: Bethaniel
+copyright: Copyright © 2024–2026 Bethaniel
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - backend/dist/**/*
+  - backend/public/**/*
+  - backend/package.json
+  - electron/dist/**/*
+  - package.json
+  - "!**/node_modules/.cache"
+
+extraResources:
+  - from: electron/resources/llama/${platform}-${arch}/
+    to: llama/${platform}-${arch}/
+    filter:
+      - "**/*"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+# Install backend production deps into the asar
+afterPack: scripts/install-backend-deps.mjs
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Office

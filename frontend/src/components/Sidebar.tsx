@@ -46,9 +46,12 @@ export default function Sidebar() {
       .catch(() => setModels([]));
   }, []);
 
-  const preferredModels = ["qwen3:32b", "qwen3:14b", "gemma4:27b", "betty"];
+  const preferredModels = [
+    "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "gemma-3n-E4B-it-Q4_K_M.gguf",
+  ];
   const defaultModel =
-    models.find((m) => preferredModels.includes(m)) ?? models[0] ?? "qwen3:32b";
+    models.find((m) => preferredModels.includes(m)) ?? models[0] ?? "";
 
   useEffect(() => {
     if (models.length > 0 && !models.includes(model)) {
@@ -98,19 +101,10 @@ export default function Sidebar() {
         )}
         {showSettings && models.length === 0 && (
           <div className="warning-box">
-            <p>⚠️ {t("ollama_warning")}</p>
+            <p>⚠️ {t("no_models_warning")}</p>
             <button onClick={() => fetchModels().then(setModels)}>
               🔄 {t("retry")}
             </button>
-            <div className="field" style={{ marginTop: "0.5rem" }}>
-              <label>{t("model")}</label>
-              <input
-                type="text"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="qwen3:32b"
-              />
-            </div>
           </div>
         )}
 

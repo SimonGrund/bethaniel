@@ -83,7 +83,7 @@ export const useStore = create<AppState>((set, get) => ({
   lang: "en",
   setLang: (lang) => set({ lang }),
 
-  model: "qwen3:32b",
+  model: "",
   setModel: (model) => set({ model }),
   models: [],
   setModels: (models) => set({ models }),

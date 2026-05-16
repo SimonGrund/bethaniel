@@ -16,7 +16,7 @@ import {
   parseJsonResponse,
   listLoadedModels,
   unloadModel,
-} from "./ollama.js";
+} from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
 import {
