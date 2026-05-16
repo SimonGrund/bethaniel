@@ -46,7 +46,11 @@ interface DownloadProgress {
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
-export default function ModelSetup({ onReady }: { onReady: () => void }) {
+export default function ModelSetup({
+  onModelInstalled,
+}: {
+  onModelInstalled?: () => void;
+}) {
   const { lang } = useStore();
   const t = useTranslation(lang);
 
@@ -80,7 +84,10 @@ export default function ModelSetup({ onReady }: { onReady: () => void }) {
         // Refresh installed list
         fetch(`${BASE}/api/models/installed`)
           .then((r) => r.json())
-          .then((inst) => setInstalled(inst.installed ?? []));
+          .then((inst) => {
+            setInstalled(inst.installed ?? []);
+            onModelInstalled?.();
+          });
       } else if (data.status === "error") {
         setDownloading(null);
         setError(data.error ?? "Download failed");
@@ -147,116 +154,96 @@ export default function ModelSetup({ onReady }: { onReady: () => void }) {
   const hasInstalledModel = installed.length > 0;
 
   return (
-    <div className="model-setup">
-      <div className="model-setup-header">
-        <h1>Bethaniel</h1>
-        <p className="model-setup-subtitle">{t("subtitle")}</p>
-      </div>
+    <div className="model-panel">
+      <p className="model-panel-desc">{t("model_setup_desc")}</p>
 
-      <div className="model-setup-body">
-        <h2>{t("model_setup_title")}</h2>
-        <p className="model-setup-description">{t("model_setup_desc")}</p>
-
-        {hardware && (
-          <div className="hardware-info">
-            <span className="hardware-badge">{hardware.totalRamGb} GB RAM</span>
-            {hardware.appleSilicon && (
-              <span className="hardware-badge hardware-badge-gpu">
-                Apple Silicon
-              </span>
-            )}
-            {hardware.gpu.vendor === "nvidia" && hardware.gpu.vramGb && (
-              <span className="hardware-badge hardware-badge-gpu">
-                NVIDIA {hardware.gpu.vramGb.toFixed(0)} GB VRAM
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="model-cards">
-          {catalog.map((entry) => {
-            const isInstalled = installed.some((i) => i.id === entry.id);
-            const isDownloading = downloading === entry.id;
-            const isDisabled = !entry.allowed && !isInstalled;
-            const minRam = hardware?.appleSilicon
-              ? entry.minRamAppleSiliconGb
-              : entry.minRamGb;
-
-            return (
-              <div
-                key={entry.id}
-                className={`model-card ${isDisabled ? "model-card-disabled" : ""} ${isInstalled ? "model-card-installed" : ""}`}
-              >
-                <div className="model-card-header">
-                  <span className="model-tier-badge">{entry.tier}</span>
-                  <h3>{entry.name}</h3>
-                </div>
-                <p className="model-card-desc">{entry.description}</p>
-                <div className="model-card-meta">
-                  <span>{formatBytes(entry.sizeBytes)}</span>
-                  <span>
-                    {t("model_requires")} {minRam} GB RAM
-                  </span>
-                </div>
-
-                {isDownloading && progress && progress.modelId === entry.id ? (
-                  <div className="model-download-progress">
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${progress.percent}%` }}
-                      />
-                    </div>
-                    <span className="progress-text">
-                      {formatBytes(progress.bytesDownloaded)} /{" "}
-                      {formatBytes(progress.totalBytes)} ({progress.percent}%)
-                    </span>
-                  </div>
-                ) : isInstalled ? (
-                  <div className="model-card-actions">
-                    <span className="model-installed-badge">
-                      ✓ {t("model_installed")}
-                    </span>
-                    <button
-                      className="btn-link btn-danger"
-                      onClick={() => deleteModel(entry.fileName)}
-                    >
-                      {t("model_delete")}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="model-card-actions">
-                    <button
-                      className="btn-primary"
-                      disabled={isDisabled || downloading !== null}
-                      onClick={() => startDownload(entry.id)}
-                      title={
-                        isDisabled
-                          ? `${t("model_requires")} ${minRam} GB RAM — ${t("model_your_machine")} ${hardware?.totalRamGb ?? "?"} GB`
-                          : undefined
-                      }
-                    >
-                      {isDisabled
-                        ? t("model_insufficient_ram")
-                        : t("model_download")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {hardware && (
+        <div className="hardware-info">
+          <span className="hardware-badge">{hardware.totalRamGb} GB RAM</span>
+          {hardware.appleSilicon && (
+            <span className="hardware-badge hardware-badge-gpu">
+              Apple Silicon
+            </span>
+          )}
+          {hardware.gpu.vendor === "nvidia" && hardware.gpu.vramGb && (
+            <span className="hardware-badge hardware-badge-gpu">
+              NVIDIA {hardware.gpu.vramGb.toFixed(0)} GB VRAM
+            </span>
+          )}
         </div>
+      )}
 
-        {error && <div className="model-error">{error}</div>}
+      <div className="model-cards-inline">
+        {catalog.map((entry) => {
+          const isInstalled = installed.some((i) => i.id === entry.id);
+          const isDownloading = downloading === entry.id;
+          const isDisabled = !entry.allowed && !isInstalled;
+          const minRam = hardware?.appleSilicon
+            ? entry.minRamAppleSiliconGb
+            : entry.minRamGb;
 
-        {hasInstalledModel && (
-          <div className="model-setup-continue">
-            <button className="btn-primary btn-large" onClick={onReady}>
-              {t("model_continue")}
-            </button>
-          </div>
-        )}
+          return (
+            <div
+              key={entry.id}
+              className={`model-card-inline ${isDisabled ? "model-card-disabled" : ""} ${isInstalled ? "model-card-installed" : ""}`}
+            >
+              <div className="model-card-header">
+                <span className="model-tier-badge">{entry.tier}</span>
+                <strong>{entry.name}</strong>
+              </div>
+              <div className="model-card-meta">
+                <span>{formatBytes(entry.sizeBytes)}</span>
+                <span>
+                  {t("model_requires")} {minRam} GB
+                </span>
+              </div>
+
+              {isDownloading && progress && progress.modelId === entry.id ? (
+                <div className="model-download-progress">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${progress.percent}%` }}
+                    />
+                  </div>
+                  <span className="progress-text">{progress.percent}%</span>
+                </div>
+              ) : isInstalled ? (
+                <div className="model-card-actions">
+                  <span className="model-installed-badge">
+                    ✓ {t("model_installed")}
+                  </span>
+                  <button
+                    className="btn-link btn-danger"
+                    onClick={() => deleteModel(entry.fileName)}
+                  >
+                    {t("model_delete")}
+                  </button>
+                </div>
+              ) : (
+                <div className="model-card-actions">
+                  <button
+                    className="btn-primary"
+                    disabled={isDisabled || downloading !== null}
+                    onClick={() => startDownload(entry.id)}
+                    title={
+                      isDisabled
+                        ? `${t("model_requires")} ${minRam} GB RAM — ${t("model_your_machine")} ${hardware?.totalRamGb ?? "?"} GB`
+                        : undefined
+                    }
+                  >
+                    {isDisabled
+                      ? t("model_insufficient_ram")
+                      : t("model_download")}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {error && <div className="model-error">{error}</div>}
     </div>
   );
 }

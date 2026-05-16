@@ -12,7 +12,6 @@ import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
 import QueuePanel from "./components/QueuePanel";
-import ModelSetup from "./components/ModelSetup";
 import type { TaskState } from "./types";
 import "./styles/global.css";
 
@@ -89,14 +88,12 @@ export default function App() {
     );
   }
 
-  // First-run model setup
-  if (!modelReady) {
-    return <ModelSetup onReady={() => setModelReady(true)} />;
-  }
-
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar
+        needsModel={!modelReady}
+        onModelInstalled={() => setModelReady(true)}
+      />
       <main className="main-content">
         <div className="masthead">
           <div className="title">Bethaniel</div>

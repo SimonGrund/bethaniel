@@ -7,6 +7,7 @@ import * as path from "path";
 import * as http from "http";
 import * as os from "os";
 import * as fs from "fs";
+import { readModelConfig } from "./modelConfig.js";
 
 const LLAMA_BIN = process.env.LLAMA_BIN ?? "llama-server";
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
@@ -135,6 +136,7 @@ async function doLoad(file: string): Promise<void> {
 
   const ngl = detectNGL();
   const threads = Math.max(1, os.cpus().length - 2);
+  const config = readModelConfig(MODELS_DIR, file);
 
   const args = [
     "-m",
@@ -144,7 +146,7 @@ async function doLoad(file: string): Promise<void> {
     "--port",
     String(LLAMA_PORT),
     "-c",
-    "8192",
+    String(config.num_ctx),
     "-ngl",
     String(ngl),
     "-t",

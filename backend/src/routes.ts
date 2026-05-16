@@ -9,6 +9,8 @@ import { join } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { createHash } from "crypto";
+import * as os from "os";
+import { execFileSync } from "child_process";
 import { docxToMarkdown, markdownToDocx } from "./conversion.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
 import { listModels, getModelSizeBytes } from "./llm.js";
@@ -37,6 +39,7 @@ import {
 } from "./types.js";
 import { buildConsistencyReport } from "./consistency.js";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
+import { applyModelfile } from "./modelConfig.js";
 import {
   saveDocument,
   getDocument,
@@ -633,9 +636,8 @@ function detectHardware(): {
   cpuCount: number;
   gpu: { vendor: string; vramGb: number | null };
 } {
-  const osModule = require("os") as typeof import("os");
-  const totalRamGb = osModule.totalmem() / 1024 ** 3;
-  const freeRamGb = osModule.freemem() / 1024 ** 3;
+  const totalRamGb = os.totalmem() / 1024 ** 3;
+  const freeRamGb = os.freemem() / 1024 ** 3;
   const platform = process.platform;
   const arch = process.arch;
   const appleSilicon = platform === "darwin" && arch === "arm64";
@@ -651,8 +653,6 @@ function detectHardware(): {
   } else {
     // Try NVIDIA
     try {
-      const { execFileSync } =
-        require("child_process") as typeof import("child_process");
       const nvidiaSmi = platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
       const output = execFileSync(
         nvidiaSmi,
@@ -676,7 +676,7 @@ function detectHardware(): {
     platform,
     arch,
     appleSilicon,
-    cpuCount: osModule.cpus().length,
+    cpuCount: os.cpus().length,
     gpu,
   };
 }
@@ -839,6 +839,16 @@ router.post("/models/download", async (req: Request, res: Response) => {
 
       // Rename .partial → final
       await fs.rename(partialPath, destPath);
+
+      // Apply modelfile settings to the downloaded model
+      // In Electron: process.resourcesPath/modelfile
+      // In dev: project root (one level up from backend/)
+      const resourceBase = (process as any).resourcesPath;
+      const modelfilePath = resourceBase
+        ? join(resourceBase, "modelfile")
+        : join(__dirname, "..", "..", "modelfile");
+      applyModelfile(modelfilePath, MODELS_DIR_PATH, entry.fileName);
+
       progress.status = "done";
 
       const socketIo = getSocketIO();

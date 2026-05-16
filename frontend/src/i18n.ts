@@ -148,13 +148,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   download_diff: { en: "Download diff report", da: "Download diff-rapport" },
 
   // ── Model setup ──
+  model_section_title: { en: "Models", da: "Modeller" },
+  model_needed_banner: {
+    en: "No AI model installed — open Models below to download one before editing.",
+    da: "Ingen AI-model installeret — åbn Modeller herunder for at downloade én før redigering.",
+  },
   model_setup_title: {
     en: "Choose a model",
     da: "Vælg en model",
   },
   model_setup_desc: {
-    en: "Bethaniel runs AI locally on your machine. Download a model to get started — your manuscripts never leave your computer.",
-    da: "Bethaniel kører AI lokalt på din maskine. Download en model for at komme i gang — dine manuskripter forlader aldrig din computer.",
+    en: "Bethaniel runs AI locally — your manuscripts never leave your computer. Download a model to get started.",
+    da: "Bethaniel kører AI lokalt — dine manuskripter forlader aldrig din computer. Download en model for at komme i gang.",
   },
   model_requires: { en: "Requires", da: "Kræver" },
   model_your_machine: { en: "your machine has", da: "din maskine har" },

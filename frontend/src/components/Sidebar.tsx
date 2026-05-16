@@ -4,8 +4,15 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { fetchModels, fetchSystemRecommendation } from "../api";
+import ModelSetup from "./ModelSetup";
 
-export default function Sidebar() {
+export default function Sidebar({
+  needsModel,
+  onModelInstalled,
+}: {
+  needsModel: boolean;
+  onModelInstalled: () => void;
+}) {
   const {
     lang,
     setLang,
@@ -59,8 +66,16 @@ export default function Sidebar() {
     }
   }, [models]);
 
+  const [showModels, setShowModels] = useState(needsModel);
+
   return (
     <aside className="sidebar">
+      {needsModel && (
+        <div className="sidebar-section model-needed-banner">
+          <p>⚠️ {t("model_needed_banner")}</p>
+        </div>
+      )}
+
       <div className="sidebar-section">
         <label className="sidebar-label">{t("language")}</label>
         <div className="lang-toggle">
@@ -97,14 +112,6 @@ export default function Sidebar() {
                 </option>
               ))}
             </select>
-          </div>
-        )}
-        {showSettings && models.length === 0 && (
-          <div className="warning-box">
-            <p>⚠️ {t("no_models_warning")}</p>
-            <button onClick={() => fetchModels().then(setModels)}>
-              🔄 {t("retry")}
-            </button>
           </div>
         )}
 
@@ -183,6 +190,25 @@ export default function Sidebar() {
               )}
             </div>
           </>
+        )}
+      </div>
+
+      <div className="sidebar-section">
+        <button
+          className="expander-toggle"
+          onClick={() => setShowModels(!showModels)}
+        >
+          {showModels ? "▾" : "▸"} {t("model_section_title")}
+          {needsModel && <span className="needs-attention-dot" />}
+        </button>
+
+        {showModels && (
+          <ModelSetup
+            onModelInstalled={() => {
+              onModelInstalled();
+              fetchModels().then(setModels);
+            }}
+          />
         )}
       </div>
     </aside>

@@ -9,11 +9,18 @@ import {
   unloadCurrentModel,
   getCurrentModel,
 } from "./llamaServer.js";
+import { readModelConfig, type ModelSettings } from "./modelConfig.js";
 import * as path from "path";
 import * as fs from "fs";
 
 const LLAMA_BASE_URL = process.env.LLAMA_BASE_URL ?? "";
 const MODELS_DIR = process.env.MODELS_DIR ?? "./models";
+
+/** Get the current model's config, or defaults if unavailable. */
+function getActiveConfig(model: string): ModelSettings {
+  const file = model.endsWith(".gguf") ? model : model + ".gguf";
+  return readModelConfig(MODELS_DIR, file);
+}
 
 // ── Ollama fallback (dev mode) ──
 
@@ -217,13 +224,15 @@ async function* chatStream(
   },
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const cfg = getActiveConfig(model);
+
   if (!isLlamaCppMode()) {
     // Ollama fallback
     const ollamaOpts: Record<string, unknown> = {
-      temperature: options.temperature ?? 0,
+      temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? 0.9,
-      num_ctx: 8192,
-      num_predict: options.max_tokens ?? 8192,
+      num_ctx: cfg.num_ctx,
+      num_predict: options.max_tokens ?? cfg.num_predict,
     };
     yield* ollamaChatStream(model, messages, ollamaOpts, signal);
     return;
@@ -235,9 +244,9 @@ async function* chatStream(
   const body: Record<string, unknown> = {
     messages,
     stream: true,
-    temperature: options.temperature ?? 0,
+    temperature: options.temperature ?? cfg.temperature,
     top_p: options.top_p ?? 0.9,
-    max_tokens: options.max_tokens ?? 8192,
+    max_tokens: options.max_tokens ?? cfg.num_predict,
   };
   if (options.response_format) {
     body.response_format = options.response_format;
@@ -260,9 +269,15 @@ async function* chatStream(
 
 // ── Prompt helpers (same as before) ──
 
-/** Append /no_think to instruct certain models to skip reasoning traces. */
-function noThink(systemPrompt: string): string {
-  return systemPrompt + "\n\n/no_think";
+/** Build system message: model config system preamble + task-specific prompt + /no_think. */
+function buildSystemMessage(model: string, taskPrompt: string): string {
+  const cfg = getActiveConfig(model);
+  // The config system prompt already ends with /no_think if set from modelfile
+  const hasNoThink =
+    cfg.system.includes("/no_think") || taskPrompt.includes("/no_think");
+  const parts = [cfg.system, taskPrompt].filter(Boolean);
+  const combined = parts.join("\n\n");
+  return hasNoThink ? combined : combined + "\n\n/no_think";
 }
 
 // ── Exported streaming functions (same signatures as ollama.ts) ──
@@ -277,10 +292,10 @@ export async function* editChunkStream(
   yield* chatStream(
     model,
     [
-      { role: "system", content: noThink(systemPrompt) },
+      { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: chunkText },
     ],
-    { temperature: 0.1, max_tokens: 8192 },
+    { temperature: 0.1 },
     signal,
   );
 }
@@ -295,12 +310,10 @@ export async function* findCorrectionsStream(
   yield* chatStream(
     model,
     [
-      { role: "system", content: noThink(systemPrompt) },
+      { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: chunkText },
     ],
     {
-      temperature: 0,
-      max_tokens: 8192,
       response_format: { type: "json_object" },
     },
     signal,
@@ -317,11 +330,10 @@ export async function* analyzeStream(
   yield* chatStream(
     model,
     [
-      { role: "system", content: noThink(systemPrompt) },
+      { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: text },
     ],
     {
-      temperature: 0,
       max_tokens: 4096,
       response_format: { type: "json_object" },
     },
@@ -339,10 +351,10 @@ export async function* synthesizeStream(
   yield* chatStream(
     model,
     [
-      { role: "system", content: noThink(systemPrompt) },
+      { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: jsonPayload },
     ],
-    { temperature: 0, max_tokens: 1500 },
+    { max_tokens: 1500 },
     signal,
   );
 }
