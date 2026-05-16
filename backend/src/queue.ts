@@ -252,7 +252,7 @@ async function processAnalysisJob(
     let tokCount = 0;
 
     try {
-      const MAX_ATTEMPTS = 3;
+      const MAX_ATTEMPTS = 5;
       let lastErr: unknown = null;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         if (ac.signal.aborted) throw new Error("cancelled");
@@ -333,8 +333,11 @@ async function processAnalysisJob(
     structuredData: hasAnyData ? merged : null,
   };
 
+  // If any chunks failed, surface as error (even if we have partial data),
+  // so the user knows to re-run this chapter. The partial data is preserved.
+  const hadChunkFailure = errors.length > 0;
   updateTask(taskId, {
-    status: hasAnyData ? "done" : "error",
+    status: hasAnyData && !hadChunkFailure ? "done" : "error",
     progress: 1,
     finishedAt: Date.now(),
     result,
@@ -442,7 +445,7 @@ async function processSynthesisJob(
   let acc = "";
   let tokCount = 0;
   const errors: string[] = [];
-  const MAX_ATTEMPTS = 3;
+  const MAX_ATTEMPTS = 5;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     if (ac.signal.aborted) break;
     acc = "";
@@ -550,7 +553,7 @@ async function processJob(job: JobData): Promise<void> {
     let tokCount = 0;
 
     try {
-      const MAX_ATTEMPTS = 3;
+      const MAX_ATTEMPTS = 5;
       let lastErr: unknown = null;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         if (ac.signal.aborted) throw new Error("cancelled");
@@ -667,8 +670,11 @@ async function processJob(job: JobData): Promise<void> {
     errors,
   };
 
+  // If any chunks failed (after retries), the chapter is partially un-edited
+  // (failed chunks fall back to the original text). Surface as error so the
+  // user knows to re-run, while preserving the partial output.
   updateTask(taskId, {
-    status: "done",
+    status: errors.length > 0 ? "error" : "done",
     progress: 1,
     finishedAt: Date.now(),
     result,
@@ -803,6 +809,21 @@ export async function submitTask(
     result: null,
     editOptions: data.editOptions,
     targetLang: data.targetLang,
+    model: data.model,
+    retrySpec: {
+      name: data.name,
+      source: data.source,
+      original: data.original,
+      wordCount: data.wordCount,
+      model: data.model,
+      mode: data.mode,
+      prompt: data.prompt,
+      fast: data.fast,
+      wpc: data.wpc,
+      overlap: data.overlap,
+      editOptions: data.editOptions,
+      targetLang: data.targetLang,
+    },
   });
 
   pending.push({ taskId, ...data });
@@ -839,6 +860,59 @@ export function cancelTask(id: string): boolean {
 
   updateTask(id, { status: "cancelled", finishedAt: Date.now() });
   return true;
+}
+
+/**
+ * Re-submit a failed/cancelled task using its stored retrySpec. Removes the
+ * old task entry and creates a new one under the SAME jobId so it groups
+ * back into the original job's review pane. Returns the new taskId, or
+ * throws an Error with a user-facing message if it can't be retried.
+ */
+export async function retryTask(id: string): Promise<string> {
+  const task = tasks.get(id);
+  if (!task) {
+    throw new Error("Task not found.");
+  }
+  if (!["error", "cancelled"].includes(task.status)) {
+    throw new Error(
+      `Task is "${task.status}" — only failed or cancelled tasks can be retried.`,
+    );
+  }
+  if (!task.retrySpec) {
+    throw new Error(
+      "This task was created before retry support was added — its source text was not stored. Re-upload the manuscript and start a new job for this chapter.",
+    );
+  }
+
+  const spec = task.retrySpec;
+  const oldJobId = task.jobId;
+
+  // Drop old entry first so the UI doesn't show two rows for the same chapter.
+  tasks.delete(id);
+  abortControllers.delete(id);
+  try {
+    deleteTaskState(id);
+  } catch {
+    /* ignore */
+  }
+  broadcast();
+
+  const newTaskId = await submitTask({
+    jobId: oldJobId,
+    name: spec.name,
+    source: spec.source,
+    original: spec.original,
+    wordCount: spec.wordCount,
+    model: spec.model,
+    mode: spec.mode,
+    prompt: spec.prompt,
+    fast: spec.fast,
+    wpc: spec.wpc,
+    overlap: spec.overlap,
+    editOptions: spec.editOptions,
+    targetLang: spec.targetLang,
+  });
+  return newTaskId;
 }
 
 export function removeCompleted(): void {

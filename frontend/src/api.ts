@@ -111,6 +111,12 @@ export async function cancelTask(taskId: string) {
   await apiFetch(`/queue/task/${taskId}`, { method: "DELETE" });
 }
 
+export async function retryTask(taskId: string): Promise<string> {
+  const res = await apiFetch(`/queue/retry/${taskId}`, { method: "POST" });
+  const data = await res.json();
+  return data.taskId as string;
+}
+
 export async function clearQueue() {
   await apiFetch("/queue/clear", { method: "DELETE" });
 }

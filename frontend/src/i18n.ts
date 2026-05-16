@@ -79,6 +79,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   status_error: { en: "error", da: "fejl" },
   status_cancelled: { en: "cancelled", da: "annulleret" },
   clear_done: { en: "Clear completed", da: "Ryd færdige" },
+  cancel_task: { en: "Cancel task", da: "Annullér opgave" },
+  retry_task: { en: "Retry", da: "Forsøg igen" },
+  retry_failed_chapters: {
+    en: "Retry failed chapters",
+    da: "Forsøg fejlede kapitler igen",
+  },
+  partial_failure_title: {
+    en: "Some chapters did not complete cleanly",
+    da: "Nogle kapitler blev ikke gennemført korrekt",
+  },
+  partial_failure_body: {
+    en: "These chapters had chunks that failed even after retries and should be re-run",
+    da: "Disse kapitler havde dele, der fejlede selv efter forsøg, og bør køres igen",
+  },
+  partial_failure_hint: {
+    en: "Edited output for failed chunks falls back to the original text. Analysis output may be incomplete. Re-run the affected chapters from the upload screen.",
+    da: "Redigeret output for fejlede dele falder tilbage til den oprindelige tekst. Analyseoutput kan være ufuldstændigt. Kør de berørte kapitler igen fra upload-skærmen.",
+  },
   btn_cancel: { en: "Stop queue", da: "Stop køen" },
   n_pending: { en: "pending", da: "afventer" },
   n_running: { en: "running", da: "kører" },

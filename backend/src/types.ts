@@ -117,6 +117,26 @@ export interface TaskState {
   result: TaskResult | null;
   editOptions?: Record<string, boolean>;
   targetLang?: string;
+  model?: string;
+  // Stored re-submission spec so a failed task can be re-run without
+  // going back to the upload screen. Includes the original chapter text,
+  // model, prompt, chunking params, etc.
+  retrySpec?: TaskRetrySpec;
+}
+
+export interface TaskRetrySpec {
+  name: string;
+  source: string;
+  original: string;
+  wordCount: number;
+  model: string;
+  mode: TaskMode;
+  prompt: string;
+  fast: boolean;
+  wpc: number;
+  overlap: number;
+  editOptions?: Record<string, boolean>;
+  targetLang?: string;
 }
 
 export interface EditUnit {

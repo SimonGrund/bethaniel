@@ -3,9 +3,31 @@
 import { useCallback } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { exportDocx } from "../api";
+import { exportDocx, retryTask } from "../api";
 import type { TaskState, Correction } from "../types";
 import { ANALYSIS_MODES } from "../types";
+
+/**
+ * Extract a numeric sort key from a chapter name so tasks render
+ * in manuscript order (Ch 1, Ch 2, …) rather than completion order.
+ * Names without a number sort to Infinity (end of list).
+ */
+function chapterSortKey(name: string): number {
+  const m = name.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
+
+/** Format a task's wall-clock duration as a human-readable string. */
+function formatDuration(task: TaskState): string | null {
+  if (!task.startedAt || !task.finishedAt) return null;
+  const ms = task.finishedAt - task.startedAt;
+  if (ms < 1000) return `${ms}ms`;
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const rem = secs % 60;
+  return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
+}
 
 /** Apply only accepted corrections to the original text. */
 function applyAccepted(
@@ -563,6 +585,17 @@ export default function ReviewExport() {
     [],
   );
 
+  const handleRetry = useCallback(async (taskId: string) => {
+    try {
+      await retryTask(taskId);
+    } catch (err) {
+      console.error("Retry failed:", err);
+      alert(
+        `Retry failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, []);
+
   const visibleTasks = Object.entries(tasks).filter(
     ([, s]) => s.status !== "queued",
   );
@@ -602,7 +635,11 @@ export default function ReviewExport() {
         {t("sec_review")}
       </div>
 
-      {jobEntries.map(([jid, entries]) => {
+      {jobEntries.map(([jid, rawEntries]) => {
+        // Sort tasks by chapter number so they appear in manuscript order.
+        const entries = [...rawEntries].sort(
+          ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
+        );
         const totalCorrections = entries.reduce(
           (n, [, task]) => n + (task.result?.corrections.length ?? 0),
           0,
@@ -610,11 +647,31 @@ export default function ReviewExport() {
         const runningCount = entries.filter(
           ([, t]) => t.status === "editing",
         ).length;
+        // A task is "partial" if it has results but with chunk-level errors
+        // (the model failed to process some chunks even after retries).
+        // We count any errored task with chapter-name (i.e. excluding the
+        // job-wide summary) as a chapter that should be re-run.
+        const failedTasks = entries.filter(
+          ([, t]) => t.status === "error" && t.mode !== "analysis_summary",
+        );
+        const failedChapters = failedTasks.map(([, t]) => t.name);
         const src = entries[0]?.[1].source ?? "manuscript";
         const submittedAt = Math.max(
           ...entries.map(([, t]) => t.submittedAt ?? 0),
         );
         const submittedDate = new Date(submittedAt).toLocaleString();
+        // Collect distinct models used across the job's tasks. Older tasks
+        // (created before `model` was promoted onto TaskState) won't have it,
+        // and that's fine — we just omit them.
+        const jobModels = Array.from(
+          new Set(
+            entries
+              .map(([, t]) => t.model)
+              .filter(
+                (m): m is string => typeof m === "string" && m.length > 0,
+              ),
+          ),
+        );
         return (
           <details key={jid} className="review-group">
             <summary className="review-source">
@@ -625,12 +682,45 @@ export default function ReviewExport() {
               <span className="review-source-meta">
                 {submittedDate} · {entries.length}{" "}
                 {entries.length === 1 ? "task" : "tasks"}
+                {jobModels.length > 0 ? ` · ${jobModels.join(", ")}` : ""}
                 {runningCount > 0 ? ` · ${runningCount} running` : ""}
+                {failedChapters.length > 0 ? (
+                  <span className="review-failed-meta">
+                    {" "}
+                    · ⚠ {failedChapters.length}{" "}
+                    {failedChapters.length === 1 ? "failed" : "failed"}
+                  </span>
+                ) : null}
                 {totalCorrections > 0
                   ? ` · ${totalCorrections} corrections`
                   : ""}
               </span>
             </summary>
+
+            {failedChapters.length > 0 && (
+              <div className="review-warning-banner">
+                <strong>⚠ {t("partial_failure_title")}</strong>
+                <p>
+                  {t("partial_failure_body")}
+                  {": "}
+                  <em>{failedChapters.join(", ")}</em>
+                </p>
+                <p className="small-note">{t("partial_failure_hint")}</p>
+                <div className="review-warning-actions">
+                  <button
+                    type="button"
+                    className="btn-retry"
+                    onClick={() => {
+                      for (const [tid] of failedTasks) {
+                        void handleRetry(tid);
+                      }
+                    }}
+                  >
+                    ↻ {t("retry_failed_chapters")} ({failedTasks.length})
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ── Prose synthesis (primary output for analysis jobs) ── */}
             {(() => {
@@ -849,6 +939,12 @@ export default function ReviewExport() {
                         {t(`status_${task.status}`)}
                       </span>{" "}
                       {task.name} — {t(`mode_${task.mode}`)}
+                      {formatDuration(task) && (
+                        <span className="task-duration">
+                          {" "}
+                          ({formatDuration(task)})
+                        </span>
+                      )}
                     </summary>
                     <div className="task-placeholder">
                       {task.status === "editing" && (
@@ -865,10 +961,28 @@ export default function ReviewExport() {
                         </>
                       )}
                       {task.status === "error" && (
-                        <p className="error-item">⚠️ {t("status_error")}</p>
+                        <>
+                          <p className="error-item">⚠️ {t("status_error")}</p>
+                          <button
+                            type="button"
+                            className="btn-retry"
+                            onClick={() => void handleRetry(tid)}
+                          >
+                            ↻ {t("retry_task")}
+                          </button>
+                        </>
                       )}
                       {task.status === "cancelled" && (
-                        <p className="small-note">{t("status_cancelled")}</p>
+                        <>
+                          <p className="small-note">{t("status_cancelled")}</p>
+                          <button
+                            type="button"
+                            className="btn-retry"
+                            onClick={() => void handleRetry(tid)}
+                          >
+                            ↻ {t("retry_task")}
+                          </button>
+                        </>
                       )}
                     </div>
                   </details>
@@ -887,10 +1001,31 @@ export default function ReviewExport() {
                 : hasChanges
                   ? `${task.name} — ${corrections.length} correction(s)`
                   : `${task.name} — ${t("no_changes")}`;
+              const dur = formatDuration(task);
 
               return (
                 <details key={tid} className="review-task">
-                  <summary className="review-task-summary">{summary}</summary>
+                  <summary className="review-task-summary">
+                    {task.status === "error" && (
+                      <span className="task-status-pill qs-error">
+                        {t("status_error")}
+                      </span>
+                    )}{" "}
+                    {summary}
+                    {dur && <span className="task-duration"> ({dur})</span>}
+                    {task.status === "error" && (
+                      <button
+                        type="button"
+                        className="btn-retry btn-retry-inline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void handleRetry(tid);
+                        }}
+                      >
+                        ↻ {t("retry_task")}
+                      </button>
+                    )}
+                  </summary>
 
                   {isTranslation ? (
                     /* Translation: show a preview of the translated text */

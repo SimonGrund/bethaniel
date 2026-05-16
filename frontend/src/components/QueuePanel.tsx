@@ -191,6 +191,14 @@ export default function QueuePanel() {
     });
   };
 
+  const handleCancelTask = async (id: string) => {
+    try {
+      await cancelTask(id);
+    } catch (err) {
+      console.error("Failed to cancel task:", err);
+    }
+  };
+
   const entries = Object.entries(tasks).sort(
     ([, a], [, b]) =>
       (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
@@ -233,7 +241,14 @@ export default function QueuePanel() {
       ) : (
         <div className="q-items">
           {runningEntries.map(([tid, s]) =>
-            renderTaskRow(tid, s, expandedIds.has(tid), toggleExpanded, t),
+            renderTaskRow(
+              tid,
+              s,
+              expandedIds.has(tid),
+              toggleExpanded,
+              handleCancelTask,
+              t,
+            ),
           )}
 
           {queuedEntries.length > 0 && (
@@ -253,6 +268,7 @@ export default function QueuePanel() {
                     s,
                     expandedIds.has(tid),
                     toggleExpanded,
+                    handleCancelTask,
                     t,
                   ),
                 )}
@@ -275,6 +291,7 @@ export default function QueuePanel() {
                     s,
                     expandedIds.has(tid),
                     toggleExpanded,
+                    handleCancelTask,
                     t,
                   ),
                 )}

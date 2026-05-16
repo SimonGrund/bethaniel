@@ -139,6 +139,7 @@ export interface TaskState {
   result: TaskResult | null;
   editOptions?: Record<string, boolean>;
   targetLang?: string;
+  model?: string;
 }
 
 export interface EditUnit {

@@ -4,8 +4,8 @@ export type Lang = "en" | "da";
 
 const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   subtitle: {
-    en: "a private copy editor for pre-print",
-    da: "en privat korrekturlæser",
+    en: "- But you can call me Betty",
+    da: " - Men du kan kalde mig Betty",
   },
   settings: { en: "Settings", da: "Indstillinger" },
   language: { en: "Language", da: "Sprog" },

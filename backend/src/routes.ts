@@ -45,6 +45,7 @@ import {
   submitTask,
   cancelAll,
   cancelTask,
+  retryTask,
   removeCompleted,
   removeTask,
   getTasksSnapshot,
@@ -491,6 +492,18 @@ router.delete("/queue/clear", (_req: Request, res: Response) => {
 router.delete("/queue/task/:taskId", (req: Request, res: Response) => {
   cancelTask(req.params.taskId);
   res.json({ ok: true });
+});
+
+// ── Queue: retry a failed/cancelled task ──
+router.post("/queue/retry/:taskId", async (req: Request, res: Response) => {
+  try {
+    const newId = await retryTask(req.params.taskId);
+    res.json({ taskId: newId });
+  } catch (err) {
+    res.status(409).json({
+      error: err instanceof Error ? err.message : "Failed to retry task",
+    });
+  }
 });
 
 // ── Get task result ──
