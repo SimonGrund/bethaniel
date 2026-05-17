@@ -39,6 +39,13 @@ extraResources:
   - from: modelfile
     to: modelfile
 
+publish:
+  provider: github
+  owner: SimonGrund
+  repo: bethaniel
+  channel: latest
+  releaseType: release
+
 asar: true
 asarUnpack:
   - "**/*.node"

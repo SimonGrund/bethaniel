@@ -20,7 +20,8 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LLAMA_BASE_URL = process.env.LLAMA_BASE_URL ?? "";
-const MODELS_DIR = process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
+const MODELS_DIR =
+  process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
 /** Get the current model's config, or defaults if unavailable. */
 function getActiveConfig(model: string): ModelSettings {

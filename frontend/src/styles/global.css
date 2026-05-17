@@ -834,6 +834,32 @@ h4 {
   margin-bottom: 1rem;
 }
 
+.review-old-group {
+  margin-top: 0.5rem;
+}
+
+.review-old-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8a7d6b;
+  padding: 0.4rem 0;
+}
+.review-old-summary::-webkit-details-marker {
+  display: none;
+}
+.review-old-summary::before {
+  content: "▸ ";
+  transition: transform 0.15s ease;
+}
+.review-old-group[open] > .review-old-summary::before {
+  content: "▾ ";
+}
+.review-old-group .review-group {
+  opacity: 0.8;
+}
+
 .review-source {
   font-size: 1.1rem;
   margin-bottom: 0.4rem;
@@ -1375,7 +1401,10 @@ h4 {
   transition:
     border-color 0.2s,
     box-shadow 0.25s,
-    transform 0.15s;
+    transform 0.15s,
+    flex 0.25s,
+    opacity 0.2s,
+    filter 0.2s;
   text-align: center;
   font-family: inherit;
   color: inherit;
@@ -1406,11 +1435,29 @@ h4 {
 
 /* Open (expanded) */
 .mode-cat-open {
-  border-color: var(--cat-color);
+  flex: 2;
+  border: 3px solid var(--cat-color);
   background: var(--cat-bg);
   box-shadow:
-    0 0 10px var(--cat-glow),
-    0 0 3px var(--cat-glow);
+    0 0 20px var(--cat-glow),
+    0 0 6px var(--cat-glow),
+    inset 0 0 8px var(--cat-glow);
+  z-index: 1;
+}
+
+.mode-cat-open .mode-cat-name {
+  font-size: 1.2rem;
+}
+
+/* Fade siblings when one is open */
+.mode-cat-cards:has(.mode-cat-open) .mode-cat-card:not(.mode-cat-open) {
+  opacity: 0.8;
+  filter: grayscale(0.4);
+}
+
+.mode-cat-cards:has(.mode-cat-open) .mode-cat-card:not(.mode-cat-open):hover {
+  opacity: 0.65;
+  filter: grayscale(0);
 }
 
 /* Has active selections */
@@ -1690,22 +1737,40 @@ h4 {
 
 /* ── Selected (installed + active) ── */
 .model-card-selected.model-card-ready {
-  border-color: var(--tier-color);
+  flex: 2;
+  border: 3px solid var(--tier-color);
   background: var(--tier-bg);
   box-shadow:
-    0 0 12px var(--tier-glow),
-    0 0 4px var(--tier-glow);
+    0 0 20px var(--tier-glow),
+    0 0 6px var(--tier-glow),
+    inset 0 0 8px var(--tier-glow);
+  z-index: 1;
+}
+
+.model-card-selected.model-card-ready .model-card-name {
+  font-size: 1.2rem;
+}
+
+/* ── Fade siblings when one is selected ── */
+.model-selector-cards:has(.model-card-selected)
+  .model-card:not(.model-card-selected) {
+  opacity: 0.8;
+  filter: grayscale(0.4);
+}
+
+.model-selector-cards:has(.model-card-selected)
+  .model-card:not(.model-card-selected):hover {
+  opacity: 0.65;
+  filter: grayscale(0);
 }
 
 /* ── Installed but not selected ── */
 .model-card-ready:not(.model-card-selected) {
   border-color: var(--tier-color);
   background: var(--tier-bg);
-  opacity: 0.85;
 }
 
 .model-card-ready:not(.model-card-selected):hover {
-  opacity: 1;
   box-shadow: 0 0 8px var(--tier-glow);
 }
 

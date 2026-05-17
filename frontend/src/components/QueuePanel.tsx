@@ -307,8 +307,6 @@ export default function QueuePanel() {
             )}
           </div>
         )}
-
-
       </div>
     </details>
   );

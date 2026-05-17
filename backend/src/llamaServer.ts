@@ -14,7 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LLAMA_BIN = process.env.LLAMA_BIN ?? "llama-server";
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
 const LLAMA_HOST = "127.0.0.1";
-const MODELS_DIR = process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
+const MODELS_DIR =
+  process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
 /** Base URL for the llama-server HTTP API. */
 export function getLlamaBaseUrl(): string {

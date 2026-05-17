@@ -3,16 +3,43 @@
 // via the backend's supervisor, and opens a BrowserWindow pointed at the
 // backend's built-in frontend.
 
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell, dialog } from "electron";
 import { ChildProcess, fork } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as http from "http";
 import * as net from "net";
+import { autoUpdater } from "electron-updater";
 
 // ── Paths ──
 
 const IS_DEV = process.env.NODE_ENV === "development";
+
+// ── Auto-updater ──
+// Only runs in packaged builds; skipped silently in dev mode.
+if (!IS_DEV) {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-downloaded", () => {
+    dialog
+      .showMessageBox({
+        type: "info",
+        title: "Update ready",
+        message:
+          "A new version of Bethaniel has been downloaded. It will be installed the next time you restart the app.",
+        buttons: ["Restart now", "Later"],
+        defaultId: 0,
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+  });
+
+  autoUpdater.on("error", (err) => {
+    console.error("[updater] error:", err?.message ?? err);
+  });
+}
 
 function resourcePath(...segments: string[]): string {
   const base = IS_DEV ? path.resolve(__dirname, "..") : process.resourcesPath;
@@ -188,6 +215,11 @@ app.whenReady().then(async () => {
   });
 
   mainWindow.loadURL(`http://127.0.0.1:${backendPort}`);
+
+  // Check for updates a few seconds after launch so the window is settled
+  if (!IS_DEV) {
+    setTimeout(() => autoUpdater.checkForUpdates(), 5000);
+  }
 
   // Open external links in the default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

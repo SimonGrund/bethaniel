@@ -581,7 +581,7 @@ const MODELS_DIR_PATH = process.env.MODELS_DIR ?? join(__dirname, "../models");
 
 interface ModelCatalogEntry {
   id: string;
-  tier: "medium" | "large";
+  tier: "small" | "normal" | "medium" | "large" | "big";
   name: string;
   description: string;
   fileName: string;
@@ -596,7 +596,7 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "gemma-3n-e4b",
     tier: "small",
-    name: "Small Betty",
+    name: "Baby Betty",
     description: "Small, handy, and quick. But sometimes I make mistakes.",
     fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
     url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
