@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { cancelQueue, clearQueue, cancelTask } from "../api";
+import { cancelTask } from "../api";
 import type { TaskState } from "../types";
 
 function formatDuration(ms: number): string {
@@ -308,21 +308,7 @@ export default function QueuePanel() {
           </div>
         )}
 
-        <div className="q-actions">
-          {nd + ne + nc > 0 && (
-            <button className="btn-secondary" onClick={() => clearQueue()}>
-              {t("clear_done")}
-            </button>
-          )}
-          {nq + nr > 0 && (
-            <button
-              className="btn-primary btn-danger"
-              onClick={() => cancelQueue()}
-            >
-              {t("btn_cancel")}
-            </button>
-          )}
-        </div>
+
       </div>
     </details>
   );

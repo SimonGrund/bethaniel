@@ -1,9 +1,9 @@
 // ── Review & Export — Stage IV ──
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { exportDocx, retryTask } from "../api";
+import { exportDocx, retryTask, clearQueue } from "../api";
 import type { TaskState, Correction } from "../types";
 import { ANALYSIS_MODES } from "../types";
 
@@ -567,6 +567,7 @@ export default function ReviewExport() {
     dismissAll,
   } = useStore();
   const t = useTranslation(lang);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const handleDownloadDocx = useCallback(
     async (markdown: string, filename: string) => {
@@ -647,6 +648,48 @@ export default function ReviewExport() {
       </summary>
 
       <div className="review-panel">
+        {jobEntries.length > 0 && (
+          <div className="review-clear-row">
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => setConfirmClear(true)}
+            >
+              {t("clear_done")}
+            </button>
+          </div>
+        )}
+
+        {confirmClear && (
+          <div className="modal-backdrop">
+            <div className="modal-dialog">
+              <p>{t("clear_warning")}</p>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-primary btn-danger"
+                  onClick={() => {
+                    setConfirmClear(false);
+                    clearQueue();
+                  }}
+                >
+                  {t("clear_done")}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setConfirmClear(false)}
+                >
+                  {t("btn_cancel")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {jobEntries.length === 0 && (
+          <p className="review-empty-state">{t("review_empty")}</p>
+        )}
         {jobEntries.map(([jid, rawEntries]) => {
           // Sort tasks by chapter number so they appear in manuscript order.
           const entries = [...rawEntries].sort(

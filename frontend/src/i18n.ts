@@ -27,8 +27,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   parallel_chapters: { en: "Parallel chapters", da: "Parallelle kapitler" },
   parallel_jobs: { en: "Parallel jobs", da: "Parallelle opgaver" },
   parallel_help: {
-    en: "Concurrent jobs. Click Auto to estimate based on RAM, CPU, and model size.",
-    da: "Samtidige opgaver. Klik Auto for at estimere ud fra RAM, CPU og modelstørrelse.",
+    en: "Concurrent jobs — auto-tuned when you pick a model.",
+    da: "Samtidige opgaver — auto-justeret når du vælger en model.",
+  },
+  advanced_settings: {
+    en: "Advanced settings",
+    da: "Avancerede indstillinger",
   },
   style_guide: { en: "Style guide", da: "Stilguide" },
   style_guide_tooltip: {
@@ -79,6 +83,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   status_error: { en: "error", da: "fejl" },
   status_cancelled: { en: "cancelled", da: "annulleret" },
   clear_done: { en: "Clear completed", da: "Ryd færdige" },
+  clear_warning: {
+    en: "This will permanently remove all completed results. Are you sure?",
+    da: "Dette vil permanent fjerne alle færdige resultater. Er du sikker?",
+  },
   cancel_task: { en: "Cancel task", da: "Annullér opgave" },
   retry_task: { en: "Retry", da: "Forsøg igen" },
   retry_failed_chapters: {
@@ -106,6 +114,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Redigering er i gang. Forlader du siden, mistes køen.",
   },
   sec_review: { en: "Review & Export", da: "Gennemgang & Eksport" },
+  review_empty: {
+    en: "Nothing here yet — results will appear once you run an edit.",
+    da: "Tomt endnu — resultater vises når du kører en redigering.",
+  },
   accepted: { en: "accepted", da: "accepteret" },
   no_changes: { en: "no changes", da: "ingen rettelser" },
   accept_all: { en: "Accept all", da: "Acceptér alle" },

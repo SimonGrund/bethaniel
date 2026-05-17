@@ -5,11 +5,14 @@ import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import { promises as fs, createWriteStream } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { createHash } from "crypto";
 import * as os from "os";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { execFileSync } from "child_process";
 import { docxToMarkdown, markdownToDocx } from "./conversion.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
@@ -574,7 +577,7 @@ router.post("/consistency", (req: Request, res: Response) => {
 // Hardware & Model management (Electron / llama.cpp mode)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const MODELS_DIR_PATH = process.env.MODELS_DIR ?? "./models";
+const MODELS_DIR_PATH = process.env.MODELS_DIR ?? join(__dirname, "../models");
 
 interface ModelCatalogEntry {
   id: string;

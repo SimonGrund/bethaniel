@@ -1,41 +1,12 @@
-// ── Sidebar component ──
+// ── Sidebar — queue panel ──
 
-import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { fetchSystemRecommendation } from "../api";
+import QueuePanel from "./QueuePanel";
 
 export default function Sidebar() {
-  const {
-    lang,
-    setLang,
-    model,
-    wordsPerChunk,
-    setWordsPerChunk,
-    overlapParagraphs,
-    setOverlapParagraphs,
-    parallel,
-    setParallel,
-  } = useStore();
+  const { lang } = useStore();
   const t = useTranslation(lang);
-  const [showSettings, setShowSettings] = useState(false);
-  const [autoBusy, setAutoBusy] = useState(false);
-  const [autoInfo, setAutoInfo] = useState<string | null>(null);
-
-  async function autoTuneParallel() {
-    setAutoBusy(true);
-    try {
-      const r = await fetchSystemRecommendation(model);
-      setParallel(r.recommendedParallel);
-      setAutoInfo(
-        `${r.recommendedParallel} jobs — ${r.modelSizeGb} GB model + ~${r.kvPerJobGb} GB/job, ${r.usableRamGb} GB usable RAM, ${r.cpuCount} CPUs (${r.modelSource})`,
-      );
-    } catch {
-      setAutoInfo("Auto-tune failed");
-    } finally {
-      setAutoBusy(false);
-    }
-  }
 
   return (
     <aside className="sidebar">
@@ -43,108 +14,8 @@ export default function Sidebar() {
         <img src="/logo-icon.svg" alt="Bethaniel" />
       </div>
 
-      <div className="sidebar-section">
-        <label className="sidebar-label">{t("language")}</label>
-        <div className="lang-toggle">
-          <button
-            className={lang === "en" ? "active" : ""}
-            onClick={() => setLang("en")}
-          >
-            English
-          </button>
-          <button
-            className={lang === "da" ? "active" : ""}
-            onClick={() => setLang("da")}
-          >
-            Dansk
-          </button>
-        </div>
-      </div>
-
-      <div className="sidebar-section">
-        <button
-          className="expander-toggle"
-          onClick={() => setShowSettings(!showSettings)}
-        >
-          {showSettings ? "▾" : "▸"} {t("settings")}
-        </button>
-
-        {showSettings && (
-          <>
-            <div className="field">
-              <label>
-                {t("words_per_chunk")}: {wordsPerChunk}
-              </label>
-              <input
-                type="range"
-                min={1000}
-                max={5000}
-                step={250}
-                value={wordsPerChunk}
-                onChange={(e) => setWordsPerChunk(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="field">
-              <label>
-                {t("paragraph_overlap")}: {overlapParagraphs}
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={3}
-                step={1}
-                value={overlapParagraphs}
-                onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="field">
-              <label>
-                {t("parallel_jobs")}: {parallel}
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={8}
-                step={1}
-                value={parallel}
-                onChange={(e) => setParallel(Number(e.target.value))}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  marginTop: "0.25rem",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={autoTuneParallel}
-                  disabled={autoBusy}
-                  className="btn-secondary"
-                  style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
-                >
-                  {autoBusy ? "…" : "Auto"}
-                </button>
-                <span className="help-text">{t("parallel_help")}</span>
-              </div>
-              {autoInfo && (
-                <div
-                  className="help-text"
-                  style={{
-                    marginTop: "0.25rem",
-                    fontSize: "0.75rem",
-                    opacity: 0.8,
-                  }}
-                >
-                  {autoInfo}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+      <div className="sidebar-section sidebar-queue">
+        <QueuePanel />
       </div>
     </aside>
   );

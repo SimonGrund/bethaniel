@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { getSocket } from "../socket";
+import { fetchSystemRecommendation } from "../api";
 
 interface CatalogEntry {
   id: string;
@@ -57,8 +58,22 @@ export default function ModelSelector({
 }: {
   onModelInstalled?: () => void;
 }) {
-  const { lang, model, setModel, models, setModels } = useStore();
+  const {
+    lang,
+    model,
+    setModel,
+    models,
+    setModels,
+    wordsPerChunk,
+    setWordsPerChunk,
+    overlapParagraphs,
+    setOverlapParagraphs,
+    parallel,
+    setParallel,
+  } = useStore();
   const t = useTranslation(lang);
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
@@ -120,6 +135,14 @@ export default function ModelSelector({
       setModel(best);
     }
   }, [models]);
+
+  // Auto-tune parallel jobs when model changes
+  useEffect(() => {
+    if (!model) return;
+    fetchSystemRecommendation(model)
+      .then((r) => setParallel(r.recommendedParallel))
+      .catch(() => {});
+  }, [model]);
 
   async function startDownload(modelId: string) {
     setError(null);
@@ -318,6 +341,61 @@ export default function ModelSelector({
       )}
 
       {error && <div className="model-error">{error}</div>}
+
+      <button
+        type="button"
+        className="expander-toggle advanced-toggle"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+      >
+        {showAdvanced ? "▾" : "▸"} {t("advanced_settings")}
+      </button>
+
+      {showAdvanced && (
+        <div className="advanced-panel">
+          <div className="field">
+            <label>
+              {t("words_per_chunk")}: {wordsPerChunk}
+            </label>
+            <input
+              type="range"
+              min={1000}
+              max={5000}
+              step={250}
+              value={wordsPerChunk}
+              onChange={(e) => setWordsPerChunk(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="field">
+            <label>
+              {t("paragraph_overlap")}: {overlapParagraphs}
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={3}
+              step={1}
+              value={overlapParagraphs}
+              onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="field">
+            <label>
+              {t("parallel_jobs")}: {parallel}
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={8}
+              step={1}
+              value={parallel}
+              onChange={(e) => setParallel(Number(e.target.value))}
+            />
+            <span className="help-text">{t("parallel_help")}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

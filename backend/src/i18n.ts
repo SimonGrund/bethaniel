@@ -64,8 +64,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   btn_add_to_queue: { en: "Add to queue", da: "Tilføj til kø" },
   queue_panel: { en: "Queue", da: "Kø" },
   queue_empty: {
-    en: "Queue is empty — add chapters above.",
-    da: "Køen er tom — tilføj kapitler ovenfor.",
+    en: "Queue is empty.",
+    da: "Køen er tom.",
   },
   status_queued: { en: "queued", da: "i kø" },
   status_editing: { en: "editing", da: "redigerer" },

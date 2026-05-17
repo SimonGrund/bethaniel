@@ -12,14 +12,13 @@ import ScopeSelection from "./components/ScopeSelection";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
-import QueuePanel from "./components/QueuePanel";
 import type { TaskState } from "./types";
 import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function App() {
-  const { lang, setTasks, tasks } = useStore();
+  const { lang, setLang, setTasks, tasks } = useStore();
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
 
@@ -95,6 +94,20 @@ export default function App() {
       <main className="main-content">
         <div className="title-header">
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
+          <div className="lang-toggle">
+            <button
+              className={lang === "en" ? "active" : ""}
+              onClick={() => setLang("en")}
+            >
+              English
+            </button>
+            <button
+              className={lang === "da" ? "active" : ""}
+              onClick={() => setLang("da")}
+            >
+              Dansk
+            </button>
+          </div>
         </div>
 
         <ModelSelector onModelInstalled={() => setModelReady(true)} />
@@ -118,9 +131,6 @@ export default function App() {
         </div>
 
         <div className="bottom-row">
-          <div className="queue-col">
-            <QueuePanel />
-          </div>
           <div className="results-col">
             <ReviewExport />
           </div>
