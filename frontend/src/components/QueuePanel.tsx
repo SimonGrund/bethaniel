@@ -218,103 +218,112 @@ export default function QueuePanel() {
   const ne = entries.filter(([, s]) => s.status === "error").length;
   const nc = entries.filter(([, s]) => s.status === "cancelled").length;
 
+  const hasActive = nr > 0 || nq > 0;
+
   return (
-    <div className="q-panel">
-      <div className="q-title">
-        {t("queue_panel")}{" "}
-        <span style={{ fontSize: "0.8rem", fontWeight: 400, color: "#6b5c44" }}>
-          {entries.length}
+    <details className="collapsible-panel" open={hasActive || undefined}>
+      <summary className="collapsible-header">
+        <span className="collapsible-title">
+          {t("queue_panel")}
+          <span className="info-tooltip" data-tip={t("tooltip_queue")}>
+            ⓘ
+          </span>
         </span>
-      </div>
-      <div className="q-counts">
-        {nq} {t("n_pending")} · {nr} {t("n_running")} · {nd} {t("n_done")}
-        {ne > 0 && ` · ⚠️ ${ne}`}
-      </div>
+        <span className="collapsible-badge">
+          {nr > 0 && <span className="badge badge-active">{nr} running</span>}
+          {nq > 0 && <span className="badge badge-pending">{nq} pending</span>}
+          {nd > 0 && <span className="badge badge-done">{nd} done</span>}
+          {ne > 0 && <span className="badge badge-error">{ne} failed</span>}
+        </span>
+      </summary>
 
-      {entries.length === 0 ? (
-        <p
-          className="small-note"
-          style={{ textAlign: "center", padding: "0.8rem 0" }}
-        >
-          {t("queue_empty")}
-        </p>
-      ) : (
-        <div className="q-items">
-          {runningEntries.map(([tid, s]) =>
-            renderTaskRow(
-              tid,
-              s,
-              expandedIds.has(tid),
-              toggleExpanded,
-              handleCancelTask,
-              t,
-            ),
+      <div className="q-panel">
+        {entries.length === 0 ? (
+          <p
+            className="small-note"
+            style={{ textAlign: "center", padding: "0.8rem 0" }}
+          >
+            {t("queue_empty")}
+          </p>
+        ) : (
+          <div className="q-items">
+            {runningEntries.map(([tid, s]) =>
+              renderTaskRow(
+                tid,
+                s,
+                expandedIds.has(tid),
+                toggleExpanded,
+                handleCancelTask,
+                t,
+              ),
+            )}
+
+            {queuedEntries.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="q-group-header"
+                  onClick={() => setShowQueued((v) => !v)}
+                >
+                  {showQueued ? "▾" : "▸"} {t("status_queued")} (
+                  {queuedEntries.length})
+                </button>
+                {showQueued &&
+                  queuedEntries.map(([tid, s]) =>
+                    renderTaskRow(
+                      tid,
+                      s,
+                      expandedIds.has(tid),
+                      toggleExpanded,
+                      handleCancelTask,
+                      t,
+                    ),
+                  )}
+              </>
+            )}
+
+            {finishedEntries.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="q-group-header"
+                  onClick={() => setShowDone((v) => !v)}
+                >
+                  {showDone ? "▾" : "▸"} {t("n_done")} ({finishedEntries.length}
+                  )
+                </button>
+                {showDone &&
+                  finishedEntries.map(([tid, s]) =>
+                    renderTaskRow(
+                      tid,
+                      s,
+                      expandedIds.has(tid),
+                      toggleExpanded,
+                      handleCancelTask,
+                      t,
+                    ),
+                  )}
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="q-actions">
+          {nd + ne + nc > 0 && (
+            <button className="btn-secondary" onClick={() => clearQueue()}>
+              {t("clear_done")}
+            </button>
           )}
-
-          {queuedEntries.length > 0 && (
-            <>
-              <button
-                type="button"
-                className="q-group-header"
-                onClick={() => setShowQueued((v) => !v)}
-              >
-                {showQueued ? "▾" : "▸"} {t("status_queued")} (
-                {queuedEntries.length})
-              </button>
-              {showQueued &&
-                queuedEntries.map(([tid, s]) =>
-                  renderTaskRow(
-                    tid,
-                    s,
-                    expandedIds.has(tid),
-                    toggleExpanded,
-                    handleCancelTask,
-                    t,
-                  ),
-                )}
-            </>
-          )}
-
-          {finishedEntries.length > 0 && (
-            <>
-              <button
-                type="button"
-                className="q-group-header"
-                onClick={() => setShowDone((v) => !v)}
-              >
-                {showDone ? "▾" : "▸"} {t("n_done")} ({finishedEntries.length})
-              </button>
-              {showDone &&
-                finishedEntries.map(([tid, s]) =>
-                  renderTaskRow(
-                    tid,
-                    s,
-                    expandedIds.has(tid),
-                    toggleExpanded,
-                    handleCancelTask,
-                    t,
-                  ),
-                )}
-            </>
+          {nq + nr > 0 && (
+            <button
+              className="btn-primary btn-danger"
+              onClick={() => cancelQueue()}
+            >
+              {t("btn_cancel")}
+            </button>
           )}
         </div>
-      )}
-
-      <div className="q-actions">
-        {nd + ne + nc > 0 && (
-          <button className="btn-secondary" onClick={() => clearQueue()}>
-            {t("clear_done")}
-          </button>
-        )}
-        {nq + nr > 0 && (
-          <button
-            className="btn-primary btn-danger"
-            onClick={() => cancelQueue()}
-          >
-            {t("btn_cancel")}
-          </button>
-        )}
       </div>
-    </div>
+    </details>
   );
 }

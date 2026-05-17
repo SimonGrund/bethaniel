@@ -13,7 +13,6 @@ export default function ManuscriptUpload() {
     setDocumentMd,
     uploading,
     setUploading,
-    model,
     setSelectedChapters,
     setScopeMode,
   } = useStore();
@@ -52,15 +51,17 @@ export default function ManuscriptUpload() {
   }, []);
 
   return (
-    <section className="stage">
-      <div className="section-label">
-        <span className="num">I.</span>
+    <section className="card card-upload">
+      <div className="card-header">
         {t("sec_manuscript")}
+        <span className="info-tooltip" data-tip={t("tooltip_manuscript")}>
+          ⓘ
+        </span>
       </div>
 
       {!doc ? (
         <div
-          className="upload-zone"
+          className="upload-zone compact"
           onDrop={onDrop}
           onDragOver={onDragOver}
           onClick={() => fileRef.current?.click()}
@@ -82,22 +83,14 @@ export default function ManuscriptUpload() {
           )}
         </div>
       ) : (
-        <div className="chip-row">
-          <span className="label">{t("lbl_file")}</span>
-          <span className="value">{doc.name}</span>
-          <span className="sep">·</span>
-          <span className="label">{t("lbl_words")}</span>
-          <span className="value">{doc.wordCount.toLocaleString()}</span>
-          <span className="sep">·</span>
-          <span className="label">{t("lbl_chapters")}</span>
-          <span className="value">{doc.chapters.length}</span>
-          <span className="sep">·</span>
-          <span className="label">{t("lbl_model")}</span>
-          <span className="value">{model}</span>
+        <div className="file-summary">
+          <span className="file-name">{doc.name}</span>
+          <span className="file-stats">
+            {doc.wordCount.toLocaleString()} words · {doc.chapters.length} ch.
+          </span>
           <button
             type="button"
             className="btn-secondary btn-small"
-            style={{ marginLeft: "auto" }}
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
           >

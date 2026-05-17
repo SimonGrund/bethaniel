@@ -628,536 +628,558 @@ export default function ReviewExport() {
     URL.revokeObjectURL(url);
   };
 
+  const hasRunning = visibleTasks.some(([, s]) => s.status === "editing");
+
   return (
-    <section className="stage">
-      <div className="section-label">
-        <span className="num">V.</span>
-        {t("sec_review")}
-      </div>
+    <details className="collapsible-panel" open={hasRunning || undefined}>
+      <summary className="collapsible-header">
+        <span className="collapsible-title">
+          {t("sec_review")}
+          <span className="info-tooltip" data-tip={t("tooltip_review")}>
+            ⓘ
+          </span>
+        </span>
+        <span className="collapsible-badge">
+          <span className="badge badge-done">
+            {jobEntries.length} {jobEntries.length === 1 ? "job" : "jobs"}
+          </span>
+        </span>
+      </summary>
 
-      {jobEntries.map(([jid, rawEntries]) => {
-        // Sort tasks by chapter number so they appear in manuscript order.
-        const entries = [...rawEntries].sort(
-          ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
-        );
-        const totalCorrections = entries.reduce(
-          (n, [, task]) => n + (task.result?.corrections.length ?? 0),
-          0,
-        );
-        const runningCount = entries.filter(
-          ([, t]) => t.status === "editing",
-        ).length;
-        // A task is "partial" if it has results but with chunk-level errors
-        // (the model failed to process some chunks even after retries).
-        // We count any errored task with chapter-name (i.e. excluding the
-        // job-wide summary) as a chapter that should be re-run.
-        const failedTasks = entries.filter(
-          ([, t]) => t.status === "error" && t.mode !== "analysis_summary",
-        );
-        const failedChapters = failedTasks.map(([, t]) => t.name);
-        const src = entries[0]?.[1].source ?? "manuscript";
-        const submittedAt = Math.max(
-          ...entries.map(([, t]) => t.submittedAt ?? 0),
-        );
-        const submittedDate = new Date(submittedAt).toLocaleString();
-        // Collect distinct models used across the job's tasks. Older tasks
-        // (created before `model` was promoted onto TaskState) won't have it,
-        // and that's fine — we just omit them.
-        const jobModels = Array.from(
-          new Set(
-            entries
-              .map(([, t]) => t.model)
-              .filter(
-                (m): m is string => typeof m === "string" && m.length > 0,
-              ),
-          ),
-        );
-        return (
-          <details key={jid} className="review-group">
-            <summary className="review-source">
-              {t("results_for")} {src}{" "}
-              <code className="task-id-chip" title={`job ${jid}`}>
-                #{jid.slice(0, 8)}
-              </code>{" "}
-              <span className="review-source-meta">
-                {submittedDate} · {entries.length}{" "}
-                {entries.length === 1 ? "task" : "tasks"}
-                {jobModels.length > 0 ? ` · ${jobModels.join(", ")}` : ""}
-                {runningCount > 0 ? ` · ${runningCount} running` : ""}
-                {failedChapters.length > 0 ? (
-                  <span className="review-failed-meta">
-                    {" "}
-                    · ⚠ {failedChapters.length}{" "}
-                    {failedChapters.length === 1 ? "failed" : "failed"}
-                  </span>
-                ) : null}
-                {totalCorrections > 0
-                  ? ` · ${totalCorrections} corrections`
-                  : ""}
-              </span>
-            </summary>
+      <div className="review-panel">
+        {jobEntries.map(([jid, rawEntries]) => {
+          // Sort tasks by chapter number so they appear in manuscript order.
+          const entries = [...rawEntries].sort(
+            ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
+          );
+          const totalCorrections = entries.reduce(
+            (n, [, task]) => n + (task.result?.corrections.length ?? 0),
+            0,
+          );
+          const runningCount = entries.filter(
+            ([, t]) => t.status === "editing",
+          ).length;
+          // A task is "partial" if it has results but with chunk-level errors
+          // (the model failed to process some chunks even after retries).
+          // We count any errored task with chapter-name (i.e. excluding the
+          // job-wide summary) as a chapter that should be re-run.
+          const failedTasks = entries.filter(
+            ([, t]) => t.status === "error" && t.mode !== "analysis_summary",
+          );
+          const failedChapters = failedTasks.map(([, t]) => t.name);
+          const src = entries[0]?.[1].source ?? "manuscript";
+          const submittedAt = Math.max(
+            ...entries.map(([, t]) => t.submittedAt ?? 0),
+          );
+          const submittedDate = new Date(submittedAt).toLocaleString();
+          // Collect distinct models used across the job's tasks. Older tasks
+          // (created before `model` was promoted onto TaskState) won't have it,
+          // and that's fine — we just omit them.
+          const jobModels = Array.from(
+            new Set(
+              entries
+                .map(([, t]) => t.model)
+                .filter(
+                  (m): m is string => typeof m === "string" && m.length > 0,
+                ),
+            ),
+          );
+          return (
+            <details key={jid} className="review-group">
+              <summary className="review-source">
+                {t("results_for")} {src}{" "}
+                <code className="task-id-chip" title={`job ${jid}`}>
+                  #{jid.slice(0, 8)}
+                </code>{" "}
+                <span className="review-source-meta">
+                  {submittedDate} · {entries.length}{" "}
+                  {entries.length === 1 ? "task" : "tasks"}
+                  {jobModels.length > 0 ? ` · ${jobModels.join(", ")}` : ""}
+                  {runningCount > 0 ? ` · ${runningCount} running` : ""}
+                  {failedChapters.length > 0 ? (
+                    <span className="review-failed-meta">
+                      {" "}
+                      · ⚠ {failedChapters.length}{" "}
+                      {failedChapters.length === 1 ? "failed" : "failed"}
+                    </span>
+                  ) : null}
+                  {totalCorrections > 0
+                    ? ` · ${totalCorrections} corrections`
+                    : ""}
+                </span>
+              </summary>
 
-            {failedChapters.length > 0 && (
-              <div className="review-warning-banner">
-                <strong>⚠ {t("partial_failure_title")}</strong>
-                <p>
-                  {t("partial_failure_body")}
-                  {": "}
-                  <em>{failedChapters.join(", ")}</em>
-                </p>
-                <p className="small-note">{t("partial_failure_hint")}</p>
-                <div className="review-warning-actions">
-                  <button
-                    type="button"
-                    className="btn-retry"
-                    onClick={() => {
-                      for (const [tid] of failedTasks) {
-                        void handleRetry(tid);
-                      }
-                    }}
-                  >
-                    ↻ {t("retry_failed_chapters")} ({failedTasks.length})
-                  </button>
+              {failedChapters.length > 0 && (
+                <div className="review-warning-banner">
+                  <strong>⚠ {t("partial_failure_title")}</strong>
+                  <p>
+                    {t("partial_failure_body")}
+                    {": "}
+                    <em>{failedChapters.join(", ")}</em>
+                  </p>
+                  <p className="small-note">{t("partial_failure_hint")}</p>
+                  <div className="review-warning-actions">
+                    <button
+                      type="button"
+                      className="btn-retry"
+                      onClick={() => {
+                        for (const [tid] of failedTasks) {
+                          void handleRetry(tid);
+                        }
+                      }}
+                    >
+                      ↻ {t("retry_failed_chapters")} ({failedTasks.length})
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ── Prose synthesis (primary output for analysis jobs) ── */}
-            {(() => {
-              const summaryTask = entries
-                .map(([, t]) => t)
-                .find((t) => t.mode === "analysis_summary");
-              if (!summaryTask) return null;
+              {/* ── Prose synthesis (primary output for analysis jobs) ── */}
+              {(() => {
+                const summaryTask = entries
+                  .map(([, t]) => t)
+                  .find((t) => t.mode === "analysis_summary");
+                if (!summaryTask) return null;
 
-              if (
-                summaryTask.status !== "done" ||
-                !summaryTask.result?.editedText
-              ) {
-                const pct = Math.round((summaryTask.progress ?? 0) * 100);
-                return (
-                  <details className="review-task" open>
-                    <summary className="review-task-summary">
-                      <span
-                        className={`task-status-pill qs-${summaryTask.status}`}
-                      >
-                        {t(`status_${summaryTask.status}`)}
-                      </span>{" "}
-                      {t("prose_summary")}
-                    </summary>
-                    <div className="task-placeholder">
-                      {summaryTask.status === "editing" && (
-                        <>
-                          <div className="q-bar">
-                            <div
-                              className={`q-fill qs-${summaryTask.status}`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                          <p className="small-note">
-                            {pct}%
-                            {summaryTask.phase ? ` — ${summaryTask.phase}` : ""}
+                if (
+                  summaryTask.status !== "done" ||
+                  !summaryTask.result?.editedText
+                ) {
+                  const pct = Math.round((summaryTask.progress ?? 0) * 100);
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span
+                          className={`task-status-pill qs-${summaryTask.status}`}
+                        >
+                          {t(`status_${summaryTask.status}`)}
+                        </span>{" "}
+                        {t("prose_summary")}
+                      </summary>
+                      <div className="task-placeholder">
+                        {summaryTask.status === "editing" && (
+                          <>
+                            <div className="q-bar">
+                              <div
+                                className={`q-fill qs-${summaryTask.status}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="small-note">
+                              {pct}%
+                              {summaryTask.phase
+                                ? ` — ${summaryTask.phase}`
+                                : ""}
+                            </p>
+                          </>
+                        )}
+                        {summaryTask.status === "error" && (
+                          <p className="error-item">
+                            ⚠️{" "}
+                            {summaryTask.result?.errors?.join("; ") ??
+                              t("status_error")}
                           </p>
-                        </>
-                      )}
-                      {summaryTask.status === "error" && (
-                        <p className="error-item">
-                          ⚠️{" "}
-                          {summaryTask.result?.errors?.join("; ") ??
-                            t("status_error")}
-                        </p>
-                      )}
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("prose_summary")}</strong>
+                    </summary>
+                    <MarkdownView text={summaryTask.result.editedText} />
+                    <div className="export-buttons">
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          downloadFile(
+                            summaryTask.result!.editedText,
+                            `${src}.summary.md`,
+                            "text/markdown",
+                          )
+                        }
+                      >
+                        Download Markdown
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          handleDownloadDocx(
+                            summaryTask.result!.editedText,
+                            `${src}.summary.docx`,
+                          )
+                        }
+                      >
+                        Download DOCX
+                      </button>
                     </div>
                   </details>
                 );
-              }
+              })()}
 
-              return (
-                <details className="review-task review-summary-card" open>
-                  <summary className="review-task-summary">
-                    <strong>{t("prose_summary")}</strong>
-                  </summary>
-                  <MarkdownView text={summaryTask.result.editedText} />
-                  <div className="export-buttons">
-                    <button
-                      className="btn-secondary"
-                      onClick={() =>
-                        downloadFile(
-                          summaryTask.result!.editedText,
-                          `${src}.summary.md`,
-                          "text/markdown",
-                        )
-                      }
-                    >
-                      Download Markdown
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() =>
-                        handleDownloadDocx(
-                          summaryTask.result!.editedText,
-                          `${src}.summary.docx`,
-                        )
-                      }
-                    >
-                      Download DOCX
-                    </button>
-                  </div>
-                </details>
-              );
-            })()}
-
-            {/* ── Aggregated analysis sections (one per analysis mode) ── */}
-            {(() => {
-              const analysisByMode = new Map<string, TaskState[]>();
-              for (const [, task] of entries) {
-                if (isAnalysisMode(task.mode) && task.result?.structuredData) {
-                  const arr = analysisByMode.get(task.mode) ?? [];
-                  arr.push(task);
-                  analysisByMode.set(task.mode, arr);
+              {/* ── Aggregated analysis sections (one per analysis mode) ── */}
+              {(() => {
+                const analysisByMode = new Map<string, TaskState[]>();
+                for (const [, task] of entries) {
+                  if (
+                    isAnalysisMode(task.mode) &&
+                    task.result?.structuredData
+                  ) {
+                    const arr = analysisByMode.get(task.mode) ?? [];
+                    arr.push(task);
+                    analysisByMode.set(task.mode, arr);
+                  }
                 }
-              }
-              if (analysisByMode.size === 0) return null;
-              const hasSummary = entries.some(
-                ([, t]) => t.mode === "analysis_summary",
-              );
-              return (
-                <details className="review-task" open={!hasSummary}>
-                  <summary className="review-task-summary">
-                    {t("detailed_analysis_data")}
-                  </summary>
-                  {Array.from(analysisByMode.entries()).map(
-                    ([mode, modeTasks]) => {
-                      const merged = aggregateAnalysisTasks(modeTasks);
-                      const modeLabel = t(`mode_${mode}`);
-                      return (
-                        <details key={`agg-${mode}`} className="review-task">
-                          <summary className="review-task-summary">
-                            {modeLabel} — {t("aggregated_summary")} (
-                            {modeTasks.length}{" "}
-                            {modeTasks.length === 1 ? "chapter" : "chapters"})
-                          </summary>
-                          {mode === "combined_analysis" ? (
-                            <CombinedAnalysisView data={merged} t={t} />
-                          ) : mode === "character_catalog" ? (
-                            <StructuredDataView
-                              mode="character_catalog"
-                              data={merged}
-                              t={t}
-                            />
-                          ) : mode === "location_catalog" ? (
-                            <StructuredDataView
-                              mode="location_catalog"
-                              data={merged}
-                              t={t}
-                            />
-                          ) : (
-                            <StructuredDataView
-                              mode="timeline"
-                              data={merged}
-                              t={t}
-                            />
-                          )}
-                          <div className="export-buttons">
-                            <button
-                              className="btn-secondary"
-                              onClick={() =>
-                                downloadFile(
-                                  JSON.stringify(merged, null, 2),
-                                  `${src}.${mode}.merged.json`,
-                                  "application/json",
-                                )
-                              }
-                            >
-                              Download merged JSON
-                            </button>
-                          </div>
-
-                          <details className="review-task">
+                if (analysisByMode.size === 0) return null;
+                const hasSummary = entries.some(
+                  ([, t]) => t.mode === "analysis_summary",
+                );
+                return (
+                  <details className="review-task" open={!hasSummary}>
+                    <summary className="review-task-summary">
+                      {t("detailed_analysis_data")}
+                    </summary>
+                    {Array.from(analysisByMode.entries()).map(
+                      ([mode, modeTasks]) => {
+                        const merged = aggregateAnalysisTasks(modeTasks);
+                        const modeLabel = t(`mode_${mode}`);
+                        return (
+                          <details key={`agg-${mode}`} className="review-task">
                             <summary className="review-task-summary">
-                              {t("per_chapter_breakdown")}
+                              {modeLabel} — {t("aggregated_summary")} (
+                              {modeTasks.length}{" "}
+                              {modeTasks.length === 1 ? "chapter" : "chapters"})
                             </summary>
-                            {modeTasks.map((task) => (
-                              <details
-                                key={`agg-${mode}-${task.id}`}
-                                className="review-task"
+                            {mode === "combined_analysis" ? (
+                              <CombinedAnalysisView data={merged} t={t} />
+                            ) : mode === "character_catalog" ? (
+                              <StructuredDataView
+                                mode="character_catalog"
+                                data={merged}
+                                t={t}
+                              />
+                            ) : mode === "location_catalog" ? (
+                              <StructuredDataView
+                                mode="location_catalog"
+                                data={merged}
+                                t={t}
+                              />
+                            ) : (
+                              <StructuredDataView
+                                mode="timeline"
+                                data={merged}
+                                t={t}
+                              />
+                            )}
+                            <div className="export-buttons">
+                              <button
+                                className="btn-secondary"
+                                onClick={() =>
+                                  downloadFile(
+                                    JSON.stringify(merged, null, 2),
+                                    `${src}.${mode}.merged.json`,
+                                    "application/json",
+                                  )
+                                }
                               >
-                                <summary className="review-task-summary">
-                                  {task.name}
-                                </summary>
-                                {mode === "combined_analysis" ? (
-                                  <CombinedAnalysisView
-                                    data={task.result!.structuredData}
-                                    t={t}
-                                  />
-                                ) : (
-                                  <StructuredDataView
-                                    mode={mode}
-                                    data={task.result!.structuredData}
-                                    t={t}
-                                  />
-                                )}
-                                {task.result!.errors.length > 0 && (
-                                  <div className="error-list">
-                                    {task.result!.errors.map((e, i) => (
-                                      <p key={i} className="error-item">
-                                        ⚠️ {e}
-                                      </p>
-                                    ))}
-                                  </div>
-                                )}
-                              </details>
-                            ))}
+                                Download merged JSON
+                              </button>
+                            </div>
+
+                            <details className="review-task">
+                              <summary className="review-task-summary">
+                                {t("per_chapter_breakdown")}
+                              </summary>
+                              {modeTasks.map((task) => (
+                                <details
+                                  key={`agg-${mode}-${task.id}`}
+                                  className="review-task"
+                                >
+                                  <summary className="review-task-summary">
+                                    {task.name}
+                                  </summary>
+                                  {mode === "combined_analysis" ? (
+                                    <CombinedAnalysisView
+                                      data={task.result!.structuredData}
+                                      t={t}
+                                    />
+                                  ) : (
+                                    <StructuredDataView
+                                      mode={mode}
+                                      data={task.result!.structuredData}
+                                      t={t}
+                                    />
+                                  )}
+                                  {task.result!.errors.length > 0 && (
+                                    <div className="error-list">
+                                      {task.result!.errors.map((e, i) => (
+                                        <p key={i} className="error-item">
+                                          ⚠️ {e}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  )}
+                                </details>
+                              ))}
+                            </details>
                           </details>
-                        </details>
-                      );
-                    },
-                  )}
-                </details>
-              );
-            })()}
+                        );
+                      },
+                    )}
+                  </details>
+                );
+              })()}
 
-            {entries.map(([tid, task]) => {
-              const result = task.result;
+              {entries.map(([tid, task]) => {
+                const result = task.result;
 
-              // Analysis tasks with results are rendered in the aggregated
-              // section above; skip them here.
-              if (isAnalysisMode(task.mode) && result?.structuredData) {
-                return null;
-              }
-              // The synthesis task is rendered as its own primary card above.
-              if (task.mode === "analysis_summary") {
-                return null;
-              }
+                // Analysis tasks with results are rendered in the aggregated
+                // section above; skip them here.
+                if (isAnalysisMode(task.mode) && result?.structuredData) {
+                  return null;
+                }
+                // The synthesis task is rendered as its own primary card above.
+                if (task.mode === "analysis_summary") {
+                  return null;
+                }
 
-              // ── Placeholder for in-progress / errored / cancelled (no result yet) ──
-              if (!result) {
-                const pct = Math.round((task.progress ?? 0) * 100);
+                // ── Placeholder for in-progress / errored / cancelled (no result yet) ──
+                if (!result) {
+                  const pct = Math.round((task.progress ?? 0) * 100);
+                  return (
+                    <details key={tid} className="review-task">
+                      <summary className="review-task-summary">
+                        <span className={`task-status-pill qs-${task.status}`}>
+                          {t(`status_${task.status}`)}
+                        </span>{" "}
+                        {task.name} — {t(`mode_${task.mode}`)}
+                        {formatDuration(task) && (
+                          <span className="task-duration">
+                            {" "}
+                            ({formatDuration(task)})
+                          </span>
+                        )}
+                      </summary>
+                      <div className="task-placeholder">
+                        {task.status === "editing" && (
+                          <>
+                            <div className="q-bar">
+                              <div
+                                className={`q-fill qs-${task.status}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="small-note">
+                              {pct}%{task.phase ? ` — ${task.phase}` : ""}
+                            </p>
+                          </>
+                        )}
+                        {task.status === "error" && (
+                          <>
+                            <p className="error-item">⚠️ {t("status_error")}</p>
+                            <button
+                              type="button"
+                              className="btn-retry"
+                              onClick={() => void handleRetry(tid)}
+                            >
+                              ↻ {t("retry_task")}
+                            </button>
+                          </>
+                        )}
+                        {task.status === "cancelled" && (
+                          <>
+                            <p className="small-note">
+                              {t("status_cancelled")}
+                            </p>
+                            <button
+                              type="button"
+                              className="btn-retry"
+                              onClick={() => void handleRetry(tid)}
+                            >
+                              ↻ {t("retry_task")}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                // ── Edit / translate mode: show corrections ──
+                const accepted = acceptedCorrections[tid] ?? new Set<string>();
+                const corrections = result.corrections;
+                const isTranslation = task.mode === "translate";
+                const hasChanges = isTranslation
+                  ? result.editedText !== result.originalText
+                  : corrections.length > 0;
+                const summary = isTranslation
+                  ? `${task.name} — ${t("mode_translate")}`
+                  : hasChanges
+                    ? `${task.name} — ${corrections.length} correction(s)`
+                    : `${task.name} — ${t("no_changes")}`;
+                const dur = formatDuration(task);
+
                 return (
                   <details key={tid} className="review-task">
                     <summary className="review-task-summary">
-                      <span className={`task-status-pill qs-${task.status}`}>
-                        {t(`status_${task.status}`)}
-                      </span>{" "}
-                      {task.name} — {t(`mode_${task.mode}`)}
-                      {formatDuration(task) && (
-                        <span className="task-duration">
-                          {" "}
-                          ({formatDuration(task)})
+                      {task.status === "error" && (
+                        <span className="task-status-pill qs-error">
+                          {t("status_error")}
                         </span>
+                      )}{" "}
+                      {summary}
+                      {dur && <span className="task-duration"> ({dur})</span>}
+                      {task.status === "error" && (
+                        <button
+                          type="button"
+                          className="btn-retry btn-retry-inline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void handleRetry(tid);
+                          }}
+                        >
+                          ↻ {t("retry_task")}
+                        </button>
                       )}
                     </summary>
-                    <div className="task-placeholder">
-                      {task.status === "editing" && (
-                        <>
-                          <div className="q-bar">
-                            <div
-                              className={`q-fill qs-${task.status}`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                          <p className="small-note">
-                            {pct}%{task.phase ? ` — ${task.phase}` : ""}
-                          </p>
-                        </>
-                      )}
-                      {task.status === "error" && (
-                        <>
-                          <p className="error-item">⚠️ {t("status_error")}</p>
-                          <button
-                            type="button"
-                            className="btn-retry"
-                            onClick={() => void handleRetry(tid)}
-                          >
-                            ↻ {t("retry_task")}
-                          </button>
-                        </>
-                      )}
-                      {task.status === "cancelled" && (
-                        <>
-                          <p className="small-note">{t("status_cancelled")}</p>
-                          <button
-                            type="button"
-                            className="btn-retry"
-                            onClick={() => void handleRetry(tid)}
-                          >
-                            ↻ {t("retry_task")}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </details>
-                );
-              }
 
-              // ── Edit / translate mode: show corrections ──
-              const accepted = acceptedCorrections[tid] ?? new Set<string>();
-              const corrections = result.corrections;
-              const isTranslation = task.mode === "translate";
-              const hasChanges = isTranslation
-                ? result.editedText !== result.originalText
-                : corrections.length > 0;
-              const summary = isTranslation
-                ? `${task.name} — ${t("mode_translate")}`
-                : hasChanges
-                  ? `${task.name} — ${corrections.length} correction(s)`
-                  : `${task.name} — ${t("no_changes")}`;
-              const dur = formatDuration(task);
-
-              return (
-                <details key={tid} className="review-task">
-                  <summary className="review-task-summary">
-                    {task.status === "error" && (
-                      <span className="task-status-pill qs-error">
-                        {t("status_error")}
-                      </span>
-                    )}{" "}
-                    {summary}
-                    {dur && <span className="task-duration"> ({dur})</span>}
-                    {task.status === "error" && (
-                      <button
-                        type="button"
-                        className="btn-retry btn-retry-inline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          void handleRetry(tid);
-                        }}
-                      >
-                        ↻ {t("retry_task")}
-                      </button>
-                    )}
-                  </summary>
-
-                  {isTranslation ? (
-                    /* Translation: show a preview of the translated text */
-                    hasChanges ? (
-                      <pre className="json-preview">
-                        {result.editedText.slice(0, 2000)}
-                        {result.editedText.length > 2000 ? "\n…" : ""}
-                      </pre>
-                    ) : (
+                    {isTranslation ? (
+                      /* Translation: show a preview of the translated text */
+                      hasChanges ? (
+                        <pre className="json-preview">
+                          {result.editedText.slice(0, 2000)}
+                          {result.editedText.length > 2000 ? "\n…" : ""}
+                        </pre>
+                      ) : (
+                        <p className="correction-empty">
+                          {t("no_corrections_unit")}
+                        </p>
+                      )
+                    ) : !hasChanges ? (
                       <p className="correction-empty">
                         {t("no_corrections_unit")}
                       </p>
-                    )
-                  ) : !hasChanges ? (
-                    <p className="correction-empty">
-                      {t("no_corrections_unit")}
-                    </p>
-                  ) : (
-                    <>
-                      <div className="review-actions">
-                        <button
-                          className="btn-small"
-                          onClick={() => acceptAll(tid)}
-                        >
-                          {t("accept_all")}
-                        </button>
-                        <button
-                          className="btn-small"
-                          onClick={() => dismissAll(tid)}
-                        >
-                          {t("dismiss_all")}
-                        </button>
-                        <span className="small-note">
-                          {accepted.size} {t("of")} {corrections.length}{" "}
-                          {t("proposed_changes")}
-                        </span>
-                      </div>
-
-                      {corrections.map((c, i) => (
-                        <CorrectionCard
-                          key={c.id ?? i}
-                          correction={c}
-                          taskId={tid}
-                          accepted={accepted.has(c.id ?? "")}
-                          onToggle={() => toggleCorrection(tid, c.id ?? "")}
-                        />
-                      ))}
-
-                      {result.skipped.length > 0 && (
-                        <div className="skipped-section-wrapper">
-                          <details className="skipped-section">
-                            <summary className="small-note">
-                              {result.skipped.length} {t("skipped_label")}
-                            </summary>
-                            {result.skipped.map((s, i) => (
-                              <div key={i} className="skipped-item">
-                                <span className="word-del">{s.original}</span>
-                                {" → "}
-                                <span className="word-ins">{s.corrected}</span>
-                                {s.reason && (
-                                  <span
-                                    style={{
-                                      fontSize: "0.75rem",
-                                      color: "#8b7355",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                  >
-                                    ({s.reason})
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </details>
-                          <span
-                            className="info-tooltip"
-                            data-tip={t("skipped_tooltip")}
+                    ) : (
+                      <>
+                        <div className="review-actions">
+                          <button
+                            className="btn-small"
+                            onClick={() => acceptAll(tid)}
                           >
-                            ⓘ
+                            {t("accept_all")}
+                          </button>
+                          <button
+                            className="btn-small"
+                            onClick={() => dismissAll(tid)}
+                          >
+                            {t("dismiss_all")}
+                          </button>
+                          <span className="small-note">
+                            {accepted.size} {t("of")} {corrections.length}{" "}
+                            {t("proposed_changes")}
                           </span>
                         </div>
-                      )}
-                    </>
-                  )}
 
-                  {result.errors.length > 0 && (
-                    <div className="error-list">
-                      {result.errors.map((e, i) => (
-                        <p key={i} className="error-item">
-                          ⚠️ {e}
-                        </p>
-                      ))}
+                        {corrections.map((c, i) => (
+                          <CorrectionCard
+                            key={c.id ?? i}
+                            correction={c}
+                            taskId={tid}
+                            accepted={accepted.has(c.id ?? "")}
+                            onToggle={() => toggleCorrection(tid, c.id ?? "")}
+                          />
+                        ))}
+
+                        {result.skipped.length > 0 && (
+                          <div className="skipped-section-wrapper">
+                            <details className="skipped-section">
+                              <summary className="small-note">
+                                {result.skipped.length} {t("skipped_label")}
+                              </summary>
+                              {result.skipped.map((s, i) => (
+                                <div key={i} className="skipped-item">
+                                  <span className="word-del">{s.original}</span>
+                                  {" → "}
+                                  <span className="word-ins">
+                                    {s.corrected}
+                                  </span>
+                                  {s.reason && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.75rem",
+                                        color: "#8b7355",
+                                        marginLeft: "0.5rem",
+                                      }}
+                                    >
+                                      ({s.reason})
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </details>
+                            <span
+                              className="info-tooltip"
+                              data-tip={t("skipped_tooltip")}
+                            >
+                              ⓘ
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {result.errors.length > 0 && (
+                      <div className="error-list">
+                        {result.errors.map((e, i) => (
+                          <p key={i} className="error-item">
+                            ⚠️ {e}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="export-buttons">
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          const text = isTranslation
+                            ? result.editedText
+                            : applyAccepted(
+                                result.originalText,
+                                corrections,
+                                accepted,
+                              );
+                          downloadFile(text, `${task.name}.edited.md`);
+                        }}
+                      >
+                        {t("download_md")}
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          const text = isTranslation
+                            ? result.editedText
+                            : applyAccepted(
+                                result.originalText,
+                                corrections,
+                                accepted,
+                              );
+                          handleDownloadDocx(text, `${task.name}.edited.docx`);
+                        }}
+                      >
+                        {t("download_docx")}
+                      </button>
                     </div>
-                  )}
-
-                  <div className="export-buttons">
-                    <button
-                      className="btn-secondary"
-                      onClick={() => {
-                        const text = isTranslation
-                          ? result.editedText
-                          : applyAccepted(
-                              result.originalText,
-                              corrections,
-                              accepted,
-                            );
-                        downloadFile(text, `${task.name}.edited.md`);
-                      }}
-                    >
-                      {t("download_md")}
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => {
-                        const text = isTranslation
-                          ? result.editedText
-                          : applyAccepted(
-                              result.originalText,
-                              corrections,
-                              accepted,
-                            );
-                        handleDownloadDocx(text, `${task.name}.edited.docx`);
-                      }}
-                    >
-                      {t("download_docx")}
-                    </button>
-                  </div>
-                </details>
-              );
-            })}
-          </details>
-        );
-      })}
-    </section>
+                  </details>
+                );
+              })}
+            </details>
+          );
+        })}
+      </div>
+    </details>
   );
 }

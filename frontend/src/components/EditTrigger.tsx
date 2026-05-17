@@ -94,17 +94,23 @@ export default function EditTrigger() {
   const modeLabel = selectedModes.map((m) => t(`mode_${m}`)).join(" + ");
 
   return (
-    <section className="stage">
-      <div className="section-label">
-        <span className="num">IV.</span>
-        {t("sec_edit")}
-      </div>
-      <button className="btn-primary" disabled={disabled} onClick={handleClick}>
-        {t("btn_add_to_queue")}
-        {units.length > 0 ? ` (${units.length} × ${selectedModes.length})` : ""}
+    <section className="stage edit-trigger-stage">
+      <button className="btn-run" disabled={disabled} onClick={handleClick}>
+        <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+        <span className="btn-run-label">{t("btn_add_to_queue")}</span>
+        {units.length > 0 && (
+          <span className="btn-run-meta">
+            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+            {selectedModes.length}{" "}
+            {selectedModes.length === 1 ? "mode" : "modes"}
+          </span>
+        )}
       </button>
       {selectedModes.length > 1 && (
-        <p className="mode-description" style={{ marginTop: "0.3rem" }}>
+        <p
+          className="mode-description"
+          style={{ marginTop: "0.5rem", textAlign: "center" }}
+        >
           {modeLabel}
         </p>
       )}

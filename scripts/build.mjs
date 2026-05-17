@@ -96,8 +96,7 @@ function electronBuilderFlag(p) {
 function llamaManifestKeys(p) {
   switch (p) {
     case "mac":
-      // Build for both arm64 and x64 on macOS
-      return ["darwin-arm64", "darwin-x64"];
+      return ["darwin-arm64"];
     case "win":
       return ["win32-x64"];
     case "linux":

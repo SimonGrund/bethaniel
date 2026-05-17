@@ -3,23 +3,13 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { fetchModels, fetchModelInfo, fetchSystemRecommendation } from "../api";
-import ModelSetup from "./ModelSetup";
+import { fetchSystemRecommendation } from "../api";
 
-export default function Sidebar({
-  needsModel,
-  onModelInstalled,
-}: {
-  needsModel: boolean;
-  onModelInstalled: () => void;
-}) {
+export default function Sidebar() {
   const {
     lang,
     setLang,
     model,
-    setModel,
-    models,
-    setModels,
     wordsPerChunk,
     setWordsPerChunk,
     overlapParagraphs,
@@ -31,7 +21,6 @@ export default function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoInfo, setAutoInfo] = useState<string | null>(null);
-  const [modelNames, setModelNames] = useState<Record<string, string>>({});
 
   async function autoTuneParallel() {
     setAutoBusy(true);
@@ -48,37 +37,11 @@ export default function Sidebar({
     }
   }
 
-  useEffect(() => {
-    fetchModels()
-      .then(setModels)
-      .catch(() => setModels([]));
-    fetchModelInfo()
-      .then(setModelNames)
-      .catch(() => {});
-  }, []);
-
-  const preferredModels = [
-    "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    "gemma-3n-E4B-it-Q4_K_M.gguf",
-  ];
-  const defaultModel =
-    models.find((m) => preferredModels.includes(m)) ?? models[0] ?? "";
-
-  useEffect(() => {
-    if (models.length > 0 && !models.includes(model)) {
-      setModel(defaultModel);
-    }
-  }, [models]);
-
-  const [showModels, setShowModels] = useState(needsModel);
-
   return (
     <aside className="sidebar">
-      {needsModel && (
-        <div className="sidebar-section model-needed-banner">
-          <p>⚠️ {t("model_needed_banner")}</p>
-        </div>
-      )}
+      <div className="sidebar-logo">
+        <img src="/logo-icon.svg" alt="Bethaniel" />
+      </div>
 
       <div className="sidebar-section">
         <label className="sidebar-label">{t("language")}</label>
@@ -105,19 +68,6 @@ export default function Sidebar({
         >
           {showSettings ? "▾" : "▸"} {t("settings")}
         </button>
-
-        {showSettings && models.length > 0 && (
-          <div className="field">
-            <label>{t("model")}</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {modelNames[m] ?? m}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         {showSettings && (
           <>
@@ -194,26 +144,6 @@ export default function Sidebar({
               )}
             </div>
           </>
-        )}
-      </div>
-
-      <div className="sidebar-section">
-        <button
-          className="expander-toggle"
-          onClick={() => setShowModels(!showModels)}
-        >
-          {showModels ? "▾" : "▸"} {t("model_section_title")}
-          {needsModel && <span className="needs-attention-dot" />}
-        </button>
-
-        {showModels && (
-          <ModelSetup
-            onModelInstalled={() => {
-              onModelInstalled();
-              fetchModels().then(setModels);
-              fetchModelInfo().then(setModelNames);
-            }}
-          />
         )}
       </div>
     </aside>

@@ -212,16 +212,7 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
 
 // ── Style guide ──
 router.get("/style", async (_req: Request, res: Response) => {
-  let content = getStyleGuide();
-  if (content === null) {
-    // Load default from file
-    try {
-      content = await fs.readFile(STYLE_GUIDE_PATH, "utf-8");
-      saveStyleGuide(content);
-    } catch {
-      content = "";
-    }
-  }
+  const content = getStyleGuide() ?? "";
   res.json({ content });
 });
 
@@ -601,10 +592,9 @@ interface ModelCatalogEntry {
 const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "gemma-3n-e4b",
-    tier: "medium",
-    name: "Betty — Medium",
-    description:
-      "Fast, efficient 4B-parameter model. Good for most editing tasks.",
+    tier: "small",
+    name: "Small Betty",
+    description: "Small, handy, and quick. But sometimes I make mistakes.",
     fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
     url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
     sha256: "",
@@ -614,23 +604,39 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   },
   {
     id: "mistral-small-3.2-24b",
-    tier: "large",
-    name: "Betty — Large",
-    description:
-      "High-quality 24B-parameter model. Best results, requires more RAM.",
-    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    url: "https://huggingface.co/bartowski/Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    tier: "normal",
+    name: "Normal Betty",
+    description: "Here you get the beeeeest, of both worlds — Miley Cyrus",
+    fileName: "mistral-small3.2:24b",
+    url: "",
     sha256: "",
-    sizeBytes: 14_400_000_000,
+    sizeBytes: 0,
     minRamGb: 24,
     minRamAppleSiliconGb: 16,
+  },
+  {
+    id: "qwen3.5-35b",
+    tier: "big",
+    name: "Big Betty",
+    description: "Bigger, better. But also, slower.",
+    fileName: "qwen3.5:35b",
+    url: "",
+    sha256: "",
+    sizeBytes: 0,
+    minRamGb: 32,
+    minRamAppleSiliconGb: 24,
   },
 ];
 
 // Track active downloads so we can report progress / prevent duplicates
 const activeDownloads = new Map<
   string,
-  { bytesDownloaded: number; totalBytes: number; status: string }
+  {
+    bytesDownloaded: number;
+    totalBytes: number;
+    status: string;
+    abort: AbortController;
+  }
 >();
 
 function getSocketIO(): SocketServer | null {
@@ -732,14 +738,44 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
   try {
     await fs.mkdir(MODELS_DIR_PATH, { recursive: true });
     const entries = await fs.readdir(MODELS_DIR_PATH);
-    const installed = MODEL_CATALOG.filter((entry) =>
-      entries.includes(entry.fileName),
+
+    // Check GGUF models on disk
+    const installed = MODEL_CATALOG.filter(
+      (entry) =>
+        entry.fileName.endsWith(".gguf") && entries.includes(entry.fileName),
     ).map((entry) => ({
       id: entry.id,
       tier: entry.tier,
       name: entry.name,
       fileName: entry.fileName,
     }));
+
+    // Check Ollama models
+    for (const entry of MODEL_CATALOG) {
+      if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+        try {
+          const showRes = await fetch(
+            `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/show`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: entry.fileName }),
+            },
+          );
+          if (showRes.ok) {
+            installed.push({
+              id: entry.id,
+              tier: entry.tier,
+              name: entry.name,
+              fileName: entry.fileName,
+            });
+          }
+        } catch {
+          // Ollama not running
+        }
+      }
+    }
+
     res.json({ installed });
   } catch {
     res.json({ installed: [] });
@@ -765,6 +801,126 @@ router.post("/models/download", async (req: Request, res: Response) => {
     return;
   }
 
+  // ── Ollama models (no URL, not GGUF) ──
+  if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+    // Check if already pulled
+    try {
+      const showRes = await fetch(
+        `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/show`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: entry.fileName }),
+        },
+      );
+      if (showRes.ok) {
+        res.json({ status: "already_installed", fileName: entry.fileName });
+        return;
+      }
+    } catch {
+      // Ollama not running
+    }
+
+    if (activeDownloads.has(entry.id)) {
+      res.json({ status: "downloading", ...activeDownloads.get(entry.id) });
+      return;
+    }
+
+    const abortCtrl = new AbortController();
+    const progress = {
+      bytesDownloaded: 0,
+      totalBytes: 0,
+      status: "downloading",
+      abort: abortCtrl,
+    };
+    activeDownloads.set(entry.id, progress);
+    res.json({ status: "started", fileName: entry.fileName });
+
+    // Pull via Ollama API (streaming)
+    (async () => {
+      try {
+        const pullRes = await fetch(
+          `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/pull`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: entry.fileName }),
+            signal: abortCtrl.signal,
+          },
+        );
+        if (!pullRes.ok || !pullRes.body) {
+          throw new Error(`Ollama pull failed: HTTP ${pullRes.status}`);
+        }
+
+        const reader = pullRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const obj = JSON.parse(line);
+              if (obj.total) {
+                progress.totalBytes = obj.total;
+                progress.bytesDownloaded = obj.completed ?? 0;
+              }
+              const socketIo = getSocketIO();
+              if (socketIo) {
+                socketIo.emit("model:download", {
+                  modelId: entry.id,
+                  bytesDownloaded: progress.bytesDownloaded,
+                  totalBytes: progress.totalBytes || 1,
+                  percent: progress.totalBytes
+                    ? Math.round(
+                        (progress.bytesDownloaded / progress.totalBytes) * 100,
+                      )
+                    : 0,
+                  status: obj.status === "success" ? "done" : undefined,
+                });
+              }
+            } catch {
+              // ignore parse errors on streaming JSON
+            }
+          }
+        }
+
+        progress.status = "done";
+        const socketIo = getSocketIO();
+        if (socketIo) {
+          socketIo.emit("model:download", {
+            modelId: entry.id,
+            bytesDownloaded: progress.totalBytes,
+            totalBytes: progress.totalBytes,
+            percent: 100,
+            status: "done",
+          });
+        }
+      } catch (err) {
+        progress.status = `error: ${err instanceof Error ? err.message : String(err)}`;
+        const socketIo = getSocketIO();
+        if (socketIo) {
+          socketIo.emit("model:download", {
+            modelId: entry.id,
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } finally {
+        activeDownloads.delete(entry.id);
+      }
+    })();
+    return;
+  }
+
+  // ── GGUF models (HTTP download) ──
+
   // Already downloaded?
   const destPath = join(MODELS_DIR_PATH, entry.fileName);
   try {
@@ -786,10 +942,12 @@ router.post("/models/download", async (req: Request, res: Response) => {
   // Start download in background
   await fs.mkdir(MODELS_DIR_PATH, { recursive: true });
   const partialPath = destPath + ".partial";
+  const abortCtrl = new AbortController();
   const progress = {
     bytesDownloaded: 0,
     totalBytes: entry.sizeBytes,
     status: "downloading",
+    abort: abortCtrl,
   };
   activeDownloads.set(entry.id, progress);
 
@@ -798,7 +956,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
   // Async download
   (async () => {
     try {
-      const response = await fetch(entry.url);
+      const response = await fetch(entry.url, { signal: abortCtrl.signal });
       if (!response.ok || !response.body) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -892,6 +1050,27 @@ router.post("/models/download", async (req: Request, res: Response) => {
   })();
 });
 
+// ── POST /api/models/download/cancel ──
+router.post("/models/download/cancel", (req: Request, res: Response) => {
+  const { modelId } = req.body;
+  const dl = activeDownloads.get(modelId);
+  if (!dl) {
+    res.json({ ok: true, status: "not_downloading" });
+    return;
+  }
+  dl.abort.abort();
+  activeDownloads.delete(modelId);
+
+  const socketIo = getSocketIO();
+  if (socketIo) {
+    socketIo.emit("model:download", {
+      modelId,
+      status: "cancelled",
+    });
+  }
+  res.json({ ok: true, status: "cancelled" });
+});
+
 // ── DELETE /api/models/:fileName ──
 router.delete("/models/:fileName", async (req: Request, res: Response) => {
   const fileName = req.params.fileName;
@@ -901,6 +1080,26 @@ router.delete("/models/:fileName", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Unknown model file" });
     return;
   }
+
+  // Ollama model — delete via API
+  if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+    try {
+      await fetch(
+        `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/delete`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: entry.fileName }),
+        },
+      );
+    } catch {
+      // Ollama not running — ignore
+    }
+    res.json({ ok: true });
+    return;
+  }
+
+  // GGUF model — delete file
   const filePath = join(MODELS_DIR_PATH, fileName);
   try {
     await fs.unlink(filePath);

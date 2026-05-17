@@ -171,10 +171,15 @@ app.whenReady().then(async () => {
   }
 
   // Create the main window
+  const iconPath = IS_DEV
+    ? path.join(__dirname, "..", "build", "icon.png")
+    : path.join(process.resourcesPath, "icon.png");
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 900,
     title: "Bethaniel",
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -213,10 +218,15 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     // macOS dock click — recreate window
     if (mainWindow === null) {
+      const iconPath2 = IS_DEV
+        ? path.join(__dirname, "..", "build", "icon.png")
+        : path.join(process.resourcesPath, "icon.png");
+
       const win = new BrowserWindow({
         width: 1280,
         height: 900,
         title: "Bethaniel",
+        icon: iconPath2,
         webPreferences: {
           preload: path.join(__dirname, "preload.js"),
           contextIsolation: true,

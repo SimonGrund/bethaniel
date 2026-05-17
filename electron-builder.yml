@@ -16,6 +16,8 @@ files:
   - "!**/.git"
 
 extraResources:
+  - from: build/icon.png
+    to: icon.png
   - from: electron/resources/llama/${platform}-${arch}/
     to: llama/${platform}-${arch}/
     filter:
@@ -48,11 +50,9 @@ mac:
     - target: dmg
       arch:
         - arm64
-        - x64
     - target: zip
       arch:
         - arm64
-        - x64
   hardenedRuntime: false
   gatekeeperAssess: false
 

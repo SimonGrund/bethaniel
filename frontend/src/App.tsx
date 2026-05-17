@@ -5,6 +5,7 @@ import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
 import Sidebar from "./components/Sidebar";
+import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
 import ScopeSelection from "./components/ScopeSelection";
@@ -80,9 +81,9 @@ export default function App() {
         className="app-layout"
         style={{ justifyContent: "center", alignItems: "center" }}
       >
-        <div className="masthead">
-          <div className="title">Bethaniel</div>
-          <div className="subtitle">{t("subtitle")}</div>
+        <div className="splash">
+          <img src="/logo-full.svg" alt="Bethaniel" className="splash-logo" />
+          <div className="splash-spinner" />
         </div>
       </div>
     );
@@ -90,30 +91,48 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar
-        needsModel={!modelReady}
-        onModelInstalled={() => setModelReady(true)}
-      />
+      <Sidebar />
       <main className="main-content">
-        <div className="masthead">
-          <div className="title">Bethaniel</div>
-          <div className="subtitle">{t("subtitle")}</div>
-          <div className="rule" />
+        <div className="title-header">
+          <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
         </div>
 
-        <div className="content-layout">
-          <div className="main-col">
-            <ManuscriptUpload />
-            <ScopeSelection />
-            <ModeSelector />
-            <StyleGuideEditor />
-            <EditTrigger />
-            <ReviewExport />
-          </div>
+        <ModelSelector onModelInstalled={() => setModelReady(true)} />
+
+        <ModeSelector />
+
+        <div className="section-label">
+          <span className="num">III.</span> {t("sec_content")}
+        </div>
+
+        <div className="top-row">
+          <ManuscriptUpload />
+          <StyleGuideEditor />
+        </div>
+
+        <ScopeSelection />
+        <EditTrigger />
+
+        <div className="section-label">
+          <span className="num">IV.</span> {t("sec_output")}
+        </div>
+
+        <div className="bottom-row">
           <div className="queue-col">
             <QueuePanel />
           </div>
+          <div className="results-col">
+            <ReviewExport />
+          </div>
         </div>
+
+        <footer className="app-footer">
+          <img src="/logo-icon.svg" alt="" className="footer-logo" />
+          <span className="footer-text">
+            © {new Date().getFullYear()} Bethaniel · v1.0.0 · All rights
+            reserved.
+          </span>
+        </footer>
       </main>
     </div>
   );

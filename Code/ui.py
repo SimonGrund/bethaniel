@@ -138,7 +138,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "status_error":   {"en": "error",                  "da": "fejl"},
     "status_cancelled":{"en": "cancelled",             "da": "annulleret"},
     "clear_done":     {"en": "Clear completed",        "da": "Ryd færdige"},
-    "btn_cancel":     {"en": "Stop queue",             "da": "Stop køen"},
+    "btn_cancel":     {"en": "Cancel",             "da": "Annuller"},
     "add_doc":        {"en": "Add another document",   "da": "Tilføj nyt dokument"},
     "queue_doc_uploader":{"en": "Upload .docx / .md",  "da": "Upload .docx / .md"},
     "n_pending":      {"en": "pending",                "da": "afventer"},

@@ -32,12 +32,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
   style_guide: { en: "Style guide", da: "Stilguide" },
   style_guide_tooltip: {
-    en: "The style guide is sent with every text chunk to the AI editor. Use it to list character names, place names, invented terms, and house-style rules (e.g. British vs American spelling, Oxford comma preference). The more specific you are, the fewer false corrections you'll get.",
-    da: "Stilguiden sendes med hver tekstdel til AI-korrekturlæseren. Brug den til at angive personnavne, stednavne, opfundne termer og stilregler (f.eks. britisk vs. amerikansk stavning, Oxford-komma). Jo mere specifik du er, desto færre falske rettelser får du.",
+    en: "The style guide gives the AI unique knowledge about your manuscript. List character names, place names, invented terms, fictional languages, and any house-style rules specific to your book. The more context you provide, the fewer false corrections you'll get.",
+    da: "Stilguiden giver AI'en unik viden om dit manuskript. Angiv personnavne, stednavne, opfundne termer, fiktive sprog og eventuelle stilregler, der er specifikke for din bog. Jo mere kontekst du giver, desto færre falske rettelser får du.",
   },
   style_guide_tip: {
-    en: "List character names, place names, and house-style rules the editor must respect. The guide is sent with every chunk.",
-    da: "Angiv personnavne, stednavne og stilregler korrekturlæseren skal overholde. Guiden sendes med hver chunk.",
+    en: "Add character names, places, invented terms, and anything unique to your manuscript that the editor should know.",
+    da: "Tilføj personnavne, steder, opfundne termer og alt unikt for dit manuskript, som redaktøren bør kende.",
   },
   upload_style: { en: "Upload style guide", da: "Upload stilguide" },
   style_rules: { en: "Style rules", da: "Stilregler" },
@@ -97,7 +97,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Edited output for failed chunks falls back to the original text. Analysis output may be incomplete. Re-run the affected chapters from the upload screen.",
     da: "Redigeret output for fejlede dele falder tilbage til den oprindelige tekst. Analyseoutput kan være ufuldstændigt. Kør de berørte kapitler igen fra upload-skærmen.",
   },
-  btn_cancel: { en: "Stop queue", da: "Stop køen" },
+  btn_cancel: { en: "Cancel", da: "Annuller" },
   n_pending: { en: "pending", da: "afventer" },
   n_running: { en: "running", da: "kører" },
   n_done: { en: "done", da: "færdige" },
@@ -166,9 +166,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   model_installed: { en: "Installed", da: "Installeret" },
   model_download: { en: "Download", da: "Download" },
   model_delete: { en: "Delete", da: "Slet" },
+  model_cancel_download: { en: "Cancel download", da: "Annullér download" },
+  model_download_warning: {
+    en: "Downloading {name} will use approximately {size} of disk space and internet data. Continue?",
+    da: "{name} fylder ca. {size} og kræver tilsvarende dataforbrug at downloade. Fortsæt?",
+  },
   model_insufficient_ram: {
     en: "Insufficient RAM",
     da: "Utilstrækkelig RAM",
+  },
+  model_recommended: {
+    en: "Recommended",
+    da: "Anbefalet",
   },
   model_continue: {
     en: "Continue to Bethaniel",
@@ -179,8 +188,17 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Ingen modeller installeret. Download én fra den indledende opsætning.",
   },
 
-  // ── Task mode ──
-  sec_mode: { en: "Task mode", da: "Opgavetype" },
+  // ── Section headings ──
+  sec_model: {
+    en: "Choose your Betty",
+    da: "Vælg din Betty",
+  },
+  sec_mode: { en: "How can I help you?", da: "Hvordan kan jeg hjælpe dig?" },
+  sec_content: {
+    en: "Let's have a look at your content",
+    da: "Lad os kigge på dit indhold",
+  },
+  sec_output: { en: "Output", da: "Output" },
   group_editing: { en: "Editing", da: "Redigering" },
   group_analysis: { en: "Analysis", da: "Analyse" },
   group_translate: { en: "Translation", da: "Oversættelse" },
@@ -279,6 +297,28 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   detailed_analysis_data: {
     en: "Detailed analysis data",
     da: "Detaljerede analysedata",
+  },
+
+  // ── Tooltips ──
+  tooltip_manuscript: {
+    en: "Upload your manuscript as a .docx or Markdown file. Bethaniel will split it into chapters automatically. Your file never leaves your computer.",
+    da: "Upload dit manuskript som .docx eller Markdown. Bethaniel opdeler det automatisk i kapitler. Din fil forlader aldrig din computer.",
+  },
+  tooltip_scope: {
+    en: "Choose how much of your manuscript to process — the whole book, specific chapters, or just the first few thousand words for a quick test run.",
+    da: "Vælg hvor meget af dit manuskript der skal behandles — hele bogen, udvalgte kapitler eller blot de første par tusinde ord som en hurtig testkørsel.",
+  },
+  tooltip_mode: {
+    en: "Pick one or more tasks. Copy edit fixes grammar and spelling. Line edit improves prose quality. Analysis extracts characters, locations, or timelines. You can combine multiple tasks in one run.",
+    da: "Vælg én eller flere opgaver. Korrektur retter grammatik og stavning. Stilredigering forbedrer prosastil. Analyse udtrækker personer, steder eller tidslinjer. Du kan kombinere flere opgaver i én kørsel.",
+  },
+  tooltip_queue: {
+    en: "The queue shows all running and completed tasks. Each chapter is processed independently and you can track progress in real time.",
+    da: "Køen viser alle kørende og færdige opgaver. Hvert kapitel behandles uafhængigt, og du kan følge fremskridtet i realtid.",
+  },
+  tooltip_review: {
+    en: "Review the AI's suggestions chapter by chapter. Accept or dismiss individual corrections, then export the edited manuscript as DOCX or Markdown.",
+    da: "Gennemgå AI'ens forslag kapitel for kapitel. Acceptér eller afvis individuelle rettelser, og eksportér derefter det redigerede manuskript som DOCX eller Markdown.",
   },
 };
 
