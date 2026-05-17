@@ -621,7 +621,8 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
     id: "qwen3.5-35b",
     tier: "big",
     name: "Big Betty",
-    description: "Bigger, better. But also, slower.",
+    description:
+      "Bigger, better. But also slower (and might just squish your computer).",
     fileName: "qwen3.5:35b",
     url: "",
     sha256: "",

@@ -83,6 +83,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   status_error: { en: "error", da: "fejl" },
   status_cancelled: { en: "cancelled", da: "annulleret" },
   clear_done: { en: "Clear completed", da: "Ryd færdige" },
+  clear_all: { en: "Clear all", da: "Ryd alt" },
+  view_latest: { en: "View latest results", da: "Vis seneste resultater" },
   clear_warning: {
     en: "This will permanently remove all completed results. Are you sure?",
     da: "Dette vil permanent fjerne alle færdige resultater. Er du sikker?",
@@ -195,6 +197,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Continue to Bethaniel",
     da: "Fortsæt til Bethaniel",
   },
+  model_vip_name: { en: "VIP Betty", da: "VIP Betty" },
+  model_vip_desc: {
+    en: "I run the biggest models on my server — you sit back and relax.",
+    da: "Jeg kører de største modeller på min server — du læner dig bare tilbage.",
+  },
+  model_vip_coming_soon: { en: "Coming soon", da: "Kommer snart" },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
     da: "Ingen modeller installeret. Download én fra den indledende opsætning.",

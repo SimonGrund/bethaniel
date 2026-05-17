@@ -1735,6 +1735,102 @@ h4 {
   --tier-glow: rgba(123, 79, 191, 0.35);
 }
 
+.model-tier-vip {
+  --tier-color: #3b7fff;
+  --tier-bg: #0c0c18;
+  --tier-glow: rgba(40, 100, 255, 0.55);
+}
+
+/* ── VIP locked card ── */
+.model-card-vip-locked {
+  background: radial-gradient(ellipse at 50% 40%, #10102a 0%, #08080f 100%);
+  border: 2px solid #1a3a80;
+  color: #8ab4ff;
+  opacity: 0.82;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+  animation: vip-crackle 3s ease-in-out infinite;
+}
+
+.model-card-vip-locked:hover:not(:disabled) {
+  transform: none;
+}
+
+.model-card-vip-locked .model-card-name {
+  color: #6db0ff;
+  text-shadow: 0 0 6px rgba(60, 140, 255, 0.6);
+}
+
+.model-card-vip-locked .model-card-desc {
+  color: #7a9ac8;
+}
+
+.model-card-vip-locked .model-card-meta {
+  color: #5a7aaa;
+}
+
+.model-card-vip-locked .model-card-status {
+  color: #6db0ff;
+}
+
+.model-card-vip-locked .vip-lock-icon {
+  font-size: 1.3rem;
+  filter: drop-shadow(0 0 4px rgba(60, 160, 255, 0.7));
+}
+
+@keyframes vip-crackle {
+  0% {
+    box-shadow:
+      0 0 6px rgba(30, 80, 255, 0.3),
+      0 0 12px rgba(30, 80, 255, 0.1);
+    border-color: #1a3a80;
+  }
+  15% {
+    box-shadow:
+      0 0 14px rgba(50, 140, 255, 0.6),
+      0 0 28px rgba(50, 140, 255, 0.15);
+    border-color: #2a5abf;
+  }
+  30% {
+    box-shadow:
+      0 0 4px rgba(30, 80, 255, 0.2),
+      0 0 8px rgba(30, 80, 255, 0.05);
+    border-color: #162860;
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(80, 180, 255, 0.7),
+      0 0 36px rgba(80, 180, 255, 0.2),
+      inset 0 0 8px rgba(80, 180, 255, 0.08);
+    border-color: #4090e0;
+  }
+  65% {
+    box-shadow:
+      0 0 5px rgba(30, 80, 255, 0.25),
+      0 0 10px rgba(30, 80, 255, 0.08);
+    border-color: #1a3a80;
+  }
+  80% {
+    box-shadow:
+      0 0 12px rgba(60, 160, 255, 0.5),
+      0 0 24px rgba(60, 160, 255, 0.12);
+    border-color: #3070c0;
+  }
+  100% {
+    box-shadow:
+      0 0 6px rgba(30, 80, 255, 0.3),
+      0 0 12px rgba(30, 80, 255, 0.1);
+    border-color: #1a3a80;
+  }
+}
+
+/* Fade VIP card like siblings when another card is selected */
+.model-selector-cards:has(.model-card-selected) .model-card-vip-locked {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
+
 /* ── Selected (installed + active) ── */
 .model-card-selected.model-card-ready {
   flex: 2;
@@ -2021,6 +2117,7 @@ h4 {
 .review-clear-row {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   padding: 0.5rem 0;
 }
 
