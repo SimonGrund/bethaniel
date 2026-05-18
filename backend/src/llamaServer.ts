@@ -36,6 +36,7 @@ export function isLlamaServerAvailable(): boolean {
 
 let childProcess: ChildProcess | null = null;
 let currentModel: string | null = null;
+let currentCtx: number | null = null;
 let loadPromise: Promise<void> | null = null;
 
 /** Return the currently loaded model file name (or null). */
@@ -124,28 +125,42 @@ function killChild(): Promise<void> {
 // ── Public API ──
 
 /**
- * Ensure the given model file is loaded in llama-server.
- * If a different model is currently loaded, the server is restarted.
+ * Ensure the given model file is loaded in llama-server with the requested
+ * context window size. If the model is already running with the same context,
+ * the call is a no-op. Otherwise the server is restarted.
+ * Pass `numCtxOverride` to request a larger context than the model's default
+ * (e.g. for the final analysis-summary synthesis step).
  * Serialized — concurrent calls wait on the same promise.
  */
-export function ensureModelLoaded(modelFile: string): Promise<void> {
+export function ensureModelLoaded(
+  modelFile: string,
+  numCtxOverride?: number,
+): Promise<void> {
   // Normalize to bare filename
   const file = modelFile.endsWith(".gguf") ? modelFile : modelFile + ".gguf";
 
-  if (currentModel === file && childProcess && !childProcess.killed) {
+  // Determine the context size this call wants.
+  const targetCtx = numCtxOverride ?? readModelConfig(MODELS_DIR, file).num_ctx;
+
+  if (
+    currentModel === file &&
+    currentCtx === targetCtx &&
+    childProcess &&
+    !childProcess.killed
+  ) {
     return Promise.resolve();
   }
 
   if (loadPromise) {
     // Already loading — chain
-    loadPromise = loadPromise.then(() => doLoad(file));
+    loadPromise = loadPromise.then(() => doLoad(file, targetCtx));
   } else {
-    loadPromise = doLoad(file);
+    loadPromise = doLoad(file, targetCtx);
   }
   return loadPromise;
 }
 
-async function doLoad(file: string): Promise<void> {
+async function doLoad(file: string, numCtx: number): Promise<void> {
   // Kill existing server if running
   await killChild();
 
@@ -156,7 +171,6 @@ async function doLoad(file: string): Promise<void> {
 
   const ngl = detectNGL();
   const threads = Math.max(1, os.cpus().length - 2);
-  const config = readModelConfig(MODELS_DIR, file);
 
   const args = [
     "-m",
@@ -166,7 +180,7 @@ async function doLoad(file: string): Promise<void> {
     "--port",
     String(LLAMA_PORT),
     "-c",
-    String(config.num_ctx),
+    String(numCtx),
     "-ngl",
     String(ngl),
     "-t",
@@ -210,14 +224,16 @@ async function doLoad(file: string): Promise<void> {
     console.log(`[llama-server] exited with code ${code}`);
     if (currentModel === file) {
       currentModel = null;
+      currentCtx = null;
     }
   });
 
   // Wait for health endpoint (or spawn error)
   await Promise.race([pollHealth(), spawnError]);
   currentModel = file;
+  currentCtx = numCtx;
   loadPromise = null;
-  console.log(`[llama-server] Model loaded: ${file}`);
+  console.log(`[llama-server] Model loaded: ${file} (ctx=${numCtx})`);
 }
 
 /** Unload the current model (kill llama-server). */

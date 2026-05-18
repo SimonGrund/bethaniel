@@ -441,6 +441,23 @@ async function processSynthesisJob(
   const merged = mergeAnalysisParts(partials);
   const payload = JSON.stringify(merged, null, 2);
 
+  // ── Context-window sizing for the synthesis step ──────────────────────────
+  // The merged JSON can be large (all characters + locations + events across
+  // every chapter). Estimate token count (≈ 4 chars per token) and pick the
+  // smallest standard context size that fits the payload + system prompt +
+  // 1 500 output tokens. The llama-server will be restarted with -c <ctx> if
+  // the currently loaded context is smaller.
+  const CTX_STEPS = [8192, 16384, 32768, 65536, 131072];
+  const payloadTokens = Math.ceil(payload.length / 4);
+  const systemTokens = Math.ceil(prompt.length / 4) + 256; // 256 for system preamble
+  const outputTokens = 1500;
+  const totalNeeded = payloadTokens + systemTokens + outputTokens;
+  const requiredCtx =
+    CTX_STEPS.find((c) => c >= totalNeeded) ?? CTX_STEPS[CTX_STEPS.length - 1];
+  console.log(
+    `[Queue] synthesis ctx: payload≈${payloadTokens} + system≈${systemTokens} + out=${outputTokens} → need ${totalNeeded} → using ${requiredCtx}`,
+  );
+
   updateTask(taskId, { phase: "writing prose summary" });
   let acc = "";
   let tokCount = 0;
@@ -457,6 +474,7 @@ async function processSynthesisJob(
         model,
         payload,
         prompt,
+        requiredCtx,
         ac.signal,
       )) {
         acc += tok;

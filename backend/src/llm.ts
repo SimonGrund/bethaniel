@@ -345,6 +345,10 @@ async function* chatStream(
     top_p?: number;
     max_tokens?: number;
     response_format?: { type: string };
+    /** Override the context window size for this request. When set the
+     *  llama-server will be restarted with `-c <numCtxOverride>` if the
+     *  currently running instance was started with a different context size. */
+    numCtxOverride?: number;
   },
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
@@ -360,15 +364,17 @@ async function* chatStream(
     const ollamaOpts: Record<string, unknown> = {
       temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? 0.9,
-      num_ctx: cfg.num_ctx,
+      num_ctx: options.numCtxOverride ?? cfg.num_ctx,
       num_predict: options.max_tokens ?? cfg.num_predict,
     };
     yield* ollamaChatStream(ollamaModel, messages, ollamaOpts, signal);
     return;
   }
 
-  // Ensure the model is loaded in llama-server
-  await ensureModelLoaded(model);
+  // Ensure the model is loaded in llama-server with the required context size.
+  // If numCtxOverride is set and differs from the currently running context,
+  // the server will be restarted automatically.
+  await ensureModelLoaded(model, options.numCtxOverride);
 
   const body: Record<string, unknown> = {
     messages,
@@ -471,11 +477,17 @@ export async function* analyzeStream(
   );
 }
 
-/** Stream a free-text (Markdown) synthesis from a JSON payload. */
+/** Stream a free-text (Markdown) synthesis from a JSON payload.
+ *  `numCtxOverride` allows the caller to request a larger context window for
+ *  this single call (e.g. when the merged analysis JSON exceeds the model's
+ *  default context). The llama-server is restarted with the new size if
+ *  needed and will be restarted back to the default size on the next
+ *  non-overridden call. */
 export async function* synthesizeStream(
   model: string,
   jsonPayload: string,
   systemPrompt: string,
+  numCtxOverride?: number,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
   yield* chatStream(
@@ -484,7 +496,7 @@ export async function* synthesizeStream(
       { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: jsonPayload },
     ],
-    { max_tokens: 1500 },
+    { max_tokens: 1500, numCtxOverride },
     signal,
   );
 }

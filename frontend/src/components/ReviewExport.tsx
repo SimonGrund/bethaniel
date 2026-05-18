@@ -1231,22 +1231,8 @@ export default function ReviewExport() {
                 {older}
               </details>
             )}
-            {(older.length > 0 || jobEntries.length > 0) && (
+            {jobEntries.length > 0 && (
               <div className="review-clear-row">
-                {older.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={() =>
-                      latestRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      })
-                    }
-                  >
-                    {t("view_latest")}
-                  </button>
-                )}
                 <button
                   type="button"
                   className="btn-secondary btn-sm"

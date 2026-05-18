@@ -543,7 +543,6 @@ h4 {
   background: #fdfaf0;
   border: 1px solid #d9c9a8;
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .collapsible-header {
@@ -657,8 +656,9 @@ h4 {
 }
 
 .btn-primary.btn-danger {
-  background: #7f1d1d;
-  border-color: #7f1d1d;
+  background: #e8a020;
+  border-color: #c07010;
+  color: #1a1208;
 }
 
 .btn-secondary {
@@ -887,45 +887,74 @@ h4 {
 }
 
 .review-old-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
   list-style: none;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
   font-size: 0.85rem;
   font-weight: 600;
   color: #8a7d6b;
-  padding: 0.4rem 0;
+  user-select: none;
+}
+.review-old-summary:hover {
+  background: #f5ecd6;
 }
 .review-old-summary::-webkit-details-marker {
   display: none;
 }
 .review-old-summary::before {
-  content: "▸ ";
+  content: "▸";
+  display: inline-block;
+  color: #8b7355;
   transition: transform 0.15s ease;
 }
 .review-old-group[open] > .review-old-summary::before {
-  content: "▾ ";
+  transform: rotate(90deg);
+  content: "▸";
 }
 .review-old-group .review-group {
   opacity: 0.8;
 }
 
 .review-source {
-  font-size: 1.1rem;
-  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 0.5rem;
   cursor: pointer;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.95rem;
   font-weight: 600;
+  color: #4a3f2f;
+  user-select: none;
   list-style: none;
-  padding: 0.4rem 0;
+}
+.review-source:hover {
+  background: #f5ecd6;
 }
 .review-source::-webkit-details-marker {
   display: none;
 }
 .review-source::before {
-  content: "▸ ";
+  content: "▸";
   display: inline-block;
+  color: #8b7355;
   transition: transform 0.15s ease;
 }
 .review-group[open] > .review-source::before {
-  content: "▾ ";
+  transform: rotate(90deg);
+  content: "▸";
 }
 .review-source-meta {
   font-weight: 400;
@@ -2167,6 +2196,41 @@ h4 {
   justify-content: flex-end;
   gap: 0.5rem;
   padding: 0.5rem 0;
+}
+
+/* ── Modal overlay ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 10, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-dialog {
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  padding: 1.5rem 1.75rem;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.modal-dialog p {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  color: #2a2419;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
 }
 
 .btn-sm {

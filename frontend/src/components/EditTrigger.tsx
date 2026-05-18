@@ -28,17 +28,17 @@ export default function EditTrigger() {
   } = useStore();
   const t = useTranslation(lang);
 
-  if (!doc) return null;
-
-  const units = buildUnits(
-    documentMd,
-    doc.chapters,
-    scopeMode,
-    selectedChapters,
-    firstNWords,
-  );
+  const units = doc
+    ? buildUnits(
+        documentMd,
+        doc.chapters,
+        scopeMode,
+        selectedChapters,
+        firstNWords,
+      )
+    : [];
   const disabled =
-    units.length === 0 || selectedModes.length === 0 || submitting;
+    !doc || units.length === 0 || selectedModes.length === 0 || submitting;
 
   // Build combined editOptions from all selected edit modes
   const buildEditOptions = () => {
@@ -53,6 +53,7 @@ export default function EditTrigger() {
   };
 
   const handleClick = async () => {
+    if (!doc) return;
     setSubmitting(true);
     try {
       console.log("[EditTrigger] addToQueue", {
