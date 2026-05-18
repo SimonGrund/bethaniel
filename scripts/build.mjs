@@ -348,7 +348,7 @@ for (const p of platforms) {
   const flag = electronBuilderFlag(p);
   console.log(`\n  Building for ${p}...`);
   run(
-    `node_modules/.bin/electron-builder ${flag} --config electron-builder.yml`,
+    `npx electron-builder ${flag} --config electron-builder.yml`,
   );
 }
 
