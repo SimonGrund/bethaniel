@@ -249,8 +249,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Oversæt teksten til et målsprog.",
   },
   mode_desc_character_catalog: {
-    en: "Extract a catalog of all characters.",
-    da: "Udtræk et katalog over alle personer.",
+    en: "Extract a catalog of all characters, locations, and important events.",
+    da: "Udtræk et katalog over alle personer, steder og vigtige begivenheder.",
   },
   mode_desc_location_catalog: {
     en: "Extract a catalog of all locations.",

@@ -223,12 +223,7 @@ export default function QueuePanel() {
   return (
     <details className="collapsible-panel" open={hasActive || undefined}>
       <summary className="collapsible-header">
-        <span className="collapsible-title">
-          {t("queue_panel")}
-          <span className="info-tooltip" data-tip={t("tooltip_queue")}>
-            ⓘ
-          </span>
-        </span>
+        <span className="collapsible-title">{t("queue_panel")}</span>
         <span className="collapsible-badge">
           {nr > 0 && <span className="badge badge-active">{nr} running</span>}
           {nq > 0 && <span className="badge badge-pending">{nq} pending</span>}

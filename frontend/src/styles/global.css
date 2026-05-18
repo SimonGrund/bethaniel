@@ -547,11 +547,6 @@ h4 {
   overflow: hidden;
 }
 
-/* Lift clip so the ⓘ tooltip can escape on hover */
-.collapsible-panel:has(.info-tooltip:hover) {
-  overflow: visible;
-}
-
 .collapsible-header {
   display: flex;
   align-items: center;
@@ -1184,15 +1179,6 @@ h4 {
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 100;
-}
-
-/* Inside a collapsible header: show below so it stays within the sidebar-queue scroll container */
-.collapsible-header .info-tooltip::after {
-  bottom: auto;
-  top: calc(100% + 6px);
-  left: 0;
-  transform: none;
-  max-width: 220px;
 }
 
 .info-tooltip:hover::after {

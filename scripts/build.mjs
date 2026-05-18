@@ -164,7 +164,10 @@ console.log("\n━━━ Step 3b: Install backend production deps ━━━");
     await fs.rm(savedNm, { recursive: true });
   } catch {}
   try {
-    await fs.rename(destNm, savedNm);
+    await fs.cp(destNm, savedNm, { recursive: true });
+  } catch {}
+  try {
+    await fs.rm(destNm, { recursive: true });
   } catch {}
   await fs.cp(join(tmpDir, "node_modules"), destNm, { recursive: true });
 
