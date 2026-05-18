@@ -16,18 +16,12 @@ jobs:
           - os: macos-14 # Apple Silicon — matches arm64 target
             platform: mac
             artifact_name: Bethaniel-mac
-            artifact_glob: "dist/Bethaniel-*.{dmg,zip}"
-            release_glob: "dist/Bethaniel-*.dmg\ndist/Bethaniel-*.zip"
           - os: windows-latest
             platform: win
             artifact_name: Bethaniel-windows
-            artifact_glob: "dist/Bethaniel-*.exe"
-            release_glob: "dist/Bethaniel-*.exe"
           - os: ubuntu-latest
             platform: linux
             artifact_name: Bethaniel-linux
-            artifact_glob: "dist/Bethaniel-*.{AppImage,deb}"
-            release_glob: "dist/Bethaniel-*.AppImage\ndist/bethaniel_*.deb"
 
     runs-on: ${{ matrix.os }}
 
@@ -49,15 +43,52 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifact
+      - name: Upload artifact (mac)
+        if: matrix.platform == 'mac'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_glob }}
+          path: |
+            dist/Bethaniel-*.dmg
+            dist/Bethaniel-*.zip
           retention-days: 30
 
-      - name: Publish to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Upload artifact (windows)
+        if: matrix.platform == 'win'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/Bethaniel-*.exe
+          retention-days: 30
+
+      - name: Upload artifact (linux)
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/Bethaniel-*.AppImage
+            dist/bethaniel_*.deb
+          retention-days: 30
+
+      - name: Publish to GitHub Release (mac)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'mac'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.release_glob }}
+          files: |
+            dist/Bethaniel-*.dmg
+            dist/Bethaniel-*.zip
+
+      - name: Publish to GitHub Release (windows)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'win'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Bethaniel-*.exe
+
+      - name: Publish to GitHub Release (linux)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Bethaniel-*.AppImage
+            dist/bethaniel_*.deb
