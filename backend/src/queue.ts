@@ -121,7 +121,7 @@ interface JobData {
   fast: boolean;
   wpc: number;
   overlap: number;
-  editOptions?: Record<string, boolean>;
+  editOptions?: Record<string, boolean | string>;
   targetLang?: string;
 }
 

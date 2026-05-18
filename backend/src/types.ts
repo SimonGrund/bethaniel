@@ -28,7 +28,7 @@ export interface CopyEditOptions {
   punctuation: boolean;
   capitalization: boolean;
   duplicateWords: boolean;
-  britishToAmerican: boolean;
+  englishDialect: "american" | "british";
   oxfordComma: boolean;
   dialogueTags: boolean;
 }
@@ -49,7 +49,7 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   punctuation: true,
   capitalization: true,
   duplicateWords: true,
-  britishToAmerican: true,
+  englishDialect: "american",
   oxfordComma: true,
   dialogueTags: false,
 };
@@ -115,7 +115,7 @@ export interface TaskState {
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
-  editOptions?: Record<string, boolean>;
+  editOptions?: Record<string, boolean | string>;
   targetLang?: string;
   model?: string;
   // Stored re-submission spec so a failed task can be re-run without
@@ -135,7 +135,7 @@ export interface TaskRetrySpec {
   fast: boolean;
   wpc: number;
   overlap: number;
-  editOptions?: Record<string, boolean>;
+  editOptions?: Record<string, boolean | string>;
   targetLang?: string;
 }
 

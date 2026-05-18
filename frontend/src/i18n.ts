@@ -197,11 +197,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Continue to Bethaniel",
     da: "Fortsæt til Bethaniel",
   },
-  model_vip_name: { en: "Business Betty", da: "Business Betty" },
-  model_vip_desc: {
-    en: "Business in the front - party in the back. This one is for publishing houses who wish to use Betty for big commercial stuff. Get in touch for licensing details.",
-    da: "Business in the front - party in the back. den her er for forlag, der ønsker at bruge Betty til store kommercielle projekter. Kontakt os for licensdetaljer.",
-  },
   model_vip_coming_soon: { en: "Not Available", da: "Ikke tilgængelig" },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
@@ -271,10 +266,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   opt_punctuation: { en: "Punctuation", da: "Tegnsætning" },
   opt_capitalization: { en: "Capitalization", da: "Store/små bogstaver" },
   opt_duplicateWords: { en: "Duplicate words", da: "Duplikerede ord" },
-  opt_britishToAmerican: {
-    en: "British → American spelling",
-    da: "Britisk → amerikansk stavning",
+  opt_englishDialect: {
+    en: "English dialect",
+    da: "Engelsk dialekt",
   },
+  opt_american: { en: "American", da: "Amerikansk" },
+  opt_british: { en: "British", da: "Britisk" },
   opt_oxfordComma: { en: "Oxford comma", da: "Oxford-komma" },
   opt_dialogueTags: { en: "Dialogue tags", da: "Dialogmarkører" },
   // Line edit options

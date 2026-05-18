@@ -29,7 +29,7 @@ export interface CopyEditOptions {
   punctuation: boolean;
   capitalization: boolean;
   duplicateWords: boolean;
-  britishToAmerican: boolean;
+  englishDialect: "american" | "british";
   oxfordComma: boolean;
   dialogueTags: boolean;
 }
@@ -39,8 +39,8 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   punctuation: true,
   capitalization: true,
   duplicateWords: true,
-  britishToAmerican: false,
-  oxfordComma: false,
+  englishDialect: "american",
+  oxfordComma: true,
   dialogueTags: false,
 };
 

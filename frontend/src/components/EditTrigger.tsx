@@ -112,9 +112,10 @@ export default function EditTrigger() {
         <button className="btn-rent-betty" disabled title="Coming soon">
           <span className="btn-rent-betty-label">Rent-A-Betty</span>
           <span className="btn-rent-betty-sub">
-            COMING SOON. Sometimes, Betty can be a bit overwhelming. Click here
-            to run your job on a secure cloud in exchange for moneyyyy. Lean
-            back, relax, and let Betty handle the rest.
+            Once the coffee budget runs out - or we get enough complaints about
+            Big Bad Betty being too hard to run - we might offer a paid,
+            cloud-based option to run edits without needing a powerful local
+            machine.
           </span>
         </button>
       </div>

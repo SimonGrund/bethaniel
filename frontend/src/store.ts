@@ -38,7 +38,10 @@ interface AppState {
   selectedModes: TaskMode[];
   toggleMode: (m: TaskMode) => void;
   copyEditOptions: CopyEditOptions;
-  setCopyEditOption: (key: keyof CopyEditOptions, val: boolean) => void;
+  setCopyEditOption: <K extends keyof CopyEditOptions>(
+    key: K,
+    val: CopyEditOptions[K],
+  ) => void;
   lineEditOptions: LineEditOptions;
   setLineEditOption: (key: keyof LineEditOptions, val: boolean) => void;
   targetLang: string;

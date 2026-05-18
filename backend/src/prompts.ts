@@ -82,9 +82,13 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
     );
 
   const standards: string[] = [];
-  if (opts.britishToAmerican)
+  if (opts.englishDialect === "american")
     standards.push(
       "- Use AMERICAN ENGLISH spelling: color (not colour), honor (not honour), center (not centre), gray (not grey), realize (not realise), etc. If you find a British spelling, correct it to American.",
+    );
+  if (opts.englishDialect === "british")
+    standards.push(
+      "- Use BRITISH ENGLISH spelling: colour (not color), honour (not honor), centre (not center), grey (not gray), realise (not realize), etc. If you find an American spelling, correct it to British.",
     );
   if (opts.oxfordComma)
     standards.push(
@@ -147,9 +151,12 @@ export function buildCopyEditCorrectionsPrompt(
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (opts.capitalization)
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
-  if (opts.britishToAmerican)
+  if (opts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+  if (opts.englishDialect === "british")
+    p +=
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
   if (opts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (opts.dialogueTags)
@@ -287,9 +294,12 @@ export function buildCombinedEditPrompt(
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (copyOpts.capitalization)
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
-  if (copyOpts.britishToAmerican)
+  if (copyOpts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+  if (copyOpts.englishDialect === "british")
+    p +=
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
   if (copyOpts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (copyOpts.dialogueTags)

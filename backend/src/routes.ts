@@ -333,7 +333,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     for (const currentMode of effectiveModes) {
       // Build system prompt based on mode
       let systemPrompt: string;
-      let taskEditOptions: Record<string, boolean> | undefined;
+      let taskEditOptions: Record<string, boolean | string> | undefined;
 
       switch (currentMode) {
         case "copy_edit": {
@@ -608,8 +608,9 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "mistral-small-3.2-24b",
     tier: "normal",
-    name: "Normal Betty",
-    description: "Here you get the beeeeest, of both worlds — Miley Cyrus",
+    name: "Basic Betty",
+    description:
+      "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
     fileName: "mistral-small3.2:24b",
     url: "",
     sha256: "",
@@ -620,9 +621,9 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "qwen3.5-35b",
     tier: "big",
-    name: "Big Betty",
+    name: "Big Bad Betty",
     description:
-      "Bigger, better. But also slower (and might just squish your computer).",
+      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
     fileName: "qwen3.5:35b",
     url: "",
     sha256: "",

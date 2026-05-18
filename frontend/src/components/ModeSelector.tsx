@@ -19,8 +19,6 @@ const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "punctuation",
   "capitalization",
   "duplicateWords",
-  "britishToAmerican",
-  "oxfordComma",
   "dialogueTags",
 ];
 
@@ -65,9 +63,16 @@ export default function ModeSelector() {
       setOpenCat(null);
     } else {
       setOpenCat(cat);
-      // Auto-enable translate when opening the translation panel
-      if (cat === "translation" && !selectedModes.includes("translate")) {
-        toggleMode("translate");
+      if (cat === "translation") {
+        // Auto-enable translate when opening the translation panel
+        if (!selectedModes.includes("translate")) {
+          toggleMode("translate");
+        }
+      } else {
+        // Remove translate when switching to editing or analysis
+        if (selectedModes.includes("translate")) {
+          toggleMode("translate");
+        }
       }
     }
   }
@@ -182,12 +187,47 @@ export default function ModeSelector() {
                   <label key={key} className="option-check">
                     <input
                       type="checkbox"
-                      checked={copyEditOptions[key]}
+                      checked={copyEditOptions[key] as boolean}
                       onChange={(e) => setCopyEditOption(key, e.target.checked)}
                     />
                     {t(`opt_${key}`)}
                   </label>
                 ))}
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={copyEditOptions.oxfordComma}
+                    onChange={(e) =>
+                      setCopyEditOption("oxfordComma", e.target.checked)
+                    }
+                  />
+                  {t("opt_oxfordComma")}
+                </label>
+              </div>
+              <div className="option-toggle-row">
+                <span className="option-toggle-label">
+                  {t("opt_englishDialect")}
+                </span>
+                <div className="option-toggle-group">
+                  <button
+                    type="button"
+                    className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
+                    onClick={() =>
+                      setCopyEditOption("englishDialect", "american")
+                    }
+                  >
+                    {t("opt_american")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
+                    onClick={() =>
+                      setCopyEditOption("englishDialect", "british")
+                    }
+                  >
+                    {t("opt_british")}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -304,7 +304,7 @@ export default function ModelSelector({
           );
         })}
 
-        {/* Business Betty — placeholder locked card */}
+        {/* Business Betty — placeholder locked card 
         <button
           type="button"
           className="model-card model-tier-vip model-card-vip-locked"
@@ -318,6 +318,7 @@ export default function ModelSelector({
             {t("model_vip_coming_soon")}
           </span>
         </button>
+        */}
       </div>
 
       {confirmEntry && (
