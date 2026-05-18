@@ -51,7 +51,6 @@ asarUnpack:
   - "**/*.node"
 
 mac:
-  identity: null
   category: public.app-category.productivity
   target:
     - target: dmg
@@ -60,8 +59,10 @@ mac:
     - target: zip
       arch:
         - arm64
-  hardenedRuntime: false
+  hardenedRuntime: true
   gatekeeperAssess: false
+  notarize:
+    teamId: NW8MUTPA7V
 
 win:
   target:
