@@ -25,6 +25,76 @@ export async function listModels(): Promise<string[]> {
   }
 }
 
+/** Get on-disk size of a model in bytes (approximates loaded weight RAM). */
+export async function getModelSizeBytes(name: string): Promise<number | null> {
+  try {
+    const client = getClient();
+    const response = await client.list();
+    const match = response.models.find(
+      (m: { name: string; size?: number }) =>
+        m.name === name || m.name.startsWith(name + ":"),
+    );
+    return match?.size ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * List currently loaded models (Ollama's "ps" — models holding RAM right now).
+ */
+export async function listLoadedModels(): Promise<string[]> {
+  try {
+    const client = getClient();
+    // ollama-js exposes `ps()` for the running models endpoint.
+    const resp = await (
+      client as unknown as { ps: () => Promise<{ models: { name: string }[] }> }
+    ).ps();
+    return resp.models?.map((m) => m.name) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Ask Ollama to unload a model from memory immediately by issuing a no-op
+ * generate call with keep_alive=0. Returns true on success.
+ */
+export async function unloadModel(name: string): Promise<boolean> {
+  try {
+    const client = getClient();
+    await client.generate({
+      model: name,
+      prompt: "",
+      keep_alive: 0,
+      options: { num_predict: 0 },
+    });
+    return true;
+  } catch (err) {
+    console.warn(
+      `[Ollama] unload "${name}" failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return false;
+  }
+}
+
+/** Common per-call options. Caps output length so the model can't spin forever. */
+function llmOptions(extra: Record<string, unknown> = {}) {
+  return {
+    temperature: 0.0,
+    top_p: 0.9,
+    num_ctx: 8192,
+    num_predict: 8192,
+    ...extra,
+  };
+}
+
+/** Append `/no_think` to instruct Qwen3 (and similar) to skip reasoning traces. */
+function noThink(systemPrompt: string): string {
+  return systemPrompt + "\n\n/no_think";
+}
+
 /** Streaming edit — yields tokens as the model produces them. */
 export async function* editChunkStream(
   model: string,
@@ -36,10 +106,11 @@ export async function* editChunkStream(
   const stream = await client.chat({
     model,
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: noThink(systemPrompt) },
       { role: "user", content: chunkText },
     ],
-    options: { temperature: 0.1, top_p: 0.9, num_ctx: 16384 },
+    think: false,
+    options: llmOptions({ temperature: 0.1 }),
     stream: true,
   });
 
@@ -61,11 +132,12 @@ export async function* findCorrectionsStream(
   const stream = await client.chat({
     model,
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: noThink(systemPrompt) },
       { role: "user", content: chunkText },
     ],
+    think: false,
     format: "json",
-    options: { temperature: 0.0, top_p: 0.9, num_ctx: 16384 },
+    options: llmOptions(),
     stream: true,
   });
 
@@ -82,6 +154,8 @@ export async function* findCorrectionsStream(
  */
 export function parseCorrectionsJson(raw: string): Correction[] {
   let text = raw.trim();
+  // Strip <think>…</think> blocks (Qwen3 and other reasoning models)
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   // Strip code fences
   if (text.startsWith("```")) {
     text = text.replace(/^```(?:json)?\s*/, "");
@@ -194,7 +268,9 @@ export function applyCorrections(
 
 /**
  * Streaming analysis call — collects JSON output for catalog/timeline modes.
- * Uses a larger context window since analysis covers full chapters.
+ * Map-reduce already keeps each chunk small (~4000 words = ~5500 tokens), so
+ * 8192 ctx + 4096 output is plenty and keeps KV cache modest when
+ * OLLAMA_NUM_PARALLEL is high.
  */
 export async function* analyzeStream(
   model: string,
@@ -206,11 +282,12 @@ export async function* analyzeStream(
   const stream = await client.chat({
     model,
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: noThink(systemPrompt) },
       { role: "user", content: text },
     ],
+    think: false,
     format: "json",
-    options: { temperature: 0.0, top_p: 0.9, num_ctx: 32768 },
+    options: llmOptions({ num_ctx: 8192, num_predict: 4096 }),
     stream: true,
   });
 
@@ -221,9 +298,37 @@ export async function* analyzeStream(
   }
 }
 
-/** Parse a generic JSON response, tolerating code fences. */
+/** Stream a free-text (Markdown) synthesis from a JSON payload. */
+export async function* synthesizeStream(
+  model: string,
+  jsonPayload: string,
+  systemPrompt: string,
+  signal?: AbortSignal,
+): AsyncGenerator<string> {
+  const client = getClient();
+  const stream = await client.chat({
+    model,
+    messages: [
+      { role: "system", content: noThink(systemPrompt) },
+      { role: "user", content: jsonPayload },
+    ],
+    think: false,
+    options: llmOptions({ num_ctx: 8192, num_predict: 1500 }),
+    stream: true,
+  });
+
+  for await (const part of stream) {
+    if (signal?.aborted) break;
+    const token = part.message?.content ?? "";
+    if (token) yield token;
+  }
+}
+
+/** Parse a generic JSON response, tolerating code fences and thinking blocks. */
 export function parseJsonResponse(raw: string): unknown {
   let text = raw.trim();
+  // Strip <think>…</think> blocks (Qwen3 and other reasoning models)
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   if (text.startsWith("```")) {
     text = text.replace(/^```(?:json)?\s*/, "");
     text = text.replace(/\s*```\s*$/, "");

@@ -4,15 +4,15 @@ export type Lang = "en" | "da";
 
 const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   subtitle: {
-    en: "a private copy editor for pre-print",
-    da: "en privat korrekturlæser",
+    en: "- But you can call me Betty",
+    da: " - Men du kan kalde mig Betty",
   },
   settings: { en: "Settings", da: "Indstillinger" },
   language: { en: "Language", da: "Sprog" },
-  model: { en: "Ollama model", da: "Ollama-model" },
+  model: { en: "Local model", da: "Lokal model" },
   model_help: {
-    en: "Could not detect installed models. Type the name manually.",
-    da: "Kunne ikke finde installerede modeller. Indtast navnet manuelt.",
+    en: "No models installed yet. Download one from the setup screen.",
+    da: "Ingen modeller installeret endnu. Download én fra opsætningsskærmen.",
   },
   words_per_chunk: { en: "Words per chunk", da: "Ord pr. chunk" },
   paragraph_overlap: { en: "Paragraph overlap", da: "Paragrafoverlap" },
@@ -64,8 +64,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   btn_add_to_queue: { en: "Add to queue", da: "Tilføj til kø" },
   queue_panel: { en: "Queue", da: "Kø" },
   queue_empty: {
-    en: "Queue is empty — add chapters above.",
-    da: "Køen er tom — tilføj kapitler ovenfor.",
+    en: "Queue is empty.",
+    da: "Køen er tom.",
   },
   status_queued: { en: "queued", da: "i kø" },
   status_editing: { en: "editing", da: "redigerer" },
@@ -73,7 +73,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   status_error: { en: "error", da: "fejl" },
   status_cancelled: { en: "cancelled", da: "annulleret" },
   clear_done: { en: "Clear completed", da: "Ryd færdige" },
-  btn_cancel: { en: "Stop queue", da: "Stop køen" },
+  btn_cancel: { en: "Cancel", da: "Stop køen" },
   add_doc: { en: "Add another document", da: "Tilføj nyt dokument" },
   queue_doc_uploader: { en: "Upload .docx / .md", da: "Upload .docx / .md" },
   n_pending: { en: "pending", da: "afventer" },

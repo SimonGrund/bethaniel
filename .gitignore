@@ -1,3 +1,11 @@
 .aider*
 __pycache__/
 *.pyc
+node_modules/
+dist/
+.build-tmp-backend/
+.build-saved-backend-nm/
+electron/dist/
+electron/resources/llama/
+*.gguf
+*.gguf.partial

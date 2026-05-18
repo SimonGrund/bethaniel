@@ -99,10 +99,22 @@ function wordCount(text: string): number {
 }
 
 export function findChapters(text: string): Chapter[] {
-  for (const pat of CHAPTER_PATTERNS) {
-    // Reset regex state
+  // ── Phase 1: targeted patterns (page-break, ATX heading, chapter-word, special section).
+  // Run all of them and pick the one with the MOST matches. Otherwise a docx
+  // with explicit "Chapter X" headings but only some chapters separated by
+  // page breaks would only report the page-break count (e.g. 26 of 32).
+  const TARGETED_END = 5; // patterns 0..4 (inclusive) are the targeted set
+  type PatternHit = {
+    index: number;
+    groups: string[];
+    full: string;
+  };
+  let bestMatches: PatternHit[] = [];
+
+  for (let pi = 0; pi < TARGETED_END; pi++) {
+    const pat = CHAPTER_PATTERNS[pi];
     pat.lastIndex = 0;
-    const matches: { index: number; groups: string[]; full: string }[] = [];
+    const matches: PatternHit[] = [];
     let m: RegExpExecArray | null;
     while ((m = pat.exec(text)) !== null) {
       if (m[0].trim().length <= 120) {
@@ -113,38 +125,35 @@ export function findChapters(text: string): Chapter[] {
         });
       }
     }
+    const valid =
+      matches.length >= 2 || (matches.length === 1 && matches[0].index > 0);
+    if (valid && matches.length > bestMatches.length) {
+      bestMatches = matches;
+    }
+  }
 
-    if (matches.length >= 2 || (matches.length === 1 && matches[0].index > 0)) {
-      const out: Chapter[] = [];
-      for (let i = 0; i < matches.length; i++) {
-        const start = matches[i].index;
-        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
-        const raw =
-          [...matches[i].groups].reverse().find((g) => g && g.trim()) ??
-          matches[i].full;
+  if (bestMatches.length > 0) {
+    return buildChaptersFromMatches(text, bestMatches);
+  }
 
-        let title: string;
-        if (
-          raw.includes(PAGEBREAK_MARKER) ||
-          matches[i].full.includes(PAGEBREAK_MARKER)
-        ) {
-          const sec = text.slice(start + matches[i].full.length, end);
-          const firstLine =
-            sec.split("\n").find((ln) => ln.trim()) ?? `Section ${i + 1}`;
-          title = cleanTitle(firstLine.slice(0, 80));
-        } else {
-          title = cleanTitle(raw);
-        }
-
-        out.push({
-          title,
-          level: 1,
-          start,
-          end,
-          wordCount: wordCount(text.slice(start, end)),
+  // ── Phase 2: looser fallback patterns (all-caps lines, bold, numbered lists).
+  // First-match-wins because these are more likely to over-match.
+  for (let pi = TARGETED_END; pi < CHAPTER_PATTERNS.length; pi++) {
+    const pat = CHAPTER_PATTERNS[pi];
+    pat.lastIndex = 0;
+    const matches: PatternHit[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = pat.exec(text)) !== null) {
+      if (m[0].trim().length <= 120) {
+        matches.push({
+          index: m.index,
+          groups: [...m].slice(1),
+          full: m[0],
         });
       }
-      return out;
+    }
+    if (matches.length >= 2 || (matches.length === 1 && matches[0].index > 0)) {
+      return buildChaptersFromMatches(text, matches);
     }
   }
 
@@ -178,6 +187,42 @@ export function findChapters(text: string): Chapter[] {
   }
 
   return [];
+}
+
+function buildChaptersFromMatches(
+  text: string,
+  matches: { index: number; groups: string[]; full: string }[],
+): Chapter[] {
+  const out: Chapter[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index;
+    const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+    const raw =
+      [...matches[i].groups].reverse().find((g) => g && g.trim()) ??
+      matches[i].full;
+
+    let title: string;
+    if (
+      raw.includes(PAGEBREAK_MARKER) ||
+      matches[i].full.includes(PAGEBREAK_MARKER)
+    ) {
+      const sec = text.slice(start + matches[i].full.length, end);
+      const firstLine =
+        sec.split("\n").find((ln) => ln.trim()) ?? `Section ${i + 1}`;
+      title = cleanTitle(firstLine.slice(0, 80));
+    } else {
+      title = cleanTitle(raw);
+    }
+
+    out.push({
+      title,
+      level: 1,
+      start,
+      end,
+      wordCount: wordCount(text.slice(start, end)),
+    });
+  }
+  return out;
 }
 
 export { PAGEBREAK_MARKER };

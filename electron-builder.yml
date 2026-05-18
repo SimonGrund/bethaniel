@@ -1,0 +1,86 @@
+appId: com.bethaniel.app
+productName: Bethaniel
+copyright: Copyright © 2024–2026 Bethaniel
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - electron/dist/**/*
+  - package.json
+  - "!**/node_modules"
+  - "!**/backend"
+  - "!**/frontend"
+  - "!**/scripts"
+  - "!**/.git"
+
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+  - from: electron/resources/llama/${platform}-${arch}/
+    to: llama/${platform}-${arch}/
+    filter:
+      - "**/*"
+  - from: backend/dist/
+    to: backend/dist/
+    filter:
+      - "**/*"
+  - from: backend/public/
+    to: backend/public/
+    filter:
+      - "**/*"
+  - from: backend/node_modules/
+    to: backend/node_modules/
+    filter:
+      - "**/*"
+  - from: backend/package.json
+    to: backend/package.json
+  - from: modelfile
+    to: modelfile
+
+publish:
+  provider: github
+  owner: SimonGrund
+  repo: bethaniel
+  channel: latest
+  releaseType: release
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+mac:
+  identity: null
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Office

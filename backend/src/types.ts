@@ -6,13 +6,21 @@ export type TaskMode =
   | "translate"
   | "character_catalog"
   | "location_catalog"
-  | "timeline";
+  | "timeline"
+  | "combined_analysis"
+  | "combined_edit"
+  | "analysis_summary";
 
-export const EDIT_MODES: TaskMode[] = ["copy_edit", "line_edit"];
+export const EDIT_MODES: TaskMode[] = [
+  "copy_edit",
+  "line_edit",
+  "combined_edit",
+];
 export const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
   "timeline",
+  "combined_analysis",
 ];
 
 export interface CopyEditOptions {
@@ -20,7 +28,7 @@ export interface CopyEditOptions {
   punctuation: boolean;
   capitalization: boolean;
   duplicateWords: boolean;
-  britishToAmerican: boolean;
+  englishDialect: "american" | "british";
   oxfordComma: boolean;
   dialogueTags: boolean;
 }
@@ -41,7 +49,7 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   punctuation: true,
   capitalization: true,
   duplicateWords: true,
-  britishToAmerican: true,
+  englishDialect: "american",
   oxfordComma: true,
   dialogueTags: false,
 };
@@ -95,6 +103,7 @@ export type TaskStatus = "queued" | "editing" | "done" | "error" | "cancelled";
 
 export interface TaskState {
   id: string;
+  jobId: string;
   status: TaskStatus;
   progress: number;
   phase: string;
@@ -106,6 +115,28 @@ export interface TaskState {
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
+  editOptions?: Record<string, boolean | string>;
+  targetLang?: string;
+  model?: string;
+  // Stored re-submission spec so a failed task can be re-run without
+  // going back to the upload screen. Includes the original chapter text,
+  // model, prompt, chunking params, etc.
+  retrySpec?: TaskRetrySpec;
+}
+
+export interface TaskRetrySpec {
+  name: string;
+  source: string;
+  original: string;
+  wordCount: number;
+  model: string;
+  mode: TaskMode;
+  prompt: string;
+  fast: boolean;
+  wpc: number;
+  overlap: number;
+  editOptions?: Record<string, boolean | string>;
+  targetLang?: string;
 }
 
 export interface EditUnit {
@@ -117,7 +148,7 @@ export interface QueueAddRequest {
   docId: string;
   units: EditUnit[];
   model: string;
-  mode: TaskMode;
+  modes: TaskMode[];
   fast: boolean;
   wordsPerChunk: number;
   overlapParagraphs: number;

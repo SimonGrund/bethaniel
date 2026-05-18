@@ -1,23 +1,39 @@
 // ── App shell ──
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
 import Sidebar from "./components/Sidebar";
+import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
 import ScopeSelection from "./components/ScopeSelection";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
-import QueuePanel from "./components/QueuePanel";
-import type { TaskState } from "./types";
+import type { TaskState, Lang } from "./types";
 import "./styles/global.css";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 export default function App() {
-  const { lang, setTasks, tasks } = useStore();
+  const { lang, setLang, setTasks, tasks } = useStore();
   const t = useTranslation(lang);
+  const [modelReady, setModelReady] = useState<boolean | null>(null);
+
+  // Check if a model is installed
+  useEffect(() => {
+    fetch(`${BASE}/api/models/installed`)
+      .then((r) => r.json())
+      .then((data) => {
+        setModelReady((data.installed ?? []).length > 0);
+      })
+      .catch(() => {
+        // If endpoint doesn't exist (dev/Ollama mode), skip the gate
+        setModelReady(true);
+      });
+  }, []);
 
   // Socket.IO connection for real-time queue updates
   useEffect(() => {
@@ -57,29 +73,73 @@ export default function App() {
     }
   }, [tasks]);
 
+  // Loading state
+  if (modelReady === null) {
+    return (
+      <div
+        className="app-layout"
+        style={{ justifyContent: "center", alignItems: "center" }}
+      >
+        <div className="splash">
+          <img src="/logo-full.svg" alt="Bethaniel" className="splash-logo" />
+          <div className="splash-spinner" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
-        <div className="masthead">
-          <div className="title">Bethaniel</div>
-          <div className="subtitle">{t("subtitle")}</div>
-          <div className="rule" />
+        <div className="title-header">
+          <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
+          <div className="lang-toggle">
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
+            >
+              <option value="en">English</option>
+              <option value="da">Dansk</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
         </div>
 
-        <div className="content-layout">
-          <div className="main-col">
-            <ManuscriptUpload />
-            <StyleGuideEditor />
-            <ScopeSelection />
-            <ModeSelector />
-            <EditTrigger />
+        <ModelSelector onModelInstalled={() => setModelReady(true)} />
+
+        <ModeSelector />
+
+        <div className="section-label">
+          <span className="num">III.</span> {t("sec_content")}
+        </div>
+
+        <div className="top-row">
+          <ManuscriptUpload />
+          <StyleGuideEditor />
+        </div>
+
+        <ScopeSelection />
+        <EditTrigger />
+
+        <div className="section-label">
+          <span className="num">IV.</span> {t("sec_output")}
+        </div>
+
+        <div className="bottom-row">
+          <div className="results-col">
             <ReviewExport />
           </div>
-          <div className="queue-col">
-            <QueuePanel />
-          </div>
         </div>
+
+        <footer className="app-footer">
+          <img src="/logo-icon.svg" alt="" className="footer-logo" />
+          <span className="footer-text">
+            © {new Date().getFullYear()} Bethaniel · v1.0.0 · All rights
+            reserved.
+          </span>
+        </footer>
       </main>
     </div>
   );

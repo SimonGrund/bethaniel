@@ -82,9 +82,13 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
     );
 
   const standards: string[] = [];
-  if (opts.britishToAmerican)
+  if (opts.englishDialect === "american")
     standards.push(
       "- Use AMERICAN ENGLISH spelling: color (not colour), honor (not honour), center (not centre), gray (not grey), realize (not realise), etc. If you find a British spelling, correct it to American.",
+    );
+  if (opts.englishDialect === "british")
+    standards.push(
+      "- Use BRITISH ENGLISH spelling: colour (not color), honour (not honor), centre (not center), grey (not gray), realise (not realize), etc. If you find an American spelling, correct it to British.",
     );
   if (opts.oxfordComma)
     standards.push(
@@ -147,9 +151,12 @@ export function buildCopyEditCorrectionsPrompt(
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (opts.capitalization)
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
-  if (opts.britishToAmerican)
+  if (opts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+  if (opts.englishDialect === "british")
+    p +=
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
   if (opts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (opts.dialogueTags)
@@ -259,6 +266,66 @@ export function buildLineEditCorrectionsPrompt(
   if (styleGuide)
     p +=
       "\n\nAUTHOR'S STYLE GUIDE — RESPECT THESE:\n" + styleGuide.trim() + "\n";
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMBINED EDIT (copy edit + line edit in one pass)
+// ═══════════════════════════════════════════════════════════════════
+
+export function buildCombinedEditPrompt(
+  copyOpts: CopyEditOptions,
+  lineOpts: LineEditOptions,
+  styleGuide?: string,
+): string {
+  let p = `You are an editor performing TWO passes on a manuscript written in MARKDOWN, in a single combined review:\n`;
+  p += `  1. COPY EDIT — find OBJECTIVE ERRORS (spelling, punctuation, grammar)\n`;
+  p += `  2. LINE EDIT — suggest PROSE IMPROVEMENTS (clarity, rhythm, voice)\n\n`;
+  p += `Return ALL findings — both kinds — as a single JSON list of corrections.\n\n`;
+
+  p += "═══ COPY EDIT — WHAT COUNTS AS AN ERROR ═══\n";
+  if (copyOpts.spelling) p += "- Spelling errors and typos\n";
+  if (copyOpts.duplicateWords)
+    p += '- Duplicated words ("the the", "and and")\n';
+  if (copyOpts.spelling)
+    p +=
+      '- Clearly incorrect word usage in unambiguous context (e.g. "their" vs "there")\n';
+  if (copyOpts.punctuation)
+    p += "- Missing or extra punctuation that is grammatically wrong\n";
+  if (copyOpts.capitalization)
+    p += "- Capitalization errors at sentence starts and on proper nouns\n";
+  if (copyOpts.englishDialect === "american")
+    p +=
+      "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+  if (copyOpts.englishDialect === "british")
+    p +=
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
+  if (copyOpts.oxfordComma)
+    p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
+  if (copyOpts.dialogueTags)
+    p +=
+      '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';
+
+  p += "\n═══ LINE EDIT — WHAT TO SUGGEST IMPROVING ═══\n";
+  p += buildLineEditScope(lineOpts);
+
+  p += `\n\n═══ IMPORTANT CONSTRAINTS ═══
+- Preserve the author's voice — do not flatten distinctive style
+- Keep the same meaning, plot, and character actions
+- Do not add or remove plot-relevant content
+- Preserve intentional dialect, slang, and character voice in dialogue
+- Preserve all proper nouns exactly (unless the style guide says otherwise)
+- For copy edits: when in doubt, do NOT flag it
+- For line edits: only flag passages that genuinely benefit from change`;
+
+  p += MARKDOWN_PRESERVATION_RULES;
+  p += CORRECTIONS_JSON_FORMAT;
+
+  if (styleGuide)
+    p +=
+      "\n\nAUTHOR'S STYLE GUIDE — RESPECT THESE & DO NOT FLAG ANYTHING THAT MATCHES:\n" +
+      styleGuide.trim() +
+      "\n";
   return p;
 }
 
@@ -387,6 +454,116 @@ OUTPUT FORMAT — STRICT JSON ONLY:
 }
 
 Events should be in STORY-CHRONOLOGICAL order (which may differ from chapter order if the story uses flashbacks). Output ONLY the JSON. No commentary.`;
+
+// ═══════════════════════════════════════════════════════════════════
+// COMBINED ANALYSIS (characters + locations + timeline in one pass)
+// ═══════════════════════════════════════════════════════════════════
+
+import type { TaskMode } from "./types.js";
+
+const ANALYSIS_SECTIONS: Record<
+  string,
+  { key: string; instruction: string; schema: string }
+> = {
+  character_catalog: {
+    key: "characters",
+    instruction: `CHARACTER CATALOG — extract ALL characters mentioned.
+For each character provide:
+- name: primary name used most often
+- aliases: other names, nicknames, titles, references (e.g. "the old man", "Captain", "Mom")
+- chapters: which chapters/sections the character appears in
+- physicalDescription: physical traits described. "not described" if none
+- personalityTraits: key personality characteristics
+- role: protagonist, antagonist, mentor, love interest, minor, mentioned-only, etc.
+Include ALL characters, even minor ones mentioned once.`,
+    schema: `"characters": [{"name":"string","aliases":["string"],"chapters":["string"],"physicalDescription":"string","personalityTraits":["string"],"role":"string"}]`,
+  },
+  location_catalog: {
+    key: "locations",
+    instruction: `LOCATION CATALOG — extract ALL locations, settings, and places mentioned.
+For each location provide:
+- name: primary name
+- aliases: other names/descriptions for this place
+- chapters: which chapters/sections it appears in
+- description: physical description as given in text. "not described" if none
+- significance: why this location matters to the story
+Include ALL locations, from major settings to briefly mentioned places.`,
+    schema: `"locations": [{"name":"string","aliases":["string"],"chapters":["string"],"description":"string","significance":"string"}]`,
+  },
+  timeline: {
+    key: "events",
+    instruction: `TIMELINE — extract a chronological timeline of significant events.
+For each event provide:
+- chapter: which chapter/section
+- description: concise description (1-2 sentences)
+- characters: who is involved
+- timeReference: time markers mentioned ("three days later", "that morning", etc.). "unspecified" if none
+Include major plot events, significant decisions, discoveries, relationship changes. Skip routine/minor scene-setting.
+Events should be in STORY-CHRONOLOGICAL order.`,
+    schema: `"events": [{"chapter":"string","description":"string","characters":["string"],"timeReference":"string"}]`,
+  },
+};
+
+export function buildCombinedAnalysisPrompt(analysisModes: TaskMode[]): string {
+  const sections = analysisModes
+    .filter((m) => m in ANALYSIS_SECTIONS)
+    .map((m) => ANALYSIS_SECTIONS[m]);
+
+  if (sections.length === 0) return CHARACTER_CATALOG_PROMPT; // fallback
+
+  const instructions = sections
+    .map((s, i) => `${i + 1}. ${s.instruction}`)
+    .join("\n\n");
+
+  const schemaFields = sections.map((s) => `  ${s.schema}`).join(",\n");
+
+  return `You are a literary analyst. Read the text carefully and perform ALL of the following analyses in a single pass:
+
+${instructions}
+
+Sort characters and locations by importance (most appearances first).
+
+OUTPUT FORMAT — STRICT JSON ONLY:
+{
+${schemaFields}
+}
+
+Output ONLY the JSON object. No commentary, no markdown fences, no preamble.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANALYSIS SUMMARY (prose synthesis from merged per-chapter results)
+// ═══════════════════════════════════════════════════════════════════
+
+export const ANALYSIS_SUMMARY_PROMPT = `You are a literary analyst writing a concise prose synthesis of a manuscript.
+
+You will receive a JSON object containing structured analysis data merged from multiple chapters of a single work. It may include any of:
+- "characters": catalog of named characters with aliases, chapters they appear in, and descriptions
+- "locations": catalog of named places with descriptions
+- "events": chronological timeline of plot events tagged by chapter
+
+Write a SHORT, READABLE prose summary in Markdown (no code fences) with these sections, OMITTING any section whose source data is empty:
+
+## Overview
+A 2–4 sentence elevator pitch that names the protagonist(s), the setting in broad strokes, and the central tension or arc as inferred from the timeline.
+
+## Key Characters
+A bullet list of ONLY the most important characters (those appearing in the most chapters or central to events). For each: name, one-line role/description. Omit minor characters.
+
+## Key Locations
+A bullet list of ONLY the most significant locations (those that recur or anchor major events). One line each. Omit incidental places.
+
+## Story Arc
+A zoomed-out narrative of the timeline in 4–8 sentences of prose. Describe the broad movement of the story (beginning → middle → end) referencing chapters where helpful (e.g. "By Ch3, …"). Do NOT list every event; group related events into beats.
+
+Keep the entire response under ~400 words. Write in clear, present-tense prose. Do not invent details that are not supported by the input JSON.
+
+STRICT OUTPUT RULES — violating these makes the output unusable:
+- Output Markdown only. No JSON, no code fences, no XML/HTML.
+- The response must START directly with the first heading (e.g. "## Overview"). No preamble such as "Here is the summary", "Sure", "Below is…", or any greeting.
+- The response must END with the final sentence of the last section. No closing remarks, no offers of further help, no "Let me know if…", no "Feel free to…", no "I hope this helps", no "This summary should…", no notes about what you did or how to use it.
+- Do not address the reader. Do not refer to yourself, the model, the analysis process, or the input data. Write as if this were a back-cover synopsis.
+- Do not mention that sections were omitted, or that data was missing.`;
 
 // ═══════════════════════════════════════════════════════════════════
 // LEGACY EXPORTS (for backward compatibility)

@@ -12,11 +12,105 @@ import {
   parseCorrectionsJson,
   applyCorrections,
   analyzeStream,
+  synthesizeStream,
   parseJsonResponse,
-} from "./ollama.js";
+  listLoadedModels,
+  unloadModel,
+} from "./llm.js";
+import { mergeAnalysisParts } from "./analysisMerge.js";
+import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
+import {
+  saveTaskState,
+  loadTaskStates,
+  deleteTaskState,
+  deleteTaskStatesIn,
+} from "./db.js";
+
+/**
+ * Force every entry in a parsed analysis result to claim it belongs to
+ * `chapterName`. Models often invent chapter numbers per-chunk; this guarantees
+ * downstream aggregation groups everything under the real chapter.
+ */
+function forceChapterLabel(parsed: unknown, chapterName: string): unknown {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const obj = parsed as Record<string, unknown>;
+
+  const fixNamedList = (key: string) => {
+    const v = obj[key];
+    if (!Array.isArray(v)) return;
+    for (const item of v) {
+      if (item && typeof item === "object") {
+        (item as Record<string, unknown>).chapters = [chapterName];
+        delete (item as Record<string, unknown>).firstMention;
+      }
+    }
+  };
+  fixNamedList("characters");
+  fixNamedList("locations");
+
+  const events = obj.events;
+  if (Array.isArray(events)) {
+    for (const ev of events) {
+      if (ev && typeof ev === "object") {
+        (ev as Record<string, unknown>).chapter = chapterName;
+      }
+    }
+  }
+  return obj;
+}
+
+/**
+ * Strip common AI sign-offs / preambles from a generated prose summary.
+ * The model is also instructed not to produce these, but a regex safety net
+ * keeps stray ones from leaking into the user's document.
+ */
+function stripAiSignoff(text: string): string {
+  let out = text;
+
+  // Strip leading meta-preamble lines until the first heading or content.
+  out = out.replace(
+    /^(?:(?:sure|certainly|of course|here(?:'s| is)|below(?:'s| is)?)[^\n]*\n+)+/i,
+    "",
+  );
+
+  // Iteratively peel off trailing meta-paragraphs.
+  const tailPattern =
+    /\n\s*(?:[-*>]\s*)?(?:_+|\*+)?\s*(?:this (?:summary|analysis|overview|response)|i hope (?:this|that)|hope (?:this|that) helps|let me know|feel free|if you (?:have|need|want|'d)|please (?:let|feel|note)|note(?:[:,]| that)|should you|happy to|do not hesitate|don't hesitate|in conclusion|to (?:summari[sz]e|conclude)|overall,)[^\n]*\.?\s*$/i;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(tailPattern, "").trimEnd();
+  } while (out !== prev);
+
+  return out.trim();
+}
+
+/**
+ * Detect transient network errors that warrant a retry. Ollama drops
+ * connections under load (cold model load races, KV-cache reallocations,
+ * parallel-slot saturation) producing generic "fetch failed" / undici errors.
+ */
+function isTransientFetchError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes("cancelled") || msg.includes("aborted")) return false;
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("econnreset") ||
+    msg.includes("econnrefused") ||
+    msg.includes("socket hang up") ||
+    msg.includes("terminated") ||
+    msg.includes("network") ||
+    msg.includes("eof") ||
+    msg.includes("undici") ||
+    msg.includes("etimedout") ||
+    msg.includes("epipe")
+  );
+}
 
 interface JobData {
   taskId: string;
+  jobId: string;
   name: string;
   source: string;
   original: string;
@@ -27,6 +121,8 @@ interface JobData {
   fast: boolean;
   wpc: number;
   overlap: number;
+  editOptions?: Record<string, boolean | string>;
+  targetLang?: string;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -50,50 +146,180 @@ function updateTask(id: string, update: Partial<TaskState>): void {
   const existing = tasks.get(id);
   if (existing) {
     Object.assign(existing, update);
+    // Persist any task that has reached a terminal state so it survives a restart.
+    if (
+      existing.status === "done" ||
+      existing.status === "error" ||
+      existing.status === "cancelled"
+    ) {
+      try {
+        saveTaskState(existing);
+      } catch (err) {
+        console.warn(`[Queue] failed to persist task ${id}:`, err);
+      }
+    }
     broadcast();
   }
 }
 
-/** Process catalog/timeline analysis — single LLM call, structured JSON output. */
+/**
+ * Throttle progress broadcasts during streaming so the socket doesn't get
+ * flooded. Only updates if value changed by >= 0.5 % or > 250 ms since last
+ * broadcast.
+ */
+const lastProgressBroadcast = new Map<string, { at: number; value: number }>();
+function updateProgress(id: string, value: number): void {
+  const last = lastProgressBroadcast.get(id);
+  const now = Date.now();
+  if (last && now - last.at < 250 && Math.abs(value - last.value) < 0.005) {
+    return;
+  }
+  lastProgressBroadcast.set(id, { at: now, value });
+  updateTask(id, { progress: value });
+}
+
+/** Saturating curve for JSON corrections where output length is unknown. */
+function creepingProgress(tokens: number): number {
+  return 1 - Math.exp(-tokens / 400);
+}
+
+/**
+ * Process catalog/timeline analysis using map-reduce over chunks.
+ * Each chunk is analyzed independently (map), then partial JSONs are merged
+ * by deduplicating characters/locations on name+aliases and concatenating
+ * timeline events (reduce). This lets analysis scale beyond the model's
+ * context window.
+ */
 async function processAnalysisJob(
   job: JobData,
   ac: AbortController,
 ): Promise<void> {
-  const { taskId, original, model, prompt } = job;
+  const {
+    taskId,
+    name: chapterName,
+    original,
+    model,
+    prompt,
+    wpc,
+    overlap,
+  } = job;
 
   updateTask(taskId, {
     status: "editing",
     startedAt: Date.now(),
-    phase: "analyzing",
+    phase: "splitting",
   });
 
-  let acc = "";
-  let tokCount = 0;
+  // Smaller chunks for analysis: 8192 ctx must hold input prompt + system +
+  // JSON output. ~2500 words ≈ 3500 tokens leaves ~4k tokens for output.
+  const analysisTargetWords = Math.min(Math.max(wpc, 2500), 2500);
+  const chunks = splitIntoChunks(original, analysisTargetWords, overlap);
+  const totalChunks = chunks.length;
+  updateTask(taskId, { phase: `0/${totalChunks} chunks` });
+
+  const partialResults: unknown[] = [];
   const errors: string[] = [];
-  let structuredData: unknown = null;
+  let firstParseErrorRaw: string | null = null;
 
-  try {
-    for await (const tok of analyzeStream(model, original, prompt, ac.signal)) {
-      acc += tok;
-      tokCount++;
-      if (tokCount === 1) {
-        updateTask(taskId, { phase: "receiving analysis" });
-      }
-      // Report rough progress based on token count (analysis is one call)
-      if (tokCount % 50 === 0) {
-        updateTask(taskId, { phase: `analyzing (${tokCount} tokens)` });
-      }
+  // Inject the chapter name into the system prompt so the model labels every
+  // entry's `chapter`/`chapters` field with this exact value (instead of
+  // hallucinating "Chapter 1", "Chapter 2"… per chunk).
+  const chapterAwarePrompt =
+    prompt +
+    `\n\nIMPORTANT: The text you are analyzing is from a single chapter named exactly "${chapterName}". For every entry, set the "chapter" field (or include "${chapterName}" in the "chapters" array) to "${chapterName}". Do NOT invent chapter numbers or use any other label.`;
+
+  for (let j = 0; j < chunks.length; j++) {
+    if (ac.signal.aborted) {
+      updateTask(taskId, {
+        status: "cancelled",
+        finishedAt: Date.now(),
+        result: {
+          editedText: "",
+          originalText: original,
+          corrections: [],
+          skipped: [],
+          errors: ["cancelled"],
+          structuredData: mergeAnalysisParts(partialResults),
+        },
+      });
+      abortControllers.delete(taskId);
+      return;
     }
 
-    updateTask(taskId, { phase: "parsing" });
-    structuredData = parseJsonResponse(acc);
-    if (!structuredData) {
-      errors.push("Failed to parse analysis output as JSON");
+    const chunk = chunks[j];
+    const chunkLabel = `${j + 1}/${totalChunks}`;
+    let acc = "";
+    let tokCount = 0;
+
+    try {
+      const MAX_ATTEMPTS = 5;
+      let lastErr: unknown = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (ac.signal.aborted) throw new Error("cancelled");
+        acc = "";
+        tokCount = 0;
+        const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
+        try {
+          updateTask(taskId, {
+            phase: `${phasePrefix}analyzing chunk ${chunkLabel}`,
+          });
+          for await (const tok of analyzeStream(
+            model,
+            `[Chapter: ${chapterName}]\n\n${chunk.body}`,
+            chapterAwarePrompt,
+            ac.signal,
+          )) {
+            acc += tok;
+            tokCount++;
+            if (tokCount === 1) {
+              updateTask(taskId, {
+                phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+              });
+            }
+            const intra = creepingProgress(tokCount);
+            updateProgress(taskId, (j + intra) / totalChunks);
+          }
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
+            throw err;
+          }
+          const waitMs = 750 * attempt;
+          console.warn(
+            `[Queue] analysis chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
+          );
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+      }
+      if (lastErr) throw lastErr;
+
+      const parsed = parseJsonResponse(acc);
+      if (parsed) {
+        partialResults.push(forceChapterLabel(parsed, chapterName));
+      } else {
+        errors.push(`chunk ${chunkLabel}: failed to parse JSON`);
+        if (!firstParseErrorRaw) firstParseErrorRaw = acc.slice(0, 500);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Queue] analysis chunk ${chunkLabel} failed: ${msg}`);
+      errors.push(`chunk ${chunkLabel}: ${msg}`);
     }
-  } catch (err) {
-    errors.push(
-      `analysis: ${err instanceof Error ? err.message : String(err)}`,
-    );
+
+    updateTask(taskId, { progress: (j + 1) / totalChunks });
+  }
+
+  updateTask(taskId, { phase: "merging results" });
+  const merged = mergeAnalysisParts(partialResults);
+  const hasAnyData =
+    Object.keys(merged).length > 0 &&
+    Object.values(merged).some((v) => Array.isArray(v) && v.length > 0);
+
+  if (!hasAnyData && firstParseErrorRaw) {
+    errors.push(`raw output sample: ${firstParseErrorRaw}`);
   }
 
   abortControllers.delete(taskId);
@@ -104,14 +330,191 @@ async function processAnalysisJob(
     corrections: [],
     skipped: [],
     errors,
-    structuredData,
+    structuredData: hasAnyData ? merged : null,
   };
 
+  // If any chunks failed, surface as error (even if we have partial data),
+  // so the user knows to re-run this chapter. The partial data is preserved.
+  const hadChunkFailure = errors.length > 0;
   updateTask(taskId, {
-    status: errors.length > 0 && !structuredData ? "error" : "done",
+    status: hasAnyData && !hadChunkFailure ? "done" : "error",
     progress: 1,
     finishedAt: Date.now(),
     result,
+  });
+
+  // Once all per-chapter analysis tasks of this job are done, spawn a single
+  // prose-summary task synthesising them.
+  if (hasAnyData) {
+    maybeSpawnAnalysisSummary(job);
+  }
+}
+
+/**
+ * If every analysis sibling task in this job is now done (or terminal),
+ * queue an `analysis_summary` synthesis task. No-op if a summary task for
+ * this job already exists or if some siblings are still running.
+ */
+function maybeSpawnAnalysisSummary(finishedJob: JobData): void {
+  const jobId = finishedJob.jobId;
+  const siblings: TaskState[] = [];
+  let alreadyHasSummary = false;
+  for (const t of tasks.values()) {
+    if (t.jobId !== jobId) continue;
+    if (t.mode === "analysis_summary") {
+      alreadyHasSummary = true;
+      break;
+    }
+    if (ANALYSIS_MODES.includes(t.mode)) siblings.push(t);
+  }
+  if (alreadyHasSummary || siblings.length === 0) return;
+
+  const allTerminal = siblings.every((s) =>
+    ["done", "error", "cancelled"].includes(s.status),
+  );
+  if (!allTerminal) return;
+
+  const withData = siblings.filter((s) => s.result?.structuredData);
+  if (withData.length === 0) return;
+
+  void submitTask({
+    jobId,
+    name: "Summary",
+    source: finishedJob.source,
+    original: "",
+    wordCount: 0,
+    model: finishedJob.model,
+    mode: "analysis_summary",
+    prompt: ANALYSIS_SUMMARY_PROMPT,
+    fast: false,
+    wpc: finishedJob.wpc,
+    overlap: 0,
+  }).catch((err) => {
+    console.error("[Queue] failed to spawn analysis_summary:", err);
+  });
+}
+
+/**
+ * Synthesise a prose summary from all completed per-chapter analysis tasks
+ * sharing this job's jobId. Output goes into result.editedText as Markdown.
+ */
+async function processSynthesisJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId, jobId, model, prompt } = job;
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "gathering chapter results",
+  });
+
+  // Collect merged structured data across siblings for this job.
+  const partials: unknown[] = [];
+  for (const t of tasks.values()) {
+    if (
+      t.jobId === jobId &&
+      ANALYSIS_MODES.includes(t.mode) &&
+      t.result?.structuredData
+    ) {
+      partials.push(t.result.structuredData);
+    }
+  }
+
+  if (partials.length === 0) {
+    updateTask(taskId, {
+      status: "error",
+      finishedAt: Date.now(),
+      progress: 1,
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: ["no analysis results available to summarise"],
+      },
+    });
+    abortControllers.delete(taskId);
+    return;
+  }
+
+  const merged = mergeAnalysisParts(partials);
+  const payload = JSON.stringify(merged, null, 2);
+
+  // ── Context-window sizing for the synthesis step ──────────────────────────
+  // The merged JSON can be large (all characters + locations + events across
+  // every chapter). Estimate token count (≈ 4 chars per token) and pick the
+  // smallest standard context size that fits the payload + system prompt +
+  // 1 500 output tokens. The llama-server will be restarted with -c <ctx> if
+  // the currently loaded context is smaller.
+  const CTX_STEPS = [8192, 16384, 32768, 65536, 131072];
+  const payloadTokens = Math.ceil(payload.length / 4);
+  const systemTokens = Math.ceil(prompt.length / 4) + 256; // 256 for system preamble
+  const outputTokens = 1500;
+  const totalNeeded = payloadTokens + systemTokens + outputTokens;
+  const requiredCtx =
+    CTX_STEPS.find((c) => c >= totalNeeded) ?? CTX_STEPS[CTX_STEPS.length - 1];
+  console.log(
+    `[Queue] synthesis ctx: payload≈${payloadTokens} + system≈${systemTokens} + out=${outputTokens} → need ${totalNeeded} → using ${requiredCtx}`,
+  );
+
+  updateTask(taskId, { phase: "writing prose summary" });
+  let acc = "";
+  let tokCount = 0;
+  const errors: string[] = [];
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (ac.signal.aborted) break;
+    acc = "";
+    tokCount = 0;
+    const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
+    try {
+      updateTask(taskId, { phase: `${phasePrefix}writing prose summary` });
+      for await (const tok of synthesizeStream(
+        model,
+        payload,
+        prompt,
+        requiredCtx,
+        ac.signal,
+      )) {
+        acc += tok;
+        tokCount++;
+        if (tokCount === 1)
+          updateTask(taskId, { phase: `${phasePrefix}receiving prose` });
+        updateProgress(taskId, creepingProgress(tokCount));
+      }
+      break; // success
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
+        console.error(`[Queue] synthesis failed: ${msg}`);
+        errors.push(msg);
+        break;
+      }
+      const waitMs = 750 * attempt;
+      console.warn(
+        `[Queue] synthesis attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
+      );
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+
+  abortControllers.delete(taskId);
+
+  const prose = stripAiSignoff(acc.trim());
+  const success = prose.length > 0 && errors.length === 0;
+  updateTask(taskId, {
+    status: success ? "done" : "error",
+    progress: 1,
+    finishedAt: Date.now(),
+    result: {
+      editedText: prose,
+      originalText: payload,
+      corrections: [],
+      skipped: [],
+      errors,
+      structuredData: merged,
+    },
   });
 }
 
@@ -123,6 +526,9 @@ async function processJob(job: JobData): Promise<void> {
   // Analysis modes (catalog / timeline) use a single LLM call, not chunking
   if (ANALYSIS_MODES.includes(mode)) {
     return processAnalysisJob(job, ac);
+  }
+  if (mode === "analysis_summary") {
+    return processSynthesisJob(job, ac);
   }
 
   // Translation always uses rewrite (full text) mode, never fast/JSON corrections
@@ -165,22 +571,77 @@ async function processJob(job: JobData): Promise<void> {
     let tokCount = 0;
 
     try {
-      updateTask(taskId, { phase: `sending chunk ${chunkLabel}` });
+      const MAX_ATTEMPTS = 5;
+      let lastErr: unknown = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (ac.signal.aborted) throw new Error("cancelled");
+        acc = "";
+        tokCount = 0;
+        const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
+        try {
+          updateTask(taskId, {
+            phase: `${phasePrefix}sending chunk ${chunkLabel}`,
+          });
+
+          if (useFast) {
+            for await (const tok of findCorrectionsStream(
+              model,
+              chunk.body,
+              prompt,
+              ac.signal,
+            )) {
+              acc += tok;
+              tokCount++;
+              if (tokCount === 1) {
+                updateTask(taskId, {
+                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+                });
+              }
+              const intra = creepingProgress(tokCount);
+              updateProgress(taskId, (j + intra) / chunks.length);
+            }
+          } else {
+            for await (const tok of editChunkStream(
+              model,
+              chunk.body,
+              prompt,
+              ac.signal,
+            )) {
+              acc += tok;
+              tokCount++;
+              if (tokCount === 1) {
+                updateTask(taskId, {
+                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+                });
+              }
+              const intra = Math.min(
+                0.98,
+                acc.length / Math.max(1, chunk.body.length),
+              );
+              updateProgress(taskId, (j + intra) / chunks.length);
+            }
+          }
+          lastErr = null;
+          break; // success
+        } catch (err) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
+            throw err;
+          }
+          const waitMs = 750 * attempt;
+          console.warn(
+            `[Queue] chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
+          );
+          updateTask(taskId, {
+            phase: `chunk ${chunkLabel} retrying after error`,
+          });
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+      }
+      if (lastErr) throw lastErr;
 
       if (useFast) {
-        for await (const tok of findCorrectionsStream(
-          model,
-          chunk.body,
-          prompt,
-          ac.signal,
-        )) {
-          acc += tok;
-          tokCount++;
-          if (tokCount === 1) {
-            updateTask(taskId, { phase: `receiving chunk ${chunkLabel}` });
-          }
-        }
-
         updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
         const cs = parseCorrectionsJson(acc);
         const [newBody, applied, sk] = applyCorrections(chunk.body, cs);
@@ -201,18 +662,6 @@ async function processJob(job: JobData): Promise<void> {
         );
         pieces.push(core);
       } else {
-        for await (const tok of editChunkStream(
-          model,
-          chunk.body,
-          prompt,
-          ac.signal,
-        )) {
-          acc += tok;
-          tokCount++;
-          if (tokCount === 1) {
-            updateTask(taskId, { phase: `receiving chunk ${chunkLabel}` });
-          }
-        }
         const core = stripOverlapFromResponse(
           acc.trim(),
           chunk.overlapHeadParagraphs,
@@ -239,8 +688,11 @@ async function processJob(job: JobData): Promise<void> {
     errors,
   };
 
+  // If any chunks failed (after retries), the chapter is partially un-edited
+  // (failed chunks fall back to the original text). Surface as error so the
+  // user knows to re-run, while preserving the partial output.
   updateTask(taskId, {
-    status: "done",
+    status: errors.length > 0 ? "error" : "done",
     progress: 1,
     finishedAt: Date.now(),
     result,
@@ -251,6 +703,9 @@ function pump(): void {
   while (active < concurrency && pending.length > 0) {
     const job = pending.shift()!;
     active++;
+    console.log(
+      `[Queue] dispatch "${job.name}" — active=${active}/${concurrency}, pending=${pending.length}`,
+    );
     processJob(job)
       .catch((err) => {
         updateTask(job.taskId, {
@@ -269,8 +724,53 @@ function pump(): void {
       })
       .finally(() => {
         active--;
+        console.log(
+          `[Queue] finished "${job.name}" — active=${active}/${concurrency}, pending=${pending.length}`,
+        );
         pump();
+        // After everything for this job has settled (including any spawned
+        // analysis_summary), unload models if no other jobs are running.
+        scheduleIdleUnload(job.jobId);
       });
+  }
+}
+
+// ── Idle-unload: free model RAM between separate jobs ────────────────────────
+
+let unloadTimer: NodeJS.Timeout | null = null;
+
+/**
+ * After a job's tasks finish, schedule a check: if no jobs are queued or
+ * running anywhere in the system, ask Ollama to unload every loaded model.
+ * Debounced so the synthesis spawn (which arrives moments after siblings
+ * complete) doesn't trip a premature unload.
+ */
+function scheduleIdleUnload(_jobId: string): void {
+  if (unloadTimer) clearTimeout(unloadTimer);
+  unloadTimer = setTimeout(() => {
+    unloadTimer = null;
+    void maybeUnloadIdleModels();
+  }, 2000);
+}
+
+async function maybeUnloadIdleModels(): Promise<void> {
+  // Anything still active? (queued or editing in any job)
+  if (active > 0 || pending.length > 0) return;
+  for (const t of tasks.values()) {
+    if (t.status === "queued" || t.status === "editing") return;
+  }
+
+  try {
+    const loaded = await listLoadedModels();
+    if (loaded.length === 0) return;
+    console.log(
+      `[Queue] no active jobs — unloading ${loaded.length} model(s): ${loaded.join(", ")}`,
+    );
+    for (const name of loaded) {
+      await unloadModel(name);
+    }
+  } catch (err) {
+    console.warn("[Queue] idle unload failed:", err);
   }
 }
 
@@ -279,6 +779,28 @@ function pump(): void {
 export function initQueue(socketIo: SocketServer, conc = 1): void {
   io = socketIo;
   concurrency = Math.max(1, conc);
+  // Hydrate persisted tasks from previous sessions.
+  try {
+    const saved = loadTaskStates();
+    for (const t of saved) {
+      // Only hydrate terminal states; queued/editing tasks from a crashed run
+      // would never resume, so mark them cancelled on load.
+      if (t.status === "queued" || t.status === "editing") {
+        t.status = "cancelled";
+        t.finishedAt = t.finishedAt ?? Date.now();
+      }
+      // Backfill jobId for tasks saved before this field existed.
+      if (!t.jobId) t.jobId = t.id;
+      tasks.set(t.id, t);
+    }
+    if (saved.length > 0) {
+      console.log(
+        `[Queue] hydrated ${saved.length} tasks from previous sessions`,
+      );
+    }
+  } catch (err) {
+    console.warn("[Queue] failed to hydrate tasks:", err);
+  }
 }
 
 export function setConcurrency(n: number): void {
@@ -293,6 +815,7 @@ export async function submitTask(
 
   tasks.set(taskId, {
     id: taskId,
+    jobId: data.jobId,
     status: "queued",
     progress: 0,
     phase: "",
@@ -302,6 +825,23 @@ export async function submitTask(
     wordCount: data.wordCount,
     submittedAt: Date.now(),
     result: null,
+    editOptions: data.editOptions,
+    targetLang: data.targetLang,
+    model: data.model,
+    retrySpec: {
+      name: data.name,
+      source: data.source,
+      original: data.original,
+      wordCount: data.wordCount,
+      model: data.model,
+      mode: data.mode,
+      prompt: data.prompt,
+      fast: data.fast,
+      wpc: data.wpc,
+      overlap: data.overlap,
+      editOptions: data.editOptions,
+      targetLang: data.targetLang,
+    },
   });
 
   pending.push({ taskId, ...data });
@@ -319,12 +859,106 @@ export function cancelAll(): void {
   broadcast();
 }
 
+/**
+ * Cancel a single task by id. If queued, removes from pending. If running,
+ * aborts the stream. If already terminal, no-op.
+ */
+export function cancelTask(id: string): boolean {
+  const task = tasks.get(id);
+  if (!task) return false;
+  if (["done", "error", "cancelled"].includes(task.status)) return false;
+
+  // Remove from pending queue if still waiting
+  const idx = pending.findIndex((j) => j.taskId === id);
+  if (idx !== -1) pending.splice(idx, 1);
+
+  // Abort any in-flight stream
+  const ac = abortControllers.get(id);
+  if (ac) ac.abort();
+
+  updateTask(id, { status: "cancelled", finishedAt: Date.now() });
+  return true;
+}
+
+/**
+ * Re-submit a failed/cancelled task using its stored retrySpec. Removes the
+ * old task entry and creates a new one under the SAME jobId so it groups
+ * back into the original job's review pane. Returns the new taskId, or
+ * throws an Error with a user-facing message if it can't be retried.
+ */
+export async function retryTask(id: string): Promise<string> {
+  const task = tasks.get(id);
+  if (!task) {
+    throw new Error("Task not found.");
+  }
+  if (!["error", "cancelled"].includes(task.status)) {
+    throw new Error(
+      `Task is "${task.status}" — only failed or cancelled tasks can be retried.`,
+    );
+  }
+  if (!task.retrySpec) {
+    throw new Error(
+      "This task was created before retry support was added — its source text was not stored. Re-upload the manuscript and start a new job for this chapter.",
+    );
+  }
+
+  const spec = task.retrySpec;
+  const oldJobId = task.jobId;
+
+  // Drop old entry first so the UI doesn't show two rows for the same chapter.
+  tasks.delete(id);
+  abortControllers.delete(id);
+  try {
+    deleteTaskState(id);
+  } catch {
+    /* ignore */
+  }
+  broadcast();
+
+  const newTaskId = await submitTask({
+    jobId: oldJobId,
+    name: spec.name,
+    source: spec.source,
+    original: spec.original,
+    wordCount: spec.wordCount,
+    model: spec.model,
+    mode: spec.mode,
+    prompt: spec.prompt,
+    fast: spec.fast,
+    wpc: spec.wpc,
+    overlap: spec.overlap,
+    editOptions: spec.editOptions,
+    targetLang: spec.targetLang,
+  });
+  return newTaskId;
+}
+
 export function removeCompleted(): void {
+  const removed: string[] = [];
   for (const [id, state] of tasks) {
     if (["done", "error", "cancelled"].includes(state.status)) {
       tasks.delete(id);
       abortControllers.delete(id);
+      removed.push(id);
     }
+  }
+  if (removed.length > 0) {
+    try {
+      deleteTaskStatesIn(removed);
+    } catch (err) {
+      console.warn("[Queue] failed to delete persisted tasks:", err);
+    }
+  }
+  broadcast();
+}
+
+export function removeTask(id: string): void {
+  tasks.delete(id);
+  abortControllers.delete(id);
+  try {
+    deleteTaskState(id);
+  } catch (err) {
+    console.warn(`[Queue] failed to delete persisted task ${id}:`, err);
   }
   broadcast();
 }

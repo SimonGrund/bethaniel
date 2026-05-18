@@ -3,7 +3,7 @@
 
 import Database from "better-sqlite3";
 import { join } from "path";
-import type { DocumentMeta } from "./types.js";
+import type { DocumentMeta, TaskState } from "./types.js";
 
 const DB_PATH = join(process.env.DATA_DIR ?? "./data", "bethaniel.db");
 
@@ -27,6 +27,13 @@ function getDb(): Database.Database {
         content TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        state TEXT NOT NULL,
+        finished_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_tasks_finished_at
+        ON tasks (finished_at DESC);
     `);
   }
   return db;
@@ -101,6 +108,43 @@ export function getStyleGuide(): string | null {
     .prepare("SELECT content FROM style_guides WHERE id = 'default'")
     .get() as Record<string, unknown> | undefined;
   return row ? (row.content as string) : null;
+}
+
+// ── Task persistence ──
+
+export function saveTaskState(task: TaskState): void {
+  const d = getDb();
+  d.prepare(
+    `INSERT OR REPLACE INTO tasks (id, state, finished_at) VALUES (?, ?, ?)`,
+  ).run(task.id, JSON.stringify(task), task.finishedAt ?? Date.now());
+}
+
+export function loadTaskStates(): TaskState[] {
+  const d = getDb();
+  const rows = d
+    .prepare("SELECT state FROM tasks ORDER BY finished_at DESC")
+    .all() as { state: string }[];
+  const out: TaskState[] = [];
+  for (const r of rows) {
+    try {
+      out.push(JSON.parse(r.state));
+    } catch {
+      // skip corrupt row
+    }
+  }
+  return out;
+}
+
+export function deleteTaskState(id: string): void {
+  const d = getDb();
+  d.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+}
+
+export function deleteTaskStatesIn(ids: string[]): void {
+  if (ids.length === 0) return;
+  const d = getDb();
+  const placeholders = ids.map(() => "?").join(",");
+  d.prepare(`DELETE FROM tasks WHERE id IN (${placeholders})`).run(...ids);
 }
 
 export function closeDb(): void {

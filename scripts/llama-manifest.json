@@ -1,0 +1,32 @@
+{
+  "version": "b5390",
+  "note": "Pin a specific llama.cpp release. Update version + sha256 values when upgrading.",
+  "assets": {
+    "darwin-arm64": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b5390/llama-b5390-bin-macos-arm64.zip",
+      "sha256": "",
+      "binary": "build/bin/llama-server"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b5390/llama-b5390-bin-macos-x64.zip",
+      "sha256": "",
+      "binary": "build/bin/llama-server"
+    },
+    "win32-x64": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b5390/llama-b5390-bin-win-cpu-x64.zip",
+      "sha256": "",
+      "binary": "build/bin/llama-server.exe"
+    },
+    "win32-x64-cuda": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b5390/llama-b5390-bin-win-cuda-cu12.4-x64.zip",
+      "sha256": "",
+      "binary": "build/bin/llama-server.exe",
+      "note": "Downloaded at first launch when CUDA is detected"
+    },
+    "linux-x64": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b5390/llama-b5390-bin-ubuntu-x64.zip",
+      "sha256": "",
+      "binary": "build/bin/llama-server"
+    }
+  }
+}

@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import routes from "./routes.js";
 import { initQueue, closeQueue, getTasksSnapshot } from "./queue.js";
 import { closeDb } from "./db.js";
+import { shutdownLlamaServer } from "./llamaServer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -39,6 +40,7 @@ io.on("connection", (socket) => {
 });
 
 // API
+(routes as any)._io = io;
 app.use("/api", routes);
 
 app.get("/health", (_req, res) => {
@@ -94,6 +96,9 @@ async function shutdown() {
 
   try {
     await closeQueue();
+  } catch {}
+  try {
+    await shutdownLlamaServer();
   } catch {}
   try {
     closeDb();

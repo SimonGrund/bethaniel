@@ -36,6 +36,32 @@ export async function fetchModels(): Promise<string[]> {
   return data.models ?? [];
 }
 
+/** Fetch model display names map (modelId → friendly name). */
+export async function fetchModelInfo(): Promise<Record<string, string>> {
+  const res = await apiFetch("/models");
+  const data = await res.json();
+  return data.modelInfo ?? {};
+}
+
+export interface SystemRecommendation {
+  recommendedParallel: number;
+  totalRamGb: number;
+  freeRamGb: number;
+  usableRamGb: number;
+  cpuCount: number;
+  modelSizeGb: number;
+  modelSource: "measured" | "estimated";
+  kvPerJobGb: number;
+}
+
+export async function fetchSystemRecommendation(
+  model?: string,
+): Promise<SystemRecommendation> {
+  const qs = model ? `?model=${encodeURIComponent(model)}` : "";
+  const res = await apiFetch(`/system/recommend${qs}`);
+  return res.json();
+}
+
 export async function getStyleGuide(): Promise<string> {
   const res = await apiFetch("/style");
   const data = await res.json();
@@ -62,7 +88,7 @@ export async function addToQueue(params: {
   docId: string;
   units: { name: string; original: string }[];
   model: string;
-  mode: string;
+  modes: string[];
   fast: boolean;
   wordsPerChunk: number;
   overlapParagraphs: number;
@@ -70,18 +96,32 @@ export async function addToQueue(params: {
   styleGuide?: string;
   editOptions?: Record<string, boolean> | object;
   targetLang?: string;
-}): Promise<string[]> {
+}): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
   const data = await res.json();
-  return data.taskIds;
+  return {
+    taskIds: data.taskIds ?? [],
+    jobId: data.jobId,
+    warnings: data.warnings ?? [],
+  };
 }
 
 export async function cancelQueue() {
   await apiFetch("/queue/cancel", { method: "DELETE" });
+}
+
+export async function cancelTask(taskId: string) {
+  await apiFetch(`/queue/task/${taskId}`, { method: "DELETE" });
+}
+
+export async function retryTask(taskId: string): Promise<string> {
+  const res = await apiFetch(`/queue/retry/${taskId}`, { method: "POST" });
+  const data = await res.json();
+  return data.taskId as string;
 }
 
 export async function clearQueue() {

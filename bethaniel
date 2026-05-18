@@ -26,13 +26,23 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # ── Ensure Ollama is running ──
+# Start it ourselves with parallel settings so multiple jobs can hit one model
+# concurrently. If Ollama is already running with stricter defaults, we warn.
+OLLAMA_PARALLEL="${OLLAMA_NUM_PARALLEL:-4}"
+OLLAMA_MAX_LOADED="${OLLAMA_MAX_LOADED_MODELS:-1}"
+export OLLAMA_NUM_PARALLEL="$OLLAMA_PARALLEL"
+export OLLAMA_MAX_LOADED_MODELS="$OLLAMA_MAX_LOADED"
+
 if ! curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
-  echo "[*] Starting Ollama..."
-  if command -v brew > /dev/null 2>&1 && brew services list 2>/dev/null | grep -q ollama; then
-    brew services start ollama > /dev/null 2>&1 || true
-  else
-    nohup ollama serve > /tmp/bethaniel-ollama.log 2>&1 &
+  echo "[*] Starting Ollama (OLLAMA_NUM_PARALLEL=$OLLAMA_PARALLEL)..."
+  # brew services uses a plist that ignores env vars — launch directly.
+  if command -v brew > /dev/null 2>&1 && brew services list 2>/dev/null | grep -q "ollama.*started"; then
+    brew services stop ollama > /dev/null 2>&1 || true
+    sleep 1
   fi
+  nohup ollama serve > /tmp/bethaniel-ollama.log 2>&1 &
+  OLLAMA_PID=$!
+  WE_STARTED_OLLAMA=1
   # Wait up to 5s for Ollama
   for i in 1 2 3 4 5; do
     sleep 1
@@ -40,6 +50,19 @@ if ! curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
       break
     fi
   done
+else
+  WE_STARTED_OLLAMA=0
+  # Already running — we can't change its env. Detect and warn.
+  RUNNING_PARALLEL=$(ps -E -p "$(pgrep -x ollama | head -n1)" 2>/dev/null | grep -oE 'OLLAMA_NUM_PARALLEL=[0-9]+' | head -n1 | cut -d= -f2 || true)
+  if [ -z "$RUNNING_PARALLEL" ] || [ "$RUNNING_PARALLEL" -lt "$OLLAMA_PARALLEL" ]; then
+    echo "[!] Ollama is already running but its OLLAMA_NUM_PARALLEL is"
+    echo "    '${RUNNING_PARALLEL:-unknown/default}' (we want $OLLAMA_PARALLEL). Parallel jobs will"
+    echo "    serialize at the Ollama layer. To fix, restart Ollama:"
+    echo "      brew services stop ollama   # if installed via brew"
+    echo "      pkill -x ollama"
+    echo "      OLLAMA_NUM_PARALLEL=$OLLAMA_PARALLEL ollama serve &"
+    echo ""
+  fi
 fi
 
 if curl -s "http://127.0.0.1:11434/api/version" > /dev/null 2>&1; then
@@ -58,6 +81,17 @@ open_browser() {
   esac
 }
 
+# Common shutdown helper — stops Ollama too if we started it.
+stop_ollama_if_ours() {
+  if [ "${WE_STARTED_OLLAMA:-0}" = "1" ]; then
+    echo "[*] Stopping Ollama (started by bethaniel)..."
+    if [ -n "${OLLAMA_PID:-}" ]; then
+      kill "$OLLAMA_PID" 2>/dev/null || true
+    fi
+    pkill -x ollama 2>/dev/null || true
+  fi
+}
+
 if [ "$MODE" = "development" ]; then
   echo "[*] Mode: DEVELOPMENT (Vite HMR)"
   echo "[*] Frontend: http://localhost:5173"
@@ -69,6 +103,7 @@ if [ "$MODE" = "development" ]; then
     trap - INT TERM EXIT
     echo ""
     echo "[*] Stopping..."
+    stop_ollama_if_ours
     # Kill the whole process group; ignore errors
     kill -- -$$ 2>/dev/null || true
     exit 0
@@ -91,6 +126,15 @@ else
     echo "[!] No built frontend found — running install.sh first"
     ./install.sh
   fi
+
+  prod_cleanup() {
+    trap - INT TERM EXIT
+    echo ""
+    echo "[*] Stopping..."
+    stop_ollama_if_ours
+    exit 0
+  }
+  trap prod_cleanup INT TERM EXIT
 
   open_browser &
   cd backend && PORT="$PORT" npm start
