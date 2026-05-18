@@ -95,17 +95,29 @@ export default function EditTrigger() {
 
   return (
     <section className="stage edit-trigger-stage">
-      <button className="btn-run" disabled={disabled} onClick={handleClick}>
-        <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-        <span className="btn-run-label">{t("btn_add_to_queue")}</span>
-        {units.length > 0 && (
-          <span className="btn-run-meta">
-            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
-            {selectedModes.length}{" "}
-            {selectedModes.length === 1 ? "mode" : "modes"}
+      <div className="trigger-buttons-row">
+        <button className="btn-run" disabled={disabled} onClick={handleClick}>
+          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+          <span className="btn-run-label">{t("btn_add_to_queue")}</span>
+          {units.length > 0 && (
+            <span className="btn-run-meta">
+              {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+              {selectedModes.length}{" "}
+              {selectedModes.length === 1 ? "mode" : "modes"}
+            </span>
+          )}
+        </button>
+
+        <button className="btn-rent-betty" disabled title="Coming soon">
+          <span className="btn-rent-betty-label">Rent-A-Betty</span>
+          <span className="btn-rent-betty-sub">
+            COMING SOON. Sometimes, Betty can be a bit overwhelming. Click here
+            to run your job on a secure cloud in exchange for moneyyyy. Lean
+            back, relax, and let Betty handle the rest.
           </span>
-        )}
-      </button>
+        </button>
+      </div>
+
       {selectedModes.length > 1 && (
         <p
           className="mode-description"

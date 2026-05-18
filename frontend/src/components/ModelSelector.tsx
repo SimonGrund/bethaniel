@@ -304,7 +304,7 @@ export default function ModelSelector({
           );
         })}
 
-        {/* VIP Betty — placeholder locked card */}
+        {/* Business Betty — placeholder locked card */}
         <button
           type="button"
           className="model-card model-tier-vip model-card-vip-locked"
@@ -313,7 +313,6 @@ export default function ModelSelector({
         >
           <span className="model-card-name">{t("model_vip_name")}</span>
           <span className="model-card-desc">{t("model_vip_desc")}</span>
-          <span className="model-card-meta">$5 · Cloud</span>
           <span className="model-card-status">
             <span className="vip-lock-icon">🔒</span>
             {t("model_vip_coming_soon")}

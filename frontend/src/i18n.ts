@@ -197,12 +197,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Continue to Bethaniel",
     da: "Fortsæt til Bethaniel",
   },
-  model_vip_name: { en: "VIP Betty", da: "VIP Betty" },
+  model_vip_name: { en: "Business Betty", da: "Business Betty" },
   model_vip_desc: {
-    en: "I run the biggest models on my server — you sit back and relax.",
-    da: "Jeg kører de største modeller på min server — du læner dig bare tilbage.",
+    en: "Business in the front - party in the back. This one is for publishing houses who wish to use Betty for big commercial stuff. Get in touch for licensing details.",
+    da: "Business in the front - party in the back. den her er for forlag, der ønsker at bruge Betty til store kommercielle projekter. Kontakt os for licensdetaljer.",
   },
-  model_vip_coming_soon: { en: "Coming soon", da: "Kommer snart" },
+  model_vip_coming_soon: { en: "Not Available", da: "Ikke tilgængelig" },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
     da: "Ingen modeller installeret. Download én fra den indledende opsætning.",

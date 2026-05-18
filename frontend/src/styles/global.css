@@ -435,6 +435,15 @@ h4 {
   margin: 1.25rem 0;
 }
 
+.trigger-buttons-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .btn-run {
   display: flex;
   flex-direction: column;
@@ -488,6 +497,45 @@ h4 {
   font-size: 0.78rem;
   color: #c9b896;
   font-weight: 400;
+}
+
+/* ── Rent-A-Betty button (golden, coming soon / greyed out) ── */
+.btn-rent-betty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #3d3218 0%, #5c4a1e 100%);
+  color: #d9c87a;
+  border: 2px solid #6b5c2e;
+  border-radius: 12px;
+  padding: 1.25rem 2rem;
+  min-width: 200px;
+  max-width: 280px;
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+  pointer-events: none;
+  transition: none;
+}
+
+.btn-rent-betty-label {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fdfaf0;
+}
+
+.btn-rent-betty-sub {
+  font-size: 0.72rem;
+  color: #d9c9a8;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: center;
+  opacity: 0.9;
 }
 
 /* ── Collapsible panels (queue, results) ── */
