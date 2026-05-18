@@ -76,6 +76,7 @@ nsis:
   deleteAppDataOnUninstall: false
 
 linux:
+  maintainer: hello@bethaniel.com
   target:
     - target: AppImage
       arch:
