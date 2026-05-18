@@ -111,25 +111,32 @@ h4 {
 
 .lang-toggle {
   display: flex;
-  gap: 0.25rem;
 }
 
-.lang-toggle button {
-  flex: 1;
-  padding: 0.3rem 0.5rem;
+.lang-toggle select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.3rem 1.4rem 0.3rem 0.5rem;
   border: 1px solid #d9c9a8;
-  background: #fdfaf0;
+  background: #fdfaf0
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%232a2419'/%3E%3C/svg%3E")
+    no-repeat right 0.5rem center;
   border-radius: 4px;
   font-size: 0.85rem;
   cursor: pointer;
   font-family: inherit;
   color: #2a2419;
+  outline: none;
+  transition: border-color 0.15s;
 }
 
-.lang-toggle button.active {
-  background: #1a140a;
-  color: #f7f1e3;
+.lang-toggle select:hover {
   border-color: #1a140a;
+}
+
+.lang-toggle select:focus {
+  border-color: #1a140a;
+  box-shadow: 0 0 0 1px #1a140a22;
 }
 
 .field {

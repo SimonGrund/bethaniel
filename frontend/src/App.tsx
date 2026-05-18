@@ -12,7 +12,7 @@ import ScopeSelection from "./components/ScopeSelection";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
-import type { TaskState } from "./types";
+import type { TaskState, Lang } from "./types";
 import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -95,18 +95,15 @@ export default function App() {
         <div className="title-header">
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
           <div className="lang-toggle">
-            <button
-              className={lang === "en" ? "active" : ""}
-              onClick={() => setLang("en")}
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
             >
-              English
-            </button>
-            <button
-              className={lang === "da" ? "active" : ""}
-              onClick={() => setLang("da")}
-            >
-              Dansk
-            </button>
+              <option value="en">English</option>
+              <option value="da">Dansk</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+            </select>
           </div>
         </div>
 

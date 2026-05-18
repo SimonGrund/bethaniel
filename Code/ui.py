@@ -130,8 +130,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "btn_add_to_queue":{"en": "Add to queue",          "da": "Tilføj til kø"},
     # Queue panel
     "queue_panel":    {"en": "Queue",                  "da": "Kø"},
-    "queue_empty":    {"en": "Queue is empty — add chapters above.",
-                       "da": "Køen er tom — tilføj kapitler ovenfor."},
+    "queue_empty":    {"en": "Queue is empty.",
+                       "da": "Køen er tom.."},
     "status_queued":  {"en": "queued",                 "da": "i kø"},
     "status_editing": {"en": "editing",                "da": "redigerer"},
     "status_done":    {"en": "done",                   "da": "færdig"},

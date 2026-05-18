@@ -147,7 +147,7 @@ export interface EditUnit {
   original: string;
 }
 
-export type Lang = "en" | "da";
+export type Lang = "en" | "da" | "de" | "es";
 
 export interface ConsistencyReport {
   title: string;
