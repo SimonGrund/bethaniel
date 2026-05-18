@@ -171,6 +171,11 @@ console.log("\n━━━ Step 3b: Install backend production deps ━━━");
   } catch {}
   await fs.cp(join(tmpDir, "node_modules"), destNm, { recursive: true });
 
+  // Remove .bin symlinks — they break codesigning and aren't needed at runtime
+  try {
+    await fs.rm(join(destNm, ".bin"), { recursive: true });
+  } catch {}
+
   // Clean tmp
   try {
     await fs.rm(tmpDir, { recursive: true });
@@ -347,9 +352,7 @@ for (const p of platforms) {
 
   const flag = electronBuilderFlag(p);
   console.log(`\n  Building for ${p}...`);
-  run(
-    `npx electron-builder ${flag} --config electron-builder.yml`,
-  );
+  run(`npx electron-builder ${flag} --config electron-builder.yml`);
 }
 
 // ── Restore dev backend node_modules ──
