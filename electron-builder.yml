@@ -51,6 +51,7 @@ asarUnpack:
   - "**/*.node"
 
 mac:
+  artifactName: Bethaniel-mac.${ext}
   category: public.app-category.productivity
   target:
     - target: dmg
@@ -71,12 +72,14 @@ win:
         - x64
 
 nsis:
+  artifactName: Bethaniel-win.${ext}
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
   deleteAppDataOnUninstall: false
 
 linux:
+  artifactName: Bethaniel-linux.${ext}
   maintainer: hello@bethaniel.com
   target:
     - target: AppImage

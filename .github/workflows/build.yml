@@ -54,8 +54,8 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            dist/Bethaniel-*.dmg
-            dist/Bethaniel-*.zip
+            dist/Bethaniel-mac.dmg
+            dist/Bethaniel-mac.zip
           retention-days: 30
 
       - name: Upload artifact (windows)
@@ -63,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/*.exe
+          path: dist/Bethaniel-win.exe
           retention-days: 30
 
       - name: Upload artifact (linux)
@@ -72,8 +72,8 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            dist/Bethaniel-*.AppImage
-            dist/bethaniel_*.deb
+            dist/Bethaniel-linux.AppImage
+            dist/Bethaniel-linux.deb
           retention-days: 30
 
       - name: Publish to GitHub Release (mac)
@@ -81,14 +81,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Bethaniel-*.dmg
-            dist/Bethaniel-*.zip
+            dist/Bethaniel-mac.dmg
+            dist/Bethaniel-mac.zip
 
       - name: Publish to GitHub Release (windows)
         if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'win'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: dist/Bethaniel-win.exe
 
       - name: Publish to GitHub Release (linux)
         if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux'
