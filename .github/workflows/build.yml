@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14        # Apple Silicon — matches arm64 target
+            platform: mac
+            artifact_name: Bethaniel-mac
+            artifact_glob: "dist/Bethaniel-*.{dmg,zip}"
+            release_glob: "dist/Bethaniel-*.dmg\ndist/Bethaniel-*.zip"
+          - os: windows-latest
+            platform: win
+            artifact_name: Bethaniel-windows
+            artifact_glob: "dist/Bethaniel-*.exe"
+            release_glob: "dist/Bethaniel-*.exe"
+          - os: ubuntu-latest
+            platform: linux
+            artifact_name: Bethaniel-linux
+            artifact_glob: "dist/Bethaniel-*.{AppImage,deb}"
+            release_glob: "dist/Bethaniel-*.AppImage\ndist/bethaniel_*.deb"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Linux packaging deps
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y libarchive-tools rpm
+
+      - name: Build
+        run: npm run dist:${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_glob }}
+          retention-days: 30
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.release_glob }}
