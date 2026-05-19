@@ -204,9 +204,15 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
 
   prepareBinary(LLAMA_BIN);
 
+  // GGML_METAL_PATH_RESOURCES tells llama.cpp where to find ggml-metal.metal
+  const llamaDir = path.dirname(LLAMA_BIN);
+
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      GGML_METAL_PATH_RESOURCES: llamaDir,
+    },
   });
 
   // Handle spawn errors (e.g. binary not found)

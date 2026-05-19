@@ -318,6 +318,28 @@ if (!skipLlama) {
         }
       }
 
+      // macOS/Linux: copy shared libs (.dylib/.so) and Metal shader
+      // from build/bin/ to the same directory as llama-server so
+      // @loader_path resolution works.
+      if (!key.startsWith("win32")) {
+        const buildBinDir = join(destDir, "build", "bin");
+        try {
+          const entries = await fs.readdir(buildBinDir);
+          for (const entry of entries) {
+            if (entry.endsWith(".dylib") || entry.endsWith(".so") || entry.endsWith(".metal")) {
+              const src = join(buildBinDir, entry);
+              const dst = join(destDir, entry);
+              try { await fs.access(dst); } catch {
+                await fs.copyFile(src, dst);
+              }
+            }
+          }
+          console.log(`  ✓ ${key}: shared libs copied to binary dir`);
+        } catch {
+          // build/bin may not exist (e.g. if binary is self-contained)
+        }
+      }
+
       // Clean up zip
       await fs.unlink(zipPath).catch(() => {});
     }

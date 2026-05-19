@@ -50,6 +50,8 @@ asar: true
 asarUnpack:
   - "**/*.node"
 
+afterPack: ./scripts/afterPack.cjs
+
 mac:
   artifactName: Bethaniel-mac.${ext}
   category: public.app-category.productivity
