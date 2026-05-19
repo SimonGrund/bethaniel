@@ -1,12 +1,13 @@
 # 📖 Bethaniel — Private Copy Editor
 
 A fully local, offline-capable AI copy editor for pre-print manuscripts.
-Powered by [Ollama](https://ollama.com/) running entirely on your machine —
+Powered by a bundled [llama.cpp](https://github.com/ggml-org/llama.cpp) inference engine running entirely on your machine —
 no internet, no cloud, no data leaves your computer.
 
 ## Architecture
 
 A single Node.js process serves both the API and the React UI.
+The Electron app bundles `llama-server` for local GGUF model inference.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -19,8 +20,8 @@ A single Node.js process serves both the API and the React UI.
 │  ──> In-memory task queue               │
 │  ──> SQLite (document persistence)      │
 ├─────────────────────────────────────────┤
-│  Ollama (http://127.0.0.1:11434)        │
-│  ──> Local LLM inference                │
+│  llama-server (bundled)                 │
+│  ──> Local LLM inference (GGUF models)  │
 └─────────────────────────────────────────┘
 ```
 
@@ -32,17 +33,10 @@ A single Node.js process serves both the API and the React UI.
 
 This will:
 
-1. Check for Node.js (≥ 20), Pandoc, and Ollama (and offer to install them via Homebrew on macOS)
+1. Check for Node.js (≥ 20) and Pandoc (and offer to install them via Homebrew on macOS)
 2. Install JavaScript dependencies for the frontend and backend
 3. Build the React frontend
 4. Compile the TypeScript backend
-
-After installing, pull an Ollama model (dev mode only — the Electron app
-bundles its own inference engine):
-
-```bash
-ollama pull llama3.1
-```
 
 ## Run
 
@@ -60,10 +54,11 @@ npm run dist:linux    # Linux .AppImage + .deb
 Output lands in `dist/`. The first time you launch, Bethaniel detects your
 hardware and lets you download the right model:
 
-| Tier   | Model                          | Size   | Min RAM                        |
-| ------ | ------------------------------ | ------ | ------------------------------ |
-| Medium | Gemma 3n E4B (Q4_K_M)          | ~3 GB  | 8 GB                           |
-| Large  | Mistral Small 3.2 24B (Q4_K_M) | ~14 GB | 24 GB (16 GB on Apple Silicon) |
+| Tier          | Model                          | Size   | Min RAM                        |
+| ------------- | ------------------------------ | ------ | ------------------------------ |
+| Baby Betty    | Gemma 3n E4B (Q4_K_M)          | ~3 GB  | 8 GB                           |
+| Basic Betty   | Mistral Small 3.2 24B (Q4_K_M) | ~14 GB | 24 GB (16 GB on Apple Silicon) |
+| Big Bad Betty | Qwen3 32B (Q4_K_M)             | ~20 GB | 32 GB (24 GB on Apple Silicon) |
 
 ### Browser Mode (developer / power-user)
 
@@ -72,7 +67,7 @@ hardware and lets you download the right model:
 ```
 
 This starts the server on `http://localhost:4000` and opens your browser.
-Requires a running [Ollama](https://ollama.com/) instance.
+Requires a GGUF model in the `backend/models/` directory.
 
 ### Development Mode
 
@@ -87,15 +82,14 @@ backend with `nodemon` on `http://localhost:4000`.
 
 ## Configuration
 
-| Env variable     | Default                  | Notes                         |
-| ---------------- | ------------------------ | ----------------------------- |
-| `BETHANIEL_PORT` | `4000`                   | Port for the unified server   |
-| `OLLAMA_HOST`    | `http://127.0.0.1:11434` | Ollama API URL (dev mode)     |
-| `LLAMA_BASE_URL` | _(empty)_                | llama-server URL (Electron)   |
-| `LLAMA_BIN`      | `llama-server`           | Path to llama-server binary   |
-| `MODELS_DIR`     | `./models`               | GGUF model storage            |
-| `DATA_DIR`       | `./data`                 | SQLite + uploaded manuscripts |
-| `RESULTS_DIR`    | `./results`              | Edit results on disk          |
+| Env variable     | Default        | Notes                         |
+| ---------------- | -------------- | ----------------------------- |
+| `BETHANIEL_PORT` | `4000`         | Port for the unified server   |
+| `LLAMA_BASE_URL` | _(empty)_      | llama-server URL (Electron)   |
+| `LLAMA_BIN`      | `llama-server` | Path to llama-server binary   |
+| `MODELS_DIR`     | `./models`     | GGUF model storage            |
+| `DATA_DIR`       | `./data`       | SQLite + uploaded manuscripts |
+| `RESULTS_DIR`    | `./results`    | Edit results on disk          |
 
 ## Distributing to Customers
 
@@ -113,4 +107,4 @@ cd Bethaniel
 ./bethaniel
 ```
 
-Requires Node.js ≥ 20, Pandoc, and Ollama.
+Requires Node.js ≥ 20 and Pandoc.
