@@ -78,8 +78,10 @@ export default function ModelSelector({
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [installed, setInstalled] = useState<InstalledModel[]>([]);
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [progressMap, setProgressMap] = useState<Map<string, DownloadProgress>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
 
@@ -104,16 +106,47 @@ export default function ModelSelector({
   useEffect(() => {
     const socket = getSocket();
     const handler = (data: DownloadProgress) => {
-      setProgress(data);
       if (data.status === "done") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         refresh().then(() => onModelInstalled?.());
       } else if (data.status === "error") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         setError(data.error ?? "Download failed");
       } else if (data.status === "cancelled") {
-        setDownloading(null);
-        setProgress(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+      } else {
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.set(data.modelId, data);
+          return next;
+        });
       }
     };
     socket.on("model:download", handler);
@@ -146,8 +179,7 @@ export default function ModelSelector({
 
   async function startDownload(modelId: string) {
     setError(null);
-    setDownloading(modelId);
-    setProgress(null);
+    setDownloading((prev) => new Set(prev).add(modelId));
     try {
       const res = await fetch(`${BASE}/api/models/download`, {
         method: "POST",
@@ -157,16 +189,28 @@ export default function ModelSelector({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Download failed");
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         return;
       }
       if (data.status === "already_installed") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
-      setDownloading(null);
+      setDownloading((prev) => {
+        const next = new Set(prev);
+        next.delete(modelId);
+        return next;
+      });
     }
   }
 
@@ -180,8 +224,16 @@ export default function ModelSelector({
     } catch {
       // ignore
     }
-    setDownloading(null);
-    setProgress(null);
+    setDownloading((prev) => {
+      const next = new Set(prev);
+      next.delete(modelId);
+      return next;
+    });
+    setProgressMap((prev) => {
+      const next = new Map(prev);
+      next.delete(modelId);
+      return next;
+    });
   }
 
   async function deleteModel(fileName: string) {
@@ -210,7 +262,7 @@ export default function ModelSelector({
       <div className="model-selector-cards">
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
-          const isDownloading = downloading === entry.id;
+          const isDownloading = downloading.has(entry.id);
           const isDisabled = !entry.allowed && !isInstalled;
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
@@ -218,6 +270,7 @@ export default function ModelSelector({
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
+          const entryProgress = progressMap.get(entry.id);
 
           return (
             <button
@@ -236,7 +289,7 @@ export default function ModelSelector({
               onClick={() => {
                 if (isInstalled) {
                   setModel(entry.fileName);
-                } else if (!isDisabled && !downloading) {
+                } else if (!isDisabled && !isDownloading) {
                   setConfirmEntry(entry);
                 }
               }}
@@ -253,16 +306,16 @@ export default function ModelSelector({
                 {t("model_requires")} {minRam} GB RAM
               </span>
 
-              {isDownloading && progress && progress.modelId === entry.id ? (
+              {isDownloading && entryProgress ? (
                 <span className="model-card-progress">
                   <span className="model-progress-bar">
                     <span
                       className="model-progress-fill"
-                      style={{ width: `${progress.percent}%` }}
+                      style={{ width: `${entryProgress.percent}%` }}
                     />
                   </span>
                   <span className="model-progress-text">
-                    {progress.percent}%
+                    {entryProgress.percent}%
                   </span>
                   <button
                     type="button"
