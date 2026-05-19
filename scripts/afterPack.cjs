@@ -27,7 +27,8 @@ exports.default = async function afterPack(context) {
 
   // Find all executable/library files in the llama directory
   const files = fs.readdirSync(llamaDir);
-  const identity = context.packager.platformSpecificBuildOptions.identity || "-";
+  const identity =
+    context.packager.platformSpecificBuildOptions.identity || "-";
 
   for (const file of files) {
     const filePath = path.join(llamaDir, file);
@@ -35,7 +36,11 @@ exports.default = async function afterPack(context) {
     if (!stat.isFile()) continue;
 
     // Sign binaries and dylibs
-    if (file.endsWith(".dylib") || file === "llama-server" || file.endsWith(".metal")) {
+    if (
+      file.endsWith(".dylib") ||
+      file === "llama-server" ||
+      file.endsWith(".metal")
+    ) {
       try {
         console.log(`[afterPack] Signing ${file}...`);
         execSync(

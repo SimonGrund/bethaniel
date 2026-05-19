@@ -22,6 +22,12 @@ extraResources:
     to: llama/${platform}-${arch}/
     filter:
       - "**/*"
+      - "!build"
+      - "!build/**"
+      - "!llama-b*"
+      - "!llama-b*/**"
+      - "!*.tar.gz"
+      - "!*.zip"
   - from: backend/dist/
     to: backend/dist/
     filter:
