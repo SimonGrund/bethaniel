@@ -471,6 +471,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "DOCX herunterladen",
     es: "Descargar DOCX",
   },
+  download_full_md: {
+    en: "Download Full Manuscript (.md)",
+    da: "Download fuldt manuskript (.md)",
+    de: "Gesamtes Manuskript herunterladen (.md)",
+    es: "Descargar manuscrito completo (.md)",
+  },
+  download_full_docx: {
+    en: "Download Full Manuscript (.docx)",
+    da: "Download fuldt manuskript (.docx)",
+    de: "Gesamtes Manuskript herunterladen (.docx)",
+    es: "Descargar manuscrito completo (.docx)",
+  },
+  full_manuscript_wait: {
+    en: "All chapters must finish editing before downloading the full manuscript",
+    da: "Alle kapitler skal være redigeret før det fulde manuskript kan downloades",
+    de: "Alle Kapitel müssen fertig bearbeitet sein, bevor das gesamte Manuskript heruntergeladen werden kann",
+    es: "Todos los capítulos deben terminar de editarse antes de descargar el manuscrito completo",
+  },
   download_diff: {
     en: "Download diff report",
     da: "Download diff-rapport",

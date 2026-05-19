@@ -108,13 +108,21 @@ export async function markdownToDocx(md: string): Promise<Buffer> {
   return Buffer.from(docxBuffer as ArrayBuffer);
 }
 
-/** Minimal Markdown → HTML converter for export (headings, bold, italic, paragraphs). */
+/** Minimal Markdown → HTML converter for export (headings, bold, italic, paragraphs, pagebreaks). */
 function mdToHtml(md: string): string {
   const lines = md.split("\n");
   const htmlLines: string[] = [];
 
   for (const line of lines) {
     let processed = line;
+
+    // Pagebreak marker → page break in DOCX
+    if (processed.trim() === PAGEBREAK_MARKER) {
+      htmlLines.push(
+        `<p style="page-break-before:always;margin:0;padding:0;line-height:0;font-size:0">&nbsp;</p>`,
+      );
+      continue;
+    }
 
     // Headings
     const headingMatch = processed.match(/^(#{1,6})\s+(.*)/);

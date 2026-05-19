@@ -5,7 +5,7 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { exportDocx, retryTask, clearQueue } from "../api";
 import type { TaskState, Correction } from "../types";
-import { ANALYSIS_MODES } from "../types";
+import { ANALYSIS_MODES, EDIT_MODES } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -559,6 +559,40 @@ function aggregateAnalysisTasks(tasks: TaskState[]): Record<string, unknown> {
   return out;
 }
 
+const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
+
+/**
+ * Assemble the full manuscript from all edit-mode tasks in a job,
+ * applying accepted corrections per chapter, joined with pagebreak markers.
+ */
+function buildFullManuscript(
+  entries: [string, TaskState][],
+  acceptedCorrections: Record<string, Set<string>>,
+): string {
+  const editEntries = entries
+    .filter(([, task]) => EDIT_MODES.includes(task.mode))
+    .sort(([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name));
+
+  const chapters: string[] = [];
+  for (const [tid, task] of editEntries) {
+    if (!task.result) continue;
+    const isTranslation = task.mode === "translate";
+    if (isTranslation) {
+      chapters.push(task.result.editedText);
+    } else {
+      const accepted = acceptedCorrections[tid] ?? new Set<string>();
+      chapters.push(
+        applyAccepted(
+          task.result.originalText,
+          task.result.corrections,
+          accepted,
+        ),
+      );
+    }
+  }
+  return chapters.join(`\n\n${PAGEBREAK_MARKER}\n\n`);
+}
+
 export default function ReviewExport() {
   const {
     lang,
@@ -770,6 +804,49 @@ export default function ReviewExport() {
                   </div>
                 </div>
               )}
+
+              {/* ── Full manuscript download (edit jobs only) ── */}
+              {(() => {
+                const editTasks = entries.filter(([, task]) =>
+                  EDIT_MODES.includes(task.mode),
+                );
+                if (editTasks.length === 0) return null;
+                const allDone = editTasks.every(
+                  ([, task]) => task.status === "done",
+                );
+                return (
+                  <div className="export-buttons full-manuscript-export">
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        downloadFile(md, `${src}.full.md`);
+                      }}
+                    >
+                      {t("download_full_md")}
+                    </button>
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        handleDownloadDocx(md, `${src}.full.docx`);
+                      }}
+                    >
+                      {t("download_full_docx")}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* ── Prose synthesis (primary output for analysis jobs) ── */}
               {(() => {
