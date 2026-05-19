@@ -2,7 +2,7 @@
 // Manages a single llama-server child process. Supports loading / swapping
 // GGUF models, health-polling, and graceful shutdown.
 
-import { ChildProcess, spawn, execFileSync } from "child_process";
+import { ChildProcess, spawn, execFileSync, execSync } from "child_process";
 import * as path from "path";
 import * as http from "http";
 import * as os from "os";
@@ -14,6 +14,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LLAMA_BIN = process.env.LLAMA_BIN ?? "llama-server";
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
 const LLAMA_HOST = "127.0.0.1";
+
+/** Remove macOS quarantine attribute and ensure the binary is executable. */
+function prepareBinary(binPath: string): void {
+  if (process.platform !== "darwin") return;
+  try {
+    execSync(`xattr -dr com.apple.quarantine "${binPath}"`, { stdio: "pipe" });
+  } catch {}
+  try {
+    fs.chmodSync(binPath, 0o755);
+  } catch {}
+}
 const MODELS_DIR =
   process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
@@ -25,6 +36,7 @@ export function getLlamaBaseUrl(): string {
 /** Check if the llama-server binary is available. */
 export function isLlamaServerAvailable(): boolean {
   try {
+    prepareBinary(LLAMA_BIN);
     execFileSync(LLAMA_BIN, ["--version"], { timeout: 3000, stdio: "pipe" });
     return true;
   } catch {
@@ -189,6 +201,8 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   ];
 
   console.log(`[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")}`);
+
+  prepareBinary(LLAMA_BIN);
 
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
