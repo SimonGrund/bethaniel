@@ -2102,26 +2102,21 @@ h4 {
 
 .model-progress-fill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--tier-color, #6a9f6a),
-    color-mix(in srgb, var(--tier-color, #6a9f6a) 80%, white)
-  );
-  border-radius: 5px;
-  transition: width 0.3s ease;
-  position: relative;
-  background-size: 20px 20px;
-  animation: progressStripe 0.8s linear infinite;
+  background-color: var(--tier-color, #6a9f6a);
   background-image: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.15) 25%,
+    rgba(255, 255, 255, 0.2) 25%,
     transparent 25%,
     transparent 50%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
     transparent 75%,
     transparent
   );
+  background-size: 20px 20px;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+  animation: progressStripe 0.8s linear infinite;
 }
 
 @keyframes progressStripe {
@@ -2211,21 +2206,21 @@ h4 {
 
 .model-card-inline .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6a9f6a, #8abf8a);
-  border-radius: 5px;
-  transition: width 0.3s ease;
-  background-size: 20px 20px;
-  animation: progressStripe 0.8s linear infinite;
+  background-color: #6a9f6a;
   background-image: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.15) 25%,
+    rgba(255, 255, 255, 0.2) 25%,
     transparent 25%,
     transparent 50%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
     transparent 75%,
     transparent
   );
+  background-size: 20px 20px;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+  animation: progressStripe 0.8s linear infinite;
 }
 
 .model-card-inline .progress-text {
