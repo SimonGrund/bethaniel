@@ -214,7 +214,12 @@ app.whenReady().then(async () => {
     },
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${backendPort}`);
+  // In dev mode, load the Vite dev server (HMR) which proxies /api to the backend.
+  // In production, load the backend which serves the built frontend.
+  const loadURL = IS_DEV
+    ? "http://localhost:5173"
+    : `http://127.0.0.1:${backendPort}`;
+  mainWindow.loadURL(loadURL);
 
   // Check for updates a few seconds after launch so the window is settled
   if (!IS_DEV) {

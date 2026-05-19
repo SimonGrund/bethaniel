@@ -171,6 +171,49 @@ console.log("\n━━━ Step 3b: Install backend production deps ━━━");
   } catch {}
   await fs.cp(join(tmpDir, "node_modules"), destNm, { recursive: true });
 
+  // Remove .bin symlinks — they break codesigning and aren't needed at runtime
+  try {
+    await fs.rm(join(destNm, ".bin"), { recursive: true });
+  } catch {}
+
+  // Remove unnecessary bulk from production node_modules
+  const junkDirs = ["@types", ".cache", ".package-lock.json"];
+  for (const junk of junkDirs) {
+    try {
+      await fs.rm(join(destNm, junk), { recursive: true });
+    } catch {}
+  }
+  // Remove docs, tests, and source maps from all packages
+  try {
+    execSync(
+      `find "${destNm}" -type d \\( -name "test" -o -name "tests" -o -name "docs" -o -name "example" -o -name "examples" -o -name ".github" \\) -exec rm -rf {} + 2>/dev/null || true`,
+      { stdio: "pipe" },
+    );
+    execSync(
+      `find "${destNm}" -type f \\( -name "*.map" -o -name "*.ts" -o -name "*.md" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o -name "*.d.ts" \\) ! -path "*/better-sqlite3/*" -delete 2>/dev/null || true`,
+      { stdio: "pipe" },
+    );
+  } catch {}
+
+  // Strip better-sqlite3 build artifacts (keep only the .node binary)
+  const bsqlite = join(destNm, "better-sqlite3");
+  for (const sub of [
+    "deps",
+    "src",
+    "build/Release/.deps",
+    "build/Release/obj",
+  ]) {
+    try {
+      await fs.rm(join(bsqlite, sub), { recursive: true });
+    } catch {}
+  }
+  try {
+    execSync(
+      `find "${bsqlite}" -name "*.o" -o -name "*.a" -o -name "*.target.mk" | xargs rm -f 2>/dev/null || true`,
+      { stdio: "pipe" },
+    );
+  } catch {}
+
   // Clean tmp
   try {
     await fs.rm(tmpDir, { recursive: true });
@@ -219,7 +262,8 @@ if (!skipLlama) {
       console.log(`  ↓ ${key}: downloading from ${asset.url}`);
 
       await fs.mkdir(destDir, { recursive: true });
-      const zipPath = join(destDir, "llama.zip");
+      const isTarGz = asset.url.endsWith(".tar.gz");
+      const zipPath = join(destDir, isTarGz ? "llama.tar.gz" : "llama.zip");
 
       // Download
       const res = await fetch(asset.url, { redirect: "follow" });
@@ -259,7 +303,11 @@ if (!skipLlama) {
       // Extract
       console.log(`  ⊞ ${key}: extracting...`);
       try {
-        execSync(`unzip -o "${zipPath}" -d "${destDir}"`, { stdio: "pipe" });
+        if (isTarGz) {
+          execSync(`tar -xzf "${zipPath}" -C "${destDir}"`, { stdio: "pipe" });
+        } else {
+          execSync(`unzip -o "${zipPath}" -d "${destDir}"`, { stdio: "pipe" });
+        }
       } catch {
         // Try 7z on Windows
         try {
@@ -313,6 +361,42 @@ if (!skipLlama) {
         }
       }
 
+      // macOS/Linux: copy shared libs (.dylib/.so) and Metal shader
+      // from the extracted binary dir to the same directory as llama-server so
+      // @loader_path resolution works.
+      // Only copy the ".0.dylib" variants (or ".so") that the binary actually links to,
+      // not the version-number duplicates or bare symlinks.
+      if (!key.startsWith("win32")) {
+        const binarySourceDir = join(
+          destDir,
+          ...asset.binary.split("/").slice(0, -1),
+        );
+        try {
+          const entries = await fs.readdir(binarySourceDir);
+          for (const entry of entries) {
+            const isDylib =
+              entry.endsWith(".dylib") &&
+              // Match "lib*.0.dylib" pattern (the soname variant the binary links to)
+              /\.0\.dylib$/.test(entry) &&
+              !/\.\d+\.\d+\.\d+\.dylib$/.test(entry);
+            const isSo = entry.endsWith(".so");
+            const isMetal = entry.endsWith(".metal");
+            if (isDylib || isSo || isMetal) {
+              const src = join(binarySourceDir, entry);
+              const dst = join(destDir, entry);
+              try {
+                await fs.access(dst);
+              } catch {
+                await fs.copyFile(src, dst);
+              }
+            }
+          }
+          console.log(`  ✓ ${key}: shared libs copied to binary dir`);
+        } catch {
+          // build/bin may not exist (e.g. if binary is self-contained)
+        }
+      }
+
       // Clean up zip
       await fs.unlink(zipPath).catch(() => {});
     }
@@ -347,9 +431,7 @@ for (const p of platforms) {
 
   const flag = electronBuilderFlag(p);
   console.log(`\n  Building for ${p}...`);
-  run(
-    `node_modules/.bin/electron-builder ${flag} --config electron-builder.yml`,
-  );
+  run(`npx electron-builder ${flag} --config electron-builder.yml`);
 }
 
 // ── Restore dev backend node_modules ──

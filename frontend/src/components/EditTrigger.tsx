@@ -109,7 +109,7 @@ export default function EditTrigger() {
           )}
         </button>
 
-        <button className="btn-rent-betty" disabled title="Coming soon">
+        {/* <button className="btn-rent-betty" disabled title="Coming soon">
           <span className="btn-rent-betty-label">Rent-A-Betty</span>
           <span className="btn-rent-betty-sub">
             Once the coffee budget runs out - or we get enough complaints about
@@ -117,7 +117,7 @@ export default function EditTrigger() {
             cloud-based option to run edits without needing a powerful local
             machine.
           </span>
-        </button>
+        </button> */}
       </div>
 
       {selectedModes.length > 1 && (

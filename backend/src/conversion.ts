@@ -1,26 +1,22 @@
-// ── File conversion (Pandoc) — ported from ui.py ──
+// ── File conversion (pure JS — no external binaries) ──
 
-import { execFile } from "child_process";
-import { promises as fs } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { v4 as uuidv4 } from "uuid";
 import JSZip from "jszip";
+import mammoth from "mammoth";
+import TurndownService from "turndown";
+import HTMLtoDOCX from "html-to-docx";
 import { PAGEBREAK_MARKER } from "./chapters.js";
 
-function run(cmd: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      cmd,
-      args,
-      { maxBuffer: 50 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (err) reject(new Error(`${cmd} failed: ${stderr || err.message}`));
-        else resolve(stdout);
-      },
-    );
-  });
-}
+const turndown = new TurndownService({
+  headingStyle: "atx",
+  codeBlockStyle: "fenced",
+  bulletListMarker: "-",
+});
+
+// Keep line breaks as-is
+turndown.addRule("lineBreak", {
+  filter: "br",
+  replacement: () => "\n",
+});
 
 /**
  * Extract page-break paragraph indices from a .docx file.
@@ -34,21 +30,16 @@ export async function extractPagebreaksFromDocx(
     const docXml = await zip.file("word/document.xml")?.async("string");
     if (!docXml) return [];
 
-    const ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-    // Simple regex-based XML parsing to avoid heavy XML lib dependency
     const breaks: number[] = [];
-    // Split by paragraph tags
     const paragraphs = docXml.split(/<w:p[ >]/);
 
     for (let pIndex = 0; pIndex < paragraphs.length; pIndex++) {
       const p = paragraphs[pIndex];
       let found = false;
 
-      // Check for <w:br w:type="page"/>
       if (/<w:br[^>]*w:type="page"/.test(p)) {
         found = true;
       }
-      // Check for <w:pageBreakBefore/> or <w:pageBreakBefore w:val="true"/>
       if (!found && /<w:pageBreakBefore/.test(p)) {
         const valMatch = p.match(/<w:pageBreakBefore[^>]*w:val="([^"]+)"/);
         if (
@@ -58,7 +49,6 @@ export async function extractPagebreaksFromDocx(
           found = true;
         }
       }
-      // Check for sectPr with page break type
       if (!found && /<w:sectPr/.test(p)) {
         const typeMatch = p.match(
           /<w:type[^>]*w:val="(nextPage|oddPage|evenPage)"/,
@@ -74,68 +64,93 @@ export async function extractPagebreaksFromDocx(
   }
 }
 
-/** Convert .docx bytes to Markdown via Pandoc, injecting pagebreak markers. */
+/** Convert .docx bytes to Markdown via mammoth + turndown. */
 export async function docxToMarkdown(docxBuffer: Buffer): Promise<string> {
-  const id = uuidv4();
-  const inPath = join(tmpdir(), `bethaniel-${id}.docx`);
-  const outPath = join(tmpdir(), `bethaniel-${id}.md`);
+  const result = await mammoth.convertToHtml(
+    { buffer: docxBuffer },
+    {
+      styleMap: [
+        "p[style-name='Heading 1'] => h1:fresh",
+        "p[style-name='Heading 2'] => h2:fresh",
+        "p[style-name='Heading 3'] => h3:fresh",
+      ],
+    },
+  );
 
-  try {
-    await fs.writeFile(inPath, docxBuffer);
-    await run("pandoc", [
-      inPath,
-      "-f",
-      "docx",
-      "-t",
-      "markdown",
-      "-o",
-      outPath,
-      "--wrap=none",
-    ]);
-    let text = await fs.readFile(outPath, "utf-8");
+  let text = turndown.turndown(result.value);
 
-    // Inject pagebreak markers
-    const pbs = await extractPagebreaksFromDocx(docxBuffer);
-    if (pbs.length > 0) {
-      const blocks = text.split(/\n\s*\n/);
-      const pbSet = new Set(pbs);
-      const outBlocks: string[] = [];
-      for (let i = 0; i < blocks.length; i++) {
-        if (pbSet.has(i) && i > 0) {
-          outBlocks.push(PAGEBREAK_MARKER);
-        }
-        outBlocks.push(blocks[i]);
+  // Inject pagebreak markers
+  const pbs = await extractPagebreaksFromDocx(docxBuffer);
+  if (pbs.length > 0) {
+    const blocks = text.split(/\n\s*\n/);
+    const pbSet = new Set(pbs);
+    const outBlocks: string[] = [];
+    for (let i = 0; i < blocks.length; i++) {
+      if (pbSet.has(i) && i > 0) {
+        outBlocks.push(PAGEBREAK_MARKER);
       }
-      text = outBlocks.join("\n\n");
+      outBlocks.push(blocks[i]);
     }
-    return text;
-  } finally {
-    await fs.unlink(inPath).catch(() => {});
-    await fs.unlink(outPath).catch(() => {});
+    text = outBlocks.join("\n\n");
   }
+  return text;
 }
 
-/** Convert Markdown to .docx via Pandoc, return the binary. */
+/** Convert Markdown to .docx, return the binary buffer. */
 export async function markdownToDocx(md: string): Promise<Buffer> {
-  const id = uuidv4();
-  const inPath = join(tmpdir(), `bethaniel-${id}.md`);
-  const outPath = join(tmpdir(), `bethaniel-${id}.docx`);
+  // Convert markdown to simple HTML for docx generation
+  const html = mdToHtml(md);
+  const docxBuffer = await HTMLtoDOCX(html, undefined, {
+    table: { row: { cantSplit: true } },
+    footer: true,
+    pageNumber: true,
+  });
+  return Buffer.from(docxBuffer as ArrayBuffer);
+}
 
-  try {
-    await fs.writeFile(inPath, md, "utf-8");
-    await run("pandoc", [
-      inPath,
-      "-f",
-      "markdown",
-      "-t",
-      "docx",
-      "-o",
-      outPath,
-      "--standalone",
-    ]);
-    return await fs.readFile(outPath);
-  } finally {
-    await fs.unlink(inPath).catch(() => {});
-    await fs.unlink(outPath).catch(() => {});
+/** Minimal Markdown → HTML converter for export (headings, bold, italic, paragraphs, pagebreaks). */
+function mdToHtml(md: string): string {
+  const lines = md.split("\n");
+  const htmlLines: string[] = [];
+
+  for (const line of lines) {
+    let processed = line;
+
+    // Pagebreak marker → page break in DOCX
+    if (processed.trim() === PAGEBREAK_MARKER) {
+      htmlLines.push(
+        `<p style="page-break-before:always;margin:0;padding:0;line-height:0;font-size:0">&nbsp;</p>`,
+      );
+      continue;
+    }
+
+    // Headings
+    const headingMatch = processed.match(/^(#{1,6})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      htmlLines.push(`<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    // Empty line = paragraph break
+    if (processed.trim() === "") {
+      htmlLines.push("");
+      continue;
+    }
+
+    // Regular paragraph
+    htmlLines.push(`<p>${inlineFormat(processed)}</p>`);
   }
+
+  return htmlLines.join("\n");
+}
+
+function inlineFormat(text: string): string {
+  // Bold
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  // Italic
+  text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  text = text.replace(/_(.+?)_/g, "<em>$1</em>");
+  return text;
 }

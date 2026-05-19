@@ -35,8 +35,8 @@ const LINE_EDIT_KEYS: (keyof LineEditOptions)[] = [
 
 const CATEGORY_COLOR: Record<Category, string> = {
   editing: "mode-cat-amber",
-  analysis: "mode-cat-teal",
-  translation: "mode-cat-rose",
+  analysis: "mode-cat-amber",
+  translation: "mode-cat-amber",
 };
 
 export default function ModeSelector() {
@@ -253,7 +253,7 @@ export default function ModeSelector() {
       )}
 
       {openCat === "analysis" && (
-        <div className="mode-sub-panel mode-cat-teal">
+        <div className="mode-sub-panel mode-cat-amber">
           <div className="mode-sub-modes">
             {ANALYSIS_MODES.map((m) => (
               <button
@@ -270,7 +270,7 @@ export default function ModeSelector() {
       )}
 
       {openCat === "translation" && (
-        <div className="mode-sub-panel mode-cat-rose">
+        <div className="mode-sub-panel mode-cat-amber">
           <div className="translate-lang">
             <label>
               {t("target_language")}:{" "}

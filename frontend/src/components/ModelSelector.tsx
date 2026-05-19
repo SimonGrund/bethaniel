@@ -124,8 +124,8 @@ export default function ModelSelector({
 
   // Auto-select best installed model
   const preferredOrder = [
-    "mistral-small3.2:24b",
-    "qwen3.5:35b",
+    "Qwen3-32B-Q4_K_M.gguf",
+    "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "gemma-3n-E4B-it-Q4_K_M.gguf",
   ];
   useEffect(() => {

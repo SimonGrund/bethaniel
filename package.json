@@ -1,6 +1,6 @@
 {
   "name": "bethaniel",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "productName": "Bethaniel",
   "description": "A private copy editor for pre-print manuscripts",
@@ -14,7 +14,7 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently -n fe,be,el \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\" \"wait-on http://localhost:4000/health && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently -n fe,be,el \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\" \"wait-on http://localhost:4000/health http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:frontend": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
     "build:electron": "tsc -p electron/tsconfig.json",

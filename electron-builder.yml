@@ -22,6 +22,12 @@ extraResources:
     to: llama/${platform}-${arch}/
     filter:
       - "**/*"
+      - "!build"
+      - "!build/**"
+      - "!llama-b*"
+      - "!llama-b*/**"
+      - "!*.tar.gz"
+      - "!*.zip"
   - from: backend/dist/
     to: backend/dist/
     filter:
@@ -50,8 +56,10 @@ asar: true
 asarUnpack:
   - "**/*.node"
 
+afterPack: ./scripts/afterPack.cjs
+
 mac:
-  identity: null
+  artifactName: Bethaniel-mac.${ext}
   category: public.app-category.productivity
   target:
     - target: dmg
@@ -60,8 +68,9 @@ mac:
     - target: zip
       arch:
         - arm64
-  hardenedRuntime: false
+  hardenedRuntime: true
   gatekeeperAssess: false
+  notarize: true
 
 win:
   target:
@@ -70,12 +79,14 @@ win:
         - x64
 
 nsis:
+  artifactName: Bethaniel-win.${ext}
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
   deleteAppDataOnUninstall: false
 
 linux:
+  artifactName: Bethaniel-linux.${ext}
   maintainer: hello@bethaniel.com
   target:
     - target: AppImage
