@@ -79,15 +79,12 @@ async function start() {
   httpServer.listen(PORT, HOST, () => {
     const url = `http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`;
     console.log(`[Bethaniel] Ready at ${url}`);
-    console.log(
-      `[Bethaniel] Ollama: ${process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434"}`,
-    );
   });
 }
 
 async function shutdown() {
   console.log("\n[Bethaniel] Shutting down...");
-  // Force-exit after 3s if anything hangs (Socket.IO clients, in-flight Ollama streams, etc.)
+  // Force-exit after 3s if anything hangs (Socket.IO clients, in-flight streams, etc.)
   const forceExit = setTimeout(() => {
     console.log("[Bethaniel] Force exit (timeout).");
     process.exit(0);

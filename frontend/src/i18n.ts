@@ -599,7 +599,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Basic Betty ist hervorragend für die meisten Aufgaben. You get the beeeest of both worlds - Miley Cyrus",
     es: "Basic Betty es excelente para la mayoría de tareas. You get the beeeest of both worlds - Miley Cyrus",
   },
-  model_desc_qwen3_5_35b: {
+  model_desc_qwen3_32b: {
     en: "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
     da: "Business in the front. Party in the back. Big Bad Betty ved, hvad det handler om.",
     de: "Business in the front. Party in the back. Big Bad Betty weiß, worum es geht.",

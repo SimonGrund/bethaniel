@@ -86,7 +86,7 @@ function stripAiSignoff(text: string): string {
 }
 
 /**
- * Detect transient network errors that warrant a retry. Ollama drops
+ * Detect transient network errors that warrant a retry. llama-server can drop
  * connections under load (cold model load races, KV-cache reallocations,
  * parallel-slot saturation) producing generic "fetch failed" / undici errors.
  */
@@ -741,7 +741,7 @@ let unloadTimer: NodeJS.Timeout | null = null;
 
 /**
  * After a job's tasks finish, schedule a check: if no jobs are queued or
- * running anywhere in the system, ask Ollama to unload every loaded model.
+ * running anywhere in the system, unload every loaded model from llama-server.
  * Debounced so the synthesis spawn (which arrives moments after siblings
  * complete) doesn't trip a premature unload.
  */

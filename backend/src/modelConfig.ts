@@ -1,5 +1,5 @@
 // ── Model configuration from modelfile ──
-// Parses the Ollama-style modelfile and writes per-model JSON configs
+// Parses the modelfile and writes per-model JSON configs
 // into the models directory. llamaServer.ts and llm.ts read these at runtime.
 
 import * as fs from "fs";
@@ -20,7 +20,7 @@ const DEFAULTS: ModelSettings = {
 };
 
 /**
- * Parse an Ollama-style modelfile into structured settings.
+ * Parse a modelfile into structured settings.
  * Supports PARAMETER and SYSTEM directives; ignores FROM and comments.
  */
 export function parseModelfile(content: string): ModelSettings {

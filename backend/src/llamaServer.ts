@@ -226,7 +226,7 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
         new Error(
           `Failed to start llama-server: ${err.message}. ` +
             (LLAMA_BIN === "llama-server"
-              ? "Install llama.cpp (brew install llama.cpp) or use an Ollama model instead."
+              ? "Install llama.cpp (brew install llama.cpp) or check the bundled binary."
               : `Binary not found at: ${LLAMA_BIN}`),
         ),
       );

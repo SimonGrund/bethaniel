@@ -152,7 +152,7 @@ router.delete("/documents/:id", (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// ── List Ollama models ──
+// ── List installed models ──
 router.get("/models", async (_req: Request, res: Response) => {
   const models = await listModels();
   const modelInfo: Record<string, string> = {};
@@ -611,23 +611,23 @@ const MODEL_CATALOG: ModelCatalogEntry[] = [
     name: "Basic Betty",
     description:
       "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
-    fileName: "mistral-small3.2:24b",
-    url: "",
+    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    url: "https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     sha256: "",
-    sizeBytes: 0,
+    sizeBytes: 14_300_000_000,
     minRamGb: 24,
     minRamAppleSiliconGb: 16,
   },
   {
-    id: "qwen3.5-35b",
+    id: "qwen3-32b",
     tier: "big",
     name: "Big Bad Betty",
     description:
       "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    fileName: "qwen3.5:35b",
-    url: "",
+    fileName: "Qwen3-32B-Q4_K_M.gguf",
+    url: "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
     sha256: "",
-    sizeBytes: 0,
+    sizeBytes: 19_800_000_000,
     minRamGb: 32,
     minRamAppleSiliconGb: 24,
   },
