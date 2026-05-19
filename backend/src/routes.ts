@@ -1086,25 +1086,6 @@ router.delete("/models/:fileName", async (req: Request, res: Response) => {
     return;
   }
 
-  // Ollama model — delete via API
-  if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
-    try {
-      await fetch(
-        `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/delete`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: entry.fileName }),
-        },
-      );
-    } catch {
-      // Ollama not running — ignore
-    }
-    res.json({ ok: true });
-    return;
-  }
-
-  // GGUF model — delete file
   const filePath = join(MODELS_DIR_PATH, fileName);
   try {
     await fs.unlink(filePath);
