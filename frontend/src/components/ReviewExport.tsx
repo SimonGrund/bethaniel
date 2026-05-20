@@ -132,17 +132,93 @@ function InlineDiff({ before, after }: { before: string; after: string }) {
   );
 }
 
+/**
+ * Extract surrounding sentence context for a correction within the full text.
+ * Returns { before, after } strings representing the surrounding context
+ * that is NOT part of the original/corrected diff.
+ */
+function extractSentenceContext(
+  original: string,
+  fullText: string,
+): { before: string; after: string } {
+  const idx = fullText.indexOf(original);
+  if (idx < 0) return { before: "", after: "" };
+
+  const editEnd = idx + original.length;
+
+  // Find sentence boundaries using common sentence-ending punctuation
+  // A sentence boundary is a period/exclamation/question mark followed by whitespace or end
+  const sentenceEndRe = /[.!?][\s\n]/g;
+
+  // ── Determine the start of the context ──
+  // Find the start of the sentence containing the edit.
+  // Look backwards from the edit position for a sentence boundary.
+  let contextStart = 0;
+  const textBefore = fullText.slice(0, idx);
+  const beforeBoundaries: number[] = [];
+  let m: RegExpExecArray | null;
+  const beforeRe = /[.!?][\s\n]/g;
+  while ((m = beforeRe.exec(textBefore)) !== null) {
+    beforeBoundaries.push(m.index + m[0].length);
+  }
+
+  if (beforeBoundaries.length > 0) {
+    const sentenceStart = beforeBoundaries[beforeBoundaries.length - 1];
+    // If the edit is very near the start of its sentence (within 5 chars of non-whitespace),
+    // also include the previous sentence.
+    const gapToEdit = textBefore.slice(sentenceStart).trim();
+    if (gapToEdit.length <= 5 && beforeBoundaries.length >= 2) {
+      contextStart = beforeBoundaries[beforeBoundaries.length - 2];
+    } else {
+      contextStart = sentenceStart;
+    }
+  }
+  // else contextStart stays 0 (beginning of text)
+
+  // ── Determine the end of the context ──
+  // Find the end of the sentence containing the edit.
+  const afterRe = /[.!?][\s\n]/g;
+  afterRe.lastIndex = editEnd;
+  const afterMatch = afterRe.exec(fullText);
+  let contextEnd = fullText.length;
+  if (afterMatch) {
+    const firstSentenceEnd = afterMatch.index + 1; // include the punctuation
+
+    // If the edit ends near the end of the sentence (within 10 chars to the punctuation),
+    // also include the next sentence.
+    const gapToEnd = fullText.slice(editEnd, firstSentenceEnd).trim();
+    if (gapToEnd.length <= 10) {
+      const nextMatch = afterRe.exec(fullText);
+      contextEnd = nextMatch ? nextMatch.index + 1 : fullText.length;
+    } else {
+      contextEnd = firstSentenceEnd;
+    }
+  }
+
+  // Extract the before/after context (excluding the original text itself)
+  const before = fullText.slice(contextStart, idx).trim();
+  const after = fullText.slice(editEnd, contextEnd).trim();
+
+  return { before, after };
+}
+
 function CorrectionCard({
   correction,
   taskId,
   accepted,
   onToggle,
+  originalText,
 }: {
   correction: Correction;
   taskId: string;
   accepted: boolean;
   onToggle: () => void;
+  originalText?: string;
 }) {
+  const { before, after } = originalText
+    ? extractSentenceContext(correction.original, originalText)
+    : { before: "", after: "" };
+
   return (
     <div
       className={`correction-card ${accepted ? "accepted" : ""}`}
@@ -160,7 +236,11 @@ function CorrectionCard({
           {correction.chunk}
         </div>
       )}
-      <InlineDiff before={correction.original} after={correction.corrected} />
+      <span className="correction-diff">
+        {before && <span className="correction-context">{before} </span>}
+        <InlineDiff before={correction.original} after={correction.corrected} />
+        {after && <span className="correction-context"> {after}</span>}
+      </span>
     </div>
   );
 }
@@ -1204,6 +1284,7 @@ export default function ReviewExport() {
                             taskId={tid}
                             accepted={accepted.has(c.id ?? "")}
                             onToggle={() => toggleCorrection(tid, c.id ?? "")}
+                            originalText={result.originalText}
                           />
                         ))}
 
