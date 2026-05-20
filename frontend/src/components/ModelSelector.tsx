@@ -273,90 +273,91 @@ export default function ModelSelector({
           const entryProgress = progressMap.get(entry.id);
 
           return (
-            <button
-              key={entry.id}
-              type="button"
-              className={[
-                "model-card",
-                tierClass,
-                isSelected && isInstalled ? "model-card-selected" : "",
-                isInstalled ? "model-card-ready" : "",
-                isDisabled ? "model-card-disabled" : "",
-                isDownloading ? "model-card-downloading" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => {
-                if (isInstalled) {
-                  setModel(entry.fileName);
-                } else if (!isDisabled && !isDownloading) {
-                  setConfirmEntry(entry);
-                }
-              }}
-              disabled={isDownloading}
-            >
-              <span className="model-card-name">{entry.name}</span>
-              <span className="model-card-desc">
-                {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
-                  entry.description}
-              </span>
-              <span className="model-card-meta">
-                {formatBytes(entry.sizeBytes)}
-                {entry.sizeBytes > 0 ? " · " : ""}
-                {t("model_requires")} {minRam} GB RAM
-              </span>
+            <div key={entry.id} className="model-card-wrap">
+              <button
+                type="button"
+                className={[
+                  "model-card",
+                  tierClass,
+                  isSelected && isInstalled ? "model-card-selected" : "",
+                  isInstalled ? "model-card-ready" : "",
+                  isDisabled ? "model-card-disabled" : "",
+                  isDownloading ? "model-card-downloading" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => {
+                  if (isInstalled) {
+                    setModel(entry.fileName);
+                  } else if (!isDisabled && !isDownloading) {
+                    setConfirmEntry(entry);
+                  }
+                }}
+              >
+                <span className="model-card-name">{entry.name}</span>
+                <span className="model-card-desc">
+                  {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
+                    entry.description}
+                </span>
+                <span className="model-card-meta">
+                  {formatBytes(entry.sizeBytes)}
+                  {entry.sizeBytes > 0 ? " · " : ""}
+                  {t("model_requires")} {minRam} GB RAM
+                </span>
 
-              {isDownloading && entryProgress ? (
-                <span className="model-card-progress">
-                  <span className="model-progress-bar">
-                    <span
-                      className="model-progress-fill"
-                      style={{ width: `${entryProgress.percent}%` }}
-                    />
-                  </span>
-                  <span className="model-progress-text">
-                    {entryProgress.percent}%
-                  </span>
-                  <button
-                    type="button"
-                    className="model-cancel-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      cancelDownload(entry.id);
-                    }}
-                    title={t("model_cancel_download")}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : isInstalled ? (
-                <span className="model-card-status">
-                  <span className="model-installed-check">✓</span>
-                  {isRecommended && (
-                    <span className="model-recommended-badge">
-                      {t("model_recommended")}
+                {isDownloading && entryProgress ? (
+                  <span className="model-card-progress">
+                    <span className="model-progress-bar">
+                      <span
+                        className="model-progress-fill"
+                        style={{ width: `${entryProgress.percent}%` }}
+                      />
                     </span>
-                  )}
-                  <button
-                    type="button"
-                    className="model-delete-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteModel(entry.fileName);
-                    }}
-                    title={t("model_delete")}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : isDisabled ? (
-                <span className="model-card-status model-card-locked">
-                  {t("model_insufficient_ram")}
-                </span>
-              ) : (
-                <span className="model-card-status">{t("model_download")}</span>
+                    <span className="model-progress-text">
+                      {entryProgress.percent}%
+                    </span>
+                  </span>
+                ) : isInstalled ? (
+                  <span className="model-card-status">
+                    <span className="model-installed-check">✓</span>
+                    {isRecommended && (
+                      <span className="model-recommended-badge">
+                        {t("model_recommended")}
+                      </span>
+                    )}
+                  </span>
+                ) : isDisabled ? (
+                  <span className="model-card-status model-card-locked">
+                    {t("model_insufficient_ram")}
+                  </span>
+                ) : (
+                  <span className="model-card-status">
+                    {t("model_download")}
+                  </span>
+                )}
+              </button>
+
+              {isDownloading && (
+                <button
+                  type="button"
+                  className="model-card-overlay-btn model-cancel-btn"
+                  onClick={() => cancelDownload(entry.id)}
+                  title={t("model_cancel_download")}
+                >
+                  ✕
+                </button>
               )}
-            </button>
+              {isInstalled && !isDownloading && (
+                <button
+                  type="button"
+                  className="model-card-overlay-btn model-delete-btn"
+                  onClick={() => deleteModel(entry.fileName)}
+                  title={t("model_delete")}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           );
         })}
 
@@ -466,8 +467,187 @@ export default function ModelSelector({
             />
             <span className="help-text">{t("parallel_help")}</span>
           </div>
+
+          {model && <ModelTuning fileName={model} />}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Per-model tuning subsection ──
+interface ModelConfig {
+  num_ctx: number;
+  num_predict: number;
+  temperature: number;
+  no_mmap: boolean;
+}
+
+function ModelTuning({ fileName }: { fileName: string }) {
+  const { lang } = useStore();
+  const t = useTranslation(lang);
+  const [cfg, setCfg] = useState<ModelConfig | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setCfg({
+          num_ctx: data.num_ctx,
+          num_predict: data.num_predict,
+          temperature: data.temperature,
+          no_mmap: !!data.no_mmap,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileName]);
+
+  function save(next: ModelConfig) {
+    setCfg(next);
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 1200);
+      })
+      .catch(() => {});
+  }
+
+  if (!cfg) return null;
+
+  return (
+    <div className="model-tuning">
+      <div className="model-tuning-header">
+        <strong>{t("model_tuning")}</strong>
+        {saved && (
+          <span className="model-tuning-saved">{t("tuning_saved")}</span>
+        )}
+      </div>
+      <span className="help-text">{t("model_tuning_help")}</span>
+
+      <div className="field">
+        <label>
+          {t("context_window")}: {cfg.num_ctx.toLocaleString()}
+        </label>
+        <input
+          type="range"
+          min={2048}
+          max={32768}
+          step={1024}
+          value={cfg.num_ctx}
+          onChange={(e) => setCfg({ ...cfg, num_ctx: Number(e.target.value) })}
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("context_window_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("max_output_tokens")}: {cfg.num_predict.toLocaleString()}
+        </label>
+        <input
+          type="range"
+          min={512}
+          max={8192}
+          step={256}
+          value={cfg.num_predict}
+          onChange={(e) =>
+            setCfg({ ...cfg, num_predict: Number(e.target.value) })
+          }
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("max_output_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("temperature_label")}: {cfg.temperature.toFixed(1)}
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={cfg.temperature}
+          onChange={(e) =>
+            setCfg({ ...cfg, temperature: Number(e.target.value) })
+          }
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("temperature_help")}</span>
+      </div>
+
+      <div className="field model-tuning-checkbox">
+        <label>
+          <input
+            type="checkbox"
+            checked={cfg.no_mmap}
+            onChange={(e) => save({ ...cfg, no_mmap: e.target.checked })}
+          />{" "}
+          {t("disable_mmap")}
+        </label>
+      </div>
     </div>
   );
 }

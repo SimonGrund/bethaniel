@@ -10,6 +10,7 @@ export interface ModelSettings {
   num_predict: number;
   temperature: number;
   system: string;
+  no_mmap: boolean;
 }
 
 const DEFAULTS: ModelSettings = {
@@ -17,6 +18,7 @@ const DEFAULTS: ModelSettings = {
   num_predict: 8192,
   temperature: 0,
   system: "You are a meticulous copy editor. /no_think",
+  no_mmap: false,
 };
 
 /**
@@ -60,6 +62,8 @@ export function parseModelfile(content: string): ModelSettings {
         settings.num_predict = parseInt(val, 10) || DEFAULTS.num_predict;
       else if (key === "temperature")
         settings.temperature = parseFloat(val) ?? DEFAULTS.temperature;
+      else if (key === "no_mmap")
+        settings.no_mmap = /^(true|1|yes|on)$/i.test(val);
     } else if (line.toUpperCase().startsWith("SYSTEM")) {
       const rest = line.slice("SYSTEM".length).trim();
       if (rest.startsWith('"""')) {
@@ -123,6 +127,7 @@ export function readModelConfig(
       num_predict: parsed.num_predict ?? DEFAULTS.num_predict,
       temperature: parsed.temperature ?? DEFAULTS.temperature,
       system: parsed.system ?? DEFAULTS.system,
+      no_mmap: parsed.no_mmap ?? DEFAULTS.no_mmap,
     };
   } catch {
     return { ...DEFAULTS };

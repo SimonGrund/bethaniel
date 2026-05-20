@@ -108,3 +108,44 @@ cd Bethaniel
 ```
 
 Requires Node.js ≥ 20 and Pandoc.
+
+---
+
+## License & Rights of Use
+
+**Bethaniel** is provided under a custom source-available license. Please read the terms below carefully.
+
+### Free Use
+
+You may use Bethaniel **free of charge** if you meet **all** of the following conditions:
+
+1. **Personal / non-commercial use** — any individual using Bethaniel for their own manuscripts, hobby projects, or personal editing needs; **OR**
+2. **Small-business commercial use** — a company, team, or sole trader where:
+   - The organization has **fewer than 5** employees, contractors, consultants, or regular users; **AND**
+   - The organization's annual gross revenue is **less than USD $1,000,000**.
+
+### Commercial License Required
+
+If your organization does **not** meet both of the criteria above (i.e. 5+ people or ≥ $1 M revenue), you must obtain a commercial license before using Bethaniel. Please contact:
+
+📧 **simon@bethaniel.eu**
+
+### Restrictions
+
+Regardless of whether you qualify for free use:
+
+1. **No redistribution** — You may not redistribute, sublicense, sell, or share the Bethaniel source code or compiled binaries to third parties.
+2. **No modification** — You may not fork, modify, adapt, or create derivative works of Bethaniel for your own commercial product or service without prior written permission.
+3. **No reverse engineering of prompts** — The prompt engineering, system prompts, and editing logic are proprietary. You may not extract them for use in other products.
+
+### Attribution
+
+Attribution is **encouraged but not required**. If Bethaniel helped you ship your book or edit your manuscript, a mention is always appreciated — but you're under no obligation.
+
+### No Warranty
+
+Bethaniel is provided "AS IS", without warranty of any kind, express or implied. The author(s) are not liable for any damages arising from the use of this software.
+
+---
+
+_© 2025–2026 Bethaniel. All rights reserved._

@@ -4,7 +4,7 @@ import { Router, Request, Response } from "express";
 import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
-import { promises as fs, createWriteStream } from "fs";
+import { promises as fs, createWriteStream, createReadStream } from "fs";
 import { join, dirname } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
@@ -42,7 +42,11 @@ import {
 } from "./types.js";
 import { buildConsistencyReport } from "./consistency.js";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
-import { applyModelfile } from "./modelConfig.js";
+import {
+  applyModelfile,
+  readModelConfig,
+  writeModelConfig,
+} from "./modelConfig.js";
 import {
   saveDocument,
   getDocument,
@@ -947,36 +951,92 @@ router.post("/models/download", async (req: Request, res: Response) => {
   // Start download in background
   await fs.mkdir(MODELS_DIR_PATH, { recursive: true });
   const partialPath = destPath + ".partial";
+
+  // Resume support: check for existing partial file
+  let resumeFrom = 0;
+  try {
+    const partialStat = await fs.stat(partialPath);
+    if (partialStat.size > 0 && partialStat.size < entry.sizeBytes) {
+      resumeFrom = partialStat.size;
+    } else if (partialStat.size >= entry.sizeBytes) {
+      // Partial is somehow bigger or equal — discard it
+      await fs.unlink(partialPath).catch(() => {});
+    }
+  } catch {
+    // no partial file
+  }
+
   const abortCtrl = new AbortController();
   const progress = {
-    bytesDownloaded: 0,
+    bytesDownloaded: resumeFrom,
     totalBytes: entry.sizeBytes,
     status: "downloading",
     abort: abortCtrl,
   };
   activeDownloads.set(entry.id, progress);
 
-  res.json({ status: "started", fileName: entry.fileName });
+  res.json({
+    status: "started",
+    fileName: entry.fileName,
+    resumed: resumeFrom > 0,
+    resumeFrom,
+  });
 
   // Async download
   (async () => {
     try {
-      const response = await fetch(entry.url, { signal: abortCtrl.signal });
+      const headers: Record<string, string> = {};
+      if (resumeFrom > 0) {
+        headers["Range"] = `bytes=${resumeFrom}-`;
+      }
+      const response = await fetch(entry.url, {
+        signal: abortCtrl.signal,
+        headers,
+      });
       if (!response.ok || !response.body) {
         throw new Error(`HTTP ${response.status}`);
+      }
+
+      // If server doesn't honor Range (returns 200 instead of 206), restart from 0
+      const isResuming = resumeFrom > 0 && response.status === 206;
+      if (resumeFrom > 0 && response.status !== 206) {
+        // Server doesn't support resume — start over
+        resumeFrom = 0;
+        progress.bytesDownloaded = 0;
+        await fs.unlink(partialPath).catch(() => {});
       }
 
       const contentLength = parseInt(
         response.headers.get("content-length") ?? "0",
         10,
       );
-      if (contentLength > 0) progress.totalBytes = contentLength;
+      if (contentLength > 0) {
+        progress.totalBytes = isResuming
+          ? resumeFrom + contentLength
+          : contentLength;
+      }
 
-      const fileStream = createWriteStream(partialPath);
+      const fileStream = createWriteStream(partialPath, {
+        flags: isResuming ? "a" : "w",
+      });
       const reader = response.body.getReader();
       const hash = createHash("sha256");
 
+      // If resuming, hash the existing partial file first
+      if (isResuming) {
+        await new Promise<void>((resolve, reject) => {
+          const rs = createReadStream(partialPath);
+          rs.on("data", (chunk) => hash.update(chunk));
+          rs.on("end", () => resolve());
+          rs.on("error", reject);
+        });
+      }
+
       while (true) {
+        if (abortCtrl.signal.aborted) {
+          fileStream.destroy();
+          throw new Error("Download cancelled");
+        }
         const { done, value } = await reader.read();
         if (done) break;
         fileStream.write(value);
@@ -1056,7 +1116,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/models/download/cancel ──
-router.post("/models/download/cancel", (req: Request, res: Response) => {
+router.post("/models/download/cancel", async (req: Request, res: Response) => {
   const { modelId } = req.body;
   const dl = activeDownloads.get(modelId);
   if (!dl) {
@@ -1065,6 +1125,13 @@ router.post("/models/download/cancel", (req: Request, res: Response) => {
   }
   dl.abort.abort();
   activeDownloads.delete(modelId);
+
+  // Clean up partial file
+  const entry = MODEL_CATALOG.find((e) => e.id === modelId);
+  if (entry) {
+    const partialPath = join(MODELS_DIR_PATH, entry.fileName + ".partial");
+    await fs.unlink(partialPath).catch(() => {});
+  }
 
   const socketIo = getSocketIO();
   if (socketIo) {
@@ -1093,6 +1160,56 @@ router.delete("/models/:fileName", async (req: Request, res: Response) => {
   } catch {
     res.json({ ok: true }); // already gone
   }
+});
+
+// ── GET /api/models/:fileName/config ──
+router.get("/models/:fileName/config", (req: Request, res: Response) => {
+  const fileName = req.params.fileName;
+  const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+  const cfg = readModelConfig(MODELS_DIR_PATH, fileName);
+  res.json(cfg);
+});
+
+// ── PUT /api/models/:fileName/config ──
+router.put("/models/:fileName/config", (req: Request, res: Response) => {
+  const fileName = req.params.fileName;
+  const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+  const current = readModelConfig(MODELS_DIR_PATH, fileName);
+  const body = req.body ?? {};
+
+  // Clamp & validate only the fields users can edit from Advanced.
+  const num_ctx =
+    typeof body.num_ctx === "number" && Number.isFinite(body.num_ctx)
+      ? Math.max(1024, Math.min(65536, Math.floor(body.num_ctx)))
+      : current.num_ctx;
+  const num_predict =
+    typeof body.num_predict === "number" && Number.isFinite(body.num_predict)
+      ? Math.max(256, Math.min(16384, Math.floor(body.num_predict)))
+      : current.num_predict;
+  const temperature =
+    typeof body.temperature === "number" && Number.isFinite(body.temperature)
+      ? Math.max(0, Math.min(2, body.temperature))
+      : current.temperature;
+  const no_mmap =
+    typeof body.no_mmap === "boolean" ? body.no_mmap : current.no_mmap;
+
+  const next = {
+    ...current,
+    num_ctx,
+    num_predict,
+    temperature,
+    no_mmap,
+  };
+  writeModelConfig(MODELS_DIR_PATH, fileName, next);
+  res.json(next);
 });
 
 export default router;

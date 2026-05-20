@@ -65,15 +65,33 @@ export default function ModelSetup({
 
   // Fetch hardware + catalog + installed on mount
   useEffect(() => {
-    Promise.all([
-      fetch(`${BASE}/api/hardware`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
-    ]).then(([hw, cat, inst]) => {
-      setHardware(hw);
-      setCatalog(cat.catalog ?? []);
-      setInstalled(inst.installed ?? []);
-    });
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    async function load() {
+      try {
+        const [hw, cat, inst] = await Promise.all([
+          fetch(`${BASE}/api/hardware`).then((r) => r.json()),
+          fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
+          fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
+        ]);
+        if (cancelled) return;
+        setHardware(hw);
+        setCatalog(cat.catalog ?? []);
+        setInstalled(inst.installed ?? []);
+      } catch {
+        // Backend not ready yet — retry after a short delay
+        if (!cancelled) {
+          retryTimer = setTimeout(load, 1500);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
   }, []);
 
   // Socket.IO download progress

@@ -19,10 +19,19 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:4000",
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("error", () => {});
+        },
       },
       "/socket.io": {
         target: "http://localhost:4000",
         ws: true,
+        configure: (proxy) => {
+          proxy.on("error", () => {});
+          proxy.on("proxyReqWs", (_proxyReq, _req, socket) => {
+            socket.on("error", () => {});
+          });
+        },
       },
     },
   },
