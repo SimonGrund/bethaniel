@@ -78,8 +78,10 @@ export default function ModelSelector({
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [installed, setInstalled] = useState<InstalledModel[]>([]);
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [progressMap, setProgressMap] = useState<Map<string, DownloadProgress>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
 
@@ -104,16 +106,47 @@ export default function ModelSelector({
   useEffect(() => {
     const socket = getSocket();
     const handler = (data: DownloadProgress) => {
-      setProgress(data);
       if (data.status === "done") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         refresh().then(() => onModelInstalled?.());
       } else if (data.status === "error") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         setError(data.error ?? "Download failed");
       } else if (data.status === "cancelled") {
-        setDownloading(null);
-        setProgress(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+      } else {
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.set(data.modelId, data);
+          return next;
+        });
       }
     };
     socket.on("model:download", handler);
@@ -146,8 +179,7 @@ export default function ModelSelector({
 
   async function startDownload(modelId: string) {
     setError(null);
-    setDownloading(modelId);
-    setProgress(null);
+    setDownloading((prev) => new Set(prev).add(modelId));
     try {
       const res = await fetch(`${BASE}/api/models/download`, {
         method: "POST",
@@ -157,16 +189,28 @@ export default function ModelSelector({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Download failed");
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         return;
       }
       if (data.status === "already_installed") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
-      setDownloading(null);
+      setDownloading((prev) => {
+        const next = new Set(prev);
+        next.delete(modelId);
+        return next;
+      });
     }
   }
 
@@ -180,8 +224,16 @@ export default function ModelSelector({
     } catch {
       // ignore
     }
-    setDownloading(null);
-    setProgress(null);
+    setDownloading((prev) => {
+      const next = new Set(prev);
+      next.delete(modelId);
+      return next;
+    });
+    setProgressMap((prev) => {
+      const next = new Map(prev);
+      next.delete(modelId);
+      return next;
+    });
   }
 
   async function deleteModel(fileName: string) {
@@ -210,7 +262,7 @@ export default function ModelSelector({
       <div className="model-selector-cards">
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
-          const isDownloading = downloading === entry.id;
+          const isDownloading = downloading.has(entry.id);
           const isDisabled = !entry.allowed && !isInstalled;
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
@@ -218,92 +270,94 @@ export default function ModelSelector({
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
+          const entryProgress = progressMap.get(entry.id);
 
           return (
-            <button
-              key={entry.id}
-              type="button"
-              className={[
-                "model-card",
-                tierClass,
-                isSelected && isInstalled ? "model-card-selected" : "",
-                isInstalled ? "model-card-ready" : "",
-                isDisabled ? "model-card-disabled" : "",
-                isDownloading ? "model-card-downloading" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => {
-                if (isInstalled) {
-                  setModel(entry.fileName);
-                } else if (!isDisabled && !downloading) {
-                  setConfirmEntry(entry);
-                }
-              }}
-              disabled={isDownloading}
-            >
-              <span className="model-card-name">{entry.name}</span>
-              <span className="model-card-desc">
-                {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
-                  entry.description}
-              </span>
-              <span className="model-card-meta">
-                {formatBytes(entry.sizeBytes)}
-                {entry.sizeBytes > 0 ? " · " : ""}
-                {t("model_requires")} {minRam} GB RAM
-              </span>
+            <div key={entry.id} className="model-card-wrap">
+              <button
+                type="button"
+                className={[
+                  "model-card",
+                  tierClass,
+                  isSelected && isInstalled ? "model-card-selected" : "",
+                  isInstalled ? "model-card-ready" : "",
+                  isDisabled ? "model-card-disabled" : "",
+                  isDownloading ? "model-card-downloading" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => {
+                  if (isInstalled) {
+                    setModel(entry.fileName);
+                  } else if (!isDisabled && !isDownloading) {
+                    setConfirmEntry(entry);
+                  }
+                }}
+              >
+                <span className="model-card-name">{entry.name}</span>
+                <span className="model-card-desc">
+                  {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
+                    entry.description}
+                </span>
+                <span className="model-card-meta">
+                  {formatBytes(entry.sizeBytes)}
+                  {entry.sizeBytes > 0 ? " · " : ""}
+                  {t("model_requires")} {minRam} GB RAM
+                </span>
 
-              {isDownloading && progress && progress.modelId === entry.id ? (
-                <span className="model-card-progress">
-                  <span className="model-progress-bar">
-                    <span
-                      className="model-progress-fill"
-                      style={{ width: `${progress.percent}%` }}
-                    />
-                  </span>
-                  <span className="model-progress-text">
-                    {progress.percent}%
-                  </span>
-                  <button
-                    type="button"
-                    className="model-cancel-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      cancelDownload(entry.id);
-                    }}
-                    title={t("model_cancel_download")}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : isInstalled ? (
-                <span className="model-card-status">
-                  <span className="model-installed-check">✓</span>
-                  {isRecommended && (
-                    <span className="model-recommended-badge">
-                      {t("model_recommended")}
+                {isDownloading && entryProgress ? (
+                  <span className="model-card-progress">
+                    <span className="model-progress-bar">
+                      <span
+                        className="model-progress-fill"
+                        style={{ width: `${entryProgress.percent}%` }}
+                      />
                     </span>
-                  )}
-                  <button
-                    type="button"
-                    className="model-delete-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteModel(entry.fileName);
-                    }}
-                    title={t("model_delete")}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : isDisabled ? (
-                <span className="model-card-status model-card-locked">
-                  {t("model_insufficient_ram")}
-                </span>
-              ) : (
-                <span className="model-card-status">{t("model_download")}</span>
+                    <span className="model-progress-text">
+                      {entryProgress.percent}%
+                    </span>
+                  </span>
+                ) : isInstalled ? (
+                  <span className="model-card-status">
+                    <span className="model-installed-check">✓</span>
+                    {isRecommended && (
+                      <span className="model-recommended-badge">
+                        {t("model_recommended")}
+                      </span>
+                    )}
+                  </span>
+                ) : isDisabled ? (
+                  <span className="model-card-status model-card-locked">
+                    {t("model_insufficient_ram")}
+                  </span>
+                ) : (
+                  <span className="model-card-status">
+                    {t("model_download")}
+                  </span>
+                )}
+              </button>
+
+              {isDownloading && (
+                <button
+                  type="button"
+                  className="model-card-overlay-btn model-cancel-btn"
+                  onClick={() => cancelDownload(entry.id)}
+                  title={t("model_cancel_download")}
+                >
+                  ✕
+                </button>
               )}
-            </button>
+              {isInstalled && !isDownloading && (
+                <button
+                  type="button"
+                  className="model-card-overlay-btn model-delete-btn"
+                  onClick={() => deleteModel(entry.fileName)}
+                  title={t("model_delete")}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           );
         })}
 
@@ -413,8 +467,187 @@ export default function ModelSelector({
             />
             <span className="help-text">{t("parallel_help")}</span>
           </div>
+
+          {model && <ModelTuning fileName={model} />}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Per-model tuning subsection ──
+interface ModelConfig {
+  num_ctx: number;
+  num_predict: number;
+  temperature: number;
+  no_mmap: boolean;
+}
+
+function ModelTuning({ fileName }: { fileName: string }) {
+  const { lang } = useStore();
+  const t = useTranslation(lang);
+  const [cfg, setCfg] = useState<ModelConfig | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setCfg({
+          num_ctx: data.num_ctx,
+          num_predict: data.num_predict,
+          temperature: data.temperature,
+          no_mmap: !!data.no_mmap,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileName]);
+
+  function save(next: ModelConfig) {
+    setCfg(next);
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 1200);
+      })
+      .catch(() => {});
+  }
+
+  if (!cfg) return null;
+
+  return (
+    <div className="model-tuning">
+      <div className="model-tuning-header">
+        <strong>{t("model_tuning")}</strong>
+        {saved && (
+          <span className="model-tuning-saved">{t("tuning_saved")}</span>
+        )}
+      </div>
+      <span className="help-text">{t("model_tuning_help")}</span>
+
+      <div className="field">
+        <label>
+          {t("context_window")}: {cfg.num_ctx.toLocaleString()}
+        </label>
+        <input
+          type="range"
+          min={2048}
+          max={32768}
+          step={1024}
+          value={cfg.num_ctx}
+          onChange={(e) => setCfg({ ...cfg, num_ctx: Number(e.target.value) })}
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              num_ctx: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("context_window_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("max_output_tokens")}: {cfg.num_predict.toLocaleString()}
+        </label>
+        <input
+          type="range"
+          min={512}
+          max={8192}
+          step={256}
+          value={cfg.num_predict}
+          onChange={(e) =>
+            setCfg({ ...cfg, num_predict: Number(e.target.value) })
+          }
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              num_predict: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("max_output_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("temperature_label")}: {cfg.temperature.toFixed(1)}
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={cfg.temperature}
+          onChange={(e) =>
+            setCfg({ ...cfg, temperature: Number(e.target.value) })
+          }
+          onMouseUp={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onTouchEnd={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+          onKeyUp={(e) =>
+            save({
+              ...cfg,
+              temperature: Number((e.target as HTMLInputElement).value),
+            })
+          }
+        />
+        <span className="help-text">{t("temperature_help")}</span>
+      </div>
+
+      <div className="field model-tuning-checkbox">
+        <label>
+          <input
+            type="checkbox"
+            checked={cfg.no_mmap}
+            onChange={(e) => save({ ...cfg, no_mmap: e.target.checked })}
+          />{" "}
+          {t("disable_mmap")}
+        </label>
+      </div>
     </div>
   );
 }

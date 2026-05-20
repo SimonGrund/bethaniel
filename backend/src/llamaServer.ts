@@ -11,7 +11,50 @@ import { fileURLToPath } from "url";
 import { readModelConfig } from "./modelConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LLAMA_BIN = process.env.LLAMA_BIN ?? "llama-server";
+
+/** Try to locate the bundled llama-server binary when LLAMA_BIN isn't set. */
+function resolveLlamaBin(): string {
+  if (process.env.LLAMA_BIN) return process.env.LLAMA_BIN;
+
+  const platformArch = `${process.platform}-${process.arch}`;
+  const binaryName =
+    process.platform === "win32" ? "llama-server.exe" : "llama-server";
+
+  // Candidate locations (dev + packaged)
+  const candidates = [
+    // backend/dist/llamaServer.js → ../../electron/resources/llama/...
+    path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "electron",
+      "resources",
+      "llama",
+      platformArch,
+      binaryName,
+    ),
+    // backend/src/llamaServer.ts (tsx dev) → ../../electron/resources/llama/...
+    path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "electron",
+      "resources",
+      "llama",
+      platformArch,
+      binaryName,
+    ),
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Fallback: rely on system PATH
+  return "llama-server";
+}
+
+const LLAMA_BIN = resolveLlamaBin();
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
 const LLAMA_HOST = "127.0.0.1";
 
@@ -58,12 +101,25 @@ export function getCurrentModel(): string | null {
 
 // ── GPU layer detection ──
 
-function detectNGL(): number {
-  // Apple Silicon: offload everything to Metal
+/**
+ * Decide how many layers to offload to GPU.
+ * On Apple Silicon, we have unified memory — offloading everything is fine as
+ * long as the model fits comfortably in (total RAM − working-set headroom).
+ * For oversized models we partially offload to avoid GPU memory pressure.
+ */
+function detectNGL(modelSizeBytes = 0): number {
+  // Apple Silicon: unified memory, scale by available RAM
   if (process.platform === "darwin" && process.arch === "arm64") {
-    return 999;
+    const totalRamGb = os.totalmem() / 1024 ** 3;
+    const modelGb = modelSizeBytes / 1024 ** 3;
+    // Reserve ~6 GB for OS + app + KV cache headroom
+    const usableGb = Math.max(4, totalRamGb - 6);
+    if (modelGb === 0 || modelGb < usableGb) return 999; // fully offload
+    // Model is larger than headroom: partial offload proportional to fit
+    const fraction = Math.max(0.3, usableGb / modelGb);
+    return Math.max(8, Math.floor(80 * fraction));
   }
-  // NVIDIA: offload everything
+  // NVIDIA: offload everything if a GPU is present
   try {
     const nvidiaSmi =
       process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
@@ -181,8 +237,10 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     throw new Error(`Model file not found: ${modelPath}`);
   }
 
-  const ngl = detectNGL();
+  const modelSize = fs.statSync(modelPath).size;
+  const ngl = detectNGL(modelSize);
   const threads = Math.max(1, os.cpus().length - 2);
+  const cfg = readModelConfig(MODELS_DIR, file);
 
   const args = [
     "-m",
@@ -197,8 +255,11 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     String(ngl),
     "-t",
     String(threads),
-    "--no-mmap",
   ];
+
+  if (cfg.no_mmap) {
+    args.push("--no-mmap");
+  }
 
   console.log(`[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")}`);
 

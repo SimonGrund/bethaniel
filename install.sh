@@ -69,11 +69,6 @@ check_or_install "Pandoc" \
   "pandoc" \
   "https://pandoc.org/installing.html" || MISSING=1
 
-check_or_install "Ollama" \
-  "command -v ollama" \
-  "ollama" \
-  "https://ollama.com/download" || MISSING=1
-
 if [ $MISSING -ne 0 ]; then
   err "Some prerequisites are missing. Please install them and re-run."
   exit 1

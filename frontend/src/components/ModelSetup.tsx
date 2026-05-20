@@ -57,30 +57,58 @@ export default function ModelSetup({
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [installed, setInstalled] = useState<InstalledModel[]>([]);
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [progressMap, setProgressMap] = useState<Map<string, DownloadProgress>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Fetch hardware + catalog + installed on mount
   useEffect(() => {
-    Promise.all([
-      fetch(`${BASE}/api/hardware`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
-    ]).then(([hw, cat, inst]) => {
-      setHardware(hw);
-      setCatalog(cat.catalog ?? []);
-      setInstalled(inst.installed ?? []);
-    });
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    async function load() {
+      try {
+        const [hw, cat, inst] = await Promise.all([
+          fetch(`${BASE}/api/hardware`).then((r) => r.json()),
+          fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
+          fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
+        ]);
+        if (cancelled) return;
+        setHardware(hw);
+        setCatalog(cat.catalog ?? []);
+        setInstalled(inst.installed ?? []);
+      } catch {
+        // Backend not ready yet — retry after a short delay
+        if (!cancelled) {
+          retryTimer = setTimeout(load, 1500);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
   }, []);
 
   // Socket.IO download progress
   useEffect(() => {
     const socket = getSocket();
     const handler = (data: DownloadProgress) => {
-      setProgress(data);
       if (data.status === "done") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         // Refresh installed list
         fetch(`${BASE}/api/models/installed`)
           .then((r) => r.json())
@@ -89,8 +117,34 @@ export default function ModelSetup({
             onModelInstalled?.();
           });
       } else if (data.status === "error") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
         setError(data.error ?? "Download failed");
+      } else if (data.status === "cancelled") {
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.delete(data.modelId);
+          return next;
+        });
+      } else {
+        setProgressMap((prev) => {
+          const next = new Map(prev);
+          next.set(data.modelId, data);
+          return next;
+        });
       }
     };
     socket.on("model:download", handler);
@@ -108,8 +162,7 @@ export default function ModelSetup({
 
   async function startDownload(modelId: string) {
     setError(null);
-    setDownloading(modelId);
-    setProgress(null);
+    setDownloading((prev) => new Set(prev).add(modelId));
     try {
       const res = await fetch(`${BASE}/api/models/download`, {
         method: "POST",
@@ -119,19 +172,53 @@ export default function ModelSetup({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Download failed");
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         return;
       }
       if (data.status === "already_installed") {
-        setDownloading(null);
+        setDownloading((prev) => {
+          const next = new Set(prev);
+          next.delete(modelId);
+          return next;
+        });
         fetch(`${BASE}/api/models/installed`)
           .then((r) => r.json())
           .then((inst) => setInstalled(inst.installed ?? []));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
-      setDownloading(null);
+      setDownloading((prev) => {
+        const next = new Set(prev);
+        next.delete(modelId);
+        return next;
+      });
     }
+  }
+
+  async function cancelDownload(modelId: string) {
+    try {
+      await fetch(`${BASE}/api/models/download/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId }),
+      });
+    } catch {
+      // ignore
+    }
+    setDownloading((prev) => {
+      const next = new Set(prev);
+      next.delete(modelId);
+      return next;
+    });
+    setProgressMap((prev) => {
+      const next = new Map(prev);
+      next.delete(modelId);
+      return next;
+    });
   }
 
   async function deleteModel(fileName: string) {
@@ -176,11 +263,12 @@ export default function ModelSetup({
       <div className="model-cards-inline">
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
-          const isDownloading = downloading === entry.id;
+          const isDownloading = downloading.has(entry.id);
           const isDisabled = !entry.allowed && !isInstalled;
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
+          const entryProgress = progressMap.get(entry.id);
 
           return (
             <div
@@ -198,15 +286,25 @@ export default function ModelSetup({
                 </span>
               </div>
 
-              {isDownloading && progress && progress.modelId === entry.id ? (
+              {isDownloading && entryProgress ? (
                 <div className="model-download-progress">
                   <div className="progress-bar">
                     <div
                       className="progress-fill"
-                      style={{ width: `${progress.percent}%` }}
+                      style={{ width: `${entryProgress.percent}%` }}
                     />
                   </div>
-                  <span className="progress-text">{progress.percent}%</span>
+                  <span className="progress-text">
+                    {entryProgress.percent}%
+                  </span>
+                  <button
+                    type="button"
+                    className="download-cancel-btn"
+                    onClick={() => cancelDownload(entry.id)}
+                    title={t("model_cancel_download") ?? "Cancel"}
+                  >
+                    ✕ Cancel
+                  </button>
                 </div>
               ) : isInstalled ? (
                 <div className="model-card-actions">
@@ -224,7 +322,7 @@ export default function ModelSetup({
                 <div className="model-card-actions">
                   <button
                     className="btn-primary"
-                    disabled={isDisabled || downloading !== null}
+                    disabled={isDisabled}
                     onClick={() => startDownload(entry.id)}
                     title={
                       isDisabled

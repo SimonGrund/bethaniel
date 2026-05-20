@@ -878,6 +878,11 @@ h4 {
   flex: 1;
 }
 
+.correction-context {
+  color: #6b5e4f;
+  opacity: 0.7;
+}
+
 .correction-empty {
   color: #8b7355;
   font-style: italic;
@@ -1820,6 +1825,44 @@ h4 {
   gap: 0.75rem;
 }
 
+.model-card-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+}
+
+.model-card-wrap > .model-card {
+  flex: 1;
+  width: 100%;
+}
+
+.model-card-overlay-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #d4c0a8;
+  cursor: pointer;
+  color: #8a6050;
+  font-size: 0.85rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  line-height: 1;
+  padding: 0;
+  z-index: 2;
+  transition: all 0.15s;
+}
+
+.model-card-overlay-btn:hover {
+  color: #fff;
+  background: #c44;
+  border-color: #c44;
+}
+
 .model-card {
   flex: 1;
   display: flex;
@@ -1847,21 +1890,21 @@ h4 {
 
 /* ── Tier colors ── */
 .model-tier-green {
-  --tier-color: #4a9f4a;
-  --tier-bg: #f0faf0;
-  --tier-glow: rgba(74, 159, 74, 0.35);
+  --tier-color: #9b2335;
+  --tier-bg: #fdf0f0;
+  --tier-glow: rgba(155, 35, 53, 0.3);
 }
 
 .model-tier-blue {
-  --tier-color: #3a7fbf;
-  --tier-bg: #eef6ff;
-  --tier-glow: rgba(58, 127, 191, 0.35);
+  --tier-color: #1a3a6b;
+  --tier-bg: #eef2fa;
+  --tier-glow: rgba(26, 58, 107, 0.3);
 }
 
 .model-tier-purple {
-  --tier-color: #7b4fbf;
-  --tier-bg: #f5eeff;
-  --tier-glow: rgba(123, 79, 191, 0.35);
+  --tier-color: #4a1a6b;
+  --tier-bg: #f5eefa;
+  --tier-glow: rgba(74, 26, 107, 0.3);
 }
 
 .model-tier-vip {
@@ -2088,44 +2131,74 @@ h4 {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .model-progress-bar {
   flex: 1;
-  height: 6px;
+  height: 10px;
   background: #e8dfc8;
-  border-radius: 3px;
+  border-radius: 5px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  display: block;
+  min-width: 0;
 }
 
 .model-progress-fill {
+  display: block;
   height: 100%;
-  background: var(--tier-color, #6a9f6a);
-  border-radius: 3px;
+  min-height: 10px;
+  background-color: var(--tier-color, #9b2335);
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  border-radius: 5px;
   transition: width 0.3s ease;
+  animation: progressStripe 0.8s linear infinite;
+}
+
+@keyframes progressStripe {
+  from {
+    background-position: 20px 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }
 
 .model-progress-text {
-  font-size: 0.7rem;
-  color: #6b5d4d;
-  min-width: 2.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4a3f2f;
+  min-width: 2.8rem;
   text-align: right;
 }
 
 .model-cancel-btn {
   background: none;
-  border: none;
+  border: 1px solid #d4c0a8;
   cursor: pointer;
-  color: #a88;
-  font-size: 0.9rem;
-  padding: 0 0.2rem;
+  color: #8a6050;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
   line-height: 1;
-  transition: color 0.15s;
+  border-radius: 4px;
+  transition: all 0.15s;
 }
 
 .model-cancel-btn:hover {
-  color: #c44;
+  color: #fff;
+  background: #c44;
+  border-color: #c44;
 }
 
 /* ── Download confirmation dialog ── */
@@ -2171,11 +2244,65 @@ h4 {
 }
 
 .model-card-inline .progress-bar {
-  height: 6px;
+  height: 10px;
+  background: #e8dfc8;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.model-card-inline .progress-fill {
+  height: 100%;
+  background-color: #9b2335;
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+  animation: progressStripe 0.8s linear infinite;
 }
 
 .model-card-inline .progress-text {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.model-card-inline .download-cancel-btn {
+  background: none;
+  border: 1px solid #d4c0a8;
+  cursor: pointer;
+  color: #8a6050;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.model-card-inline .download-cancel-btn:hover {
+  color: #fff;
+  background: #c44;
+  border-color: #c44;
+}
+
+.model-download-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.model-download-progress .progress-bar {
+  flex: 1;
 }
 
 .model-card-inline .btn-primary {
@@ -2220,6 +2347,33 @@ h4 {
   opacity: 0.6;
   margin-top: 0.15rem;
   display: block;
+}
+
+.model-tuning {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e0d5c0;
+}
+.model-tuning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.model-tuning-saved {
+  font-size: 0.7rem;
+  color: #4a7c3a;
+  opacity: 0.9;
+}
+.model-tuning-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.model-tuning-checkbox input[type="checkbox"] {
+  margin: 0;
 }
 
 /* ── Sidebar queue ── */

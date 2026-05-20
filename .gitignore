@@ -9,3 +9,7 @@ electron/dist/
 electron/resources/llama/
 *.gguf
 *.gguf.partial
+
+Code/
+Data/
+Backup/

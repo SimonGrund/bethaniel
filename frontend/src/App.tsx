@@ -136,8 +136,8 @@ export default function App() {
         <footer className="app-footer">
           <img src="/logo-icon.svg" alt="" className="footer-logo" />
           <span className="footer-text">
-            © {new Date().getFullYear()} Bethaniel · v1.0.0 · All rights
-            reserved.
+            © {new Date().getFullYear()} Bethaniel · v{__APP_VERSION__} · All
+            rights reserved.
           </span>
         </footer>
       </main>
