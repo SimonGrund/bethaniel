@@ -13,6 +13,7 @@ import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
+import LogPanel from "./components/LogPanel";
 import type { TaskState, Lang } from "./types";
 import "./styles/global.css";
 
@@ -20,6 +21,9 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function App() {
   const { lang, setLang, setTasks, tasks } = useStore();
+  const setLogs = useStore((s) => s.setLogs);
+  const appendLog = useStore((s) => s.appendLog);
+  const clearLogsLocal = useStore((s) => s.clearLogs);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
 
@@ -52,13 +56,25 @@ export default function App() {
       console.log("[Socket] queue:update", Object.keys(data).length, "tasks");
       setTasks(data);
     });
+    socket.on("log:snapshot", (entries) => {
+      setLogs(entries ?? []);
+    });
+    socket.on("log:append", (entry) => {
+      appendLog(entry);
+    });
+    socket.on("log:clear", () => {
+      clearLogsLocal();
+    });
     return () => {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("connect_error");
       socket.off("queue:update");
+      socket.off("log:snapshot");
+      socket.off("log:append");
+      socket.off("log:clear");
     };
-  }, [setTasks]);
+  }, [setTasks, setLogs, appendLog, clearLogsLocal]);
 
   // Warn before unload if tasks are active
   useEffect(() => {
@@ -143,6 +159,7 @@ export default function App() {
           </span>
         </footer>
       </main>
+      <LogPanel />
     </div>
   );
 }

@@ -154,3 +154,16 @@ export interface ConsistencyReport {
   totalIssues: number;
   sections: { title: string; items: string[] }[];
 }
+
+export type LogLevel = "info" | "warn" | "error";
+
+export interface LogEntry {
+  id: string;
+  ts: number;
+  level: LogLevel;
+  source: string;
+  message: string;
+  hintKey?: string;
+  hint?: string;
+  model?: string;
+}

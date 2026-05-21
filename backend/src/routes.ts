@@ -48,6 +48,13 @@ import {
   writeModelConfig,
 } from "./modelConfig.js";
 import {
+  MODEL_CATALOG,
+  DEFAULT_MODEL_FILENAME,
+  isOllamaModel,
+  getPreferredOrder,
+} from "./modelCatalog.js";
+import type { ModelCatalogEntry } from "./modelCatalog.js";
+import {
   saveDocument,
   getDocument,
   listDocuments,
@@ -428,7 +435,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: text,
           wordCount: text.split(/\s+/).filter(Boolean).length,
-          model: model ?? "qwen3:32b",
+          model: model ?? DEFAULT_MODEL_FILENAME,
           mode: currentMode,
           prompt: systemPrompt,
           fast: currentMode === "translate" ? false : (fast ?? true),
@@ -596,60 +603,6 @@ router.post("/consistency", (req: Request, res: Response) => {
 
 const MODELS_DIR_PATH = process.env.MODELS_DIR ?? join(__dirname, "../models");
 
-interface ModelCatalogEntry {
-  id: string;
-  tier: "small" | "normal" | "medium" | "large" | "big";
-  name: string;
-  description: string;
-  fileName: string;
-  url: string;
-  sha256: string;
-  sizeBytes: number;
-  minRamGb: number;
-  minRamAppleSiliconGb: number;
-}
-
-const MODEL_CATALOG: ModelCatalogEntry[] = [
-  {
-    id: "gemma-3n-e4b",
-    tier: "small",
-    name: "Baby Betty",
-    description: "Small, handy, and quick. But sometimes I make mistakes.",
-    fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 3_200_000_000,
-    minRamGb: 8,
-    minRamAppleSiliconGb: 8,
-  },
-  {
-    id: "mistral-small-3.2-24b",
-    tier: "normal",
-    name: "Basic Betty",
-    description:
-      "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
-    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    url: "https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 14_300_000_000,
-    minRamGb: 24,
-    minRamAppleSiliconGb: 16,
-  },
-  {
-    id: "qwen3-32b",
-    tier: "big",
-    name: "Big Bad Betty",
-    description:
-      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    fileName: "Qwen3-32B-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 19_800_000_000,
-    minRamGb: 32,
-    minRamAppleSiliconGb: 24,
-  },
-];
-
 // Track active downloads so we can report progress / prevent duplicates
 const activeDownloads = new Map<
   string,
@@ -752,7 +705,7 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
     ...entry,
     allowed: allowedTiers.includes(entry.tier),
   }));
-  res.json({ catalog, allowedTiers });
+  res.json({ catalog, allowedTiers, preferredOrder: getPreferredOrder() });
 });
 
 // ── GET /api/models/installed ──
@@ -763,8 +716,7 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
 
     // Check GGUF models on disk
     const installed = MODEL_CATALOG.filter(
-      (entry) =>
-        entry.fileName.endsWith(".gguf") && entries.includes(entry.fileName),
+      (entry) => !isOllamaModel(entry) && entries.includes(entry.fileName),
     ).map((entry) => ({
       id: entry.id,
       tier: entry.tier,
@@ -774,14 +726,15 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
 
     // Check Ollama models
     for (const entry of MODEL_CATALOG) {
-      if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+      if (isOllamaModel(entry)) {
+        const ollamaName = entry.ollamaTag ?? entry.fileName;
         try {
           const showRes = await fetch(
             `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/show`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: entry.fileName }),
+              body: JSON.stringify({ name: ollamaName }),
             },
           );
           if (showRes.ok) {
@@ -823,8 +776,9 @@ router.post("/models/download", async (req: Request, res: Response) => {
     return;
   }
 
-  // ── Ollama models (no URL, not GGUF) ──
-  if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+  // ── Ollama models ──
+  if (isOllamaModel(entry)) {
+    const ollamaName = entry.ollamaTag ?? entry.fileName;
     // Check if already pulled
     try {
       const showRes = await fetch(
@@ -832,7 +786,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: entry.fileName }),
+          body: JSON.stringify({ name: ollamaName }),
         },
       );
       if (showRes.ok) {
@@ -866,7 +820,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: entry.fileName }),
+            body: JSON.stringify({ name: ollamaName }),
             signal: abortCtrl.signal,
           },
         );
@@ -1223,6 +1177,18 @@ router.put("/models/:fileName/config", (req: Request, res: Response) => {
   };
   writeModelConfig(MODELS_DIR_PATH, fileName, next);
   res.json(next);
+});
+
+// ── Diagnostic logs ──
+import { getLogSnapshot, clearLogs } from "./logBus.js";
+
+router.get("/logs", (_req: Request, res: Response) => {
+  res.json({ logs: getLogSnapshot() });
+});
+
+router.delete("/logs", (_req: Request, res: Response) => {
+  clearLogs();
+  res.json({ ok: true });
 });
 
 export default router;

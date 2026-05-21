@@ -9,6 +9,7 @@ import * as os from "os";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { readModelConfig } from "./modelConfig.js";
+import { appendLog, diagnoseEngineExit } from "./logBus.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -234,6 +235,13 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
 
   const modelPath = path.join(MODELS_DIR, file);
   if (!fs.existsSync(modelPath)) {
+    appendLog({
+      level: "error",
+      source: "engine",
+      message: `Model file not found: ${file}`,
+      hintKey: "log_hint_model_missing",
+      model: file,
+    });
     throw new Error(`Model file not found: ${modelPath}`);
   }
 
@@ -276,10 +284,20 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     },
   });
 
+  // Rolling tail of llama-server output, used to diagnose crashes.
+  let recentOutput = "";
+
   // Handle spawn errors (e.g. binary not found)
   const spawnError = new Promise<never>((_, reject) => {
     childProcess!.on("error", (err) => {
       console.error(`[llama-server] Spawn error: ${err.message}`);
+      appendLog({
+        level: "error",
+        source: "engine",
+        message: `Failed to start model engine: ${err.message}`,
+        hintKey: "log_hint_binary_missing",
+        model: file,
+      });
       childProcess = null;
       currentModel = null;
       loadPromise = null;
@@ -294,15 +312,36 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     });
   });
 
-  childProcess.stdout?.on("data", (d: Buffer) =>
-    console.log("[llama-server]", d.toString().trimEnd()),
-  );
-  childProcess.stderr?.on("data", (d: Buffer) =>
-    console.log("[llama-server]", d.toString().trimEnd()),
-  );
+  childProcess.stdout?.on("data", (d: Buffer) => {
+    const s = d.toString().trimEnd();
+    console.log("[llama-server]", s);
+    recentOutput = (recentOutput + "\n" + s).slice(-8000);
+  });
+  childProcess.stderr?.on("data", (d: Buffer) => {
+    const s = d.toString().trimEnd();
+    console.log("[llama-server]", s);
+    recentOutput = (recentOutput + "\n" + s).slice(-8000);
+  });
 
-  childProcess.on("exit", (code) => {
-    console.log(`[llama-server] exited with code ${code}`);
+  childProcess.on("exit", (code, signal) => {
+    console.log(`[llama-server] exited with code ${code} signal ${signal}`);
+    // Abnormal exit while a model was supposed to be running → user-facing log.
+    const wasRunning = currentModel === file;
+    if (wasRunning && (code !== 0 || signal)) {
+      const diag = diagnoseEngineExit(recentOutput, code, signal);
+      const tail = recentOutput.split("\n").slice(-6).join("\n").trim();
+      appendLog({
+        level: diag.level,
+        source: "engine",
+        message:
+          `Model engine crashed while running ${file}` +
+          (signal ? ` (signal ${signal})` : "") +
+          (code !== null ? ` (exit ${code})` : "") +
+          (tail ? `\n${tail}` : ""),
+        hintKey: diag.hintKey,
+        model: file,
+      });
+    }
     if (currentModel === file) {
       currentModel = null;
       currentCtx = null;
@@ -310,7 +349,26 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   });
 
   // Wait for health endpoint (or spawn error)
-  await Promise.race([pollHealth(), spawnError]);
+  try {
+    await Promise.race([pollHealth(), spawnError]);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Don't double-log spawn errors (already logged in the 'error' handler).
+    if (!msg.startsWith("Failed to start llama-server")) {
+      const diag = diagnoseEngineExit(recentOutput, null, null);
+      const tail = recentOutput.split("\n").slice(-6).join("\n").trim();
+      appendLog({
+        level: "error",
+        source: "engine",
+        message:
+          `Model engine did not become ready for ${file}: ${msg}` +
+          (tail ? `\n${tail}` : ""),
+        hintKey: diag.hintKey,
+        model: file,
+      });
+    }
+    throw err;
+  }
   currentModel = file;
   currentCtx = numCtx;
   loadPromise = null;

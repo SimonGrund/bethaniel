@@ -653,6 +653,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Das Herunterladen von {name} benötigt ungefähr {size} Speicherplatz und Datenvolumen. Fortfahren?",
     es: "Descargar {name} usará aproximadamente {size} de espacio en disco y datos de internet. ¿Continuar?",
   },
+  model_delete_warning: {
+    en: "Delete {name}? You will need to re-download it ({size}) to use it again.",
+    da: "Slet {name}? Du skal downloade den igen ({size}) for at bruge den.",
+    de: "{name} löschen? Du musst es erneut herunterladen ({size}), um es wieder zu verwenden.",
+    es: "¿Eliminar {name}? Deberás volver a descargarlo ({size}) para usarlo de nuevo.",
+  },
   model_insufficient_ram: {
     en: "Insufficient RAM",
     da: "Utilstrækkelig RAM",
@@ -1073,6 +1079,80 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Model låst mens opgaver kører — du kan stadig tilføje opgaver til køen.",
     de: "Modell gesperrt während Aufträge laufen — du kannst trotzdem Aufträge zur Warteschlange hinzufügen.",
     es: "Modelo bloqueado mientras hay tareas en ejecución — aún puedes añadir tareas a la cola.",
+  },
+
+  // ── Diagnostic log panel ──
+  logs_title: {
+    en: "Diagnostics",
+    da: "Diagnostik",
+    de: "Diagnose",
+    es: "Diagnóstico",
+  },
+  logs_empty: {
+    en: "No diagnostic events yet. If a model crashes or a task fails, details will appear here.",
+    da: "Ingen diagnostiske hændelser endnu. Hvis en model crasher eller en opgave fejler, vises detaljerne her.",
+    de: "Noch keine Diagnoseereignisse. Wenn ein Modell abstürzt oder eine Aufgabe fehlschlägt, erscheinen Details hier.",
+    es: "Aún no hay eventos de diagnóstico. Si un modelo falla o una tarea da error, los detalles aparecerán aquí.",
+  },
+  logs_clear: {
+    en: "Clear",
+    da: "Ryd",
+    de: "Leeren",
+    es: "Limpiar",
+  },
+  logs_hide: {
+    en: "Hide",
+    da: "Skjul",
+    de: "Ausblenden",
+    es: "Ocultar",
+  },
+  log_hint_oom: {
+    en: "Out of memory. Pick a smaller model (e.g. Tiny Betty), close other apps to free RAM, or reduce the context window in advanced settings.",
+    da: "Hukommelsen er opbrugt. Vælg en mindre model (fx Tiny Betty), luk andre programmer for at frigøre RAM, eller reducér kontekstvinduet i avancerede indstillinger.",
+    de: "Speicher voll. Wähle ein kleineres Modell (z. B. Tiny Betty), schließe andere Programme oder verkleinere das Kontextfenster in den erweiterten Einstellungen.",
+    es: "Sin memoria. Elige un modelo más pequeño (p. ej. Tiny Betty), cierra otras apps para liberar RAM o reduce la ventana de contexto en ajustes avanzados.",
+  },
+  log_hint_corrupt_model: {
+    en: "The model file appears damaged or incomplete. Delete and re-download it from the model setup screen.",
+    da: "Modelfilen ser ud til at være beskadiget eller ufuldstændig. Slet og download den igen fra modelopsætningsskærmen.",
+    de: "Die Modelldatei scheint beschädigt oder unvollständig. Lösche sie und lade sie erneut von der Modell-Einrichtungsseite herunter.",
+    es: "El archivo del modelo parece dañado o incompleto. Elimínalo y vuelve a descargarlo desde la pantalla de configuración del modelo.",
+  },
+  log_hint_context_too_large: {
+    en: "Context window too large for available memory. Reduce it in advanced settings and try again.",
+    da: "Kontekstvinduet er for stort til den tilgængelige hukommelse. Reducér det i avancerede indstillinger og prøv igen.",
+    de: "Kontextfenster zu groß für den verfügbaren Speicher. Verkleinere es in den erweiterten Einstellungen und versuche es erneut.",
+    es: "Ventana de contexto demasiado grande para la memoria disponible. Redúcela en ajustes avanzados e inténtalo de nuevo.",
+  },
+  log_hint_engine_crash_generic: {
+    en: "The model engine stopped unexpectedly. Try re-running the job; if it keeps happening, switch to a smaller model or re-download the current one.",
+    da: "Modelmotoren stoppede uventet. Prøv at køre opgaven igen; hvis det gentager sig, skift til en mindre model eller download den nuværende igen.",
+    de: "Die Modell-Engine wurde unerwartet beendet. Versuche es erneut; falls es weiterhin passiert, wechsle zu einem kleineren Modell oder lade das aktuelle erneut herunter.",
+    es: "El motor del modelo se detuvo de forma inesperada. Vuelve a intentarlo; si persiste, cambia a un modelo más pequeño o vuelve a descargar el actual.",
+  },
+  log_hint_engine_unreachable: {
+    en: "Lost connection to the model engine — it likely crashed mid-job. See the engine entry above for the underlying reason.",
+    da: "Mistede forbindelsen til modelmotoren — den crashede sandsynligvis under opgaven. Se motor-loggen ovenfor for den bagvedliggende årsag.",
+    de: "Verbindung zur Modell-Engine verloren — sie ist wahrscheinlich abgestürzt. Siehe den Engine-Eintrag oben für die Ursache.",
+    es: "Se perdió la conexión con el motor del modelo — probablemente se cayó durante la tarea. Consulta la entrada del motor para la causa.",
+  },
+  log_hint_cancelled: {
+    en: "Task was cancelled.",
+    da: "Opgaven blev annulleret.",
+    de: "Aufgabe wurde abgebrochen.",
+    es: "Tarea cancelada.",
+  },
+  log_hint_model_missing: {
+    en: "The selected model file is missing from disk. Re-download it from the model setup screen.",
+    da: "Den valgte modelfil mangler på disken. Download den igen fra modelopsætningsskærmen.",
+    de: "Die ausgewählte Modelldatei fehlt. Lade sie erneut von der Modell-Einrichtungsseite herunter.",
+    es: "Falta el archivo del modelo seleccionado en el disco. Vuelve a descargarlo desde la pantalla de configuración del modelo.",
+  },
+  log_hint_binary_missing: {
+    en: "The model engine binary could not be started. Reinstall Bethaniel to restore the bundled engine.",
+    da: "Modelmotor-binæren kunne ikke startes. Geninstallér Bethaniel for at gendanne den medfølgende motor.",
+    de: "Die Modell-Engine konnte nicht gestartet werden. Installiere Bethaniel neu, um die mitgelieferte Engine wiederherzustellen.",
+    es: "No se pudo iniciar el binario del motor del modelo. Reinstala Bethaniel para restaurar el motor incluido.",
   },
 };
 

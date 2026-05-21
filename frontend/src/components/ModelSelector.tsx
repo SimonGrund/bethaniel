@@ -89,6 +89,8 @@ export default function ModelSelector({
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CatalogEntry | null>(null);
+  const [preferredOrder, setPreferredOrder] = useState<string[]>([]);
 
   function refresh() {
     return Promise.all([
@@ -99,6 +101,7 @@ export default function ModelSelector({
     ]).then(([hw, cat, inst, modelsData]) => {
       setHardware(hw);
       setCatalog(cat.catalog ?? []);
+      setPreferredOrder(cat.preferredOrder ?? []);
       setInstalled(inst.installed ?? []);
       setModels(modelsData.models ?? []);
     });
@@ -161,11 +164,6 @@ export default function ModelSelector({
   }, []);
 
   // Auto-select best installed model
-  const preferredOrder = [
-    "Qwen3-32B-Q4_K_M.gguf",
-    "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    "gemma-3n-E4B-it-Q4_K_M.gguf",
-  ];
   useEffect(() => {
     if (models.length > 0 && !models.includes(model)) {
       const best =
@@ -363,7 +361,7 @@ export default function ModelSelector({
                 <button
                   type="button"
                   className="model-card-overlay-btn model-delete-btn"
-                  onClick={() => deleteModel(entry.fileName)}
+                  onClick={() => setConfirmDelete(entry)}
                   title={t("model_delete")}
                 >
                   ✕
@@ -417,6 +415,41 @@ export default function ModelSelector({
                 type="button"
                 className="btn-secondary"
                 onClick={() => setConfirmEntry(null)}
+              >
+                {t("btn_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="model-confirm-overlay">
+          <div className="model-confirm-dialog">
+            <p className="model-confirm-text">
+              {t("model_delete_warning")
+                .replace("{name}", confirmDelete.name)
+                .replace(
+                  "{size}",
+                  formatBytes(confirmDelete.sizeBytes) || "~20 GB",
+                )}
+            </p>
+            <div className="model-confirm-actions">
+              <button
+                type="button"
+                className="btn-primary model-delete-confirm"
+                onClick={() => {
+                  const fn = confirmDelete.fileName;
+                  setConfirmDelete(null);
+                  deleteModel(fn);
+                }}
+              >
+                {t("model_delete")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setConfirmDelete(null)}
               >
                 {t("btn_cancel")}
               </button>

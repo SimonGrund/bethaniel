@@ -19,6 +19,7 @@ import {
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
+import { appendLog, diagnoseTaskError } from "./logBus.js";
 import {
   saveTaskState,
   loadTaskStates,
@@ -145,7 +146,25 @@ function broadcast(): void {
 function updateTask(id: string, update: Partial<TaskState>): void {
   const existing = tasks.get(id);
   if (existing) {
+    const prevStatus = existing.status;
     Object.assign(existing, update);
+    // Surface terminal errors as user-facing log entries (once per transition).
+    if (
+      existing.status === "error" &&
+      prevStatus !== "error" &&
+      existing.result
+    ) {
+      const errs = existing.result.errors ?? [];
+      const summary = errs.length > 0 ? errs.join(" · ") : "unknown error";
+      const diag = diagnoseTaskError(summary);
+      appendLog({
+        level: "error",
+        source: "task",
+        message: `${existing.name} (${existing.mode}) failed: ${summary}`,
+        hintKey: diag?.hintKey,
+        model: existing.model,
+      });
+    }
     // Persist any task that has reached a terminal state so it survives a restart.
     if (
       existing.status === "done" ||

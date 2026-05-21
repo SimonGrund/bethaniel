@@ -12,9 +12,16 @@
  * Usage:
  *   npx tsx scripts/test-models.ts            # Resume (skip already-completed)
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
+ *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  existsSync,
+  statSync,
+} from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -26,9 +33,17 @@ const RESULTS_PATH = join(SAMPLE_DIR, "benchmark_results.json");
 const REPORT_PATH = join(SAMPLE_DIR, "benchmark_results.txt");
 
 const POLL_INTERVAL = 3000;
-const TASK_TIMEOUT = 600_000; // 10 minutes
+const TASK_TIMEOUT = 3_600_000; // 1 hour
 
 const CLEAN_RUN = process.argv.includes("--clean");
+
+function parseMaxSize(): number | null {
+  const idx = process.argv.indexOf("--max-size");
+  if (idx === -1 || idx + 1 >= process.argv.length) return null;
+  const val = parseFloat(process.argv[idx + 1]);
+  return isNaN(val) ? null : val;
+}
+const MAX_SIZE_GB = parseMaxSize();
 
 interface TestFile {
   path: string;
@@ -132,8 +147,8 @@ async function waitForTask(taskId: string): Promise<{
 function discoverFiles(): TestFile[] {
   const files: TestFile[] = [];
   for (const f of readdirSync(SAMPLE_DIR)) {
-    if (!f.endsWith(".txt")) continue;
-    const parts = f.replace(".txt", "").split("_");
+    if (!f.endsWith(".md")) continue;
+    const parts = f.replace(".md", "").split("_");
     const language = parts[0];
     const variant = parts.slice(1).join("_") as TestFile["variant"];
     if (!["correct", "copy_edit", "line_edit"].includes(variant)) continue;
@@ -171,12 +186,64 @@ async function main() {
 
   // Get installed models
   const modelData = (await api("GET", "/models")) as { models: string[] };
-  const models = modelData.models;
+  let models = modelData.models;
   if (models.length === 0) {
     console.error("ERROR: No models found in backend/models/");
     process.exit(1);
   }
-  console.log(`Models found: ${models.join(", ")}`);
+
+  // Filter by size if --max-size specified
+  if (MAX_SIZE_GB !== null) {
+    const MODELS_DIR = join(__dirname, "..", "backend", "models");
+
+    // Fetch Ollama model sizes from /api/tags
+    let ollamaSizes = new Map<string, number>();
+    try {
+      const ollamaHost = process.env.OLLAMA_HOST ?? "http://localhost:11434";
+      const tagsRes = await fetch(`${ollamaHost}/api/tags`);
+      if (tagsRes.ok) {
+        const tagsData = (await tagsRes.json()) as {
+          models: { name: string; size: number }[];
+        };
+        for (const m of tagsData.models) {
+          ollamaSizes.set(m.name, m.size / 1024 ** 3);
+        }
+      }
+    } catch {
+      // Ollama not running — can't determine sizes for non-GGUF models
+    }
+
+    const filtered: string[] = [];
+    for (const m of models) {
+      let sizeGb = 0;
+      const modelPath = join(MODELS_DIR, m);
+      if (m.endsWith(".gguf") && existsSync(modelPath)) {
+        sizeGb = statSync(modelPath).size / 1024 ** 3;
+      } else if (ollamaSizes.has(m)) {
+        sizeGb = ollamaSizes.get(m)!;
+      } else {
+        // Can't determine size — include with warning
+        console.log(`  Including ${m} (size unknown)`);
+        filtered.push(m);
+        continue;
+      }
+      if (sizeGb <= MAX_SIZE_GB) {
+        filtered.push(m);
+      } else {
+        console.log(
+          `  Skipping ${m} (${sizeGb.toFixed(1)} GB > ${MAX_SIZE_GB} GB limit)`,
+        );
+      }
+    }
+    models = filtered;
+    if (models.length === 0) {
+      console.error(`ERROR: No models ≤ ${MAX_SIZE_GB} GB found`);
+      process.exit(1);
+    }
+  }
+
+  console.log(`Models: ${models.join(", ")}`);
+  if (MAX_SIZE_GB !== null) console.log(`  (filtered to ≤ ${MAX_SIZE_GB} GB)`);
 
   // Discover sample texts
   const testFiles = discoverFiles();
