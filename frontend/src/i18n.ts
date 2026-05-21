@@ -232,10 +232,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Capítulos seleccionados",
   },
   first_n_words: {
-    en: "First N words",
-    da: "Første N ord",
-    de: "Erste N Wörter",
-    es: "Primeras N palabras",
+    en: "First X words",
+    da: "Første X ord",
+    de: "Erste X Wörter",
+    es: "Primeras X palabras",
   },
   pick_chapters: {
     en: "Pick chapters…",
@@ -272,6 +272,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Start opgave",
     de: "Auftrag starten",
     es: "Iniciar tarea",
+  },
+  btn_add_to_queue_busy: {
+    en: "Add job to queue",
+    da: "Tilføj opgave til kø",
+    de: "Auftrag zur Warteschlange",
+    es: "Añadir tarea a la cola",
   },
   btn_change_document: {
     en: "Change document",
@@ -344,6 +350,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Dette vil permanent fjerne alle færdige resultater. Er du sikker?",
     de: "Alle abgeschlossenen Ergebnisse werden dauerhaft entfernt. Bist du sicher?",
     es: "Esto eliminará permanentemente todos los resultados completados. ¿Estás seguro?",
+  },
+  delete_task_tip: {
+    en: "Delete this result",
+    da: "Slet dette resultat",
+    de: "Dieses Ergebnis löschen",
+    es: "Eliminar este resultado",
+  },
+  delete_job_tip: {
+    en: "Delete this job and all its results",
+    da: "Slet dette job og alle dets resultater",
+    de: "Diesen Auftrag und alle Ergebnisse löschen",
+    es: "Eliminar este trabajo y todos sus resultados",
+  },
+  delete_all_older: {
+    en: "Delete all older",
+    da: "Slet alle ældre",
+    de: "Alle älteren löschen",
+    es: "Eliminar todos los anteriores",
+  },
+  delete_all_older_tip: {
+    en: "Permanently delete every older job and its results",
+    da: "Slet permanent alle ældre jobs og deres resultater",
+    de: "Alle älteren Aufträge und Ergebnisse dauerhaft löschen",
+    es: "Eliminar permanentemente todos los trabajos anteriores y sus resultados",
   },
   cancel_task: {
     en: "Cancel task",
@@ -1031,6 +1061,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Gennemgå AI'ens forslag kapitel for kapitel. Acceptér eller afvis individuelle rettelser, og eksportér derefter det redigerede manuskript som DOCX eller Markdown.",
     de: "Überprüfe die KI-Vorschläge Kapitel für Kapitel. Akzeptiere oder lehne einzelne Korrekturen ab und exportiere dann das bearbeitete Manuskript als DOCX oder Markdown.",
     es: "Revisa las sugerencias de la IA capítulo por capítulo. Acepta o descarta correcciones individuales y luego exporta el manuscrito editado como DOCX o Markdown.",
+  },
+  betty_working: {
+    en: "Betty is working",
+    da: "Betty arbejder",
+    de: "Betty arbeitet",
+    es: "Betty está trabajando",
+  },
+  model_locked_while_busy: {
+    en: "Model locked while jobs are running — you can still add jobs to the queue.",
+    da: "Model låst mens opgaver kører — du kan stadig tilføje opgaver til køen.",
+    de: "Modell gesperrt während Aufträge laufen — du kannst trotzdem Aufträge zur Warteschlange hinzufügen.",
+    es: "Modelo bloqueado mientras hay tareas en ejecución — aún puedes añadir tareas a la cola.",
   },
 };
 

@@ -953,6 +953,15 @@ export function removeCompleted(): void {
 }
 
 export function removeTask(id: string): void {
+  // If the task is still active, cancel it first so we tear down any
+  // in-flight stream before dropping the state.
+  const task = tasks.get(id);
+  if (task && (task.status === "queued" || task.status === "editing")) {
+    const idx = pending.findIndex((j) => j.taskId === id);
+    if (idx !== -1) pending.splice(idx, 1);
+    const ac = abortControllers.get(id);
+    if (ac) ac.abort();
+  }
   tasks.delete(id);
   abortControllers.delete(id);
   try {
@@ -961,6 +970,38 @@ export function removeTask(id: string): void {
     console.warn(`[Queue] failed to delete persisted task ${id}:`, err);
   }
   broadcast();
+}
+
+/**
+ * Remove every task that belongs to the given jobId, regardless of status.
+ * Active tasks are cancelled first. Returns the number of tasks removed.
+ */
+export function removeJob(jobId: string): number {
+  const removed: string[] = [];
+  for (const [id, state] of tasks) {
+    if (state.jobId !== jobId) continue;
+    if (state.status === "queued" || state.status === "editing") {
+      const idx = pending.findIndex((j) => j.taskId === id);
+      if (idx !== -1) pending.splice(idx, 1);
+      const ac = abortControllers.get(id);
+      if (ac) ac.abort();
+    }
+    tasks.delete(id);
+    abortControllers.delete(id);
+    removed.push(id);
+  }
+  if (removed.length > 0) {
+    try {
+      deleteTaskStatesIn(removed);
+    } catch (err) {
+      console.warn(
+        `[Queue] failed to delete persisted tasks for job ${jobId}:`,
+        err,
+      );
+    }
+    broadcast();
+  }
+  return removed.length;
 }
 
 export function getTasksSnapshot(): Record<string, TaskState> {

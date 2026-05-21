@@ -297,6 +297,116 @@ h4 {
   }
 }
 
+/* ── Betty Working animation ── */
+.betty-working {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: linear-gradient(135deg, #f5f0e8, #ede6da);
+  border: 1px solid #c9b896;
+  border-radius: 999px;
+  animation: betty-fade-in 0.4s ease-out;
+}
+
+.betty-working-icon {
+  width: 22px;
+  height: 22px;
+  animation:
+    betty-bob 1.2s ease-in-out infinite,
+    betty-glow 2s ease-in-out infinite;
+}
+
+.betty-working-text {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b7355;
+  white-space: nowrap;
+}
+
+.betty-working-dots::after {
+  content: "";
+  animation: betty-dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes betty-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes betty-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes betty-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgba(201, 184, 150, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(139, 115, 85, 0.6));
+  }
+}
+
+@keyframes betty-dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+}
+
+.betty-working-inline {
+  align-self: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* ── Model lock (while jobs are running) ── */
+.model-lock-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #f5f0e8;
+  border: 1px solid #c9b896;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #8b7355;
+}
+
+.model-lock-notice .lock-icon {
+  font-size: 0.85rem;
+}
+
+.model-card-locked-active {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  pointer-events: none;
+}
+
 /* ── Section labels ── */
 .section-label {
   font-family: "Cormorant Garamond", Georgia, serif;
@@ -2402,6 +2512,52 @@ h4 {
   justify-content: flex-end;
   gap: 0.5rem;
   padding: 0.5rem 0;
+}
+
+/* ── Per-row delete (×) button on job/task summaries ── */
+.review-source,
+.review-task-summary,
+.review-old-summary {
+  position: relative;
+}
+
+.review-delete-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #a89a85;
+  font-size: 1.05rem;
+  line-height: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.review-delete-btn:hover,
+.review-delete-btn:focus-visible {
+  color: #b54a1f;
+  background: #fbe9dd;
+  border-color: #e0a060;
+  outline: none;
+}
+.review-delete-btn-task {
+  font-size: 0.95rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  color: #b8ab95;
+}
+
+.review-old-delete-all {
+  margin-left: auto;
 }
 
 /* ── Modal overlay ── */

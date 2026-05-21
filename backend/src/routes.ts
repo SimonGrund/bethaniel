@@ -62,6 +62,7 @@ import {
   retryTask,
   removeCompleted,
   removeTask,
+  removeJob,
   getTasksSnapshot,
   getTask,
   setConcurrency,
@@ -505,10 +506,22 @@ router.delete("/queue/clear", (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// ── Queue: delete a single task ──
+// ── Queue: cancel a single task (active queue control) ──
 router.delete("/queue/task/:taskId", (req: Request, res: Response) => {
   cancelTask(req.params.taskId);
   res.json({ ok: true });
+});
+
+// ── Queue: permanently remove a single task from history ──
+router.delete("/queue/task/:taskId/remove", (req: Request, res: Response) => {
+  removeTask(req.params.taskId);
+  res.json({ ok: true });
+});
+
+// ── Queue: permanently remove every task in a job ──
+router.delete("/queue/job/:jobId", (req: Request, res: Response) => {
+  const removed = removeJob(req.params.jobId);
+  res.json({ ok: true, removed });
 });
 
 // ── Queue: retry a failed/cancelled task ──

@@ -70,8 +70,13 @@ export default function ModelSelector({
     setOverlapParagraphs,
     parallel,
     setParallel,
+    tasks,
   } = useStore();
   const t = useTranslation(lang);
+
+  const modelLocked = Object.values(tasks).some(
+    (task) => task.status === "queued" || task.status === "editing",
+  );
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -259,6 +264,9 @@ export default function ModelSelector({
       <div className="section-label">
         <span className="num">I.</span> {t("sec_model")}
       </div>
+      {modelLocked && (
+        <div className="model-lock-notice"> {t("model_locked_while_busy")}</div>
+      )}
       <div className="model-selector-cards">
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
@@ -267,6 +275,7 @@ export default function ModelSelector({
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
           const isRecommended = entry.tier === recommendedTier;
+          const isLockedOut = modelLocked && !isSelected && isInstalled;
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
@@ -283,10 +292,13 @@ export default function ModelSelector({
                   isInstalled ? "model-card-ready" : "",
                   isDisabled ? "model-card-disabled" : "",
                   isDownloading ? "model-card-downloading" : "",
+                  isLockedOut ? "model-card-locked-active" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
+                disabled={isLockedOut}
                 onClick={() => {
+                  if (isLockedOut) return;
                   if (isInstalled) {
                     setModel(entry.fileName);
                   } else if (!isDisabled && !isDownloading) {
@@ -347,7 +359,7 @@ export default function ModelSelector({
                   ✕
                 </button>
               )}
-              {isInstalled && !isDownloading && (
+              {isInstalled && !isDownloading && !isLockedOut && (
                 <button
                   type="button"
                   className="model-card-overlay-btn model-delete-btn"

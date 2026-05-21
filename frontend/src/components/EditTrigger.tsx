@@ -25,8 +25,13 @@ export default function EditTrigger() {
     styleGuide,
     submitting,
     setSubmitting,
+    tasks,
   } = useStore();
   const t = useTranslation(lang);
+
+  const isWorking = Object.values(tasks).some(
+    (task) => task.status === "queued" || task.status === "editing",
+  );
 
   const units = doc
     ? buildUnits(
@@ -99,7 +104,9 @@ export default function EditTrigger() {
       <div className="trigger-buttons-row">
         <button className="btn-run" disabled={disabled} onClick={handleClick}>
           <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-          <span className="btn-run-label">{t("btn_add_to_queue")}</span>
+          <span className="btn-run-label">
+            {isWorking ? t("btn_add_to_queue_busy") : t("btn_add_to_queue")}
+          </span>
           {units.length > 0 && (
             <span className="btn-run-meta">
               {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
@@ -119,6 +126,16 @@ export default function EditTrigger() {
           </span>
         </button> */}
       </div>
+
+      {isWorking && (
+        <div className="betty-working betty-working-inline">
+          <img src="/logo-icon.svg" alt="" className="betty-working-icon" />
+          <span className="betty-working-text">
+            {t("betty_working")}
+            <span className="betty-working-dots" />
+          </span>
+        </div>
+      )}
 
       {selectedModes.length > 1 && (
         <p

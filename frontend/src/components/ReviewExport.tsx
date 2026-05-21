@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { exportDocx, retryTask, clearQueue } from "../api";
+import {
+  exportDocx,
+  retryTask,
+  clearQueue,
+  deleteTask,
+  deleteJob,
+} from "../api";
 import type { TaskState, Correction } from "../types";
 import { ANALYSIS_MODES, EDIT_MODES } from "../types";
 
@@ -728,6 +734,67 @@ export default function ReviewExport() {
     }
   }, []);
 
+  const handleDeleteTask = useCallback(
+    async (taskId: string, taskName: string) => {
+      if (
+        !window.confirm(
+          `Delete result for "${taskName}"? This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteTask(taskId);
+      } catch (err) {
+        console.error("Delete task failed:", err);
+        alert(
+          `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+    [],
+  );
+
+  const handleDeleteJob = useCallback(
+    async (jobId: string, label: string, taskCount: number) => {
+      if (
+        !window.confirm(
+          `Delete this job (${label}) and all ${taskCount} task result(s)? This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteJob(jobId);
+      } catch (err) {
+        console.error("Delete job failed:", err);
+        alert(
+          `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+    [],
+  );
+
+  const handleDeleteOlder = useCallback(async (jobIds: string[]) => {
+    if (jobIds.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete all ${jobIds.length} older job(s) and their results? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await Promise.all(jobIds.map((jid) => deleteJob(jid)));
+    } catch (err) {
+      console.error("Delete older jobs failed:", err);
+      alert(
+        `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, []);
+
   const visibleTasks = Object.entries(tasks).filter(
     ([, s]) => s.status !== "queued",
   );
@@ -858,6 +925,19 @@ export default function ReviewExport() {
                     ? ` · ${totalCorrections} corrections`
                     : ""}
                 </span>
+                <button
+                  type="button"
+                  className="review-delete-btn"
+                  title={t("delete_job_tip")}
+                  aria-label={t("delete_job_tip")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void handleDeleteJob(jid, src, entries.length);
+                  }}
+                >
+                  ×
+                </button>
               </summary>
 
               {failedChapters.length > 0 && (
@@ -1156,6 +1236,19 @@ export default function ReviewExport() {
                             ({formatDuration(task)})
                           </span>
                         )}
+                        <button
+                          type="button"
+                          className="review-delete-btn review-delete-btn-task"
+                          title={t("delete_task_tip")}
+                          aria-label={t("delete_task_tip")}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void handleDeleteTask(tid, task.name);
+                          }}
+                        >
+                          ×
+                        </button>
                       </summary>
                       <div className="task-placeholder">
                         {task.status === "editing" && (
@@ -1238,6 +1331,19 @@ export default function ReviewExport() {
                           ↻ {t("retry_task")}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="review-delete-btn review-delete-btn-task"
+                        title={t("delete_task_tip")}
+                        aria-label={t("delete_task_tip")}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void handleDeleteTask(tid, task.name);
+                        }}
+                      >
+                        ×
+                      </button>
                     </summary>
 
                     {isTranslation ? (
@@ -1378,6 +1484,7 @@ export default function ReviewExport() {
 
         const latest = rendered[0];
         const older = rendered.slice(1);
+        const olderJobIds = jobEntries.slice(1).map(([jid]) => jid);
         return (
           <>
             <div ref={latestRef}>{latest}</div>
@@ -1385,6 +1492,18 @@ export default function ReviewExport() {
               <details className="review-old-group">
                 <summary className="review-old-summary">
                   Old stuff ({older.length})
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm review-old-delete-all"
+                    title={t("delete_all_older_tip")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void handleDeleteOlder(olderJobIds);
+                    }}
+                  >
+                    {t("delete_all_older")}
+                  </button>
                 </summary>
                 {older}
               </details>

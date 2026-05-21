@@ -12,6 +12,7 @@ import ScopeSelection from "./components/ScopeSelection";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
+import BettyWorking from "./components/BettyWorking";
 import type { TaskState, Lang } from "./types";
 import "./styles/global.css";
 
@@ -94,6 +95,7 @@ export default function App() {
       <main className="main-content">
         <div className="title-header">
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
+          <BettyWorking />
           <div className="lang-toggle">
             <select
               value={lang}

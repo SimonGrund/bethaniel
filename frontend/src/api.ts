@@ -128,6 +128,14 @@ export async function clearQueue() {
   await apiFetch("/queue/clear", { method: "DELETE" });
 }
 
+export async function deleteTask(taskId: string) {
+  await apiFetch(`/queue/task/${taskId}/remove`, { method: "DELETE" });
+}
+
+export async function deleteJob(jobId: string) {
+  await apiFetch(`/queue/job/${jobId}`, { method: "DELETE" });
+}
+
 export async function getQueueStatus() {
   const res = await apiFetch("/queue/status");
   return res.json();
