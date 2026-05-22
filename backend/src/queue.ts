@@ -20,6 +20,7 @@ import {
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
 import { appendLog, diagnoseTaskError } from "./logBus.js";
+import { ensureModelLoaded } from "./llamaServer.js";
 import {
   saveTaskState,
   loadTaskStates,
@@ -617,6 +618,22 @@ async function processJob(job: JobData): Promise<void> {
     phase: "splitting",
   });
 
+  // Pre-load the model with a slot hint that matches actual queue demand,
+  // so we don't reserve KV cache for unused parallel slots. The hint is
+  // capped by the queue's concurrency setting and by hardware in
+  // detectParallelSlots(). Includes the current job + any pending jobs
+  // queued for the same model.
+  const sameModelPending = pending.filter((p) => p.model === model).length;
+  const desiredSlots = Math.max(1, Math.min(concurrency, sameModelPending + 1));
+  try {
+    await ensureModelLoaded(model, undefined, desiredSlots);
+  } catch (err) {
+    // Surface but continue — the first chunk call will re-attempt loading
+    // and produce a more specific error if it really can't start.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
+
   const chunks = splitIntoChunks(original, wpc, overlap);
   updateTask(taskId, { phase: `0/${chunks.length} chunks` });
 
@@ -725,7 +742,67 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
-        const cs = parseCorrectionsJson(acc);
+        let cs = parseCorrectionsJson(acc);
+
+        // Detect truncation: large raw response that doesn't end with `]`.
+        // Re-run the chunk with a doubled token budget so the model can
+        // finish the JSON array. We only retry once.
+        const trimmedAcc = acc.trim();
+        const looksTruncated =
+          acc.length > 800 &&
+          !trimmedAcc.endsWith("]") &&
+          !trimmedAcc.endsWith("]}");
+        if (looksTruncated) {
+          const salvaged = cs.length;
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId,
+            message: `Chunk ${chunkLabel}: response appears truncated (${acc.length} chars, salvaged ${salvaged}). Retrying with larger token budget.`,
+            model,
+          });
+          updateTask(taskId, {
+            phase: `chunk ${chunkLabel} retry with larger budget`,
+          });
+          // Compute a generous budget: ~3 chars/token estimate of the input
+          // multiplied by 4, capped reasonably.
+          const inputTokenEst = Math.ceil(chunk.body.length / 3);
+          const retryBudget = Math.min(8192, inputTokenEst * 4 + 1024);
+          let acc2 = "";
+          try {
+            for await (const tok of findCorrectionsStream(
+              model,
+              chunk.body,
+              prompt,
+              ac.signal,
+              retryBudget,
+            )) {
+              acc2 += tok;
+            }
+            const cs2 = parseCorrectionsJson(acc2);
+            // Prefer whichever pass yielded more corrections.
+            if (cs2.length > cs.length) {
+              cs = cs2;
+              acc = acc2;
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Chunk ${chunkLabel}: retry recovered ${cs2.length} corrections (was ${salvaged}).`,
+                model,
+              });
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            appendLog({
+              level: "warn",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: retry failed (${msg}); keeping salvaged ${salvaged} corrections.`,
+              model,
+            });
+          }
+        }
 
         // Debug: log raw response when parsing yields zero corrections
         if (cs.length === 0 && acc.length > 0) {

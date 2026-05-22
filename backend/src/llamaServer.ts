@@ -182,6 +182,7 @@ function detectThreads(): number {
 export function detectParallelSlots(
   modelSizeBytes: number,
   numCtx: number,
+  desiredSlots?: number,
 ): number {
   const totalRamGb = os.totalmem() / 1024 ** 3;
   const modelGb = modelSizeBytes / 1024 ** 3;
@@ -197,7 +198,12 @@ export function detectParallelSlots(
   // Cap at 3 — on a single GPU (Apple Silicon unified memory), decode is
   // bandwidth-bound so more slots just add KV cache pressure. 2–3 slots
   // still help because prefill can be batched efficiently.
-  const slots = Math.max(1, Math.min(3, ramSlots, cpuSlots));
+  const hardwareCap = Math.max(1, Math.min(3, ramSlots, cpuSlots));
+  // If the caller knows how many concurrent jobs are queued, don't allocate
+  // KV cache for slots that won't be used. Always allow at least 1.
+  const slots = desiredSlots
+    ? Math.max(1, Math.min(hardwareCap, desiredSlots))
+    : hardwareCap;
   return slots;
 }
 
@@ -267,6 +273,7 @@ function killChild(): Promise<void> {
 export function ensureModelLoaded(
   modelFile: string,
   numCtxOverride?: number,
+  desiredSlots?: number,
 ): Promise<void> {
   // Normalize to bare filename
   const file = modelFile.endsWith(".gguf") ? modelFile : modelFile + ".gguf";
@@ -285,14 +292,18 @@ export function ensureModelLoaded(
 
   if (loadPromise) {
     // Already loading — chain
-    loadPromise = loadPromise.then(() => doLoad(file, targetCtx));
+    loadPromise = loadPromise.then(() => doLoad(file, targetCtx, desiredSlots));
   } else {
-    loadPromise = doLoad(file, targetCtx);
+    loadPromise = doLoad(file, targetCtx, desiredSlots);
   }
   return loadPromise;
 }
 
-async function doLoad(file: string, numCtx: number): Promise<void> {
+async function doLoad(
+  file: string,
+  numCtx: number,
+  desiredSlots?: number,
+): Promise<void> {
   // Kill existing server if running
   await killChild();
 
@@ -311,7 +322,7 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   const modelSize = fs.statSync(modelPath).size;
   const ngl = detectNGL(modelSize);
   const threads = detectThreads();
-  const parallelSlots = detectParallelSlots(modelSize, numCtx);
+  const parallelSlots = detectParallelSlots(modelSize, numCtx, desiredSlots);
   const cfg = readModelConfig(MODELS_DIR, file);
 
   // llama-server divides -c evenly across parallel slots, so we multiply
@@ -360,10 +371,13 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   console.log(
     `[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")} (parallel=${parallelSlots})`,
   );
+  const hintSuffix = desiredSlots
+    ? ` for ${desiredSlots} queued task${desiredSlots === 1 ? "" : "s"}`
+    : "";
   appendLog({
     level: "info",
     source: "engine",
-    message: `Launching model: ${modelDisplayName(file)} (${parallelSlots} parallel slots)`,
+    message: `Launching model: ${modelDisplayName(file)} (${parallelSlots} parallel slot${parallelSlots === 1 ? "" : "s"}${hintSuffix})`,
     model: file,
   });
 
