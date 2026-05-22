@@ -148,6 +148,31 @@ function updateTask(id: string, update: Partial<TaskState>): void {
   if (existing) {
     const prevStatus = existing.status;
     Object.assign(existing, update);
+    if (existing.status === "editing" && prevStatus !== "editing") {
+      // New editing run for this task: restart milestone tracking from 0%.
+      lastProgressLogDecile.delete(id);
+    }
+    if (typeof update.progress === "number") {
+      emitProgressMilestone(id, update.progress);
+    }
+    // Surface lifecycle transitions as user-facing log entries (once per
+    // transition). Engine logs cover model load; these cover the queue.
+    if (existing.status === "editing" && prevStatus !== "editing") {
+      appendLog({
+        level: "info",
+        source: "task",
+        message: `Editing ${existing.name} (${existing.mode})…`,
+        model: existing.model,
+      });
+    }
+    if (existing.status === "done" && prevStatus !== "done") {
+      appendLog({
+        level: "info",
+        source: "task",
+        message: `Done: ${existing.name} (${existing.mode})`,
+        model: existing.model,
+      });
+    }
     // Surface terminal errors as user-facing log entries (once per transition).
     if (
       existing.status === "error" &&
@@ -171,6 +196,7 @@ function updateTask(id: string, update: Partial<TaskState>): void {
       existing.status === "error" ||
       existing.status === "cancelled"
     ) {
+      lastProgressLogDecile.delete(id);
       try {
         saveTaskState(existing);
       } catch (err) {
@@ -187,6 +213,27 @@ function updateTask(id: string, update: Partial<TaskState>): void {
  * broadcast.
  */
 const lastProgressBroadcast = new Map<string, { at: number; value: number }>();
+/** Last logged progress decile per task — used to emit milestone log lines
+ *  (10%, 20%, …) into the UI engine-status feed without spamming. */
+const lastProgressLogDecile = new Map<string, number>();
+
+function emitProgressMilestone(id: string, value: number): void {
+  const clamped = Math.max(0, Math.min(1, value));
+  const decile = Math.floor(clamped * 10);
+  if (decile < 1 || decile > 10) return;
+  const prev = lastProgressLogDecile.get(id) ?? 0;
+  if (decile <= prev) return;
+  lastProgressLogDecile.set(id, decile);
+
+  const task = tasks.get(id);
+  appendLog({
+    level: "info",
+    source: "task",
+    message: `Editing${task ? ` ${task.name}` : ""}: ${decile * 10}%`,
+    model: task?.model,
+  });
+}
+
 function updateProgress(id: string, value: number): void {
   const last = lastProgressBroadcast.get(id);
   const now = Date.now();
@@ -195,11 +242,15 @@ function updateProgress(id: string, value: number): void {
   }
   lastProgressBroadcast.set(id, { at: now, value });
   updateTask(id, { progress: value });
+
+  emitProgressMilestone(id, value);
 }
 
 /** Saturating curve for JSON corrections where output length is unknown. */
 function creepingProgress(tokens: number): number {
-  return 1 - Math.exp(-tokens / 400);
+  // Reach high percentages earlier so UI progress does not look stalled
+  // when a chunk has relatively few output tokens.
+  return 1 - Math.exp(-tokens / 120);
 }
 
 /**
@@ -553,6 +604,9 @@ async function processJob(job: JobData): Promise<void> {
   // Translation always uses rewrite (full text) mode, never fast/JSON corrections
   const useFast = mode === "translate" ? false : fast;
 
+  const jobStart = performance.now();
+  let totalOutTokens = 0;
+
   updateTask(taskId, {
     status: "editing",
     startedAt: Date.now(),
@@ -588,6 +642,8 @@ async function processJob(job: JobData): Promise<void> {
     const chunkLabel = `${j + 1}/${chunks.length}`;
     let acc = "";
     let tokCount = 0;
+    const chunkStart = performance.now();
+    let firstTokenAt = 0;
 
     try {
       const MAX_ATTEMPTS = 5;
@@ -596,6 +652,7 @@ async function processJob(job: JobData): Promise<void> {
         if (ac.signal.aborted) throw new Error("cancelled");
         acc = "";
         tokCount = 0;
+        firstTokenAt = 0;
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
         try {
           updateTask(taskId, {
@@ -612,6 +669,7 @@ async function processJob(job: JobData): Promise<void> {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
+                firstTokenAt = performance.now();
                 updateTask(taskId, {
                   phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
                 });
@@ -629,6 +687,7 @@ async function processJob(job: JobData): Promise<void> {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
+                firstTokenAt = performance.now();
                 updateTask(taskId, {
                   phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
                 });
@@ -694,10 +753,56 @@ async function processJob(job: JobData): Promise<void> {
       );
     }
 
+    // Per-chunk timing summary
+    {
+      const now = performance.now();
+      const prefillMs = firstTokenAt > 0 ? firstTokenAt - chunkStart : -1;
+      const decodeMs = firstTokenAt > 0 ? now - firstTokenAt : -1;
+      const tokPerSec =
+        decodeMs > 0 && tokCount > 1
+          ? ((tokCount - 1) / (decodeMs / 1000)).toFixed(1)
+          : "n/a";
+      totalOutTokens += tokCount;
+      console.log(
+        `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
+      );
+      if (tokCount > 0) {
+        appendLog({
+          level: "info",
+          source: "engine",
+          message: `Chunk ${chunkLabel}: ${tokCount} tokens @ ${tokPerSec} tok/s`,
+          model,
+        });
+      }
+      if (tokCount === 0) {
+        appendLog({
+          level: "warn",
+          source: "engine",
+          message: `Chunk ${chunkLabel}: model returned 0 content tokens — check --reasoning flag or model template`,
+          model,
+        });
+      }
+    }
+
     updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
 
   abortControllers.delete(taskId);
+
+  const totalMs = performance.now() - jobStart;
+  const overallTps =
+    totalMs > 0 ? ((totalOutTokens / totalMs) * 1000).toFixed(1) : "n/a";
+  console.log(
+    `[Queue] job ${taskId} done: wall=${(totalMs / 1000).toFixed(1)}s chunks=${chunks.length} tokens=${totalOutTokens} tok/s=${overallTps}`,
+  );
+  if (totalOutTokens > 0) {
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Job done: ${(totalMs / 1000).toFixed(1)}s · ${totalOutTokens} tokens · ${overallTps} tok/s`,
+      model,
+    });
+  }
 
   const result: TaskResult = {
     editedText: pieces.join("\n\n").trim(),

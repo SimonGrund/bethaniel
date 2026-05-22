@@ -18,12 +18,31 @@ exports.default = async function afterPack(context) {
     `${context.packager.appInfo.productFilename}.app`,
   );
 
-  // ── 1. Strip xattrs from entire app bundle ──
+  // ── 1. Strip xattrs + AppleDouble files from entire app bundle ──
+  //   `xattr -cr` alone is often insufficient: some files retain
+  //   com.apple.FinderInfo / com.apple.ResourceFork that `codesign` rejects
+  //   with "resource fork, Finder information, or similar detritus not
+  //   allowed". `dot_clean` removes AppleDouble `._*` companions; the
+  //   per-attribute `xattr -d` loops force-remove the two offenders
+  //   regardless of the parent xattr -cr behavior.
   try {
-    console.log(`[afterPack] Stripping xattrs from ${appPath}`);
+    console.log(`[afterPack] Cleaning ${appPath}`);
+    execSync(`dot_clean -m "${appPath}"`, { stdio: "inherit" });
     execSync(`xattr -cr "${appPath}"`, { stdio: "inherit" });
+    execSync(
+      `find "${appPath}" -exec xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true`,
+      { stdio: "inherit", shell: "/bin/bash" },
+    );
+    execSync(
+      `find "${appPath}" -exec xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true`,
+      { stdio: "inherit", shell: "/bin/bash" },
+    );
+    execSync(
+      `find "${appPath}" -exec xattr -d com.apple.quarantine {} \\; 2>/dev/null || true`,
+      { stdio: "inherit", shell: "/bin/bash" },
+    );
   } catch (err) {
-    console.warn(`[afterPack] xattr -cr failed: ${err.message}`);
+    console.warn(`[afterPack] xattr cleanup failed: ${err.message}`);
   }
 
   // ── 2. Sign llama binaries ──

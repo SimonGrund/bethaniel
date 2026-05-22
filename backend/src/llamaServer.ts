@@ -10,8 +10,14 @@ import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { readModelConfig } from "./modelConfig.js";
 import { appendLog, diagnoseEngineExit } from "./logBus.js";
+import { getModelByFileName } from "./modelCatalog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Friendly display name for a model file, falling back to the bare name. */
+function modelDisplayName(file: string): string {
+  return getModelByFileName(file)?.name ?? file;
+}
 
 /** Try to locate the bundled llama-server binary when LLAMA_BIN isn't set. */
 function resolveLlamaBin(): string {
@@ -113,8 +119,8 @@ function detectNGL(modelSizeBytes = 0): number {
   if (process.platform === "darwin" && process.arch === "arm64") {
     const totalRamGb = os.totalmem() / 1024 ** 3;
     const modelGb = modelSizeBytes / 1024 ** 3;
-    // Reserve ~6 GB for OS + app + KV cache headroom
-    const usableGb = Math.max(4, totalRamGb - 6);
+    // Reserve ~3 GB for OS + app + KV cache headroom
+    const usableGb = Math.max(4, totalRamGb - 3);
     if (modelGb === 0 || modelGb < usableGb) return 999; // fully offload
     // Model is larger than headroom: partial offload proportional to fit
     const fraction = Math.max(0.3, usableGb / modelGb);
@@ -136,6 +142,34 @@ function detectNGL(modelSizeBytes = 0): number {
   }
   // CPU-only
   return 0;
+}
+
+/**
+ * Pick a thread count tuned for the active platform.
+ * On Apple Silicon with full GPU offload the GPU does ~all the work; CPU
+ * threads only handle tokenization/sampling/grammar, so we want a small
+ * count of P-cores and to *avoid* E-cores (GGML waits on the slowest
+ * thread, so mixing core types hurts throughput).
+ */
+function detectThreads(): number {
+  if (process.platform === "darwin" && process.arch === "arm64") {
+    try {
+      const out = execSync("sysctl -n hw.perflevel0.physicalcpu", {
+        timeout: 1500,
+        stdio: ["ignore", "pipe", "ignore"],
+      })
+        .toString()
+        .trim();
+      const pcores = parseInt(out, 10);
+      if (Number.isFinite(pcores) && pcores > 0) {
+        return Math.min(pcores, 4);
+      }
+    } catch {
+      // sysctl missing or perflevel0 unavailable (older macOS) — fall through
+    }
+    return 4;
+  }
+  return Math.max(1, os.cpus().length - 2);
 }
 
 // ── Health polling ──
@@ -247,7 +281,7 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
 
   const modelSize = fs.statSync(modelPath).size;
   const ngl = detectNGL(modelSize);
-  const threads = Math.max(1, os.cpus().length - 2);
+  const threads = detectThreads();
   const cfg = readModelConfig(MODELS_DIR, file);
 
   const args = [
@@ -263,6 +297,23 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     String(ngl),
     "-t",
     String(threads),
+    // Flash attention: faster prefill + decode, no output change.
+    // Newer llama-server requires an explicit value ('on'|'off'|'auto').
+    "-fa",
+    "on",
+    // Larger prefill batches improve throughput on Metal/CUDA.
+    "-b",
+    "2048",
+    "-ub",
+    "512",
+    // Disable reasoning/thinking parsing. Qwen3 models would otherwise
+    // emit `<think>…</think>` blocks routed to `delta.reasoning_content`,
+    // leaving `delta.content` empty and the streaming consumer with zero
+    // tokens — which previously caused the editor to silently produce no
+    // corrections. With reasoning off, the full response lands in
+    // `content` as expected.
+    "--reasoning",
+    "off",
   ];
 
   if (cfg.no_mmap) {
@@ -270,6 +321,12 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   }
 
   console.log(`[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")}`);
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: `Launching model: ${modelDisplayName(file)}`,
+    model: file,
+  });
 
   prepareBinary(LLAMA_BIN);
 
@@ -373,6 +430,12 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   currentCtx = numCtx;
   loadPromise = null;
   console.log(`[llama-server] Model loaded: ${file} (ctx=${numCtx})`);
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: `Model ready: ${modelDisplayName(file)}`,
+    model: file,
+  });
 }
 
 /** Unload the current model (kill llama-server). */

@@ -306,8 +306,10 @@ export default function ModelSelector({
               >
                 <span className="model-card-name">{entry.name}</span>
                 <span className="model-card-desc">
-                  {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
-                    entry.description}
+                  {t(
+                    "model_desc_" + entry.id.replace(/[.\-]/g, "_"),
+                    entry.description,
+                  )}
                 </span>
                 <span className="model-card-meta">
                   {formatBytes(entry.sizeBytes)}

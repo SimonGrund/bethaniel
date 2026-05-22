@@ -13,6 +13,7 @@
  *   npx tsx scripts/test-models.ts            # Resume (skip already-completed)
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
+ *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
  */
 
 import {
@@ -36,6 +37,7 @@ const POLL_INTERVAL = 3000;
 const TASK_TIMEOUT = 3_600_000; // 1 hour
 
 const CLEAN_RUN = process.argv.includes("--clean");
+const TEST_MODE = process.argv.includes("--test");
 
 function parseMaxSize(): number | null {
   const idx = process.argv.indexOf("--max-size");
@@ -121,21 +123,35 @@ async function waitForTask(taskId: string): Promise<{
   errors: string[];
 }> {
   const start = Date.now();
+  let consecutiveErrors = 0;
   while (Date.now() - start < TASK_TIMEOUT) {
-    const task = (await api("GET", `/results/${taskId}`)) as {
-      status: string;
-      result: {
-        corrections: { original: string; corrected: string }[];
-        errors: string[];
-      } | null;
-    };
-
-    if (task.status === "done" || task.status === "error") {
-      return {
-        status: task.status,
-        corrections: task.result?.corrections ?? [],
-        errors: task.result?.errors ?? [],
+    try {
+      const task = (await api("GET", `/results/${taskId}`)) as {
+        status: string;
+        result: {
+          corrections: { original: string; corrected: string }[];
+          errors: string[];
+        } | null;
       };
+
+      consecutiveErrors = 0; // reset on success
+
+      if (task.status === "done" || task.status === "error") {
+        return {
+          status: task.status,
+          corrections: task.result?.corrections ?? [],
+          errors: task.result?.errors ?? [],
+        };
+      }
+    } catch (err) {
+      consecutiveErrors++;
+      // Backend may be restarting (model load, file-watcher). Tolerate up to
+      // 10 consecutive failures (~30s) before giving up.
+      if (consecutiveErrors > 10) {
+        throw new Error(
+          `Lost connection to backend after ${consecutiveErrors} retries: ${err instanceof Error ? err.message : err}`,
+        );
+      }
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL));
   }
@@ -184,44 +200,66 @@ async function main() {
     process.exit(1);
   }
 
-  // Get installed models
+  // Get installed models — only consider models listed in the catalog JSON
   const modelData = (await api("GET", "/models")) as { models: string[] };
-  let models = modelData.models;
+  const catalogData = (await api("GET", "/models/catalog")) as {
+    catalog: { fileName: string }[];
+  };
+  const catalogFileNames = new Set(catalogData.catalog.map((c) => c.fileName));
+  let models = modelData.models.filter((m) => catalogFileNames.has(m));
   if (models.length === 0) {
-    console.error("ERROR: No models found in backend/models/");
+    console.error("ERROR: No catalog models found in backend/models/");
     process.exit(1);
   }
 
+  const MODELS_DIR = join(__dirname, "..", "backend", "models");
+
+  // Best-effort size lookup for non-GGUF models via Ollama tags.
+  let ollamaSizes = new Map<string, number>();
+  try {
+    const ollamaHost = process.env.OLLAMA_HOST ?? "http://localhost:11434";
+    const tagsRes = await fetch(`${ollamaHost}/api/tags`);
+    if (tagsRes.ok) {
+      const tagsData = (await tagsRes.json()) as {
+        models: { name: string; size: number }[];
+      };
+      for (const m of tagsData.models) {
+        ollamaSizes.set(m.name, m.size / 1024 ** 3);
+      }
+    }
+  } catch {
+    // Ollama may not be running; GGUF sizes still work from disk stats.
+  }
+
+  const modelSizeGb = (model: string): number | null => {
+    const modelPath = join(MODELS_DIR, model);
+    if (model.endsWith(".gguf") && existsSync(modelPath)) {
+      return statSync(modelPath).size / 1024 ** 3;
+    }
+    if (ollamaSizes.has(model)) {
+      return ollamaSizes.get(model)!;
+    }
+    return null;
+  };
+
+  // Always benchmark from smallest to largest so quick models finish first.
+  // Unknown-size models are placed last (alphabetically) as a deterministic fallback.
+  models = [...models].sort((a, b) => {
+    const sa = modelSizeGb(a);
+    const sb = modelSizeGb(b);
+    if (sa === null && sb === null) return a.localeCompare(b);
+    if (sa === null) return 1;
+    if (sb === null) return -1;
+    if (sa !== sb) return sa - sb;
+    return a.localeCompare(b);
+  });
+
   // Filter by size if --max-size specified
   if (MAX_SIZE_GB !== null) {
-    const MODELS_DIR = join(__dirname, "..", "backend", "models");
-
-    // Fetch Ollama model sizes from /api/tags
-    let ollamaSizes = new Map<string, number>();
-    try {
-      const ollamaHost = process.env.OLLAMA_HOST ?? "http://localhost:11434";
-      const tagsRes = await fetch(`${ollamaHost}/api/tags`);
-      if (tagsRes.ok) {
-        const tagsData = (await tagsRes.json()) as {
-          models: { name: string; size: number }[];
-        };
-        for (const m of tagsData.models) {
-          ollamaSizes.set(m.name, m.size / 1024 ** 3);
-        }
-      }
-    } catch {
-      // Ollama not running — can't determine sizes for non-GGUF models
-    }
-
     const filtered: string[] = [];
     for (const m of models) {
-      let sizeGb = 0;
-      const modelPath = join(MODELS_DIR, m);
-      if (m.endsWith(".gguf") && existsSync(modelPath)) {
-        sizeGb = statSync(modelPath).size / 1024 ** 3;
-      } else if (ollamaSizes.has(m)) {
-        sizeGb = ollamaSizes.get(m)!;
-      } else {
+      const sizeGb = modelSizeGb(m);
+      if (sizeGb === null) {
         // Can't determine size — include with warning
         console.log(`  Including ${m} (size unknown)`);
         filtered.push(m);
@@ -242,11 +280,22 @@ async function main() {
     }
   }
 
+  // --test: only smallest model
+  if (TEST_MODE) {
+    models = [models[0]];
+    console.log(`TEST MODE: using smallest model only`);
+  }
+
   console.log(`Models: ${models.join(", ")}`);
   if (MAX_SIZE_GB !== null) console.log(`  (filtered to ≤ ${MAX_SIZE_GB} GB)`);
 
   // Discover sample texts
-  const testFiles = discoverFiles();
+  let testFiles = discoverFiles();
+  // --test: only english_copy_edit.md
+  if (TEST_MODE) {
+    testFiles = testFiles.filter((f) => f.filename === "english_copy_edit.md");
+  }
+
   console.log(`Sample files found: ${testFiles.length}`);
   console.log(
     `Languages: ${[...new Set(testFiles.map((f) => f.language))].join(", ")}\n`,
@@ -325,10 +374,6 @@ async function main() {
           units: [{ name: file.filename, original: content }],
           model,
           modes: [mode],
-          fast: true,
-          wordsPerChunk: 2500,
-          overlapParagraphs: 1,
-          parallel: 1,
           editOptions,
         })) as { jobId: string; taskIds: string[] };
 

@@ -201,6 +201,13 @@ export async function* findCorrectionsStream(
   systemPrompt: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const cfg = getActiveConfig(model);
+  // The corrections JSON is always strictly smaller than the chunk it
+  // describes (it only lists changes). Cap max_tokens proportionally to
+  // bound runaway generation if the model misses a closing bracket. ~3
+  // chars/token is a safe cheap estimate for English-ish text.
+  const estInputTokens = Math.ceil(chunkText.length / 3);
+  const cap = Math.min(cfg.num_predict, Math.ceil(estInputTokens * 1.2) + 256);
   yield* chatStream(
     model,
     [
@@ -209,6 +216,7 @@ export async function* findCorrectionsStream(
     ],
     {
       response_format: { type: "json_object" },
+      max_tokens: cap,
     },
     signal,
   );

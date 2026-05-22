@@ -17,14 +17,17 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:4000",
+        // Use 127.0.0.1 (not "localhost") so Node's dual-stack DNS
+        // doesn't try ::1 first and fail with ECONNREFUSED — the
+        // backend binds only to 127.0.0.1 by default.
+        target: "http://127.0.0.1:4000",
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on("error", () => {});
         },
       },
       "/socket.io": {
-        target: "http://localhost:4000",
+        target: "http://127.0.0.1:4000",
         ws: true,
         configure: (proxy) => {
           proxy.on("error", () => {});

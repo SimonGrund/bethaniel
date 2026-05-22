@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { addToQueue } from "../api";
 import { buildUnits } from "./ScopeSelection";
+import EngineStatus from "./EngineStatus";
 
 export default function EditTrigger() {
   const {
@@ -116,6 +117,8 @@ export default function EditTrigger() {
           )}
         </button>
 
+        <EngineStatus />
+
         {/* <button className="btn-rent-betty" disabled title="Coming soon">
           <span className="btn-rent-betty-label">Rent-A-Betty</span>
           <span className="btn-rent-betty-sub">
@@ -126,16 +129,6 @@ export default function EditTrigger() {
           </span>
         </button> */}
       </div>
-
-      {isWorking && (
-        <div className="betty-working betty-working-inline">
-          <img src="/logo-icon.svg" alt="" className="betty-working-icon" />
-          <span className="betty-working-text">
-            {t("betty_working")}
-            <span className="betty-working-dots" />
-          </span>
-        </div>
-      )}
 
       {selectedModes.length > 1 && (
         <p

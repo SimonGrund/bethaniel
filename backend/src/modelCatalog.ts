@@ -36,7 +36,7 @@ export const BASE_SYSTEM_PROMPT =
 
 // Shared default tuning. Per-entry overrides below can refine these values.
 const COMMON_DEFAULTS: Omit<ModelSettings, "system"> = {
-  num_ctx: 10240,
+  num_ctx: 6144,
   num_predict: 4096,
   temperature: 0.1,
   top_p: 0.8,

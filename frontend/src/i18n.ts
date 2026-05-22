@@ -725,21 +725,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Nicht verfügbar",
     es: "No disponible",
   },
-  model_desc_gemma_3n_e4b: {
-    en: "Small, handy, and quick. But sometimes I miss a mistake or two.",
-    da: "Lille, handig og hurtig. Men overser nogle gange en fejl.",
-    de: "Klein, handlich und schnell. Aber manchmal übersehe ich einen Fehler.",
-    es: "Pequeña, práctica y rápida. Pero a veces se me escapa algún error.",
+  // ── Model descriptions ──
+  // Keys derive from MODEL_CATALOG entry.id with "." and "-" replaced by "_".
+  // The English text mirrors the `description` field in backend/src/modelCatalog.ts;
+  // keep them in sync when editing either side.
+  model_desc_qwen3_5_4b: {
+    en: "Small, handy, and quick. But sometimes I make mistakes.",
+    da: "Lille, handig og hurtig. Men nogle gange laver jeg fejl.",
+    de: "Klein, handlich und schnell. Aber manchmal mache ich Fehler.",
+    es: "Pequeña, práctica y rápida. Pero a veces cometo errores.",
+  },
+  model_desc_qwen3_5_9b: {
+    en: "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+    da: "Basic Betty er fremragende til de fleste opgaver. Her får du the beeeest of both worlds - Miley Cyrus",
+    de: "Basic Betty ist hervorragend für die meisten Aufgaben. Hier bekommst du the beeeest of both worlds - Miley Cyrus",
+    es: "Basic Betty es excelente para la mayoría de tareas. Aquí tienes the beeeest of both worlds - Miley Cyrus",
   },
   model_desc_mistral_small_3_2_24b: {
-    en: "Basic Betty is excellent for most tasks. You get the beeeest of both worlds - Miley Cyrus",
-    da: "Basic Betty er fremragende til de fleste opgaver. You get the beeeest of both worlds - Miley Cyrus",
-    de: "Basic Betty ist hervorragend für die meisten Aufgaben. You get the beeeest of both worlds - Miley Cyrus",
-    es: "Basic Betty es excelente para la mayoría de tareas. You get the beeeest of both worlds - Miley Cyrus",
-  },
-  model_desc_qwen3_32b: {
     en: "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    da: "Business in the front. Party in the back. Big Bad Betty ved, hvad det handler om.",
+    da: "Business foran. Fest bagi. Big Bad Betty ved, hvad det handler om.",
     de: "Business in the front. Party in the back. Big Bad Betty weiß, worum es geht.",
     es: "Business in the front. Party in the back. Big Bad Betty sabe de qué va la cosa.",
   },
@@ -1116,6 +1120,60 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty arbeitet",
     es: "Betty está trabajando",
   },
+  engine_launching: {
+    en: "Launching model…",
+    da: "Starter model…",
+    de: "Modell wird gestartet…",
+    es: "Iniciando modelo…",
+  },
+  engine_ready: {
+    en: "Model ready",
+    da: "Model klar",
+    de: "Modell bereit",
+    es: "Modelo listo",
+  },
+  engine_splitting: {
+    en: "Splitting manuscript…",
+    da: "Opdeler manuskript…",
+    de: "Manuskript wird aufgeteilt…",
+    es: "Dividiendo manuscrito…",
+  },
+  engine_sending: {
+    en: "Sending chunk {n}/{m} to model…",
+    da: "Sender afsnit {n}/{m} til model…",
+    de: "Sende Abschnitt {n}/{m} an Modell…",
+    es: "Enviando fragmento {n}/{m} al modelo…",
+  },
+  engine_receiving: {
+    en: "Editing chunk {n}/{m}…",
+    da: "Redigerer afsnit {n}/{m}…",
+    de: "Bearbeite Abschnitt {n}/{m}…",
+    es: "Editando fragmento {n}/{m}…",
+  },
+  engine_applying: {
+    en: "Applying corrections {n}/{m}…",
+    da: "Anvender rettelser {n}/{m}…",
+    de: "Wende Korrekturen an {n}/{m}…",
+    es: "Aplicando correcciones {n}/{m}…",
+  },
+  engine_retrying: {
+    en: "Retrying chunk {n}/{m}…",
+    da: "Prøver afsnit {n}/{m} igen…",
+    de: "Wiederhole Abschnitt {n}/{m}…",
+    es: "Reintentando fragmento {n}/{m}…",
+  },
+  engine_queued: {
+    en: "Queued — waiting for current job…",
+    da: "I kø — venter på nuværende opgave…",
+    de: "In Warteschlange — wartet auf aktuellen Auftrag…",
+    es: "En cola — esperando al trabajo actual…",
+  },
+  engine_done_recent: {
+    en: "Done ✓",
+    da: "Færdig ✓",
+    de: "Fertig ✓",
+    es: "Listo ✓",
+  },
   model_locked_while_busy: {
     en: "Model locked while jobs are running — you can still add jobs to the queue.",
     da: "Model låst mens opgaver kører — du kan stadig tilføje opgaver til køen.",
@@ -1199,10 +1257,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
 };
 
 export function useTranslation(lang: Lang) {
-  return (key: string): string => {
+  return (key: string, fallback?: string): string => {
     const entry = TRANSLATIONS[key];
-    if (!entry) return key;
-    return entry[lang] ?? entry.en ?? key;
+    if (!entry) return fallback ?? key;
+    return entry[lang] ?? entry.en ?? fallback ?? key;
   };
 }
 

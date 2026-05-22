@@ -382,6 +382,85 @@ h4 {
   margin-top: 0.5rem;
 }
 
+/* ── Engine status feed (next to Start Job button) ──
+   Stacked list of the last few diagnostics log entries, oldest at top. */
+.engine-status {
+  list-style: none;
+  margin: 0 0 0 0.85rem;
+  padding: 0.25rem 0;
+  max-width: min(560px, 55vw);
+  max-height: 9rem;
+  overflow-y: auto;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  vertical-align: middle;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  /* Fade older (upper) lines so the eye is drawn to the newest at bottom. */
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.7) 35%,
+    rgba(0, 0, 0, 1) 70%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.7) 35%,
+    rgba(0, 0, 0, 1) 70%
+  );
+}
+
+.engine-status::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.engine-status-line {
+  font-style: italic;
+  font-weight: 500;
+  color: #b8830d;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: engine-status-in 0.3s ease-out;
+}
+
+.engine-status-line.engine-status-warn {
+  color: #b85b18;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.engine-status-line.engine-status-error {
+  color: #a3331f;
+  font-style: normal;
+  font-weight: 600;
+}
+
+@keyframes engine-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .engine-status {
+    display: flex;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    max-width: 100%;
+  }
+}
+
 /* ── Model lock (while jobs are running) ── */
 .model-lock-notice {
   display: flex;
@@ -2686,6 +2765,7 @@ h4 {
 .log-fab.open {
   background: #d9c9a8;
 }
+
 .log-fab-error {
   border-color: #b14a3a;
   background: #f4dad3;

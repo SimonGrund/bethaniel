@@ -287,12 +287,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       targetLang,
     } = req.body;
 
+    // Resolve once so prompt selection and execution path stay in sync.
+    const resolvedFast = fast ?? true;
+
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${fast}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${resolvedFast}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -354,7 +357,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_COPY_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = fast
+          systemPrompt = resolvedFast
             ? buildCopyEditCorrectionsPrompt(opts, styleGuide)
             : buildCopyEditRewritePrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
@@ -365,7 +368,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_LINE_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = fast
+          systemPrompt = resolvedFast
             ? buildLineEditCorrectionsPrompt(opts, styleGuide)
             : buildLineEditRewritePrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
@@ -439,7 +442,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           model: model ?? DEFAULT_MODEL_FILENAME,
           mode: currentMode,
           prompt: systemPrompt,
-          fast: currentMode === "translate" ? false : (fast ?? true),
+          fast: currentMode === "translate" ? false : resolvedFast,
           wpc: wordsPerChunk ?? 2500,
           overlap: overlapParagraphs ?? 1,
           editOptions: taskEditOptions,
