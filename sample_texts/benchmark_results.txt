@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-05-21T15:48:18.334Z
+Report generated: 2026-05-21T19:35:38.403Z
 ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -10,30 +10,51 @@ MODEL: gemma-3n-E4B-it-Q4_K_M.gguf
   ┌─ DANISH ────────────────────────────────────────────────────────────────
   │ File                                Mode         Found   Expected   Time     Run Date
   │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
-  │ danish_copy_edit.md                 copy_edit    0       10         36.3s    2026-05-21 15:46:44
-  │ danish_correct.md                   copy_edit    0       0          30.2s    2026-05-21 15:47:14
-  │ danish_correct.md                   line_edit    0       0          30.2s    2026-05-21 15:47:44
-  │ danish_line_edit.md                 line_edit    0       10         6.2s     2026-05-21 15:47:50
+  │ danish_copy_edit.md                 copy_edit    0       10         33.2s    2026-05-21 19:30:50
+  │ danish_correct.md                   copy_edit    0       0          27.2s    2026-05-21 19:31:17
+  │ danish_correct.md                   line_edit    0       0          27.2s    2026-05-21 19:31:45
+  │ danish_line_edit.md                 line_edit    0       10         9.2s     2026-05-21 19:31:54
   │
-  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 102.9s
+  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 96.8s
   └──────────────────────────────────────────────────────────────────────────────
 
   ┌─ ENGLISH ───────────────────────────────────────────────────────────────
   │ File                                Mode         Found   Expected   Time     Run Date
   │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
-  │ english_copy_edit.md                copy_edit    0       10         6.2s     2026-05-21 15:47:56
-  │ english_correct.md                  copy_edit    0       0          6.2s     2026-05-21 15:48:02
-  │ english_correct.md                  line_edit    0       0          6.2s     2026-05-21 15:48:09
-  │ english_line_edit.md                line_edit    0       10         9.2s     2026-05-21 15:48:18
+  │ english_copy_edit.md                copy_edit    0       10         6.2s     2026-05-21 19:32:00
+  │ english_correct.md                  copy_edit    0       0          6.2s     2026-05-21 19:32:06
+  │ english_correct.md                  line_edit    0       0          6.1s     2026-05-21 19:32:12
+  │ english_line_edit.md                line_edit    0       10         6.2s     2026-05-21 19:32:18
   │
-  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 27.6s
+  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 24.7s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ GERMAN ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ german_copy_edit.md                 copy_edit    0       10         45.3s    2026-05-21 19:33:04
+  │ german_correct.md                   copy_edit    0       0          60.3s    2026-05-21 19:34:04
+  │ german_correct.md                   line_edit    0       0          48.2s    2026-05-21 19:34:52
+  │ german_line_edit.md                 line_edit    0       10         9.2s     2026-05-21 19:35:01
+  │
+  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 162.9s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ SPANISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ spanish_copy_edit.md                copy_edit    0       10         24.2s    2026-05-21 19:35:26
+  │ spanish_correct.md                  copy_edit    0       0          6.1s     2026-05-21 19:35:32
+  │ spanish_correct.md                  line_edit    0       0          6.1s     2026-05-21 19:35:38
+  │
+  │ Corrections: 0 / 10 expected | False positives: 0 | Time: 36.5s
   └──────────────────────────────────────────────────────────────────────────────
 
   MODEL TOTALS:
-    True corrections found: 0 / 40 expected
+    True corrections found: 0 / 70 expected
     False positives (clean texts): 0
-    Total runtime: 130.6s
-    Avg time per task: 16.3s
+    Total runtime: 320.8s
+    Avg time per task: 21.4s
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -42,8 +63,10 @@ CROSS-MODEL COMPARISON BY LANGUAGE
 
   Language     Model                                         Correct    FP    Time
   ──────────── ───────────────────────────────────────────── ────────── ───── ────────
-  danish       gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     102.9s
-  english      gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     27.6s
+  danish       gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     96.8s
+  english      gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     24.7s
+  german       gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     162.9s
+  spanish      gemma-3n-E4B-it-Q4_K_M.gguf                   0          0     36.5s
 
 
 ════════════════════════════════════════════════════════════════════════════════

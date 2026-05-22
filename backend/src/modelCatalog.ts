@@ -1,6 +1,9 @@
 // ── Centralized model catalog ──
-// Single source of truth for all models available in Bethaniel.
-// To swap models, edit the entries below. No other file needs to change.
+// Single source of truth for all models available in Bethaniel — including
+// their default runtime settings. To swap models or tweak defaults, edit the
+// entries below. No other file needs to change.
+
+import type { ModelSettings } from "./modelConfig.js";
 
 export interface ModelCatalogEntry {
   id: string;
@@ -18,7 +21,29 @@ export interface ModelCatalogEntry {
   sizeBytes: number;
   minRamGb: number;
   minRamAppleSiliconGb: number;
+  /** Per-model default runtime settings. User overrides are layered on top
+   *  via the per-model JSON sidecar in MODELS_DIR. */
+  defaults: ModelSettings;
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  Shared SYSTEM prompt — base instruction prepended to every task prompt.
+//  Edit here to adjust Betty's persona globally for all models.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export const BASE_SYSTEM_PROMPT =
+  "You are a meticulous copy editor and line editor. /no_think";
+
+// Shared default tuning. Per-entry overrides below can refine these values.
+const COMMON_DEFAULTS: Omit<ModelSettings, "system"> = {
+  num_ctx: 10240,
+  num_predict: 4096,
+  temperature: 0.1,
+  top_p: 0.8,
+  top_k: 20,
+  repeat_penalty: 1.05,
+  no_mmap: false,
+};
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  MODEL CATALOG — edit here to change which models Bethaniel offers
@@ -26,24 +51,40 @@ export interface ModelCatalogEntry {
 
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
-    id: "gemma-3n-e4b",
+    id: "qwen3.5-4b",
     tier: "small",
     name: "Baby Betty",
     description: "Small, handy, and quick. But sometimes I make mistakes.",
-    fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
+    fileName: "Qwen3.5-4B-Q4_K_M.gguf",
     source: "gguf",
-    url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
+    url: "https://huggingface.co/unsloth/Qwen3.5-4B-MTP-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
     sha256: "",
-    sizeBytes: 3_200_000_000,
+    sizeBytes: 2_830_000_000,
     minRamGb: 8,
     minRamAppleSiliconGb: 8,
+    defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
   },
   {
-    id: "mistral-small-3.2-24b",
+    id: "qwen3.5-9b",
     tier: "normal",
     name: "Basic Betty",
     description:
       "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+    fileName: "Qwen3.5-9B-Q4_K_M.gguf",
+    source: "gguf",
+    url: "https://huggingface.co/unsloth/Qwen3.5-9B-MTP-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+    sha256: "",
+    sizeBytes: 5_870_000_000,
+    minRamGb: 16,
+    minRamAppleSiliconGb: 12,
+    defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
+  },
+  {
+    id: "mistral-small-3.2-24b",
+    tier: "big",
+    name: "Big Bad Betty",
+    description:
+      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
     fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     source: "gguf",
     url: "https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
@@ -51,20 +92,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 14_300_000_000,
     minRamGb: 24,
     minRamAppleSiliconGb: 16,
-  },
-  {
-    id: "qwen3-32b",
-    tier: "big",
-    name: "Big Bad Betty",
-    description:
-      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    fileName: "Qwen3-32B-Q4_K_M.gguf",
-    source: "gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 19_800_000_000,
-    minRamGb: 32,
-    minRamAppleSiliconGb: 24,
+    // Smaller ctx by default to fit Mistral 24B on 16 GB Apple Silicon.
+    defaults: { ...COMMON_DEFAULTS, num_ctx: 8192, system: BASE_SYSTEM_PROMPT },
   },
 ];
 

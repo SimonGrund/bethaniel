@@ -6,10 +6,10 @@
     "variant": "copy_edit",
     "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 36302,
+    "runtimeMs": 33202,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:46:44.009Z"
+    "runDate": "2026-05-21T19:30:50.659Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -18,10 +18,10 @@
     "variant": "correct",
     "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 30231,
+    "runtimeMs": 27170,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:47:14.253Z"
+    "runDate": "2026-05-21T19:31:17.847Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -30,10 +30,10 @@
     "variant": "correct",
     "mode": "line_edit",
     "correctionsFound": 0,
-    "runtimeMs": 30242,
+    "runtimeMs": 27224,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:47:44.506Z"
+    "runDate": "2026-05-21T19:31:45.077Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -42,10 +42,10 @@
     "variant": "line_edit",
     "mode": "line_edit",
     "correctionsFound": 0,
-    "runtimeMs": 6162,
+    "runtimeMs": 9156,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:47:50.679Z"
+    "runDate": "2026-05-21T19:31:54.243Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -54,10 +54,10 @@
     "variant": "copy_edit",
     "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 6154,
+    "runtimeMs": 6211,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:47:56.839Z"
+    "runDate": "2026-05-21T19:32:00.462Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -66,10 +66,10 @@
     "variant": "correct",
     "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 6153,
+    "runtimeMs": 6157,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:48:02.997Z"
+    "runDate": "2026-05-21T19:32:06.627Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -78,10 +78,10 @@
     "variant": "correct",
     "mode": "line_edit",
     "correctionsFound": 0,
-    "runtimeMs": 6160,
+    "runtimeMs": 6141,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:48:09.169Z"
+    "runDate": "2026-05-21T19:32:12.775Z"
   },
   {
     "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
@@ -90,9 +90,93 @@
     "variant": "line_edit",
     "mode": "line_edit",
     "correctionsFound": 0,
-    "runtimeMs": 9158,
+    "runtimeMs": 6158,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-21T15:48:18.333Z"
+    "runDate": "2026-05-21T19:32:18.942Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "german_copy_edit.md",
+    "language": "german",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 45250,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:33:04.201Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "german_correct.md",
+    "language": "german",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 60290,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:34:04.500Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "german_correct.md",
+    "language": "german",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 48241,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:34:52.754Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "german_line_edit.md",
+    "language": "german",
+    "variant": "line_edit",
+    "mode": "line_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 9162,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:35:01.929Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "spanish_copy_edit.md",
+    "language": "spanish",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 24168,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:35:26.102Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "spanish_correct.md",
+    "language": "spanish",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 6145,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:35:32.252Z"
+  },
+  {
+    "model": "gemma-3n-E4B-it-Q4_K_M.gguf",
+    "file": "spanish_correct.md",
+    "language": "spanish",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 6145,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-21T19:35:38.402Z"
   }
 ]

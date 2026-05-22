@@ -43,9 +43,10 @@ import {
 import { buildConsistencyReport } from "./consistency.js";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
 import {
-  applyModelfile,
   readModelConfig,
   writeModelConfig,
+  resetModelConfig,
+  getDefaultsForFile,
 } from "./modelConfig.js";
 import {
   MODEL_CATALOG,
@@ -1042,15 +1043,9 @@ router.post("/models/download", async (req: Request, res: Response) => {
       // Rename .partial → final
       await fs.rename(partialPath, destPath);
 
-      // Apply modelfile settings to the downloaded model
-      // In Electron: process.resourcesPath/modelfile
-      // In dev: project root (one level up from backend/src/)
-      const resourceBase = (process as any).resourcesPath;
-      const thisDir = new URL(".", import.meta.url).pathname;
-      const modelfilePath = resourceBase
-        ? join(resourceBase, "modelfile")
-        : join(thisDir, "..", "..", "modelfile");
-      applyModelfile(modelfilePath, MODELS_DIR_PATH, entry.fileName);
+      // Per-model defaults live in modelCatalog.ts; nothing to write here.
+      // Any user override sidecar JSON (if present) is preserved across
+      // re-downloads and continues to layer on top of catalog defaults.
 
       progress.status = "done";
 
@@ -1137,8 +1132,9 @@ router.get("/models/:fileName/config", (req: Request, res: Response) => {
     res.status(400).json({ error: "Unknown model file" });
     return;
   }
-  const cfg = readModelConfig(MODELS_DIR_PATH, fileName);
-  res.json(cfg);
+  const current = readModelConfig(MODELS_DIR_PATH, fileName);
+  const defaults = getDefaultsForFile(fileName);
+  res.json({ ...current, defaults });
 });
 
 // ── PUT /api/models/:fileName/config ──
@@ -1165,6 +1161,19 @@ router.put("/models/:fileName/config", (req: Request, res: Response) => {
     typeof body.temperature === "number" && Number.isFinite(body.temperature)
       ? Math.max(0, Math.min(2, body.temperature))
       : current.temperature;
+  const top_p =
+    typeof body.top_p === "number" && Number.isFinite(body.top_p)
+      ? Math.max(0, Math.min(1, body.top_p))
+      : current.top_p;
+  const top_k =
+    typeof body.top_k === "number" && Number.isFinite(body.top_k)
+      ? Math.max(0, Math.min(200, Math.floor(body.top_k)))
+      : current.top_k;
+  const repeat_penalty =
+    typeof body.repeat_penalty === "number" &&
+    Number.isFinite(body.repeat_penalty)
+      ? Math.max(0.5, Math.min(2.0, body.repeat_penalty))
+      : current.repeat_penalty;
   const no_mmap =
     typeof body.no_mmap === "boolean" ? body.no_mmap : current.no_mmap;
 
@@ -1173,10 +1182,25 @@ router.put("/models/:fileName/config", (req: Request, res: Response) => {
     num_ctx,
     num_predict,
     temperature,
+    top_p,
+    top_k,
+    repeat_penalty,
     no_mmap,
   };
   writeModelConfig(MODELS_DIR_PATH, fileName, next);
-  res.json(next);
+  res.json({ ...next, defaults: getDefaultsForFile(fileName) });
+});
+
+// ── DELETE /api/models/:fileName/config ── (reset to catalog defaults)
+router.delete("/models/:fileName/config", (req: Request, res: Response) => {
+  const fileName = req.params.fileName;
+  const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+  const defaults = resetModelConfig(MODELS_DIR_PATH, fileName);
+  res.json({ ...defaults, defaults });
 });
 
 // ── Diagnostic logs ──

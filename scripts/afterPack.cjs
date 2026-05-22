@@ -1,5 +1,10 @@
-// afterPack hook: codesign the bundled llama-server binary on macOS
-// so it can execute under hardened runtime / notarization.
+// afterPack hook (macOS):
+//   1. Strip extended attributes from the whole .app bundle.
+//      Electron's prebuilt Helper binaries sometimes carry resource forks /
+//      com.apple.* xattrs that make `codesign` fail with "resource fork,
+//      Finder information, or similar detritus not allowed".
+//   2. Ad-hoc sign the bundled llama-server binary and dylibs so they can
+//      execute under hardened runtime / notarization.
 
 const { execSync } = require("child_process");
 const path = require("path");
@@ -12,6 +17,16 @@ exports.default = async function afterPack(context) {
     context.appOutDir,
     `${context.packager.appInfo.productFilename}.app`,
   );
+
+  // ── 1. Strip xattrs from entire app bundle ──
+  try {
+    console.log(`[afterPack] Stripping xattrs from ${appPath}`);
+    execSync(`xattr -cr "${appPath}"`, { stdio: "inherit" });
+  } catch (err) {
+    console.warn(`[afterPack] xattr -cr failed: ${err.message}`);
+  }
+
+  // ── 2. Sign llama binaries ──
   const llamaDir = path.join(
     appPath,
     "Contents",

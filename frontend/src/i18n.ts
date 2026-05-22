@@ -129,6 +129,48 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "0 = deterministisch, höher = kreativer. Niedrig halten für Lektorat.",
     es: "0 = determinista, mayor = más creativo. Bajo para edición.",
   },
+  top_p_label: {
+    en: "Top-p (nucleus sampling)",
+    da: "Top-p (kerne-sampling)",
+    de: "Top-p (Nucleus-Sampling)",
+    es: "Top-p (muestreo de núcleo)",
+  },
+  top_p_help: {
+    en: "Cumulative probability cutoff. Lower = safer/more focused token choices; higher = more variety. 0.8 is a good editing default.",
+    da: "Kumulativ sandsynlighedsgrænse. Lavere = mere fokuserede valg; højere = mere variation. 0,8 er et godt udgangspunkt for redigering.",
+    de: "Kumulative Wahrscheinlichkeitsgrenze. Niedriger = fokussierter; höher = mehr Vielfalt. 0,8 ist ein guter Wert fürs Lektorat.",
+    es: "Límite acumulado de probabilidad. Menor = elecciones más enfocadas; mayor = más variedad. 0,8 es un buen valor para edición.",
+  },
+  top_k_label: {
+    en: "Top-k",
+    da: "Top-k",
+    de: "Top-k",
+    es: "Top-k",
+  },
+  top_k_help: {
+    en: "Only consider the K most likely next tokens. Lower = tighter output; 0 disables the cap.",
+    da: "Overvej kun de K mest sandsynlige næste tokens. Lavere = strammere output; 0 deaktiverer grænsen.",
+    de: "Berücksichtigt nur die K wahrscheinlichsten nächsten Tokens. Niedriger = engere Ausgabe; 0 deaktiviert das Limit.",
+    es: "Considerar solo los K tokens siguientes más probables. Menor = salida más ajustada; 0 desactiva el límite.",
+  },
+  repeat_penalty_label: {
+    en: "Repeat penalty",
+    da: "Gentagelsesstraf",
+    de: "Wiederholungs-Strafe",
+    es: "Penalización por repetición",
+  },
+  repeat_penalty_help: {
+    en: "Discourages repeating the same tokens. 1.0 = no penalty; 1.05–1.1 is mild; >1.2 can distort prose.",
+    da: "Mindsker gentagelse af samme tokens. 1,0 = ingen straf; 1,05–1,1 er mildt; >1,2 kan forvrænge prosa.",
+    de: "Reduziert Wiederholungen. 1,0 = keine Strafe; 1,05–1,1 ist mild; >1,2 kann den Text verzerren.",
+    es: "Reduce la repetición de tokens. 1,0 = sin penalización; 1,05–1,1 es leve; >1,2 puede distorsionar la prosa.",
+  },
+  reset_to_defaults: {
+    en: "Reset to defaults",
+    da: "Nulstil til standard",
+    de: "Auf Standard zurücksetzen",
+    es: "Restablecer valores predeterminados",
+  },
   disable_mmap: {
     en: "Disable memory-mapped loading (faster first token, uses more RAM)",
     da: "Deaktivér hukommelseskortlagt indlæsning (hurtigere første token, bruger mere RAM)",

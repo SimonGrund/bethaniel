@@ -525,6 +525,9 @@ interface ModelConfig {
   num_ctx: number;
   num_predict: number;
   temperature: number;
+  top_p: number;
+  top_k: number;
+  repeat_penalty: number;
   no_mmap: boolean;
 }
 
@@ -544,6 +547,9 @@ function ModelTuning({ fileName }: { fileName: string }) {
           num_ctx: data.num_ctx,
           num_predict: data.num_predict,
           temperature: data.temperature,
+          top_p: data.top_p,
+          top_k: data.top_k,
+          repeat_penalty: data.repeat_penalty,
           no_mmap: !!data.no_mmap,
         });
       })
@@ -568,6 +574,54 @@ function ModelTuning({ fileName }: { fileName: string }) {
       .catch(() => {});
   }
 
+  function resetToDefaults() {
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`, {
+      method: "DELETE",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setCfg({
+          num_ctx: data.num_ctx,
+          num_predict: data.num_predict,
+          temperature: data.temperature,
+          top_p: data.top_p,
+          top_k: data.top_k,
+          repeat_penalty: data.repeat_penalty,
+          no_mmap: !!data.no_mmap,
+        });
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 1200);
+      })
+      .catch(() => {});
+  }
+
+  // Number-slider helper: yields onChange/onMouseUp/onTouchEnd/onKeyUp
+  // that update local state immediately and persist on release.
+  function sliderProps<K extends keyof ModelConfig>(
+    key: K,
+    parse: (v: string) => ModelConfig[K],
+  ) {
+    return {
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setCfg((c) => (c ? { ...c, [key]: parse(e.target.value) } : c)),
+      onMouseUp: (e: React.MouseEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+      onTouchEnd: (e: React.TouchEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+      onKeyUp: (e: React.KeyboardEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+    };
+  }
+
   if (!cfg) return null;
 
   return (
@@ -590,25 +644,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
           max={32768}
           step={1024}
           value={cfg.num_ctx}
-          onChange={(e) => setCfg({ ...cfg, num_ctx: Number(e.target.value) })}
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("num_ctx", (v) => Number(v))}
         />
         <span className="help-text">{t("context_window_help")}</span>
       </div>
@@ -623,64 +659,69 @@ function ModelTuning({ fileName }: { fileName: string }) {
           max={8192}
           step={256}
           value={cfg.num_predict}
-          onChange={(e) =>
-            setCfg({ ...cfg, num_predict: Number(e.target.value) })
-          }
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("num_predict", (v) => Number(v))}
         />
         <span className="help-text">{t("max_output_help")}</span>
       </div>
 
       <div className="field">
         <label>
-          {t("temperature_label")}: {cfg.temperature.toFixed(1)}
+          {t("temperature_label")}: {cfg.temperature.toFixed(2)}
         </label>
         <input
           type="range"
           min={0}
           max={1}
-          step={0.1}
+          step={0.05}
           value={cfg.temperature}
-          onChange={(e) =>
-            setCfg({ ...cfg, temperature: Number(e.target.value) })
-          }
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("temperature", (v) => Number(v))}
         />
         <span className="help-text">{t("temperature_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("top_p_label")}: {cfg.top_p.toFixed(2)}
+        </label>
+        <input
+          type="range"
+          min={0.1}
+          max={1}
+          step={0.05}
+          value={cfg.top_p}
+          {...sliderProps("top_p", (v) => Number(v))}
+        />
+        <span className="help-text">{t("top_p_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("top_k_label")}: {cfg.top_k}
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={cfg.top_k}
+          {...sliderProps("top_k", (v) => Number(v))}
+        />
+        <span className="help-text">{t("top_k_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("repeat_penalty_label")}: {cfg.repeat_penalty.toFixed(2)}
+        </label>
+        <input
+          type="range"
+          min={1}
+          max={1.5}
+          step={0.01}
+          value={cfg.repeat_penalty}
+          {...sliderProps("repeat_penalty", (v) => Number(v))}
+        />
+        <span className="help-text">{t("repeat_penalty_help")}</span>
       </div>
 
       <div className="field model-tuning-checkbox">
@@ -692,6 +733,16 @@ function ModelTuning({ fileName }: { fileName: string }) {
           />{" "}
           {t("disable_mmap")}
         </label>
+      </div>
+
+      <div className="field">
+        <button
+          type="button"
+          className="model-tuning-reset"
+          onClick={resetToDefaults}
+        >
+          {t("reset_to_defaults")}
+        </button>
       </div>
     </div>
   );

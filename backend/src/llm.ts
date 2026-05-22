@@ -112,6 +112,8 @@ async function* chatStream(
   options: {
     temperature?: number;
     top_p?: number;
+    top_k?: number;
+    repeat_penalty?: number;
     max_tokens?: number;
     response_format?: { type: string };
     /** Override the context window size for this request. When set the
@@ -126,11 +128,16 @@ async function* chatStream(
   // Ensure the model is loaded in llama-server with the required context size.
   await ensureModelLoaded(model, options.numCtxOverride);
 
+  // All sampling params come from the per-model config (catalog defaults +
+  // user sidecar overrides). Per-call options are only used for niche
+  // overrides; in normal flows callers pass none.
   const body: Record<string, unknown> = {
     messages,
     stream: true,
     temperature: options.temperature ?? cfg.temperature,
-    top_p: options.top_p ?? 0.9,
+    top_p: options.top_p ?? cfg.top_p,
+    top_k: options.top_k ?? cfg.top_k,
+    repeat_penalty: options.repeat_penalty ?? cfg.repeat_penalty,
     max_tokens: options.max_tokens ?? cfg.num_predict,
   };
   if (options.response_format) {
@@ -158,7 +165,8 @@ async function* chatStream(
 /** Build system message: model config system preamble + task-specific prompt + /no_think. */
 function buildSystemMessage(model: string, taskPrompt: string): string {
   const cfg = getActiveConfig(model);
-  // The config system prompt already ends with /no_think if set from modelfile
+  // The shared BASE_SYSTEM_PROMPT (defined in modelCatalog.ts) already ends
+  // with /no_think; only append the marker if neither part already has it.
   const hasNoThink =
     cfg.system.includes("/no_think") || taskPrompt.includes("/no_think");
   const parts = [cfg.system, taskPrompt].filter(Boolean);
@@ -181,7 +189,7 @@ export async function* editChunkStream(
       { role: "system", content: buildSystemMessage(model, systemPrompt) },
       { role: "user", content: chunkText },
     ],
-    { temperature: 0.1 },
+    {},
     signal,
   );
 }
