@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-05-22T12:10:05.950Z
+Report generated: 2026-05-22T12:59:06.108Z
 ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -7,24 +7,70 @@ Report generated: 2026-05-22T12:10:05.950Z
 MODEL: Qwen3.5-4B-Q4_K_M.gguf
 ════════════════════════════════════════════════════════════════════════════════
 
+  ┌─ DANISH ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ danish_copy_edit.md                 copy_edit    0       10         54.1s    2026-05-22 12:20:04
+  │ danish_correct.md                   copy_edit    0       0          54.1s    2026-05-22 12:20:58
+  │ danish_correct.md                   line_edit    0       0          54.1s    2026-05-22 12:21:52
+  │
+  │ Corrections: 0 / 10 expected | False positives: 0 | Time: 162.3s
+  └──────────────────────────────────────────────────────────────────────────────
+
   ┌─ ENGLISH ───────────────────────────────────────────────────────────────
   │ File                                Mode         Found   Expected   Time     Run Date
   │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
-  │ english_copy_edit.md                copy_edit    0       10         144.2s   2026-05-22 12:10:05
+  │ english_copy_edit.md                copy_edit    8       10         18.1s    2026-05-22 12:18:23
+  │ english_correct.md                  copy_edit    1       0          9.0s     2026-05-22 12:58:33
+  │ english_correct.md                  line_edit    9       0          33.0s    2026-05-22 12:59:06
   │
-  │ Corrections: 0 / 10 expected | False positives: 0 | Time: 144.2s
+  │ Corrections: 8 / 10 expected | False positives: 10 | Time: 60.2s
   └──────────────────────────────────────────────────────────────────────────────
 
   MODEL TOTALS:
-    True corrections found: 0 / 10 expected
-    False positives (clean texts): 0
-    Total runtime: 144.2s
-    Avg time per task: 144.2s
+    True corrections found: 8 / 20 expected
+    False positives (clean texts): 10
+    Total runtime: 222.4s
+    Avg time per task: 37.1s
+
+
+════════════════════════════════════════════════════════════════════════════════
+CROSS-MODEL COMPARISON BY LANGUAGE
+════════════════════════════════════════════════════════════════════════════════
+
+  Language     Model                                         Correct    FP    Time
+  ──────────── ───────────────────────────────────────────── ────────── ───── ────────
+  danish       Qwen3.5-4B-Q4_K_M.gguf                        0          0     162.3s
+  english      Qwen3.5-4B-Q4_K_M.gguf                        8          10    60.2s
 
 
 ════════════════════════════════════════════════════════════════════════════════
 DETAILED CORRECTIONS
 ════════════════════════════════════════════════════════════════════════════════
+
+[Qwen3.5-4B-Q4_K_M.gguf] english_copy_edit.md (copy_edit) — 2026-05-22 12:18:23:
+  "three months after his funeral the deed" → "three months after his funeral, the deed"
+  "At the top the lantern room" → "At the top, the lantern room"
+  "her name writen on the front" → "her name written on the front"
+  "before she opened it, because her knees had began to tremble" → "before she opened it, because her knees had begun to tremble"
+  ""Mara, the letter began, "if you are reading this," → ""Mara," the letter began, "if you are reading this,"
+  "then I have finally ran out of excuses" → "then I have finally run out of excuses"
+  "a hand grown thin and shakey" → "a hand grown thin and shaky"
+  "vast and bright and indifferent and somewhere out there," → "vast, bright, and indifferent, and somewhere out there,"
+
+[Qwen3.5-4B-Q4_K_M.gguf] english_correct.md (copy_edit) — 2026-05-22 12:58:33:
+  "The Lighthouse Keeper's Letter" → "The lighthouse keeper's letter"
+
+[Qwen3.5-4B-Q4_K_M.gguf] english_correct.md (line_edit) — 2026-05-22 12:59:06:
+  "The iron steps groaned beneath her boots, and salt air pr..." → "The iron steps groaned beneath her boots, and salt air pr..."
+  "She set down her bag and ran a finger along the windowsil..." → "She set down her bag and ran a finger along the windowsil..."
+  "Mara sat down before she opened it, because her knees had..." → "Mara sat down before opening it; her knees were trembling..."
+  ""Mara," the letter began, "if you are reading this, then ..." → ""Mara," the letter began. "If you are reading this, I hav..."
+  "He wrote about the choice he had made to keep her secret,..." → "He wrote about the choice he had made to keep her secret ..."
+  ""You were three years old," he wrote. "You called me Gran..." → ""You were three years old," he wrote. "You called me Gran..."
+  "She thought she ought to feel angry, or betrayed, or unmo..." → "She felt she ought to be angry, betrayed, or unmoored."
+  "Instead she felt only a quiet, surprising tenderness, as ..." → "Instead, she felt only a quiet, surprising tenderness, as..."
+  "She would stay the night. In the morning, she would light..." → "She would stay the night and light the lamp in the morning."
 
 
 ── END OF REPORT ──

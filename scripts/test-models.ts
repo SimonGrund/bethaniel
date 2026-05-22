@@ -14,6 +14,8 @@
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
+ *   npx tsx scripts/test-models.ts --en        # Only run English texts
+ *   npx tsx scripts/test-models.ts --da --de   # Only Danish and German
  */
 
 import {
@@ -38,6 +40,17 @@ const TASK_TIMEOUT = 3_600_000; // 1 hour
 
 const CLEAN_RUN = process.argv.includes("--clean");
 const TEST_MODE = process.argv.includes("--test");
+
+const LANG_FLAGS: Record<string, string> = {
+  "--en": "english",
+  "--da": "danish",
+  "--de": "german",
+  "--es": "spanish",
+};
+const SELECTED_LANGS = Object.entries(LANG_FLAGS)
+  .filter(([flag]) => process.argv.includes(flag))
+  .map(([, lang]) => lang);
+// Empty means all languages
 
 function parseMaxSize(): number | null {
   const idx = process.argv.indexOf("--max-size");
@@ -121,6 +134,7 @@ async function waitForTask(taskId: string): Promise<{
   status: string;
   corrections: { original: string; corrected: string }[];
   errors: string[];
+  editedText?: string;
 }> {
   const start = Date.now();
   let consecutiveErrors = 0;
@@ -131,6 +145,7 @@ async function waitForTask(taskId: string): Promise<{
         result: {
           corrections: { original: string; corrected: string }[];
           errors: string[];
+          editedText?: string;
         } | null;
       };
 
@@ -141,6 +156,7 @@ async function waitForTask(taskId: string): Promise<{
           status: task.status,
           corrections: task.result?.corrections ?? [],
           errors: task.result?.errors ?? [],
+          editedText: task.result?.editedText,
         };
       }
     } catch (err) {
@@ -294,6 +310,8 @@ async function main() {
   // --test: only english_copy_edit.md
   if (TEST_MODE) {
     testFiles = testFiles.filter((f) => f.filename === "english_copy_edit.md");
+  } else if (SELECTED_LANGS.length > 0) {
+    testFiles = testFiles.filter((f) => SELECTED_LANGS.includes(f.language));
   }
 
   console.log(`Sample files found: ${testFiles.length}`);
@@ -368,12 +386,16 @@ async function main() {
 
         const startTime = Date.now();
 
-        // Submit task
+        // Submit task — mirror the exact payload the frontend sends
         const queueRes = (await api("POST", "/queue/add", {
           docId,
           units: [{ name: file.filename, original: content }],
           model,
           modes: [mode],
+          fast: true,
+          wordsPerChunk: 2500,
+          overlapParagraphs: 1,
+          parallel: 1,
           editOptions,
         })) as { jobId: string; taskIds: string[] };
 

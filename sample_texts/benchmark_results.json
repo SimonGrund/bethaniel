@@ -5,10 +5,181 @@
     "language": "english",
     "variant": "copy_edit",
     "mode": "copy_edit",
+    "correctionsFound": 8,
+    "runtimeMs": 18068,
+    "corrections": [
+      {
+        "original": "three months after his funeral the deed",
+        "corrected": "three months after his funeral, the deed",
+        "chunk": "Chunk 1/1",
+        "id": "67f2e342-79cb-4e92-8e1f-d80a9e5c4bae"
+      },
+      {
+        "original": "At the top the lantern room",
+        "corrected": "At the top, the lantern room",
+        "chunk": "Chunk 1/1",
+        "id": "c3b8b986-7261-421e-b76b-3707eba7bbc7"
+      },
+      {
+        "original": "her name writen on the front",
+        "corrected": "her name written on the front",
+        "chunk": "Chunk 1/1",
+        "id": "a36b5f04-5e97-47a1-9f3a-be3805e51dd3"
+      },
+      {
+        "original": "before she opened it, because her knees had began to tremble",
+        "corrected": "before she opened it, because her knees had begun to tremble",
+        "chunk": "Chunk 1/1",
+        "id": "a7709109-f307-4163-af21-a88ce7f8578e"
+      },
+      {
+        "original": "\"Mara, the letter began, \"if you are reading this,",
+        "corrected": "\"Mara,\" the letter began, \"if you are reading this,",
+        "chunk": "Chunk 1/1",
+        "id": "cda723e3-57f6-485d-b3d9-e9e177a0a59d"
+      },
+      {
+        "original": "then I have finally ran out of excuses",
+        "corrected": "then I have finally run out of excuses",
+        "chunk": "Chunk 1/1",
+        "id": "3965dec2-5e00-49ed-ad0c-6855a2576eae"
+      },
+      {
+        "original": "a hand grown thin and shakey",
+        "corrected": "a hand grown thin and shaky",
+        "chunk": "Chunk 1/1",
+        "id": "5da103ab-125e-4af5-b8fb-1bed0155589b"
+      },
+      {
+        "original": "vast and bright and indifferent and somewhere out there,",
+        "corrected": "vast, bright, and indifferent, and somewhere out there,",
+        "chunk": "Chunk 1/1",
+        "id": "a91111ab-4e32-4ab6-b82e-27409a0d767c"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-22T12:18:23.772Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "danish_copy_edit.md",
+    "language": "danish",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 144188,
+    "runtimeMs": 54087,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-22T12:10:05.946Z"
+    "runDate": "2026-05-22T12:20:04.515Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "danish_correct.md",
+    "language": "danish",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 54078,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-22T12:20:58.601Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "danish_correct.md",
+    "language": "danish",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 54101,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-22T12:21:52.712Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "english_correct.md",
+    "language": "english",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 1,
+    "runtimeMs": 9049,
+    "corrections": [
+      {
+        "original": "The Lighthouse Keeper's Letter",
+        "corrected": "The lighthouse keeper's letter",
+        "chunk": "Chunk 1/1",
+        "id": "ecb4b071-3b98-4a70-bd89-305a7725d85e"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-22T12:58:33.049Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "english_correct.md",
+    "language": "english",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 9,
+    "runtimeMs": 33049,
+    "corrections": [
+      {
+        "original": "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent friend.",
+        "corrected": "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows.",
+        "chunk": "Chunk 1/1",
+        "id": "b8dea7bc-63ac-4800-bdd6-4e3511b202aa"
+      },
+      {
+        "original": "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here recently.",
+        "corrected": "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here.",
+        "chunk": "Chunk 1/1",
+        "id": "12ee643a-b99a-4edf-882a-30aa2405293b"
+      },
+      {
+        "original": "Mara sat down before she opened it, because her knees had begun to tremble and she did not want to admit why.",
+        "corrected": "Mara sat down before opening it; her knees were trembling, and she did not want to admit why.",
+        "chunk": "Chunk 1/1",
+        "id": "226b6ce1-0193-460c-8d4a-9e1591435616"
+      },
+      {
+        "original": "\"Mara,\" the letter began, \"if you are reading this, then I have finally run out of excuses to tell you the truth myself. Forgive an old man his cowardice.\"",
+        "corrected": "\"Mara,\" the letter began. \"If you are reading this, I have finally run out of excuses to tell you the truth myself. Forgive an old man his cowardice.\"",
+        "chunk": "Chunk 1/1",
+        "id": "0c462295-ff73-4d48-aa3c-cbe9641276b0"
+      },
+      {
+        "original": "He wrote about the choice he had made to keep her secret, and about the daughter that woman had left behind in his care.",
+        "corrected": "He wrote about the choice he had made to keep her secret and the daughter the woman had left in his care.",
+        "chunk": "Chunk 1/1",
+        "id": "f67455c7-7255-414c-b3c4-ca67c1b56550"
+      },
+      {
+        "original": "\"You were three years old,\" he wrote. \"You called me Grandfather because that is what I asked you to call me. I am sorry. I loved you no less for the lie, and perhaps a little more, because I knew what it cost.\"",
+        "corrected": "\"You were three years old,\" he wrote. \"You called me Grandfather because that was what I asked. I am sorry. I loved you no less for the lie, perhaps a little more, because I knew what it cost.\"",
+        "chunk": "Chunk 1/1",
+        "id": "aef53110-4059-4168-8d3d-08d3675c1666"
+      },
+      {
+        "original": "She thought she ought to feel angry, or betrayed, or unmoored.",
+        "corrected": "She felt she ought to be angry, betrayed, or unmoored.",
+        "chunk": "Chunk 1/1",
+        "id": "81aef2e2-67c9-49f1-9c62-f666ad790413"
+      },
+      {
+        "original": "Instead she felt only a quiet, surprising tenderness, as though a door she had never noticed had opened in a familiar room.",
+        "corrected": "Instead, she felt only a quiet, surprising tenderness, as if a door she had never noticed had opened in a familiar room.",
+        "chunk": "Chunk 1/1",
+        "id": "7e8d27cf-a499-4333-9d44-1994a3a3feb5"
+      },
+      {
+        "original": "She would stay the night. In the morning, she would light the lamp.",
+        "corrected": "She would stay the night and light the lamp in the morning.",
+        "chunk": "Chunk 1/1",
+        "id": "357b5e73-8a07-41bd-a539-8c5a6f5a9fa2"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-22T12:59:06.107Z"
   }
 ]

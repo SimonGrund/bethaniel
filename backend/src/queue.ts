@@ -722,6 +722,21 @@ async function processJob(job: JobData): Promise<void> {
       if (useFast) {
         updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
         const cs = parseCorrectionsJson(acc);
+
+        // Debug: log raw response when parsing yields zero corrections
+        if (cs.length === 0 && acc.length > 0) {
+          const preview = acc.slice(0, 600);
+          console.warn(
+            `[Queue] chunk ${chunkLabel} JSON parse yielded 0 corrections. Raw (${acc.length} chars):\n${preview}`,
+          );
+          appendLog({
+            level: "warn",
+            source: "engine",
+            message: `Chunk ${chunkLabel}: model returned ${acc.length} chars but 0 corrections parsed. Preview: ${acc.slice(0, 200)}`,
+            model,
+          });
+        }
+
         const [newBody, applied, sk] = applyCorrections(chunk.body, cs);
         const core = stripOverlapFromResponse(
           newBody,
