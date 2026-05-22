@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-05-22T12:59:06.108Z
+Report generated: 2026-05-22T14:11:35.210Z
 ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -13,8 +13,9 @@ MODEL: Qwen3.5-4B-Q4_K_M.gguf
   │ danish_copy_edit.md                 copy_edit    0       10         54.1s    2026-05-22 12:20:04
   │ danish_correct.md                   copy_edit    0       0          54.1s    2026-05-22 12:20:58
   │ danish_correct.md                   line_edit    0       0          54.1s    2026-05-22 12:21:52
+  │ danish_line_edit.md                 line_edit    0       10         60.1s    2026-05-22 13:25:25
   │
-  │ Corrections: 0 / 10 expected | False positives: 0 | Time: 162.3s
+  │ Corrections: 0 / 20 expected | False positives: 0 | Time: 222.4s
   └──────────────────────────────────────────────────────────────────────────────
 
   ┌─ ENGLISH ───────────────────────────────────────────────────────────────
@@ -23,15 +24,145 @@ MODEL: Qwen3.5-4B-Q4_K_M.gguf
   │ english_copy_edit.md                copy_edit    8       10         18.1s    2026-05-22 12:18:23
   │ english_correct.md                  copy_edit    1       0          9.0s     2026-05-22 12:58:33
   │ english_correct.md                  line_edit    9       0          33.0s    2026-05-22 12:59:06
+  │ english_line_edit.md                line_edit    13      10         42.1s    2026-05-22 12:59:48
   │
-  │ Corrections: 8 / 10 expected | False positives: 10 | Time: 60.2s
+  │ Corrections: 21 / 20 expected | False positives: 10 | Time: 102.2s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ GERMAN ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ german_copy_edit.md                 copy_edit    10      10         48.1s    2026-05-22 13:26:13
+  │ german_correct.md                   copy_edit    0       0          54.1s    2026-05-22 13:27:07
+  │ german_correct.md                   line_edit    9       0          57.2s    2026-05-22 13:28:04
+  │ german_line_edit.md                 line_edit    13      10         63.1s    2026-05-22 13:29:07
+  │
+  │ Corrections: 23 / 20 expected | False positives: 9 | Time: 222.5s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ SPANISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ spanish_copy_edit.md                copy_edit    0       10         54.1s    2026-05-22 13:30:01
+  │ spanish_correct.md                  copy_edit    1       0          9.0s     2026-05-22 13:30:10
+  │ spanish_correct.md                  line_edit    14      0          42.1s    2026-05-22 13:30:52
+  │ spanish_line_edit.md                line_edit    0       10         60.1s    2026-05-22 13:31:53
+  │
+  │ Corrections: 0 / 20 expected | False positives: 15 | Time: 165.3s
   └──────────────────────────────────────────────────────────────────────────────
 
   MODEL TOTALS:
-    True corrections found: 8 / 20 expected
-    False positives (clean texts): 10
-    Total runtime: 222.4s
-    Avg time per task: 37.1s
+    True corrections found: 44 / 80 expected
+    False positives (clean texts): 34
+    Total runtime: 712.3s
+    Avg time per task: 44.5s
+
+════════════════════════════════════════════════════════════════════════════════
+MODEL: Qwen3.5-9B-Q4_K_M.gguf
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─ DANISH ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ danish_copy_edit.md                 copy_edit    0       10         87.1s    2026-05-22 13:33:20
+  │ danish_correct.md                   copy_edit    0       0          84.1s    2026-05-22 13:34:44
+  │ danish_correct.md                   line_edit    9       0          78.1s    2026-05-22 13:36:02
+  │ danish_line_edit.md                 line_edit    12      10         57.1s    2026-05-22 13:36:59
+  │
+  │ Corrections: 12 / 20 expected | False positives: 9 | Time: 306.5s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ ENGLISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ english_copy_edit.md                copy_edit    0       10         33.0s    2026-05-22 13:00:21
+  │ english_correct.md                  copy_edit    0       0          9.0s     2026-05-22 13:00:30
+  │ english_correct.md                  line_edit    11      0          33.0s    2026-05-22 13:01:03
+  │ english_line_edit.md                line_edit    20      10         57.1s    2026-05-22 13:02:00
+  │
+  │ Corrections: 20 / 20 expected | False positives: 11 | Time: 132.2s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ GERMAN ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ german_copy_edit.md                 copy_edit    0       10         69.1s    2026-05-22 13:38:08
+  │ german_correct.md                   copy_edit    1       0          12.0s    2026-05-22 13:38:20
+  │ german_correct.md                   line_edit    0       0          51.1s    2026-05-22 13:39:11
+  │ german_line_edit.md                 line_edit    0       10         105.1s   2026-05-22 13:40:57
+  │
+  │ Corrections: 0 / 20 expected | False positives: 1 | Time: 237.4s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ SPANISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ spanish_copy_edit.md                copy_edit    12      10         51.1s    2026-05-22 13:41:48
+  │ spanish_correct.md                  copy_edit    0       0          9.0s     2026-05-22 13:41:57
+  │ spanish_correct.md                  line_edit    0       0          87.1s    2026-05-22 13:43:24
+  │ spanish_line_edit.md                line_edit    10      10         45.1s    2026-05-22 13:44:09
+  │
+  │ Corrections: 22 / 20 expected | False positives: 0 | Time: 192.3s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  MODEL TOTALS:
+    True corrections found: 54 / 80 expected
+    False positives (clean texts): 21
+    Total runtime: 868.4s
+    Avg time per task: 54.3s
+
+════════════════════════════════════════════════════════════════════════════════
+MODEL: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─ DANISH ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ danish_copy_edit.md                 copy_edit    0       10         218.1s   2026-05-22 13:47:47
+  │ danish_correct.md                   copy_edit    0       0          189.3s   2026-05-22 13:50:56
+  │ danish_correct.md                   line_edit    0       0          207.3s   2026-05-22 13:54:23
+  │ danish_line_edit.md                 line_edit    22      10         225.3s   2026-05-22 13:58:09
+  │
+  │ Corrections: 22 / 20 expected | False positives: 0 | Time: 839.9s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ ENGLISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ english_copy_edit.md                copy_edit    6       10         69.5s    2026-05-22 13:03:09
+  │ english_correct.md                  copy_edit    6       0          69.1s    2026-05-22 13:04:19
+  │ english_correct.md                  line_edit    5       0          69.1s    2026-05-22 13:05:28
+  │ english_line_edit.md                line_edit    22      10         135.1s   2026-05-22 13:07:43
+  │
+  │ Corrections: 28 / 20 expected | False positives: 11 | Time: 342.8s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ GERMAN ────────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ german_copy_edit.md                 copy_edit    0       10         129.2s   2026-05-22 14:00:18
+  │ german_correct.md                   copy_edit    5       0          60.1s    2026-05-22 14:01:18
+  │ german_correct.md                   line_edit    10      0          123.2s   2026-05-22 14:03:21
+  │ german_line_edit.md                 line_edit    17      10         129.7s   2026-05-22 14:05:31
+  │
+  │ Corrections: 17 / 20 expected | False positives: 15 | Time: 442.2s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  ┌─ SPANISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ spanish_copy_edit.md                copy_edit    16      10         102.2s   2026-05-22 14:07:13
+  │ spanish_correct.md                  copy_edit    18      0          174.2s   2026-05-22 14:10:07
+  │ spanish_correct.md                  line_edit    7       0          87.3s    2026-05-22 14:11:35
+  │
+  │ Corrections: 16 / 10 expected | False positives: 25 | Time: 363.6s
+  └──────────────────────────────────────────────────────────────────────────────
+
+  MODEL TOTALS:
+    True corrections found: 83 / 70 expected
+    False positives (clean texts): 51
+    Total runtime: 1988.5s
+    Avg time per task: 132.6s
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -40,8 +171,18 @@ CROSS-MODEL COMPARISON BY LANGUAGE
 
   Language     Model                                         Correct    FP    Time
   ──────────── ───────────────────────────────────────────── ────────── ───── ────────
-  danish       Qwen3.5-4B-Q4_K_M.gguf                        0          0     162.3s
-  english      Qwen3.5-4B-Q4_K_M.gguf                        8          10    60.2s
+  danish       Qwen3.5-4B-Q4_K_M.gguf                        0          0     222.4s
+  danish       Qwen3.5-9B-Q4_K_M.gguf                        12         9     306.5s
+  danish       Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   22         0     839.9s
+  english      Qwen3.5-4B-Q4_K_M.gguf                        21         10    102.2s
+  english      Qwen3.5-9B-Q4_K_M.gguf                        20         11    132.2s
+  english      Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   28         11    342.8s
+  german       Qwen3.5-4B-Q4_K_M.gguf                        23         9     222.5s
+  german       Qwen3.5-9B-Q4_K_M.gguf                        0          1     237.4s
+  german       Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   17         15    442.2s
+  spanish      Qwen3.5-4B-Q4_K_M.gguf                        0          15    165.3s
+  spanish      Qwen3.5-9B-Q4_K_M.gguf                        22         0     192.3s
+  spanish      Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   16         25    363.6s
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -71,6 +212,323 @@ DETAILED CORRECTIONS
   "She thought she ought to feel angry, or betrayed, or unmo..." → "She felt she ought to be angry, betrayed, or unmoored."
   "Instead she felt only a quiet, surprising tenderness, as ..." → "Instead, she felt only a quiet, surprising tenderness, as..."
   "She would stay the night. In the morning, she would light..." → "She would stay the night and light the lamp in the morning."
+
+[Qwen3.5-4B-Q4_K_M.gguf] english_line_edit.md (line_edit) — 2026-05-22 12:59:48:
+  "The iron steps made a groaning sound beneath her boots, a..." → "The iron steps groaned beneath her boots, and the salty a..."
+  "Her grandfather, who was her grandfather, had kept this l..." → "Her grandfather had kept this lighthouse for four decades..."
+  "A folded sheet of paper lay tucked beneath the logbook, w..." → "A folded sheet of paper lay tucked beneath the logbook, h..."
+  "Mara sat herself down before she opened it up, because he..." → "Mara sat down before opening it. Her knees were already t..."
+  ""Mara," the letter began to say, "if you are reading this..." → ""Mara," the letter read. "If you are reading this, I have..."
+  "He wrote about the night her mother had left, and he wrot..." → "He wrote of the night her mother left, the storm that dro..."
+  "He wrote about the choice that he had made to keep her se..." → "He wrote of the choice he'd made to keep her secret and t..."
+  ""You were three years old at the time," he wrote in his w..." → ""You were three years old," he wrote. "You called me Gran..."
+  "She thought to herself that she really ought to feel angr..." → "She thought she ought to feel angry, betrayed, or unmoored."
+  "Instead, she felt only a quiet, surprising tenderness, al..." → "Instead, she felt only a quiet, surprising tenderness, as..."
+  "She closed the book in a closing motion. She stood up, wa..." → "She closed the book. She stood, walked to the great lens,..."
+  "The sea stretched away in every single direction, and som..." → "The sea stretched in every direction. Somewhere out there..."
+  "She would stay the night there. In the morning, she would..." → "She would stay the night. In the morning, she would light..."
+
+[Qwen3.5-9B-Q4_K_M.gguf] english_correct.md (line_edit) — 2026-05-22 13:01:03:
+  "The iron steps groaned beneath her boots" → "The iron steps creaked beneath her boots"
+  "salt air pressed against the narrow windows like an old, ..." → "salt air pressed against the narrow windows"
+  "brass fittings polished to a soft glow" → "brass fittings gleaming softly"
+  "the great lens silent and watchful" → "the great lens watching silently"
+  "because her knees had begun to tremble and she did not wa..." → "because her knees trembled, though she did not want to ad..."
+  "Forgive an old man his cowardice." → "Forgive my cowardice."
+  "He wrote about the choice he had made to keep her secret" → "He wrote of the choice to keep her secret"
+  "She thought she ought to feel angry, or betrayed, or unmo..." → "She expected anger, betrayal, a sense of being unmoored."
+  "as though a door she had never noticed had opened in a fa..." → "as though a door she had never noticed opened in a famili..."
+  "In a hand grown thin and shaky, he had written:" → "In a hand grown thin and shaky, he wrote:"
+  "The sea stretched away in every direction, vast and brigh..." → "The sea stretched away in every direction, vast and bright"
+
+[Qwen3.5-9B-Q4_K_M.gguf] english_line_edit.md (line_edit) — 2026-05-22 13:02:00:
+  "Her grandfather, who was her grandfather, had kept this l..." → "Her grandfather had kept this lighthouse"
+  "for a period of four decades" → "for four decades"
+  "the deed had finally at last passed to her" → "the deed had finally passed to her"
+  "exactly as she remembered it to be" → "exactly as she remembered it"
+  "in her grandfather's careful handwriting hand" → "in her grandfather's careful handwriting"
+  "Mara sat herself down before she opened it up" → "Mara sat down before opening it"
+  "because her knees had begun the process of trembling" → "because her knees began to tremble"
+  "did not really want to admit to herself why this was happ..." → "did not want to admit why she was shaking"
+  "if you are reading this letter, then I have finally run o..." → "if you're reading this, I've finally run out of excuses t..."
+  "Please forgive an old man for his cowardice." → "Please forgive an old man's cowardice."
+  "He wrote about the choice that he had made to keep her se..." → "He wrote about the choice he'd made to keep her secret"
+  "the daughter that that woman had left behind in his care ..." → "the daughter that woman had left behind in his care"
+  "You called me Grandfather because that is what I asked yo..." → "You called me Grandfather because I asked you to"
+  "I loved you no less for the lie that I told, and perhaps ..." → "I loved you no less for the lie, and perhaps a little mor..."
+  "She thought to herself that she really ought to feel angry" → "She thought she ought to feel angry"
+  "or unmoored in some way" → "or unmoored"
+  "She closed the book in a closing motion." → "She closed the book."
+  "The sea stretched away in every single direction" → "The sea stretched away in every direction"
+  "she now understood at this point, was a story that belong..." → "was a story that belonged to her, one she had only just b..."
+  "In the morning, she would light the lamp up." → "In the morning, she would light the lamp."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_copy_edit.md (copy_edit) — 2026-05-22 13:03:09:
+  "her name writen on the front" → "her name written on the front"
+  "her knees had began to tremble" → "her knees had begun to tremble"
+  "I have finally ran out of excuses" → "I have finally run out of excuses"
+  "You was three years old," → "You were three years old,"
+  "a hand grown thin and shakey," → "a hand grown thin and shaky,"
+  "she had only just begun too learn." → "she had only just begun to learn."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_correct.md (copy_edit) — 2026-05-22 13:04:19:
+  "the great lens silent and watchful, a logbook open on the..." → "the great lens was silent and watchful, a logbook open on..."
+  "She set down her bag and ran a finger along the windowsil..." → "She set down her bag and ran a finger along the windowsil..."
+  "She read slowly. He wrote about the night her mother had ..." → "She read slowly. He wrote about the night her mother had ..."
+  "You were three years old" → "You were three years old,"
+  "She thought she ought to feel angry, or betrayed, or unmo..." → "She thought she ought to feel angry, betrayed, or unmoored."
+  "In a hand grown thin and shaky, he had written: "Wind lig..." → "In a hand grown thin and shaky, he had written: "Wind lig..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_correct.md (line_edit) — 2026-05-22 13:05:28:
+  "The iron steps groaned beneath her boots, and salt air pr..." → "The iron steps groaned beneath her boots, and salt air pr..."
+  "She read slowly. He wrote about the night her mother had ..." → "She read slowly. He wrote of the night her mother had lef..."
+  "You were three years old" → "You were three"
+  "She thought she ought to feel angry, or betrayed, or unmo..." → "She expected anger, betrayal, or disorientation. Instead,..."
+  "The sea stretched away in every direction, vast and brigh..." → "The sea stretched away in every direction, vast and brigh..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_line_edit.md (line_edit) — 2026-05-22 13:07:43:
+  "The iron steps made a groaning sound beneath her boots" → "The iron steps groaned beneath her boots"
+  "the salty salt air pressed against the narrow windows in ..." → "the salty air pressed against the narrow windows like an ..."
+  "Her grandfather, who was her grandfather, had kept this l..." → "Her grandfather had kept this lighthouse for four decades"
+  "the deed had finally at last passed to her" → "the deed had finally passed to her"
+  "the lantern room was exactly as she remembered it to be:" → "the lantern room was exactly as she remembered:"
+  "a logbook that was open on the small oak desk" → "a logbook open on the small oak desk"
+  "Someone had been there in that place recently" → "Someone had been there recently"
+  "A folded sheet of paper lay tucked beneath the logbook, w..." → "A folded sheet of paper lay tucked beneath the logbook, h..."
+  "Mara sat herself down before she opened it up, because he..." → "Mara sat down before opening it, her knees trembling. She..."
+  "He wrote about the night her mother had left, and he wrot..." → "He wrote about the night her mother left, the storm that ..."
+  "He wrote about the choice that he had made to keep her se..." → "He wrote about the choice he'd made to keep her secret an..."
+  "You were three years old at the time" → "You were three"
+  "he wrote in his writing" → "he wrote"
+  "Mara set the letter down on the desk" → "Mara set the letter on the desk"
+  "Outside, gulls were turning slow circles above the water,..." → "Outside, gulls circled lazily above the water, the sea mo..."
+  "She thought to herself that she really ought to feel angr..." → "She thought she ought to feel angry, betrayed, or unmoored"
+  "Instead, she felt only a quiet, surprising tenderness, al..." → "Instead, she felt a quiet, surprising tenderness, as if a..."
+  "She closed the book in a closing motion" → "She closed the book"
+  "and laid her palm flat against the cool glass of it" → "and pressed her palm against the cool glass"
+  "The sea stretched away in every single direction, and som..." → "The sea stretched in every direction. Somewhere out there..."
+  "She would stay the night there" → "She would stay the night"
+  "In the morning, she would light the lamp up" → "In the morning, she would light the lamp"
+
+[Qwen3.5-4B-Q4_K_M.gguf] german_copy_edit.md (copy_edit) — 2026-05-22 13:26:13:
+  "Mara stieg die Wendeltreppe zum ersten mal seit zwanzig J..." → "Mara stieg die Wendeltreppe zum ersten Mal seit zwanzig J..."
+  "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lan..." → "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lan..."
+  "Jemand war vor kurzem hier gewessen." → "Jemand war vor kurzem hier gewesen."
+  "Mara setzte sich bevor sie es öffnete, denn ihre Knie hat..." → "Mara setzte sich, bevor sie es öffnete, denn ihre Knie ha..."
+  "Sie las langsam. Er schrieb über die Nacht in der ihre Mu..." → "Sie las langsam. Er schrieb über die Nacht, in der ihre M..."
+  "Mara legte den Brief beiseite. Draußen zogen die Möwen la..." → "Mara legte den Brief beiseite. Draußen zogen die Möwen la..."
+  "Sie dachte sie sollte sich wütend fühlen, oder verraten, ..." → "Sie dachte, sie sollte sich wütend fühlen, oder verraten,..."
+  "Stattdessen empfand sie nur eine stille überraschende Zär..." → "Stattdessen empfand sie nur eine stille, überraschende Zä..."
+  "Sie nahm das Logbuch und schlug den letzten Eintrag auf. ..." → "Sie nahm das Logbuch und schlug den letzten Eintrag auf. ..."
+  "Mara schloß das Buch." → "Mara schloss das Buch."
+
+[Qwen3.5-4B-Q4_K_M.gguf] german_correct.md (line_edit) — 2026-05-22 13:28:04:
+  "Die eisernen Stufen ächzten unter ihren Stiefeln, und die..." → "Die eisernen Stufen ächzten unter ihren Stiefeln, und die..."
+  "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lan..." → "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lan..."
+  "Sie stellte ihre Tasche ab und ließ einen Finger über die..." → "Sie stellte ihre Tasche ab und ließ einen Finger über die..."
+  "Mara setzte sich, bevor sie es öffnete, denn ihre Knie ha..." → "Mara setzte sich, bevor sie es öffnete. Ihre Knie zittert..."
+  "Sie las langsam. Er schrieb über die Nacht, in der ihre M..." → "Er schrieb über die Nacht, in der ihre Mutter gegangen wa..."
+  "Mara legte den Brief beiseite. Draußen zogen die Möwen la..." → "Mara legte den Brief beiseite. Draußen zogen die Möwen Kr..."
+  "Sie dachte, sie sollte sich wütend fühlen, oder verraten,..." → "Sie dachte, sie sollte sich wütend fühlen, verraten werde..."
+  "Das Meer dehnte sich in alle Richtungen, weit und hell un..." → "Das Meer dehnte sich in alle Richtungen, weit und hell un..."
+  "Sie würde die Nacht bleiben. Am Morgen würde sie die Lamp..." → "Sie würde die Nacht **überdauern**. Am Morgen würde sie d..."
+
+[Qwen3.5-4B-Q4_K_M.gguf] german_line_edit.md (line_edit) — 2026-05-22 13:29:07:
+  "Die eisernen Stufen machten ein ächzendes Geräusch unter ..." → "Die eisernen Stufen knisterten unter ihren Stiefeln, und ..."
+  "Ihr Großvater, der ihr Großvater war, hatte diesen Leucht..." → "Ihr Großvater, ihr Großvater, hatte diesen Leuchtturm vie..."
+  "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dor..." → "Es gab keinen Staub. Irgendjemand war vor kurzem hier gew..."
+  "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborg..." → "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborg..."
+  "Mara setzte sich selbst hin, bevor sie es aufmachte und ö..." → "Mara setzte sich hin, bevor sie es aufmachte, denn ihre K..."
+  "„Mara", begann der Brief zu sagen, „wenn du diesen Brief ..." → "„Mara", begann der Brief: „Wenn du diesen Brief liest, si..."
+  "Sie las langsam und sorgfältig. Er schrieb über die Nacht..." → "Sie las langsam. Er schrieb über die Nacht, in der ihre M..."
+  "„Du warst damals zu jenem Zeitpunkt drei Jahre alt", schr..." → "„Du warst damals drei Jahre alt", schrieb er. „Du nanntes..."
+  "Mara legte den Brief auf dem Eichentisch beiseite. Drauße..." → "Mara legte den Brief auf den Eichentisch. Draußen zogen d..."
+  "Sie dachte bei sich selbst, dass sie wirklich wütend, ode..." → "Sie dachte, sie sollte wütend, verraten oder verloren sei..."
+  "Sie schloss das Buch mit einer schließenden Bewegung. Sie..." → "Sie schloss das Buch. Sie stand auf, ging zur großen Lins..."
+  "Das Meer dehnte sich in jede einzelne Richtung aus, und i..." → "Das Meer dehnte sich in jede Richtung aus. Irgendwo dort ..."
+  "Sie würde die Nacht dort bleiben. Am Morgen würde sie die..." → "Sie würde die Nacht dort bleiben. Morgens würde sie die L..."
+
+[Qwen3.5-4B-Q4_K_M.gguf] spanish_correct.md (copy_edit) — 2026-05-22 13:30:10:
+  "La carta del farero" → "La carta del faro"
+
+[Qwen3.5-4B-Q4_K_M.gguf] spanish_correct.md (line_edit) — 2026-05-22 13:30:52:
+  "Los peldaños de hierro gimieron bajo sus botas, y el aire..." → "Los peldaños de hierro **gimieron** bajo sus botas, y el ..."
+  "Dejó su bolso y pasó un dedo por el alféizar." → "Dejó su bolso y **deslizó** un dedo por el alféizar."
+  "Mara se sentó antes de abrirla, porque las rodillas había..." → "Mara se sentó antes de abrirla; las rodillas le temblaban..."
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que..."
+  "Leyó despacio." → "Leyó **lentamente**."
+  "Escribía sobre la decisión que había tomado de guardar su..." → "Escribía sobre la decisión que había tomado de guardar su..."
+  "«Tenías tres años —escribió—. Me llamabas Abuelo porque e..." → "«Tenías tres años —escribió—. Me llamabas Abuelo porque e..."
+  "Mara dejó la carta sobre el escritorio." → "Mara **dejó caer** la carta sobre el escritorio."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "Pensó que **debería estar** enojada, traicionada, o a la ..."
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "En cambio, sintió **una** ternura tranquila y sorprendent..."
+  "Estaba fechada la mañana de su muerte." → "Estaba **fechada para** la mañana de su muerte."
+  "Con una letra adelgazada y temblorosa, había escrito: «Vi..." → "Con una letra **delgada** y temblorosa, había escrito: «V..."
+  "El mar se extendía en todas direcciones, vasto, brillante..." → "El mar se extendía en todas direcciones, vasto, brillante..."
+  "Se quedaría a pasar la noche." → "**Pasaría** la noche."
+
+[Qwen3.5-9B-Q4_K_M.gguf] danish_correct.md (line_edit) — 2026-05-22 13:36:02:
+  "den salte luft pressede sig mod de smalle vinduer som en ..." → "den salte luft pressede sig mod de smalle vinduer, som en..."
+  "Mara satte sig, før hun åbnede det, for hendes knæ var be..." → "Mara satte sig, før hun åbnede det. Hendes knæ var begynd..."
+  "Han skrev om den nat, hendes mor var rejst, om stormen, d..." → "Han skrev om den nat hendes mor var rejst, om stormen der..."
+  "Han skrev om det valg, han havde truffet om at bevare hen..." → "Han skrev om det valg han havde truffet for at bevare hen..."
+  "Udenfor drejede mågerne langsomme cirkler over vandet, og..." → "Udenfor drejede mågerne langsomme cirkler over vandet. Ha..."
+  "Hun tænkte, at hun burde føle sig vred, eller forrådt, el..." → "Hun tænkte, at hun burde føle sig vred, forrådt, eller fo..."
+  "I stedet følte hun kun en stille, overraskende ømhed, som..." → "I stedet følte hun kun en stille, overraskende ømhed, som..."
+  "Med en hånd, der var blevet tynd og rystende, havde han s..." → ""Let vind fra sydvest. God sigtbarhed. Fortalte M. om bre..."
+  "Havet strakte sig i alle retninger, vidt og lyst og ligeg..." → "Havet strakte sig i alle retninger, vidt og lyst og ligeg..."
+
+[Qwen3.5-9B-Q4_K_M.gguf] danish_line_edit.md (line_edit) — 2026-05-22 13:36:59:
+  "og den salte luft med salt i pressede sig mod de smalle v..." → "og den salte luft pressede sig mod de smalle vinduer"
+  "Hendes bedstefar, som var hendes bedstefar, havde passet ..." → "Hendes bedstefar havde passet dette fyrtårn"
+  "med hendes navn skrevet på forsiden af det med bedstefare..." → "med hendes navn skrevet på forsiden af det med bedstefare..."
+  "Mara satte sig selv ned, før hun åbnede det op" → "Mara satte sig ned, før hun åbnede det op"
+  "for hendes knæ var begyndt at starte med at ryste" → "for hendes knæ begyndte at ryste"
+  "og hun ville ikke rigtig indrømme over for sig selv hvorfor" → "og hun ville ikke indrømme det over for sig selv"
+  "fortælle dig sandheden personligt selv" → "fortælle dig sandheden"
+  "Han skrev om det valg, som han havde truffet om at bevare..." → "Han skrev om valget, han havde truffet for at bevare hend..."
+  "som den kvinde havde efterladt i hans varetægt for at pas..." → "som den kvinde havde efterladt i hans varetægt"
+  ""Du var tre år gammel dengang på det tidspunkt," skrev ha..." → ""Du var tre år gammel dengang," skrev han."
+  "Jeg elskede dig ikke mindre for den løgn, jeg fortalte, o..." → "Jeg elskede dig ikke mindre for den løgn, jeg fortalte"
+  "Hun lukkede bogen i en lukkende bevægelse." → "Hun lukkede logbogen."
+
+[Qwen3.5-9B-Q4_K_M.gguf] german_correct.md (copy_edit) — 2026-05-22 13:38:20:
+  "Sie würde die Nacht bleiben." → "Sie würde die Nacht *bleiben*."
+
+[Qwen3.5-9B-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit) — 2026-05-22 13:41:48:
+  "Mara subio la escalera" → "Mara subió la escalera"
+  "Su abuelo habia cuidado este faro" → "Su abuelo había cuidado este faro"
+  "tres meses después de su funeral la escritura" → "tres meses después de su funeral, la escritura"
+  "antes de habrirla" → "antes de abrirla"
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que..."
+  "Leyó despacio. Él escribía sobre la noche en que su madre..." → "Leyó despacio. Él escribía sobre la noche en que su madre..."
+  "«Tenia tres años —escribió—." → "«Tenía tres años —escribió—."
+  "antes de que ella nasciera" → "antes de que ella naciera"
+  "Estaba fechada la mañana de su muerte." → "Estaba fechada la mañana de su muerte,"
+  "Con una letra adelgazada y temblorosa, habia escrito" → "Con una letra adelgazada y temblorosa, había escrito"
+  "vasto, brillante e indiferente y en algún lugar allá afue..." → "vasto, brillante e indiferente, y en algún lugar allá afu..."
+  "Por la mañana, encenderia la lámpara." → "Por la mañana, encendería la lámpara."
+
+[Qwen3.5-9B-Q4_K_M.gguf] spanish_line_edit.md (line_edit) — 2026-05-22 13:44:09:
+  "Su abuelo, que era su abuelo, había cuidado este faro dur..." → "Su abuelo había cuidado este faro durante un período de c..."
+  "la escritura había pasado finalmente por fin a sus manos" → "la escritura había pasado finalmente a sus manos"
+  "los herrajes de latón pulidos hasta llegar a un brillo suave" → "los herrajes de latón pulidos hasta un brillo suave"
+  "un cuaderno de bitácora que estaba abierto sobre el peque..." → "un cuaderno de bitácora abierto sobre el pequeño escritor..."
+  "Mara se sentó a sí misma antes de proceder a abrirla, por..." → "Mara se sentó antes de abrirla, porque las rodillas le ha..."
+  "«Mara —comenzaba a decir la carta—, si estás leyendo esta..." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que..."
+  "Escribía sobre la decisión que él había tomado de guardar..." → "Escribía sobre la decisión de guardar su secreto"
+  "«Tenías tres años de edad en ese entonces —escribió en su..." → "«Tenías tres años en ese entonces —escribió—"
+  "Pensó para sí misma que realmente debería sentirse enojad..." → "Pensó que debería sentirse enojada, traicionada o a la de..."
+  "El mar se extendía en todas y cada una de las direcciones" → "El mar se extendía en todas las direcciones"
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] danish_line_edit.md (line_edit) — 2026-05-22 13:58:09:
+  "Mara gik op ad vindeltrappen for allerførste gang i tyve ..." → "Mara climbed the spiral staircase for the first time in t..."
+  "Jerntrinene lavede en knagende lyd under hendes støvler, ..." → "The iron steps creaked under her boots, and the salty air..."
+  "Hendes bedstefar, som var hendes bedstefar, havde passet ..." → "Her grandfather, who was indeed her grandfather, had tend..."
+  "nu, tre måneder efter hans begravelse, var skødet endelig..." → "Now, three months after his funeral, the responsibility h..."
+  "Øverst oppe var lanternerummet præcis sådan, som hun husk..." → "At the top, the lantern room was exactly as she remembere..."
+  "messingbeslagene var pudset op til en blød glans" → "the brass fittings gleamed softly"
+  "den store linse, der var tavs og vågen" → "the great lens, silent and watchful"
+  "Hun satte sin taske fra sig der og lod en finger glide la..." → "She set her bag down and ran a finger along the windowsil..."
+  "Et foldet ark papir lå skjult under logbogen, med hendes ..." → "A folded sheet of paper lay hidden under the logbook, her..."
+  "Mara satte sig selv ned, før hun åbnede det op, for hende..." → "Mara sat down before opening it, her knees beginning to s..."
+  "Hun læste langsomt og forsigtigt" → "She read slowly"
+  "Han skrev om den nat, hendes mor var rejst, og han skrev ..." → "He wrote of the night her mother had left, and the storm ..."
+  "Han skrev om det valg, som han havde truffet om at bevare..." → "He wrote of the choice he had made to keep her secret"
+  "Jeg er meget ked af det. Jeg elskede dig ikke mindre for ..." → "I'm sorry. I loved you no less for the lie I told, and pe..."
+  "Mara lagde brevet fra sig på skrivebordet" → "Mara set the letter down on the desk"
+  "Udenfor var mågerne i færd med at dreje langsomme cirkler..." → "Outside, gulls circled lazily over the water, and the sea..."
+  "Hun tænkte ved sig selv, at hun virkelig burde føle sig v..." → "She thought she really ought to feel angry, or betrayed, ..."
+  "I stedet følte hun kun en stille, overraskende ømhed, næs..." → "Instead she felt only a quiet, surprising tenderness, as ..."
+  "Hun lukkede bogen i en lukkende bevægelse" → "She closed the book with a decisive motion"
+  "Hun rejste sig op, gik hen til den store linse og lagde s..." → "She stood and walked to the great lens, pressing her palm..."
+  "et sted derude, det forstod hun nu på dette tidspunkt, lå..." → "somewhere out there, she understood now, lay a story that..."
+  "Hun ville blive der natten over. I morgen ville hun tænde..." → "She would stay the night. Tomorrow she would light the lamp"
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] german_correct.md (copy_edit) — 2026-05-22 14:01:18:
+  "genau so" → "exactly like"
+  "drei Monate nach seiner Beerdigung" → "three months after his funeral"
+  "Vergib einem alten Mann seine Feigheit." → "Forgive an old man his cowardice."
+  "Du nanntest mich Großvater, weil ich dich darum gebeten h..." → "You called me Grandfather because I had asked you to."
+  "Leichter Wind aus Südwest." → "Light wind from the southwest."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] german_correct.md (line_edit) — 2026-05-22 14:03:21:
+  "Die eisernen Stufen ächzten unter ihren Stiefeln, und die..." → "The iron steps creaked under her boots, and the salty air..."
+  "Oben war der Laternenraum genau so, wie sie ihn in Erinne..." → "Above, the lantern room was exactly as she remembered it:"
+  "Sie stellte ihre Tasche ab und ließ einen Finger über die..." → "She set down her bag and ran a finger along the windowsil..."
+  "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborg..." → "A folded sheet of paper lay hidden under the logbook, wit..."
+  "Mara setzte sich, bevor sie es öffnete, denn ihre Knie ha..." → "Mara sat down before opening it, for her knees had begun ..."
+  "Sie las langsam. Er schrieb über die Nacht, in der ihre M..." → "She read slowly. He wrote about the night her mother had ..."
+  "Sie dachte, sie sollte sich wütend fühlen, oder verraten,..." → "She thought she should feel angry, or betrayed, or lost."
+  "Stattdessen empfand sie nur eine stille, überraschende Zä..." → "Instead, she felt only a quiet, surprising tenderness, as..."
+  "Sie nahm das Logbuch und schlug den letzten Eintrag auf. ..." → "She took the logbook and opened to the last entry. It was..."
+  "Mit einer Hand, die dünn und zittrig geworden war, hatte ..." → "With a hand that had grown thin and tremulous, he had wri..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] german_line_edit.md (line_edit) — 2026-05-22 14:05:31:
+  "die wie ein alter, beharrlicher Freund war" → "wie ein alter, beharrlicher Freund"
+  "genau so, wie sie ihn in ihrer Erinnerung in Erinnerung h..." → "exactly as she remembered it"
+  "endlich schließlich an sie übergegangen" → "endlich an sie übergegangen"
+  "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dor..." → "There was no dust. Someone had been there recently."
+  "mit ihrem Namen auf der Vorderseite davon, der in der sor..." → "with her name on the front, written in her grandfather's ..."
+  "denn ihre Knie hatten begonnen, anzufangen zu zittern" → "for her knees had begun to tremble"
+  "Bitte vergib einem alten Mann für seine Feigheit." → "Please forgive an old man for his cowardice."
+  "Er schrieb über die Nacht, in der ihre Mutter gegangen wa..." → "He wrote about the night her mother left, and he wrote ab..."
+  "und genau diese Treppe hinaufgetragen hatte" → "and carried her up this very staircase"
+  "Es tut mir sehr leid darüber." → "I am very sorry about that."
+  "Sie dachte bei sich selbst, dass sie wirklich wütend, ode..." → "She thought she should feel truly angry, or betrayed, or ..."
+  "Stattdessen empfand sie nur eine stille, überraschende Zä..." → "Instead, she felt only a quiet, surprising tenderness"
+  "fast so, als hätte sich eine Tür, die sie nie zuvor jemal..." → "as if a door she had never before noticed"
+  "in einem vertrauten Zimmer geöffnet, das sie gut kannte." → "had opened in a familiar room she knew well."
+  "Das Meer dehnte sich in jede einzelne Richtung aus" → "The sea stretched in every direction"
+  "und irgendwo dort draußen, das verstand sie nun zu diesem..." → "and somewhere out there, she understood now"
+  "lag eine Geschichte, die ihr gehörte und die sie gerade e..." → "lay a story that belonged to her and that she had only ju..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit) — 2026-05-22 14:07:13:
+  "Mara subio la escalera" → "Mara subió la escalera"
+  "habia cuidado este faro" → "había cuidado este faro"
+  "la escritura había pasado por fin a sus manos." → "the deed had finally passed into her hands."
+  "los herrajes de latón pulidos hasta un brillo suave" → "the brass fittings polished to a soft shine"
+  "la gran lente silenciosa y vigilante" → "the great lens silent and watchful"
+  "un cuaderno de bitácora abierto sobre el pequeño escritor..." → "a logbook open on the small oak desk."
+  "con su nombre escrito al frente con la letra cuidadosa de..." → "with her name written at the front in her grandfather's c..."
+  "Mara se sentó antes de habrirla" → "Mara sat down before opening it"
+  "Perdona a un viejo su cobardía»." → "Forgive an old man his cowardice.""
+  "Tenia tres años —escribió—" → "She was three years old —he wrote—"
+  "Afuera, las gaviotas trazaban círculos lentos sobre el ag..." → "Outside, the seagulls traced slow circles over the water ..."
+  "Pensó que debería sentirse enojada" → "She thought she should feel angry"
+  "habia escrito: «viento ligero del suroeste." → "he had written: "light southwest wind."
+  "No entendió, pero entenderá, cuando llegue el momento." → "She didn't understand, but she will, when the time comes."
+  "Se quedaría a pasar la noche." → "She would stay to spend the night."
+  "Por la mañana, encenderia la lámpara." → "In the morning, she would light the lamp."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_correct.md (copy_edit) — 2026-05-22 14:10:07:
+  "Mara subió la escalera de caracol por primera vez en vein..." → "Mara climbed the spiral staircase for the first time in t..."
+  "Los peldaños de hierro gimieron bajo sus botas, y el aire..." → "The iron steps groaned under her boots, and the salty air..."
+  "Arriba, la sala de la linterna estaba exactamente como el..." → "Above, the lantern room was exactly as she remembered it:"
+  "Una hoja doblada de papel descansaba bajo el cuaderno, co..." → "A folded sheet of paper rested under the logbook, with he..."
+  "Mara se sentó antes de abrirla, porque las rodillas había..." → "Mara sat down before opening it, because her knees had st..."
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → ""Mara —the letter began—, if you're reading this, it's be..."
+  "Leyó despacio." → "She read slowly."
+  "«Tenías tres años —escribió—. Me llamabas Abuelo porque e..." → ""You were three years old —he wrote—. You called me Grand..."
+  "Mara dejó la carta sobre el escritorio." → "Mara set the letter down on the desk."
+  "Afuera, las gaviotas trazaban círculos lentos sobre el ag..." → "Outside, the seagulls traced slow circles over the water,..."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "She thought she should feel angry, or betrayed, or adrift."
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "Instead, she felt only a quiet and surprising tenderness,..."
+  "Tomó el cuaderno y lo abrió en la entrada más reciente." → "She took the logbook and opened it to the most recent entry."
+  "Con una letra adelgazada y temblorosa, había escrito:" → "With a thin and trembling hand, he had written:"
+  "Mara cerró el cuaderno." → "Mara closed the logbook."
+  "Se levantó, caminó hasta la gran lente y apoyó la palma c..." → "She stood up, walked to the great lens, and pressed her p..."
+  "El mar se extendía en todas direcciones, vasto, brillante..." → "The sea stretched in all directions, vast, bright, and in..."
+  "Se quedaría a pasar la noche." → "She would stay to spend the night."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_correct.md (line_edit) — 2026-05-22 14:11:35:
+  "Los peldaños de hierro gimieron bajo sus botas, y el aire..." → "Los peldaños de hierro gimieron bajo sus botas, y el aire..."
+  "Una hoja doblada de papel descansaba bajo el cuaderno, co..." → "Una hoja doblada de papel descansaba bajo el cuaderno, co..."
+  "Mara se sentó antes de abrirla, porque las rodillas había..." → "Mara se sentó antes de abrirla; sus rodillas temblaban, p..."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "Pensó que debería sentir enojo, traición, o desorientación."
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "En cambio, una ternura tranquila y sorprendente la invadi..."
+  "Tomó el cuaderno y lo abrió en la entrada más reciente." → "Tomó el cuaderno y buscó la entrada más reciente."
+  "Se quedaría a pasar la noche. Por la mañana, encendería l..." → "Decidió quedarse a pasar la noche. Al amanecer, encenderí..."
 
 
 ── END OF REPORT ──

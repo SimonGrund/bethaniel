@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bethaniel Benchmark Results</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Bethaniel — Model Benchmark Dashboard</h1>
+      <p class="subtitle">
+        Upload <code>benchmark_results.json</code> to visualise model
+        performance across languages and editing tasks.
+      </p>
+    </header>
+
+    <!-- File upload -->
+    <section id="upload-section">
+      <label for="file-input" class="upload-label">
+        <span class="upload-icon">📂</span>
+        <span>Drop or select <code>benchmark_results.json</code></span>
+        <input type="file" id="file-input" accept=".json" />
+      </label>
+    </section>
+
+    <!-- Dashboard (hidden until data loaded) -->
+    <main id="dashboard" class="hidden">
+      <!-- Summary stats -->
+      <section id="summary-cards"></section>
+
+      <!-- View toggle -->
+      <nav id="view-toggle">
+        <button class="view-btn active" data-view="per-language">
+          Per Language
+        </button>
+        <button class="view-btn" data-view="cross-language">
+          Compare Languages
+        </button>
+      </nav>
+
+      <!-- Per-language view -->
+      <section id="per-language-view">
+        <nav id="language-tabs"></nav>
+        <div id="chart-recall"></div>
+        <div id="chart-false-positives"></div>
+        <div id="chart-runtime"></div>
+      </section>
+
+      <!-- Cross-language view -->
+      <section id="cross-language-view" class="hidden">
+        <nav id="task-selector">
+          <label for="task-dropdown">Task:</label>
+          <select id="task-dropdown">
+            <option value="copy_edit">Copy Edit — Recall</option>
+            <option value="line_edit">Line Edit — Recall</option>
+            <option value="fp_copy_edit">
+              False Positives — Copy Edit Mode
+            </option>
+            <option value="fp_line_edit">
+              False Positives — Line Edit Mode
+            </option>
+          </select>
+        </nav>
+        <div id="chart-cross-language"></div>
+      </section>
+
+      <!-- Drill-down panel -->
+      <section id="drilldown-panel" class="hidden">
+        <div class="drilldown-header">
+          <h3 id="drilldown-title"></h3>
+          <button id="drilldown-close">✕</button>
+        </div>
+        <div id="drilldown-content"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
