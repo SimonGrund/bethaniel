@@ -332,13 +332,27 @@ async function main() {
     console.log(`MODEL: ${model}`);
     console.log(`${"─".repeat(60)}`);
 
-    for (const file of testFiles) {
-      const content = readFileSync(file.path, "utf-8");
+    // Fetch recommended parallel slots for this model from the backend
+    let recommendedParallel = 1;
+    try {
+      const rec = (await api(
+        "GET",
+        `/system/recommend?model=${encodeURIComponent(model)}`,
+      )) as { recommendedParallel: number };
+      recommendedParallel = rec.recommendedParallel;
+    } catch {
+      // Fallback to 1 if endpoint unavailable
+    }
+    console.log(`  Parallel slots: ${recommendedParallel}`);
 
-      // Determine which edit mode to run:
-      // - correct files: run both copy_edit and line_edit (to check false positives)
-      // - copy_edit files: run copy_edit
-      // - line_edit files: run line_edit
+    // Collect all tasks to run for this model
+    const pendingTasks: {
+      file: TestFile;
+      mode: "copy_edit" | "line_edit";
+      label: string;
+    }[] = [];
+
+    for (const file of testFiles) {
       const modesToRun: ("copy_edit" | "line_edit")[] =
         file.variant === "correct"
           ? ["copy_edit", "line_edit"]
@@ -348,95 +362,126 @@ async function main() {
 
       for (const mode of modesToRun) {
         const key = resultKey(model, file.filename, mode);
-
-        // Skip if already completed
         if (completedKeys.has(key)) {
           skipped++;
           continue;
         }
+        pendingTasks.push({
+          file,
+          mode,
+          label: `${file.filename} [${mode}]`,
+        });
+      }
+    }
 
-        const label = `${file.filename} [${mode}]`;
-        process.stdout.write(`  ${label} ... `);
+    if (pendingTasks.length === 0) continue;
 
-        // Upload text
-        const docId = await uploadText(file.filename, content);
+    // Process tasks in batches of recommendedParallel
+    for (let i = 0; i < pendingTasks.length; i += recommendedParallel) {
+      const batch = pendingTasks.slice(i, i + recommendedParallel);
+      console.log(
+        `\n  Batch ${Math.floor(i / recommendedParallel) + 1}: ${batch.map((t) => t.label).join(", ")}`,
+      );
 
-        // Build edit options
-        const editOptions =
-          mode === "copy_edit"
-            ? {
-                spelling: true,
-                punctuation: true,
-                capitalization: true,
-                duplicateWords: true,
-                englishDialect: "american" as const,
-                oxfordComma: true,
-                dialogueTags: false,
-              }
-            : {
-                awkwardPhrasing: true,
-                redundancy: true,
-                weakVerbs: true,
-                cliches: true,
-                showDontTell: true,
-                sentenceRhythm: true,
-                dialogueNaturalness: true,
-                tightenProse: true,
-              };
+      // Submit all tasks in the batch
+      const submissions = await Promise.all(
+        batch.map(async (task) => {
+          const content = readFileSync(task.file.path, "utf-8");
+          const docId = await uploadText(task.file.filename, content);
 
-        const startTime = Date.now();
+          const editOptions =
+            task.mode === "copy_edit"
+              ? {
+                  spelling: true,
+                  punctuation: true,
+                  capitalization: true,
+                  duplicateWords: true,
+                  englishDialect: "american" as const,
+                  oxfordComma: true,
+                  dialogueTags: false,
+                }
+              : {
+                  awkwardPhrasing: true,
+                  redundancy: true,
+                  weakVerbs: true,
+                  cliches: true,
+                  showDontTell: true,
+                  sentenceRhythm: true,
+                  dialogueNaturalness: true,
+                  tightenProse: true,
+                };
 
-        // Submit task — mirror the exact payload the frontend sends
-        const queueRes = (await api("POST", "/queue/add", {
-          docId,
-          units: [{ name: file.filename, original: content }],
-          model,
-          modes: [mode],
-          fast: true,
-          wordsPerChunk: 2500,
-          overlapParagraphs: 1,
-          parallel: 1,
-          editOptions,
-        })) as { jobId: string; taskIds: string[] };
+          const startTime = Date.now();
 
-        const taskId = queueRes.taskIds[0];
+          const queueRes = (await api("POST", "/queue/add", {
+            docId,
+            units: [{ name: task.file.filename, original: content }],
+            model,
+            modes: [task.mode],
+            fast: true,
+            wordsPerChunk: 2500,
+            overlapParagraphs: 1,
+            parallel: recommendedParallel,
+            editOptions,
+          })) as { jobId: string; taskIds: string[] };
 
-        // Wait for completion
-        const taskResult = await waitForTask(taskId);
-        const elapsed = Date.now() - startTime;
+          return {
+            task,
+            docId,
+            taskId: queueRes.taskIds[0],
+            startTime,
+            content,
+          };
+        }),
+      );
 
-        const count = taskResult.corrections.length;
+      // Wait for all tasks in the batch to complete
+      const batchResults = await Promise.all(
+        submissions.map(async (sub) => {
+          const taskResult = await waitForTask(sub.taskId);
+          const elapsed = Date.now() - sub.startTime;
+          return { ...sub, taskResult, elapsed };
+        }),
+      );
+
+      // Process results
+      for (const br of batchResults) {
+        const count = br.taskResult.corrections.length;
         const status =
-          taskResult.status === "done" ? `${count} corrections` : `ERROR`;
-        console.log(`${status} (${(elapsed / 1000).toFixed(1)}s)`);
+          br.taskResult.status === "done" ? `${count} corrections` : `ERROR`;
+        console.log(
+          `    ${br.task.label}: ${status} (${(br.elapsed / 1000).toFixed(1)}s)`,
+        );
 
-        if (taskResult.errors.length > 0) {
-          console.log(`    ⚠ Errors: ${taskResult.errors.join("; ")}`);
+        if (br.taskResult.errors.length > 0) {
+          console.log(`      ⚠ Errors: ${br.taskResult.errors.join("; ")}`);
         }
 
         const result: TestResult = {
           model,
-          file: file.filename,
-          language: file.language,
-          variant: file.variant,
-          mode,
+          file: br.task.file.filename,
+          language: br.task.file.language,
+          variant: br.task.file.variant,
+          mode: br.task.mode,
           correctionsFound: count,
-          runtimeMs: elapsed,
-          corrections: taskResult.corrections,
-          errors: taskResult.errors,
+          runtimeMs: br.elapsed,
+          corrections: br.taskResult.corrections,
+          errors: br.taskResult.errors,
           runDate: new Date().toISOString(),
         };
 
         results.push(result);
-        completedKeys.add(key);
-
-        // Save after each task (incremental)
-        saveResults(results);
-        writeFileSync(REPORT_PATH, buildReport(results, models), "utf-8");
+        completedKeys.add(
+          resultKey(model, br.task.file.filename, br.task.mode),
+        );
 
         // Clean up the uploaded doc
-        await api("DELETE", `/documents/${docId}`).catch(() => {});
+        await api("DELETE", `/documents/${br.docId}`).catch(() => {});
       }
+
+      // Save after each batch (incremental)
+      saveResults(results);
+      writeFileSync(REPORT_PATH, buildReport(results, models), "utf-8");
     }
   }
 

@@ -204,15 +204,16 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
   // 8k context on a 7B model; scales ~linearly with model + context.
   const kvPerJobGb = Math.max(0.3, modelSizeGb * 0.1);
 
-  // Ollama loads weights once and shares them across concurrent requests,
-  // so RAM = modelSize + N * kvPerJob.
+  // Weights are loaded once, shared across concurrent requests.
+  // RAM budget = modelSize + N * kvPerJob.
   const ramSlots = Math.floor((usableGb - modelSizeGb) / kvPerJobGb);
 
-  // Don't outrun the CPU either; leave 1-2 cores for the OS.
+  // Don't outrun the CPU either; leave 2 cores for the OS.
   const cpuSlots = Math.max(1, cpuCount - 2);
 
-  // Diminishing returns past 8 on a single Ollama instance.
-  const recommendedParallel = Math.max(1, Math.min(8, ramSlots, cpuSlots));
+  // Cap at 3 — on a single GPU (Apple Silicon), decode is bandwidth-bound
+  // so more slots just burn KV cache RAM for negligible throughput gain.
+  const recommendedParallel = Math.max(1, Math.min(3, ramSlots, cpuSlots));
 
   res.json({
     recommendedParallel,

@@ -166,4 +166,5 @@ export interface LogEntry {
   hintKey?: string;
   hint?: string;
   model?: string;
+  taskId?: string;
 }

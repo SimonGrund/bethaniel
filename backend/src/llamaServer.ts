@@ -172,6 +172,35 @@ function detectThreads(): number {
   return Math.max(1, os.cpus().length - 2);
 }
 
+// ── Parallel slot detection ──
+
+/**
+ * Determine how many parallel inference slots to allocate in llama-server.
+ * Each slot gets its own KV cache. We balance available RAM (after model
+ * weights) against CPU cores so the server can handle concurrent requests.
+ */
+export function detectParallelSlots(
+  modelSizeBytes: number,
+  numCtx: number,
+): number {
+  const totalRamGb = os.totalmem() / 1024 ** 3;
+  const modelGb = modelSizeBytes / 1024 ** 3;
+  // Reserve ~4 GB for OS + app overhead
+  const usableGb = Math.max(2, totalRamGb - 4);
+  // KV cache per slot scales with context and model size.
+  const kvPerSlotGb = Math.max(0.3, modelGb * 0.1 * (numCtx / 6144));
+  // How many slots fit in remaining RAM after the model weights
+  const ramSlots = Math.floor((usableGb - modelGb) / kvPerSlotGb);
+  // Don't outrun CPU cores (leave 2 for OS)
+  const cpuCount = os.cpus().length;
+  const cpuSlots = Math.max(1, cpuCount - 2);
+  // Cap at 3 — on a single GPU (Apple Silicon unified memory), decode is
+  // bandwidth-bound so more slots just add KV cache pressure. 2–3 slots
+  // still help because prefill can be batched efficiently.
+  const slots = Math.max(1, Math.min(3, ramSlots, cpuSlots));
+  return slots;
+}
+
 // ── Health polling ──
 
 function pollHealth(timeoutMs = 60000): Promise<void> {
@@ -282,7 +311,12 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   const modelSize = fs.statSync(modelPath).size;
   const ngl = detectNGL(modelSize);
   const threads = detectThreads();
+  const parallelSlots = detectParallelSlots(modelSize, numCtx);
   const cfg = readModelConfig(MODELS_DIR, file);
+
+  // llama-server divides -c evenly across parallel slots, so we multiply
+  // to ensure each slot gets the full requested context window.
+  const totalCtx = numCtx * parallelSlots;
 
   const args = [
     "-m",
@@ -292,11 +326,14 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     "--port",
     String(LLAMA_PORT),
     "-c",
-    String(numCtx),
+    String(totalCtx),
     "-ngl",
     String(ngl),
     "-t",
     String(threads),
+    // Parallel inference slots — allows concurrent request processing.
+    "--parallel",
+    String(parallelSlots),
     // Flash attention: faster prefill + decode, no output change.
     // Newer llama-server requires an explicit value ('on'|'off'|'auto').
     "-fa",
@@ -320,11 +357,13 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
     args.push("--no-mmap");
   }
 
-  console.log(`[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")}`);
+  console.log(
+    `[llama-server] Starting: ${LLAMA_BIN} ${args.join(" ")} (parallel=${parallelSlots})`,
+  );
   appendLog({
     level: "info",
     source: "engine",
-    message: `Launching model: ${modelDisplayName(file)}`,
+    message: `Launching model: ${modelDisplayName(file)} (${parallelSlots} parallel slots)`,
     model: file,
   });
 
@@ -429,7 +468,9 @@ async function doLoad(file: string, numCtx: number): Promise<void> {
   currentModel = file;
   currentCtx = numCtx;
   loadPromise = null;
-  console.log(`[llama-server] Model loaded: ${file} (ctx=${numCtx})`);
+  console.log(
+    `[llama-server] Model loaded: ${file} (ctx=${numCtx}, parallel=${parallelSlots})`,
+  );
   appendLog({
     level: "info",
     source: "engine",

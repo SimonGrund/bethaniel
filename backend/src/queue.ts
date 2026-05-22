@@ -163,6 +163,7 @@ function updateTask(id: string, update: Partial<TaskState>): void {
         source: "task",
         message: `Editing ${existing.name} (${existing.mode})…`,
         model: existing.model,
+        taskId: id,
       });
     }
     if (existing.status === "done" && prevStatus !== "done") {
@@ -171,6 +172,7 @@ function updateTask(id: string, update: Partial<TaskState>): void {
         source: "task",
         message: `Done: ${existing.name} (${existing.mode})`,
         model: existing.model,
+        taskId: id,
       });
     }
     // Surface terminal errors as user-facing log entries (once per transition).
@@ -188,6 +190,7 @@ function updateTask(id: string, update: Partial<TaskState>): void {
         message: `${existing.name} (${existing.mode}) failed: ${summary}`,
         hintKey: diag?.hintKey,
         model: existing.model,
+        taskId: id,
       });
     }
     // Persist any task that has reached a terminal state so it survives a restart.
@@ -231,6 +234,7 @@ function emitProgressMilestone(id: string, value: number): void {
     source: "task",
     message: `Editing${task ? ` ${task.name}` : ""}: ${decile * 10}%`,
     model: task?.model,
+    taskId: id,
   });
 }
 

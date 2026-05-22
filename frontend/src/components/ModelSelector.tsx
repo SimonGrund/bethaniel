@@ -79,6 +79,7 @@ export default function ModelSelector({
   );
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [maxParallel, setMaxParallel] = useState(3);
 
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
@@ -176,7 +177,10 @@ export default function ModelSelector({
   useEffect(() => {
     if (!model) return;
     fetchSystemRecommendation(model)
-      .then((r) => setParallel(r.recommendedParallel))
+      .then((r) => {
+        setParallel(r.recommendedParallel);
+        setMaxParallel(r.recommendedParallel);
+      })
       .catch(() => {});
   }, [model]);
 
@@ -507,7 +511,7 @@ export default function ModelSelector({
             <input
               type="range"
               min={1}
-              max={8}
+              max={maxParallel}
               step={1}
               value={parallel}
               onChange={(e) => setParallel(Number(e.target.value))}

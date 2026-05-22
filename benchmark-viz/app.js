@@ -95,39 +95,62 @@ function renderSummary(scopeLangs) {
       : "All Languages";
 
   for (const model of state.models) {
-    let totalRecall = 0;
-    let recallCount = 0;
-    let totalFP = 0;
-    let totalRuntimeMs = 0;
-    let runtimeCount = 0;
+    let copyRecallSum = 0,
+      copyRecallCount = 0;
+    let lineRecallSum = 0,
+      lineRecallCount = 0;
+    let copyFP = 0,
+      lineFP = 0;
+    let copyRuntimeMs = 0,
+      lineRuntimeMs = 0;
+    let copyRuntimeCount = 0,
+      lineRuntimeCount = 0;
 
     for (const lang of langs) {
       const langData = state.lookup[model]?.[lang];
       if (!langData) continue;
 
-      for (const scenario of ["copy_edit", "line_edit"]) {
-        if (langData[scenario]) {
-          totalRecall +=
-            langData[scenario].correctionsFound / KNOWN_CORRECT_COUNT;
-          recallCount++;
-          totalRuntimeMs += langData[scenario].runtimeMs;
-          runtimeCount++;
-        }
+      if (langData.copy_edit) {
+        copyRecallSum +=
+          langData.copy_edit.correctionsFound / KNOWN_CORRECT_COUNT;
+        copyRecallCount++;
+        copyRuntimeMs += langData.copy_edit.runtimeMs;
+        copyRuntimeCount++;
       }
-      for (const scenario of ["fp_copy_edit", "fp_line_edit"]) {
-        if (langData[scenario]) {
-          totalFP += langData[scenario].correctionsFound;
-          totalRuntimeMs += langData[scenario].runtimeMs;
-          runtimeCount++;
-        }
+      if (langData.line_edit) {
+        lineRecallSum +=
+          langData.line_edit.correctionsFound / KNOWN_CORRECT_COUNT;
+        lineRecallCount++;
+        lineRuntimeMs += langData.line_edit.runtimeMs;
+        lineRuntimeCount++;
+      }
+      if (langData.fp_copy_edit) {
+        copyFP += langData.fp_copy_edit.correctionsFound;
+        copyRuntimeMs += langData.fp_copy_edit.runtimeMs;
+        copyRuntimeCount++;
+      }
+      if (langData.fp_line_edit) {
+        lineFP += langData.fp_line_edit.correctionsFound;
+        lineRuntimeMs += langData.fp_line_edit.runtimeMs;
+        lineRuntimeCount++;
       }
     }
 
-    const avgRecall =
-      recallCount > 0 ? ((totalRecall / recallCount) * 100).toFixed(0) : "—";
-    const avgRuntime =
-      runtimeCount > 0
-        ? (totalRuntimeMs / runtimeCount / 1000).toFixed(1)
+    const copyRecall =
+      copyRecallCount > 0
+        ? ((copyRecallSum / copyRecallCount) * 100).toFixed(0)
+        : "—";
+    const lineRecall =
+      lineRecallCount > 0
+        ? ((lineRecallSum / lineRecallCount) * 100).toFixed(0)
+        : "—";
+    const copyRuntime =
+      copyRuntimeCount > 0
+        ? (copyRuntimeMs / copyRuntimeCount / 1000).toFixed(1)
+        : "—";
+    const lineRuntime =
+      lineRuntimeCount > 0
+        ? (lineRuntimeMs / lineRuntimeCount / 1000).toFixed(1)
         : "—";
 
     const card = document.createElement("div");
@@ -135,13 +158,25 @@ function renderSummary(scopeLangs) {
     card.innerHTML = `
       <h4>${scopeLabel}</h4>
       <div class="model-name" title="${model}">${model}</div>
-      <div class="stats">
-        <span class="stat-label">Avg Recall</span>
-        <span class="stat-value good">${avgRecall}%</span>
-        <span class="stat-label">Total FP</span>
-        <span class="stat-value bad">${totalFP}</span>
-        <span class="stat-label">Avg Runtime</span>
-        <span class="stat-value">${avgRuntime}s</span>
+      <div class="stats-section">
+        <div class="stats-col">
+          <span class="stats-col-header">Copy Edit</span>
+          <span class="stat-label">Recall</span>
+          <span class="stat-value good">${copyRecall}%</span>
+          <span class="stat-label">False Pos.</span>
+          <span class="stat-value bad">${copyFP}</span>
+          <span class="stat-label">Avg Runtime</span>
+          <span class="stat-value">${copyRuntime}s</span>
+        </div>
+        <div class="stats-col">
+          <span class="stats-col-header">Line Edit</span>
+          <span class="stat-label">Recall</span>
+          <span class="stat-value good">${lineRecall}%</span>
+          <span class="stat-label">False Pos.</span>
+          <span class="stat-value bad">${lineFP}</span>
+          <span class="stat-label">Avg Runtime</span>
+          <span class="stat-value">${lineRuntime}s</span>
+        </div>
       </div>
     `;
     container.appendChild(card);
@@ -171,65 +206,46 @@ function renderPerLanguageCharts() {
   const lang = state.currentLang;
   renderSummary([lang]);
 
-  // Chart A: Recall
-  const recallTraces = state.models.map((model, i) => {
+  const langLabel = lang.charAt(0).toUpperCase() + lang.slice(1);
+
+  // ─── Copy Edit: Recall ───
+  const copyRecallTraces = state.models.map((model, i) => {
     const langData = state.lookup[model]?.[lang] || {};
-    const copyRecall = langData.copy_edit
+    const recall = langData.copy_edit
       ? langData.copy_edit.correctionsFound / KNOWN_CORRECT_COUNT
       : 0;
-    const lineRecall = langData.line_edit
-      ? langData.line_edit.correctionsFound / KNOWN_CORRECT_COUNT
-      : 0;
-
+    const found = langData.copy_edit?.correctionsFound ?? 0;
     return {
-      x: ["Copy Edit", "Line Edit"],
-      y: [copyRecall, lineRecall],
+      x: [model],
+      y: [recall],
       name: model,
       type: "bar",
       marker: { color: MODEL_COLORS.recall[i] },
-      customdata: [
-        { model, lang, scenario: "copy_edit" },
-        { model, lang, scenario: "line_edit" },
-      ],
-      hovertemplate:
-        "%{x}<br>Recall: %{y:.0%}<br>(%{y:.2f} × 10 = " +
-        "%{customdata.found} found)<extra>%{fullData.name}</extra>",
+      text: [`${found}/10`],
+      textposition: "outside",
+      hovertemplate: "%{x}<br>Recall: %{y:.0%} (%{text})<extra></extra>",
+      showlegend: false,
     };
   });
 
-  // Add found counts to hovertemplate via text
-  recallTraces.forEach((trace, i) => {
-    const model = state.models[i];
-    const langData = state.lookup[model]?.[lang] || {};
-    const copyFound = langData.copy_edit?.correctionsFound ?? 0;
-    const lineFound = langData.line_edit?.correctionsFound ?? 0;
-    trace.text = [`${copyFound}/10`, `${lineFound}/10`];
-    trace.textposition = "outside";
-    trace.hovertemplate =
-      "%{x}<br>Recall: %{y:.0%} (%{text})<extra>%{fullData.name}</extra>";
-  });
-
   Plotly.react(
-    "chart-recall",
-    recallTraces,
+    "chart-recall-copy",
+    copyRecallTraces,
     {
       ...PLOTLY_LAYOUT_BASE,
-      title: {
-        text: `Recall — ${lang.charAt(0).toUpperCase() + lang.slice(1)}`,
-        font: { size: 14 },
-      },
+      title: { text: `Copy Edit — Recall`, font: { size: 13 } },
       barmode: "group",
       yaxis: {
         ...PLOTLY_LAYOUT_BASE.yaxis,
         range: [0, 1.15],
         tickformat: ".0%",
-        title: "Recall (out of 10)",
+        title: "Recall",
       },
       shapes: [
         {
           type: "line",
           x0: -0.5,
-          x1: 1.5,
+          x1: state.models.length - 0.5,
           y0: 1,
           y1: 1,
           line: { color: "#4cc9f0", width: 1, dash: "dot" },
@@ -239,34 +255,29 @@ function renderPerLanguageCharts() {
     PLOTLY_CONFIG,
   );
 
-  // Chart B: False Positives
-  const fpTraces = state.models.map((model, i) => {
+  // ─── Copy Edit: False Positives ───
+  const copyFPTraces = state.models.map((model, i) => {
     const langData = state.lookup[model]?.[lang] || {};
-    const fpCopy = langData.fp_copy_edit?.correctionsFound ?? 0;
-    const fpLine = langData.fp_line_edit?.correctionsFound ?? 0;
-
+    const fp = langData.fp_copy_edit?.correctionsFound ?? 0;
     return {
-      x: ["Copy Edit Mode", "Line Edit Mode"],
-      y: [fpCopy, fpLine],
+      x: [model],
+      y: [fp],
       name: model,
       type: "bar",
       marker: { color: MODEL_COLORS.fp[i] },
-      text: [String(fpCopy), String(fpLine)],
+      text: [String(fp)],
       textposition: "outside",
-      hovertemplate:
-        "%{x}<br>False Positives: %{y}<extra>%{fullData.name}</extra>",
+      hovertemplate: "%{x}<br>False Positives: %{y}<extra></extra>",
+      showlegend: false,
     };
   });
 
   Plotly.react(
-    "chart-false-positives",
-    fpTraces,
+    "chart-fp-copy",
+    copyFPTraces,
     {
       ...PLOTLY_LAYOUT_BASE,
-      title: {
-        text: `False Positives — ${lang.charAt(0).toUpperCase() + lang.slice(1)} (lower is better)`,
-        font: { size: 14 },
-      },
+      title: { text: `Copy Edit — False Positives`, font: { size: 13 } },
       barmode: "group",
       yaxis: {
         ...PLOTLY_LAYOUT_BASE.yaxis,
@@ -277,7 +288,87 @@ function renderPerLanguageCharts() {
     PLOTLY_CONFIG,
   );
 
-  // Chart C: Runtime
+  // ─── Line Edit: Recall ───
+  const lineRecallTraces = state.models.map((model, i) => {
+    const langData = state.lookup[model]?.[lang] || {};
+    const recall = langData.line_edit
+      ? langData.line_edit.correctionsFound / KNOWN_CORRECT_COUNT
+      : 0;
+    const found = langData.line_edit?.correctionsFound ?? 0;
+    return {
+      x: [model],
+      y: [recall],
+      name: model,
+      type: "bar",
+      marker: { color: MODEL_COLORS.recall[i] },
+      text: [`${found}/10`],
+      textposition: "outside",
+      hovertemplate: "%{x}<br>Recall: %{y:.0%} (%{text})<extra></extra>",
+      showlegend: false,
+    };
+  });
+
+  Plotly.react(
+    "chart-recall-line",
+    lineRecallTraces,
+    {
+      ...PLOTLY_LAYOUT_BASE,
+      title: { text: `Line Edit — Recall`, font: { size: 13 } },
+      barmode: "group",
+      yaxis: {
+        ...PLOTLY_LAYOUT_BASE.yaxis,
+        range: [0, 1.15],
+        tickformat: ".0%",
+        title: "Recall",
+      },
+      shapes: [
+        {
+          type: "line",
+          x0: -0.5,
+          x1: state.models.length - 0.5,
+          y0: 1,
+          y1: 1,
+          line: { color: "#4cc9f0", width: 1, dash: "dot" },
+        },
+      ],
+    },
+    PLOTLY_CONFIG,
+  );
+
+  // ─── Line Edit: False Positives ───
+  const lineFPTraces = state.models.map((model, i) => {
+    const langData = state.lookup[model]?.[lang] || {};
+    const fp = langData.fp_line_edit?.correctionsFound ?? 0;
+    return {
+      x: [model],
+      y: [fp],
+      name: model,
+      type: "bar",
+      marker: { color: MODEL_COLORS.fp[i] },
+      text: [String(fp)],
+      textposition: "outside",
+      hovertemplate: "%{x}<br>False Positives: %{y}<extra></extra>",
+      showlegend: false,
+    };
+  });
+
+  Plotly.react(
+    "chart-fp-line",
+    lineFPTraces,
+    {
+      ...PLOTLY_LAYOUT_BASE,
+      title: { text: `Line Edit — False Positives`, font: { size: 13 } },
+      barmode: "group",
+      yaxis: {
+        ...PLOTLY_LAYOUT_BASE.yaxis,
+        title: "Spurious corrections",
+        rangemode: "tozero",
+      },
+    },
+    PLOTLY_CONFIG,
+  );
+
+  // ─── Runtime (all scenarios) ───
   const scenarios = ["copy_edit", "line_edit", "fp_copy_edit", "fp_line_edit"];
   const scenarioLabels = ["Copy Edit", "Line Edit", "FP (Copy)", "FP (Line)"];
 
@@ -304,7 +395,7 @@ function renderPerLanguageCharts() {
     {
       ...PLOTLY_LAYOUT_BASE,
       title: {
-        text: `Runtime — ${lang.charAt(0).toUpperCase() + lang.slice(1)}`,
+        text: `Runtime — ${langLabel}`,
         font: { size: 14 },
       },
       barmode: "group",
@@ -318,11 +409,10 @@ function renderPerLanguageCharts() {
   );
 
   // Attach click handlers for drill-down
-  attachBarClick("chart-recall", lang, ["copy_edit", "line_edit"]);
-  attachBarClick("chart-false-positives", lang, [
-    "fp_copy_edit",
-    "fp_line_edit",
-  ]);
+  attachSingleBarClick("chart-recall-copy", lang, "copy_edit");
+  attachSingleBarClick("chart-fp-copy", lang, "fp_copy_edit");
+  attachSingleBarClick("chart-recall-line", lang, "line_edit");
+  attachSingleBarClick("chart-fp-line", lang, "fp_line_edit");
 }
 
 // ─── Cross-Language Charts ───────────────────────────────────────────────────
@@ -427,6 +517,16 @@ function attachBarClick(chartId, lang, scenarios) {
     const scenarioIdx = pt.pointIndex;
     const model = state.models[modelIdx];
     const scenario = scenarios[scenarioIdx];
+    showDrilldown(model, lang, scenario);
+  });
+}
+
+function attachSingleBarClick(chartId, lang, scenario) {
+  const chartEl = document.getElementById(chartId);
+  chartEl.removeAllListeners?.("plotly_click");
+  chartEl.on("plotly_click", (eventData) => {
+    const pt = eventData.points[0];
+    const model = state.models[pt.curveNumber];
     showDrilldown(model, lang, scenario);
   });
 }

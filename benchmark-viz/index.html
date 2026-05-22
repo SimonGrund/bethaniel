@@ -27,8 +27,8 @@
 
     <!-- Dashboard (hidden until data loaded) -->
     <main id="dashboard" class="hidden">
-      <!-- Summary stats -->
-      <section id="summary-cards"></section>
+      <!-- Language tabs (always visible at top) -->
+      <nav id="language-tabs"></nav>
 
       <!-- View toggle -->
       <nav id="view-toggle">
@@ -40,11 +40,23 @@
         </button>
       </nav>
 
+      <!-- Summary stats -->
+      <section id="summary-cards"></section>
+
       <!-- Per-language view -->
       <section id="per-language-view">
-        <nav id="language-tabs"></nav>
-        <div id="chart-recall"></div>
-        <div id="chart-false-positives"></div>
+        <h2 class="section-heading">Copy Edit</h2>
+        <div class="chart-row">
+          <div id="chart-recall-copy" class="chart-half"></div>
+          <div id="chart-fp-copy" class="chart-half"></div>
+        </div>
+
+        <h2 class="section-heading">Line Edit</h2>
+        <div class="chart-row">
+          <div id="chart-recall-line" class="chart-half"></div>
+          <div id="chart-fp-line" class="chart-half"></div>
+        </div>
+
         <div id="chart-runtime"></div>
       </section>
 

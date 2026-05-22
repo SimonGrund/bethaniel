@@ -19,6 +19,8 @@ export interface LogEntry {
   hint?: string;
   /** Optional model file name this entry relates to. */
   model?: string;
+  /** Optional task ID this entry relates to (for per-runner streams). */
+  taskId?: string;
 }
 
 const MAX_ENTRIES = 500;
