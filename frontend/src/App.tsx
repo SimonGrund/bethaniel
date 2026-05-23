@@ -24,6 +24,7 @@ export default function App() {
   const setLogs = useStore((s) => s.setLogs);
   const appendLog = useStore((s) => s.appendLog);
   const clearLogsLocal = useStore((s) => s.clearLogs);
+  const setWarming = useStore((s) => s.setWarming);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
 
@@ -65,6 +66,12 @@ export default function App() {
     socket.on("log:clear", () => {
       clearLogsLocal();
     });
+    socket.on(
+      "model:warming",
+      (evt: { model: string; status: "warming" | "ready" | "error" }) => {
+        setWarming(evt.model, evt.status);
+      },
+    );
     return () => {
       socket.off("connect");
       socket.off("disconnect");
@@ -73,8 +80,9 @@ export default function App() {
       socket.off("log:snapshot");
       socket.off("log:append");
       socket.off("log:clear");
+      socket.off("model:warming");
     };
-  }, [setTasks, setLogs, appendLog, clearLogsLocal]);
+  }, [setTasks, setLogs, appendLog, clearLogsLocal, setWarming]);
 
   // Warn before unload if tasks are active
   useEffect(() => {

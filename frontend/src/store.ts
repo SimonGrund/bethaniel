@@ -82,6 +82,14 @@ interface AppState {
   submitting: boolean;
   setSubmitting: (b: boolean) => void;
 
+  // Model warm-up
+  warmingModel: string | null;
+  warmingStatus: "warming" | "ready" | "error" | null;
+  setWarming: (
+    model: string | null,
+    status: "warming" | "ready" | "error" | null,
+  ) => void;
+
   // Diagnostic log
   logs: LogEntry[];
   setLogs: (logs: LogEntry[]) => void;
@@ -151,6 +159,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   tasks: {},
   setTasks: (tasks) => set({ tasks }),
+
+  warmingModel: null,
+  warmingStatus: null,
+  setWarming: (warmingModel, warmingStatus) =>
+    set({ warmingModel, warmingStatus }),
 
   acceptedCorrections: {},
   toggleCorrection: (taskId, correctionId) =>

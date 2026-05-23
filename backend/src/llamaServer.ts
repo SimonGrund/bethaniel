@@ -5,6 +5,7 @@
 import { ChildProcess, spawn, execFileSync, execSync } from "child_process";
 import * as path from "path";
 import * as http from "http";
+import * as net from "net";
 import * as os from "os";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
@@ -75,12 +76,127 @@ function prepareBinary(binPath: string): void {
     fs.chmodSync(binPath, 0o755);
   } catch {}
 }
+
+/**
+ * Free the llama-server port by killing any process currently listening on
+ * it. This recovers from cases where a previous llama-server child wasn't
+ * cleaned up (parent backend killed with SIGKILL, debugger detach, crash,
+ * etc.) and the port is still bound when we try to spawn a new one.
+ */
+function freePort(port: number): void {
+  try {
+    if (process.platform === "win32") {
+      // Windows: parse netstat output for PIDs holding the port.
+      const out = execSync(`netstat -ano -p tcp | findstr :${port}`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      }).toString();
+      const pids = new Set<string>();
+      for (const line of out.split(/\r?\n/)) {
+        const m = line.trim().match(/\s(\d+)$/);
+        if (m) pids.add(m[1]);
+      }
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
+        } catch {}
+      }
+    } else {
+      // macOS / Linux: lsof returns PIDs holding the TCP port.
+      const out = execSync(`lsof -ti tcp:${port}`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      })
+        .toString()
+        .trim();
+      if (!out) return;
+      const pids = out.split(/\s+/).filter(Boolean);
+      // Skip our own pid just in case.
+      const self = String(process.pid);
+      for (const pid of pids) {
+        if (pid === self) continue;
+        try {
+          process.kill(Number(pid), "SIGTERM");
+        } catch {}
+      }
+      // Give them a moment, then SIGKILL stragglers.
+      const deadline = Date.now() + 1500;
+      while (Date.now() < deadline) {
+        let stillThere = "";
+        try {
+          stillThere = execSync(`lsof -ti tcp:${port}`, {
+            stdio: ["ignore", "pipe", "ignore"],
+          })
+            .toString()
+            .trim();
+        } catch {
+          stillThere = "";
+        }
+        if (!stillThere) return;
+        // busy-wait briefly
+        const wait = Date.now() + 100;
+        while (Date.now() < wait) {
+          /* spin */
+        }
+      }
+      try {
+        const remaining = execSync(`lsof -ti tcp:${port}`, {
+          stdio: ["ignore", "pipe", "ignore"],
+        })
+          .toString()
+          .trim();
+        for (const pid of remaining.split(/\s+/).filter(Boolean)) {
+          if (pid === self) continue;
+          try {
+            process.kill(Number(pid), "SIGKILL");
+          } catch {}
+        }
+      } catch {}
+    }
+  } catch {
+    // lsof/netstat returns non-zero when nothing matches — that's fine.
+  }
+}
 const MODELS_DIR =
   process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
 /** Base URL for the llama-server HTTP API. */
 export function getLlamaBaseUrl(): string {
   return process.env.LLAMA_BASE_URL || `http://${LLAMA_HOST}:${LLAMA_PORT}`;
+}
+
+/**
+ * Wait until the kernel will let *us* bind the port. `lsof` returning empty
+ * is not enough on its own: after a process exits, the OS keeps the socket
+ * in TIME_WAIT (or finalizes a graceful close) for a short period, during
+ * which a fresh bind() still fails with EADDRINUSE. Probe by actually
+ * binding a throwaway `net.Server` to the same host/port and only proceed
+ * once the bind succeeds.
+ */
+async function waitForPortFree(
+  host: string,
+  port: number,
+  timeoutMs = 8000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const free = await new Promise<boolean>((resolve) => {
+      const probe = net.createServer();
+      probe.once("error", () => {
+        probe.close();
+        resolve(false);
+      });
+      probe.once("listening", () => {
+        probe.close(() => resolve(true));
+      });
+      try {
+        probe.listen(port, host);
+      } catch {
+        resolve(false);
+      }
+    });
+    if (free) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
 }
 
 /** Check if the llama-server binary is available. */
@@ -99,6 +215,11 @@ export function isLlamaServerAvailable(): boolean {
 let childProcess: ChildProcess | null = null;
 let currentModel: string | null = null;
 let currentCtx: number | null = null;
+// Parallel slot count the running server was launched with. Tracked so we
+// can detect when a new request needs more concurrency than the current
+// server can provide (e.g. warm-up loaded with 1 slot, then a real run
+// arrives with several queued tasks) and trigger a reload.
+let currentParallelSlots: number | null = null;
 let loadPromise: Promise<void> | null = null;
 
 /** Return the currently loaded model file name (or null). */
@@ -214,18 +335,41 @@ export function detectParallelSlots(
 // (e.g. mmap'ing a 14 GB GGUF, warming the KV cache).
 let lastEngineActivityAt = 0;
 
+// Set by stdout/stderr handlers as soon as llama-server prints its
+// "server is listening" marker. This is the authoritative signal that the
+// model finished loading and the HTTP server bound the port. Some llama.cpp
+// builds return non-200 from /health for several seconds after that line
+// (e.g. while finalizing slots), which previously caused us to time out
+// even though the server was healthy. Treat the marker as readiness and
+// only fall back to /health when it never appears.
+let serverListeningSeen = false;
+
+const SERVER_READY_RE =
+  /server is listening|HTTP server listening|all slots are idle/i;
+
 function pollHealth(
-  idleTimeoutMs = 120_000,
+  idleTimeoutMs = 45_000,
   absoluteTimeoutMs = 900_000,
 ): Promise<void> {
   const start = Date.now();
   lastEngineActivityAt = start;
+  serverListeningSeen = false;
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve();
+    };
     const check = () => {
+      if (settled) return;
       const req = http.get(
         `http://${LLAMA_HOST}:${LLAMA_PORT}/health`,
         (res) => {
-          if (res.statusCode === 200) return resolve();
+          if (res.statusCode === 200) return finish();
+          // Drain so the socket can be reused.
+          res.resume();
           retry();
         },
       );
@@ -236,18 +380,26 @@ function pollHealth(
       });
     };
     const retry = () => {
+      if (settled) return;
+      // Authoritative ready signal — llama-server told us it's listening.
+      // Give /health one more shot (still healthy responses preferred) but
+      // resolve unconditionally after a short grace period if it doesn't.
+      if (serverListeningSeen) {
+        const sinceMarker = Date.now() - lastEngineActivityAt;
+        if (sinceMarker > 5_000) return finish();
+      }
       const now = Date.now();
       const idleFor = now - lastEngineActivityAt;
       const totalFor = now - start;
       if (totalFor > absoluteTimeoutMs) {
-        return reject(
+        return finish(
           new Error(
             `llama-server health check exceeded absolute timeout of ${absoluteTimeoutMs}ms`,
           ),
         );
       }
-      if (idleFor > idleTimeoutMs) {
-        return reject(
+      if (idleFor > idleTimeoutMs && !serverListeningSeen) {
+        return finish(
           new Error(
             `llama-server health check timed out after ${idleTimeoutMs}ms of no engine output ` +
               `(total wait ${totalFor}ms)`,
@@ -260,6 +412,18 @@ function pollHealth(
   });
 }
 
+/**
+ * Called from the stdout/stderr handlers in doLoad() on every chunk of
+ * llama-server output. Extends the idle deadline and flips the
+ * "server listening" flag the moment we see the canonical ready marker.
+ */
+function onEngineOutput(text: string): void {
+  lastEngineActivityAt = Date.now();
+  if (!serverListeningSeen && SERVER_READY_RE.test(text)) {
+    serverListeningSeen = true;
+  }
+}
+
 // ── Kill helper ──
 
 function killChild(): Promise<void> {
@@ -267,6 +431,7 @@ function killChild(): Promise<void> {
     if (!childProcess || childProcess.killed) {
       childProcess = null;
       currentModel = null;
+      currentParallelSlots = null;
       return resolve();
     }
     const timeout = setTimeout(() => {
@@ -276,6 +441,7 @@ function killChild(): Promise<void> {
       clearTimeout(timeout);
       childProcess = null;
       currentModel = null;
+      currentParallelSlots = null;
       resolve();
     });
     childProcess.kill("SIGTERM");
@@ -303,9 +469,11 @@ export function ensureModelLoaded(
   // Determine the context size this call wants.
   const targetCtx = numCtxOverride ?? readModelConfig(MODELS_DIR, file).num_ctx;
 
+  const requestedSlots = Math.max(1, desiredSlots ?? 1);
   if (
     currentModel === file &&
     currentCtx === targetCtx &&
+    (currentParallelSlots ?? 0) >= requestedSlots &&
     childProcess &&
     !childProcess.killed
   ) {
@@ -313,8 +481,23 @@ export function ensureModelLoaded(
   }
 
   if (loadPromise) {
-    // Already loading — chain
-    loadPromise = loadPromise.then(() => doLoad(file, targetCtx, desiredSlots));
+    // Already loading — wait for the in-flight load and only re-load if
+    // the result still doesn't satisfy our request. This prevents a thundering
+    // herd of concurrent ensureModelLoaded() calls from kicking off back-to-
+    // back restarts of the engine.
+    const prev = loadPromise;
+    loadPromise = prev.then(() => {
+      if (
+        currentModel === file &&
+        currentCtx === targetCtx &&
+        (currentParallelSlots ?? 0) >= requestedSlots &&
+        childProcess &&
+        !childProcess.killed
+      ) {
+        return;
+      }
+      return doLoad(file, targetCtx, desiredSlots);
+    });
   } else {
     loadPromise = doLoad(file, targetCtx, desiredSlots);
   }
@@ -405,6 +588,23 @@ async function doLoad(
 
   prepareBinary(LLAMA_BIN);
 
+  // Reclaim the port from any stale llama-server (orphaned by a previous
+  // backend crash or hard-kill) so the new spawn doesn't fail with
+  // "couldn't bind HTTP server socket".
+  freePort(LLAMA_PORT);
+  // Even after the prior process exits, the OS may keep the socket in
+  // TIME_WAIT for a few seconds — wait for a real bind to succeed before
+  // handing the port to llama-server.
+  const portFree = await waitForPortFree(LLAMA_HOST, LLAMA_PORT, 8000);
+  if (!portFree) {
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Port ${LLAMA_PORT} still busy after cleanup; launching anyway — llama-server may fail to bind.`,
+      model: file,
+    });
+  }
+
   // GGML_METAL_PATH_RESOURCES tells llama.cpp where to find ggml-metal.metal
   const llamaDir = path.dirname(LLAMA_BIN);
 
@@ -432,6 +632,7 @@ async function doLoad(
       });
       childProcess = null;
       currentModel = null;
+      currentParallelSlots = null;
       loadPromise = null;
       reject(
         new Error(
@@ -448,13 +649,13 @@ async function doLoad(
     const s = d.toString().trimEnd();
     console.log("[llama-server]", s);
     recentOutput = (recentOutput + "\n" + s).slice(-8000);
-    lastEngineActivityAt = Date.now();
+    onEngineOutput(s);
   });
   childProcess.stderr?.on("data", (d: Buffer) => {
     const s = d.toString().trimEnd();
     console.log("[llama-server]", s);
     recentOutput = (recentOutput + "\n" + s).slice(-8000);
-    lastEngineActivityAt = Date.now();
+    onEngineOutput(s);
   });
 
   childProcess.on("exit", (code, signal) => {
@@ -479,6 +680,7 @@ async function doLoad(
     if (currentModel === file) {
       currentModel = null;
       currentCtx = null;
+      currentParallelSlots = null;
     }
   });
 
@@ -501,10 +703,21 @@ async function doLoad(
         model: file,
       });
     }
+    // Clear shared state so the next ensureModelLoaded() call doesn't chain
+    // on a rejected promise or believe a broken engine is still running.
+    loadPromise = null;
+    currentModel = null;
+    currentCtx = null;
+    currentParallelSlots = null;
+    try {
+      childProcess?.kill("SIGKILL");
+    } catch {}
+    childProcess = null;
     throw err;
   }
   currentModel = file;
   currentCtx = numCtx;
+  currentParallelSlots = parallelSlots;
   loadPromise = null;
   console.log(
     `[llama-server] Model loaded: ${file} (ctx=${numCtx}, parallel=${parallelSlots})`,

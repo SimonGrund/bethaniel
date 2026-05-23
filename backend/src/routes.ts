@@ -74,6 +74,7 @@ import {
   getTasksSnapshot,
   getTask,
   setConcurrency,
+  getConcurrency,
 } from "./queue.js";
 import type { DocumentMeta } from "./types.js";
 
@@ -1208,7 +1209,8 @@ router.delete("/models/:fileName/config", (req: Request, res: Response) => {
 });
 
 // ── Diagnostic logs ──
-import { getLogSnapshot, clearLogs } from "./logBus.js";
+import { getLogSnapshot, clearLogs, appendLog } from "./logBus.js";
+import { ensureModelLoaded } from "./llamaServer.js";
 
 router.get("/logs", (_req: Request, res: Response) => {
   res.json({ logs: getLogSnapshot() });
@@ -1217,6 +1219,58 @@ router.get("/logs", (_req: Request, res: Response) => {
 router.delete("/logs", (_req: Request, res: Response) => {
   clearLogs();
   res.json({ ok: true });
+});
+
+// ── Pre-warm a model so the first task doesn't pay the cold-load cost ──
+// Fire-and-forget endpoint. The browser doesn't wait for completion; the
+// "model:warming" socket event drives UI state, and appendLog surfaces
+// progress to the engine log.
+const warmingByModel = new Set<string>();
+router.post("/models/preload", async (req: Request, res: Response) => {
+  const body = req.body as { model?: string } | undefined;
+  const model = body?.model;
+  if (!model || typeof model !== "string") {
+    res.status(400).json({ error: "missing model" });
+    return;
+  }
+  // Reply immediately; the actual load runs in the background.
+  res.json({ ok: true, warming: !warmingByModel.has(model) });
+  if (warmingByModel.has(model)) return;
+  warmingByModel.add(model);
+  const io = getSocketIO();
+  io?.emit("model:warming", { model, status: "warming" });
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: "Warming up the model… Ready when you are.",
+    hintKey: "log_warming",
+    model,
+  });
+  const t0 = Date.now();
+  try {
+    // Warm up with the same slot count the queue will actually use, so the
+    // first real job doesn't trigger a costly reload to add more slots.
+    await ensureModelLoaded(model, undefined, getConcurrency());
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Model ready (${secs}s).`,
+      model,
+    });
+    io?.emit("model:warming", { model, status: "ready" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Warm-up failed: ${msg}`,
+      model,
+    });
+    io?.emit("model:warming", { model, status: "error", error: msg });
+  } finally {
+    warmingByModel.delete(model);
+  }
 });
 
 export default router;

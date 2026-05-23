@@ -47,6 +47,9 @@ function StreamCell({
 export default function EngineStatus() {
   const tasks = useStore((s) => s.tasks);
   const logs = useStore((s) => s.logs);
+  const warmingModel = useStore((s) => s.warmingModel);
+  const warmingStatus = useStore((s) => s.warmingStatus);
+  const model = useStore((s) => s.model);
 
   // Most recent task submission timestamp — used to clip the log feed so
   // each new job starts with a fresh stream.
@@ -104,7 +107,20 @@ export default function EngineStatus() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [generalLines.length, jobLogs.length]);
 
-  if (jobLogs.length === 0) return null;
+  if (jobLogs.length === 0) {
+    // No job has run yet — but if the selected model is warming up, surface
+    // that to mask the cold-load latency.
+    if (warmingModel && warmingModel === model && warmingStatus === "warming") {
+      return (
+        <ul className="engine-status" role="status" aria-live="polite">
+          <li className="engine-status-line engine-status-info">
+            Warming up the model… Ready when you are.
+          </li>
+        </ul>
+      );
+    }
+    return null;
+  }
 
   // Multi-stream grid view when 2+ tasks are running in parallel
   if (taskStreams.length >= 2) {

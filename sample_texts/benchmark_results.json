@@ -5,11 +5,72 @@
     "language": "danish",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 367105,
-    "corrections": [],
+    "correctionsFound": 10,
+    "runtimeMs": 318804,
+    "corrections": [
+      {
+        "original": "Mara gik op ad vindeltrappen for første gang i tyve år.",
+        "corrected": "Mara gik op ad vindeltren for første gang i tyve år.",
+        "chunk": "Chunk 1/1",
+        "id": "96cab09a-aabb-4850-8244-eb3b61e84620"
+      },
+      {
+        "original": "Hendes bedstefar havde passet dette fyrtårn i fire årtier og nu, tre måneder efter hans begravelse var skødet endelig overgået til hende.",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "chunk": "Chunk 1/1",
+        "id": "07a5d81f-fdf2-405b-af9c-984cd3aa35a9"
+      },
+      {
+        "original": "Et foldet ark papir lå skjult under logbogen, med hendes navn skreven på forsiden i bedstefarens omhyggelige håndskrift.",
+        "corrected": "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden i bedstefarens omhyggelige håndskrift.",
+        "chunk": "Chunk 1/1",
+        "id": "bddad7ae-1aea-4e32-9886-2725dba7e447"
+      },
+      {
+        "original": "\"Mara, begyndte brevet, \"hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejhed.\"",
+        "corrected": "\"Mara, begyndte brevet: \\\"Hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejld.\\\"\"",
+        "chunk": "Chunk 1/1",
+        "id": "011a2958-0b14-44c8-b218-399af2788307"
+      },
+      {
+        "original": "Udenfor drejede mågerne langsomme cirkler over vandet og havet bevægede sig i den samme tålmodige rytme det havde holdt længe før hendes fødsel.",
+        "corrected": "Udenfor drejede mågerne langsomme cirkler over vandet, og havet bevægede sig i den samme tålmodige rytme det havde holdt længe før hendes fødsel.",
+        "chunk": "Chunk 1/1",
+        "id": "aeed7cf9-86e6-4eb2-9ffa-ac4dbddb15dd"
+      },
+      {
+        "original": "Hun tænkte at hun burde føle sig vred, eller forrådt, eller forladt.",
+        "corrected": "Hun tænkte, at hun burde føle sig vred, eller forrådt, eller forladt.",
+        "chunk": "Chunk 1/1",
+        "id": "dac9e426-bf8a-4cd4-9398-867674f88ba0"
+      },
+      {
+        "original": "I stedet følte hun kun en stille overraskende ømhed, som om en dør hun aldrig havde lagt mærke til var gået op i et velkendt rum.",
+        "corrected": "I stedet følte hun kun en stille, overraskende ømhed, som om en dør hun aldrig havde lagt mærke til var gået op i et velkendt rum.",
+        "chunk": "Chunk 1/1",
+        "id": "79bec357-57fd-448c-bd9e-e8001cc09613"
+      },
+      {
+        "original": "Hun tog logbogen og slog op på den seneste optegnelse. Den var dateret morgenen for hans død.",
+        "corrected": "Hun tog logbogen og slog op på den seneste optegnelse. Den var dateret morgenen efter hans død.",
+        "chunk": "Chunk 1/1",
+        "id": "f7ef8235-1a8c-4771-9560-d9ffb9f9e6a7"
+      },
+      {
+        "original": "Med en hånd der var blevet tynd og rystene, havde han skrevet: \"let vind fra sydvest. God sigtbarhed. Fortalte M. om brevet i dag. Hun forstod det ikke, men det vil hun, når tiden kommer. Lyset er klar. Det er jeg også.\"",
+        "corrected": "Med en hånd der var blevet tynd og rystende, havde han skrevet: \\\"Let vind fra sydvest. God sigtbarhed. Fortalte M. om brevet i dag. Hun forstod det ikke, men det vil hun, når tiden kommer. Lyset er klar. Det er jeg også.\\\"\"",
+        "chunk": "Chunk 1/1",
+        "id": "703d763d-57f2-46f1-86bc-8ac1582e6ecb"
+      },
+      {
+        "original": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt og et sted derude, forstod hun nu, lå en historie der tilhørte hende, og som hun først lige var begyndt at lærer.",
+        "corrected": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt, og et sted derude; forstod hun nu, lå en historie der tilhørte hende, og som hun først lige var begyndt at lære.",
+        "chunk": "Chunk 1/1",
+        "id": "53e5eace-5b2c-4887-8e14-a4928459bb15"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:53:42.951Z"
+    "runDate": "2026-05-23T08:02:46.823Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -17,13 +78,36 @@
     "language": "danish",
     "variant": "correct",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 81563,
-    "corrections": [],
-    "errors": [
-      "chunk 1: llama-server health check timed out after 60000ms"
+    "correctionsFound": 4,
+    "runtimeMs": 336825,
+    "corrections": [
+      {
+        "original": "Mara gik op ad vindeltrappen for første gang i tyve år.",
+        "corrected": "Mara gik op ad vindeltren for første gang i tyve år.",
+        "chunk": "Chunk 1/1",
+        "id": "9a16a899-3e59-43a5-bbfd-b03af5d45ccc"
+      },
+      {
+        "original": "Jerntrinene knagede under hendes støvler, og den salte luft pressede sig mod de smalle vinduer som en gammel, påtrængende ven.",
+        "corrected": "Jerntrinen knagede under hendes støvler, og den salte luft pressede sig mod de smalle vinduer som en gammel, påtrængende ven.",
+        "chunk": "Chunk 1/1",
+        "id": "f4900124-7f0c-418b-834b-d25f92b2cc76"
+      },
+      {
+        "original": "Hendes bedstefar havde passet dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn i fire år, og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "chunk": "Chunk 1/1",
+        "id": "13b40c95-6880-43f9-82f3-50a8b0a500c0"
+      },
+      {
+        "original": "\"Mara,\" begyndte brevet, \"hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejhed.\"",
+        "corrected": "\"Mara,\" begyndte brevet, \"hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejlhed.\"",
+        "chunk": "Chunk 1/1",
+        "id": "cea35601-e8cd-4ca5-a449-9142d8e6883d"
+      }
     ],
-    "runDate": "2026-05-23T04:53:42.953Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:02:46.828Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -31,11 +115,60 @@
     "language": "danish",
     "variant": "correct",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 366999,
-    "corrections": [],
+    "correctionsFound": 8,
+    "runtimeMs": 324806,
+    "corrections": [
+      {
+        "original": "Mara gik op ad vindeltrappen for første gang i tyve år.",
+        "corrected": "Mara gik op ad vindeltrappen for første gang i tolv år.",
+        "chunk": "Chunk 1/1",
+        "id": "3ba419fb-5bcb-44f3-961d-72b93dbc1844"
+      },
+      {
+        "original": "Hendes bedstefar havde passet dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var skøtet endelig overgået til hende.",
+        "chunk": "Chunk 1/1",
+        "id": "d7ff03f6-f61c-44db-92d8-bd2b3d160cd7"
+      },
+      {
+        "original": "for hendes knæ var begyndt at ryste, og hun ville ikke indrømme hvorfor.",
+        "corrected": "for hendes knæ begyndte at ryste, og hun ville ikke indrømme hvorfor.",
+        "chunk": "Chunk 1/1",
+        "id": "88c1af6a-5b85-4d6f-ad5a-2712cbd1e151"
+      },
+      {
+        "original": "Tilgiv en gammel mand hans fejhed.",
+        "corrected": "Tilgiv en gammel mand hans fejl.",
+        "chunk": "Chunk 1/1",
+        "id": "6663f9fe-d178-4e20-b0e6-ccbc080973f1"
+      },
+      {
+        "original": "Han skrev om den nat, hendes mor var rejst, om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden, han havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "corrected": "Han skrev om den nat, hendes mor var rejst, om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden, han havde trukket ud af brændingen og båret op ad netop disse trapper.",
+        "chunk": "Chunk 1/1",
+        "id": "7224e56d-f7dd-448b-bae3-549c61971861"
+      },
+      {
+        "original": "Han skrev om det valg, han havde truffet om at bevare hendes hemmelighed, og om datteren, som kvinden havde efterladt i hans varetægt.",
+        "corrected": "Han skrev om valget, han havde truffet for at bevare hendes hemmelighed, og om datteren, som kvinden havde efterladt i hans varetægt.",
+        "chunk": "Chunk 1/1",
+        "id": "bb4e9cc2-fe1c-46ef-a04a-524f246cac16"
+      },
+      {
+        "original": "Jeg er ked af det. Jeg elskede dig ikke mindre for løgnens skyld, og måske en smule mere, fordi jeg vidste, hvad den kostede.",
+        "corrected": "Jeg er ked af det. Jeg elskede dig ikke mindre for løgnens skyld, og måske endda mere, fordi jeg vidste, hvad den kostede.",
+        "chunk": "Chunk 1/1",
+        "id": "91e7447c-da89-45a0-b11a-b021a1beaa64"
+      },
+      {
+        "original": "Lyset er klar. Det er jeg også.",
+        "corrected": "Lyset er klar. Så er jeg også.",
+        "chunk": "Chunk 1/1",
+        "id": "44035448-007d-49e5-a4f8-6829633a27e5"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:53:42.954Z"
+    "runDate": "2026-05-23T08:02:46.830Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -43,11 +176,144 @@
     "language": "danish",
     "variant": "line_edit",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 366936,
-    "corrections": [],
+    "correctionsFound": 22,
+    "runtimeMs": 240508,
+    "corrections": [
+      {
+        "original": "Mara gik op ad vindeltrappen for allerførste gang i tyve lange år.",
+        "corrected": "Mara gik op ad vindeltrappen for første gang i tyve år.",
+        "chunk": "Chunk 1/1",
+        "id": "e32dafff-124e-42d4-8ead-4ddc105f3b09"
+      },
+      {
+        "original": "og den salte luft med salt i pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel, påtrængende ven.",
+        "corrected": "og den salte luft, med salt i, pressede sig mod de smalle vinduer, som en gammel, påtrængende ven.",
+        "chunk": "Chunk 1/1",
+        "id": "6c57fd13-6091-4c5d-acc6-0eebc57d63a3"
+      },
+      {
+        "original": "Hendes bedstefar, som var hendes bedstefar, havde passet dette fyrtårn i en periode på fire årtier,",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn i fire årtier,",
+        "chunk": "Chunk 1/1",
+        "id": "d3b626de-9a83-45d9-9643-e97173640642"
+      },
+      {
+        "original": "og nu, tre måneder efter hans begravelse, var skødet endelig til sidst overgået til hende.",
+        "corrected": "og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "chunk": "Chunk 1/1",
+        "id": "361cb578-2d41-4bee-a9b6-50385db123ed"
+      },
+      {
+        "original": "messingbeslagene var pudset op til en blød glans,",
+        "corrected": "messingbeslagene var pudset til en blød glans,",
+        "chunk": "Chunk 1/1",
+        "id": "781e4ee2-bf9e-4a10-aef8-ceb72cdcaf12"
+      },
+      {
+        "original": "Hun satte sin taske fra sig der og lod en finger glide langs vindueskarmens kant.",
+        "corrected": "Hun satte sin taske fra sig og lod en finger glide langs vindueskarmen.",
+        "chunk": "Chunk 1/1",
+        "id": "de2b422b-2627-4c26-ae28-81b734c307bc"
+      },
+      {
+        "original": "Nogen havde været der på det sted for nylig.",
+        "corrected": "Nogen havde været der for nylig.",
+        "chunk": "Chunk 1/1",
+        "id": "b868187d-082f-491f-95c5-418e278eeab7"
+      },
+      {
+        "original": "med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd.",
+        "corrected": "med hendes navn skrevet på forsiden i bedstefarens omhyggelige håndskrift.",
+        "chunk": "Chunk 1/1",
+        "id": "e5d4c297-f39e-49a0-a351-5383ea55a016"
+      },
+      {
+        "original": "for hendes knæ var begyndt at starte med at ryste,",
+        "corrected": "for hendes knæ begyndte at ryste,",
+        "chunk": "Chunk 1/1",
+        "id": "31c09dc0-be7b-4690-a414-a6baf44da50a"
+      },
+      {
+        "original": "\"Mara,\" begyndte brevet at sige, \"hvis du læser dette brev, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden personligt selv. Vær venlig at tilgive en gammel mand for hans fejhed.\"",
+        "corrected": "\"Mara,\" sagde brevet, \"hvis du læser dette, er jeg løbet tør for undskyldninger. Vær venlig at tilgive en gammel mand for hans fejhed.\"",
+        "chunk": "Chunk 1/1",
+        "id": "25b5ad63-36b2-477c-a3f0-62f966666e7b"
+      },
+      {
+        "original": "Han skrev om den nat, hendes mor var rejst,",
+        "corrected": "Han skrev om den nat, da hendes mor rejste,",
+        "chunk": "Chunk 1/1",
+        "id": "bc565d40-323c-43d7-ba70-79321ac4729a"
+      },
+      {
+        "original": "og han skrev om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten,",
+        "corrected": "og om stormen, der havde drevet en lille fiskerbåd ind på klipperne under skrænten,",
+        "chunk": "Chunk 1/1",
+        "id": "8c291200-2a4f-4514-8525-bdf5ee31084b"
+      },
+      {
+        "original": "og han skrev om kvinden, som han selv havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "corrected": "og om kvinden, han selv havde trukket ud af brændingen og båret op ad netop disse trapper.",
+        "chunk": "Chunk 1/1",
+        "id": "85dc994d-f0c2-4257-b734-d33022772ea0"
+      },
+      {
+        "original": "Han skrev om det valg, som han havde truffet om at bevare hendes hemmelighed,",
+        "corrected": "Han skrev om valget for at bevare hendes hemmelighed,",
+        "chunk": "Chunk 1/1",
+        "id": "9142ea5b-f200-49ec-9f9e-9de24df173e0"
+      },
+      {
+        "original": "og han skrev om datteren, som den kvinde havde efterladt i hans varetægt for at passe på.",
+        "corrected": "og om datteren, kvinden havde efterladt i hans varetægt til at passe på.",
+        "chunk": "Chunk 1/1",
+        "id": "8bafe3d3-7373-4432-a6b5-faf0bdcb5da9"
+      },
+      {
+        "original": "\"Du var tre år gammel dengang på det tidspunkt,\" skrev han i sin skrivning.",
+        "corrected": "\"Du var tre år gammel dengang,\" skrev han.",
+        "chunk": "Chunk 1/1",
+        "id": "08adea8e-d71f-457f-9030-c296dca7da29"
+      },
+      {
+        "original": "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre.",
+        "corrected": "Jeg er ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda mere, fordi jeg vidste, hvad den kostede mig.",
+        "chunk": "Chunk 1/1",
+        "id": "920ab846-a477-4b0c-8951-d20f14b23b7c"
+      },
+      {
+        "original": "Udenfor var mågerne i færd med at dreje langsomme cirkler over vandet, og havet var i færd med at bevæge sig i den samme tålmodige rytme, som det havde holdt siden længe før tidspunktet for hendes fødsel.",
+        "corrected": "Udenfor drejede mågerne langsomme cirkler over vandet, og havet bevægede sig i den samme tålmodige rytme, det havde haft siden længe før hendes fødsel.",
+        "chunk": "Chunk 1/1",
+        "id": "4e9668ac-044e-49ae-939e-38dc8034da72"
+      },
+      {
+        "original": "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum, som hun kendte godt.",
+        "corrected": "I stedet følte hun kun en stille, overraskende ømhed, som om en dør, hun aldrig før havde lagt mærke til, nu var gået op i et velkendt rum.",
+        "chunk": "Chunk 1/1",
+        "id": "9ff477e6-05fd-4bf8-aad4-58aef35ae0a8"
+      },
+      {
+        "original": "Hun lukkede bogen i en lukkende bevægelse.",
+        "corrected": "Hun lukkede bogen.",
+        "chunk": "Chunk 1/1",
+        "id": "e1a98854-3e84-43a0-8bfa-54e9e0f29bff"
+      },
+      {
+        "original": "og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om.",
+        "corrected": "og et sted derude lå en historie, der tilhørte hende, og som hun lige nu først begyndte at lære om.",
+        "chunk": "Chunk 1/1",
+        "id": "4cd2c681-e5ad-436e-af7c-953c015b826d"
+      },
+      {
+        "original": "Hun ville blive der natten over. I morgen ville hun tænde lampen op.",
+        "corrected": "Hun ville blive der natten over. I morgen ville hun tænde lampen.",
+        "chunk": "Chunk 1/1",
+        "id": "b82b193c-890a-4c03-95b2-68cd6ba2e9f8"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:53:42.954Z"
+    "runDate": "2026-05-23T08:06:50.357Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -55,13 +321,42 @@
     "language": "english",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 75322,
-    "corrections": [],
-    "errors": [
-      "chunk 1: llama-server health check timed out after 60000ms"
+    "correctionsFound": 5,
+    "runtimeMs": 36296,
+    "corrections": [
+      {
+        "original": "three months after his funeral the deed",
+        "corrected": "three months after his funeral, the deed",
+        "chunk": "Chunk 1/1",
+        "id": "843da8ab-fa9c-4a53-acbc-b6c896ae6b75"
+      },
+      {
+        "original": "At the top the lantern room",
+        "corrected": "At the top, the lantern room",
+        "chunk": "Chunk 1/1",
+        "id": "482665b2-c3e4-479c-b91b-b86971ad7268"
+      },
+      {
+        "original": "her name writen on the front",
+        "corrected": "her name written on the front",
+        "chunk": "Chunk 1/1",
+        "id": "4b0cc83e-c89f-46af-add9-c28f209a1ad2"
+      },
+      {
+        "original": "before she opened it, because her knees had began to tremble",
+        "corrected": "before she opened it, because her knees had begun to tremble",
+        "chunk": "Chunk 1/1",
+        "id": "83a30764-b02d-45ad-b92e-13919e16e6af"
+      },
+      {
+        "original": "the letter began, \"if you are reading this, then I have finally ran out of excuses",
+        "corrected": "the letter began, \"If you are reading this, then I have finally run out of excuses",
+        "chunk": "Chunk 1/1",
+        "id": "d1bec931-8f1f-47eb-a248-bca44e92a013"
+      }
     ],
-    "runDate": "2026-05-23T04:53:42.955Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:06:50.358Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -70,12 +365,10 @@
     "variant": "correct",
     "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 75263,
+    "runtimeMs": 243511,
     "corrections": [],
-    "errors": [
-      "chunk 1: llama-server health check timed out after 60000ms"
-    ],
-    "runDate": "2026-05-23T04:53:42.956Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:06:50.360Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -83,11 +376,72 @@
     "language": "english",
     "variant": "correct",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18423,
-    "corrections": [],
+    "correctionsFound": 10,
+    "runtimeMs": 156536,
+    "corrections": [
+      {
+        "original": "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent friend.",
+        "corrected": "The iron steps groaned under her boots, and salt air pressed against the narrow windows like an old, insistent friend.",
+        "chunk": "Chunk 1/1",
+        "id": "a23d2ba1-795c-4dfb-b55f-b347e24e47ec"
+      },
+      {
+        "original": "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here recently.",
+        "corrected": "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here.",
+        "chunk": "Chunk 1/1",
+        "id": "b4eeb765-b8d4-437a-83a0-a252e8ac78d5"
+      },
+      {
+        "original": "Mara sat down before she opened it, because her knees had begun to tremble and she did not want to admit why.",
+        "corrected": "Mara sat before opening it, because her knees had begun to tremble and she did not want to admit why.",
+        "chunk": "Chunk 1/1",
+        "id": "f5c9d753-65d7-4b3a-9c50-e7fab97d61f5"
+      },
+      {
+        "original": "He wrote about the choice he had made to keep her secret, and about the daughter that woman had left behind in his care.",
+        "corrected": "He wrote about the choice he had made to keep her secret and the daughter the woman had left in his care.",
+        "chunk": "Chunk 1/1",
+        "id": "176b4159-70f5-4edd-9f31-1ec193fc964a"
+      },
+      {
+        "original": "You called me Grandfather because that is what I asked you to call me.",
+        "corrected": "You called me Grandfather because that was what I asked you to call me.",
+        "chunk": "Chunk 1/1",
+        "id": "6568d61a-71ad-4f49-a618-a22fbeae6582"
+      },
+      {
+        "original": "I am sorry. I loved you no less for the lie, and perhaps a little more, because I knew what it cost.",
+        "corrected": "I am sorry. I loved you no less for the lie, perhaps a little more, because I knew what it cost.",
+        "chunk": "Chunk 1/1",
+        "id": "b00d3524-90de-49e7-a562-69ca242d0d1b"
+      },
+      {
+        "original": "She thought she ought to feel angry, or betrayed, or unmoored.",
+        "corrected": "She felt she ought to be angry, betrayed, or unmoored.",
+        "chunk": "Chunk 1/1",
+        "id": "5a104ad9-baa6-44e9-903b-137bb1141ff7"
+      },
+      {
+        "original": "Instead she felt only a quiet, surprising tenderness, as though a door she had never noticed had opened in a familiar room.",
+        "corrected": "Instead she felt only a quiet, surprising tenderness, as if a door she had never noticed had opened in a familiar room.",
+        "chunk": "Chunk 1/1",
+        "id": "c229813d-8bba-4d8d-986d-0c2ae2fa1d6d"
+      },
+      {
+        "original": "In a hand grown thin and shaky, he had written:",
+        "corrected": "In a hand grown thin and shaky, he wrote:",
+        "chunk": "Chunk 1/1",
+        "id": "b8ac3c83-8f67-4989-806f-9137bf5d6249"
+      },
+      {
+        "original": "She would stay the night. In the morning, she would light the lamp.",
+        "corrected": "She would stay the night. Tomorrow, she would light the lamp.",
+        "chunk": "Chunk 1/1",
+        "id": "ac89e1b2-139d-4d8f-89e2-bb739d5fec09"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:34.662Z"
+    "runDate": "2026-05-23T08:10:21.081Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -95,11 +449,90 @@
     "language": "english",
     "variant": "line_edit",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18418,
-    "corrections": [],
+    "correctionsFound": 13,
+    "runtimeMs": 195692,
+    "corrections": [
+      {
+        "original": "Her grandfather, who was her grandfather, had kept this lighthouse for a period of four decades",
+        "corrected": "Her grandfather had kept this lighthouse for four decades",
+        "chunk": "Chunk 1/1",
+        "id": "a6f3f496-d494-42a1-8459-db1e72aed2ab"
+      },
+      {
+        "original": "and now, three months after his funeral, the deed had finally at last passed to her.",
+        "corrected": "three months after his funeral, the deed had finally passed to her.",
+        "chunk": "Chunk 1/1",
+        "id": "16d585dd-9354-483e-a8b9-7f2288a9eb6d"
+      },
+      {
+        "original": "A folded sheet of paper lay tucked beneath the logbook, with her name written on the front of it in her grandfather's careful handwriting hand.",
+        "corrected": "A folded sheet of paper lay tucked beneath the logbook, with her name written on the front in her grandfather's careful handwriting.",
+        "chunk": "Chunk 1/1",
+        "id": "dfe415c2-c349-4636-bdb2-12e916f25baa"
+      },
+      {
+        "original": "Mara sat herself down before she opened it up, because her knees had begun the process of trembling and she did not really want to admit to herself why this was happening.",
+        "corrected": "Mara sat down before opening it; her knees were already trembling, and she didn't want to admit why.",
+        "chunk": "Chunk 1/1",
+        "id": "8a1b94c4-e459-4052-a46d-e3baca07084d"
+      },
+      {
+        "original": "\"Mara,\" the letter began to say, \"if you are reading this letter, then I have finally run out of excuses to tell you the truth by myself in person. Please forgive an old man for his cowardice.\"",
+        "corrected": "\"Mara,\" the letter read, \"if you are reading this, then I have finally run out of excuses to tell you the truth in person. Please forgive an old man for his cowardice.\"",
+        "chunk": "Chunk 1/1",
+        "id": "a3c6fc5d-8bc6-4d48-94a4-ca3949dd3d2a"
+      },
+      {
+        "original": "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs.",
+        "corrected": "He wrote of the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he pulled from the surf and carried up these very stairs.",
+        "chunk": "Chunk 1/1",
+        "id": "3841c217-23df-480e-84f5-7ee0d6607134"
+      },
+      {
+        "original": "He wrote about the choice that he had made to keep her secret, and he wrote about the daughter that that woman had left behind in his care to look after.",
+        "corrected": "He wrote of the choice he made to keep her secret and the daughter that woman left behind in his care.",
+        "chunk": "Chunk 1/1",
+        "id": "70574040-5bed-4f99-a26c-67928b02064f"
+      },
+      {
+        "original": "\"You were three years old at the time,\" he wrote in his writing. \"You called me Grandfather because that is what I asked you to call me. I am sorry about it. I loved you no less for the lie that I told, and perhaps a little bit more, because I knew what it cost me to do.\"",
+        "corrected": "\"You were three years old at the time,\" he wrote. \"You called me Grandfather because that is what I asked you to call me. I am sorry about it. I loved you no less for the lie I told, and perhaps a little more, because I knew what it cost me to do.\"",
+        "chunk": "Chunk 1/1",
+        "id": "6468c7bb-f61f-4175-8c3a-5b9a5cd49f24"
+      },
+      {
+        "original": "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way.",
+        "corrected": "She thought she ought to feel angry, betrayed, or unmoored.",
+        "chunk": "Chunk 1/1",
+        "id": "02acf11f-740d-4542-95c3-2afa5d8dc458"
+      },
+      {
+        "original": "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well.",
+        "corrected": "Instead, she felt only a quiet, surprising tenderness, as if a door she'd never noticed had opened in the familiar room.",
+        "chunk": "Chunk 1/1",
+        "id": "a8eeab22-3853-4daa-9f42-d8271f49a72a"
+      },
+      {
+        "original": "She closed the book in a closing motion.",
+        "corrected": "She closed the book.",
+        "chunk": "Chunk 1/1",
+        "id": "659b2547-4bcc-4ca4-b0d6-e907b60c24dd"
+      },
+      {
+        "original": "The sea stretched away in every single direction, and somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about.",
+        "corrected": "The sea stretched away in every direction; somewhere out there lay a story that belonged to her, one she had only just begun to learn.",
+        "chunk": "Chunk 1/1",
+        "id": "bf3bdf79-009e-4652-ae85-0a45664bae95"
+      },
+      {
+        "original": "She would stay the night there. In the morning, she would light the lamp up.",
+        "corrected": "She would stay the night. In the morning, she would light the lamp.",
+        "chunk": "Chunk 1/1",
+        "id": "64e4848f-9685-4df0-ab1f-c73093fc0662"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:34.664Z"
+    "runDate": "2026-05-23T08:10:21.086Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -107,11 +540,78 @@
     "language": "german",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18352,
-    "corrections": [],
+    "correctionsFound": 11,
+    "runtimeMs": 210628,
+    "corrections": [
+      {
+        "original": "Mara stieg die Wendeltreppe zum ersten mal seit zwanzig Jahren hinauf.",
+        "corrected": "Mara stieg die Wendeltreppe zum ersten Mal seit zwanzig Jahren hinauf.",
+        "chunk": "Chunk 1/1",
+        "id": "193d2979-cecd-4e89-bb1c-6f09d682f46b"
+      },
+      {
+        "original": "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang geführt und nun, drei Monate nach seiner Beerdigung war die Urkunde endlich an sie übergegangen.",
+        "corrected": "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang geführt und nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich an sie übergegangen.",
+        "chunk": "Chunk 1/1",
+        "id": "96931363-0de7-45b2-920b-1fd6bddf6539"
+      },
+      {
+        "original": "Kein Staub. Jemand war vor kurzem hier gewessen.",
+        "corrected": "Kein Staub. Jemand war vor kurzem hier gewesen.",
+        "chunk": "Chunk 1/1",
+        "id": "9b5b2db8-e43a-4d21-a004-e5e1f0545466"
+      },
+      {
+        "original": "Mara setzte sich bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen und sie wollte sich nicht eingestehen warum.",
+        "corrected": "Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum.",
+        "chunk": "Chunk 1/1",
+        "id": "a978d965-7740-4cd0-b0bb-237b62f2c153"
+      },
+      {
+        "original": "Sie las langsam. Er schrieb über die Nacht in der ihre Mutter gegangen war, über den Sturm der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "corrected": "Sie las langsam. Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "56164b4f-1bb1-4558-ad9f-f15fc103e42d"
+      },
+      {
+        "original": "Er schrieb über die Entscheidung die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "corrected": "Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "0b6c7493-a385-4af5-8ecf-41752404bc46"
+      },
+      {
+        "original": "Mara legte den Brief beiseite. Draußen zogen die Möwen langsame Kreise über dem Wasser und das Meer bewegte sich in demselben geduldigen Rhythmus den es schon lange vor ihrer Geburt gehalten hatte.",
+        "corrected": "Mara legte den Brief beiseite. Draußen zogen die Möwen langsame Kreise über dem Wasser, und das Meer bewegte sich in demselben geduldigen Rhythmus, den es schon lange vor ihrer Geburt gehalten hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "3275c818-f2b9-4ca2-9c89-077adcb83b20"
+      },
+      {
+        "original": "Sie dachte sie sollte sich wütend fühlen, oder verraten, oder verloren.",
+        "corrected": "Sie dachte, sie sollte sich wütend fühlen, oder verraten, oder verloren.",
+        "chunk": "Chunk 1/1",
+        "id": "aa624751-8246-4cf5-9344-167a63c3f5c0"
+      },
+      {
+        "original": "Stattdessen empfand sie nur eine stille überraschende Zärtlichkeit, als hätte sich eine Tür die sie nie bemerkt hatte in einem vertrauten Zimmer geöffnet.",
+        "corrected": "Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür, die sie nie bemerkt hatte, in einem vertrauten Zimmer geöffnet.",
+        "chunk": "Chunk 1/1",
+        "id": "22158e38-eedb-4e5e-b19f-e95a827b264c"
+      },
+      {
+        "original": "Mara schloß das Buch. Sie stand auf, ging zur großen Linse und legte die Handfläche flach gegen das kühle Glas.",
+        "corrected": "Mara schloss das Buch. Sie stand auf, ging zur großen Linse und legte die Handfläche flach gegen das kühle Glas.",
+        "chunk": "Chunk 1/1",
+        "id": "f89007e9-958d-4743-82c2-a50551f1ec50"
+      },
+      {
+        "original": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig und irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte die ihr gehörte und die sie gerade erst zu erfahren begonnen hatte.",
+        "corrected": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig, und irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte, die ihr gehörte, und die sie gerade erst zu erfahren begonnen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "15e895aa-9d4e-4ae5-93dd-5603bb5b7a83"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:34.665Z"
+    "runDate": "2026-05-23T08:10:21.087Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -119,13 +619,18 @@
     "language": "german",
     "variant": "correct",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18284,
-    "corrections": [],
-    "errors": [
-      "chunk 1: llama-server error 500: {\"error\":{\"code\":500,\"message\":\"Context size has been exceeded.\",\"type\":\"server_error\"}}"
+    "correctionsFound": 1,
+    "runtimeMs": 201794,
+    "corrections": [
+      {
+        "original": "Der Brief des Leuchtturmwärters",
+        "corrected": "Der Brief des Leuchteturmwärters",
+        "chunk": "Chunk 1/1",
+        "id": "f4337f94-2c07-4a56-8d79-2e2b13b38f0d"
+      }
     ],
-    "runDate": "2026-05-23T04:55:34.665Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:14:18.951Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -133,11 +638,66 @@
     "language": "german",
     "variant": "correct",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 96418,
-    "corrections": [],
+    "correctionsFound": 9,
+    "runtimeMs": 201792,
+    "corrections": [
+      {
+        "original": "Die eisernen Stufen ächzten unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster wie ein alter, beharrlicher Freund.",
+        "corrected": "Die eisernen Stufen ächzten unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster wie ein alter, unerbittlicher Freund.",
+        "chunk": "Chunk 1/1",
+        "id": "f93affae-15d7-432b-a5fb-25346b7dee0c"
+      },
+      {
+        "original": "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang geführt, und nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich an sie übergegangen.",
+        "corrected": "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang geführt; nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich an sie übergegangen.",
+        "chunk": "Chunk 1/1",
+        "id": "afc724f7-5307-483d-a28b-7856aab64136"
+      },
+      {
+        "original": "Sie stellte ihre Tasche ab und ließ einen Finger über die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen.",
+        "corrected": "Sie stellte ihre Tasche ab und ließ einen Finger über die Fensterbank gleiten. Keine Staubspuren. Jemand war vor Kurzem hier gewesen.",
+        "chunk": "Chunk 1/1",
+        "id": "25953d08-3e9b-4315-9b27-fb8c797610a3"
+      },
+      {
+        "original": "Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum.",
+        "corrected": "Mara setzte sich, bevor sie es öffnete. Ihre Knie zitterten bereits, und sie wollte sich nicht eingestehen, warum.",
+        "chunk": "Chunk 1/1",
+        "id": "1b625c80-2532-4ef3-a759-d967e6a6f08f"
+      },
+      {
+        "original": "Sie las langsam. Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte. Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "corrected": "Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte. Er schrieb über die Entscheidung, ihr Geheimnis zu bewahren, und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "81b9764d-1353-4fe4-bd97-a0b0bd0401ee"
+      },
+      {
+        "original": "Mara legte den Brief beiseite. Draußen zogen die Möwen langsame Kreise über dem Wasser, und das Meer bewegte sich in demselben geduldigen Rhythmus, den es schon lange vor ihrer Geburt gehalten hatte.",
+        "corrected": "Mara legte den Brief beiseite. Draußen zogen die Möwen Kreise über dem Wasser, und das Meer bewegte sich im selben geduldigen Rhythmus, den es schon lange vor ihrer Geburt gehalten hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "1c3c9590-dd63-40eb-8d56-bdd57866be84"
+      },
+      {
+        "original": "Sie dachte, sie sollte sich wütend fühlen, oder verraten, oder verloren. Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür, die sie nie bemerkt hatte, in einem vertrauten Zimmer geöffnet.",
+        "corrected": "Sie dachte, sie sollte sich wütend fühlen, verraten werden, oder verloren sein. Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür, die sie nie bemerkt hatte, in einem vertrauten Zimmer geöffnet.",
+        "chunk": "Chunk 1/1",
+        "id": "5825646d-f47d-45ff-a458-1764e7b9736a"
+      },
+      {
+        "original": "Sie nahm das Logbuch und schlug den letzten Eintrag auf. Er war auf den Morgen seines Todes datiert. Mit einer Hand, die dünn und zittrig geworden war, hatte er geschrieben: „Leichter Wind aus Südwest. Gute Sicht. Habe M. heute von dem Brief erzählt. Sie hat es nicht verstanden, aber sie wird es, wenn die Zeit kommt. Das Licht ist bereit. Ich auch.",
+        "corrected": "Sie nahm das Logbuch und schlug den letzten Eintrag auf. Er war auf den Morgen seines Todes datiert. Mit einer dünnen, zittrigen Hand hatte er geschrieben: „Leichter Wind aus Südwest. Gute Sicht. Habe M. heute von dem Brief erzählt. Sie hat es nicht verstanden, aber sie wird es, wenn die Zeit kommt. Das Licht ist bereit. Ich auch.",
+        "chunk": "Chunk 1/1",
+        "id": "dda59bc8-3d4b-415f-8a2e-0a98de6a87ce"
+      },
+      {
+        "original": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig, und irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte, die ihr gehörte und die sie gerade erst zu erfahren begonnen hatte.",
+        "corrected": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig. Irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte, die ihr gehörte und die sie gerade erst zu erfahren begonnen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "cdc9de9a-fb4d-4415-8f55-fafa946f0bf5"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:34.666Z"
+    "runDate": "2026-05-23T08:14:18.955Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -145,78 +705,96 @@
     "language": "german",
     "variant": "line_edit",
     "mode": "line_edit",
-    "correctionsFound": 11,
-    "runtimeMs": 111429,
+    "correctionsFound": 14,
+    "runtimeMs": 237847,
     "corrections": [
       {
         "original": "Die eisernen Stufen machten ein ächzendes Geräusch unter ihren Stiefeln, und die salzige Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie ein alter, beharrlicher Freund war.",
         "corrected": "Die eisernen Stufen knisterten unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster mit einer Beständigkeit, die wie ein alter, beharrlicher Freund wirkte.",
         "chunk": "Chunk 1/1",
-        "id": "f7763979-59c1-439c-a338-8fdbe7c1e5a4"
+        "id": "d9f73f53-c246-4517-837e-f0fa41b3082e"
       },
       {
         "original": "Ihr Großvater, der ihr Großvater war, hatte diesen Leuchtturm einen Zeitraum von vier Jahrzehnten lang geführt, und nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich schließlich an sie übergegangen.",
         "corrected": "Ihr Großvater, ihr Großvater, hatte diesen Leuchtturm vier Jahrzehnte lang geführt. Drei Monate nach seiner Beerdigung war die Urkunde endlich an sie übergegangen.",
         "chunk": "Chunk 1/1",
-        "id": "cb22e241-6987-4bb4-b2ea-a7b78daa851d"
+        "id": "eec5ac65-8a54-45cb-a2bb-b30854345276"
       },
       {
-        "original": "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten. Es gab dort keinen Staub.",
-        "corrected": "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten. Kein Staub war zu sehen.",
+        "original": "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen.",
+        "corrected": "Es gab keinen Staub. Irgendjemand war vor kurzem hier gewesen.",
         "chunk": "Chunk 1/1",
-        "id": "fc56387d-b47f-473d-8d98-1002f07e278f"
+        "id": "d9343f30-e877-4e18-91f3-edb5fdfe6b3f"
       },
       {
         "original": "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen, mit ihrem Namen auf der Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war.",
-        "corrected": "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen. Auf der Vorderseite stand ihr Name in der sorgfältigen Handschrift ihres Großvaters.",
+        "corrected": "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen; sein Name stand auf der Vorderseite, geschrieben in der sorgfältigen Handschrift ihres Großvaters.",
         "chunk": "Chunk 1/1",
-        "id": "6d50be73-f760-4ca5-8c0d-dab9bab95664"
+        "id": "197a8284-1862-41ce-8eca-c8b9b8d79f40"
       },
       {
         "original": "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah.",
-        "corrected": "Mara setzte sich hin, bevor sie es aufmachte. Ihre Knie zitterten bereits, und sie wollte sich selbst nicht eingestehen, warum.",
+        "corrected": "Mara setzte sich, bevor sie es aufmachte und öffnete. Ihre Knie zitterten bereits, und sie wollte sich selbst nicht eingestehen, warum.",
         "chunk": "Chunk 1/1",
-        "id": "0070c335-e0c4-4506-81c2-d38664b17fc2"
+        "id": "4821ac36-50af-43f2-b079-d6165cd20297"
+      },
+      {
+        "original": "„Mara\", begann der Brief zu sagen, „wenn du diesen Brief gerade liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine Feigheit.",
+        "corrected": "„Mara\", begann der Brief, „wenn du diesen Brief liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich zu sagen. Bitte vergib einem alten Mann für seine Feigheit.",
+        "chunk": "Chunk 1/1",
+        "id": "7774815d-6012-44ac-ab29-e0e1f4729920"
       },
       {
         "original": "Sie las langsam und sorgfältig. Er schrieb über die Nacht, in der ihre Mutter gegangen war, und er schrieb über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, und er schrieb über die Frau, die er selbst aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte. Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und er schrieb über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte, damit er auf sie aufpasste.",
-        "corrected": "Sie las langsam. Er schrieb über die Nacht ihrer Mutter Abreise, den Sturm, der ein Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, und die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte. Er schrieb über seine Entscheidung, ihr Geheimnis zu bewahren, und über die Tochter, die er nun in Obhut nahm.",
+        "corrected": "Sie las langsam und sorgfältig. Er schrieb über die Nacht ihrer Mutter Abreise, den Sturm, der ein Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte, seine Entscheidung, ihr Geheimnis zu bewahren, und die Tochter, die er in Obhut genommen hatte.",
         "chunk": "Chunk 1/1",
-        "id": "134cceec-9b18-4141-939d-b9088675b9d5"
+        "id": "c8db958c-c152-4e69-a84d-0599e3f01443"
       },
       {
-        "original": "Mara legte den Brief auf dem Eichentisch beiseite. Draußen waren die Möwen dabei, langsame Kreise über dem Wasser zu ziehen, und das Meer war dabei, sich in demselben geduldigen Rhythmus zu bewegen, den es schon seit lange vor dem Zeitpunkt ihrer Geburt gehalten hatte.",
-        "corrected": "Mara legte den Brief auf den Eichentisch. Draußen zogen Möwen langsame Kreise über dem Wasser; das Meer bewegte sich im geduldigen Rhythmus, den es schon vor ihrer Geburt gehalten hatte.",
+        "original": "„Du warst damals zu jenem Zeitpunkt drei Jahre alt\", schrieb er in seiner Schrift. „Du nanntest mich Großvater, weil das genau das war, worum ich dich gebeten hatte. Es tut mir sehr leid darüber. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger, und vielleicht ein ganz kleines bisschen mehr, weil ich gut wusste, was sie mich kostete zu tun.",
+        "corrected": "„Du warst damals drei Jahre alt\", schrieb er. „Du nanntest mich Großvater, weil das genau das war, worum ich dich gebeten hatte. Es tut mir leid. Ich liebte dich nicht weniger wegen der Lüge, die ich erzählte; vielleicht sogar ein ganz kleines bisschen mehr, weil ich wusste, was sie mir kostete.",
         "chunk": "Chunk 1/1",
-        "id": "10567505-c3ff-47cd-9ad7-f23db6a2d99a"
+        "id": "57e1b12d-380b-41ac-bc50-9600f9c12929"
+      },
+      {
+        "original": "Mara legte den Brief auf dem Eichentisch beiseite.",
+        "corrected": "Mara legte den Brief auf den Eichentisch.",
+        "chunk": "Chunk 1/1",
+        "id": "7b6ece85-8be5-4c0f-ae1d-a3aafb2eb52f"
       },
       {
         "original": "Sie dachte bei sich selbst, dass sie wirklich wütend, oder verraten, oder verloren auf irgendeine Art und Weise empfinden sollte. Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, fast so, als hätte sich eine Tür, die sie nie zuvor jemals bemerkt hatte, in einem vertrauten Zimmer geöffnet, das sie gut kannte.",
-        "corrected": "Sie dachte, sie sollte wütend, verraten oder verloren sein. Stattdessen empfand sie nur stille, überraschende Zärtlichkeit, als hätte sich eine Tür in einem vertrauten Zimmer geöffnet, die sie nie bemerkt hatte.",
+        "corrected": "Sie dachte, sie müsse wütend, verraten oder verloren sein. Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür in einem vertrauten Zimmer geöffnet, die sie nie zuvor bemerkt hatte.",
         "chunk": "Chunk 1/1",
-        "id": "7f8baa30-ce91-482e-b7e2-dbd56bc7904e"
+        "id": "90732c05-72c9-4116-a6b4-bbd78b65c192"
       },
       {
-        "original": "Sie schloss das Buch mit einer schließenden Bewegung. Sie stand auf, ging zur großen Linse hinüber und legte die flache Handfläche ihrer Hand flach gegen das kühle Glas davon.",
-        "corrected": "Sie schloss das Buch. Sie stand auf, ging zur großen Linse und legte ihre flache Handfläche gegen das kühle Glas.",
+        "original": "Sie schloss das Buch mit einer schließenden Bewegung.",
+        "corrected": "Sie schloss das Buch.",
         "chunk": "Chunk 1/1",
-        "id": "765a727e-a167-4960-afe6-deee043c9417"
+        "id": "53ae1834-2dfb-4a49-8f53-c5acf2d1a2c2"
+      },
+      {
+        "original": "Sie stand auf, ging zur großen Linse hinüber und legte die flache Handfläche ihrer Hand flach gegen das kühle Glas davon.",
+        "corrected": "Sie stand auf, ging zur großen Linse und legte ihre flache Handfläche gegen das kühle Glas.",
+        "chunk": "Chunk 1/1",
+        "id": "fb10abab-20b2-4e69-abb7-5372cc1263d9"
       },
       {
         "original": "Das Meer dehnte sich in jede einzelne Richtung aus, und irgendwo dort draußen, das verstand sie nun zu diesem Zeitpunkt, lag eine Geschichte, die ihr gehörte und die sie gerade erst kaum begonnen hatte, anzufangen, kennenzulernen.",
         "corrected": "Das Meer dehnte sich in jede Richtung aus. Irgendwo dort draußen, das verstand sie nun, lag eine Geschichte, die ihr gehörte und die sie gerade erst beginnen musste.",
         "chunk": "Chunk 1/1",
-        "id": "9733435d-8712-47c4-b720-a12320926c4f"
+        "id": "77304fea-50a2-48b3-918f-9856d5254d29"
       },
       {
         "original": "Sie würde die Nacht dort bleiben. Am Morgen würde sie die Lampe nach oben anzünden.",
         "corrected": "Sie würde die Nacht dort bleiben. Morgens würde sie die Lampe anzünden.",
         "chunk": "Chunk 1/1",
-        "id": "19aac836-b322-48aa-9a50-b687114b7e65"
+        "id": "0247542b-d11a-4bbd-86b8-52d7a1ac9e66"
       }
     ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:34.667Z"
+    "runDate": "2026-05-23T08:14:18.956Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -224,11 +802,102 @@
     "language": "spanish",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18295,
-    "corrections": [],
+    "correctionsFound": 15,
+    "runtimeMs": 204642,
+    "corrections": [
+      {
+        "original": "Mara subio",
+        "corrected": "Mara subió",
+        "chunk": "Chunk 1/1",
+        "id": "1c022b2c-4767-4be0-bfab-749bb8df4ac7"
+      },
+      {
+        "original": "Su abuelo habia cuidado",
+        "corrected": "Su abuelo había cuidado",
+        "chunk": "Chunk 1/1",
+        "id": "e3d4819d-7dba-4030-85f0-cb5a84ed127c"
+      },
+      {
+        "original": "tres meses después de su funeral la escritura",
+        "corrected": "tres meses después de su funeral, la escritura",
+        "chunk": "Chunk 1/1",
+        "id": "aafd2ff7-e8ca-4db0-bba1-6fe2afeaf9f7"
+      },
+      {
+        "original": "había pasado por fin a sus manos.",
+        "corrected": "había pasado, por fin, a sus manos.",
+        "chunk": "Chunk 1/1",
+        "id": "e4a66e71-6ddf-4721-99db-12566eac3039"
+      },
+      {
+        "original": "Dejó su bolso y pasó un dedo por el alfeizar.",
+        "corrected": "Dejó su bolso y pasó un dedo por el alfeíz.",
+        "chunk": "Chunk 1/1",
+        "id": "0d6e3a2c-c2e6-486a-8249-9f53d4ff796c"
+      },
+      {
+        "original": "Alguien había estado allí hacía poco.",
+        "corrected": "Alguien había estado allí hace poco.",
+        "chunk": "Chunk 1/1",
+        "id": "68a45555-b44e-40dc-8c10-a0c366dae34a"
+      },
+      {
+        "original": "Mara se sentó antes de habrirla",
+        "corrected": "Mara se sentó antes de abrirla",
+        "chunk": "Chunk 1/1",
+        "id": "2a6d6bc6-5a26-4d96-8726-a65ea3fca89f"
+      },
+      {
+        "original": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las escusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "corrected": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "chunk": "Chunk 1/1",
+        "id": "e9f57857-de0d-4db4-bcb1-74a7e101594f"
+      },
+      {
+        "original": "«Tenia tres años —escribió—. Me llamabas Abuelo porque eso fue lo que te pedí que me llamaras. Lo siento. No te quise menos por la mentira, y quizá un poco más, porque sabía lo que me costaba».",
+        "corrected": "«Tenía tres años —escribió—. Me llamabas Abuelo porque eso fue lo que te pedí que me llamaras. Lo siento. No te quise menos por la mentira, y quizá un poco más, porque sabía lo que me costaba».",
+        "chunk": "Chunk 1/1",
+        "id": "c39f1abb-92b8-4354-b514-dade1b7182e7"
+      },
+      {
+        "original": "Afuera, las gaviotas trazaban círculos lentos sobre el agua y el mar se movía con el mismo ritmo paciente que mantenía desde mucho antes de que ella nasciera.",
+        "corrected": "Afuera, las gaviotas trazaban círculos lentos sobre el agua y el mar se movía con el mismo ritmo paciente que mantenía desde mucho antes de que ella naciera.",
+        "chunk": "Chunk 1/1",
+        "id": "4d43bdb3-8f10-4eb5-8910-fd1d1037fe0e"
+      },
+      {
+        "original": "En cambio, sintió solo una ternura tranquila y sorprendente como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "corrected": "En cambio, sintió solo una ternura tranquila y sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "chunk": "Chunk 1/1",
+        "id": "d7604db6-0023-4604-8e56-e311e6ad3941"
+      },
+      {
+        "original": "Con una letra adelgazada y temblorosa, habia escrito:",
+        "corrected": "Con una letra adelgazada y temblorosa, había escrito:",
+        "chunk": "Chunk 1/1",
+        "id": "ea9771a9-e59e-4f18-a8db-30f68f76ffb0"
+      },
+      {
+        "original": "«viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá, cuando llegue el momento. La luz está lista. Yo también».",
+        "corrected": "«Viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá, cuando llegue el momento. La luz está lista. Yo también».",
+        "chunk": "Chunk 1/1",
+        "id": "c729cdf0-36de-48eb-8e66-60bb1112b1d8"
+      },
+      {
+        "original": "El mar se extendía en todas direcciones, vasto, brillante e indiferente y en algún lugar allá afuera, lo entendía ahora, había una historia que le pertenecía y que apenas habia comenzado a aprender.",
+        "corrected": "El mar se extendía en todas direcciones, vasto, brillante e indiferente; y en algún lugar allá afuera, lo entendía ahora: había una historia que le pertenecía y que apenas había comenzado a aprender.",
+        "chunk": "Chunk 1/1",
+        "id": "a550d4fd-349b-49d6-91f8-96953b7ad43d"
+      },
+      {
+        "original": "Por la mañana, encenderia la lámpara.",
+        "corrected": "Por la mañana, encendería la lámpara.",
+        "chunk": "Chunk 1/1",
+        "id": "0751cf7d-c4ba-43ff-bb77-697e2022caf4"
+      }
+    ],
     "errors": [],
-    "runDate": "2026-05-23T04:55:52.968Z"
+    "runDate": "2026-05-23T08:17:43.612Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -236,13 +905,18 @@
     "language": "spanish",
     "variant": "correct",
     "mode": "copy_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18293,
-    "corrections": [],
-    "errors": [
-      "chunk 1: llama-server error 500: {\"error\":{\"code\":500,\"message\":\"Context size has been exceeded.\",\"type\":\"server_error\"}}"
+    "correctionsFound": 1,
+    "runtimeMs": 21322,
+    "corrections": [
+      {
+        "original": "La carta del farero",
+        "corrected": "La carta del faro",
+        "chunk": "Chunk 1/1",
+        "id": "f95f76d1-fcea-4cf3-b2d5-33826ef2039f"
+      }
     ],
-    "runDate": "2026-05-23T04:55:52.970Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:17:43.614Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -250,13 +924,78 @@
     "language": "spanish",
     "variant": "correct",
     "mode": "line_edit",
-    "correctionsFound": 0,
-    "runtimeMs": 18223,
-    "corrections": [],
-    "errors": [
-      "chunk 1: llama-server error 500: {\"error\":{\"code\":500,\"message\":\"Context size has been exceeded.\",\"type\":\"server_error\"}}"
+    "correctionsFound": 11,
+    "runtimeMs": 174509,
+    "corrections": [
+      {
+        "original": "Dejó su bolso y pasó un dedo por el alféizar.",
+        "corrected": "Dejó su bolso y deslizó un dedo por el alféizar.",
+        "chunk": "Chunk 1/1",
+        "id": "dcc4fbc4-7d16-447c-a735-32c719b00183"
+      },
+      {
+        "original": "Mara se sentó antes de abrirla, porque las rodillas habían empezado a temblarle y no quería admitir por qué.",
+        "corrected": "Mara se sentó antes de abrirla; sus rodillas le temblaban y no quería admitir por qué.",
+        "chunk": "Chunk 1/1",
+        "id": "0be150f3-622d-4cfb-ac68-d1a111a4c7c1"
+      },
+      {
+        "original": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "corrected": "«Mara —empezaba la carta—, si estás leyendo esto, es que por fin me han quedado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "chunk": "Chunk 1/1",
+        "id": "183bd42a-19b4-43d1-836e-efef8ad02695"
+      },
+      {
+        "original": "Leyó despacio.",
+        "corrected": "Leía despacio.",
+        "chunk": "Chunk 1/1",
+        "id": "e06914bf-db79-4330-872d-51796b74e5af"
+      },
+      {
+        "original": "Escribía sobre la decisión que había tomado de guardar su secreto, y sobre la hija que aquella mujer había dejado a su cuidado.",
+        "corrected": "Escribía sobre la decisión que había tomado de guardar su secreto y sobre la hija que aquella mujer le había dejado.",
+        "chunk": "Chunk 1/1",
+        "id": "33b7a73b-eaab-482a-a7fa-3ad3370bffbb"
+      },
+      {
+        "original": "Mara dejó la carta sobre el escritorio.",
+        "corrected": "Mara dejó caer la carta sobre el escritorio.",
+        "chunk": "Chunk 1/1",
+        "id": "a3efa48c-7449-4a8d-8874-704e5a77f7e5"
+      },
+      {
+        "original": "Pensó que debería sentirse enojada, o traicionada, o a la deriva.",
+        "corrected": "Pensó que debería estar enojada, traicionada, o a la deriva.",
+        "chunk": "Chunk 1/1",
+        "id": "afd13543-7d14-4b0a-8e9c-0156b0065e59"
+      },
+      {
+        "original": "En cambio, sintió solo una ternura tranquila y sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "corrected": "En cambio, sintió una ternura tranquila y sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "chunk": "Chunk 1/1",
+        "id": "6de827c8-d4cc-4754-9bc4-d01f4ec20cc5"
+      },
+      {
+        "original": "Estaba fechada la mañana de su muerte.",
+        "corrected": "Tenía fecha la mañana de su muerte.",
+        "chunk": "Chunk 1/1",
+        "id": "9633efc6-c506-4e25-9c91-d8a1546476c1"
+      },
+      {
+        "original": "Con una letra adelgazada y temblorosa, había escrito: «Viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá, cuando llegue el momento. La luz está lista. Yo también».",
+        "corrected": "Con una letra adelgazada y temblorosa, había escrito: «Viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá cuando llegue el momento. La luz está lista. Yo también».",
+        "chunk": "Chunk 1/1",
+        "id": "3cd7cc86-1774-4b80-a6f5-9a405b06ac29"
+      },
+      {
+        "original": "Se quedaría a pasar la noche.",
+        "corrected": "Pasaría la noche.",
+        "chunk": "Chunk 1/1",
+        "id": "de0adb2c-7f08-4ba8-946e-2f09085df4a2"
+      }
     ],
-    "runDate": "2026-05-23T04:55:52.971Z"
+    "errors": [],
+    "runDate": "2026-05-23T08:17:43.615Z"
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -264,10 +1003,1416 @@
     "language": "spanish",
     "variant": "line_edit",
     "mode": "line_edit",
+    "correctionsFound": 23,
+    "runtimeMs": 127196,
+    "corrections": [
+      {
+        "original": "Los peldaños de hierro hicieron un sonido de gemido bajo sus botas",
+        "corrected": "Los peldaños de hierro gemían bajo sus botas",
+        "chunk": "Chunk 1/1",
+        "id": "b397c1aa-250a-435b-aa18-1368b7dd286b"
+      },
+      {
+        "original": "y el aire salado y con sal se apoyó contra las ventanas estrechas de una manera que era como un viejo amigo insistente",
+        "corrected": "y el aire salado se apoyó contra las ventanas estrechas como un viejo amigo insistente",
+        "chunk": "Chunk 1/1",
+        "id": "2c211336-ceeb-4240-b748-9ba2c945031b"
+      },
+      {
+        "original": "Su abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas",
+        "corrected": "Su abuelo había cuidado este faro durante cuatro décadas",
+        "chunk": "Chunk 1/1",
+        "id": "e34f50c9-8629-47c9-b162-196107b07d8d"
+      },
+      {
+        "original": "y ahora, tres meses después de su funeral, la escritura había pasado finalmente por fin a sus manos.",
+        "corrected": "y ahora, tres meses después de su funeral, la escritura había pasado finalmente a sus manos.",
+        "chunk": "Chunk 1/1",
+        "id": "2468ae05-9290-4549-a7c0-973ef8e9c3d7"
+      },
+      {
+        "original": "la sala de la linterna estaba exactamente tal y como ella la recordaba que era",
+        "corrected": "la sala de la linterna estaba exactamente como ella la recordaba",
+        "chunk": "Chunk 1/1",
+        "id": "9dbca291-b91c-40e5-9d4e-2c9dfc6943cb"
+      },
+      {
+        "original": "los herrajes de latón pulidos hasta llegar a un brillo suave",
+        "corrected": "los herrajes de latón pulidos hasta un brillo suave",
+        "chunk": "Chunk 1/1",
+        "id": "1ec1013e-0d77-4b08-94c9-0b83e43f7b76"
+      },
+      {
+        "original": "un cuaderno de bitácora que estaba abierto sobre el pequeño escritorio de roble.",
+        "corrected": "un cuaderno de bitácora abierto sobre el pequeño escritorio de roble.",
+        "chunk": "Chunk 1/1",
+        "id": "d7f18dc8-2195-4eb0-9acd-b281929a26f6"
+      },
+      {
+        "original": "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana.",
+        "corrected": "Dejó su bolso allí y pasó un dedo por el alféizar.",
+        "chunk": "Chunk 1/1",
+        "id": "c866c2fd-49c0-488b-aa03-26fbc15051ed"
+      },
+      {
+        "original": "No había nada de polvo allí. Alguien había estado allí en ese lugar hacía poco tiempo.",
+        "corrected": "No había polvo. Alguien había estado allí hace poco.",
+        "chunk": "Chunk 1/1",
+        "id": "06c251e8-e367-4530-9bf2-a46edd3a0433"
+      },
+      {
+        "original": "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente de la misma con la letra cuidadosa de la mano de su abuelo.",
+        "corrected": "Una hoja doblada de papel descansaba debajo del cuaderno; su nombre estaba escrito al frente con la letra cuidadosa de su abuelo.",
+        "chunk": "Chunk 1/1",
+        "id": "222cfa0b-e236-45d8-b8ed-67ceb714701e"
+      },
+      {
+        "original": "Mara se sentó a sí misma antes de proceder a abrirla, porque las rodillas le habían comenzado a empezar a temblar y ella no quería admitirse a sí misma por qué estaba sucediendo eso.",
+        "corrected": "Mara se sentó antes de abrirla; sus rodillas empezaban a temblar y no quería admitir por qué.",
+        "chunk": "Chunk 1/1",
+        "id": "b6d82859-7251-4381-a958-71fed4301c7b"
+      },
+      {
+        "original": "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo. Por favor, perdona a un viejo hombre por su cobardía».",
+        "corrected": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Por favor, perdona a un viejo hombre por su cobardía».",
+        "chunk": "Chunk 1/1",
+        "id": "7ff67d46-8067-412b-a7e3-41c6a141ddba"
+      },
+      {
+        "original": "Leyó despacio y con cuidado.",
+        "corrected": "Leyó despacio.",
+        "chunk": "Chunk 1/1",
+        "id": "f41fa595-fbab-485e-92bd-16ae9defbded"
+      },
+      {
+        "original": "Él escribía sobre la noche en que su madre se había marchado, y escribía sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y escribía sobre la mujer que él mismo había sacado del oleaje y había subido por estas mismas escaleras.",
+        "corrected": "Él escribía sobre la noche en que su madre se había marchado, sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y sobre la mujer que él mismo había sacado del oleaje y subido por estas mismas escaleras.",
+        "chunk": "Chunk 1/1",
+        "id": "b216c7aa-718b-49ba-a263-70014d10410a"
+      },
+      {
+        "original": "Escribía sobre la decisión que él había tomado de guardar su secreto, y escribía sobre la hija que aquella mujer había dejado abandonada a su cuidado para que la cuidara.",
+        "corrected": "Escribía sobre la decisión de guardar el secreto y sobre la hija que aquella mujer había dejado abandonada a su cuidado.",
+        "chunk": "Chunk 1/1",
+        "id": "09572dac-6094-445a-a995-4b8aadf0e76d"
+      },
+      {
+        "original": "«Tenías tres años de edad en ese entonces —escribió en su escritura—. Me llamabas Abuelo a mí porque eso fue exactamente lo que te pedí que me llamaras a mí. Lo siento mucho por ello. No te quise a ti menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba a mí hacerlo».",
+        "corrected": "«Tenías tres años en ese entonces —escribió—. Me llamabas Abuelo porque eso fue exactamente lo que te pediste. Lo siento mucho por ello. No te quise menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba hacerlo».",
+        "chunk": "Chunk 1/1",
+        "id": "420e6c06-7936-42bb-bbc8-20528aeaef48"
+      },
+      {
+        "original": "Mara dejó la carta sobre el escritorio de roble.",
+        "corrected": "Mara dejó la carta sobre el escritorio.",
+        "chunk": "Chunk 1/1",
+        "id": "518b4afc-361e-48b1-8e85-87c1849fa1be"
+      },
+      {
+        "original": "Pensó para sí misma que realmente debería sentirse enojada, o traicionada, o a la deriva de alguna forma.",
+        "corrected": "Pensó para sí misma que debería sentirse enojada, traicionada, o a la deriva.",
+        "chunk": "Chunk 1/1",
+        "id": "1558f329-5a81-419d-8611-beb08feba532"
+      },
+      {
+        "original": "En cambio, sintió solo una ternura tranquila y sorprendente, casi como si una puerta que ella nunca antes había notado se hubiera abierto en una habitación familiar que ella conocía bien.",
+        "corrected": "En cambio, sintió una ternura tranquila y sorprendente, casi como si una puerta que nunca antes había notado se hubiera abierto en una habitación familiar.",
+        "chunk": "Chunk 1/1",
+        "id": "0c7f1f10-3a7d-49e0-8c11-a89570a2020c"
+      },
+      {
+        "original": "Cerró el cuaderno con un movimiento de cierre.",
+        "corrected": "Cerró el cuaderno.",
+        "chunk": "Chunk 1/1",
+        "id": "55de9c68-8ef4-4251-8016-bd48b52daaa9"
+      },
+      {
+        "original": "Se puso de pie, caminó hasta la gran lente y apoyó la palma de su mano plana contra el cristal fresco del mismo.",
+        "corrected": "Se puso de pie, caminó hasta la gran lente y apoyó la palma de su mano contra el cristal fresco.",
+        "chunk": "Chunk 1/1",
+        "id": "5eb235a2-fa95-458e-aa33-341a7532f90a"
+      },
+      {
+        "original": "El mar se extendía en todas y cada una de las direcciones, y en algún lugar allá afuera, ella ahora lo entendía en ese momento, había una historia que le pertenecía a ella y que apenas había comenzado a empezar a aprender.",
+        "corrected": "El mar se extendía en todas direcciones; en algún lugar allá afuera, ella ahora entendía: había una historia suya que apenas empezaba.",
+        "chunk": "Chunk 1/1",
+        "id": "441903b1-73fb-4691-b638-8cc330001325"
+      },
+      {
+        "original": "Se quedaría allí a pasar la noche. Por la mañana, encendería la lámpara hacia arriba.",
+        "corrected": "Se quedaría allí toda la noche. Al día siguiente, encendería la linterna.",
+        "chunk": "Chunk 1/1",
+        "id": "2ff5ff14-b021-4d1f-8736-a7c0399f5d13"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:19:50.819Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "danish_copy_edit.md",
+    "language": "danish",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 13,
+    "runtimeMs": 460298,
+    "corrections": [
+      {
+        "original": "Jerntrinene knagede under hendes støvler og den salte luft pressede sig mod de smalle vinduer som en gammel påtrængende ven.",
+        "corrected": "Jerntrinene knagede under hendes støvler, og den salte luft pressede sig mod de smalle vinduer som en gammel påtrængende ven.",
+        "chunk": "Chunk 1/1",
+        "id": "06db13d6-8e64-47d5-9db0-e21487db50d8"
+      },
+      {
+        "original": "Hendes bedstefar havde passet dette fyrtårn i fire årtier og nu, tre måneder efter hans begravelse var skødet endelig overgået til hende.",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var skødet endelig overgået til hende.",
+        "chunk": "Chunk 1/1",
+        "id": "1c8ab159-fc53-4406-ace9-d0aaee1d105c"
+      },
+      {
+        "original": "Et foldet ark papir lå skjult under logbogen, med hendes navn skreven på forsiden i bedstefarens omhyggelige håndskrift.",
+        "corrected": "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden i bedstefarens omhyggelige håndskrift.",
+        "chunk": "Chunk 1/1",
+        "id": "68bc1865-2c05-4307-98f6-0d6ea89d0b39"
+      },
+      {
+        "original": "Mara satte sig før hun åbnede det, for hendes knæ var begyndt at ryste og hun ville ikke indrømme hvorfor.",
+        "corrected": "Mara satte sig før hun åbnede det, for hendes knæ var begyndt at ryste, og hun ville ikke indrømme hvorfor.",
+        "chunk": "Chunk 1/1",
+        "id": "eb9855fa-9541-42e4-b806-f8d57ce74fc0"
+      },
+      {
+        "original": "\"Mara, begyndte brevet, \"hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejhed.\"",
+        "corrected": "\"Mara,\" begyndte brevet, \"hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans fejhed.\"",
+        "chunk": "Chunk 1/1",
+        "id": "4f11937d-590b-4428-9613-e2b066e58ef3"
+      },
+      {
+        "original": "Han skrev om den nat hendes mor var rejst, om stormen der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden han havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "corrected": "Han skrev om den nat hendes mor var rejst, om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden han havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "chunk": "Chunk 1/1",
+        "id": "45b374ad-2341-4f5e-98ba-24d8179ec9d3"
+      },
+      {
+        "original": "Han skrev om det valg han havde truffet om at bevare hendes hemmelighed, og om datteren som kvinden havde efterladt i hans varetægt.",
+        "corrected": "Han skrev om det valg han havde truffet om at bevare hendes hemmelighed, og om datteren, som kvinden havde efterladt i hans varetægt.",
+        "chunk": "Chunk 1/1",
+        "id": "8018827d-4ec7-4aa6-b453-ce635876fdfd"
+      },
+      {
+        "original": "Mara lagde brevet fra sig. Udenfor drejede mågerne langsomme cirkler over vandet og havet bevægede sig i den samme tålmodige rytme det havde holdt længe før hendes fødsel.",
+        "corrected": "Mara lagde brevet fra sig. Udenfor drejede mågerne langsomme cirkler over vandet, og havet bevægede sig i den samme tålmodige rytme, det havde holdt længe før hendes fødsel.",
+        "chunk": "Chunk 1/1",
+        "id": "84240289-12d3-48a8-8f6b-5b63efeb07c2"
+      },
+      {
+        "original": "Hun tænkte at hun burde føle sig vred, eller forrådt, eller forladt.",
+        "corrected": "Hun tænkte, at hun burde føle sig vred, eller forrådt, eller forladt.",
+        "chunk": "Chunk 1/1",
+        "id": "bd34b193-692f-479e-a748-620bb5cfaa4a"
+      },
+      {
+        "original": "I stedet følte hun kun en stille overraskende ømhed, som om en dør hun aldrig havde lagt mærke til var gået op i et velkendt rum.",
+        "corrected": "I stedet følte hun kun en stille, overraskende ømhed, som om en dør hun aldrig havde lagt mærke til var gået op i et velkendt rum.",
+        "chunk": "Chunk 1/1",
+        "id": "05dd381d-4d20-430d-a26c-e2ebc0e7d085"
+      },
+      {
+        "original": "Den var dateret morgenen for hans død.",
+        "corrected": "Den var dateret morgenen før hans død.",
+        "chunk": "Chunk 1/1",
+        "id": "701639a5-4434-44a7-8e42-5f4a96e15291"
+      },
+      {
+        "original": "Med en hånd der var blevet tynd og rystene, havde han skrevet:",
+        "corrected": "Med en hånd, der var blevet tynd og rystende, havde han skrevet:",
+        "chunk": "Chunk 1/1",
+        "id": "9997117c-7abe-48ad-ab29-56adc8375ecf"
+      },
+      {
+        "original": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt og et sted derude, forstod hun nu, lå en historie der tilhørte hende, og som hun først lige var begyndt at lærer.",
+        "corrected": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt, og et sted derude, forstod hun nu, lå en historie, der tilhørte hende, og som hun først lige var begyndt at lære.",
+        "chunk": "Chunk 1/1",
+        "id": "e619a426-1474-4657-9c05-190751acdd34"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:27:31.129Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "danish_correct.md",
+    "language": "danish",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 1,
+    "runtimeMs": 322132,
+    "corrections": [
+      {
+        "original": "Mara gik op ad vindeltrappen for første gang i tyve år.",
+        "corrected": "Mara gik op ad vindetrappen for første gang i tyve år.",
+        "chunk": "Chunk 1/1",
+        "id": "2a89be44-676e-428f-990b-1dbbfe793391"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:27:31.131Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "danish_correct.md",
+    "language": "danish",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 9,
+    "runtimeMs": 385159,
+    "corrections": [
+      {
+        "original": "den salte luft pressede sig mod de smalle vinduer som en gammel, påtrængende ven",
+        "corrected": "den salte luft pressede sig mod de smalle vinduer, som en gammel, påtrængende ven",
+        "chunk": "Chunk 1/1",
+        "id": "84876efa-7a1c-4c77-9b36-ff34fe3e8198"
+      },
+      {
+        "original": "Mara satte sig, før hun åbnede det, for hendes knæ var begyndt at ryste, og hun ville ikke indrømme hvorfor.",
+        "corrected": "Mara satte sig, før hun åbnede det. Hendes knæ var begyndt at ryste, og hun ville ikke indrømme hvorfor.",
+        "chunk": "Chunk 1/1",
+        "id": "7aa7b4ea-6197-4146-a016-5c8274abc89d"
+      },
+      {
+        "original": "Han skrev om den nat, hendes mor var rejst, om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden, han havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "corrected": "Han skrev om den nat hendes mor var rejst, om stormen der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten, om kvinden han havde trukket op af brændingen og båret op ad netop disse trapper.",
+        "chunk": "Chunk 1/1",
+        "id": "b7dd4d29-6ddd-462a-a2ce-844ac24dd98d"
+      },
+      {
+        "original": "Han skrev om det valg, han havde truffet om at bevare hendes hemmelighed, og om datteren, som kvinden havde efterladt i hans varetægt.",
+        "corrected": "Han skrev om det valg han havde truffet for at bevare hendes hemmelighed, og om datteren kvinden havde efterladt i hans varetægt.",
+        "chunk": "Chunk 1/1",
+        "id": "fffebefe-3a4b-42b4-b8ae-c9824f8920ef"
+      },
+      {
+        "original": "Udenfor drejede mågerne langsomme cirkler over vandet, og havet bevægede sig i den samme tålmodige rytme, det havde holdt længe før hendes fødsel.",
+        "corrected": "Udenfor drejede mågerne langsomme cirkler over vandet. Havet bevægede sig i den samme tålmodige rytme det havde holdt længe før hendes fødsel.",
+        "chunk": "Chunk 1/1",
+        "id": "63b9859b-57c2-4b80-84e0-518179855798"
+      },
+      {
+        "original": "Hun tænkte, at hun burde føle sig vred, eller forrådt, eller forladt.",
+        "corrected": "Hun tænkte, at hun burde føle sig vred, forrådt, eller forladt.",
+        "chunk": "Chunk 1/1",
+        "id": "58da82d8-a412-4b16-ae52-b175c1302809"
+      },
+      {
+        "original": "I stedet følte hun kun en stille, overraskende ømhed, som om en dør, hun aldrig havde lagt mærke til, var gået op i et velkendt rum.",
+        "corrected": "I stedet følte hun kun en stille, overraskende ømhed, som om en dør hun aldrig havde lagt mærke til, var gået op i et velkendt rum.",
+        "chunk": "Chunk 1/1",
+        "id": "15b21d09-307b-4936-b746-1984795d96fe"
+      },
+      {
+        "original": "Med en hånd, der var blevet tynd og rystende, havde han skrevet: \"Let vind fra sydvest. God sigtbarhed. Fortalte M. om brevet i dag. Hun forstod det ikke, men det vil hun, når tiden kommer. Lyset er klar. Det er jeg også.\"",
+        "corrected": "\"Let vind fra sydvest. God sigtbarhed. Fortalte M. om brevet i dag. Hun forstod det ikke, men det vil hun, når tiden kommer. Lyset er klar. Det er jeg også.\"",
+        "chunk": "Chunk 1/1",
+        "id": "d392053e-4d86-47ef-9b61-da37aacf5c3c"
+      },
+      {
+        "original": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt, og et sted derude, forstod hun nu, lå en historie, der tilhørte hende, og som hun først lige var begyndt at lære.",
+        "corrected": "Havet strakte sig i alle retninger, vidt og lyst og ligegyldigt. Et sted derude forstod hun nu lå en historie der tilhørte hende, og som hun først lige var begyndt at lære.",
+        "chunk": "Chunk 1/1",
+        "id": "99f81463-a07b-40c9-ad7f-39b417395000"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:27:31.132Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "danish_line_edit.md",
+    "language": "danish",
+    "variant": "line_edit",
+    "mode": "line_edit",
+    "correctionsFound": 17,
+    "runtimeMs": 177730,
+    "corrections": [
+      {
+        "original": "og den salte luft med salt i pressede sig mod de smalle vinduer",
+        "corrected": "og den salte luft pressede sig mod de smalle vinduer",
+        "chunk": "Chunk 1/1",
+        "id": "2691218f-c90a-4159-ba52-a497bda5d767"
+      },
+      {
+        "original": "Hendes bedstefar, som var hendes bedstefar, havde passet dette fyrtårn",
+        "corrected": "Hendes bedstefar havde passet dette fyrtårn",
+        "chunk": "Chunk 1/1",
+        "id": "e6121096-1e18-4831-b1be-39d5aa93c132"
+      },
+      {
+        "original": "med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd",
+        "corrected": "med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskrift",
+        "chunk": "Chunk 1/1",
+        "id": "c9311a7c-a555-47bb-a415-7a5447476be6"
+      },
+      {
+        "original": "Mara satte sig selv ned, før hun åbnede det op",
+        "corrected": "Mara satte sig ned, før hun åbnede det op",
+        "chunk": "Chunk 1/1",
+        "id": "533f2725-1ae2-4968-b185-43d117828e97"
+      },
+      {
+        "original": "for hendes knæ var begyndt at starte med at ryste",
+        "corrected": "for hendes knæ begyndte at ryste",
+        "chunk": "Chunk 1/1",
+        "id": "a91e57b5-5844-48bd-a55e-bb4d95b06b4b"
+      },
+      {
+        "original": "og hun ville ikke rigtig indrømme over for sig selv hvorfor",
+        "corrected": "og hun ville ikke indrømme det over for sig selv",
+        "chunk": "Chunk 1/1",
+        "id": "06768c7f-bd0a-44bf-bbe1-6073cfc9bb0c"
+      },
+      {
+        "original": "hvis du læser dette brev, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden personligt selv",
+        "corrected": "hvis du læser dette brev, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden",
+        "chunk": "Chunk 1/1",
+        "id": "ff92625f-ec3b-48af-9207-ad31a07df568"
+      },
+      {
+        "original": "og han skrev om kvinden, som han selv havde trukket op af brændingen og båret op ad netop disse trapper",
+        "corrected": "og han skrev om kvinden, som han havde trukket op af brændingen og båret op ad disse trapper",
+        "chunk": "Chunk 1/1",
+        "id": "cfdd1b36-2198-4f12-8f2d-bec83ac05476"
+      },
+      {
+        "original": "og han skrev om datteren, som den kvinde havde efterladt i hans varetægt for at passe på",
+        "corrected": "og han skrev om datteren, som kvinden havde efterladt i hans varetægt",
+        "chunk": "Chunk 1/1",
+        "id": "781429c2-7855-4571-b9c9-7d33a4acfaf2"
+      },
+      {
+        "original": "\"Du var tre år gammel dengang på det tidspunkt,\" skrev han i sin skrivning.",
+        "corrected": "\"Du var tre år gammel dengang,\" skrev han.",
+        "chunk": "Chunk 1/1",
+        "id": "a0fa373d-adb8-4123-8719-c081df7f1af6"
+      },
+      {
+        "original": "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre.",
+        "corrected": "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda lidt mere, fordi jeg vidste, hvad den kostede mig.",
+        "chunk": "Chunk 1/1",
+        "id": "566cc557-0452-4d5a-b714-5e9981233959"
+      },
+      {
+        "original": "og havet var i færd med at bevæge sig i den samme tålmodige rytme",
+        "corrected": "og havet bevægede sig i den samme tålmodige rytme",
+        "chunk": "Chunk 1/1",
+        "id": "0fd1130a-4a0f-49ec-b35e-584868ac9989"
+      },
+      {
+        "original": "Hun tænkte ved sig selv, at hun virkelig burde føle sig vred, eller forrådt, eller forladt på en eller anden måde.",
+        "corrected": "Hun tænkte, at hun burde føle sig vred, forrådt eller forladt.",
+        "chunk": "Chunk 1/1",
+        "id": "2db4e0f4-1ee0-4783-8d5d-0b7fa71d004a"
+      },
+      {
+        "original": "næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum",
+        "corrected": "næsten som om en dør, hun aldrig havde lagt mærke til, var gået op i et velkendt rum",
+        "chunk": "Chunk 1/1",
+        "id": "90612005-cef7-4b15-8fdc-316fed3fae34"
+      },
+      {
+        "original": "Hun lukkede bogen i en lukkende bevægelse.",
+        "corrected": "Hun lukkede bogen.",
+        "chunk": "Chunk 1/1",
+        "id": "626cd849-d2c8-476f-8fb3-279782750ac3"
+      },
+      {
+        "original": "og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie",
+        "corrected": "og et sted derude, som hun nu forstod, lå en historie",
+        "chunk": "Chunk 1/1",
+        "id": "585216c3-a978-4260-9b9e-84f6cb83f4fd"
+      },
+      {
+        "original": "som hun lige netop kun var begyndt at starte med at lære om.",
+        "corrected": "som hun lige netop havde begyndt at lære om.",
+        "chunk": "Chunk 1/1",
+        "id": "61519873-fffa-48d5-b224-f3adde5f9ca1"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:30:28.869Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "english_copy_edit.md",
+    "language": "english",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 7,
+    "runtimeMs": 102637,
+    "corrections": [
+      {
+        "original": "her name writen on the front",
+        "corrected": "her name written on the front",
+        "chunk": "Chunk 1/1",
+        "id": "05a78183-e31f-4310-86b3-1bdfc29e91e7"
+      },
+      {
+        "original": "because her knees had began to tremble",
+        "corrected": "because her knees had begun to tremble",
+        "chunk": "Chunk 1/1",
+        "id": "92fbfc08-b8df-46fd-adba-1e5d1debf7b7"
+      },
+      {
+        "original": "then I have finally ran out of excuses",
+        "corrected": "then I have finally run out of excuses",
+        "chunk": "Chunk 1/1",
+        "id": "30f02df7-f2bf-4415-a6aa-b0beb957327c"
+      },
+      {
+        "original": "hand grown thin and shakey",
+        "corrected": "hand grown thin and shaky",
+        "chunk": "Chunk 1/1",
+        "id": "ac323283-3aea-4790-bb4c-c80f378284d6"
+      },
+      {
+        "original": "she will, when the time comes. The light is ready. So am I.",
+        "corrected": "she will, when the time comes. The light is ready, so am I.",
+        "chunk": "Chunk 1/1",
+        "id": "94e6236f-20b2-40ad-9b00-37619dacd865"
+      },
+      {
+        "original": "vast and bright and indifferent and somewhere out there",
+        "corrected": "vast and bright and indifferent, and somewhere out there",
+        "chunk": "Chunk 1/1",
+        "id": "bb1fc70d-ac81-44a5-a716-588cee1d41ba"
+      },
+      {
+        "original": "she had only just begun too learn",
+        "corrected": "she had only just begun to learn",
+        "chunk": "Chunk 1/1",
+        "id": "ded17875-563c-4a3d-a423-ca86972512d2"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:30:28.873Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "english_correct.md",
+    "language": "english",
+    "variant": "correct",
+    "mode": "copy_edit",
     "correctionsFound": 0,
-    "runtimeMs": 18156,
+    "runtimeMs": 30310,
     "corrections": [],
     "errors": [],
-    "runDate": "2026-05-23T04:55:52.972Z"
+    "runDate": "2026-05-23T08:30:28.874Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "english_correct.md",
+    "language": "english",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 13,
+    "runtimeMs": 195956,
+    "corrections": [
+      {
+        "original": "The iron steps groaned beneath her boots",
+        "corrected": "The iron steps creaked beneath her boots",
+        "chunk": "Chunk 1/1",
+        "id": "c8c93db8-c019-4e02-b6a5-08a64f05e0be"
+      },
+      {
+        "original": "salt air pressed against the narrow windows like an old, insistent friend",
+        "corrected": "salt air pressed against the narrow windows",
+        "chunk": "Chunk 1/1",
+        "id": "09a74ff3-75cd-40f6-bc3b-7eff71aec2ab"
+      },
+      {
+        "original": "brass fittings polished to a soft glow",
+        "corrected": "brass fittings gleaming softly",
+        "chunk": "Chunk 1/1",
+        "id": "a246d3d2-dccb-415d-8181-0c67ccbd7a40"
+      },
+      {
+        "original": "the great lens silent and watchful",
+        "corrected": "the great lens watching silently",
+        "chunk": "Chunk 1/1",
+        "id": "73c1adc9-50fa-4ca6-90ea-e61cb1a87b37"
+      },
+      {
+        "original": "because her knees had begun to tremble and she did not want to admit why",
+        "corrected": "because her knees trembled, though she did not want to admit why",
+        "chunk": "Chunk 1/1",
+        "id": "2c21426e-419b-4c31-9c4e-9a679b1fd7b7"
+      },
+      {
+        "original": "Forgive an old man his cowardice.",
+        "corrected": "Forgive my cowardice.",
+        "chunk": "Chunk 1/1",
+        "id": "060e8ae9-47e4-42fd-a235-5b4cc08bdf5c"
+      },
+      {
+        "original": "He wrote about the choice he had made to keep her secret",
+        "corrected": "He wrote of the choice he'd made to keep her secret",
+        "chunk": "Chunk 1/1",
+        "id": "a33ddb19-1642-4ef4-91e1-75dcccb26f2c"
+      },
+      {
+        "original": "You called me Grandfather because that is what I asked you to call me",
+        "corrected": "You called me Grandfather because I asked you to",
+        "chunk": "Chunk 1/1",
+        "id": "bc175bfa-3e75-4ed3-b43c-9a012ddbc033"
+      },
+      {
+        "original": "I loved you no less for the lie, and perhaps a little more, because I knew what it cost.",
+        "corrected": "I loved you no less for the lie, perhaps a little more, knowing the cost.",
+        "chunk": "Chunk 1/1",
+        "id": "107013e9-1a05-49e7-b175-056b767cdb42"
+      },
+      {
+        "original": "She thought she ought to feel angry, or betrayed, or unmoored",
+        "corrected": "She expected anger, betrayal, or a sense of being unmoored",
+        "chunk": "Chunk 1/1",
+        "id": "7de555db-0a97-44f7-a07c-86ed91b5cc70"
+      },
+      {
+        "original": "as though a door she had never noticed had opened in a familiar room",
+        "corrected": "as if a door she'd never noticed had opened in a familiar room",
+        "chunk": "Chunk 1/1",
+        "id": "1280a229-61be-49e6-91ef-bad405023d90"
+      },
+      {
+        "original": "In a hand grown thin and shaky, he had written",
+        "corrected": "In a hand grown thin and shaky, he wrote",
+        "chunk": "Chunk 1/1",
+        "id": "864d3fde-0c3b-4094-8dd2-36a64d843eda"
+      },
+      {
+        "original": "She stood, walked to the great lens, and laid her palm flat against the cool glass",
+        "corrected": "She stood, walked to the great lens, and pressed her palm against the cool glass",
+        "chunk": "Chunk 1/1",
+        "id": "390bc6c5-f7b7-4b1e-afa2-2414fc49d6db"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:35:20.956Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "english_line_edit.md",
+    "language": "english",
+    "variant": "line_edit",
+    "mode": "line_edit",
+    "correctionsFound": 21,
+    "runtimeMs": 286060,
+    "corrections": [
+      {
+        "original": "Her grandfather, who was her grandfather, had kept this lighthouse",
+        "corrected": "Her grandfather had kept this lighthouse",
+        "chunk": "Chunk 1/1",
+        "id": "d4bf5739-e7a8-4dbc-971b-abc11e8f46fa"
+      },
+      {
+        "original": "for a period of four decades",
+        "corrected": "for four decades",
+        "chunk": "Chunk 1/1",
+        "id": "c0eab110-a31b-4b32-9dd2-ee74715f4dee"
+      },
+      {
+        "original": "the deed had finally at last passed to her",
+        "corrected": "the deed had finally passed to her",
+        "chunk": "Chunk 1/1",
+        "id": "43a188c6-8bc4-4993-8037-b2df3ba982ff"
+      },
+      {
+        "original": "exactly as she remembered it to be",
+        "corrected": "exactly as she remembered it",
+        "chunk": "Chunk 1/1",
+        "id": "605638c2-e1aa-4f9b-810a-c0570ffb962d"
+      },
+      {
+        "original": "with her name written on the front of it in her grandfather's careful handwriting hand",
+        "corrected": "with her name written on the front in her grandfather's careful handwriting",
+        "chunk": "Chunk 1/1",
+        "id": "fd777287-bee6-44af-aae9-0f21474de7b3"
+      },
+      {
+        "original": "Mara sat herself down before she opened it up",
+        "corrected": "Mara sat down before opening it",
+        "chunk": "Chunk 1/1",
+        "id": "e4f080cd-a51d-4faf-ac0a-e998daadc96a"
+      },
+      {
+        "original": "because her knees had begun the process of trembling",
+        "corrected": "because her knees began to tremble",
+        "chunk": "Chunk 1/1",
+        "id": "314f0290-0bf3-4ddb-b5c6-aa9a8fe9db99"
+      },
+      {
+        "original": "did not really want to admit to herself why this was happening",
+        "corrected": "did not want to admit why she was trembling",
+        "chunk": "Chunk 1/1",
+        "id": "ee6fc572-a709-4e72-b855-0d238ca73ac7"
+      },
+      {
+        "original": "if you are reading this letter, then I have finally run out of excuses to tell you the truth by myself in person",
+        "corrected": "if you are reading this, I have finally run out of excuses to tell you the truth in person",
+        "chunk": "Chunk 1/1",
+        "id": "6ef1cb70-cbcb-4a13-b2d6-fd6fe61f9245"
+      },
+      {
+        "original": "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff",
+        "corrected": "He wrote about the night her mother left and the storm that drove a small fishing boat onto the rocks below the cliff",
+        "chunk": "Chunk 1/1",
+        "id": "50630c24-6c32-45d3-9fff-769ea884006b"
+      },
+      {
+        "original": "the woman that he had pulled from the surf",
+        "corrected": "the woman he had pulled from the surf",
+        "chunk": "Chunk 1/1",
+        "id": "fd663d91-7b18-4354-a5af-61a0464d8f01"
+      },
+      {
+        "original": "carried up these very stairs",
+        "corrected": "carried up the stairs",
+        "chunk": "Chunk 1/1",
+        "id": "52eae9e3-2b8b-4a2b-a07a-18a4cc7fe576"
+      },
+      {
+        "original": "He wrote about the choice that he had made to keep her secret, and he wrote about the daughter that that woman had left behind in his care to look after",
+        "corrected": "He wrote about the choice he made to keep her secret and the daughter the woman left behind in his care",
+        "chunk": "Chunk 1/1",
+        "id": "26f9147a-f462-45cb-ae41-a82938e09bb4"
+      },
+      {
+        "original": "You called me Grandfather because that is what I asked you to call me",
+        "corrected": "You called me Grandfather because I asked you to",
+        "chunk": "Chunk 1/1",
+        "id": "c929d36e-32fd-4252-a13a-14ec58d54320"
+      },
+      {
+        "original": "I loved you no less for the lie that I told, and perhaps a little bit more, because I knew what it cost me to do",
+        "corrected": "I loved you no less for the lie, and perhaps a little more, knowing the cost",
+        "chunk": "Chunk 1/1",
+        "id": "2793ab85-503a-4338-8774-23983d28ac62"
+      },
+      {
+        "original": "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way",
+        "corrected": "She thought she ought to feel angry, betrayed, or unmoored",
+        "chunk": "Chunk 1/1",
+        "id": "3f9f9e74-f406-450f-ba1e-074dfa43d3d3"
+      },
+      {
+        "original": "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well",
+        "corrected": "Instead, she felt only a quiet, surprising tenderness, as if a door she had never noticed had opened in a familiar room",
+        "chunk": "Chunk 1/1",
+        "id": "88ea06b8-32b7-4cc5-9383-dbdd465932b6"
+      },
+      {
+        "original": "She closed the book in a closing motion",
+        "corrected": "She closed the book",
+        "chunk": "Chunk 1/1",
+        "id": "047d096c-634d-4ca1-9328-37cb73e06ea2"
+      },
+      {
+        "original": "The sea stretched away in every single direction",
+        "corrected": "The sea stretched away in every direction",
+        "chunk": "Chunk 1/1",
+        "id": "6d7fb477-cd9a-46d3-ad37-3a71fa1c6606"
+      },
+      {
+        "original": "and somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about",
+        "corrected": "somewhere out there was a story that belonged to her, one she had only just begun to learn",
+        "chunk": "Chunk 1/1",
+        "id": "60994c0a-bd28-4968-a87c-73374ba83a57"
+      },
+      {
+        "original": "In the morning, she would light the lamp up",
+        "corrected": "In the morning, she would light the lamp",
+        "chunk": "Chunk 1/1",
+        "id": "145ab613-f187-41e9-936a-e419e87aaddf"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:35:20.958Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "german_copy_edit.md",
+    "language": "german",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 11,
+    "runtimeMs": 291969,
+    "corrections": [
+      {
+        "original": "Mara stieg die Wendeltreppe zum ersten mal seit zwanzig Jahren hinauf.",
+        "corrected": "Mara stieg die Wendeltreppe zum ersten Mal seit zwanzig Jahren hinauf.",
+        "chunk": "Chunk 1/1",
+        "id": "e9872b89-00da-4d17-a24a-f358abcbdf9e"
+      },
+      {
+        "original": "drei Monate nach seiner Beerdigung war die Urkunde endlich an sie übergegangen.",
+        "corrected": "drei Monate nach seiner Beerdigung war die Urkunde endlich an sie übergegangen,",
+        "chunk": "Chunk 1/1",
+        "id": "e6155c1c-5831-437d-8c8f-7bb0522c66b9"
+      },
+      {
+        "original": "Jemand war vor kurzem hier gewessen.",
+        "corrected": "Jemand war vor kurzem hier gewesen.",
+        "chunk": "Chunk 1/1",
+        "id": "492dab52-6c13-43c9-b352-d51596d8a934"
+      },
+      {
+        "original": "Mara setzte sich bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen und sie wollte sich nicht eingestehen warum.",
+        "corrected": "Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum.",
+        "chunk": "Chunk 1/1",
+        "id": "21be109f-df4a-4f37-9e52-1c5014f42485"
+      },
+      {
+        "original": "„Mara, begann der Brief, „wenn du dies liest, sind mir endlich die Ausreden ausgegangen, dir die Warheit selbst zu sagen. Vergib einem alten Mann seine Feigheit.\"",
+        "corrected": "„Mara, begann der Brief: „Wenn du dies liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit selbst zu sagen. Vergib einem alten Mann seine Feigheit.\"",
+        "chunk": "Chunk 1/1",
+        "id": "5bcc2efc-d1e7-4522-b9ac-d1a3889dfff3"
+      },
+      {
+        "original": "über den Sturm der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "corrected": "über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "38fc2ec5-63f7-488a-8e89-83c6cda71e00"
+      },
+      {
+        "original": "über die Entscheidung die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "corrected": "über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "fbadc1f4-fd68-409c-92d9-8cbdeae6583d"
+      },
+      {
+        "original": "Sie dachte sie sollte sich wütend fühlen, oder verraten, oder verloren.",
+        "corrected": "Sie dachte, sie sollte sich wütend fühlen, oder verraten, oder verloren.",
+        "chunk": "Chunk 1/1",
+        "id": "6bd766b0-aa78-4266-97fd-14d1042f680b"
+      },
+      {
+        "original": "als hätte sich eine Tür die sie nie bemerkt hatte in einem vertrauten Zimmer geöffnet.",
+        "corrected": "als hätte sich eine Tür, die sie nie bemerkt hatte, in einem vertrauten Zimmer geöffnet.",
+        "chunk": "Chunk 1/1",
+        "id": "d2df8e76-30d6-4e93-8cbb-bd6f07f65caf"
+      },
+      {
+        "original": "Mit einer Hand, die dünn und zittrig geworden war, hatte er geschrieben: „leichter Wind aus Südwest. Gute Sicht. Habe M. heute von dem Brief erzählt. Sie hat es nicht verstanden, aber sie wird es, wenn die Zeit kommt. Das Licht ist bereit. Ich auch.\"",
+        "corrected": "Mit einer Hand, die dünn und zittrig geworden war, hatte er geschrieben: „Leichter Wind aus Südwest. Gute Sicht. Habe M. heute von dem Brief erzählt. Sie hat es nicht verstanden, aber sie wird es, wenn die Zeit kommt. Das Licht ist bereit. Ich auch.\"",
+        "chunk": "Chunk 1/1",
+        "id": "785fe130-e61f-44b5-b3e9-290957cbf7fd"
+      },
+      {
+        "original": "Mara schloß das Buch.",
+        "corrected": "Mara schloss das Buch.",
+        "chunk": "Chunk 1/1",
+        "id": "ad616a47-c49e-48bf-8ff5-9b3bc6261dd9"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:35:20.958Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "german_correct.md",
+    "language": "german",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 33407,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-23T08:40:30.834Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "german_correct.md",
+    "language": "german",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 12,
+    "runtimeMs": 216727,
+    "corrections": [
+      {
+        "original": "und die salzige Luft drückte gegen die schmalen Fenster wie ein alter, beharrlicher Freund.",
+        "corrected": "und die salzige Luft drückte gegen die schmalen Fenster, ein alter, beharrlicher Freund.",
+        "chunk": "Chunk 1/1",
+        "id": "851fabf5-2e7a-4412-9607-4d8cee6fe725"
+      },
+      {
+        "original": "Sie stellte ihre Tasche ab und ließ einen Finger über die Fensterbank gleiten.",
+        "corrected": "Sie stellte ihre Tasche ab und streckte einen Finger über die Fensterbank.",
+        "chunk": "Chunk 1/1",
+        "id": "29999949-dcd3-4b0f-bf15-92c3ac740174"
+      },
+      {
+        "original": "Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum.",
+        "corrected": "Mara setzte sich, bevor sie es öffnete. Ihre Knie zitterten, und sie wollte sich nicht eingestehen, warum.",
+        "chunk": "Chunk 1/1",
+        "id": "de9f6d91-a606-487e-ab20-c51837aee8b4"
+      },
+      {
+        "original": "Vergib einem alten Mann seine Feigheit.",
+        "corrected": "Vergib mir meine Feigheit.",
+        "chunk": "Chunk 1/1",
+        "id": "da22d8af-1450-4c3d-aacd-4ab6fe408481"
+      },
+      {
+        "original": "Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "corrected": "Er schrieb über die Nacht, als ihre Mutter starb, den Sturm, der ein Fischerboot auf die Felsen unterhalb der Klippe trieb, und die Frau, die er aus der Brandung zog und diese Treppe hinauftrug.",
+        "chunk": "Chunk 1/1",
+        "id": "ad992bdf-874c-4093-844c-8c8e4f4bbb6a"
+      },
+      {
+        "original": "und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "corrected": "und die Tochter, die jene Frau in seiner Obhut hinterlassen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "bfcf1a6d-f4c0-4e32-b301-f33094804e7e"
+      },
+      {
+        "original": "Du nanntest mich Großvater, weil ich dich darum gebeten hatte.",
+        "corrected": "Du nanntest mich Großvater, weil ich es von dir verlangt hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "07e5bbbf-5cd1-4b43-9204-e553a50b9e4c"
+      },
+      {
+        "original": "Ich liebte dich um die Lüge nicht weniger, und vielleicht ein wenig mehr, weil ich wusste, was sie mich kostete.",
+        "corrected": "Ich liebte dich nicht weniger wegen der Lüge, vielleicht sogar ein wenig mehr, weil ich wusste, was sie mich kostete.",
+        "chunk": "Chunk 1/1",
+        "id": "f706d67f-d18e-467c-ba6d-004ed7ba752c"
+      },
+      {
+        "original": "Sie dachte, sie sollte sich wütend fühlen, oder verraten, oder verloren.",
+        "corrected": "Sie dachte, sie sollte sich wütend fühlen, verraten oder verloren sein.",
+        "chunk": "Chunk 1/1",
+        "id": "b67fb688-5d9a-4511-8e1e-54596f1b79c2"
+      },
+      {
+        "original": "Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür, die sie nie bemerkt hatte, in einem vertrauten Zimmer geöffnet.",
+        "corrected": "Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür in einem vertrauten Zimmer geöffnet, die sie nie bemerkt hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "466cb14c-0ca9-4ee8-9f97-b1ff28aa2e05"
+      },
+      {
+        "original": "Mit einer Hand, die dünn und zittrig geworden war, hatte er geschrieben:",
+        "corrected": "Mit einer dünnen, zittrigen Hand schrieb er:",
+        "chunk": "Chunk 1/1",
+        "id": "b1a56407-c332-4c4e-be0b-f7ef4fa1bdcc"
+      },
+      {
+        "original": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig, und irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte, die ihr gehörte und die sie gerade erst zu erfahren begonnen hatte.",
+        "corrected": "Das Meer dehnte sich in alle Richtungen, weit und hell und gleichgültig. Irgendwo dort draußen, das verstand sie jetzt, lag eine Geschichte, die ihr gehörte und die sie gerade erst zu erfahren begann.",
+        "chunk": "Chunk 1/1",
+        "id": "88617b53-49c9-4c5c-8545-5be384c91e11"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:40:30.836Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "german_line_edit.md",
+    "language": "german",
+    "variant": "line_edit",
+    "mode": "line_edit",
+    "correctionsFound": 24,
+    "runtimeMs": 309764,
+    "corrections": [
+      {
+        "original": "und die salzige Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie ein alter, beharrlicher Freund war.",
+        "corrected": "und die salzige Luft drückte gegen die schmalen Fenster, wie ein alter, beharrlicher Freund.",
+        "chunk": "Chunk 1/1",
+        "id": "c6dc9f2e-105c-44e0-ace4-3406d9a5b09d"
+      },
+      {
+        "original": "Ihr Großvater, der ihr Großvater war, hatte diesen Leuchtturm einen Zeitraum von vier Jahrzehnten lang geführt",
+        "corrected": "Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang geführt",
+        "chunk": "Chunk 1/1",
+        "id": "6eebbc2f-86b5-449f-b911-88374b7fbebb"
+      },
+      {
+        "original": "und nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich schließlich an sie übergegangen.",
+        "corrected": "und nun, drei Monate nach seiner Beerdigung, war die Urkunde endlich an sie übergegangen.",
+        "chunk": "Chunk 1/1",
+        "id": "54167d2f-f515-42e5-99cd-cb76fb032a77"
+      },
+      {
+        "original": "die große Linse, die still und wachsam war",
+        "corrected": "die große Linse, still und wachsam",
+        "chunk": "Chunk 1/1",
+        "id": "2de8bd92-0abd-44cd-a759-3763cebf9991"
+      },
+      {
+        "original": "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen.",
+        "corrected": "Es gab dort keinen Staub. Irgendjemand war vor Kurzem hier gewesen.",
+        "chunk": "Chunk 1/1",
+        "id": "68434910-ac1e-4cf2-8cfd-af02b907d244"
+      },
+      {
+        "original": "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen, mit ihrem Namen auf der Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war.",
+        "corrected": "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen, mit ihrem Namen auf der Vorderseite, in der sorgfältigen Handschrift ihres Großvaters.",
+        "chunk": "Chunk 1/1",
+        "id": "e1f20562-69c3-4646-b668-78ff274700a9"
+      },
+      {
+        "original": "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern",
+        "corrected": "Mara setzte sich hin, bevor sie es aufmachte, denn ihre Knie hatten begonnen zu zittern",
+        "chunk": "Chunk 1/1",
+        "id": "cf935560-b795-4e4f-800b-bbec79373438"
+      },
+      {
+        "original": "und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah.",
+        "corrected": "und sie wollte sich nicht eingestehen, warum das geschah.",
+        "chunk": "Chunk 1/1",
+        "id": "e63baf36-af16-4129-aea4-0f1fbec842d0"
+      },
+      {
+        "original": "Bitte vergib einem alten Mann für seine Feigheit.",
+        "corrected": "Bitte vergib mir meine Feigheit.",
+        "chunk": "Chunk 1/1",
+        "id": "9823bf48-4d22-4701-b565-602ba1a7e6e7"
+      },
+      {
+        "original": "Er schrieb über die Nacht, in der ihre Mutter gegangen war, und er schrieb über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte",
+        "corrected": "Er schrieb über die Nacht, in der ihre Mutter gegangen war, und über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte",
+        "chunk": "Chunk 1/1",
+        "id": "af655816-d6f4-4595-863f-a308be3e1f5d"
+      },
+      {
+        "original": "und er schrieb über die Frau, die er selbst aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte.",
+        "corrected": "und über die Frau, die er aus der Brandung gezogen und diese Treppe hinaufgetragen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "5c56bd78-7068-4a1e-bf3d-22a173e34706"
+      },
+      {
+        "original": "Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren",
+        "corrected": "Er schrieb über die Entscheidung, ihr Geheimnis zu bewahren",
+        "chunk": "Chunk 1/1",
+        "id": "69c203b1-a813-45ba-905b-b53c0065d7eb"
+      },
+      {
+        "original": "und er schrieb über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte, damit er auf sie aufpasste.",
+        "corrected": "und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "d3d93fb5-0788-49e3-b5a9-cc64971e7a11"
+      },
+      {
+        "original": "Du nanntest mich Großvater, weil das genau das war, worum ich dich gebeten hatte.",
+        "corrected": "Du nanntest mich Großvater, weil ich es von dir verlangt hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "e4de2cff-21e4-4dbb-9991-391cde89f2dd"
+      },
+      {
+        "original": "Es tut mir sehr leid darüber. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger",
+        "corrected": "Es tut mir leid. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger",
+        "chunk": "Chunk 1/1",
+        "id": "c36dbc27-6761-4ff5-86a9-5c9f4b8a8d6f"
+      },
+      {
+        "original": "und vielleicht ein ganz kleines bisschen mehr, weil ich gut wusste, was sie mich kostete zu tun.",
+        "corrected": "vielleicht sogar ein wenig mehr, weil ich genau wusste, was sie mich kostete.",
+        "chunk": "Chunk 1/1",
+        "id": "dc604d89-216e-46bd-bbb2-da9daeef110e"
+      },
+      {
+        "original": "Mara legte den Brief auf dem Eichentisch beiseite. Draußen waren die Möwen dabei, langsame Kreise über dem Wasser zu ziehen",
+        "corrected": "Mara legte den Brief auf den Eichentisch. Draußen zogen die Möwen langsame Kreise über dem Wasser",
+        "chunk": "Chunk 1/1",
+        "id": "13c6f7fb-9cae-4f05-b060-221c67f7e44b"
+      },
+      {
+        "original": "und das Meer war dabei, sich in demselben geduldigen Rhythmus zu bewegen, den es schon seit lange vor dem Zeitpunkt ihrer Geburt gehalten hatte.",
+        "corrected": "und das Meer bewegte sich im selben geduldigen Rhythmus, den es schon vor ihrer Geburt gehalten hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "1bdfb1e5-6079-41c4-99e2-515648eabb79"
+      },
+      {
+        "original": "Sie dachte bei sich selbst, dass sie wirklich wütend, oder verraten, oder verloren auf irgendeine Art und Weise empfinden sollte.",
+        "corrected": "Sie erwartete Wut, Verrat oder das Gefühl, verloren zu sein.",
+        "chunk": "Chunk 1/1",
+        "id": "3e55a180-1af2-44ad-9532-2a0f6e7f7e4d"
+      },
+      {
+        "original": "Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, fast so, als hätte sich eine Tür, die sie nie zuvor jemals bemerkt hatte, in einem vertrauten Zimmer geöffnet, das sie gut kannte.",
+        "corrected": "Stattdessen empfand sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür in einem vertrauten Zimmer geöffnet, die sie nie bemerkt hatte.",
+        "chunk": "Chunk 1/1",
+        "id": "5f2a936a-d3ea-40b6-95f4-098e2380df81"
+      },
+      {
+        "original": "Sie schloss das Buch mit einer schließenden Bewegung.",
+        "corrected": "Sie schloss das Buch.",
+        "chunk": "Chunk 1/1",
+        "id": "98db06be-31e6-4e2b-b750-2fca2b79464f"
+      },
+      {
+        "original": "Sie stand auf, ging zur großen Linse hinüber und legte die flache Handfläche ihrer Hand flach gegen das kühle Glas davon.",
+        "corrected": "Sie stand auf, ging zur großen Linse hinüber und legte die flache Handfläche gegen das kühle Glas.",
+        "chunk": "Chunk 1/1",
+        "id": "a025722b-681b-48cd-8e97-171a05686180"
+      },
+      {
+        "original": "Das Meer dehnte sich in jede einzelne Richtung aus, und irgendwo dort draußen, das verstand sie nun zu diesem Zeitpunkt, lag eine Geschichte, die ihr gehörte und die sie gerade erst kaum begonnen hatte, anzufangen, kennenzulernen.",
+        "corrected": "Das Meer dehnte sich in jede Richtung aus. Irgendwo dort draußen lag eine Geschichte, die ihr gehörte und die sie gerade erst kennenlernte.",
+        "chunk": "Chunk 1/1",
+        "id": "926b26f3-5526-4a10-b49e-238fce8c36d2"
+      },
+      {
+        "original": "Sie würde die Nacht dort bleiben. Am Morgen würde sie die Lampe nach oben anzünden.",
+        "corrected": "Sie würde die Nacht dort bleiben. Am Morgen würde sie die Lampe anzünden.",
+        "chunk": "Chunk 1/1",
+        "id": "f71f3ba9-8d58-433d-8467-3d7e3531d21e"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:40:30.837Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "spanish_copy_edit.md",
+    "language": "spanish",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "correctionsFound": 12,
+    "runtimeMs": 159631,
+    "corrections": [
+      {
+        "original": "Mara subio la escalera",
+        "corrected": "Mara subió la escalera",
+        "chunk": "Chunk 1/1",
+        "id": "3323d61e-35b2-471d-b995-2de66d1a2d23"
+      },
+      {
+        "original": "Su abuelo habia cuidado este faro",
+        "corrected": "Su abuelo había cuidado este faro",
+        "chunk": "Chunk 1/1",
+        "id": "40d78599-ea37-4123-abe9-c2d6ac94ceac"
+      },
+      {
+        "original": "tres meses después de su funeral la escritura",
+        "corrected": "tres meses después de su funeral, la escritura",
+        "chunk": "Chunk 1/1",
+        "id": "6aa00811-3486-4f18-9f40-a99fa9dcabc4"
+      },
+      {
+        "original": "antes de habrirla",
+        "corrected": "antes de abrirla",
+        "chunk": "Chunk 1/1",
+        "id": "f3b5ad16-7af3-4ac5-97cc-702d9a8acc71"
+      },
+      {
+        "original": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las escusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "corrected": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía».",
+        "chunk": "Chunk 1/1",
+        "id": "e85a8ce8-5061-4a3b-93f2-75aff5eba650"
+      },
+      {
+        "original": "«Tenia tres años —escribió—.",
+        "corrected": "«Tenía tres años —escribió—.",
+        "chunk": "Chunk 1/1",
+        "id": "774eb546-8d38-4721-a5bf-eb70a9838355"
+      },
+      {
+        "original": "antes de que ella nasciera",
+        "corrected": "antes de que ella naciera",
+        "chunk": "Chunk 1/1",
+        "id": "941d4a76-5c85-4809-ab54-2c264bce07e9"
+      },
+      {
+        "original": "En cambio, sintió solo una ternura tranquila y sorprendente como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "corrected": "En cambio, sintió solo una ternura tranquila y sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "chunk": "Chunk 1/1",
+        "id": "58f190c9-8c6b-4b00-92d2-d8e0d40775d2"
+      },
+      {
+        "original": "Estaba fechada la mañana de su muerte.",
+        "corrected": "Estaba fechada la mañana de su muerte,",
+        "chunk": "Chunk 1/1",
+        "id": "c9f4829a-4783-4b36-81f7-db8030826f98"
+      },
+      {
+        "original": "Con una letra adelgazada y temblorosa, habia escrito",
+        "corrected": "Con una letra adelgazada y temblorosa, había escrito",
+        "chunk": "Chunk 1/1",
+        "id": "16fa9d5d-5f43-4cee-818d-a82d93639961"
+      },
+      {
+        "original": "vasto, brillante e indiferente y en algún lugar allá afuera, lo entendía ahora, había una historia que le pertenecía y que apenas habia comenzado a aprender.",
+        "corrected": "vasto, brillante e indiferente, y en algún lugar allá afuera, lo entendía ahora; había una historia que le pertenecía y que apenas había comenzado a aprender.",
+        "chunk": "Chunk 1/1",
+        "id": "c7a3f2c9-6ac6-4a76-9604-d1f2daf02673"
+      },
+      {
+        "original": "Por la mañana, encenderia la lámpara.",
+        "corrected": "Por la mañana, encendería la lámpara.",
+        "chunk": "Chunk 1/1",
+        "id": "67b5d3d6-8c51-443a-8a1a-85d9df2025a9"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:44:19.563Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "spanish_correct.md",
+    "language": "spanish",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 0,
+    "runtimeMs": 30349,
+    "corrections": [],
+    "errors": [],
+    "runDate": "2026-05-23T08:44:19.567Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "spanish_correct.md",
+    "language": "spanish",
+    "variant": "correct",
+    "mode": "line_edit",
+    "correctionsFound": 17,
+    "runtimeMs": 228626,
+    "corrections": [
+      {
+        "original": "Los peldaños de hierro gimieron bajo sus botas",
+        "corrected": "Los peldaños de hierro crujieron bajo sus botas",
+        "chunk": "Chunk 1/1",
+        "id": "170e9b4d-68e0-4943-8f9e-f540c68b9f42"
+      },
+      {
+        "original": "la gran lente silenciosa y vigilante",
+        "corrected": "la gran lente, silenciosa y vigilante,",
+        "chunk": "Chunk 1/1",
+        "id": "f361dac5-7798-474c-aba6-150625f9deb7"
+      },
+      {
+        "original": "No había polvo. Alguien había estado allí hacía poco",
+        "corrected": "No había polvo. Alguien había estado allí recientemente",
+        "chunk": "Chunk 1/1",
+        "id": "bdb26087-2bc6-43dd-9c6e-d01a810ee722"
+      },
+      {
+        "original": "Mara se sentó antes de abrirla, porque las rodillas habían empezado a temblarle y no quería admitir por qué",
+        "corrected": "Mara se sentó antes de abrirla; las rodillas le temblaban y no quería admitir por qué",
+        "chunk": "Chunk 1/1",
+        "id": "b6d93674-25c5-4251-b728-da13ed69c540"
+      },
+      {
+        "original": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía»",
+        "corrected": "«Mara —comenzaba la carta—: si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Perdona a un viejo su cobardía»",
+        "chunk": "Chunk 1/1",
+        "id": "2cc1e8c0-7293-4dd6-827b-e48ddd7c3dbb"
+      },
+      {
+        "original": "Leyó despacio. Él escribía sobre la noche en que su madre se había marchado",
+        "corrected": "Leyó despacio. Escribía sobre la noche en que su madre se había marchado",
+        "chunk": "Chunk 1/1",
+        "id": "1b9f26ca-7147-4489-86d7-bfe3692fa6fc"
+      },
+      {
+        "original": "sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado",
+        "corrected": "sobre la tormenta que había lanzado una pequeña barca de pesca contra las rocas al pie del acantilado",
+        "chunk": "Chunk 1/1",
+        "id": "c948141c-388c-4afe-af08-170215d6d475"
+      },
+      {
+        "original": "sobre la mujer que él había sacado del oleaje y subido por estas mismas escaleras",
+        "corrected": "sobre la mujer que él había sacado del oleaje y subido por esas mismas escaleras",
+        "chunk": "Chunk 1/1",
+        "id": "1a86f368-abeb-4ee8-b91f-8e831ee71546"
+      },
+      {
+        "original": "Escribía sobre la decisión que había tomado de guardar su secreto, y sobre la hija que aquella mujer había dejado a su cuidado",
+        "corrected": "Escribía sobre la decisión de guardar su secreto y sobre la hija que aquella mujer había dejado a su cuidado",
+        "chunk": "Chunk 1/1",
+        "id": "d652b5f5-3c58-4564-952c-59b91a35812f"
+      },
+      {
+        "original": "«Tenías tres años —escribió—. Me llamabas Abuelo porque eso fue lo que te pedí que me llamaras. Lo siento. No te quise menos por la mentira, y quizá un poco más, porque sabía lo que me costaba»",
+        "corrected": "«Tenías tres años —escribió—. Me llamabas Abuelo porque eso fue lo que te pedí que me llamaras. Lo siento. No te quise menos por la mentira; quizá un poco más, porque sabía lo que me costaba»",
+        "chunk": "Chunk 1/1",
+        "id": "0872ed60-87f7-48c8-a57c-3b7586803624"
+      },
+      {
+        "original": "Pensó que debería sentirse enojada, o traicionada, o a la deriva. En cambio, sintió solo una ternura tranquila y sorprendente",
+        "corrected": "Pensó que debería sentirse enojada, traicionada o a la deriva. En cambio, sintió solo una ternura tranquila y sorprendente",
+        "chunk": "Chunk 1/1",
+        "id": "18d2131c-e965-4f49-aaca-86d6a494bd53"
+      },
+      {
+        "original": "como si una puerta que nunca había notado se hubiera abierto en una habitación familiar",
+        "corrected": "como si una puerta que nunca había notado se hubiera abierto en una habitación conocida",
+        "chunk": "Chunk 1/1",
+        "id": "32ea1e9e-05ba-44ec-8817-b6e36b237fb8"
+      },
+      {
+        "original": "Estaba fechada la mañana de su muerte",
+        "corrected": "La entrada estaba fechada con la mañana de su muerte",
+        "chunk": "Chunk 1/1",
+        "id": "b8a47987-41b7-4907-805a-52e9edde3406"
+      },
+      {
+        "original": "Con una letra adelgazada y temblorosa, había escrito: «Viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá, cuando llegue el momento. La luz está lista. Yo también»",
+        "corrected": "Con letra adelgazada y temblorosa, había escrito: «Viento ligero del suroeste. Buena visibilidad. Hoy le hablé a M. de la carta. No entendió, pero entenderá cuando llegue el momento. La luz está lista. Yo también»",
+        "chunk": "Chunk 1/1",
+        "id": "37e0a735-4f88-46e2-a1d2-a3e5eb3bc030"
+      },
+      {
+        "original": "Mara cerró el cuaderno. Se levantó, caminó hasta la gran lente y apoyó la palma contra el cristal fresco",
+        "corrected": "Mara cerró el cuaderno. Se levantó, caminó hasta la gran lente y apoyó la palma contra el cristal frío",
+        "chunk": "Chunk 1/1",
+        "id": "c7b74e08-f406-41ff-a42d-be0cd76fbcbd"
+      },
+      {
+        "original": "El mar se extendía en todas direcciones, vasto, brillante e indiferente, y en algún lugar allá afuera, lo entendía ahora, había una historia que le pertenecía y que apenas había comenzado a aprender",
+        "corrected": "El mar se extendía en todas direcciones, vasto, brillante e indiferente. En algún lugar allá afuera, lo entendía ahora: había una historia que le pertenecía y que apenas había comenzado a aprender",
+        "chunk": "Chunk 1/1",
+        "id": "0b913132-1c95-4b40-b9f3-2f42604c6ebc"
+      },
+      {
+        "original": "Se quedaría a pasar la noche. Por la mañana, encendería la lámpara",
+        "corrected": "Se quedaría a pasar la noche. Por la mañana, encendería la luz",
+        "chunk": "Chunk 1/1",
+        "id": "c944cfc9-f8bb-4fa0-9583-86a12c13a53b"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:44:19.569Z"
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "file": "spanish_line_edit.md",
+    "language": "spanish",
+    "variant": "line_edit",
+    "mode": "line_edit",
+    "correctionsFound": 20,
+    "runtimeMs": 141374,
+    "corrections": [
+      {
+        "original": "Los peldaños de hierro hicieron un sonido de gemido bajo sus botas",
+        "corrected": "Los peldaños de hierro gemieron bajo sus botas",
+        "chunk": "Chunk 1/1",
+        "id": "2afb5512-da23-473c-ac3f-87b65f8f55dc"
+      },
+      {
+        "original": "y el aire salado y con sal se apoyó contra las ventanas estrechas",
+        "corrected": "y el aire salado se apoyó contra las ventanas estrechas",
+        "chunk": "Chunk 1/1",
+        "id": "6e5e35a1-7f42-4420-9870-334788dee4e5"
+      },
+      {
+        "original": "Su abuelo, que era su abuelo, había cuidado este faro",
+        "corrected": "Su abuelo había cuidado este faro",
+        "chunk": "Chunk 1/1",
+        "id": "504035d3-0cb8-4d8f-a953-b9e7a3a40263"
+      },
+      {
+        "original": "y ahora, tres meses después de su funeral, la escritura había pasado finalmente por fin a sus manos.",
+        "corrected": "y ahora, tres meses después de su funeral, la escritura había pasado finalmente a sus manos.",
+        "chunk": "Chunk 1/1",
+        "id": "30cc2458-c94e-4c4e-bdde-68a66d3312c1"
+      },
+      {
+        "original": "la sala de la linterna estaba exactamente tal y como ella la recordaba que era",
+        "corrected": "la sala de la linterna estaba exactamente tal y como ella la recordaba",
+        "chunk": "Chunk 1/1",
+        "id": "e1ccd08f-543a-4a5b-bdba-57adb38aa6e2"
+      },
+      {
+        "original": "un cuaderno de bitácora que estaba abierto sobre el pequeño escritorio de roble.",
+        "corrected": "un cuaderno de bitácora abierto sobre el pequeño escritorio de roble.",
+        "chunk": "Chunk 1/1",
+        "id": "2054930e-7a45-434b-8571-573dd6ff8594"
+      },
+      {
+        "original": "Mara se sentó a sí misma antes de proceder a abrirla",
+        "corrected": "Mara se sentó antes de abrirla",
+        "chunk": "Chunk 1/1",
+        "id": "a119e617-7e1a-49de-a75b-09169e97bb1e"
+      },
+      {
+        "original": "porque las rodillas le habían comenzado a empezar a temblar",
+        "corrected": "porque las rodillas le habían comenzado a temblar",
+        "chunk": "Chunk 1/1",
+        "id": "9e9db06d-e783-407b-8f23-21912b64993e"
+      },
+      {
+        "original": "y ella no quería admitirse a sí misma por qué estaba sucediendo eso.",
+        "corrected": "y no quería admitir por qué sucedía.",
+        "chunk": "Chunk 1/1",
+        "id": "96aff92c-e386-4304-bc99-c44b1ab3e519"
+      },
+      {
+        "original": "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo.",
+        "corrected": "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona.",
+        "chunk": "Chunk 1/1",
+        "id": "12b332ca-caff-426a-a21a-34bc0ceea882"
+      },
+      {
+        "original": "Por favor, perdona a un viejo hombre por su cobardía».",
+        "corrected": "Perdona a un viejo hombre por su cobardía».",
+        "chunk": "Chunk 1/1",
+        "id": "bd5e5bae-3f12-4188-aad3-4985d3aac8c7"
+      },
+      {
+        "original": "Él escribía sobre la noche en que su madre se había marchado, y escribía sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y escribía sobre la mujer que él mismo había sacado del oleaje y había subido por estas mismas escaleras.",
+        "corrected": "Escribía sobre la noche en que su madre se había marchado, sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y sobre la mujer que él mismo había sacado del oleaje y subido por esas escaleras.",
+        "chunk": "Chunk 1/1",
+        "id": "dc100a5f-cb3c-4cbe-bfdb-1db68ab2c860"
+      },
+      {
+        "original": "Escribía sobre la decisión que él había tomado de guardar su secreto, y escribía sobre la hija que aquella mujer había dejado abandonada a su cuidado para que la cuidara.",
+        "corrected": "Escribía sobre la decisión de guardar su secreto y sobre la hija que aquella mujer había dejado abandonada a su cuidado.",
+        "chunk": "Chunk 1/1",
+        "id": "a8293f92-31fe-4df8-95db-70657f28dd65"
+      },
+      {
+        "original": "«Tenías tres años de edad en ese entonces —escribió en su escritura—. Me llamabas Abuelo a mí porque eso fue exactamente lo que te pedí que me llamaras a mí.",
+        "corrected": "«Tenías tres años en ese entonces —escribió—. Me llamabas Abuelo porque eso fue exactamente lo que te pedí.",
+        "chunk": "Chunk 1/1",
+        "id": "a8bfcab6-5e44-4986-86f7-964ed6ed9171"
+      },
+      {
+        "original": "Lo siento mucho por ello. No te quise a ti menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba a mí hacerlo».",
+        "corrected": "Lo siento mucho. No te quise menos por la mentira que te dije, y quizá un poquito más, porque sabía bien lo que me costaba hacerlo».",
+        "chunk": "Chunk 1/1",
+        "id": "bf82dd88-9ec7-4db9-a8db-cb2c3fd7728b"
+      },
+      {
+        "original": "Pensó para sí misma que realmente debería sentirse enojada, o traicionada, o a la deriva de alguna forma.",
+        "corrected": "Pensó que debería sentirse enojada, traicionada o a la deriva.",
+        "chunk": "Chunk 1/1",
+        "id": "93da3dbe-3eea-4700-b39f-4278859bd207"
+      },
+      {
+        "original": "En cambio, sintió solo una ternura tranquila y sorprendente, casi como si una puerta que ella nunca antes había notado se hubiera abierto en una habitación familiar que ella conocía bien.",
+        "corrected": "En cambio, sintió una ternura tranquila y sorprendente, casi como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.",
+        "chunk": "Chunk 1/1",
+        "id": "31c9b1fa-f33e-4d6a-9325-3b6c22a04c8a"
+      },
+      {
+        "original": "Cerró el cuaderno con un movimiento de cierre.",
+        "corrected": "Cerró el cuaderno.",
+        "chunk": "Chunk 1/1",
+        "id": "f9bba46d-3702-4560-9c8d-4c0aa40d6010"
+      },
+      {
+        "original": "El mar se extendía en todas y cada una de las direcciones, y en algún lugar allá afuera, ella ahora lo entendía en ese momento, había una historia que le pertenecía a ella y que apenas había comenzado a empezar a aprender.",
+        "corrected": "El mar se extendía en todas direcciones. En algún lugar allá afuera, ahora lo entendía: había una historia que le pertenecía y que apenas comenzaba a aprender.",
+        "chunk": "Chunk 1/1",
+        "id": "d4c0d3d9-6c1e-4762-ae7e-ee02fb6e0e18"
+      },
+      {
+        "original": "Se quedaría allí a pasar la noche. Por la mañana, encendería la lámpara hacia arriba.",
+        "corrected": "Se quedaría allí para pasar la noche. Por la mañana, encendería la lámpara.",
+        "chunk": "Chunk 1/1",
+        "id": "419bf328-9926-4d77-9a84-668924bf96a6"
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-05-23T08:46:40.958Z"
   }
 ]

@@ -130,6 +130,17 @@ async function uploadText(filename: string, content: string): Promise<string> {
   return data.id;
 }
 
+// Tier-aware default words-per-chunk. Matches the auto-tune logic in
+// frontend/src/components/ModelSelector.tsx so the benchmark exercises the
+// same per-slot context budget as the real UI.
+function wordsPerChunkForModel(fileName: string): number {
+  const f = fileName.toLowerCase();
+  // Big tier: 20B+ parameter models — smaller chunks keep prompt + verbose
+  // JSON output comfortably within the per-slot context window.
+  if (/24b|27b|32b|34b|mistral-small-3\.2/.test(f)) return 1500;
+  return 2000;
+}
+
 async function waitForTask(taskId: string): Promise<{
   status: string;
   corrections: { original: string; corrected: string }[];
@@ -419,7 +430,7 @@ async function main() {
             model,
             modes: [task.mode],
             fast: true,
-            wordsPerChunk: 2500,
+            wordsPerChunk: wordsPerChunkForModel(model),
             overlapParagraphs: 1,
             parallel: recommendedParallel,
             editOptions,
@@ -435,12 +446,26 @@ async function main() {
         }),
       );
 
-      // Wait for all tasks in the batch to complete
+      // Wait for all tasks in the batch to complete. A per-task timeout or
+      // network failure must NOT abort the whole benchmark — record it as a
+      // failed result and move on so the remaining models still run.
       const batchResults = await Promise.all(
         submissions.map(async (sub) => {
-          const taskResult = await waitForTask(sub.taskId);
-          const elapsed = Date.now() - sub.startTime;
-          return { ...sub, taskResult, elapsed };
+          try {
+            const taskResult = await waitForTask(sub.taskId);
+            const elapsed = Date.now() - sub.startTime;
+            return { ...sub, taskResult, elapsed };
+          } catch (err) {
+            const elapsed = Date.now() - sub.startTime;
+            const msg = err instanceof Error ? err.message : String(err);
+            const taskResult = {
+              status: "error",
+              corrections: [] as { original: string; corrected: string }[],
+              errors: [msg],
+              editedText: undefined as string | undefined,
+            };
+            return { ...sub, taskResult, elapsed };
+          }
         }),
       );
 

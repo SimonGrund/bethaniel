@@ -176,6 +176,26 @@ function buildSystemMessage(model: string, taskPrompt: string): string {
 
 // ── Exported streaming functions (same signatures as ollama.ts) ──
 
+/**
+ * Compute a max_tokens value that fits inside the llama-server slot context
+ * budget. Each slot must hold (system + user prompt) + generated tokens
+ * simultaneously; if max_tokens leaves no room, decode aborts mid-stream
+ * with "Context size has been exceeded." Estimate prompt tokens
+ * conservatively (3 chars/token underestimates some scripts) and reserve
+ * 256 tokens for chat-template/role overhead.
+ */
+function slotSafeMaxTokens(
+  model: string,
+  systemMsg: string,
+  userText: string,
+  requestedCap: number,
+): number {
+  const cfg = getActiveConfig(model);
+  const promptTokenEst = Math.ceil((systemMsg.length + userText.length) / 3);
+  const slotBudget = cfg.num_ctx - promptTokenEst - 256;
+  return Math.max(256, Math.min(requestedCap, slotBudget));
+}
+
 /** Streaming edit — yields tokens as the model produces them. */
 export async function* editChunkStream(
   model: string,
@@ -183,13 +203,16 @@ export async function* editChunkStream(
   systemPrompt: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const cfg = getActiveConfig(model);
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, chunkText, cfg.num_predict);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
-    {},
+    { max_tokens: cap },
     signal,
   );
 }
@@ -212,13 +235,15 @@ export async function* findCorrectionsStream(
     cfg.num_predict,
     Math.ceil(estInputTokens * 2) + 512,
   );
-  const cap = maxTokensOverride
+  const requestedCap = maxTokensOverride
     ? Math.min(cfg.num_predict, maxTokensOverride)
     : defaultCap;
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, chunkText, requestedCap);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
     {
@@ -236,14 +261,16 @@ export async function* analyzeStream(
   systemPrompt: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, text, 4096);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: text },
     ],
     {
-      max_tokens: 4096,
+      max_tokens: cap,
       response_format: { type: "json_object" },
     },
     signal,

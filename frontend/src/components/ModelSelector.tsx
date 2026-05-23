@@ -1,6 +1,6 @@
 // ── Model selector — three colored Betty cards ──
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { getSocket } from "../socket";
@@ -184,14 +184,41 @@ export default function ModelSelector({
       .catch(() => {});
   }, [model]);
 
+  // Pre-warm the selected model so the first task doesn't pay the cold-load
+  // cost (mmap + KV alloc + Metal offload). Fire-and-forget — the backend
+  // serializes loads and emits progress via the `model:warming` socket event.
+  // Also flush the UI log (server + client) when the user switches models, so
+  // the engine feed shows only events relevant to the newly chosen model.
+  const prevModelRef = useRef<string>("");
+  const clearLogsLocal = useStore((s) => s.clearLogs);
+  useEffect(() => {
+    if (!model) return;
+    const prev = prevModelRef.current;
+    prevModelRef.current = model;
+    // Skip warm-up + log-flush for cloud/Ollama models — only local GGUFs
+    // need the cold-load mitigation.
+    if (model.startsWith("ollama:")) return;
+    // Only flush on a real switch, not on the initial auto-select after boot,
+    // so users keep useful startup diagnostics.
+    if (prev && prev !== model) {
+      clearLogsLocal();
+      fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
+    }
+    fetch(`${BASE}/api/models/preload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    }).catch(() => {});
+  }, [model, clearLogsLocal]);
+
   // Auto-tune words-per-chunk when model tier changes.
   // Big models are slow per token and have stricter context budgets, so we
   // default them to small chunks (500 words). Only override when the current
   // value matches a known tier default — never clobber a user customization.
   const TIER_WPC_DEFAULTS: Record<string, number> = {
-    big: 500,
-    normal: 2500,
-    small: 2500,
+    big: 1500,
+    normal: 2000,
+    small: 2000,
   };
   const KNOWN_TIER_DEFAULTS = new Set(Object.values(TIER_WPC_DEFAULTS));
   useEffect(() => {

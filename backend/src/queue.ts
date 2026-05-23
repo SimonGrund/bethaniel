@@ -618,13 +618,12 @@ async function processJob(job: JobData): Promise<void> {
     phase: "splitting",
   });
 
-  // Pre-load the model with a slot hint that matches actual queue demand,
-  // so we don't reserve KV cache for unused parallel slots. The hint is
-  // capped by the queue's concurrency setting and by hardware in
-  // detectParallelSlots(). Includes the current job + any pending jobs
-  // queued for the same model.
-  const sameModelPending = pending.filter((p) => p.model === model).length;
-  const desiredSlots = Math.max(1, Math.min(concurrency, sameModelPending + 1));
+  // Pre-load the model with a stable slot count equal to the queue's
+  // configured concurrency (capped by hardware in detectParallelSlots).
+  // Using the *configured* concurrency rather than `pending+1` keeps the
+  // slot count constant across the lifetime of a batch, so we don't
+  // restart the server every time another task joins the queue.
+  const desiredSlots = Math.max(1, concurrency);
   try {
     await ensureModelLoaded(model, undefined, desiredSlots);
   } catch (err) {
@@ -858,15 +857,21 @@ async function processJob(job: JobData): Promise<void> {
         decodeMs > 0 && tokCount > 1
           ? ((tokCount - 1) / (decodeMs / 1000)).toFixed(1)
           : "n/a";
+      // Rough input-token estimate (3.5 chars/token avg across our supported
+      // languages) — gives a useful prefill tok/s number even though llama-
+      // server's streaming endpoint doesn't expose exact prompt-token counts.
+      const inputTokenEst = Math.ceil(chunk.body.length / 3.5);
+      const prefillTps =
+        prefillMs > 0 ? (inputTokenEst / (prefillMs / 1000)).toFixed(0) : "n/a";
       totalOutTokens += tokCount;
       console.log(
-        `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
+        `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
       );
       if (tokCount > 0) {
         appendLog({
           level: "info",
           source: "engine",
-          message: `Chunk ${chunkLabel}: ${tokCount} tokens @ ${tokPerSec} tok/s`,
+          message: `Chunk ${chunkLabel}: prefill ~${prefillTps} tok/s · decode ${tokPerSec} tok/s (${tokCount} tokens)`,
           model,
         });
       }
@@ -1026,6 +1031,13 @@ export function initQueue(socketIo: SocketServer, conc = 1): void {
 export function setConcurrency(n: number): void {
   concurrency = Math.max(1, n);
   pump();
+}
+
+/** Current concurrency setting — exported so the model warm-up path can
+ *  pre-allocate the right number of llama-server parallel slots up front
+ *  and avoid mid-session reloads. */
+export function getConcurrency(): number {
+  return concurrency;
 }
 
 export async function submitTask(
