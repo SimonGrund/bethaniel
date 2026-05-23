@@ -184,6 +184,31 @@ export default function ModelSelector({
       .catch(() => {});
   }, [model]);
 
+  // Auto-tune words-per-chunk when model tier changes.
+  // Big models are slow per token and have stricter context budgets, so we
+  // default them to small chunks (500 words). Only override when the current
+  // value matches a known tier default — never clobber a user customization.
+  const TIER_WPC_DEFAULTS: Record<string, number> = {
+    big: 500,
+    normal: 2500,
+    small: 2500,
+  };
+  const KNOWN_TIER_DEFAULTS = new Set(Object.values(TIER_WPC_DEFAULTS));
+  useEffect(() => {
+    if (!model || catalog.length === 0) return;
+    const entry = catalog.find((e) => e.fileName === model);
+    if (!entry) return;
+    const target = TIER_WPC_DEFAULTS[entry.tier];
+    if (
+      target &&
+      target !== wordsPerChunk &&
+      KNOWN_TIER_DEFAULTS.has(wordsPerChunk)
+    ) {
+      setWordsPerChunk(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, catalog]);
+
   async function startDownload(modelId: string) {
     setError(null);
     setDownloading((prev) => new Set(prev).add(modelId));

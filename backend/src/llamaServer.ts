@@ -209,8 +209,17 @@ export function detectParallelSlots(
 
 // ── Health polling ──
 
-function pollHealth(timeoutMs = 60000): Promise<void> {
+// Updated by stdout/stderr handlers in start(); used by pollHealth() to
+// extend the deadline while the engine is still making visible progress
+// (e.g. mmap'ing a 14 GB GGUF, warming the KV cache).
+let lastEngineActivityAt = 0;
+
+function pollHealth(
+  idleTimeoutMs = 120_000,
+  absoluteTimeoutMs = 900_000,
+): Promise<void> {
   const start = Date.now();
+  lastEngineActivityAt = start;
   return new Promise((resolve, reject) => {
     const check = () => {
       const req = http.get(
@@ -227,9 +236,22 @@ function pollHealth(timeoutMs = 60000): Promise<void> {
       });
     };
     const retry = () => {
-      if (Date.now() - start > timeoutMs) {
+      const now = Date.now();
+      const idleFor = now - lastEngineActivityAt;
+      const totalFor = now - start;
+      if (totalFor > absoluteTimeoutMs) {
         return reject(
-          new Error(`llama-server health check timed out after ${timeoutMs}ms`),
+          new Error(
+            `llama-server health check exceeded absolute timeout of ${absoluteTimeoutMs}ms`,
+          ),
+        );
+      }
+      if (idleFor > idleTimeoutMs) {
+        return reject(
+          new Error(
+            `llama-server health check timed out after ${idleTimeoutMs}ms of no engine output ` +
+              `(total wait ${totalFor}ms)`,
+          ),
         );
       }
       setTimeout(check, 500);
@@ -426,11 +448,13 @@ async function doLoad(
     const s = d.toString().trimEnd();
     console.log("[llama-server]", s);
     recentOutput = (recentOutput + "\n" + s).slice(-8000);
+    lastEngineActivityAt = Date.now();
   });
   childProcess.stderr?.on("data", (d: Buffer) => {
     const s = d.toString().trimEnd();
     console.log("[llama-server]", s);
     recentOutput = (recentOutput + "\n" + s).slice(-8000);
+    lastEngineActivityAt = Date.now();
   });
 
   childProcess.on("exit", (code, signal) => {

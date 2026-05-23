@@ -36,7 +36,7 @@ export const BASE_SYSTEM_PROMPT =
 
 // Shared default tuning. Per-entry overrides below can refine these values.
 const COMMON_DEFAULTS: Omit<ModelSettings, "system"> = {
-  num_ctx: 6144,
+  num_ctx: 8192,
   num_predict: 4096,
   temperature: 0.1,
   top_p: 0.8,
@@ -92,8 +92,15 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 14_300_000_000,
     minRamGb: 24,
     minRamAppleSiliconGb: 16,
-    // Smaller ctx by default to fit Mistral 24B on 16 GB Apple Silicon.
-    defaults: { ...COMMON_DEFAULTS, num_ctx: 8192, system: BASE_SYSTEM_PROMPT },
+    // Larger ctx + output budget so a ~2k-token prompt plus a verbose JSON
+    // corrections response comfortably fits per slot (prompt + output must
+    // share num_ctx). detectParallelSlots already accounts for KV cost.
+    defaults: {
+      ...COMMON_DEFAULTS,
+      num_ctx: 12288,
+      num_predict: 6144,
+      system: BASE_SYSTEM_PROMPT,
+    },
   },
 ];
 
