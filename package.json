@@ -22,7 +22,9 @@
     "dist": "node scripts/build.mjs",
     "dist:mac": "node scripts/build.mjs --platform mac",
     "dist:win": "node scripts/build.mjs --platform win",
-    "dist:linux": "node scripts/build.mjs --platform linux"
+    "dist:linux": "node scripts/build.mjs --platform linux",
+    "release": "node scripts/build.mjs --publish always",
+    "release:mac": "node scripts/build.mjs --platform mac --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.3"

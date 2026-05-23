@@ -741,66 +741,25 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
-        let cs = parseCorrectionsJson(acc);
+        const cs = parseCorrectionsJson(acc);
 
-        // Detect truncation: large raw response that doesn't end with `]`.
-        // Re-run the chunk with a doubled token budget so the model can
-        // finish the JSON array. We only retry once.
+        // Corrections are emitted as JSONL (one JSON object per line), so
+        // truncation only ever drops the final partial line. No retry needed.
+        // Just note when the response was likely cut off so users can spot
+        // chunks where a few late corrections may have been lost.
         const trimmedAcc = acc.trim();
         const looksTruncated =
           acc.length > 800 &&
-          !trimmedAcc.endsWith("]") &&
-          !trimmedAcc.endsWith("]}");
+          trimmedAcc.length > 0 &&
+          !trimmedAcc.endsWith("}");
         if (looksTruncated) {
-          const salvaged = cs.length;
           appendLog({
-            level: "warn",
+            level: "info",
             source: "engine",
             taskId,
-            message: `Chunk ${chunkLabel}: response appears truncated (${acc.length} chars, salvaged ${salvaged}). Retrying with larger token budget.`,
+            message: `Chunk ${chunkLabel}: response ended mid-line (${acc.length} chars, ${cs.length} corrections parsed). Last partial entry dropped — consider raising max output tokens if this happens often.`,
             model,
           });
-          updateTask(taskId, {
-            phase: `chunk ${chunkLabel} retry with larger budget`,
-          });
-          // Compute a generous budget: ~3 chars/token estimate of the input
-          // multiplied by 4, capped reasonably.
-          const inputTokenEst = Math.ceil(chunk.body.length / 3);
-          const retryBudget = Math.min(8192, inputTokenEst * 4 + 1024);
-          let acc2 = "";
-          try {
-            for await (const tok of findCorrectionsStream(
-              model,
-              chunk.body,
-              prompt,
-              ac.signal,
-              retryBudget,
-            )) {
-              acc2 += tok;
-            }
-            const cs2 = parseCorrectionsJson(acc2);
-            // Prefer whichever pass yielded more corrections.
-            if (cs2.length > cs.length) {
-              cs = cs2;
-              acc = acc2;
-              appendLog({
-                level: "info",
-                source: "engine",
-                taskId,
-                message: `Chunk ${chunkLabel}: retry recovered ${cs2.length} corrections (was ${salvaged}).`,
-                model,
-              });
-            }
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            appendLog({
-              level: "warn",
-              source: "engine",
-              taskId,
-              message: `Chunk ${chunkLabel}: retry failed (${msg}); keeping salvaged ${salvaged} corrections.`,
-              model,
-            });
-          }
         }
 
         // Debug: log raw response when parsing yields zero corrections

@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-05-23T09:37:03.773Z
+Report generated: 2026-05-23T09:56:11.266Z
 ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -148,11 +148,22 @@ MODEL: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
   │ Corrections: 33 / 20 expected | False positives: 27 | Time: 1362.6s
   └──────────────────────────────────────────────────────────────────────────────
 
+  ┌─ SPANISH ───────────────────────────────────────────────────────────────
+  │ File                                Mode         Found   Expected   Time     Run Date
+  │ ─────────────────────────────────── ──────────── ─────── ────────── ──────── ───────────────────
+  │ spanish_copy_edit.md                copy_edit    20      10         723.7s   2026-05-23 09:51:31
+  │ spanish_correct.md                  copy_edit    22      0          750.8s   2026-05-23 09:51:31
+  │ spanish_correct.md                  line_edit    37      0          867.9s   2026-05-23 09:51:31
+  │ spanish_line_edit.md                line_edit    19      10         279.5s   2026-05-23 09:56:11
+  │
+  │ Corrections: 39 / 20 expected | False positives: 59 | Time: 2621.9s
+  └──────────────────────────────────────────────────────────────────────────────
+
   MODEL TOTALS:
-    True corrections found: 118 / 60 expected
-    False positives (clean texts): 124
-    Total runtime: 7487.2s
-    Avg time per task: 623.9s
+    True corrections found: 157 / 80 expected
+    False positives (clean texts): 183
+    Total runtime: 10109.1s
+    Avg time per task: 631.8s
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -172,6 +183,7 @@ CROSS-MODEL COMPARISON BY LANGUAGE
   german       Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   33         27    1362.6s
   spanish      Qwen3.5-4B-Q4_K_M.gguf                        38         12    527.7s
   spanish      Qwen3.5-9B-Q4_K_M.gguf                        32         17    560.0s
+  spanish      Mistral-Small-3.2-24B-Instruct-2506-Q4_K...   39         59    2621.9s
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -833,6 +845,112 @@ DETAILED CORRECTIONS
   "Das Meer dehnte sich in jede einzelne Richtung aus" → "The sea stretched in every direction"
   "und irgendwo dort draußen, das verstand sie nun zu diesem..." → "and somewhere out there, she understood now"
   "lag eine Geschichte, die ihr gehörte und die sie gerade e..." → "lay a story that belonged to her and that she had only ju..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit) — 2026-05-23 09:51:31:
+  "Mara subio la escalera" → "Mara subió la escalera"
+  "habia cuidado este faro" → "había cuidado este faro"
+  "la escritura había pasado por fin a sus manos." → "the deed had finally passed into her hands."
+  "los herrajes de latón pulidos hasta un brillo suave" → "the brass fittings polished to a soft shine"
+  "la gran lente silenciosa y vigilante" → "the great lens silent and watchful"
+  "un cuaderno de bitácora abierto sobre el pequeño escritor..." → "a logbook open on the small oak desk."
+  "con su nombre escrito al frente con la letra cuidadosa de..." → "with her name written at the front in her grandfather's c..."
+  "Mara se sentó antes de habrirla" → "Mara sat down before opening it"
+  "porque las rodillas habían empezado a temblarle y no quer..." → "because her knees had started to tremble and she didn't w..."
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → "“Mara,” the letter began, “if you’re reading this, it’s b..."
+  "«Tenia tres años —escribió—. Me llamabas Abuelo porque es..." → "“She was three years old,” he wrote. “You called me Grand..."
+  "Afuera, las gaviotas trazaban círculos lentos sobre el ag..." → "Outside, the gulls traced slow circles over the water and..."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "She thought she should feel angry, or betrayed, or adrift."
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "Instead, she felt only a quiet, surprising tenderness as ..."
+  "Tomó el cuaderno y lo abrió en la entrada más reciente. E..." → "She took the logbook and opened it to the most recent ent..."
+  "Con una letra adelgazada y temblorosa, habia escrito: «vi..." → "In a thin, trembling hand, he had written: “Light southwe..."
+  "Mara cerró el cuaderno." → "Mara closed the logbook."
+  "Se levantó, caminó hasta la gran lente y apoyó la palma c..." → "She stood up, walked to the great lens, and pressed her p..."
+  "El mar se extendía en todas direcciones, vasto, brillante..." → "The sea stretched in all directions, vast, bright, and in..."
+  "Se quedaría a pasar la noche. Por la mañana, encenderia l..." → "She would stay to spend the night. In the morning, she wo..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_correct.md (copy_edit) — 2026-05-23 09:51:31:
+  "Mara subió la escalera de caracol por primera vez en vein..." → "Mara climbed the spiral staircase for the first time in t..."
+  "Los peldaños de hierro gimieron bajo sus botas, y el aire..." → "The iron steps groaned under her boots, and the salty air..."
+  "Arriba, la sala de la linterna estaba exactamente como el..." → "Above, the lantern room was exactly as she remembered it:..."
+  "Una hoja doblada de papel descansaba bajo el cuaderno, co..." → "A folded sheet of paper rested under the logbook, with he..."
+  "Mara se sentó antes de abrirla, porque las rodillas había..." → "Mara sat down before opening it, because her knees had st..."
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → ""Mara —the letter began—, if you're reading this, it's be..."
+  "Perdona a un viejo su cobardía»" → "Forgive an old man his cowardice""
+  "Leyó despacio. Él escribía sobre la noche en que su madre..." → "She read slowly. He wrote about the night her mother had ..."
+  "sobre la mujer que él había sacado del oleaje y subido po..." → "about the woman he had pulled from the surf and brought u..."
+  "Escribía sobre la decisión que había tomado de guardar su..." → "He wrote about the decision he had made to keep her secre..."
+  "«Tenías tres años —escribió—. Me llamabas Abuelo porque e..." → ""You were three years old —he wrote—. You called me Grand..."
+  "Lo siento. No te quise menos por la mentira, y quizá un p..." → "I'm sorry. I didn't love you any less for the lie, and pe..."
+  "Mara dejó la carta sobre el escritorio. Afuera, las gavio..." → "Mara set the letter down on the desk. Outside, the seagul..."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "She thought she should feel angry, or betrayed, or adrift"
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "Instead, she felt only a quiet and surprising tenderness,..."
+  "Tomó el cuaderno y lo abrió en la entrada más reciente. E..." → "She took the logbook and opened it to the most recent ent..."
+  "Con una letra adelgazada y temblorosa, había escrito: «Vi..." → "In a thin and trembling hand, he had written: "Light sout..."
+  "Buena visibilidad. Hoy le hablé a M. de la carta. No ente..." → "Good visibility. Today I spoke to M. about the letter. Sh..."
+  "La luz está lista. Yo también»" → "The light is ready. Me too""
+  "Mara cerró el cuaderno. Se levantó, caminó hasta la gran ..." → "Mara closed the logbook. She stood up, walked to the grea..."
+  "El mar se extendía en todas direcciones, vasto, brillante..." → "The sea stretched in all directions, vast, bright and ind..."
+  "Se quedaría a pasar la noche. Por la mañana, encendería l..." → "She would stay to spend the night. In the morning, she wo..."
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_correct.md (line_edit) — 2026-05-23 09:51:31:
+  "Los peldaños de hierro gimieron bajo sus botas" → "The iron steps groaned under her boots"
+  "el aire salado se apoyó contra las ventanas estrechas com..." → "the salty air pressed against the narrow windows like an ..."
+  "la gran lente silenciosa y vigilante" → "the great lens, silent and watchful"
+  "un cuaderno de bitácora abierto sobre el pequeño escritor..." → "a logbook open on the small oak desk"
+  "Una hoja doblada de papel descansaba bajo el cuaderno" → "A folded sheet of paper lay beneath the logbook"
+  "con su nombre escrito al frente con la letra cuidadosa de..." → "with her name written at the top in her grandfather's car..."
+  "Mara se sentó antes de abrirla, porque las rodillas había..." → "Mara sat down before opening it, because her knees had st..."
+  "«Mara —comenzaba la carta—, si estás leyendo esto, es que..." → "“Mara,” the letter began, “if you’re reading this, it mea..."
+  "Perdona a un viejo su cobardía»" → "Forgive an old man his cowardice.”"
+  "Leyó despacio" → "She read slowly"
+  "sobre la tormenta que había arrojado una pequeña barca de..." → "about the storm that had hurled a small fishing boat agai..."
+  "sobre la mujer que él había sacado del oleaje y subido po..." → "about the woman he had pulled from the waves and brought ..."
+  "Escribía sobre la decisión que había tomado de guardar su..." → "He wrote about the decision he had made to keep her secret"
+  "y sobre la hija que aquella mujer había dejado a su cuidado" → "and about the daughter that woman had left in his care"
+  "«Tenías tres años —escribió—" → "“You were three years old,” he wrote,"
+  "Me llamabas Abuelo porque eso fue lo que te pedí que me l..." → "You called me Grandfather because that’s what I asked you..."
+  "Lo siento" → "I’m sorry"
+  "No te quise menos por la mentira, y quizá un poco más, po..." → "I didn’t love you any less because of the lie, and perhap..."
+  "Mara dejó la carta sobre el escritorio" → "Mara set the letter down on the desk"
+  "Afuera, las gaviotas trazaban círculos lentos sobre el agua" → "Outside, the seagulls traced slow circles over the water"
+  "y el mar se movía con el mismo ritmo paciente que mantení..." → "and the sea moved with the same patient rhythm it had kep..."
+  "Pensó que debería sentirse enojada, o traicionada, o a la..." → "She thought she should feel angry, or betrayed, or adrift"
+  "En cambio, sintió solo una ternura tranquila y sorprendente" → "Instead, she felt only a quiet, surprising tenderness"
+  "como si una puerta que nunca había notado se hubiera abie..." → "as if a door she had never noticed had opened in a famili..."
+  "Tomó el cuaderno y lo abrió en la entrada más reciente" → "She took the logbook and opened it to the most recent entry"
+  "Con una letra adelgazada y temblorosa, había escrito:" → "In a thin, trembling hand, he had written:"
+  "Viento ligero del suroeste" → "Light southwest wind"
+  "Buena visibilidad" → "Good visibility"
+  "No entendió, pero entenderá, cuando llegue el momento" → "She didn’t understand, but she will, when the time comes"
+  "La luz está lista" → "The light is ready"
+  "Yo también»" → "So am I.”"
+  "Mara cerró el cuaderno" → "Mara closed the logbook"
+  "Se levantó, caminó hasta la gran lente y apoyó la palma c..." → "She stood up, walked to the great lens, and pressed her p..."
+  "El mar se extendía en todas direcciones, vasto, brillante..." → "The sea stretched in all directions, vast, bright, and in..."
+  "y en algún lugar allá afuera, lo entendía ahora, había un..." → "and out there somewhere, she understood now, was a story ..."
+  "Se quedaría a pasar la noche" → "She would stay the night"
+  "Por la mañana, encendería la lámpara" → "In the morning, she would light the lamp"
+
+[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_line_edit.md (line_edit) — 2026-05-23 09:56:11:
+  "Los peldaños de hierro hicieron un sonido de gemido bajo ..." → "Los peldaños de hierro gimieron bajo sus botas"
+  "el aire salado y con sal se apoyó contra las ventanas est..." → "el aire salado se apoyó contra las ventanas estrechas com..."
+  "había cuidado este faro durante un período de cuatro décadas" → "había cuidado este faro durante cuatro décadas"
+  "la escritura había pasado finalmente por fin a sus manos" → "la escritura había pasado finalmente a sus manos"
+  "los herrajes de latón pulidos hasta llegar a un brillo suave" → "los herrajes de latón pulidos hasta un brillo suave"
+  "un cuaderno de bitácora que estaba abierto sobre el peque..." → "un cuaderno de bitácora abierto sobre el pequeño escritor..."
+  "No había nada de polvo allí. Alguien había estado allí en..." → "No había polvo. Alguien había estado allí recientemente."
+  "Una hoja doblada de papel descansaba debajo del cuaderno,..." → "Una hoja doblada de papel descansaba debajo del cuaderno,..."
+  "Mara se sentó a sí misma antes de proceder a abrirla" → "Mara se sentó antes de abrirla"
+  "porque las rodillas le habían comenzado a empezar a tembl..." → "porque sus rodillas habían empezado a temblar y no quería..."
+  "«Mara —comenzaba a decir la carta—, si estás leyendo esta..." → "«Mara —decía la carta—, si estás leyendo esta carta, es q..."
+  "Por favor, perdona a un viejo hombre por su cobardía»." → "Por favor, perdona a un viejo por su cobardía»."
+  "«Tenías tres años de edad en ese entonces —escribió en su..." → "«Tenías tres años en ese entonces —escribió"
+  "Me llamabas Abuelo a mí porque eso fue exactamente lo que..." → "Me llamabas abuelo porque así te lo pedí"
+  "Lo siento mucho por ello" → "Lo siento"
+  "No te quise a ti menos por la mentira que te dije, y quiz..." → "No te quise menos por la mentira, y quizá un poco más, po..."
+  "Pensó para sí misma que realmente debería sentirse enojad..." → "Pensó que debería sentirse enojada, traicionada, o a la d..."
+  "En cambio, sintió solo una ternura tranquila y sorprenden..." → "En cambio, sintió una ternura tranquila y sorprendente, c..."
+  "Se quedaría allí a pasar la noche. Por la mañana, encende..." → "Pasaría la noche allí. Al amanecer, encendería la lámpara"
 
 
 ── END OF REPORT ──
