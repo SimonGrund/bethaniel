@@ -42,8 +42,6 @@ extraResources:
       - "**/*"
   - from: backend/package.json
     to: backend/package.json
-  - from: modelfile
-    to: modelfile
 
 publish:
   provider: github

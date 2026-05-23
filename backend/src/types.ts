@@ -149,10 +149,10 @@ export interface QueueAddRequest {
   units: EditUnit[];
   model: string;
   modes: TaskMode[];
-  fast: boolean;
-  wordsPerChunk: number;
-  overlapParagraphs: number;
-  parallel: number;
+  fast?: boolean;
+  wordsPerChunk?: number;
+  overlapParagraphs?: number;
+  parallel?: number;
   styleGuide?: string;
   editOptions?: CopyEditOptions | LineEditOptions;
   targetLang?: string;

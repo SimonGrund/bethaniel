@@ -43,10 +43,18 @@ import {
 import { buildConsistencyReport } from "./consistency.js";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
 import {
-  applyModelfile,
   readModelConfig,
   writeModelConfig,
+  resetModelConfig,
+  getDefaultsForFile,
 } from "./modelConfig.js";
+import {
+  MODEL_CATALOG,
+  DEFAULT_MODEL_FILENAME,
+  isOllamaModel,
+  getPreferredOrder,
+} from "./modelCatalog.js";
+import type { ModelCatalogEntry } from "./modelCatalog.js";
 import {
   saveDocument,
   getDocument,
@@ -62,9 +70,11 @@ import {
   retryTask,
   removeCompleted,
   removeTask,
+  removeJob,
   getTasksSnapshot,
   getTask,
   setConcurrency,
+  getConcurrency,
 } from "./queue.js";
 import type { DocumentMeta } from "./types.js";
 
@@ -195,15 +205,16 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
   // 8k context on a 7B model; scales ~linearly with model + context.
   const kvPerJobGb = Math.max(0.3, modelSizeGb * 0.1);
 
-  // Ollama loads weights once and shares them across concurrent requests,
-  // so RAM = modelSize + N * kvPerJob.
+  // Weights are loaded once, shared across concurrent requests.
+  // RAM budget = modelSize + N * kvPerJob.
   const ramSlots = Math.floor((usableGb - modelSizeGb) / kvPerJobGb);
 
-  // Don't outrun the CPU either; leave 1-2 cores for the OS.
+  // Don't outrun the CPU either; leave 2 cores for the OS.
   const cpuSlots = Math.max(1, cpuCount - 2);
 
-  // Diminishing returns past 8 on a single Ollama instance.
-  const recommendedParallel = Math.max(1, Math.min(8, ramSlots, cpuSlots));
+  // Cap at 3 — on a single GPU (Apple Silicon), decode is bandwidth-bound
+  // so more slots just burn KV cache RAM for negligible throughput gain.
+  const recommendedParallel = Math.max(1, Math.min(3, ramSlots, cpuSlots));
 
   res.json({
     recommendedParallel,
@@ -278,12 +289,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       targetLang,
     } = req.body;
 
+    // Resolve once so prompt selection and execution path stay in sync.
+    const resolvedFast = fast ?? true;
+
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${fast}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${resolvedFast}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -345,7 +359,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_COPY_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = fast
+          systemPrompt = resolvedFast
             ? buildCopyEditCorrectionsPrompt(opts, styleGuide)
             : buildCopyEditRewritePrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
@@ -356,7 +370,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_LINE_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = fast
+          systemPrompt = resolvedFast
             ? buildLineEditCorrectionsPrompt(opts, styleGuide)
             : buildLineEditRewritePrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
@@ -427,10 +441,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: text,
           wordCount: text.split(/\s+/).filter(Boolean).length,
-          model: model ?? "qwen3:32b",
+          model: model ?? DEFAULT_MODEL_FILENAME,
           mode: currentMode,
           prompt: systemPrompt,
-          fast: currentMode === "translate" ? false : (fast ?? true),
+          fast: currentMode === "translate" ? false : resolvedFast,
           wpc: wordsPerChunk ?? 2500,
           overlap: overlapParagraphs ?? 1,
           editOptions: taskEditOptions,
@@ -505,10 +519,22 @@ router.delete("/queue/clear", (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// ── Queue: delete a single task ──
+// ── Queue: cancel a single task (active queue control) ──
 router.delete("/queue/task/:taskId", (req: Request, res: Response) => {
   cancelTask(req.params.taskId);
   res.json({ ok: true });
+});
+
+// ── Queue: permanently remove a single task from history ──
+router.delete("/queue/task/:taskId/remove", (req: Request, res: Response) => {
+  removeTask(req.params.taskId);
+  res.json({ ok: true });
+});
+
+// ── Queue: permanently remove every task in a job ──
+router.delete("/queue/job/:jobId", (req: Request, res: Response) => {
+  const removed = removeJob(req.params.jobId);
+  res.json({ ok: true, removed });
 });
 
 // ── Queue: retry a failed/cancelled task ──
@@ -582,60 +608,6 @@ router.post("/consistency", (req: Request, res: Response) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const MODELS_DIR_PATH = process.env.MODELS_DIR ?? join(__dirname, "../models");
-
-interface ModelCatalogEntry {
-  id: string;
-  tier: "small" | "normal" | "medium" | "large" | "big";
-  name: string;
-  description: string;
-  fileName: string;
-  url: string;
-  sha256: string;
-  sizeBytes: number;
-  minRamGb: number;
-  minRamAppleSiliconGb: number;
-}
-
-const MODEL_CATALOG: ModelCatalogEntry[] = [
-  {
-    id: "gemma-3n-e4b",
-    tier: "small",
-    name: "Baby Betty",
-    description: "Small, handy, and quick. But sometimes I make mistakes.",
-    fileName: "gemma-3n-E4B-it-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 3_200_000_000,
-    minRamGb: 8,
-    minRamAppleSiliconGb: 8,
-  },
-  {
-    id: "mistral-small-3.2-24b",
-    tier: "normal",
-    name: "Basic Betty",
-    description:
-      "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
-    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    url: "https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 14_300_000_000,
-    minRamGb: 24,
-    minRamAppleSiliconGb: 16,
-  },
-  {
-    id: "qwen3-32b",
-    tier: "big",
-    name: "Big Bad Betty",
-    description:
-      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    fileName: "Qwen3-32B-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 19_800_000_000,
-    minRamGb: 32,
-    minRamAppleSiliconGb: 24,
-  },
-];
 
 // Track active downloads so we can report progress / prevent duplicates
 const activeDownloads = new Map<
@@ -739,7 +711,7 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
     ...entry,
     allowed: allowedTiers.includes(entry.tier),
   }));
-  res.json({ catalog, allowedTiers });
+  res.json({ catalog, allowedTiers, preferredOrder: getPreferredOrder() });
 });
 
 // ── GET /api/models/installed ──
@@ -750,8 +722,7 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
 
     // Check GGUF models on disk
     const installed = MODEL_CATALOG.filter(
-      (entry) =>
-        entry.fileName.endsWith(".gguf") && entries.includes(entry.fileName),
+      (entry) => !isOllamaModel(entry) && entries.includes(entry.fileName),
     ).map((entry) => ({
       id: entry.id,
       tier: entry.tier,
@@ -761,14 +732,15 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
 
     // Check Ollama models
     for (const entry of MODEL_CATALOG) {
-      if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+      if (isOllamaModel(entry)) {
+        const ollamaName = entry.ollamaTag ?? entry.fileName;
         try {
           const showRes = await fetch(
             `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/api/show`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: entry.fileName }),
+              body: JSON.stringify({ name: ollamaName }),
             },
           );
           if (showRes.ok) {
@@ -810,8 +782,9 @@ router.post("/models/download", async (req: Request, res: Response) => {
     return;
   }
 
-  // ── Ollama models (no URL, not GGUF) ──
-  if (!entry.fileName.endsWith(".gguf") && entry.url === "") {
+  // ── Ollama models ──
+  if (isOllamaModel(entry)) {
+    const ollamaName = entry.ollamaTag ?? entry.fileName;
     // Check if already pulled
     try {
       const showRes = await fetch(
@@ -819,7 +792,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: entry.fileName }),
+          body: JSON.stringify({ name: ollamaName }),
         },
       );
       if (showRes.ok) {
@@ -853,7 +826,7 @@ router.post("/models/download", async (req: Request, res: Response) => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: entry.fileName }),
+            body: JSON.stringify({ name: ollamaName }),
             signal: abortCtrl.signal,
           },
         );
@@ -1075,15 +1048,9 @@ router.post("/models/download", async (req: Request, res: Response) => {
       // Rename .partial → final
       await fs.rename(partialPath, destPath);
 
-      // Apply modelfile settings to the downloaded model
-      // In Electron: process.resourcesPath/modelfile
-      // In dev: project root (one level up from backend/src/)
-      const resourceBase = (process as any).resourcesPath;
-      const thisDir = new URL(".", import.meta.url).pathname;
-      const modelfilePath = resourceBase
-        ? join(resourceBase, "modelfile")
-        : join(thisDir, "..", "..", "modelfile");
-      applyModelfile(modelfilePath, MODELS_DIR_PATH, entry.fileName);
+      // Per-model defaults live in modelCatalog.ts; nothing to write here.
+      // Any user override sidecar JSON (if present) is preserved across
+      // re-downloads and continues to layer on top of catalog defaults.
 
       progress.status = "done";
 
@@ -1170,8 +1137,9 @@ router.get("/models/:fileName/config", (req: Request, res: Response) => {
     res.status(400).json({ error: "Unknown model file" });
     return;
   }
-  const cfg = readModelConfig(MODELS_DIR_PATH, fileName);
-  res.json(cfg);
+  const current = readModelConfig(MODELS_DIR_PATH, fileName);
+  const defaults = getDefaultsForFile(fileName);
+  res.json({ ...current, defaults });
 });
 
 // ── PUT /api/models/:fileName/config ──
@@ -1198,6 +1166,19 @@ router.put("/models/:fileName/config", (req: Request, res: Response) => {
     typeof body.temperature === "number" && Number.isFinite(body.temperature)
       ? Math.max(0, Math.min(2, body.temperature))
       : current.temperature;
+  const top_p =
+    typeof body.top_p === "number" && Number.isFinite(body.top_p)
+      ? Math.max(0, Math.min(1, body.top_p))
+      : current.top_p;
+  const top_k =
+    typeof body.top_k === "number" && Number.isFinite(body.top_k)
+      ? Math.max(0, Math.min(200, Math.floor(body.top_k)))
+      : current.top_k;
+  const repeat_penalty =
+    typeof body.repeat_penalty === "number" &&
+    Number.isFinite(body.repeat_penalty)
+      ? Math.max(0.5, Math.min(2.0, body.repeat_penalty))
+      : current.repeat_penalty;
   const no_mmap =
     typeof body.no_mmap === "boolean" ? body.no_mmap : current.no_mmap;
 
@@ -1206,10 +1187,90 @@ router.put("/models/:fileName/config", (req: Request, res: Response) => {
     num_ctx,
     num_predict,
     temperature,
+    top_p,
+    top_k,
+    repeat_penalty,
     no_mmap,
   };
   writeModelConfig(MODELS_DIR_PATH, fileName, next);
-  res.json(next);
+  res.json({ ...next, defaults: getDefaultsForFile(fileName) });
+});
+
+// ── DELETE /api/models/:fileName/config ── (reset to catalog defaults)
+router.delete("/models/:fileName/config", (req: Request, res: Response) => {
+  const fileName = req.params.fileName;
+  const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
+  if (!entry) {
+    res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+  const defaults = resetModelConfig(MODELS_DIR_PATH, fileName);
+  res.json({ ...defaults, defaults });
+});
+
+// ── Diagnostic logs ──
+import { getLogSnapshot, clearLogs, appendLog } from "./logBus.js";
+import { ensureModelLoaded } from "./llamaServer.js";
+
+router.get("/logs", (_req: Request, res: Response) => {
+  res.json({ logs: getLogSnapshot() });
+});
+
+router.delete("/logs", (_req: Request, res: Response) => {
+  clearLogs();
+  res.json({ ok: true });
+});
+
+// ── Pre-warm a model so the first task doesn't pay the cold-load cost ──
+// Fire-and-forget endpoint. The browser doesn't wait for completion; the
+// "model:warming" socket event drives UI state, and appendLog surfaces
+// progress to the engine log.
+const warmingByModel = new Set<string>();
+router.post("/models/preload", async (req: Request, res: Response) => {
+  const body = req.body as { model?: string } | undefined;
+  const model = body?.model;
+  if (!model || typeof model !== "string") {
+    res.status(400).json({ error: "missing model" });
+    return;
+  }
+  // Reply immediately; the actual load runs in the background.
+  res.json({ ok: true, warming: !warmingByModel.has(model) });
+  if (warmingByModel.has(model)) return;
+  warmingByModel.add(model);
+  const io = getSocketIO();
+  io?.emit("model:warming", { model, status: "warming" });
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: "Warming up the model… Ready when you are.",
+    hintKey: "log_warming",
+    model,
+  });
+  const t0 = Date.now();
+  try {
+    // Warm up with the same slot count the queue will actually use, so the
+    // first real job doesn't trigger a costly reload to add more slots.
+    await ensureModelLoaded(model, undefined, getConcurrency());
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Model ready (${secs}s).`,
+      model,
+    });
+    io?.emit("model:warming", { model, status: "ready" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Warm-up failed: ${msg}`,
+      model,
+    });
+    io?.emit("model:warming", { model, status: "error", error: msg });
+  } finally {
+    warmingByModel.delete(model);
+  }
 });
 
 export default router;

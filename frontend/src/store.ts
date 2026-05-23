@@ -10,6 +10,7 @@ import type {
   TaskMode,
   CopyEditOptions,
   LineEditOptions,
+  LogEntry,
 } from "./types";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
@@ -80,6 +81,24 @@ interface AppState {
   setUploading: (b: boolean) => void;
   submitting: boolean;
   setSubmitting: (b: boolean) => void;
+
+  // Model warm-up
+  warmingModel: string | null;
+  warmingStatus: "warming" | "ready" | "error" | null;
+  setWarming: (
+    model: string | null,
+    status: "warming" | "ready" | "error" | null,
+  ) => void;
+
+  // Diagnostic log
+  logs: LogEntry[];
+  setLogs: (logs: LogEntry[]) => void;
+  appendLog: (entry: LogEntry) => void;
+  clearLogs: () => void;
+  logPanelOpen: boolean;
+  setLogPanelOpen: (b: boolean) => void;
+  unreadLogCount: number;
+  resetUnreadLogs: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -141,6 +160,11 @@ export const useStore = create<AppState>((set, get) => ({
   tasks: {},
   setTasks: (tasks) => set({ tasks }),
 
+  warmingModel: null,
+  warmingStatus: null,
+  setWarming: (warmingModel, warmingStatus) =>
+    set({ warmingModel, warmingStatus }),
+
   acceptedCorrections: {},
   toggleCorrection: (taskId, correctionId) =>
     set((state) => {
@@ -178,4 +202,28 @@ export const useStore = create<AppState>((set, get) => ({
   setUploading: (uploading) => set({ uploading }),
   submitting: false,
   setSubmitting: (submitting) => set({ submitting }),
+
+  logs: [],
+  setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
+  appendLog: (entry) =>
+    set((state) => {
+      // De-dup by id (server reuses ids monotonically per session)
+      if (state.logs.some((e) => e.id === entry.id)) return state;
+      const next = [...state.logs, entry].slice(-500);
+      return {
+        logs: next,
+        unreadLogCount: state.logPanelOpen
+          ? 0
+          : state.unreadLogCount + (entry.level === "info" ? 0 : 1),
+      };
+    }),
+  clearLogs: () => set({ logs: [], unreadLogCount: 0 }),
+  logPanelOpen: false,
+  setLogPanelOpen: (b) =>
+    set((state) => ({
+      logPanelOpen: b,
+      unreadLogCount: b ? 0 : state.unreadLogCount,
+    })),
+  unreadLogCount: 0,
+  resetUnreadLogs: () => set({ unreadLogCount: 0 }),
 }));

@@ -42,8 +42,11 @@ CRITICAL RULES FOR THE "original" FIELD:
 
 A correction's "corrected" field MUST keep ALL surrounding markdown markers intact. If the "original" contains \`*\`, \`_\`, \`**\`, \`#\`, \`\\\`\`, \`>\`, \`-\`, \`[\`, \`]\`, \`(\`, \`)\`, the "corrected" MUST contain the same markers in the same positions — only the actual word(s) inside should change.
 
+NEVER add, remove, or move \`*\`, \`_\`, or \`\\\`\` markers. Bolding/italicising a word (e.g. "Karim" → "**Karim**") or un-bolding a word is NEVER a copy-edit error. The count of \`*\`, \`_\`, and \`\\\`\` characters in "corrected" MUST equal the count in "original". Any suggestion that changes those counts will be rejected automatically.
+
 GOOD example: {"original": "*She wisphered softly*", "corrected": "*She whispered softly*"}
 BAD example:  {"original": "*She wisphered softly*", "corrected": "She whispered softly"}
+BAD example:  {"original": "how many Karim had sent", "corrected": "how many **Karim** had sent"}
 
 If there are NO issues to flag, return: {"corrections": []}
 Output ONLY the JSON object. No commentary, no markdown fences, no preamble.`;

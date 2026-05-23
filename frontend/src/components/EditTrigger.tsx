@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { addToQueue } from "../api";
 import { buildUnits } from "./ScopeSelection";
+import EngineStatus from "./EngineStatus";
 
 export default function EditTrigger() {
   const {
@@ -25,8 +26,13 @@ export default function EditTrigger() {
     styleGuide,
     submitting,
     setSubmitting,
+    tasks,
   } = useStore();
   const t = useTranslation(lang);
+
+  const isWorking = Object.values(tasks).some(
+    (task) => task.status === "queued" || task.status === "editing",
+  );
 
   const units = doc
     ? buildUnits(
@@ -99,7 +105,9 @@ export default function EditTrigger() {
       <div className="trigger-buttons-row">
         <button className="btn-run" disabled={disabled} onClick={handleClick}>
           <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-          <span className="btn-run-label">{t("btn_add_to_queue")}</span>
+          <span className="btn-run-label">
+            {isWorking ? t("btn_add_to_queue_busy") : t("btn_add_to_queue")}
+          </span>
           {units.length > 0 && (
             <span className="btn-run-meta">
               {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
@@ -108,6 +116,8 @@ export default function EditTrigger() {
             </span>
           )}
         </button>
+
+        <EngineStatus />
 
         {/* <button className="btn-rent-betty" disabled title="Coming soon">
           <span className="btn-rent-betty-label">Rent-A-Betty</span>

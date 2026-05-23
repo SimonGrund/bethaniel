@@ -21,7 +21,24 @@ if (!IS_DEV) {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on("checking-for-update", () => {
+    console.log("[updater] checking for update...");
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    console.log("[updater] update available:", info.version);
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    console.log("[updater] up to date:", info.version);
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    console.log(`[updater] download: ${progress.percent.toFixed(1)}%`);
+  });
+
   autoUpdater.on("update-downloaded", () => {
+    console.log("[updater] update downloaded, prompting user");
     dialog
       .showMessageBox({
         type: "info",

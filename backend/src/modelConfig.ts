@@ -1,96 +1,49 @@
-// ── Model configuration from modelfile ──
-// Parses the modelfile and writes per-model JSON configs
-// into the models directory. llamaServer.ts and llm.ts read these at runtime.
+// ── Model configuration ──
+// Defines the per-model `ModelSettings` shape. Defaults live in
+// `modelCatalog.ts` (one `defaults` block per entry); a JSON sidecar in
+// MODELS_DIR may override individual fields per user.
+//
+// `readModelConfig` returns the layered result: catalog defaults + sidecar
+// overrides. `writeModelConfig` persists a full snapshot of the effective
+// settings. `resetModelConfig` deletes the sidecar so defaults take over again.
 
 import * as fs from "fs";
 import * as path from "path";
+import { getModelByFileName } from "./modelCatalog.js";
 
 export interface ModelSettings {
   num_ctx: number;
   num_predict: number;
   temperature: number;
+  top_p: number;
+  top_k: number;
+  repeat_penalty: number;
   system: string;
   no_mmap: boolean;
 }
 
-const DEFAULTS: ModelSettings = {
+/** Fallback used only when a fileName has no catalog entry (shouldn't normally
+ *  happen — routes validate against the catalog before calling these). */
+const HARD_DEFAULTS: ModelSettings = {
   num_ctx: 8192,
-  num_predict: 8192,
-  temperature: 0,
-  system: "You are a meticulous copy editor. /no_think",
+  num_predict: 4096,
+  temperature: 0.1,
+  top_p: 0.8,
+  top_k: 20,
+  repeat_penalty: 1.05,
+  system: "You are a meticulous copy editor and line editor. /no_think",
   no_mmap: false,
 };
 
-/**
- * Parse a modelfile into structured settings.
- * Supports PARAMETER and SYSTEM directives; ignores FROM and comments.
- */
-export function parseModelfile(content: string): ModelSettings {
-  const settings: ModelSettings = { ...DEFAULTS };
-
-  const lines = content.split("\n");
-  let inSystem = false;
-  const systemLines: string[] = [];
-
-  for (const raw of lines) {
-    const line = raw.trim();
-
-    // Multi-line SYSTEM block: SYSTEM """..."""
-    if (inSystem) {
-      if (line.endsWith('"""')) {
-        systemLines.push(line.slice(0, -3));
-        settings.system = systemLines.join("\n").trim();
-        inSystem = false;
-      } else {
-        systemLines.push(line);
-      }
-      continue;
-    }
-
-    if (line.startsWith("#") || line === "") continue;
-
-    if (line.toUpperCase().startsWith("PARAMETER")) {
-      const rest = line.slice("PARAMETER".length).trim();
-      const spaceIdx = rest.indexOf(" ");
-      if (spaceIdx === -1) continue;
-      const key = rest.slice(0, spaceIdx).toLowerCase();
-      const val = rest.slice(spaceIdx + 1).trim();
-
-      if (key === "num_ctx")
-        settings.num_ctx = parseInt(val, 10) || DEFAULTS.num_ctx;
-      else if (key === "num_predict")
-        settings.num_predict = parseInt(val, 10) || DEFAULTS.num_predict;
-      else if (key === "temperature")
-        settings.temperature = parseFloat(val) ?? DEFAULTS.temperature;
-      else if (key === "no_mmap")
-        settings.no_mmap = /^(true|1|yes|on)$/i.test(val);
-    } else if (line.toUpperCase().startsWith("SYSTEM")) {
-      const rest = line.slice("SYSTEM".length).trim();
-      if (rest.startsWith('"""')) {
-        const afterOpen = rest.slice(3);
-        if (afterOpen.endsWith('"""')) {
-          // Single-line: SYSTEM """text"""
-          settings.system = afterOpen.slice(0, -3).trim();
-        } else {
-          // Multi-line start
-          inSystem = true;
-          systemLines.length = 0;
-          if (afterOpen) systemLines.push(afterOpen);
-        }
-      } else {
-        // Simple: SYSTEM some text
-        settings.system = rest;
-      }
-    }
-    // Ignore FROM and unknown directives
-  }
-
-  return settings;
+/** Catalog defaults for a given GGUF filename, or HARD_DEFAULTS if unknown. */
+export function getDefaultsForFile(ggufFileName: string): ModelSettings {
+  const entry = getModelByFileName(ggufFileName);
+  return entry ? { ...entry.defaults } : { ...HARD_DEFAULTS };
 }
 
 /**
  * Config JSON path for a given GGUF file.
- * E.g. "gemma-3n-E4B-it-Q4_K_M.gguf" → "gemma-3n-E4B-it-Q4_K_M.json"
+ * E.g. "Qwen3.5-4B-Q4_K_M.gguf" → "Qwen3.5-4B-Q4_K_M.json"
  */
 function configPathForModel(modelsDir: string, ggufFileName: string): string {
   const base = ggufFileName.replace(/\.gguf$/i, "");
@@ -98,8 +51,9 @@ function configPathForModel(modelsDir: string, ggufFileName: string): string {
 }
 
 /**
- * Write model settings JSON alongside the GGUF file.
- * Called after a model is downloaded.
+ * Write effective model settings JSON alongside the GGUF file.
+ * Stores a full snapshot — `readModelConfig` still layers it over catalog
+ * defaults so newly-added fields fall back gracefully on older sidecars.
  */
 export function writeModelConfig(
   modelsDir: string,
@@ -112,49 +66,44 @@ export function writeModelConfig(
 }
 
 /**
- * Read model settings for a given GGUF. Returns defaults if no config exists.
+ * Read model settings: catalog defaults overlaid with any sidecar JSON.
+ * Returns catalog defaults when no sidecar exists (no write side-effect).
  */
 export function readModelConfig(
   modelsDir: string,
   ggufFileName: string,
 ): ModelSettings {
+  const defaults = getDefaultsForFile(ggufFileName);
   const configPath = configPathForModel(modelsDir, ggufFileName);
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<ModelSettings>;
     return {
-      num_ctx: parsed.num_ctx ?? DEFAULTS.num_ctx,
-      num_predict: parsed.num_predict ?? DEFAULTS.num_predict,
-      temperature: parsed.temperature ?? DEFAULTS.temperature,
-      system: parsed.system ?? DEFAULTS.system,
-      no_mmap: parsed.no_mmap ?? DEFAULTS.no_mmap,
+      num_ctx: parsed.num_ctx ?? defaults.num_ctx,
+      num_predict: parsed.num_predict ?? defaults.num_predict,
+      temperature: parsed.temperature ?? defaults.temperature,
+      top_p: parsed.top_p ?? defaults.top_p,
+      top_k: parsed.top_k ?? defaults.top_k,
+      repeat_penalty: parsed.repeat_penalty ?? defaults.repeat_penalty,
+      system: parsed.system ?? defaults.system,
+      no_mmap: parsed.no_mmap ?? defaults.no_mmap,
     };
   } catch {
-    return { ...DEFAULTS };
+    return defaults;
   }
 }
 
-/**
- * Parse the project modelfile and write config for a model.
- * `modelfilePath` — path to the modelfile (in project root or resources).
- */
-export function applyModelfile(
-  modelfilePath: string,
+/** Delete the sidecar JSON so defaults take over on next read. */
+export function resetModelConfig(
   modelsDir: string,
   ggufFileName: string,
 ): ModelSettings {
-  let content: string;
+  const configPath = configPathForModel(modelsDir, ggufFileName);
   try {
-    content = fs.readFileSync(modelfilePath, "utf-8");
+    fs.unlinkSync(configPath);
+    console.log(`[modelConfig] Reset config: ${configPath}`);
   } catch {
-    console.log(
-      `[modelConfig] No modelfile at ${modelfilePath}, using defaults`,
-    );
-    const settings = { ...DEFAULTS };
-    writeModelConfig(modelsDir, ggufFileName, settings);
-    return settings;
+    // already absent
   }
-  const settings = parseModelfile(content);
-  writeModelConfig(modelsDir, ggufFileName, settings);
-  return settings;
+  return getDefaultsForFile(ggufFileName);
 }

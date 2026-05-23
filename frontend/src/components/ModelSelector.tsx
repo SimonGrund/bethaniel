@@ -1,6 +1,6 @@
 // ── Model selector — three colored Betty cards ──
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { getSocket } from "../socket";
@@ -70,10 +70,16 @@ export default function ModelSelector({
     setOverlapParagraphs,
     parallel,
     setParallel,
+    tasks,
   } = useStore();
   const t = useTranslation(lang);
 
+  const modelLocked = Object.values(tasks).some(
+    (task) => task.status === "queued" || task.status === "editing",
+  );
+
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [maxParallel, setMaxParallel] = useState(3);
 
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
@@ -84,6 +90,8 @@ export default function ModelSelector({
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CatalogEntry | null>(null);
+  const [preferredOrder, setPreferredOrder] = useState<string[]>([]);
 
   function refresh() {
     return Promise.all([
@@ -94,6 +102,7 @@ export default function ModelSelector({
     ]).then(([hw, cat, inst, modelsData]) => {
       setHardware(hw);
       setCatalog(cat.catalog ?? []);
+      setPreferredOrder(cat.preferredOrder ?? []);
       setInstalled(inst.installed ?? []);
       setModels(modelsData.models ?? []);
     });
@@ -156,11 +165,6 @@ export default function ModelSelector({
   }, []);
 
   // Auto-select best installed model
-  const preferredOrder = [
-    "Qwen3-32B-Q4_K_M.gguf",
-    "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    "gemma-3n-E4B-it-Q4_K_M.gguf",
-  ];
   useEffect(() => {
     if (models.length > 0 && !models.includes(model)) {
       const best =
@@ -173,9 +177,64 @@ export default function ModelSelector({
   useEffect(() => {
     if (!model) return;
     fetchSystemRecommendation(model)
-      .then((r) => setParallel(r.recommendedParallel))
+      .then((r) => {
+        setParallel(r.recommendedParallel);
+        setMaxParallel(r.recommendedParallel);
+      })
       .catch(() => {});
   }, [model]);
+
+  // Pre-warm the selected model so the first task doesn't pay the cold-load
+  // cost (mmap + KV alloc + Metal offload). Fire-and-forget — the backend
+  // serializes loads and emits progress via the `model:warming` socket event.
+  // Also flush the UI log (server + client) when the user switches models, so
+  // the engine feed shows only events relevant to the newly chosen model.
+  const prevModelRef = useRef<string>("");
+  const clearLogsLocal = useStore((s) => s.clearLogs);
+  useEffect(() => {
+    if (!model) return;
+    const prev = prevModelRef.current;
+    prevModelRef.current = model;
+    // Skip warm-up + log-flush for cloud/Ollama models — only local GGUFs
+    // need the cold-load mitigation.
+    if (model.startsWith("ollama:")) return;
+    // Only flush on a real switch, not on the initial auto-select after boot,
+    // so users keep useful startup diagnostics.
+    if (prev && prev !== model) {
+      clearLogsLocal();
+      fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
+    }
+    fetch(`${BASE}/api/models/preload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    }).catch(() => {});
+  }, [model, clearLogsLocal]);
+
+  // Auto-tune words-per-chunk when model tier changes.
+  // Big models are slow per token and have stricter context budgets, so we
+  // default them to small chunks (500 words). Only override when the current
+  // value matches a known tier default — never clobber a user customization.
+  const TIER_WPC_DEFAULTS: Record<string, number> = {
+    big: 1500,
+    normal: 2000,
+    small: 2000,
+  };
+  const KNOWN_TIER_DEFAULTS = new Set(Object.values(TIER_WPC_DEFAULTS));
+  useEffect(() => {
+    if (!model || catalog.length === 0) return;
+    const entry = catalog.find((e) => e.fileName === model);
+    if (!entry) return;
+    const target = TIER_WPC_DEFAULTS[entry.tier];
+    if (
+      target &&
+      target !== wordsPerChunk &&
+      KNOWN_TIER_DEFAULTS.has(wordsPerChunk)
+    ) {
+      setWordsPerChunk(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, catalog]);
 
   async function startDownload(modelId: string) {
     setError(null);
@@ -259,6 +318,9 @@ export default function ModelSelector({
       <div className="section-label">
         <span className="num">I.</span> {t("sec_model")}
       </div>
+      {modelLocked && (
+        <div className="model-lock-notice"> {t("model_locked_while_busy")}</div>
+      )}
       <div className="model-selector-cards">
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
@@ -267,6 +329,7 @@ export default function ModelSelector({
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
           const isRecommended = entry.tier === recommendedTier;
+          const isLockedOut = modelLocked && !isSelected && isInstalled;
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
@@ -283,10 +346,13 @@ export default function ModelSelector({
                   isInstalled ? "model-card-ready" : "",
                   isDisabled ? "model-card-disabled" : "",
                   isDownloading ? "model-card-downloading" : "",
+                  isLockedOut ? "model-card-locked-active" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
+                disabled={isLockedOut}
                 onClick={() => {
+                  if (isLockedOut) return;
                   if (isInstalled) {
                     setModel(entry.fileName);
                   } else if (!isDisabled && !isDownloading) {
@@ -296,8 +362,10 @@ export default function ModelSelector({
               >
                 <span className="model-card-name">{entry.name}</span>
                 <span className="model-card-desc">
-                  {t("model_desc_" + entry.id.replace(/[.\-]/g, "_")) ||
-                    entry.description}
+                  {t(
+                    "model_desc_" + entry.id.replace(/[.\-]/g, "_"),
+                    entry.description,
+                  )}
                 </span>
                 <span className="model-card-meta">
                   {formatBytes(entry.sizeBytes)}
@@ -347,11 +415,11 @@ export default function ModelSelector({
                   ✕
                 </button>
               )}
-              {isInstalled && !isDownloading && (
+              {isInstalled && !isDownloading && !isLockedOut && (
                 <button
                   type="button"
                   className="model-card-overlay-btn model-delete-btn"
-                  onClick={() => deleteModel(entry.fileName)}
+                  onClick={() => setConfirmDelete(entry)}
                   title={t("model_delete")}
                 >
                   ✕
@@ -413,6 +481,41 @@ export default function ModelSelector({
         </div>
       )}
 
+      {confirmDelete && (
+        <div className="model-confirm-overlay">
+          <div className="model-confirm-dialog">
+            <p className="model-confirm-text">
+              {t("model_delete_warning")
+                .replace("{name}", confirmDelete.name)
+                .replace(
+                  "{size}",
+                  formatBytes(confirmDelete.sizeBytes) || "~20 GB",
+                )}
+            </p>
+            <div className="model-confirm-actions">
+              <button
+                type="button"
+                className="btn-primary model-delete-confirm"
+                onClick={() => {
+                  const fn = confirmDelete.fileName;
+                  setConfirmDelete(null);
+                  deleteModel(fn);
+                }}
+              >
+                {t("model_delete")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setConfirmDelete(null)}
+              >
+                {t("btn_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <div className="model-error">{error}</div>}
 
       <button
@@ -460,7 +563,7 @@ export default function ModelSelector({
             <input
               type="range"
               min={1}
-              max={8}
+              max={maxParallel}
               step={1}
               value={parallel}
               onChange={(e) => setParallel(Number(e.target.value))}
@@ -480,6 +583,9 @@ interface ModelConfig {
   num_ctx: number;
   num_predict: number;
   temperature: number;
+  top_p: number;
+  top_k: number;
+  repeat_penalty: number;
   no_mmap: boolean;
 }
 
@@ -499,6 +605,9 @@ function ModelTuning({ fileName }: { fileName: string }) {
           num_ctx: data.num_ctx,
           num_predict: data.num_predict,
           temperature: data.temperature,
+          top_p: data.top_p,
+          top_k: data.top_k,
+          repeat_penalty: data.repeat_penalty,
           no_mmap: !!data.no_mmap,
         });
       })
@@ -523,6 +632,54 @@ function ModelTuning({ fileName }: { fileName: string }) {
       .catch(() => {});
   }
 
+  function resetToDefaults() {
+    fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}/config`, {
+      method: "DELETE",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setCfg({
+          num_ctx: data.num_ctx,
+          num_predict: data.num_predict,
+          temperature: data.temperature,
+          top_p: data.top_p,
+          top_k: data.top_k,
+          repeat_penalty: data.repeat_penalty,
+          no_mmap: !!data.no_mmap,
+        });
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 1200);
+      })
+      .catch(() => {});
+  }
+
+  // Number-slider helper: yields onChange/onMouseUp/onTouchEnd/onKeyUp
+  // that update local state immediately and persist on release.
+  function sliderProps<K extends keyof ModelConfig>(
+    key: K,
+    parse: (v: string) => ModelConfig[K],
+  ) {
+    return {
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setCfg((c) => (c ? { ...c, [key]: parse(e.target.value) } : c)),
+      onMouseUp: (e: React.MouseEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+      onTouchEnd: (e: React.TouchEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+      onKeyUp: (e: React.KeyboardEvent<HTMLInputElement>) =>
+        save({
+          ...(cfg as ModelConfig),
+          [key]: parse((e.target as HTMLInputElement).value),
+        }),
+    };
+  }
+
   if (!cfg) return null;
 
   return (
@@ -545,25 +702,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
           max={32768}
           step={1024}
           value={cfg.num_ctx}
-          onChange={(e) => setCfg({ ...cfg, num_ctx: Number(e.target.value) })}
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              num_ctx: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("num_ctx", (v) => Number(v))}
         />
         <span className="help-text">{t("context_window_help")}</span>
       </div>
@@ -578,64 +717,69 @@ function ModelTuning({ fileName }: { fileName: string }) {
           max={8192}
           step={256}
           value={cfg.num_predict}
-          onChange={(e) =>
-            setCfg({ ...cfg, num_predict: Number(e.target.value) })
-          }
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              num_predict: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("num_predict", (v) => Number(v))}
         />
         <span className="help-text">{t("max_output_help")}</span>
       </div>
 
       <div className="field">
         <label>
-          {t("temperature_label")}: {cfg.temperature.toFixed(1)}
+          {t("temperature_label")}: {cfg.temperature.toFixed(2)}
         </label>
         <input
           type="range"
           min={0}
           max={1}
-          step={0.1}
+          step={0.05}
           value={cfg.temperature}
-          onChange={(e) =>
-            setCfg({ ...cfg, temperature: Number(e.target.value) })
-          }
-          onMouseUp={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onTouchEnd={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
-          onKeyUp={(e) =>
-            save({
-              ...cfg,
-              temperature: Number((e.target as HTMLInputElement).value),
-            })
-          }
+          {...sliderProps("temperature", (v) => Number(v))}
         />
         <span className="help-text">{t("temperature_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("top_p_label")}: {cfg.top_p.toFixed(2)}
+        </label>
+        <input
+          type="range"
+          min={0.1}
+          max={1}
+          step={0.05}
+          value={cfg.top_p}
+          {...sliderProps("top_p", (v) => Number(v))}
+        />
+        <span className="help-text">{t("top_p_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("top_k_label")}: {cfg.top_k}
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={cfg.top_k}
+          {...sliderProps("top_k", (v) => Number(v))}
+        />
+        <span className="help-text">{t("top_k_help")}</span>
+      </div>
+
+      <div className="field">
+        <label>
+          {t("repeat_penalty_label")}: {cfg.repeat_penalty.toFixed(2)}
+        </label>
+        <input
+          type="range"
+          min={1}
+          max={1.5}
+          step={0.01}
+          value={cfg.repeat_penalty}
+          {...sliderProps("repeat_penalty", (v) => Number(v))}
+        />
+        <span className="help-text">{t("repeat_penalty_help")}</span>
       </div>
 
       <div className="field model-tuning-checkbox">
@@ -647,6 +791,16 @@ function ModelTuning({ fileName }: { fileName: string }) {
           />{" "}
           {t("disable_mmap")}
         </label>
+      </div>
+
+      <div className="field">
+        <button
+          type="button"
+          className="model-tuning-reset"
+          onClick={resetToDefaults}
+        >
+          {t("reset_to_defaults")}
+        </button>
       </div>
     </div>
   );

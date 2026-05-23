@@ -95,5 +95,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Bethaniel-*.AppImage
-            dist/bethaniel_*.deb
+            dist/Bethaniel-linux.AppImage
+            dist/Bethaniel-linux.deb

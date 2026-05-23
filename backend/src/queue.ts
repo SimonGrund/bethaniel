@@ -19,6 +19,8 @@ import {
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
+import { appendLog, diagnoseTaskError } from "./logBus.js";
+import { ensureModelLoaded } from "./llamaServer.js";
 import {
   saveTaskState,
   loadTaskStates,
@@ -145,13 +147,60 @@ function broadcast(): void {
 function updateTask(id: string, update: Partial<TaskState>): void {
   const existing = tasks.get(id);
   if (existing) {
+    const prevStatus = existing.status;
     Object.assign(existing, update);
+    if (existing.status === "editing" && prevStatus !== "editing") {
+      // New editing run for this task: restart milestone tracking from 0%.
+      lastProgressLogDecile.delete(id);
+    }
+    if (typeof update.progress === "number") {
+      emitProgressMilestone(id, update.progress);
+    }
+    // Surface lifecycle transitions as user-facing log entries (once per
+    // transition). Engine logs cover model load; these cover the queue.
+    if (existing.status === "editing" && prevStatus !== "editing") {
+      appendLog({
+        level: "info",
+        source: "task",
+        message: `Editing ${existing.name} (${existing.mode})…`,
+        model: existing.model,
+        taskId: id,
+      });
+    }
+    if (existing.status === "done" && prevStatus !== "done") {
+      appendLog({
+        level: "info",
+        source: "task",
+        message: `Done: ${existing.name} (${existing.mode})`,
+        model: existing.model,
+        taskId: id,
+      });
+    }
+    // Surface terminal errors as user-facing log entries (once per transition).
+    if (
+      existing.status === "error" &&
+      prevStatus !== "error" &&
+      existing.result
+    ) {
+      const errs = existing.result.errors ?? [];
+      const summary = errs.length > 0 ? errs.join(" · ") : "unknown error";
+      const diag = diagnoseTaskError(summary);
+      appendLog({
+        level: "error",
+        source: "task",
+        message: `${existing.name} (${existing.mode}) failed: ${summary}`,
+        hintKey: diag?.hintKey,
+        model: existing.model,
+        taskId: id,
+      });
+    }
     // Persist any task that has reached a terminal state so it survives a restart.
     if (
       existing.status === "done" ||
       existing.status === "error" ||
       existing.status === "cancelled"
     ) {
+      lastProgressLogDecile.delete(id);
       try {
         saveTaskState(existing);
       } catch (err) {
@@ -168,6 +217,28 @@ function updateTask(id: string, update: Partial<TaskState>): void {
  * broadcast.
  */
 const lastProgressBroadcast = new Map<string, { at: number; value: number }>();
+/** Last logged progress decile per task — used to emit milestone log lines
+ *  (10%, 20%, …) into the UI engine-status feed without spamming. */
+const lastProgressLogDecile = new Map<string, number>();
+
+function emitProgressMilestone(id: string, value: number): void {
+  const clamped = Math.max(0, Math.min(1, value));
+  const decile = Math.floor(clamped * 10);
+  if (decile < 1 || decile > 10) return;
+  const prev = lastProgressLogDecile.get(id) ?? 0;
+  if (decile <= prev) return;
+  lastProgressLogDecile.set(id, decile);
+
+  const task = tasks.get(id);
+  appendLog({
+    level: "info",
+    source: "task",
+    message: `Editing${task ? ` ${task.name}` : ""}: ${decile * 10}%`,
+    model: task?.model,
+    taskId: id,
+  });
+}
+
 function updateProgress(id: string, value: number): void {
   const last = lastProgressBroadcast.get(id);
   const now = Date.now();
@@ -176,11 +247,15 @@ function updateProgress(id: string, value: number): void {
   }
   lastProgressBroadcast.set(id, { at: now, value });
   updateTask(id, { progress: value });
+
+  emitProgressMilestone(id, value);
 }
 
 /** Saturating curve for JSON corrections where output length is unknown. */
 function creepingProgress(tokens: number): number {
-  return 1 - Math.exp(-tokens / 400);
+  // Reach high percentages earlier so UI progress does not look stalled
+  // when a chunk has relatively few output tokens.
+  return 1 - Math.exp(-tokens / 120);
 }
 
 /**
@@ -534,11 +609,29 @@ async function processJob(job: JobData): Promise<void> {
   // Translation always uses rewrite (full text) mode, never fast/JSON corrections
   const useFast = mode === "translate" ? false : fast;
 
+  const jobStart = performance.now();
+  let totalOutTokens = 0;
+
   updateTask(taskId, {
     status: "editing",
     startedAt: Date.now(),
     phase: "splitting",
   });
+
+  // Pre-load the model with a stable slot count equal to the queue's
+  // configured concurrency (capped by hardware in detectParallelSlots).
+  // Using the *configured* concurrency rather than `pending+1` keeps the
+  // slot count constant across the lifetime of a batch, so we don't
+  // restart the server every time another task joins the queue.
+  const desiredSlots = Math.max(1, concurrency);
+  try {
+    await ensureModelLoaded(model, undefined, desiredSlots);
+  } catch (err) {
+    // Surface but continue — the first chunk call will re-attempt loading
+    // and produce a more specific error if it really can't start.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
 
   const chunks = splitIntoChunks(original, wpc, overlap);
   updateTask(taskId, { phase: `0/${chunks.length} chunks` });
@@ -569,6 +662,8 @@ async function processJob(job: JobData): Promise<void> {
     const chunkLabel = `${j + 1}/${chunks.length}`;
     let acc = "";
     let tokCount = 0;
+    const chunkStart = performance.now();
+    let firstTokenAt = 0;
 
     try {
       const MAX_ATTEMPTS = 5;
@@ -577,6 +672,7 @@ async function processJob(job: JobData): Promise<void> {
         if (ac.signal.aborted) throw new Error("cancelled");
         acc = "";
         tokCount = 0;
+        firstTokenAt = 0;
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
         try {
           updateTask(taskId, {
@@ -593,6 +689,7 @@ async function processJob(job: JobData): Promise<void> {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
+                firstTokenAt = performance.now();
                 updateTask(taskId, {
                   phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
                 });
@@ -610,6 +707,7 @@ async function processJob(job: JobData): Promise<void> {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
+                firstTokenAt = performance.now();
                 updateTask(taskId, {
                   phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
                 });
@@ -643,7 +741,82 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
-        const cs = parseCorrectionsJson(acc);
+        let cs = parseCorrectionsJson(acc);
+
+        // Detect truncation: large raw response that doesn't end with `]`.
+        // Re-run the chunk with a doubled token budget so the model can
+        // finish the JSON array. We only retry once.
+        const trimmedAcc = acc.trim();
+        const looksTruncated =
+          acc.length > 800 &&
+          !trimmedAcc.endsWith("]") &&
+          !trimmedAcc.endsWith("]}");
+        if (looksTruncated) {
+          const salvaged = cs.length;
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId,
+            message: `Chunk ${chunkLabel}: response appears truncated (${acc.length} chars, salvaged ${salvaged}). Retrying with larger token budget.`,
+            model,
+          });
+          updateTask(taskId, {
+            phase: `chunk ${chunkLabel} retry with larger budget`,
+          });
+          // Compute a generous budget: ~3 chars/token estimate of the input
+          // multiplied by 4, capped reasonably.
+          const inputTokenEst = Math.ceil(chunk.body.length / 3);
+          const retryBudget = Math.min(8192, inputTokenEst * 4 + 1024);
+          let acc2 = "";
+          try {
+            for await (const tok of findCorrectionsStream(
+              model,
+              chunk.body,
+              prompt,
+              ac.signal,
+              retryBudget,
+            )) {
+              acc2 += tok;
+            }
+            const cs2 = parseCorrectionsJson(acc2);
+            // Prefer whichever pass yielded more corrections.
+            if (cs2.length > cs.length) {
+              cs = cs2;
+              acc = acc2;
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Chunk ${chunkLabel}: retry recovered ${cs2.length} corrections (was ${salvaged}).`,
+                model,
+              });
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            appendLog({
+              level: "warn",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: retry failed (${msg}); keeping salvaged ${salvaged} corrections.`,
+              model,
+            });
+          }
+        }
+
+        // Debug: log raw response when parsing yields zero corrections
+        if (cs.length === 0 && acc.length > 0) {
+          const preview = acc.slice(0, 600);
+          console.warn(
+            `[Queue] chunk ${chunkLabel} JSON parse yielded 0 corrections. Raw (${acc.length} chars):\n${preview}`,
+          );
+          appendLog({
+            level: "warn",
+            source: "engine",
+            message: `Chunk ${chunkLabel}: model returned ${acc.length} chars but 0 corrections parsed. Preview: ${acc.slice(0, 200)}`,
+            model,
+          });
+        }
+
         const [newBody, applied, sk] = applyCorrections(chunk.body, cs);
         const core = stripOverlapFromResponse(
           newBody,
@@ -675,10 +848,62 @@ async function processJob(job: JobData): Promise<void> {
       );
     }
 
+    // Per-chunk timing summary
+    {
+      const now = performance.now();
+      const prefillMs = firstTokenAt > 0 ? firstTokenAt - chunkStart : -1;
+      const decodeMs = firstTokenAt > 0 ? now - firstTokenAt : -1;
+      const tokPerSec =
+        decodeMs > 0 && tokCount > 1
+          ? ((tokCount - 1) / (decodeMs / 1000)).toFixed(1)
+          : "n/a";
+      // Rough input-token estimate (3.5 chars/token avg across our supported
+      // languages) — gives a useful prefill tok/s number even though llama-
+      // server's streaming endpoint doesn't expose exact prompt-token counts.
+      const inputTokenEst = Math.ceil(chunk.body.length / 3.5);
+      const prefillTps =
+        prefillMs > 0 ? (inputTokenEst / (prefillMs / 1000)).toFixed(0) : "n/a";
+      totalOutTokens += tokCount;
+      console.log(
+        `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
+      );
+      if (tokCount > 0) {
+        appendLog({
+          level: "info",
+          source: "engine",
+          message: `Chunk ${chunkLabel}: prefill ~${prefillTps} tok/s · decode ${tokPerSec} tok/s (${tokCount} tokens)`,
+          model,
+        });
+      }
+      if (tokCount === 0) {
+        appendLog({
+          level: "warn",
+          source: "engine",
+          message: `Chunk ${chunkLabel}: model returned 0 content tokens — check --reasoning flag or model template`,
+          model,
+        });
+      }
+    }
+
     updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
 
   abortControllers.delete(taskId);
+
+  const totalMs = performance.now() - jobStart;
+  const overallTps =
+    totalMs > 0 ? ((totalOutTokens / totalMs) * 1000).toFixed(1) : "n/a";
+  console.log(
+    `[Queue] job ${taskId} done: wall=${(totalMs / 1000).toFixed(1)}s chunks=${chunks.length} tokens=${totalOutTokens} tok/s=${overallTps}`,
+  );
+  if (totalOutTokens > 0) {
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Job done: ${(totalMs / 1000).toFixed(1)}s · ${totalOutTokens} tokens · ${overallTps} tok/s`,
+      model,
+    });
+  }
 
   const result: TaskResult = {
     editedText: pieces.join("\n\n").trim(),
@@ -806,6 +1031,13 @@ export function initQueue(socketIo: SocketServer, conc = 1): void {
 export function setConcurrency(n: number): void {
   concurrency = Math.max(1, n);
   pump();
+}
+
+/** Current concurrency setting — exported so the model warm-up path can
+ *  pre-allocate the right number of llama-server parallel slots up front
+ *  and avoid mid-session reloads. */
+export function getConcurrency(): number {
+  return concurrency;
 }
 
 export async function submitTask(
@@ -953,6 +1185,15 @@ export function removeCompleted(): void {
 }
 
 export function removeTask(id: string): void {
+  // If the task is still active, cancel it first so we tear down any
+  // in-flight stream before dropping the state.
+  const task = tasks.get(id);
+  if (task && (task.status === "queued" || task.status === "editing")) {
+    const idx = pending.findIndex((j) => j.taskId === id);
+    if (idx !== -1) pending.splice(idx, 1);
+    const ac = abortControllers.get(id);
+    if (ac) ac.abort();
+  }
   tasks.delete(id);
   abortControllers.delete(id);
   try {
@@ -961,6 +1202,38 @@ export function removeTask(id: string): void {
     console.warn(`[Queue] failed to delete persisted task ${id}:`, err);
   }
   broadcast();
+}
+
+/**
+ * Remove every task that belongs to the given jobId, regardless of status.
+ * Active tasks are cancelled first. Returns the number of tasks removed.
+ */
+export function removeJob(jobId: string): number {
+  const removed: string[] = [];
+  for (const [id, state] of tasks) {
+    if (state.jobId !== jobId) continue;
+    if (state.status === "queued" || state.status === "editing") {
+      const idx = pending.findIndex((j) => j.taskId === id);
+      if (idx !== -1) pending.splice(idx, 1);
+      const ac = abortControllers.get(id);
+      if (ac) ac.abort();
+    }
+    tasks.delete(id);
+    abortControllers.delete(id);
+    removed.push(id);
+  }
+  if (removed.length > 0) {
+    try {
+      deleteTaskStatesIn(removed);
+    } catch (err) {
+      console.warn(
+        `[Queue] failed to delete persisted tasks for job ${jobId}:`,
+        err,
+      );
+    }
+    broadcast();
+  }
+  return removed.length;
 }
 
 export function getTasksSnapshot(): Record<string, TaskState> {

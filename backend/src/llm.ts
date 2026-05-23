@@ -112,6 +112,8 @@ async function* chatStream(
   options: {
     temperature?: number;
     top_p?: number;
+    top_k?: number;
+    repeat_penalty?: number;
     max_tokens?: number;
     response_format?: { type: string };
     /** Override the context window size for this request. When set the
@@ -126,11 +128,16 @@ async function* chatStream(
   // Ensure the model is loaded in llama-server with the required context size.
   await ensureModelLoaded(model, options.numCtxOverride);
 
+  // All sampling params come from the per-model config (catalog defaults +
+  // user sidecar overrides). Per-call options are only used for niche
+  // overrides; in normal flows callers pass none.
   const body: Record<string, unknown> = {
     messages,
     stream: true,
     temperature: options.temperature ?? cfg.temperature,
-    top_p: options.top_p ?? 0.9,
+    top_p: options.top_p ?? cfg.top_p,
+    top_k: options.top_k ?? cfg.top_k,
+    repeat_penalty: options.repeat_penalty ?? cfg.repeat_penalty,
     max_tokens: options.max_tokens ?? cfg.num_predict,
   };
   if (options.response_format) {
@@ -158,7 +165,8 @@ async function* chatStream(
 /** Build system message: model config system preamble + task-specific prompt + /no_think. */
 function buildSystemMessage(model: string, taskPrompt: string): string {
   const cfg = getActiveConfig(model);
-  // The config system prompt already ends with /no_think if set from modelfile
+  // The shared BASE_SYSTEM_PROMPT (defined in modelCatalog.ts) already ends
+  // with /no_think; only append the marker if neither part already has it.
   const hasNoThink =
     cfg.system.includes("/no_think") || taskPrompt.includes("/no_think");
   const parts = [cfg.system, taskPrompt].filter(Boolean);
@@ -168,6 +176,26 @@ function buildSystemMessage(model: string, taskPrompt: string): string {
 
 // ── Exported streaming functions (same signatures as ollama.ts) ──
 
+/**
+ * Compute a max_tokens value that fits inside the llama-server slot context
+ * budget. Each slot must hold (system + user prompt) + generated tokens
+ * simultaneously; if max_tokens leaves no room, decode aborts mid-stream
+ * with "Context size has been exceeded." Estimate prompt tokens
+ * conservatively (3 chars/token underestimates some scripts) and reserve
+ * 256 tokens for chat-template/role overhead.
+ */
+function slotSafeMaxTokens(
+  model: string,
+  systemMsg: string,
+  userText: string,
+  requestedCap: number,
+): number {
+  const cfg = getActiveConfig(model);
+  const promptTokenEst = Math.ceil((systemMsg.length + userText.length) / 3);
+  const slotBudget = cfg.num_ctx - promptTokenEst - 256;
+  return Math.max(256, Math.min(requestedCap, slotBudget));
+}
+
 /** Streaming edit — yields tokens as the model produces them. */
 export async function* editChunkStream(
   model: string,
@@ -175,13 +203,16 @@ export async function* editChunkStream(
   systemPrompt: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const cfg = getActiveConfig(model);
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, chunkText, cfg.num_predict);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
-    { temperature: 0.1 },
+    { max_tokens: cap },
     signal,
   );
 }
@@ -192,15 +223,32 @@ export async function* findCorrectionsStream(
   chunkText: string,
   systemPrompt: string,
   signal?: AbortSignal,
+  maxTokensOverride?: number,
 ): AsyncGenerator<string> {
+  const cfg = getActiveConfig(model);
+  // The corrections JSON is usually smaller than the chunk it describes,
+  // but dense dialect/error text can produce many overlapping entries that
+  // balloon the response (each correction object is ~30-50 tokens). Cap at
+  // 2× the input estimate + 512, and never exceed the model's num_predict.
+  const estInputTokens = Math.ceil(chunkText.length / 3);
+  const defaultCap = Math.min(
+    cfg.num_predict,
+    Math.ceil(estInputTokens * 2) + 512,
+  );
+  const requestedCap = maxTokensOverride
+    ? Math.min(cfg.num_predict, maxTokensOverride)
+    : defaultCap;
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, chunkText, requestedCap);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
     {
       response_format: { type: "json_object" },
+      max_tokens: cap,
     },
     signal,
   );
@@ -213,14 +261,16 @@ export async function* analyzeStream(
   systemPrompt: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = slotSafeMaxTokens(model, systemMsg, text, 4096);
   yield* chatStream(
     model,
     [
-      { role: "system", content: buildSystemMessage(model, systemPrompt) },
+      { role: "system", content: systemMsg },
       { role: "user", content: text },
     ],
     {
-      max_tokens: 4096,
+      max_tokens: cap,
       response_format: { type: "json_object" },
     },
     signal,
@@ -255,7 +305,7 @@ export async function* synthesizeStream(
 
 /**
  * Parse the model's JSON output into a list of corrections.
- * Tolerates code fences and stray commentary.
+ * Tolerates code fences, stray commentary, and truncated JSON.
  */
 export function parseCorrectionsJson(raw: string): Correction[] {
   let text = raw.trim();
@@ -270,14 +320,22 @@ export function parseCorrectionsJson(raw: string): Correction[] {
     text = text.slice(first, last + 1);
   }
 
-  let data: Record<string, unknown>;
+  let data: Record<string, unknown> | null = null;
   try {
     data = JSON.parse(text);
   } catch {
-    return [];
+    // JSON may be truncated (model hit token limit). Try to repair by
+    // closing open brackets/braces and re-parsing.
+    const repaired = repairTruncatedJson(text);
+    try {
+      data = JSON.parse(repaired);
+    } catch {
+      // Last resort: regex-extract individual correction objects
+      return extractCorrectionsRegex(raw);
+    }
   }
 
-  const corrections = Array.isArray(data.corrections) ? data.corrections : [];
+  const corrections = Array.isArray(data!.corrections) ? data!.corrections : [];
   const cleaned: Correction[] = [];
   for (const c of corrections) {
     if (typeof c !== "object" || c === null) continue;
@@ -289,10 +347,146 @@ export function parseCorrectionsJson(raw: string): Correction[] {
       typeof corrected === "string" &&
       original
     ) {
-      cleaned.push({ original, corrected });
+      const normalized = normalizeMarkdownMarkers(original, corrected);
+      if (normalized === null) continue; // unrecoverable marker mismatch
+      if (normalized === original) continue; // no-op after stripping spurious markup
+      cleaned.push({ original, corrected: normalized });
     }
   }
   return cleaned;
+}
+
+/**
+ * Models sometimes wrap the changed word in `**…**` (or `*…*`, `_…_`, `` `…` ``)
+ * purely as a visual diff highlight — but the `corrected` string is spliced
+ * verbatim into the manuscript, so this introduces unintended bold/italic.
+ *
+ * Strategy: if `corrected` has MORE emphasis markers than `original`, peel off
+ * paired wrappers that aren't in `original`. If counts can be made to match,
+ * return the cleaned string. Otherwise return null (reject the correction —
+ * we can't tell what the model meant).
+ */
+function normalizeMarkdownMarkers(
+  original: string,
+  corrected: string,
+): string | null {
+  const markers = ["*", "_", "`"] as const;
+  let out = corrected;
+
+  // Iteratively peel off wrappers that add markers not present in the original.
+  // Order matters: strip `**…**` before `*…*` so we don't half-strip bold.
+  const peelers: { re: RegExp; ch: string }[] = [
+    { re: /\*\*([^*\n]+?)\*\*/g, ch: "*" },
+    { re: /__([^_\n]+?)__/g, ch: "_" },
+    { re: /\*([^*\n]+?)\*/g, ch: "*" },
+    { re: /_([^_\n]+?)_/g, ch: "_" },
+    { re: /`([^`\n]+?)`/g, ch: "`" },
+  ];
+
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (const { re, ch } of peelers) {
+      if (countChar(out, ch) <= countChar(original, ch)) continue;
+      const next = out.replace(re, (match, inner) => {
+        // Only strip this wrapper if doing so brings us closer to (or matches)
+        // the original's marker count for this character.
+        if (countChar(out, ch) > countChar(original, ch)) {
+          return inner;
+        }
+        return match;
+      });
+      if (next !== out) {
+        out = next;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  for (const ch of markers) {
+    if (countChar(out, ch) !== countChar(original, ch)) return null;
+  }
+  return out;
+}
+
+function countChar(s: string, ch: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) if (s[i] === ch) n++;
+  return n;
+}
+
+/**
+ * Best-effort repair of JSON truncated by a token-limit. Strips a trailing
+ * partial object and closes any open `[`/`{`.
+ */
+function repairTruncatedJson(text: string): string {
+  let s = text.trim();
+  // Remove an in-progress incomplete object at the tail: cut back to the
+  // last complete `}` inside an array.
+  const lastCompleteObj = s.lastIndexOf("}");
+  if (lastCompleteObj !== -1) {
+    s = s.slice(0, lastCompleteObj + 1);
+  }
+  // Walk and balance brackets, ignoring those inside strings.
+  let depthBrace = 0;
+  let depthBracket = 0;
+  let inString = false;
+  let escape = false;
+  for (const ch of s) {
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depthBrace++;
+    else if (ch === "}") depthBrace--;
+    else if (ch === "[") depthBracket++;
+    else if (ch === "]") depthBracket--;
+  }
+  // Drop trailing comma if present
+  s = s.replace(/,\s*$/, "");
+  // Close any open brackets/braces in the right order
+  while (depthBracket > 0) {
+    s += "]";
+    depthBracket--;
+  }
+  while (depthBrace > 0) {
+    s += "}";
+    depthBrace--;
+  }
+  return s;
+}
+
+/**
+ * Last-resort extraction: scan for `{"original": "...", "corrected": "..."}`
+ * patterns even when the surrounding JSON is malformed.
+ */
+function extractCorrectionsRegex(raw: string): Correction[] {
+  const out: Correction[] = [];
+  // Match {"original": "...", "corrected": "..."} allowing escaped quotes and
+  // whitespace/newlines between fields. The .*? for values must handle
+  // escaped quotes via a non-greedy pattern that tolerates \" inside.
+  const re =
+    /\{\s*"original"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"corrected"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    const original = JSON.parse(`"${m[1]}"`);
+    const corrected = JSON.parse(`"${m[2]}"`);
+    if (typeof original === "string" && original) {
+      const normalized = normalizeMarkdownMarkers(original, corrected);
+      if (normalized === null || normalized === original) continue;
+      out.push({ original, corrected: normalized });
+    }
+  }
+  return out;
 }
 
 // Markdown markers we never let the model strip via a correction.

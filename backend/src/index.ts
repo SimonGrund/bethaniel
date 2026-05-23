@@ -12,6 +12,7 @@ import routes from "./routes.js";
 import { initQueue, closeQueue, getTasksSnapshot } from "./queue.js";
 import { closeDb } from "./db.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
+import { setLogIo, getLogSnapshot } from "./logBus.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -37,10 +38,12 @@ const io = new SocketServer(httpServer, {
 
 io.on("connection", (socket) => {
   socket.emit("queue:update", getTasksSnapshot());
+  socket.emit("log:snapshot", getLogSnapshot());
 });
 
 // API
 (routes as any)._io = io;
+setLogIo(io);
 app.use("/api", routes);
 
 app.get("/health", (_req, res) => {

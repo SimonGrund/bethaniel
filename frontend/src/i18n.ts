@@ -129,6 +129,48 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "0 = deterministisch, höher = kreativer. Niedrig halten für Lektorat.",
     es: "0 = determinista, mayor = más creativo. Bajo para edición.",
   },
+  top_p_label: {
+    en: "Top-p (nucleus sampling)",
+    da: "Top-p (kerne-sampling)",
+    de: "Top-p (Nucleus-Sampling)",
+    es: "Top-p (muestreo de núcleo)",
+  },
+  top_p_help: {
+    en: "Cumulative probability cutoff. Lower = safer/more focused token choices; higher = more variety. 0.8 is a good editing default.",
+    da: "Kumulativ sandsynlighedsgrænse. Lavere = mere fokuserede valg; højere = mere variation. 0,8 er et godt udgangspunkt for redigering.",
+    de: "Kumulative Wahrscheinlichkeitsgrenze. Niedriger = fokussierter; höher = mehr Vielfalt. 0,8 ist ein guter Wert fürs Lektorat.",
+    es: "Límite acumulado de probabilidad. Menor = elecciones más enfocadas; mayor = más variedad. 0,8 es un buen valor para edición.",
+  },
+  top_k_label: {
+    en: "Top-k",
+    da: "Top-k",
+    de: "Top-k",
+    es: "Top-k",
+  },
+  top_k_help: {
+    en: "Only consider the K most likely next tokens. Lower = tighter output; 0 disables the cap.",
+    da: "Overvej kun de K mest sandsynlige næste tokens. Lavere = strammere output; 0 deaktiverer grænsen.",
+    de: "Berücksichtigt nur die K wahrscheinlichsten nächsten Tokens. Niedriger = engere Ausgabe; 0 deaktiviert das Limit.",
+    es: "Considerar solo los K tokens siguientes más probables. Menor = salida más ajustada; 0 desactiva el límite.",
+  },
+  repeat_penalty_label: {
+    en: "Repeat penalty",
+    da: "Gentagelsesstraf",
+    de: "Wiederholungs-Strafe",
+    es: "Penalización por repetición",
+  },
+  repeat_penalty_help: {
+    en: "Discourages repeating the same tokens. 1.0 = no penalty; 1.05–1.1 is mild; >1.2 can distort prose.",
+    da: "Mindsker gentagelse af samme tokens. 1,0 = ingen straf; 1,05–1,1 er mildt; >1,2 kan forvrænge prosa.",
+    de: "Reduziert Wiederholungen. 1,0 = keine Strafe; 1,05–1,1 ist mild; >1,2 kann den Text verzerren.",
+    es: "Reduce la repetición de tokens. 1,0 = sin penalización; 1,05–1,1 es leve; >1,2 puede distorsionar la prosa.",
+  },
+  reset_to_defaults: {
+    en: "Reset to defaults",
+    da: "Nulstil til standard",
+    de: "Auf Standard zurücksetzen",
+    es: "Restablecer valores predeterminados",
+  },
   disable_mmap: {
     en: "Disable memory-mapped loading (faster first token, uses more RAM)",
     da: "Deaktivér hukommelseskortlagt indlæsning (hurtigere første token, bruger mere RAM)",
@@ -232,10 +274,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Capítulos seleccionados",
   },
   first_n_words: {
-    en: "First N words",
-    da: "Første N ord",
-    de: "Erste N Wörter",
-    es: "Primeras N palabras",
+    en: "First X words",
+    da: "Første X ord",
+    de: "Erste X Wörter",
+    es: "Primeras X palabras",
   },
   pick_chapters: {
     en: "Pick chapters…",
@@ -272,6 +314,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Start opgave",
     de: "Auftrag starten",
     es: "Iniciar tarea",
+  },
+  btn_add_to_queue_busy: {
+    en: "Add job to queue",
+    da: "Tilføj opgave til kø",
+    de: "Auftrag zur Warteschlange",
+    es: "Añadir tarea a la cola",
   },
   btn_change_document: {
     en: "Change document",
@@ -344,6 +392,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Dette vil permanent fjerne alle færdige resultater. Er du sikker?",
     de: "Alle abgeschlossenen Ergebnisse werden dauerhaft entfernt. Bist du sicher?",
     es: "Esto eliminará permanentemente todos los resultados completados. ¿Estás seguro?",
+  },
+  delete_task_tip: {
+    en: "Delete this result",
+    da: "Slet dette resultat",
+    de: "Dieses Ergebnis löschen",
+    es: "Eliminar este resultado",
+  },
+  delete_job_tip: {
+    en: "Delete this job and all its results",
+    da: "Slet dette job og alle dets resultater",
+    de: "Diesen Auftrag und alle Ergebnisse löschen",
+    es: "Eliminar este trabajo y todos sus resultados",
+  },
+  delete_all_older: {
+    en: "Delete all older",
+    da: "Slet alle ældre",
+    de: "Alle älteren löschen",
+    es: "Eliminar todos los anteriores",
+  },
+  delete_all_older_tip: {
+    en: "Permanently delete every older job and its results",
+    da: "Slet permanent alle ældre jobs og deres resultater",
+    de: "Alle älteren Aufträge und Ergebnisse dauerhaft löschen",
+    es: "Eliminar permanentemente todos los trabajos anteriores y sus resultados",
   },
   cancel_task: {
     en: "Cancel task",
@@ -623,6 +695,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Das Herunterladen von {name} benötigt ungefähr {size} Speicherplatz und Datenvolumen. Fortfahren?",
     es: "Descargar {name} usará aproximadamente {size} de espacio en disco y datos de internet. ¿Continuar?",
   },
+  model_delete_warning: {
+    en: "Delete {name}? You will need to re-download it ({size}) to use it again.",
+    da: "Slet {name}? Du skal downloade den igen ({size}) for at bruge den.",
+    de: "{name} löschen? Du musst es erneut herunterladen ({size}), um es wieder zu verwenden.",
+    es: "¿Eliminar {name}? Deberás volver a descargarlo ({size}) para usarlo de nuevo.",
+  },
   model_insufficient_ram: {
     en: "Insufficient RAM",
     da: "Utilstrækkelig RAM",
@@ -647,21 +725,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Nicht verfügbar",
     es: "No disponible",
   },
-  model_desc_gemma_3n_e4b: {
-    en: "Small, handy, and quick. But sometimes I miss a mistake or two.",
-    da: "Lille, handig og hurtig. Men overser nogle gange en fejl.",
-    de: "Klein, handlich und schnell. Aber manchmal übersehe ich einen Fehler.",
-    es: "Pequeña, práctica y rápida. Pero a veces se me escapa algún error.",
+  // ── Model descriptions ──
+  // Keys derive from MODEL_CATALOG entry.id with "." and "-" replaced by "_".
+  // The English text mirrors the `description` field in backend/src/modelCatalog.ts;
+  // keep them in sync when editing either side.
+  model_desc_qwen3_5_4b: {
+    en: "Small, handy, and quick. But sometimes I make mistakes.",
+    da: "Lille, handig og hurtig. Men nogle gange laver jeg fejl.",
+    de: "Klein, handlich und schnell. Aber manchmal mache ich Fehler.",
+    es: "Pequeña, práctica y rápida. Pero a veces cometo errores.",
+  },
+  model_desc_qwen3_5_9b: {
+    en: "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+    da: "Basic Betty er fremragende til de fleste opgaver. Her får du the beeeest of both worlds - Miley Cyrus",
+    de: "Basic Betty ist hervorragend für die meisten Aufgaben. Hier bekommst du the beeeest of both worlds - Miley Cyrus",
+    es: "Basic Betty es excelente para la mayoría de tareas. Aquí tienes the beeeest of both worlds - Miley Cyrus",
   },
   model_desc_mistral_small_3_2_24b: {
-    en: "Basic Betty is excellent for most tasks. You get the beeeest of both worlds - Miley Cyrus",
-    da: "Basic Betty er fremragende til de fleste opgaver. You get the beeeest of both worlds - Miley Cyrus",
-    de: "Basic Betty ist hervorragend für die meisten Aufgaben. You get the beeeest of both worlds - Miley Cyrus",
-    es: "Basic Betty es excelente para la mayoría de tareas. You get the beeeest of both worlds - Miley Cyrus",
-  },
-  model_desc_qwen3_32b: {
     en: "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    da: "Business in the front. Party in the back. Big Bad Betty ved, hvad det handler om.",
+    da: "Business foran. Fest bagi. Big Bad Betty ved, hvad det handler om.",
     de: "Business in the front. Party in the back. Big Bad Betty weiß, worum es geht.",
     es: "Business in the front. Party in the back. Big Bad Betty sabe de qué va la cosa.",
   },
@@ -1032,13 +1114,153 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Überprüfe die KI-Vorschläge Kapitel für Kapitel. Akzeptiere oder lehne einzelne Korrekturen ab und exportiere dann das bearbeitete Manuskript als DOCX oder Markdown.",
     es: "Revisa las sugerencias de la IA capítulo por capítulo. Acepta o descarta correcciones individuales y luego exporta el manuscrito editado como DOCX o Markdown.",
   },
+  betty_working: {
+    en: "Betty is working",
+    da: "Betty arbejder",
+    de: "Betty arbeitet",
+    es: "Betty está trabajando",
+  },
+  engine_launching: {
+    en: "Launching model…",
+    da: "Starter model…",
+    de: "Modell wird gestartet…",
+    es: "Iniciando modelo…",
+  },
+  engine_ready: {
+    en: "Model ready",
+    da: "Model klar",
+    de: "Modell bereit",
+    es: "Modelo listo",
+  },
+  engine_splitting: {
+    en: "Splitting manuscript…",
+    da: "Opdeler manuskript…",
+    de: "Manuskript wird aufgeteilt…",
+    es: "Dividiendo manuscrito…",
+  },
+  engine_sending: {
+    en: "Sending chunk {n}/{m} to model…",
+    da: "Sender afsnit {n}/{m} til model…",
+    de: "Sende Abschnitt {n}/{m} an Modell…",
+    es: "Enviando fragmento {n}/{m} al modelo…",
+  },
+  engine_receiving: {
+    en: "Editing chunk {n}/{m}…",
+    da: "Redigerer afsnit {n}/{m}…",
+    de: "Bearbeite Abschnitt {n}/{m}…",
+    es: "Editando fragmento {n}/{m}…",
+  },
+  engine_applying: {
+    en: "Applying corrections {n}/{m}…",
+    da: "Anvender rettelser {n}/{m}…",
+    de: "Wende Korrekturen an {n}/{m}…",
+    es: "Aplicando correcciones {n}/{m}…",
+  },
+  engine_retrying: {
+    en: "Retrying chunk {n}/{m}…",
+    da: "Prøver afsnit {n}/{m} igen…",
+    de: "Wiederhole Abschnitt {n}/{m}…",
+    es: "Reintentando fragmento {n}/{m}…",
+  },
+  engine_queued: {
+    en: "Queued — waiting for current job…",
+    da: "I kø — venter på nuværende opgave…",
+    de: "In Warteschlange — wartet auf aktuellen Auftrag…",
+    es: "En cola — esperando al trabajo actual…",
+  },
+  engine_done_recent: {
+    en: "Done ✓",
+    da: "Færdig ✓",
+    de: "Fertig ✓",
+    es: "Listo ✓",
+  },
+  model_locked_while_busy: {
+    en: "Model locked while jobs are running — you can still add jobs to the queue.",
+    da: "Model låst mens opgaver kører — du kan stadig tilføje opgaver til køen.",
+    de: "Modell gesperrt während Aufträge laufen — du kannst trotzdem Aufträge zur Warteschlange hinzufügen.",
+    es: "Modelo bloqueado mientras hay tareas en ejecución — aún puedes añadir tareas a la cola.",
+  },
+
+  // ── Diagnostic log panel ──
+  logs_title: {
+    en: "Diagnostics",
+    da: "Diagnostik",
+    de: "Diagnose",
+    es: "Diagnóstico",
+  },
+  logs_empty: {
+    en: "No diagnostic events yet. If a model crashes or a task fails, details will appear here.",
+    da: "Ingen diagnostiske hændelser endnu. Hvis en model crasher eller en opgave fejler, vises detaljerne her.",
+    de: "Noch keine Diagnoseereignisse. Wenn ein Modell abstürzt oder eine Aufgabe fehlschlägt, erscheinen Details hier.",
+    es: "Aún no hay eventos de diagnóstico. Si un modelo falla o una tarea da error, los detalles aparecerán aquí.",
+  },
+  logs_clear: {
+    en: "Clear",
+    da: "Ryd",
+    de: "Leeren",
+    es: "Limpiar",
+  },
+  logs_hide: {
+    en: "Hide",
+    da: "Skjul",
+    de: "Ausblenden",
+    es: "Ocultar",
+  },
+  log_hint_oom: {
+    en: "Out of memory. Pick a smaller model (e.g. Tiny Betty), close other apps to free RAM, or reduce the context window in advanced settings.",
+    da: "Hukommelsen er opbrugt. Vælg en mindre model (fx Tiny Betty), luk andre programmer for at frigøre RAM, eller reducér kontekstvinduet i avancerede indstillinger.",
+    de: "Speicher voll. Wähle ein kleineres Modell (z. B. Tiny Betty), schließe andere Programme oder verkleinere das Kontextfenster in den erweiterten Einstellungen.",
+    es: "Sin memoria. Elige un modelo más pequeño (p. ej. Tiny Betty), cierra otras apps para liberar RAM o reduce la ventana de contexto en ajustes avanzados.",
+  },
+  log_hint_corrupt_model: {
+    en: "The model file appears damaged or incomplete. Delete and re-download it from the model setup screen.",
+    da: "Modelfilen ser ud til at være beskadiget eller ufuldstændig. Slet og download den igen fra modelopsætningsskærmen.",
+    de: "Die Modelldatei scheint beschädigt oder unvollständig. Lösche sie und lade sie erneut von der Modell-Einrichtungsseite herunter.",
+    es: "El archivo del modelo parece dañado o incompleto. Elimínalo y vuelve a descargarlo desde la pantalla de configuración del modelo.",
+  },
+  log_hint_context_too_large: {
+    en: "Context window too large for available memory. Reduce it in advanced settings and try again.",
+    da: "Kontekstvinduet er for stort til den tilgængelige hukommelse. Reducér det i avancerede indstillinger og prøv igen.",
+    de: "Kontextfenster zu groß für den verfügbaren Speicher. Verkleinere es in den erweiterten Einstellungen und versuche es erneut.",
+    es: "Ventana de contexto demasiado grande para la memoria disponible. Redúcela en ajustes avanzados e inténtalo de nuevo.",
+  },
+  log_hint_engine_crash_generic: {
+    en: "The model engine stopped unexpectedly. Try re-running the job; if it keeps happening, switch to a smaller model or re-download the current one.",
+    da: "Modelmotoren stoppede uventet. Prøv at køre opgaven igen; hvis det gentager sig, skift til en mindre model eller download den nuværende igen.",
+    de: "Die Modell-Engine wurde unerwartet beendet. Versuche es erneut; falls es weiterhin passiert, wechsle zu einem kleineren Modell oder lade das aktuelle erneut herunter.",
+    es: "El motor del modelo se detuvo de forma inesperada. Vuelve a intentarlo; si persiste, cambia a un modelo más pequeño o vuelve a descargar el actual.",
+  },
+  log_hint_engine_unreachable: {
+    en: "Lost connection to the model engine — it likely crashed mid-job. See the engine entry above for the underlying reason.",
+    da: "Mistede forbindelsen til modelmotoren — den crashede sandsynligvis under opgaven. Se motor-loggen ovenfor for den bagvedliggende årsag.",
+    de: "Verbindung zur Modell-Engine verloren — sie ist wahrscheinlich abgestürzt. Siehe den Engine-Eintrag oben für die Ursache.",
+    es: "Se perdió la conexión con el motor del modelo — probablemente se cayó durante la tarea. Consulta la entrada del motor para la causa.",
+  },
+  log_hint_cancelled: {
+    en: "Task was cancelled.",
+    da: "Opgaven blev annulleret.",
+    de: "Aufgabe wurde abgebrochen.",
+    es: "Tarea cancelada.",
+  },
+  log_hint_model_missing: {
+    en: "The selected model file is missing from disk. Re-download it from the model setup screen.",
+    da: "Den valgte modelfil mangler på disken. Download den igen fra modelopsætningsskærmen.",
+    de: "Die ausgewählte Modelldatei fehlt. Lade sie erneut von der Modell-Einrichtungsseite herunter.",
+    es: "Falta el archivo del modelo seleccionado en el disco. Vuelve a descargarlo desde la pantalla de configuración del modelo.",
+  },
+  log_hint_binary_missing: {
+    en: "The model engine binary could not be started. Reinstall Bethaniel to restore the bundled engine.",
+    da: "Modelmotor-binæren kunne ikke startes. Geninstallér Bethaniel for at gendanne den medfølgende motor.",
+    de: "Die Modell-Engine konnte nicht gestartet werden. Installiere Bethaniel neu, um die mitgelieferte Engine wiederherzustellen.",
+    es: "No se pudo iniciar el binario del motor del modelo. Reinstala Bethaniel para restaurar el motor incluido.",
+  },
 };
 
 export function useTranslation(lang: Lang) {
-  return (key: string): string => {
+  return (key: string, fallback?: string): string => {
     const entry = TRANSLATIONS[key];
-    if (!entry) return key;
-    return entry[lang] ?? entry.en ?? key;
+    if (!entry) return fallback ?? key;
+    return entry[lang] ?? entry.en ?? fallback ?? key;
   };
 }
 
