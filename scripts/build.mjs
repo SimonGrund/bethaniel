@@ -436,7 +436,9 @@ for (const p of platforms) {
   const flag = electronBuilderFlag(p);
   const publishFlag = publish ? ` --publish ${publish}` : "";
   console.log(`\n  Building for ${p}...`);
-  run(`npx electron-builder ${flag} --config electron-builder.yml${publishFlag}`);
+  run(
+    `npx electron-builder ${flag} --config electron-builder.yml${publishFlag}`,
+  );
 }
 
 // ── Restore dev backend node_modules ──

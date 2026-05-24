@@ -335,7 +335,12 @@ export function parseCorrectionsJson(raw: string): Correction[] {
     try {
       obj = JSON.parse(s);
     } catch {
-      continue;
+      // Retry after sanitizing invalid escape sequences
+      try {
+        obj = JSON.parse(sanitizeJsonEscapes(s));
+      } catch {
+        continue;
+      }
     }
     if (typeof obj !== "object" || obj === null) continue;
     const rec = obj as Record<string, unknown>;
@@ -385,11 +390,19 @@ function parseCorrectionsArrayLegacy(raw: string): Correction[] {
   try {
     data = JSON.parse(text);
   } catch {
-    const repaired = repairTruncatedJson(text);
     try {
-      data = JSON.parse(repaired);
+      data = JSON.parse(sanitizeJsonEscapes(text));
     } catch {
-      return extractCorrectionsRegex(raw);
+      const repaired = repairTruncatedJson(text);
+      try {
+        data = JSON.parse(repaired);
+      } catch {
+        try {
+          data = JSON.parse(sanitizeJsonEscapes(repaired));
+        } catch {
+          return extractCorrectionsRegex(raw);
+        }
+      }
     }
   }
 
@@ -524,6 +537,33 @@ function repairTruncatedJson(text: string): string {
 }
 
 /**
+ * Sanitize invalid JSON escape sequences that LLMs sometimes produce.
+ * Replaces non-standard escapes (e.g. \a, \x, \') with their literal character,
+ * preserving valid JSON escapes (\" \\ \/ \b \f \n \r \t \uXXXX).
+ */
+function sanitizeJsonEscapes(s: string): string {
+  // Replace invalid \X sequences with just X (the literal character),
+  // but preserve valid JSON escapes.
+  return s.replace(/\\(.)/g, (match, ch: string) => {
+    switch (ch) {
+      case '"':
+      case "\\":
+      case "/":
+      case "b":
+      case "f":
+      case "n":
+      case "r":
+      case "t":
+        return match; // valid escape — keep as-is
+      case "u":
+        return match; // \uXXXX — keep as-is (the digits follow)
+      default:
+        return ch; // invalid escape — drop the backslash
+    }
+  });
+}
+
+/**
  * Last-resort extraction: scan for `{"original": "...", "corrected": "..."}`
  * patterns even when the surrounding JSON is malformed.
  */
@@ -536,12 +576,25 @@ function extractCorrectionsRegex(raw: string): Correction[] {
     /\{\s*"original"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"corrected"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
-    const original = JSON.parse(`"${m[1]}"`);
-    const corrected = JSON.parse(`"${m[2]}"`);
-    if (typeof original === "string" && original) {
-      const normalized = normalizeMarkdownMarkers(original, corrected);
-      if (normalized === null || normalized === original) continue;
-      out.push({ original, corrected: normalized });
+    try {
+      let original: string;
+      let corrected: string;
+      try {
+        original = JSON.parse(`"${m[1]}"`);
+        corrected = JSON.parse(`"${m[2]}"`);
+      } catch {
+        // Sanitize invalid escapes and retry
+        original = JSON.parse(`"${sanitizeJsonEscapes(m[1])}"`);
+        corrected = JSON.parse(`"${sanitizeJsonEscapes(m[2])}"`);
+      }
+      if (typeof original === "string" && original) {
+        const normalized = normalizeMarkdownMarkers(original, corrected);
+        if (normalized === null || normalized === original) continue;
+        out.push({ original, corrected: normalized });
+      }
+    } catch {
+      // Skip entries that can't be parsed even after sanitization
+      continue;
     }
   }
   return out;

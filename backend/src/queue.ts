@@ -19,7 +19,7 @@ import {
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
-import { appendLog, diagnoseTaskError } from "./logBus.js";
+import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
   saveTaskState,
@@ -159,6 +159,7 @@ function updateTask(id: string, update: Partial<TaskState>): void {
     // Surface lifecycle transitions as user-facing log entries (once per
     // transition). Engine logs cover model load; these cover the queue.
     if (existing.status === "editing" && prevStatus !== "editing") {
+      clearLogs();
       appendLog({
         level: "info",
         source: "task",
