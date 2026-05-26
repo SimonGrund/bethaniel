@@ -56,9 +56,9 @@ hardware and lets you download the right model:
 
 | Tier          | Model                          | Size   | Min RAM                        |
 | ------------- | ------------------------------ | ------ | ------------------------------ |
-| Baby Betty    | Gemma 3n E4B (Q4_K_M)          | ~3 GB  | 8 GB                           |
-| Basic Betty   | Mistral Small 3.2 24B (Q4_K_M) | ~14 GB | 24 GB (16 GB on Apple Silicon) |
-| Big Bad Betty | Qwen3 32B (Q4_K_M)             | ~20 GB | 32 GB (24 GB on Apple Silicon) |
+| Baby Betty    | Qwen3.5 4B (Q4_K_M)            | ~3 GB  | 8 GB                           |
+| Basic Betty   | Qwen3.5 9B (Q4_K_M)            | ~6 GB  | 16 GB (12 GB on Apple Silicon) |
+| Big Bad Betty | Mistral Small 3.2 24B (Q4_K_M) | ~14 GB | 24 GB (16 GB on Apple Silicon) |
 
 ### Browser Mode (developer / power-user)
 

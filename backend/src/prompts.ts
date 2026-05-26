@@ -26,19 +26,18 @@ The input is Markdown. The following characters are FORMATTING, NOT errors. NEVE
 - \`---\` and \`***\` on their own lines (horizontal rules) — leave alone`;
 
 const CORRECTIONS_JSON_FORMAT = `
-OUTPUT FORMAT — STRICT JSON ONLY:
-{
-  "corrections": [
-    {"original": "<exact verbatim phrase from input, with enough surrounding context to be UNIQUE in the text>", "corrected": "<the replacement, with all markdown markers preserved>"},
-    ...
-  ]
-}
+OUTPUT FORMAT — STRICT JSONL ONLY (one JSON object per line):
+{"original": "<exact verbatim phrase from input, unique in the text>", "corrected": "<the replacement, all markdown markers preserved>"}
+{"original": "...", "corrected": "..."}
+{"original": "...", "corrected": "..."}
+
+Each line MUST be a complete, standalone JSON object with exactly the two keys "original" and "corrected". Do NOT wrap the lines in an array, do NOT add a top-level object, do NOT add commas between lines, do NOT add commentary, headers, code fences, or blank lines between objects. Just one object per line, separated by a single newline. Emit each correction as soon as you find it and move on — do not buffer them all into a single structure.
 
 CRITICAL RULES FOR THE "original" FIELD:
 1. It MUST appear verbatim, character-for-character, in the input text. Copy it exactly — same spaces, same punctuation, same capitalization, same markdown markers.
 2. It MUST be unique within the input text. If the same error appears in multiple places with different context, include 5-10 words of surrounding text to make each "original" unique.
 3. Keep it as SHORT as possible while still being unique — usually a phrase of 3-15 words containing the error.
-4. Do NOT include line breaks unless absolutely necessary.
+4. Do NOT include raw line breaks inside a JSON string. If you must, escape them as \\n.
 
 A correction's "corrected" field MUST keep ALL surrounding markdown markers intact. If the "original" contains \`*\`, \`_\`, \`**\`, \`#\`, \`\\\`\`, \`>\`, \`-\`, \`[\`, \`]\`, \`(\`, \`)\`, the "corrected" MUST contain the same markers in the same positions — only the actual word(s) inside should change.
 
@@ -48,8 +47,8 @@ GOOD example: {"original": "*She wisphered softly*", "corrected": "*She whispere
 BAD example:  {"original": "*She wisphered softly*", "corrected": "She whispered softly"}
 BAD example:  {"original": "how many Karim had sent", "corrected": "how many **Karim** had sent"}
 
-If there are NO issues to flag, return: {"corrections": []}
-Output ONLY the JSON object. No commentary, no markdown fences, no preamble.`;
+If there are NO issues to flag, output nothing (an empty response is valid).
+Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences, no closing summary.`;
 
 const REWRITE_OUTPUT_RULES = `
 OUTPUT RULES — ABSOLUTE:

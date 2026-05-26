@@ -36,10 +36,12 @@ jobs:
 
       - name: Install Linux packaging deps
         if: matrix.platform == 'linux'
-        run: sudo apt-get install -y libarchive-tools rpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools rpm
 
-      - name: Build
-        run: npm run dist:${{ matrix.platform }}
+      - name: Build & Publish
+        run: node scripts/build.mjs --platform ${{ matrix.platform }} ${{ startsWith(github.ref, 'refs/tags/v') && '--publish always' || '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CERTIFICATE_P12 || '' }}
@@ -75,25 +77,3 @@ jobs:
             dist/Bethaniel-linux.AppImage
             dist/Bethaniel-linux.deb
           retention-days: 30
-
-      - name: Publish to GitHub Release (mac)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'mac'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/Bethaniel-mac.dmg
-            dist/Bethaniel-mac.zip
-
-      - name: Publish to GitHub Release (windows)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'win'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/Bethaniel-win.exe
-
-      - name: Publish to GitHub Release (linux)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/Bethaniel-linux.AppImage
-            dist/Bethaniel-linux.deb

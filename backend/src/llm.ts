@@ -247,7 +247,10 @@ export async function* findCorrectionsStream(
       { role: "user", content: chunkText },
     ],
     {
-      response_format: { type: "json_object" },
+      // NOTE: no response_format here — corrections are emitted as JSONL
+      // (one JSON object per line), not as a single JSON object. Forcing
+      // `json_object` would fight the prompt and re-introduce truncation
+      // problems on long responses.
       max_tokens: cap,
     },
     signal,
@@ -304,10 +307,73 @@ export async function* synthesizeStream(
 // ── JSON parsing (unchanged from ollama.ts) ──
 
 /**
- * Parse the model's JSON output into a list of corrections.
- * Tolerates code fences, stray commentary, and truncated JSON.
+ * Parse the model's JSONL output into a list of corrections.
+ *
+ * Expected format: one `{"original": "...", "corrected": "..."}` per line.
+ * Truncation simply drops the final partial line — no full-response loss.
+ *
+ * Tolerates: stray `<think>` blocks, leading/trailing code fences,
+ * commentary lines between objects, missing newline between `}{` pairs,
+ * and (as a back-compat fallback) the legacy `{"corrections":[...]}` shape.
  */
 export function parseCorrectionsJson(raw: string): Correction[] {
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+  text = text.replace(/```(?:jsonl?|ndjson)?/gi, "").replace(/```/g, "");
+
+  // Split on newlines, and also on `}{` joins in case the model forgot the
+  // newline. Then drop anything that doesn't look like a complete JSON object.
+  const lines = text
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/(?<=\})\s*(?=\{)/));
+
+  const cleaned: Correction[] = [];
+  for (const line of lines) {
+    const s = line.trim().replace(/^[,\s]+|[,\s]+$/g, "");
+    if (!s || !s.startsWith("{") || !s.endsWith("}")) continue;
+
+    let obj: unknown;
+    try {
+      obj = JSON.parse(s);
+    } catch {
+      // Retry after sanitizing invalid escape sequences
+      try {
+        obj = JSON.parse(sanitizeJsonEscapes(s));
+      } catch {
+        continue;
+      }
+    }
+    if (typeof obj !== "object" || obj === null) continue;
+    const rec = obj as Record<string, unknown>;
+    const original = rec.original;
+    const corrected = rec.corrected;
+    if (
+      typeof original === "string" &&
+      typeof corrected === "string" &&
+      original
+    ) {
+      const normalized = normalizeMarkdownMarkers(original, corrected);
+      if (normalized === null) continue; // unrecoverable marker mismatch
+      if (normalized === original) continue; // no-op after stripping spurious markup
+      cleaned.push({ original, corrected: normalized });
+    }
+  }
+
+  // Back-compat: legacy `{"corrections":[...]}` shape from older prompts or
+  // non-llama models. Only attempt if JSONL parse yielded nothing.
+  if (cleaned.length === 0 && /"corrections"\s*:\s*\[/.test(raw)) {
+    return parseCorrectionsArrayLegacy(raw);
+  }
+
+  // Final fallback: regex-extract individual objects from malformed text.
+  if (cleaned.length === 0 && /"original"\s*:/.test(raw)) {
+    return extractCorrectionsRegex(raw);
+  }
+
+  return cleaned;
+}
+
+/** Legacy parser for the old `{"corrections":[...]}` envelope. */
+function parseCorrectionsArrayLegacy(raw: string): Correction[] {
   let text = raw.trim();
   text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   if (text.startsWith("```")) {
@@ -324,14 +390,19 @@ export function parseCorrectionsJson(raw: string): Correction[] {
   try {
     data = JSON.parse(text);
   } catch {
-    // JSON may be truncated (model hit token limit). Try to repair by
-    // closing open brackets/braces and re-parsing.
-    const repaired = repairTruncatedJson(text);
     try {
-      data = JSON.parse(repaired);
+      data = JSON.parse(sanitizeJsonEscapes(text));
     } catch {
-      // Last resort: regex-extract individual correction objects
-      return extractCorrectionsRegex(raw);
+      const repaired = repairTruncatedJson(text);
+      try {
+        data = JSON.parse(repaired);
+      } catch {
+        try {
+          data = JSON.parse(sanitizeJsonEscapes(repaired));
+        } catch {
+          return extractCorrectionsRegex(raw);
+        }
+      }
     }
   }
 
@@ -348,8 +419,8 @@ export function parseCorrectionsJson(raw: string): Correction[] {
       original
     ) {
       const normalized = normalizeMarkdownMarkers(original, corrected);
-      if (normalized === null) continue; // unrecoverable marker mismatch
-      if (normalized === original) continue; // no-op after stripping spurious markup
+      if (normalized === null) continue;
+      if (normalized === original) continue;
       cleaned.push({ original, corrected: normalized });
     }
   }
@@ -466,6 +537,33 @@ function repairTruncatedJson(text: string): string {
 }
 
 /**
+ * Sanitize invalid JSON escape sequences that LLMs sometimes produce.
+ * Replaces non-standard escapes (e.g. \a, \x, \') with their literal character,
+ * preserving valid JSON escapes (\" \\ \/ \b \f \n \r \t \uXXXX).
+ */
+function sanitizeJsonEscapes(s: string): string {
+  // Replace invalid \X sequences with just X (the literal character),
+  // but preserve valid JSON escapes.
+  return s.replace(/\\(.)/g, (match, ch: string) => {
+    switch (ch) {
+      case '"':
+      case "\\":
+      case "/":
+      case "b":
+      case "f":
+      case "n":
+      case "r":
+      case "t":
+        return match; // valid escape — keep as-is
+      case "u":
+        return match; // \uXXXX — keep as-is (the digits follow)
+      default:
+        return ch; // invalid escape — drop the backslash
+    }
+  });
+}
+
+/**
  * Last-resort extraction: scan for `{"original": "...", "corrected": "..."}`
  * patterns even when the surrounding JSON is malformed.
  */
@@ -478,12 +576,25 @@ function extractCorrectionsRegex(raw: string): Correction[] {
     /\{\s*"original"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"corrected"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
-    const original = JSON.parse(`"${m[1]}"`);
-    const corrected = JSON.parse(`"${m[2]}"`);
-    if (typeof original === "string" && original) {
-      const normalized = normalizeMarkdownMarkers(original, corrected);
-      if (normalized === null || normalized === original) continue;
-      out.push({ original, corrected: normalized });
+    try {
+      let original: string;
+      let corrected: string;
+      try {
+        original = JSON.parse(`"${m[1]}"`);
+        corrected = JSON.parse(`"${m[2]}"`);
+      } catch {
+        // Sanitize invalid escapes and retry
+        original = JSON.parse(`"${sanitizeJsonEscapes(m[1])}"`);
+        corrected = JSON.parse(`"${sanitizeJsonEscapes(m[2])}"`);
+      }
+      if (typeof original === "string" && original) {
+        const normalized = normalizeMarkdownMarkers(original, corrected);
+        if (normalized === null || normalized === original) continue;
+        out.push({ original, corrected: normalized });
+      }
+    } catch {
+      // Skip entries that can't be parsed even after sanitization
+      continue;
     }
   }
   return out;

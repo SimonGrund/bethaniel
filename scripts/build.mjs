@@ -25,12 +25,15 @@ const ROOT = join(__dirname, "..");
 const args = process.argv.slice(2);
 let targetPlatform = null;
 let skipLlama = false;
+let publish = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--platform" && args[i + 1]) {
     targetPlatform = args[++i];
   } else if (args[i] === "--skip-llama") {
     skipLlama = true;
+  } else if (args[i] === "--publish" && args[i + 1]) {
+    publish = args[++i];
   } else if (args[i] === "--help" || args[i] === "-h") {
     console.log(`
 Bethaniel Electron Build Script
@@ -40,6 +43,7 @@ Usage:
 
 Options:
   --platform <mac|win|linux|all>  Target platform (default: current host)
+  --publish <always|never|onTag>  Publish to GitHub (default: never)
   --skip-llama                     Skip downloading llama-server binaries
   -h, --help                       Show this help
 
@@ -430,8 +434,11 @@ for (const p of platforms) {
   }
 
   const flag = electronBuilderFlag(p);
+  const publishFlag = publish ? ` --publish ${publish}` : "";
   console.log(`\n  Building for ${p}...`);
-  run(`npx electron-builder ${flag} --config electron-builder.yml`);
+  run(
+    `npx electron-builder ${flag} --config electron-builder.yml${publishFlag}`,
+  );
 }
 
 // ── Restore dev backend node_modules ──
@@ -463,7 +470,10 @@ for (const entry of entries) {
     // Remove unpacked app dirs (mac/, mac-arm64/, linux-unpacked/, win-unpacked/)
     await fs.rm(full, { recursive: true });
     console.log(`  removed ${entry.name}/`);
-  } else if (/\.(blockmap|yml|yaml)$/i.test(entry.name)) {
+  } else if (/\.(blockmap)$/i.test(entry.name)) {
+    await fs.rm(full);
+    console.log(`  removed ${entry.name}`);
+  } else if (/\.(yml|yaml)$/i.test(entry.name) && !publish) {
     await fs.rm(full);
     console.log(`  removed ${entry.name}`);
   }
