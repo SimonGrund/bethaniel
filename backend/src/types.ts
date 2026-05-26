@@ -80,6 +80,12 @@ export interface DocumentMeta {
   chapters: Chapter[];
   wordCount: number;
   uploadedAt: number;
+  /** Whether scene/paragraph break detection ran on this document. */
+  detectBreaks?: boolean;
+  /** Raw scene-break pattern detected at upload (e.g. "***", "\\*", "---"). */
+  detectedSceneBreak?: string | null;
+  /** Paragraph (small) break style — usually "empty line". */
+  detectedParagraphBreak?: string | null;
 }
 
 export interface Correction {
@@ -118,6 +124,7 @@ export interface TaskState {
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
   model?: string;
+  tokPerSec?: string;
   // Stored re-submission spec so a failed task can be re-run without
   // going back to the upload screen. Includes the original chapter text,
   // model, prompt, chunking params, etc.

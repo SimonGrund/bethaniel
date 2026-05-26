@@ -10,6 +10,7 @@ import {
   deleteTask,
   deleteJob,
 } from "../api";
+import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
 import { ANALYSIS_MODES, EDIT_MODES } from "../types";
 
@@ -21,6 +22,7 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
  * Names without a number sort to Infinity (end of list).
  */
 function chapterSortKey(name: string): number {
+  if (/^frontmatter$/i.test(name.trim())) return -1;
   const m = name.match(/(\d+)/);
   return m ? parseInt(m[1], 10) : Infinity;
 }
@@ -687,10 +689,41 @@ export default function ReviewExport() {
     toggleCorrection,
     acceptAll,
     dismissAll,
+    document: doc,
   } = useStore();
   const t = useTranslation(lang);
   const [confirmClear, setConfirmClear] = useState(false);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+
+  // Map a raw detected pattern to one of the dropdown sectionBreak values.
+  const mapDetectedSectionBreak = (
+    raw: string | null | undefined,
+  ): DocxExportOptions["sectionBreak"] => {
+    if (!raw) return "asterisks";
+    const t = raw.trim();
+    if (/[-]/.test(t) && !/[*]/.test(t)) return "dash";
+    return "asterisks";
+  };
+
+  const [docxOptions, setDocxOptions] = useState<DocxExportOptions>({
+    sectionBreak: mapDetectedSectionBreak(doc?.detectedSceneBreak),
+    smallBreak: "space",
+    lineSpacing: 1.3,
+  });
+
+  // When the document changes (new upload), re-default the section break
+  // to whatever was detected for that document.
+  useEffect(() => {
+    setDocxOptions((o) => ({
+      ...o,
+      sectionBreak: mapDetectedSectionBreak(doc?.detectedSceneBreak),
+    }));
+  }, [doc?.id, doc?.detectedSceneBreak]);
+  const [showDocxOptions, setShowDocxOptions] = useState(false);
+  const [pendingDocxExport, setPendingDocxExport] = useState<{
+    markdown: string;
+    filename: string;
+  } | null>(null);
   const latestRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -707,9 +740,9 @@ export default function ReviewExport() {
   }, []);
 
   const handleDownloadDocx = useCallback(
-    async (markdown: string, filename: string) => {
+    async (markdown: string, filename: string, opts?: DocxExportOptions) => {
       try {
-        const blob = await exportDocx(markdown);
+        const blob = await exportDocx(markdown, opts);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -722,6 +755,32 @@ export default function ReviewExport() {
     },
     [],
   );
+
+  const handleFullDocxExport = useCallback(
+    (markdown: string, filename: string) => {
+      // If the user opted out of break detection on this document, skip the
+      // options dialog entirely and do a plain md↔docx conversion.
+      if (!doc?.detectBreaks) {
+        handleDownloadDocx(markdown, filename, { detectBreaks: false });
+        return;
+      }
+      setPendingDocxExport({ markdown, filename });
+      setShowDocxOptions(true);
+    },
+    [doc?.detectBreaks, handleDownloadDocx],
+  );
+
+  const confirmDocxExport = useCallback(() => {
+    if (pendingDocxExport) {
+      handleDownloadDocx(
+        pendingDocxExport.markdown,
+        pendingDocxExport.filename,
+        docxOptions,
+      );
+    }
+    setShowDocxOptions(false);
+    setPendingDocxExport(null);
+  }, [pendingDocxExport, docxOptions, handleDownloadDocx]);
 
   const handleRetry = useCallback(async (taskId: string) => {
     try {
@@ -848,6 +907,106 @@ export default function ReviewExport() {
                 type="button"
                 className="btn-secondary"
                 onClick={() => setConfirmClear(false)}
+              >
+                {t("btn_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDocxOptions && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog docx-options-dialog">
+            <h3>DOCX Export Options</h3>
+
+            {doc?.detectedSceneBreak && (
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#6b5c44",
+                  marginTop: 0,
+                  marginBottom: "0.75rem",
+                }}
+              >
+                Detected scene-break marker in your manuscript:{" "}
+                <code>{doc.detectedSceneBreak}</code>. Choose how it should
+                appear in the exported document below.
+              </p>
+            )}
+
+            <label className="docx-option-label">
+              Section breaks (scene breaks)
+              <select
+                value={docxOptions.sectionBreak}
+                onChange={(e) =>
+                  setDocxOptions((o) => ({
+                    ...o,
+                    sectionBreak: e.target
+                      .value as DocxExportOptions["sectionBreak"],
+                  }))
+                }
+              >
+                <option value="asterisks">* * * (centered)</option>
+                <option value="dash">— (em-dash, centered)</option>
+                <option value="blank">Blank line</option>
+              </select>
+            </label>
+
+            <label className="docx-option-label">
+              Paragraph spacing
+              <select
+                value={docxOptions.smallBreak}
+                onChange={(e) =>
+                  setDocxOptions((o) => ({
+                    ...o,
+                    smallBreak: e.target
+                      .value as DocxExportOptions["smallBreak"],
+                  }))
+                }
+              >
+                <option value="space">
+                  Full empty line between paragraphs
+                </option>
+                <option value="hash">Centered # marker</option>
+                <option value="none">No extra spacing</option>
+              </select>
+            </label>
+
+            <label className="docx-option-label">
+              Line spacing
+              <select
+                value={String(docxOptions.lineSpacing)}
+                onChange={(e) =>
+                  setDocxOptions((o) => ({
+                    ...o,
+                    lineSpacing: parseFloat(e.target.value),
+                  }))
+                }
+              >
+                <option value="1">1.0 (single)</option>
+                <option value="1.15">1.15</option>
+                <option value="1.3">1.3</option>
+                <option value="1.5">1.5</option>
+                <option value="2">2.0 (double)</option>
+              </select>
+            </label>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={confirmDocxExport}
+              >
+                Export DOCX
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowDocxOptions(false);
+                  setPendingDocxExport(null);
+                }}
               >
                 {t("btn_cancel")}
               </button>
@@ -999,7 +1158,7 @@ export default function ReviewExport() {
                           entries,
                           acceptedCorrections,
                         );
-                        handleDownloadDocx(md, `${src}.full.docx`);
+                        handleFullDocxExport(md, `${src}.full.docx`);
                       }}
                     >
                       {t("download_full_docx")}
@@ -1084,6 +1243,7 @@ export default function ReviewExport() {
                           handleDownloadDocx(
                             summaryTask.result!.editedText,
                             `${src}.summary.docx`,
+                            { detectBreaks: doc?.detectBreaks ?? false },
                           )
                         }
                       >
@@ -1468,7 +1628,9 @@ export default function ReviewExport() {
                                 corrections,
                                 accepted,
                               );
-                          handleDownloadDocx(text, `${task.name}.edited.docx`);
+                          handleDownloadDocx(text, `${task.name}.edited.docx`, {
+                            detectBreaks: doc?.detectBreaks ?? false,
+                          });
                         }}
                       >
                         {t("download_docx")}

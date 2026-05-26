@@ -194,6 +194,20 @@ function buildChaptersFromMatches(
   matches: { index: number; groups: string[]; full: string }[],
 ): Chapter[] {
   const out: Chapter[] = [];
+  const firstStart = matches[0]?.index ?? 0;
+  if (firstStart > 0) {
+    const pre = text.slice(0, firstStart);
+    if (pre.trim()) {
+      out.push({
+        title: "Frontmatter",
+        level: 1,
+        start: 0,
+        end: firstStart,
+        wordCount: wordCount(pre),
+      });
+    }
+  }
+
   for (let i = 0; i < matches.length; i++) {
     const start = matches[i].index;
     const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
@@ -226,3 +240,24 @@ function buildChaptersFromMatches(
 }
 
 export { PAGEBREAK_MARKER };
+
+// ── Single-line chapter-heading detector (used by DOCX export to promote
+// plain-text titles like "Chapter One" / "CHAPTER ONE" / "Prologue" to real
+// <h1> headings with a preceding page break). Mirrors the patterns used by
+// findChapters() but evaluates a single trimmed line at a time.
+const CHAPTER_LINE_PATTERNS: RegExp[] = [
+  // "Chapter 12", "Kapitel IV — The Storm", optionally wrapped in */_ marks
+  new RegExp(`^[*_]{0,3}\\s*(?:${cwg})\\s+[\\dIVXLCivxlc]+[.:—–-]?.*$`, "i"),
+  // "Chapter One", "Part Two: Reunion" — chapter word followed by anything
+  new RegExp(`^[*_]{0,3}\\s*(?:${cwg})(?:\\s+\\S.*)?[*_]{0,3}\\s*$`, "i"),
+  // "Prologue", "Epilogue: Aftermath"
+  new RegExp(`^(?:${ssg})\\s*[.:—–-]?.*$`, "i"),
+  // All-caps line (≥7 chars, letters/spaces only) — "CHAPTER ONE", "THE END"
+  /^[A-ZÆØÅÄÖÜÉÈÊÁÀÂÍÓÚÑÇ][A-ZÆØÅÄÖÜÉÈÊÁÀÂÍÓÚÑÇ ]{6,}$/,
+];
+
+export function isChapterHeadingLine(line: string): boolean {
+  const t = line.trim();
+  if (!t || t.length > 120) return false;
+  return CHAPTER_LINE_PATTERNS.some((re) => re.test(t));
+}

@@ -81,6 +81,12 @@ interface AppState {
   setUploading: (b: boolean) => void;
   submitting: boolean;
   setSubmitting: (b: boolean) => void;
+  pendingTaskIds: string[];
+  setPendingTaskIds: (ids: string[]) => void;
+
+  // User pref: detect scene/paragraph breaks on upload (default off)
+  detectBreaks: boolean;
+  setDetectBreaks: (b: boolean) => void;
 
   // Model warm-up
   warmingModel: string | null;
@@ -158,7 +164,14 @@ export const useStore = create<AppState>((set, get) => ({
   setStyleGuide: (styleGuide) => set({ styleGuide }),
 
   tasks: {},
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    const pending = get().pendingTaskIds;
+    if (pending.length > 0 && pending.every((id) => id in tasks)) {
+      set({ tasks, submitting: false, pendingTaskIds: [] });
+    } else {
+      set({ tasks });
+    }
+  },
 
   warmingModel: null,
   warmingStatus: null,
@@ -202,6 +215,11 @@ export const useStore = create<AppState>((set, get) => ({
   setUploading: (uploading) => set({ uploading }),
   submitting: false,
   setSubmitting: (submitting) => set({ submitting }),
+  pendingTaskIds: [],
+  setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
+
+  detectBreaks: false,
+  setDetectBreaks: (detectBreaks) => set({ detectBreaks }),
 
   logs: [],
   setLogs: (logs) => set({ logs, unreadLogCount: 0 }),

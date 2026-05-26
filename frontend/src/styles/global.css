@@ -3046,3 +3046,33 @@ h4 {
   font-size: 0.8rem;
   color: #4a3a1a;
 }
+
+/* ── DOCX Export Options Dialog ── */
+.docx-options-dialog {
+  max-width: 420px;
+}
+
+.docx-options-dialog h3 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  color: #2a2419;
+}
+
+.docx-option-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #4a3a1a;
+}
+
+.docx-option-label select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 0.88rem;
+  color: #2a2419;
+  font-family: "Inter", sans-serif;
+}

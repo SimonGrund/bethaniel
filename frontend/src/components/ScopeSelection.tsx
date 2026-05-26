@@ -1,5 +1,6 @@
 // ── Scope selection — Stage II ──
 
+import { useMemo } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import type { EditUnit } from "../types";
@@ -10,8 +11,11 @@ const PROLOGUE_RE = /^(prologue|prolog|forord)/i;
 const EPILOGUE_RE = /^(epilogue|epilog|efterord|afterword)/i;
 
 function shortChapterLabel(index: number, title: string): string {
-  if (PROLOGUE_RE.test(title)) return "Prologue";
-  if (EPILOGUE_RE.test(title)) return "Epilogue";
+  const trimmed = title.trim();
+  if (/^frontmatter$/i.test(trimmed)) return "Frontmatter";
+  if (PROLOGUE_RE.test(trimmed)) return "Prologue";
+  if (EPILOGUE_RE.test(trimmed)) return "Epilogue";
+  if (trimmed && !/^section\s+\d+$/i.test(trimmed)) return trimmed;
   return `Ch${index + 1}`;
 }
 
@@ -77,9 +81,33 @@ export default function ScopeSelection() {
   } = useStore();
   const t = useTranslation(lang);
 
+  const chapters = doc?.chapters ?? [];
+  const units = useMemo(
+    () =>
+      buildUnits(
+        documentMd,
+        chapters,
+        scopeMode,
+        selectedChapters,
+        firstNWords,
+      ),
+    [documentMd, chapters, scopeMode, selectedChapters, firstNWords],
+  );
+  const totalWords = useMemo(
+    () =>
+      units.reduce(
+        (s, u) => s + u.original.split(/\s+/).filter(Boolean).length,
+        0,
+      ),
+    [units],
+  );
+  const selectedSet = useMemo(
+    () => new Set(selectedChapters),
+    [selectedChapters],
+  );
+
   if (!doc) return null;
 
-  const chapters = doc.chapters;
   const scopeOptions: { value: ScopeMode; label: string }[] = [
     { value: "whole_book", label: t("whole_book") },
   ];
@@ -90,18 +118,6 @@ export default function ScopeSelection() {
     });
   }
   scopeOptions.push({ value: "first_n_words", label: t("first_n_words") });
-
-  const units = buildUnits(
-    documentMd,
-    chapters,
-    scopeMode,
-    selectedChapters,
-    firstNWords,
-  );
-  const totalWords = units.reduce(
-    (s, u) => s + u.original.split(/\s+/).filter(Boolean).length,
-    0,
-  );
 
   return (
     <section className="stage">
@@ -139,11 +155,11 @@ export default function ScopeSelection() {
             {chapters.map((ch, i) => (
               <label
                 key={i}
-                className={`chapter-option ${selectedChapters.includes(i) ? "selected" : ""}`}
+                className={`chapter-option ${selectedSet.has(i) ? "selected" : ""}`}
               >
                 <input
                   type="checkbox"
-                  checked={selectedChapters.includes(i)}
+                  checked={selectedSet.has(i)}
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedChapters([...selectedChapters, i].sort());
