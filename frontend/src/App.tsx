@@ -106,8 +106,12 @@ export default function App() {
         style={{ justifyContent: "center", alignItems: "center" }}
       >
         <div className="splash">
-          <img src="/logo-full.svg" alt="Bethaniel" className="splash-logo" />
-          <div className="splash-spinner" />
+          <img
+            src="/logo-full.svg"
+            alt="Bethaniel"
+            className="splash-logo splash-pulse"
+          />
+          <span className="splash-text">Loading Betty…</span>
         </div>
       </div>
     );

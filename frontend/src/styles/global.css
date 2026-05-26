@@ -271,6 +271,21 @@ h4 {
   animation: splash-fade-in 0.6s ease-out;
 }
 
+.splash-pulse {
+  animation:
+    splash-fade-in 0.6s ease-out,
+    splash-pulse 2s ease-in-out infinite;
+}
+
+.splash-text {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #8b7355;
+  letter-spacing: 0.05em;
+  animation: splash-fade-in 0.8s ease-out;
+}
+
 .splash-spinner {
   width: 24px;
   height: 24px;
@@ -288,6 +303,18 @@ h4 {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.7;
   }
 }
 
@@ -703,9 +730,9 @@ h4 {
 .trigger-buttons-row {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
@@ -721,6 +748,7 @@ h4 {
   border-radius: 12px;
   padding: 1.25rem 2rem;
   min-width: 200px;
+  flex-shrink: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(26, 20, 10, 0.15);
@@ -742,6 +770,30 @@ h4 {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ── Launching state ── */
+.btn-run-launching {
+  animation: btn-run-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes btn-run-pulse {
+  0%,
+  100% {
+    box-shadow: 0 4px 12px rgba(26, 20, 10, 0.15);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(139, 115, 85, 0.45);
+  }
+}
+
+.btn-run-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(247, 241, 227, 0.3);
+  border-top-color: #f7f1e3;
+  border-radius: 50%;
+  animation: splash-spin 0.7s linear infinite;
 }
 
 .btn-run-icon {

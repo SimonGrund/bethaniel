@@ -103,12 +103,24 @@ export default function EditTrigger() {
   return (
     <section className="stage edit-trigger-stage">
       <div className="trigger-buttons-row">
-        <button className="btn-run" disabled={disabled} onClick={handleClick}>
-          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+        <button
+          className={`btn-run${submitting ? " btn-run-launching" : ""}`}
+          disabled={disabled}
+          onClick={handleClick}
+        >
+          {submitting ? (
+            <div className="btn-run-spinner" />
+          ) : (
+            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+          )}
           <span className="btn-run-label">
-            {isWorking ? t("btn_add_to_queue_busy") : t("btn_add_to_queue")}
+            {submitting
+              ? "Launching…"
+              : isWorking
+                ? t("btn_add_to_queue_busy")
+                : t("btn_add_to_queue")}
           </span>
-          {units.length > 0 && (
+          {units.length > 0 && !submitting && (
             <span className="btn-run-meta">
               {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
               {selectedModes.length}{" "}
