@@ -33,10 +33,10 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.RELEASE_TOKEN }}
 
-            - name: Setup Node.js 20
+            - name: Setup Node.js 22
               uses: actions/setup-node@v4
               with:
-                  node-version: "20"
+                  node-version: "22"
 
             - name: Configure git
               run: |
