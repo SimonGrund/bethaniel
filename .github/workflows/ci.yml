@@ -56,3 +56,16 @@ jobs:
         # Fails the job on high or critical severity vulnerabilities.
         # Lower-severity issues are reported but do not block CI.
         run: npm audit --audit-level=high
+
+  # ── Dependency review (PRs only) ─────────────────────────────────────────
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependencies
+        # Fails if any newly introduced package has a known vulnerability.
+        uses: actions/dependency-review-action@v4
