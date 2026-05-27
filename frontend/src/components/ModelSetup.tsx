@@ -240,6 +240,12 @@ export default function ModelSetup({
 
   const hasInstalledModel = installed.length > 0;
 
+  // Determine recommended tier (highest allowed, or smallest if nothing qualifies)
+  const anyAllowed = (hardware?.allowedTiers?.length ?? 0) > 0;
+  const recommendedTier = anyAllowed
+    ? (hardware?.allowedTiers?.slice().reverse()[0] ?? null)
+    : (catalog[0]?.tier ?? null);
+
   return (
     <div className="model-panel">
       <p className="model-panel-desc">{t("model_setup_desc")}</p>
@@ -264,7 +270,9 @@ export default function ModelSetup({
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
           const isDownloading = downloading.has(entry.id);
-          const isDisabled = !entry.allowed && !isInstalled;
+          const isOverSpec = !entry.allowed && !isInstalled;
+          const isBestForMachine =
+            !anyAllowed && entry.tier === recommendedTier;
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
@@ -273,11 +281,16 @@ export default function ModelSetup({
           return (
             <div
               key={entry.id}
-              className={`model-card-inline ${isDisabled ? "model-card-disabled" : ""} ${isInstalled ? "model-card-installed" : ""}`}
+              className={`model-card-inline ${isOverSpec ? "model-card-overspec" : ""} ${isInstalled ? "model-card-installed" : ""}`}
             >
               <div className="model-card-header">
                 <span className="model-tier-badge">{entry.tier}</span>
                 <strong>{entry.name}</strong>
+                {isBestForMachine && (
+                  <span className="model-recommended-badge model-recommended-low-spec">
+                    {t("model_recommended_for_machine")}
+                  </span>
+                )}
               </div>
               <div className="model-card-meta">
                 <span>{formatBytes(entry.sizeBytes)}</span>
@@ -285,6 +298,14 @@ export default function ModelSetup({
                   {t("model_requires")} {minRam} GB
                 </span>
               </div>
+
+              {isOverSpec && hardware && (
+                <div className="model-overspec-warning">
+                  {t("model_low_ram_warning")
+                    .replace("{yourRam}", String(hardware.totalRamGb))
+                    .replace("{minRam}", String(minRam))}
+                </div>
+              )}
 
               {isDownloading && entryProgress ? (
                 <div className="model-download-progress">
@@ -322,17 +343,9 @@ export default function ModelSetup({
                 <div className="model-card-actions">
                   <button
                     className="btn-primary"
-                    disabled={isDisabled}
                     onClick={() => startDownload(entry.id)}
-                    title={
-                      isDisabled
-                        ? `${t("model_requires")} ${minRam} GB RAM — ${t("model_your_machine")} ${hardware?.totalRamGb ?? "?"} GB`
-                        : undefined
-                    }
                   >
-                    {isDisabled
-                      ? t("model_insufficient_ram")
-                      : t("model_download")}
+                    {t("model_download")}
                   </button>
                 </div>
               )}

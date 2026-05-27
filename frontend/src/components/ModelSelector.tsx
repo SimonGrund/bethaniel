@@ -317,8 +317,14 @@ export default function ModelSelector({
       : `${(bytes / 1024 ** 2).toFixed(0)} MB`;
   }
 
-  // Find recommended tier
-  const recommendedTier = hardware?.allowedTiers?.slice().reverse()[0] ?? null;
+  // Find recommended tier.
+  // If the machine can handle at least one model → recommend the highest allowed tier.
+  // If nothing is allowed (very low RAM) → fall back to the smallest model so users
+  // still have a clear "start here" option with a warning.
+  const anyAllowed = (hardware?.allowedTiers?.length ?? 0) > 0;
+  const recommendedTier = anyAllowed
+    ? (hardware?.allowedTiers?.slice().reverse()[0] ?? null)
+    : (catalog[0]?.tier ?? null);
 
   return (
     <div className="model-selector">
@@ -332,10 +338,13 @@ export default function ModelSelector({
         {catalog.map((entry) => {
           const isInstalled = installed.some((i) => i.id === entry.id);
           const isDownloading = downloading.has(entry.id);
-          const isDisabled = !entry.allowed && !isInstalled;
+          // over-spec: machine lacks RAM but download is still allowed
+          const isOverSpec = !entry.allowed && !isInstalled;
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
           const isRecommended = entry.tier === recommendedTier;
+          // show "Best for your machine" when the machine is low-spec
+          const isBestForMachine = !anyAllowed && isRecommended;
           const isLockedOut = modelLocked && !isSelected && isInstalled;
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
@@ -351,7 +360,7 @@ export default function ModelSelector({
                   tierClass,
                   isSelected && isInstalled ? "model-card-selected" : "",
                   isInstalled ? "model-card-ready" : "",
-                  isDisabled ? "model-card-disabled" : "",
+                  isOverSpec ? "model-card-overspec" : "",
                   isDownloading ? "model-card-downloading" : "",
                   isLockedOut ? "model-card-locked-active" : "",
                 ]
@@ -362,7 +371,7 @@ export default function ModelSelector({
                   if (isLockedOut) return;
                   if (isInstalled) {
                     setModel(entry.fileName);
-                  } else if (!isDisabled && !isDownloading) {
+                  } else if (!isDownloading) {
                     setConfirmEntry(entry);
                   }
                 }}
@@ -401,9 +410,16 @@ export default function ModelSelector({
                       </span>
                     )}
                   </span>
-                ) : isDisabled ? (
-                  <span className="model-card-status model-card-locked">
-                    {t("model_insufficient_ram")}
+                ) : isOverSpec ? (
+                  <span className="model-card-status model-card-overspec-status">
+                    {isBestForMachine && (
+                      <span className="model-recommended-badge model-recommended-low-spec">
+                        {t("model_recommended_for_machine")}
+                      </span>
+                    )}
+                    <span className="model-overspec-label">
+                      {t("model_download")}
+                    </span>
                   </span>
                 ) : (
                   <span className="model-card-status">
@@ -464,6 +480,20 @@ export default function ModelSelector({
                   formatBytes(confirmEntry.sizeBytes) || "~20 GB",
                 )}
             </p>
+            {!confirmEntry.allowed && hardware && (
+              <p className="model-confirm-warn">
+                {t("model_low_ram_warning")
+                  .replace("{yourRam}", String(hardware.totalRamGb))
+                  .replace(
+                    "{minRam}",
+                    String(
+                      hardware.appleSilicon
+                        ? confirmEntry.minRamAppleSiliconGb
+                        : confirmEntry.minRamGb,
+                    ),
+                  )}
+              </p>
+            )}
             <div className="model-confirm-actions">
               <button
                 type="button"

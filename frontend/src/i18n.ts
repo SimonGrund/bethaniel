@@ -713,6 +713,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Empfohlen",
     es: "Recomendado",
   },
+  model_recommended_for_machine: {
+    en: "Best for your machine",
+    da: "Bedst til din maskine",
+    de: "Am besten für deinen Rechner",
+    es: "Mejor para tu equipo",
+  },
+  model_low_ram_warning: {
+    en: "Your machine has {yourRam} GB RAM — this model needs {minRam} GB. It will run, but slowly.",
+    da: "Din maskine har {yourRam} GB RAM — denne model kræver {minRam} GB. Den kører, men langsomt.",
+    de: "Dein Rechner hat {yourRam} GB RAM — dieses Modell benötigt {minRam} GB. Es läuft, aber langsam.",
+    es: "Tu equipo tiene {yourRam} GB RAM — este modelo necesita {minRam} GB. Funcionará, pero despacio.",
+  },
   model_continue: {
     en: "Continue to Bethaniel",
     da: "Fortsæt til Bethaniel",
