@@ -2,7 +2,7 @@
 
 A fully local, offline-capable AI copy editor for pre-print manuscripts.
 Powered by a bundled [llama.cpp](https://github.com/ggml-org/llama.cpp) inference engine running entirely on your machine —
-no internet, no cloud, no data leaves your computer.
+no internet, no cloud, no data leaves your computer. Check out www.bethaniel.eu for mailing list.
 
 ## Architecture
 
