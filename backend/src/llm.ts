@@ -600,6 +600,80 @@ function extractCorrectionsRegex(raw: string): Correction[] {
   return out;
 }
 
+/**
+ * Restore the original text's typographic conventions in an LLM-rewritten
+ * output. Detects what the original uses (curly vs straight quotes, ellipsis
+ * char vs dots, dash styles) and converts the output to match.
+ *
+ * This prevents the LLM from silently normalizing quotes/dashes in rewrite mode.
+ */
+export function restoreTypography(original: string, output: string): string {
+  let result = output;
+
+  // --- Double quotes ---
+  const origCurlyDq = (original.match(/[\u201C\u201D]/g) ?? []).length;
+  const origStraightDq = (original.match(/"/g) ?? []).length;
+  const outCurlyDq = (result.match(/[\u201C\u201D]/g) ?? []).length;
+  const outStraightDq = (result.match(/"/g) ?? []).length;
+
+  if (origCurlyDq > origStraightDq && outStraightDq > outCurlyDq) {
+    // Original uses curly, output switched to straight → convert back to curly
+    result = smartenDoubleQuotes(result);
+  } else if (origStraightDq > origCurlyDq && outCurlyDq > outStraightDq) {
+    // Original uses straight, output switched to curly → convert back to straight
+    result = result.replace(/[\u201C\u201D]/g, '"');
+  }
+
+  // --- Single quotes / apostrophes ---
+  const origCurlySq = (original.match(/[\u2018\u2019]/g) ?? []).length;
+  const origStraightSq = (original.match(/'/g) ?? []).length;
+  const outCurlySq = (result.match(/[\u2018\u2019]/g) ?? []).length;
+  const outStraightSq = (result.match(/'/g) ?? []).length;
+
+  if (origCurlySq > origStraightSq && outStraightSq > outCurlySq) {
+    // Original uses curly, output switched to straight → convert back
+    result = smartenSingleQuotes(result);
+  } else if (origStraightSq > origCurlySq && outCurlySq > outStraightSq) {
+    // Original uses straight, output switched to curly → convert back
+    result = result.replace(/[\u2018\u2019]/g, "'");
+  }
+
+  // --- Ellipsis ---
+  const origEllipsis = (original.match(/\u2026/g) ?? []).length;
+  const origDots = (original.match(/\.\.\./g) ?? []).length;
+  const outEllipsis = (result.match(/\u2026/g) ?? []).length;
+  const outDots = (result.match(/\.\.\./g) ?? []).length;
+
+  if (origEllipsis > origDots && outDots > outEllipsis) {
+    result = result.replace(/\.\.\./g, "\u2026");
+  } else if (origDots > origEllipsis && outEllipsis > outDots) {
+    result = result.replace(/\u2026/g, "...");
+  }
+
+  return result;
+}
+
+/** Convert straight double quotes to curly (context-aware open/close). */
+function smartenDoubleQuotes(s: string): string {
+  let open = true;
+  return s.replace(/"/g, () => {
+    const q = open ? "\u201C" : "\u201D";
+    open = !open;
+    return q;
+  });
+}
+
+/** Convert straight single quotes to curly (heuristic: open after space/start). */
+function smartenSingleQuotes(s: string): string {
+  // After whitespace or start-of-string → opening quote; otherwise → closing/apostrophe
+  return s.replace(/'/g, (_, offset) => {
+    if (offset === 0) return "\u2018";
+    const prev = s[offset - 1];
+    if (/[\s(\[{]/.test(prev)) return "\u2018";
+    return "\u2019";
+  });
+}
+
 // Markdown markers we never let the model strip via a correction.
 const MARKDOWN_MARKER_PATTERNS: [string, RegExp][] = [
   ["triple-asterisk", /\*\*\*/g],
@@ -619,6 +693,43 @@ function countMatches(text: string, pattern: RegExp): number {
   return (text.match(pattern) ?? []).length;
 }
 
+/**
+ * Normalize typographic characters to their ASCII equivalents for comparison.
+ * Used to detect corrections that only change quote/apostrophe/ellipsis style.
+ */
+function normalizeTypography(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u2039\u203A]/g, "'") // curly single quotes → straight
+    .replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g, '"') // curly double quotes → straight
+    .replace(/\u2026/g, "...") // ellipsis char → three dots
+    .replace(/\u2014/g, "--") // em dash → double hyphen
+    .replace(/\u2013/g, "-"); // en dash → hyphen
+}
+
+/**
+ * Returns true if the only difference between original and corrected is
+ * typographic style (curly vs straight quotes/apostrophes, ellipsis char, dashes).
+ */
+function isTypographyOnlyChange(original: string, corrected: string): boolean {
+  return normalizeTypography(original) === normalizeTypography(corrected);
+}
+
+/**
+ * Detect if a correction only changes dialogue tag punctuation/casing.
+ * Patterns: period→comma before tag, capital→lowercase on tag verb, etc.
+ * e.g. `"Hello." She said` → `"Hello," she said`
+ */
+function isDialogueTagChange(original: string, corrected: string): boolean {
+  // If the non-dialogue-related text is the same, it's a dialogue tag edit.
+  // Normalize: replace the punctuation-before-closing-quote + next word casing
+  const dialogueTagRe = /([.!?])([""\u201C\u201D''\u2018\u2019])\s+([A-Z])/g;
+  const normDialogue = (s: string) =>
+    s.replace(dialogueTagRe, (_, _p, q, ch) => `,${q} ${ch.toLowerCase()}`);
+  return (
+    normDialogue(original) === normDialogue(corrected) && original !== corrected
+  );
+}
+
 function markdownMarkerViolation(
   original: string,
   corrected: string,
@@ -633,6 +744,11 @@ function markdownMarkerViolation(
   return null;
 }
 
+export interface ApplyCorrectionsOptions {
+  /** Whether dialogue-tag corrections are allowed (matches CopyEditOptions.dialogueTags). */
+  allowDialogueTags?: boolean;
+}
+
 /**
  * Apply a list of corrections to text.
  * Returns [newText, applied, skipped].
@@ -640,6 +756,7 @@ function markdownMarkerViolation(
 export function applyCorrections(
   text: string,
   corrections: Correction[],
+  opts?: ApplyCorrectionsOptions,
 ): [string, Correction[], Correction[]] {
   const applied: Correction[] = [];
   const skipped: Correction[] = [];
@@ -648,6 +765,24 @@ export function applyCorrections(
   for (const c of corrections) {
     if (c.original === c.corrected) {
       skipped.push({ ...c, reason: "no-op" });
+      continue;
+    }
+    // Reject corrections that only change typographic style (curly/straight
+    // quotes, ellipsis char, dash style). The prompt says not to, but LLMs
+    // sometimes do it anyway.
+    if (isTypographyOnlyChange(c.original, c.corrected)) {
+      skipped.push({
+        ...c,
+        reason: "typography-only change (quote/dash style)",
+      });
+      continue;
+    }
+    // Reject dialogue-tag-only corrections when the option is not enabled.
+    if (
+      !opts?.allowDialogueTags &&
+      isDialogueTagChange(c.original, c.corrected)
+    ) {
+      skipped.push({ ...c, reason: "dialogue tag change (not selected)" });
       continue;
     }
     const formattingIssue = markdownMarkerViolation(c.original, c.corrected);

@@ -190,6 +190,7 @@ export default function ModelSelector({
   // Also flush the UI log (server + client) when the user switches models, so
   // the engine feed shows only events relevant to the newly chosen model.
   const prevModelRef = useRef<string>("");
+  const bootTimeRef = useRef<number>(Date.now());
   const clearLogsLocal = useStore((s) => s.clearLogs);
   useEffect(() => {
     if (!model) return;
@@ -204,11 +205,17 @@ export default function ModelSelector({
       clearLogsLocal();
       fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
     }
-    fetch(`${BASE}/api/models/preload`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model }),
-    }).catch(() => {});
+    // Postpone the initial warm-up by 5 s so the UI finishes loading first.
+    const elapsed = Date.now() - bootTimeRef.current;
+    const delay = !prev && elapsed < 5000 ? 5000 - elapsed : 0;
+    const timer = setTimeout(() => {
+      fetch(`${BASE}/api/models/preload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model }),
+      }).catch(() => {});
+    }, delay);
+    return () => clearTimeout(timer);
   }, [model, clearLogsLocal]);
 
   // Auto-tune words-per-chunk when model tier changes.

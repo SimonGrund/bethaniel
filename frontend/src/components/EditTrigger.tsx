@@ -88,12 +88,21 @@ export default function EditTrigger() {
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);
       }
+      // Keep submitting=true until queue:update arrives with these task IDs
+      useStore.getState().setPendingTaskIds(taskIds.taskIds);
+      // Safety timeout: clear spinner after 10s if socket update never arrives
+      setTimeout(() => {
+        const s = useStore.getState();
+        if (s.submitting && s.pendingTaskIds.length > 0) {
+          s.setSubmitting(false);
+          s.setPendingTaskIds([]);
+        }
+      }, 10000);
     } catch (err) {
       console.error("Failed to add to queue:", err);
       alert(
         `Failed to add to queue: ${err instanceof Error ? err.message : err}`,
       );
-    } finally {
       setSubmitting(false);
     }
   };

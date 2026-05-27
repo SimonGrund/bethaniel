@@ -13,15 +13,28 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-export async function uploadFile(file: File) {
+export async function uploadFile(file: File, detectBreaks = false) {
   const form = new FormData();
   form.append("file", file);
+  form.append("detectBreaks", String(detectBreaks));
   const res = await apiFetch("/upload", { method: "POST", body: form });
   return res.json();
 }
 
 export async function getDocument(id: string) {
   const res = await apiFetch(`/documents/${id}`);
+  return res.json();
+}
+
+export async function setDocumentDetectBreaks(
+  id: string,
+  detectBreaks: boolean,
+) {
+  const res = await apiFetch(`/documents/${id}/detect-breaks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detectBreaks }),
+  });
   return res.json();
 }
 
@@ -146,11 +159,21 @@ export async function getTaskResult(taskId: string) {
   return res.json();
 }
 
-export async function exportDocx(markdown: string): Promise<Blob> {
+export interface DocxExportOptions {
+  sectionBreak?: "asterisks" | "dash" | "blank";
+  smallBreak?: "space" | "hash" | "none";
+  lineSpacing?: number;
+  detectBreaks?: boolean;
+}
+
+export async function exportDocx(
+  markdown: string,
+  options?: DocxExportOptions,
+): Promise<Blob> {
   const res = await fetch(`${BASE}/api/export/docx`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ markdown }),
+    body: JSON.stringify({ markdown, options }),
   });
   if (!res.ok) throw new Error("DOCX export failed");
   return res.blob();

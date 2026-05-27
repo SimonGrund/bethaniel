@@ -11,6 +11,7 @@ import {
   findCorrectionsStream,
   parseCorrectionsJson,
   applyCorrections,
+  restoreTypography,
   analyzeStream,
   synthesizeStream,
   parseJsonResponse,
@@ -135,13 +136,36 @@ let concurrency = 1;
 let active = 0;
 
 function broadcast(): void {
-  if (io) {
-    const snapshot = Object.fromEntries(tasks);
-    console.log(
-      `[Queue] broadcast ${tasks.size} tasks to ${io.engine?.clientsCount ?? "?"} clients`,
-    );
-    io.emit("queue:update", snapshot);
+  if (!io) return;
+  // Coalesce multiple broadcast() calls within the same tick into one
+  // emit. Many code paths call broadcast() synchronously back-to-back
+  // (e.g. updateTask followed by another updateTask), and emitting the
+  // full snapshot each time was producing huge JSON-stringify pressure
+  // (OOM crashes with 200+ tasks). One emit per tick is plenty for the UI.
+  if (broadcastScheduled) return;
+  broadcastScheduled = true;
+  setImmediate(flushBroadcast);
+}
+
+let broadcastScheduled = false;
+
+function flushBroadcast(): void {
+  broadcastScheduled = false;
+  if (!io) return;
+  // Strip heavy fields the frontend doesn't consume from the live queue
+  // snapshot. `retrySpec` in particular embeds the full original chapter
+  // text per task — with hundreds of tasks this serialized into hundreds
+  // of MB on every progress tick and crashed Node with OOM. The frontend
+  // only reads retrySpec via REST when the user clicks "retry".
+  const snapshot: Record<string, Omit<TaskState, "retrySpec">> = {};
+  for (const [id, task] of tasks) {
+    const { retrySpec: _retrySpec, ...rest } = task;
+    snapshot[id] = rest;
   }
+  console.log(
+    `[Queue] broadcast ${tasks.size} tasks to ${io.engine?.clientsCount ?? "?"} clients`,
+  );
+  io.emit("queue:update", snapshot);
 }
 
 function updateTask(id: string, update: Partial<TaskState>): void {
@@ -595,7 +619,17 @@ async function processSynthesisJob(
 }
 
 async function processJob(job: JobData): Promise<void> {
-  const { taskId, original, model, mode, prompt, fast, wpc, overlap } = job;
+  const {
+    taskId,
+    original,
+    model,
+    mode,
+    prompt,
+    fast,
+    wpc,
+    overlap,
+    editOptions,
+  } = job;
   const ac = new AbortController();
   abortControllers.set(taskId, ac);
 
@@ -677,7 +711,7 @@ async function processJob(job: JobData): Promise<void> {
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
         try {
           updateTask(taskId, {
-            phase: `${phasePrefix}sending chunk ${chunkLabel}`,
+            phase: `${phasePrefix}processing chunk ${chunkLabel}`,
           });
 
           if (useFast) {
@@ -692,8 +726,17 @@ async function processJob(job: JobData): Promise<void> {
               if (tokCount === 1) {
                 firstTokenAt = performance.now();
                 updateTask(taskId, {
-                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+                  phase: `${phasePrefix}chunk ${chunkLabel}`,
                 });
+              }
+              // Live tok/s every 20 tokens
+              if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
+                const elapsed = performance.now() - firstTokenAt;
+                if (elapsed > 0) {
+                  updateTask(taskId, {
+                    tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                  });
+                }
               }
               const intra = creepingProgress(tokCount);
               updateProgress(taskId, (j + intra) / chunks.length);
@@ -710,8 +753,17 @@ async function processJob(job: JobData): Promise<void> {
               if (tokCount === 1) {
                 firstTokenAt = performance.now();
                 updateTask(taskId, {
-                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+                  phase: `${phasePrefix}chunk ${chunkLabel}`,
                 });
+              }
+              // Live tok/s every 20 tokens
+              if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
+                const elapsed = performance.now() - firstTokenAt;
+                if (elapsed > 0) {
+                  updateTask(taskId, {
+                    tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                  });
+                }
               }
               const intra = Math.min(
                 0.98,
@@ -741,7 +793,7 @@ async function processJob(job: JobData): Promise<void> {
       if (lastErr) throw lastErr;
 
       if (useFast) {
-        updateTask(taskId, { phase: `applying corrections ${chunkLabel}` });
+        updateTask(taskId, { phase: `writing up corrections` });
         const cs = parseCorrectionsJson(acc);
 
         // Corrections are emitted as JSONL (one JSON object per line), so
@@ -777,7 +829,9 @@ async function processJob(job: JobData): Promise<void> {
           });
         }
 
-        const [newBody, applied, sk] = applyCorrections(chunk.body, cs);
+        const [newBody, applied, sk] = applyCorrections(chunk.body, cs, {
+          allowDialogueTags: editOptions?.dialogueTags === true,
+        });
         const core = stripOverlapFromResponse(
           newBody,
           chunk.overlapHeadParagraphs,
@@ -795,8 +849,9 @@ async function processJob(job: JobData): Promise<void> {
         );
         pieces.push(core);
       } else {
+        const rewritten = restoreTypography(chunk.body, acc.trim());
         const core = stripOverlapFromResponse(
-          acc.trim(),
+          rewritten,
           chunk.overlapHeadParagraphs,
         );
         pieces.push(core);
@@ -824,6 +879,10 @@ async function processJob(job: JobData): Promise<void> {
       const prefillTps =
         prefillMs > 0 ? (inputTokenEst / (prefillMs / 1000)).toFixed(0) : "n/a";
       totalOutTokens += tokCount;
+      // Push live tok/s to task state for UI display
+      if (tokPerSec !== "n/a") {
+        updateTask(taskId, { tokPerSec });
+      }
       console.log(
         `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
       );
@@ -848,6 +907,7 @@ async function processJob(job: JobData): Promise<void> {
     updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
 
+  updateTask(taskId, { phase: "finalizing" });
   abortControllers.delete(taskId);
 
   const totalMs = performance.now() - jobStart;

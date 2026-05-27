@@ -14,8 +14,13 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { execFileSync } from "child_process";
-import { docxToMarkdown, markdownToDocx } from "./conversion.js";
+import {
+  docxToMarkdown,
+  markdownToDocx,
+  type DocxExportOptions,
+} from "./conversion.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
+import { normalizeSceneBreaks, detectParagraphBreak } from "./sceneBreaks.js";
 import { listModels, getModelSizeBytes } from "./llm.js";
 import {
   buildCopyEditRewritePrompt,
@@ -106,6 +111,26 @@ router.post(
         md = req.file.buffer.toString("utf-8");
       }
 
+      // Whether to detect and normalize scene/paragraph breaks. Sent by the
+      // frontend as a multipart form field. Defaults to false (most users
+      // just want plain md↔docx round-tripping).
+      const detectBreaks =
+        String(req.body?.detectBreaks ?? "false").toLowerCase() === "true";
+
+      let detectedSceneBreak: string | null = null;
+      let detectedParagraphBreak: string | null = null;
+      if (detectBreaks) {
+        const normalized = normalizeSceneBreaks(md);
+        if (normalized.count > 0) {
+          console.log(
+            `[Upload] Normalized ${normalized.count} scene breaks (pattern: ${JSON.stringify(normalized.detectedPattern)})`,
+          );
+          md = normalized.text;
+        }
+        detectedSceneBreak = normalized.detectedPattern;
+        detectedParagraphBreak = detectParagraphBreak(md);
+      }
+
       const chapters = findChapters(md);
       const wordCount = md.split(/\s+/).filter(Boolean).length;
 
@@ -116,6 +141,9 @@ router.post(
         chapters,
         wordCount,
         uploadedAt: Date.now(),
+        detectBreaks,
+        detectedSceneBreak,
+        detectedParagraphBreak,
       };
 
       saveDocument(doc);
@@ -127,6 +155,9 @@ router.post(
         chapters: doc.chapters,
         wordCount: doc.wordCount,
         uploadedAt: doc.uploadedAt,
+        detectBreaks: doc.detectBreaks,
+        detectedSceneBreak: doc.detectedSceneBreak,
+        detectedParagraphBreak: doc.detectedParagraphBreak,
       });
     } catch (err) {
       res
@@ -164,6 +195,51 @@ router.get("/documents", (_req: Request, res: Response) => {
 router.delete("/documents/:id", (req: Request, res: Response) => {
   deleteDocument(req.params.id);
   res.json({ ok: true });
+});
+
+// ── Re-run (or clear) break detection on an existing document ──
+router.post("/documents/:id/detect-breaks", (req: Request, res: Response) => {
+  const doc = getDocument(req.params.id);
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  const detectBreaks =
+    req.body?.detectBreaks === true || req.body?.detectBreaks === "true";
+
+  let md = doc.md;
+  let detectedSceneBreak: string | null = null;
+  let detectedParagraphBreak: string | null = null;
+
+  if (detectBreaks) {
+    const normalized = normalizeSceneBreaks(md);
+    if (normalized.count > 0) md = normalized.text;
+    detectedSceneBreak = normalized.detectedPattern;
+    detectedParagraphBreak = detectParagraphBreak(md);
+  }
+  // When turning detection off we leave md as-is. Any canonical
+  // SCENE_BREAK_MARKER tokens already inserted on a previous detection pass
+  // are absorbed by mdToHtml as blank paragraphs in plain mode.
+
+  const updated: DocumentMeta = {
+    ...doc,
+    md,
+    detectBreaks,
+    detectedSceneBreak,
+    detectedParagraphBreak,
+  };
+  saveDocument(updated);
+
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    chapters: updated.chapters,
+    wordCount: updated.wordCount,
+    uploadedAt: updated.uploadedAt,
+    detectBreaks: updated.detectBreaks,
+    detectedSceneBreak: updated.detectedSceneBreak,
+    detectedParagraphBreak: updated.detectedParagraphBreak,
+  });
 });
 
 // ── List installed models ──
@@ -562,12 +638,14 @@ router.get("/results/:taskId", (req: Request, res: Response) => {
 // ── Export: convert markdown to docx ──
 router.post("/export/docx", async (req: Request, res: Response) => {
   try {
-    const { markdown } = req.body;
+    const { markdown, options } = req.body;
     if (typeof markdown !== "string") {
       res.status(400).json({ error: "markdown must be a string" });
       return;
     }
-    const docxBuffer = await markdownToDocx(markdown);
+    const exportOpts: Partial<DocxExportOptions> =
+      options && typeof options === "object" ? options : {};
+    const docxBuffer = await markdownToDocx(markdown, exportOpts);
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

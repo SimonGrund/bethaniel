@@ -131,6 +131,12 @@ function renderTaskRow(
         <div className={`q-status qs-${s.status}`}>
           {t(`status_${s.status}`)}
           {["editing", "done"].includes(s.status) && ` · ${pct}%`}
+          {s.status === "editing" && s.tokPerSec && (
+            <span style={{ fontSize: "0.7rem", color: "#6b5c44" }}>
+              {" "}
+              ({s.tokPerSec} tok/s)
+            </span>
+          )}
           {s.status === "editing" && s.phase && (
             <span
               style={{

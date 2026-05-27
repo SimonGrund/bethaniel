@@ -3,6 +3,9 @@
 // button. When multiple tasks run in parallel, displays a grid of
 // per-runner streams, each with an amber border and task ID header.
 
+// Toggle this to show/hide the inline engine status feed next to Start Job
+const SHOW_ENGINE_STATUS = false;
+
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
 
@@ -45,6 +48,8 @@ function StreamCell({
 }
 
 export default function EngineStatus() {
+  if (!SHOW_ENGINE_STATUS) return null;
+
   const tasks = useStore((s) => s.tasks);
   const logs = useStore((s) => s.logs);
   const warmingModel = useStore((s) => s.warmingModel);

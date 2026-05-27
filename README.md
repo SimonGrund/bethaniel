@@ -146,6 +146,10 @@ Attribution is **encouraged but not required**. If Bethaniel helped you ship you
 
 Bethaniel is provided "AS IS", without warranty of any kind, express or implied. The author(s) are not liable for any damages arising from the use of this software.
 
+### AI Model Licenses
+
+The AI models used by Bethaniel (Qwen3.5 4B, Qwen3.5 9B, and Mistral Small 3.2 24B) are open-weight models distributed under the **Apache License 2.0** by their respective authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
+
 ---
 
 _© 2025–2026 Bethaniel. All rights reserved._
