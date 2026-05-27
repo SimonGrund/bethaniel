@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - "**" # all branches
     tags-ignore:
       - "v*" # release tags are handled by build.yml
   pull_request:
