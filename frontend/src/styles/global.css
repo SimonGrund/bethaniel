@@ -2351,11 +2351,54 @@ h4 {
   box-shadow: 0 0 8px var(--tier-glow);
 }
 
-/* ── Disabled (not enough RAM) ── */
+/* ── Disabled (not enough RAM) — kept for backwards compat ── */
 .model-card-disabled {
   opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.6);
+}
+
+/* ── Over-spec (can download, but RAM warning applies) ── */
+.model-card-overspec {
+  opacity: 0.75;
+  border-color: #c8895a !important;
+}
+
+.model-card-overspec-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.model-overspec-label {
+  font-size: 0.78rem;
+  color: #c86432;
+}
+
+/* Recommended badge variant for low-spec machines */
+.model-recommended-low-spec {
+  background: #c86432 !important;
+}
+
+/* Warning text below card meta in ModelSetup */
+.model-overspec-warning {
+  font-size: 0.68rem;
+  color: #c86432;
+  line-height: 1.35;
+  margin-top: 0.15rem;
+}
+
+/* Warning paragraph in confirm dialog */
+.model-confirm-warn {
+  font-size: 0.78rem;
+  color: #c86432;
+  background: #fff3ec;
+  border: 1px solid #e8b090;
+  border-radius: 5px;
+  padding: 0.45rem 0.65rem;
+  margin: 0.25rem 0 0;
+  line-height: 1.4;
 }
 
 /* ── Downloading ── */

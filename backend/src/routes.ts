@@ -850,16 +850,6 @@ router.post("/models/download", async (req: Request, res: Response) => {
     return;
   }
 
-  // Check hardware gating
-  const hw = detectHardware();
-  const allowedTiers = getAllowedTiers(hw);
-  if (!allowedTiers.includes(entry.tier)) {
-    res.status(403).json({
-      error: `Model "${entry.name}" requires at least ${entry.minRamGb} GB RAM (${entry.minRamAppleSiliconGb} GB on Apple Silicon). Your machine has ${hw.totalRamGb} GB.`,
-    });
-    return;
-  }
-
   // ── Ollama models ──
   if (isOllamaModel(entry)) {
     const ollamaName = entry.ollamaTag ?? entry.fileName;
