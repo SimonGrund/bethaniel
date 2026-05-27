@@ -26,6 +26,9 @@
     "release": "node scripts/build.mjs --publish always",
     "release:mac": "node scripts/build.mjs --platform mac --publish always"
   },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "electron-updater": "^6.8.3"
   },

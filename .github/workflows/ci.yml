@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**" # all branches
+    tags-ignore:
+      - "v*" # release tags are handled by build.yml
+  pull_request:
+
+jobs:
+  # ── Secret scanning ───────────────────────────────────────────────────────
+  gitleaks:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required so Gitleaks can scan all commits
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── TypeScript type-check + dependency audit ──────────────────────────────
+  check:
+    name: Type Check & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --prefer-offline
+
+      - name: Type check — backend
+        working-directory: backend
+        run: npx tsc --noEmit
+
+      - name: Type check — frontend
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Type check — electron
+        run: npx tsc --noEmit -p electron/tsconfig.json
+
+      - name: Dependency audit (high + critical)
+        # Fails the job on high or critical severity vulnerabilities.
+        # Lower-severity issues are reported but do not block CI.
+        run: npm audit --audit-level=high
+
+  # ── Dependency review (PRs only) ─────────────────────────────────────────
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependencies
+        # Fails if any newly introduced package has a known vulnerability.
+        uses: actions/dependency-review-action@v4
