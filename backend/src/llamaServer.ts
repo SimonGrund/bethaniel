@@ -230,6 +230,25 @@ export function getCurrentModel(): string | null {
 // ── GPU layer detection ──
 
 /**
+ * Whether a model's weights plus its estimated KV cache fit in the given free
+ * VRAM (MiB), with headroom for CUDA buffers. Shared by the offload decision
+ * and the catalog's GPU-fit hint so the UI and the loader never disagree.
+ */
+export function fitsInVram(
+  modelSizeBytes: number,
+  numCtx: number,
+  slots: number,
+  freeVramMib: number,
+): boolean {
+  const modelMib = modelSizeBytes / 1024 ** 2;
+  const modelGb = modelSizeBytes / 1024 ** 3;
+  const kvPerSlotGb = Math.max(0.3, modelGb * 0.1 * (numCtx / 6144));
+  const kvMib = kvPerSlotGb * Math.max(1, slots) * 1024;
+  const headroomMib = Math.max(2048, kvMib + 1024);
+  return modelMib + headroomMib < freeVramMib;
+}
+
+/**
  * Decide how many layers to offload to GPU.
  * On Apple Silicon, we have unified memory — offloading everything is fine as
  * long as the model fits comfortably in (total RAM − working-set headroom).
