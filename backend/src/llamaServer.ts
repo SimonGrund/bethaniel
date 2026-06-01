@@ -20,6 +20,21 @@ function modelDisplayName(file: string): string {
   return getModelByFileName(file)?.name ?? file;
 }
 
+/** Whether an NVIDIA GPU is present (used to pick a GPU-enabled binary). */
+function hasNvidiaGpu(): boolean {
+  try {
+    const nvidiaSmi =
+      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
+    execFileSync(nvidiaSmi, ["--query-gpu=name", "--format=csv,noheader"], {
+      timeout: 3000,
+      stdio: "pipe",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Try to locate the bundled llama-server binary when LLAMA_BIN isn't set. */
 function resolveLlamaBin(): string {
   if (process.env.LLAMA_BIN) return process.env.LLAMA_BIN;
@@ -28,32 +43,27 @@ function resolveLlamaBin(): string {
   const binaryName =
     process.platform === "win32" ? "llama-server.exe" : "llama-server";
 
-  // Candidate locations (dev + packaged)
-  const candidates = [
+  // On Linux with an NVIDIA GPU, prefer the Vulkan build (vendor-neutral, needs
+  // no CUDA toolkit) over the CPU build so models offload to VRAM by default.
+  const archDirs =
+    process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
+      ? ["linux-x64-vulkan", platformArch]
+      : [platformArch];
+
+  // Resource roots (dev + packaged)
+  const roots = [
     // backend/dist/llamaServer.js → ../../electron/resources/llama/...
-    path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "electron",
-      "resources",
-      "llama",
-      platformArch,
-      binaryName,
-    ),
-    // backend/src/llamaServer.ts (tsx dev) → ../../electron/resources/llama/...
-    path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "electron",
-      "resources",
-      "llama",
-      platformArch,
-      binaryName,
-    ),
+    path.resolve(__dirname, "..", "..", "electron", "resources", "llama"),
+    // backend/src/llamaServer.ts (tsx dev) → ../../../electron/resources/llama/...
+    path.resolve(__dirname, "..", "..", "..", "electron", "resources", "llama"),
   ];
+
+  const candidates: string[] = [];
+  for (const arch of archDirs) {
+    for (const root of roots) {
+      candidates.push(path.join(root, arch, binaryName));
+    }
+  }
 
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;

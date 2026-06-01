@@ -104,7 +104,7 @@ function llamaManifestKeys(p) {
     case "win":
       return ["win32-x64"];
     case "linux":
-      return ["linux-x64"];
+      return ["linux-x64", "linux-x64-vulkan"];
     default:
       return [];
   }
