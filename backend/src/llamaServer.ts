@@ -264,7 +264,7 @@ export function fitsInVram(
  * long as the model fits comfortably in (total RAM − working-set headroom).
  * For oversized models we partially offload to avoid GPU memory pressure.
  */
-function detectNGL(modelSizeBytes = 0): number {
+function detectNGL(modelSizeBytes = 0, numCtx = 0, slots = 1): number {
   // Apple Silicon: unified memory, scale by available RAM
   if (process.platform === "darwin" && process.arch === "arm64") {
     const totalRamGb = os.totalmem() / 1024 ** 3;
@@ -276,17 +276,27 @@ function detectNGL(modelSizeBytes = 0): number {
     const fraction = Math.max(0.3, usableGb / modelGb);
     return Math.max(8, Math.floor(80 * fraction));
   }
-  // NVIDIA: offload everything if a GPU is present
+  // NVIDIA: full offload only if the model + KV cache fits in free VRAM,
+  // otherwise stay on CPU to avoid an out-of-memory crash at load time.
   try {
     const nvidiaSmi =
       process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
     const { execFileSync } =
       require("child_process") as typeof import("child_process");
-    execFileSync(nvidiaSmi, ["--query-gpu=name", "--format=csv,noheader"], {
-      timeout: 3000,
-      stdio: "pipe",
-    });
-    return 999;
+    const out = execFileSync(
+      nvidiaSmi,
+      ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+      { timeout: 3000, stdio: "pipe" },
+    ).toString();
+    const freeMib = parseInt(out.split(/\r?\n/)[0].trim(), 10);
+    if (Number.isFinite(freeMib) && freeMib > 0) {
+      const modelMib = modelSizeBytes / 1024 ** 2;
+      const modelGb = modelSizeBytes / 1024 ** 3;
+      const kvPerSlotGb = Math.max(0.3, modelGb * 0.1 * (numCtx / 6144));
+      const kvMib = kvPerSlotGb * Math.max(1, slots) * 1024;
+      const headroomMib = Math.max(2048, kvMib + 1024);
+      return modelMib + headroomMib < freeMib ? 999 : 0;
+    }
   } catch {
     // No NVIDIA GPU or nvidia-smi not found
   }
@@ -554,9 +564,9 @@ async function doLoad(
   }
 
   const modelSize = fs.statSync(modelPath).size;
-  const ngl = detectNGL(modelSize);
   const threads = detectThreads();
   const parallelSlots = detectParallelSlots(modelSize, numCtx, desiredSlots);
+  const ngl = detectNGL(modelSize, numCtx, parallelSlots);
   const cfg = readModelConfig(MODELS_DIR, file);
 
   // llama-server divides -c evenly across parallel slots, so we multiply
