@@ -785,9 +785,17 @@ router.get("/hardware", (_req: Request, res: Response) => {
 router.get("/models/catalog", (_req: Request, res: Response) => {
   const hw = detectHardware();
   const allowedTiers = getAllowedTiers(hw);
+  // GPU-fit hint: does the model offload to VRAM (fast) or fall back to CPU
+  // (slow)? null when no GPU is detected. Uses the same headroom math as the
+  // loader's offload decision so the UI and runtime agree.
+  const vramMib = hw.gpu.vramGb != null ? hw.gpu.vramGb * 1024 : null;
   const catalog = MODEL_CATALOG.map((entry) => ({
     ...entry,
     allowed: allowedTiers.includes(entry.tier),
+    fitsGpu:
+      vramMib === null
+        ? null
+        : fitsInVram(entry.sizeBytes, entry.defaults.num_ctx, 1, vramMib),
   }));
   res.json({ catalog, allowedTiers, preferredOrder: getPreferredOrder() });
 });
@@ -1278,7 +1286,7 @@ router.delete("/models/:fileName/config", (req: Request, res: Response) => {
 
 // ── Diagnostic logs ──
 import { getLogSnapshot, clearLogs, appendLog } from "./logBus.js";
-import { ensureModelLoaded } from "./llamaServer.js";
+import { ensureModelLoaded, fitsInVram } from "./llamaServer.js";
 
 router.get("/logs", (_req: Request, res: Response) => {
   res.json({ logs: getLogSnapshot() });

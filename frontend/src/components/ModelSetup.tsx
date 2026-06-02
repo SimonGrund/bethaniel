@@ -15,6 +15,7 @@ interface CatalogEntry {
   minRamGb: number;
   minRamAppleSiliconGb: number;
   allowed: boolean;
+  fitsGpu: boolean | null;
 }
 
 interface HardwareInfo {
@@ -295,7 +296,11 @@ export default function ModelSetup({
               <div className="model-card-meta">
                 <span>{formatBytes(entry.sizeBytes)}</span>
                 <span>
-                  {t("model_requires")} {minRam} GB
+                  {entry.fitsGpu === null
+                    ? `${t("model_requires")} ${minRam} GB`
+                    : entry.fitsGpu
+                      ? t("model_fits_gpu")
+                      : t("model_cpu_fallback")}
                 </span>
               </div>
 

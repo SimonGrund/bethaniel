@@ -725,6 +725,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dein Rechner hat {yourRam} GB RAM — dieses Modell benötigt {minRam} GB. Es läuft, aber langsam.",
     es: "Tu equipo tiene {yourRam} GB RAM — este modelo necesita {minRam} GB. Funcionará, pero despacio.",
   },
+  model_fits_gpu: {
+    en: "Runs on your GPU",
+    da: "Kører på din GPU",
+    de: "Läuft auf deiner GPU",
+    es: "Funciona en tu GPU",
+  },
+  model_cpu_fallback: {
+    en: "Too large for your GPU — runs on CPU (slow)",
+    da: "For stor til din GPU — kører på CPU (langsomt)",
+    de: "Zu groß für deine GPU — läuft auf der CPU (langsam)",
+    es: "Demasiado grande para tu GPU — funciona en la CPU (lento)",
+  },
   model_continue: {
     en: "Continue to Bethaniel",
     da: "Fortsæt til Bethaniel",
