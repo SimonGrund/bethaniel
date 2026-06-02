@@ -27,6 +27,12 @@
       "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9279/llama-b9279-bin-ubuntu-x64.tar.gz",
       "sha256": "",
       "binary": "llama-b9279/llama-server"
+    },
+    "linux-x64-vulkan": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b9279/llama-b9279-bin-ubuntu-vulkan-x64.tar.gz",
+      "sha256": "",
+      "binary": "llama-b9279/llama-server",
+      "note": "Bundled alongside the CPU build; used for GPU offload on Linux via Vulkan (vendor-neutral, no CUDA toolkit required)."
     }
   }
 }
