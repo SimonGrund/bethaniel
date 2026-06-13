@@ -749,8 +749,51 @@ export interface ApplyCorrectionsOptions {
   allowDialogueTags?: boolean;
 }
 
+/** Result of a fuzzy text search. */
+interface FuzzyMatch {
+  pos: number;
+  /** The actual matching substring from the text. */
+  match: string;
+}
+
 /**
- * Apply a list of corrections to text.
+ * Try to find `needle` in `text` with flexible whitespace.
+ * Builds a regex where any whitespace run in the needle matches any whitespace
+ * run in the text.  Returns null when there is not exactly one match.
+ */
+function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
+  // Collapse the needle's own whitespace first so we don't emit redundant \s+
+  const collapsed = needle.replace(/\s+/g, " ").trim();
+  if (collapsed.length === 0) return null;
+
+  // Escape regex-special characters, then turn literal spaces into \s+
+  const escaped = collapsed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = escaped.replace(/ /g, "\\s+");
+
+  try {
+    const re = new RegExp(pattern, "g");
+    const first = re.exec(text);
+    if (!first) return null;
+    // Must be unambiguous — reject if there's a second match
+    if (re.exec(text) !== null) return null;
+    return { pos: first.index, match: first[0] };
+  } catch {
+    return null; // malformed regex (shouldn't happen)
+  }
+}
+
+/**
+ * Apply a list of corrections to text using a two-pass strategy:
+ *
+ *  **Pass 1** — validate every correction and locate it in the **original**
+ *  text (before any mutation).  Corrections that cannot be found exactly get
+ *  a fuzzy-whitespace fallback.
+ *
+ *  **Pass 2** — sort the located corrections by position descending and apply
+ *  them from end to start.  Because we work against the original positions,
+ *  earlier corrections cannot invalidate the search for later ones — the
+ *  cascading-mutation problem is eliminated.
+ *
  * Returns [newText, applied, skipped].
  */
 export function applyCorrections(
@@ -758,18 +801,23 @@ export function applyCorrections(
   corrections: Correction[],
   opts?: ApplyCorrectionsOptions,
 ): [string, Correction[], Correction[]] {
-  const applied: Correction[] = [];
   const skipped: Correction[] = [];
-  let newText = text;
+
+  // ── Pass 1: validate & locate in ORIGINAL text ──
+  interface Located {
+    pos: number;
+    original: string; // the exact substring to replace (may differ from c.original when fuzzy)
+    corrected: string;
+    correction: Correction;
+  }
+  const located: Located[] = [];
 
   for (const c of corrections) {
+    // ── Rejection gates (unchanged) ──
     if (c.original === c.corrected) {
       skipped.push({ ...c, reason: "no-op" });
       continue;
     }
-    // Reject corrections that only change typographic style (curly/straight
-    // quotes, ellipsis char, dash style). The prompt says not to, but LLMs
-    // sometimes do it anyway.
     if (isTypographyOnlyChange(c.original, c.corrected)) {
       skipped.push({
         ...c,
@@ -777,7 +825,6 @@ export function applyCorrections(
       });
       continue;
     }
-    // Reject dialogue-tag-only corrections when the option is not enabled.
     if (
       !opts?.allowDialogueTags &&
       isDialogueTagChange(c.original, c.corrected)
@@ -793,16 +840,82 @@ export function applyCorrections(
       });
       continue;
     }
-    const count = newText.split(c.original).length - 1;
-    if (count === 0) {
-      skipped.push({ ...c, reason: "not found" });
-    } else if (count > 1) {
-      skipped.push({ ...c, reason: `ambiguous (${count} matches)` });
+
+    // ── Locate in the ORIGINAL text ──
+    const exactPos = text.indexOf(c.original);
+    if (exactPos !== -1) {
+      const secondPos = text.indexOf(c.original, exactPos + 1);
+      if (secondPos !== -1) {
+        const count = text.split(c.original).length - 1;
+        skipped.push({ ...c, reason: `ambiguous (${count} matches)` });
+      } else {
+        located.push({
+          pos: exactPos,
+          original: c.original,
+          corrected: c.corrected,
+          correction: c,
+        });
+      }
     } else {
-      newText = newText.replace(c.original, c.corrected);
-      applied.push(c);
+      // Approach 3: fuzzy whitespace-flexible fallback
+      const fuzzy = fuzzyFind(text, c.original);
+      if (fuzzy) {
+        located.push({
+          pos: fuzzy.pos,
+          original: fuzzy.match,
+          corrected: c.corrected,
+          correction: c,
+        });
+      } else {
+        skipped.push({ ...c, reason: "not found" });
+      }
     }
   }
+
+  // ── Pass 2: apply end→start using original positions ──
+  located.sort((a, b) => b.pos - a.pos);
+
+  const applied: Correction[] = [];
+  let newText = text;
+
+  for (const item of located) {
+    // Verify the text slice still matches (it always should because we
+    // process end→start, but overlapping fuzzy matches can shift things).
+    const slice = newText.slice(item.pos, item.pos + item.original.length);
+    if (slice === item.original) {
+      newText =
+        newText.slice(0, item.pos) +
+        item.corrected +
+        newText.slice(item.pos + item.original.length);
+      applied.push(item.correction);
+    } else {
+      // The region shifted — try an indexOf in the current text.
+      const idx = newText.indexOf(item.original);
+      if (idx !== -1) {
+        newText =
+          newText.slice(0, idx) +
+          item.corrected +
+          newText.slice(idx + item.original.length);
+        applied.push(item.correction);
+      } else {
+        // Last resort: fuzzy search in the already-mutated text.
+        const fuzzy = fuzzyFind(newText, item.original);
+        if (fuzzy) {
+          newText =
+            newText.slice(0, fuzzy.pos) +
+            item.corrected +
+            newText.slice(fuzzy.pos + fuzzy.match.length);
+          applied.push(item.correction);
+        } else {
+          skipped.push({
+            ...item.correction,
+            reason: "not found (collision with nearby edit)",
+          });
+        }
+      }
+    }
+  }
+
   return [newText, applied, skipped];
 }
 
