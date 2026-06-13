@@ -757,18 +757,39 @@ interface FuzzyMatch {
 }
 
 /**
- * Try to find `needle` in `text` with flexible whitespace.
- * Builds a regex where any whitespace run in the needle matches any whitespace
- * run in the text.  Returns null when there is not exactly one match.
+ * Try to find `needle` in `text` with flexible whitespace AND typographic
+ * character variants (curly/straight quotes, em/en dashes, ellipsis).
+ *
+ * The LLM sometimes returns "original" text with slightly different
+ * characters than the raw chunk (e.g. straight apostrophes when the chunk
+ * has curly ones).  This function builds a regex that matches all common
+ * typographic equivalents so those corrections aren't lost.
+ *
+ * Returns null when there is not exactly one match.
  */
 function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
-  // Collapse the needle's own whitespace first so we don't emit redundant \s+
+  // Collapse whitespace first so we don't emit redundant \s+
   const collapsed = needle.replace(/\s+/g, " ").trim();
   if (collapsed.length === 0) return null;
 
-  // Escape regex-special characters, then turn literal spaces into \s+
-  const escaped = collapsed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = escaped.replace(/ /g, "\\s+");
+  // Build a regex character-by-character, replacing:
+  //  - literal spaces → \s+
+  //  - typographic chars → equivalence class
+  //  - everything else → regex-escaped literal
+  let pattern = "";
+  for (let i = 0; i < collapsed.length; i++) {
+    const ch = collapsed[i];
+
+    if (ch === " ") {
+      pattern += "\\s+";
+    } else if (ch === "." && collapsed[i + 1] === "." && collapsed[i + 2] === ".") {
+      // Ellipsis: match three dots or the ellipsis character
+      pattern += "(?:\\.\\.\\.|\\u2026)";
+      i += 2;
+    } else {
+      pattern += typographicClass(ch);
+    }
+  }
 
   try {
     const re = new RegExp(pattern, "g");
@@ -780,6 +801,24 @@ function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
   } catch {
     return null; // malformed regex (shouldn't happen)
   }
+}
+
+/** Return a regex character class that matches `ch` and its typographic equivalents. */
+function typographicClass(ch: string): string {
+  // Single quotes / apostrophes
+  if (/['\u2018\u2019\u201A\u2039\u203A]/.test(ch)) {
+    return "['\u2018\u2019\u201A\u2039\u203A]";
+  }
+  // Double quotes
+  if (/["\u201C\u201D\u201E\u00AB\u00BB]/.test(ch)) {
+    return "[\"\u201C\u201D\u201E\u00AB\u00BB]";
+  }
+  // Dashes (hyphen, en-dash, em-dash)
+  if (/[-\u2013\u2014]/.test(ch)) {
+    return "[-\u2013\u2014]";
+  }
+  // Escape everything else for regex
+  return ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
