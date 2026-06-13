@@ -517,7 +517,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: text,
           wordCount: text.split(/\s+/).filter(Boolean).length,
-          model: model ?? DEFAULT_MODEL_FILENAME,
+          model: model || DEFAULT_MODEL_FILENAME,
           mode: currentMode,
           prompt: systemPrompt,
           fast: currentMode === "translate" ? false : resolvedFast,

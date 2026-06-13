@@ -502,6 +502,12 @@ export function ensureModelLoaded(
   numCtxOverride?: number,
   desiredSlots?: number,
 ): Promise<void> {
+  if (!modelFile || modelFile.trim().length === 0) {
+    return Promise.reject(
+      new Error("No model specified — please select a model in Settings."),
+    );
+  }
+
   // Normalize to bare filename
   const file = modelFile.endsWith(".gguf") ? modelFile : modelFile + ".gguf";
 
