@@ -75,6 +75,17 @@ interface AppState {
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
+  /** Accept all occurrences of a single correction (adds bare correctionId). */
+  acceptCorrection: (taskId: string, correctionId: string) => void;
+  /** Dismiss all occurrences of a single correction (removes bare + indexed keys). */
+  dismissCorrection: (taskId: string, correctionId: string) => void;
+  /** Toggle a single occurrence. If bare key is present, transitions to per-occurrence mode. */
+  toggleOccurrence: (
+    taskId: string,
+    correctionId: string,
+    occIdx: number,
+    totalOccurrences: number,
+  ) => void;
 
   // Loading states
   uploading: boolean;
@@ -210,6 +221,67 @@ export const useStore = create<AppState>((set, get) => ({
         [taskId]: new Set<string>(),
       },
     })),
+  acceptCorrection: (taskId, correctionId) =>
+    set((state) => {
+      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+      const next = new Set(current);
+      next.add(correctionId);
+      return {
+        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+      };
+    }),
+  dismissCorrection: (taskId, correctionId) =>
+    set((state) => {
+      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+      const next = new Set(current);
+      // Remove bare key
+      next.delete(correctionId);
+      // Remove all indexed occurrence keys for this correction
+      for (const key of current) {
+        if (key.startsWith(`${correctionId}:`)) next.delete(key);
+      }
+      return {
+        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+      };
+    }),
+  toggleOccurrence: (taskId, correctionId, occIdx, totalOccurrences) =>
+    set((state) => {
+      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+      const next = new Set(current);
+      const occKey = `${correctionId}:${occIdx}`;
+
+      if (current.has(correctionId)) {
+        // Bare key is present (all accepted). Transition to per-occurrence:
+        // remove bare key, add all occurrence keys EXCEPT the toggled one.
+        next.delete(correctionId);
+        for (let j = 0; j < totalOccurrences; j++) {
+          if (j !== occIdx) next.add(`${correctionId}:${j}`);
+        }
+      } else if (current.has(occKey)) {
+        // Individual occurrence was accepted — remove it
+        next.delete(occKey);
+      } else {
+        // Individual occurrence was not accepted — add it
+        next.add(occKey);
+      }
+
+      // Clean up: if all individual occurrences are now accepted,
+      // collapse back to bare key
+      let allPresent = totalOccurrences > 0;
+      for (let j = 0; j < totalOccurrences && allPresent; j++) {
+        if (!next.has(`${correctionId}:${j}`)) allPresent = false;
+      }
+      if (allPresent) {
+        for (let j = 0; j < totalOccurrences; j++) {
+          next.delete(`${correctionId}:${j}`);
+        }
+        next.add(correctionId);
+      }
+
+      return {
+        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+      };
+    }),
 
   uploading: false,
   setUploading: (uploading) => set({ uploading }),

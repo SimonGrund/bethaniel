@@ -45,20 +45,41 @@ function applyAccepted(
   corrections: Correction[],
   acceptedIds: Set<string>,
 ): string {
-  // Filter to only accepted corrections, apply them one by one.
-  // Work through the text replacing each accepted correction's original → corrected.
-  // To avoid double-replacing, sort by position (first occurrence) and apply from end to start.
-  const toApply = corrections.filter((c) => c.id && acceptedIds.has(c.id));
-  if (toApply.length === 0) return originalText;
+  // Build a flat list of (position, correction) for every accepted occurrence.
+  // Key format:
+  //   - Bare "correctionId" in the set → all occurrences accepted
+  //   - "correctionId:0", "correctionId:1" → individual occurrences accepted
+  const positioned: { correction: Correction; index: number }[] = [];
 
-  // Find positions and apply from last to first so indices don't shift
-  const positioned = toApply
-    .map((c) => {
-      const idx = originalText.indexOf(c.original);
-      return { correction: c, index: idx };
-    })
-    .filter((p) => p.index >= 0)
-    .sort((a, b) => b.index - a.index); // reverse order
+  for (const c of corrections) {
+    if (!c.id) continue;
+    const allAccepted = acceptedIds.has(c.id);
+    if (!allAccepted) {
+      // Check if ANY individual occurrence key exists for this correction
+      const hasAny = (() => {
+        for (const key of acceptedIds) {
+          if (key.startsWith(`${c.id}:`)) return true;
+        }
+        return false;
+      })();
+      if (!hasAny) continue; // skip entirely — nothing accepted for this correction
+    }
+
+    let occIdx = 0;
+    let idx = -1;
+    while ((idx = originalText.indexOf(c.original, idx + 1)) !== -1) {
+      const occKey = `${c.id}:${occIdx}`;
+      if (allAccepted || acceptedIds.has(occKey)) {
+        positioned.push({ correction: c, index: idx });
+      }
+      occIdx++;
+    }
+  }
+
+  if (positioned.length === 0) return originalText;
+
+  // Sort all replacements from last to first so earlier indices don't shift
+  positioned.sort((a, b) => b.index - a.index);
 
   let result = originalText;
   for (const { correction, index } of positioned) {
@@ -68,6 +89,16 @@ function applyAccepted(
       result.slice(index + correction.original.length);
   }
   return result;
+}
+
+/** Find all occurrences of `search` in `text`, returning their start indices. */
+function findAllOccurrences(text: string, search: string): number[] {
+  const indices: number[] = [];
+  let idx = -1;
+  while ((idx = text.indexOf(search, idx + 1)) !== -1) {
+    indices.push(idx);
+  }
+  return indices;
 }
 
 function InlineDiff({ before, after }: { before: string; after: string }) {
@@ -141,15 +172,15 @@ function InlineDiff({ before, after }: { before: string; after: string }) {
 }
 
 /**
- * Extract surrounding sentence context for a correction within the full text.
- * Returns { before, after } strings representing the surrounding context
- * that is NOT part of the original/corrected diff.
+ * Extract surrounding sentence context for a specific occurrence of `original`
+ * within `fullText`, starting search from `startIndex`.
  */
 function extractSentenceContext(
   original: string,
   fullText: string,
+  startIndex = 0,
 ): { before: string; after: string } {
-  const idx = fullText.indexOf(original);
+  const idx = fullText.indexOf(original, startIndex);
   if (idx < 0) return { before: "", after: "" };
 
   const editEnd = idx + original.length;
@@ -213,42 +244,243 @@ function extractSentenceContext(
 function CorrectionCard({
   correction,
   taskId,
-  accepted,
-  onToggle,
+  acceptedIds,
+  onToggleOccurrence,
+  onAcceptAllOccurrences,
+  onDismissAllOccurrences,
   originalText,
 }: {
   correction: Correction;
   taskId: string;
-  accepted: boolean;
-  onToggle: () => void;
+  acceptedIds: Set<string>;
+  onToggleOccurrence: (occIdx: number) => void;
+  onAcceptAllOccurrences: () => void;
+  onDismissAllOccurrences: () => void;
   originalText?: string;
 }) {
-  const { before, after } = originalText
-    ? extractSentenceContext(correction.original, originalText)
-    : { before: "", after: "" };
+  const [expanded, setExpanded] = useState(false);
+
+  // Guard: if no correction ID, show a simple non-interactive card
+  if (!correction.id) {
+    return (
+      <div className="correction-card">
+        <div className="correction-check">☐</div>
+        {correction.chunk && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#64748b",
+              marginBottom: "0.25rem",
+            }}
+          >
+            {correction.chunk}
+          </div>
+        )}
+        <span className="correction-diff">
+          <InlineDiff
+            before={correction.original}
+            after={correction.corrected}
+          />
+        </span>
+      </div>
+    );
+  }
+
+  if (!originalText) {
+    // Fallback: no full text available, show simple card
+    const accepted = correction.id ? acceptedIds.has(correction.id) : false;
+    return (
+      <div
+        className={`correction-card ${accepted ? "accepted" : ""}`}
+        onClick={() => onToggleOccurrence(0)}
+      >
+        <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        {correction.chunk && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#64748b",
+              marginBottom: "0.25rem",
+            }}
+          >
+            {correction.chunk}
+          </div>
+        )}
+        <span className="correction-diff">
+          <InlineDiff
+            before={correction.original}
+            after={correction.corrected}
+          />
+        </span>
+      </div>
+    );
+  }
+
+  const occurrences = findAllOccurrences(originalText, correction.original);
+  const totalOcc = occurrences.length;
+
+  if (totalOcc === 0) {
+    // Original text not found (shouldn't happen, but be defensive)
+    const accepted = correction.id ? acceptedIds.has(correction.id) : false;
+    return (
+      <div
+        className={`correction-card ${accepted ? "accepted" : ""}`}
+        onClick={() => onToggleOccurrence(0)}
+      >
+        <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        <span className="correction-diff">
+          <InlineDiff
+            before={correction.original}
+            after={correction.corrected}
+          />
+        </span>
+      </div>
+    );
+  }
+
+  // Determine acceptance state for each occurrence
+  const occAccepted = occurrences.map((_, i) => {
+    const occKey = `${correction.id}:${i}`;
+    // Also check bare id for backward compat / accept-all
+    return acceptedIds.has(occKey) || acceptedIds.has(correction.id ?? "");
+  });
+  const allAccepted = occAccepted.every(Boolean);
+  const anyAccepted = occAccepted.some(Boolean);
+
+  // Context for the first occurrence (always shown inline)
+  const firstCtx = extractSentenceContext(
+    correction.original,
+    originalText,
+    occurrences[0],
+  );
 
   return (
-    <div
-      className={`correction-card ${accepted ? "accepted" : ""}`}
-      onClick={onToggle}
-    >
-      <div className="correction-check">{accepted ? "☑" : "☐"}</div>
-      {correction.chunk && (
-        <div
-          style={{
-            fontSize: "0.75rem",
-            color: "#64748b",
-            marginBottom: "0.25rem",
-          }}
-        >
-          {correction.chunk}
+    <div className={`correction-card ${allAccepted ? "accepted" : ""}`}>
+      {/* Header row: master toggle + count badge */}
+      <div
+        className="correction-header"
+        onClick={() => {
+          if (allAccepted) {
+            onDismissAllOccurrences();
+          } else {
+            onAcceptAllOccurrences();
+          }
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        <div className="correction-check">
+          {allAccepted ? "☑" : anyAccepted ? "◐" : "☐"}
         </div>
-      )}
-      <span className="correction-diff">
-        {before && <span className="correction-context">{before} </span>}
-        <InlineDiff before={correction.original} after={correction.corrected} />
-        {after && <span className="correction-context"> {after}</span>}
-      </span>
+        {correction.chunk && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#64748b",
+            }}
+          >
+            {correction.chunk}
+          </div>
+        )}
+        <span className="correction-diff" style={{ flex: 1 }}>
+          {firstCtx.before && (
+            <span className="correction-context">{firstCtx.before} </span>
+          )}
+          <InlineDiff
+            before={correction.original}
+            after={correction.corrected}
+          />
+          {firstCtx.after && (
+            <span className="correction-context"> {firstCtx.after}</span>
+          )}
+        </span>
+        {totalOcc > 1 && (
+          <span
+            className="occurrence-badge"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            title={`${totalOcc} occurrences — click to expand`}
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              background: "#e2e8f0",
+              color: "#475569",
+              padding: "0.15rem 0.45rem",
+              borderRadius: "999px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {totalOcc}× {expanded ? "▲" : "▼"}
+          </span>
+        )}
+      </div>
+
+      {/* Expanded: per-occurrence rows */}
+      {expanded &&
+        totalOcc > 1 &&
+        occurrences.map((pos, i) => {
+          const ctx = extractSentenceContext(
+            correction.original,
+            originalText,
+            pos,
+          );
+          const accepted = occAccepted[i];
+          return (
+            <div
+              key={i}
+              className={`occurrence-row ${accepted ? "accepted" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleOccurrence(i);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.35rem 0.5rem",
+                marginTop: "0.25rem",
+                marginLeft: "1.5rem",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                background: accepted ? "#dcfce7" : "#f8fafc",
+                border: accepted ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+              }}
+            >
+              <div className="correction-check" style={{ fontSize: "0.85rem" }}>
+                {accepted ? "☑" : "☐"}
+              </div>
+              <span className="correction-diff" style={{ flex: 1 }}>
+                {ctx.before && (
+                  <span className="correction-context">{ctx.before} </span>
+                )}
+                <InlineDiff
+                  before={correction.original}
+                  after={correction.corrected}
+                />
+                {ctx.after && (
+                  <span className="correction-context"> {ctx.after}</span>
+                )}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.7rem",
+                  color: "#94a3b8",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                #{i + 1}
+              </span>
+            </div>
+          );
+        })}
     </div>
   );
 }
@@ -689,6 +921,9 @@ export default function ReviewExport() {
     toggleCorrection,
     acceptAll,
     dismissAll,
+    acceptCorrection,
+    dismissCorrection,
+    toggleOccurrence,
     document: doc,
   } = useStore();
   const t = useTranslation(lang);
@@ -1538,21 +1773,56 @@ export default function ReviewExport() {
                             {t("dismiss_all")}
                           </button>
                           <span className="small-note">
-                            {accepted.size} {t("of")} {corrections.length}{" "}
+                            {(() => {
+                              // Count corrections with at least one accepted occurrence
+                              let count = 0;
+                              for (const c of corrections) {
+                                if (!c.id) continue;
+                                if (
+                                  accepted.has(c.id) ||
+                                  [...accepted].some((k) =>
+                                    k.startsWith(`${c.id}:`),
+                                  )
+                                ) {
+                                  count++;
+                                }
+                              }
+                              return count;
+                            })()}{" "}
+                            {t("of")} {corrections.length}{" "}
                             {t("proposed_changes")}
                           </span>
                         </div>
 
-                        {corrections.map((c, i) => (
-                          <CorrectionCard
-                            key={c.id ?? i}
-                            correction={c}
-                            taskId={tid}
-                            accepted={accepted.has(c.id ?? "")}
-                            onToggle={() => toggleCorrection(tid, c.id ?? "")}
-                            originalText={result.originalText}
-                          />
-                        ))}
+                        {corrections.map((c, i) => {
+                          const totalOcc = findAllOccurrences(
+                            result.originalText,
+                            c.original,
+                          ).length;
+                          return (
+                            <CorrectionCard
+                              key={c.id ?? i}
+                              correction={c}
+                              taskId={tid}
+                              acceptedIds={accepted}
+                              onToggleOccurrence={(occIdx: number) =>
+                                toggleOccurrence(
+                                  tid,
+                                  c.id ?? "",
+                                  occIdx,
+                                  totalOcc,
+                                )
+                              }
+                              onAcceptAllOccurrences={() => {
+                                if (c.id) acceptCorrection(tid, c.id);
+                              }}
+                              onDismissAllOccurrences={() => {
+                                if (c.id) dismissCorrection(tid, c.id);
+                              }}
+                              originalText={result.originalText}
+                            />
+                          );
+                        })}
 
                         {result.skipped.length > 0 && (
                           <div className="skipped-section-wrapper">
