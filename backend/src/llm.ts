@@ -9,7 +9,7 @@ import {
   getCurrentModel,
   getLlamaBaseUrl,
 } from "./llamaServer.js";
-import { readModelConfig, type ModelSettings } from "./modelConfig.js";
+import { readModelConfig, readApiConfig, type ModelSettings } from "./modelConfig.js";
 import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
@@ -20,7 +20,7 @@ const MODELS_DIR =
 
 /** Get the current model's config, or defaults if unavailable. */
 function getActiveConfig(model: string): ModelSettings {
-  const file = model.endsWith(".gguf") ? model : model + ".gguf";
+  const file = model.startsWith("custom:") ? model : (model.endsWith(".gguf") ? model : model + ".gguf");
   return readModelConfig(MODELS_DIR, file);
 }
 
@@ -124,6 +124,46 @@ async function* chatStream(
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
+
+  // ── Route: external API model (e.g. DeepSeek) ──
+  if (model.startsWith("custom:")) {
+    const apiConfig = readApiConfig();
+    if (!apiConfig?.apiKey) {
+      throw new Error("External Betty API key not configured. Go to Settings to add your API key.");
+    }
+
+    const baseUrl = process.env.DEEPSEEK_API_BASE || "https://api.deepseek.com";
+    const apiBody: Record<string, unknown> = {
+      model: apiConfig.model || "deepseek-chat",
+      messages,
+      stream: true,
+      temperature: options.temperature ?? cfg.temperature,
+      top_p: options.top_p ?? cfg.top_p,
+      max_tokens: options.max_tokens ?? cfg.num_predict,
+    };
+    if (options.top_k != null) apiBody.top_k = options.top_k ?? cfg.top_k;
+    if (options.repeat_penalty != null) {
+      apiBody.frequency_penalty = (options.repeat_penalty ?? cfg.repeat_penalty) - 1.0;
+    }
+
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiConfig.apiKey}`,
+      },
+      body: JSON.stringify(apiBody),
+      signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`DeepSeek API error ${res.status}: ${text}`);
+    }
+
+    yield* parseSSE(res, signal);
+    return;
+  }
 
   // Ensure the model is loaded in llama-server with the required context size.
   await ensureModelLoaded(model, options.numCtxOverride);

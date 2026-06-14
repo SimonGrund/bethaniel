@@ -52,11 +52,16 @@ import {
   writeModelConfig,
   resetModelConfig,
   getDefaultsForFile,
+  readApiConfig,
+  writeApiConfig,
+  deleteApiConfig,
+  hasApiConfig,
 } from "./modelConfig.js";
 import {
   MODEL_CATALOG,
   DEFAULT_MODEL_FILENAME,
   isOllamaModel,
+  isApiModel,
   getPreferredOrder,
 } from "./modelCatalog.js";
 import type { ModelCatalogEntry } from "./modelCatalog.js";
@@ -76,6 +81,7 @@ import {
   removeCompleted,
   removeTask,
   removeJob,
+  flushAll,
   getTasksSnapshot,
   getTask,
   setConcurrency,
@@ -255,6 +261,25 @@ router.get("/models", async (_req: Request, res: Response) => {
 
 // ── System recommendation: estimate optimal parallel jobs ──
 router.get("/system/recommend", async (req: Request, res: Response) => {
+  const model =
+    typeof req.query.model === "string" ? req.query.model : undefined;
+
+  // API models — hardware-independent, concurrency limited only by provider rate limits
+  if (model && isApiModel(model)) {
+    res.json({
+      recommendedParallel: 3,
+      totalRamGb: 0,
+      freeRamGb: 0,
+      usableRamGb: 0,
+      cpuCount: 0,
+      modelSizeGb: 0,
+      modelSource: "estimated",
+      kvPerJobGb: 0,
+      reason: "API model — parallel limited by provider rate limits, not local hardware",
+    });
+    return;
+  }
+
   const os = await import("os");
   const totalRamGb = os.totalmem() / 1024 ** 3;
   const freeRamGb = os.freemem() / 1024 ** 3;
@@ -265,8 +290,6 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
   // Use max(freeRam, totalRam - 4GB reserved for OS).
   const usableGb = Math.max(freeRamGb, totalRamGb - 4);
 
-  const model =
-    typeof req.query.model === "string" ? req.query.model : undefined;
   let modelSizeGb = 5; // sensible default for an unspecified 7B-Q4
   let modelSource: "measured" | "estimated" = "estimated";
   if (model) {
@@ -604,6 +627,12 @@ router.delete("/queue/clear", (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ── Queue: flush everything (cancel active + clear all) ──
+router.delete("/queue/flush", (_req: Request, res: Response) => {
+  flushAll();
+  res.json({ ok: true });
+});
+
 // ── Queue: cancel a single task (active queue control) ──
 router.delete("/queue/task/:taskId", (req: Request, res: Response) => {
   cancelTask(req.params.taskId);
@@ -802,9 +831,11 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
     ...entry,
     allowed: allowedTiers.includes(entry.tier),
     fitsGpu:
-      vramMib === null
+      entry.source === "api"
         ? null
-        : fitsInVram(entry.sizeBytes, entry.defaults.num_ctx, 1, vramMib),
+        : vramMib === null
+          ? null
+          : fitsInVram(entry.sizeBytes, entry.defaults.num_ctx, 1, vramMib),
   }));
   res.json({ catalog, allowedTiers, preferredOrder: getPreferredOrder() });
 });
@@ -848,6 +879,20 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
           }
         } catch {
           // Ollama not running
+        }
+      }
+    }
+
+    // Check API models — "installed" when the user has configured an API key
+    if (hasApiConfig()) {
+      for (const entry of MODEL_CATALOG) {
+        if (entry.source === "api") {
+          installed.push({
+            id: entry.id,
+            tier: entry.tier,
+            name: entry.name,
+            fileName: entry.fileName,
+          });
         }
       }
     }
@@ -1195,6 +1240,30 @@ router.post("/models/download/cancel", async (req: Request, res: Response) => {
   res.json({ ok: true, status: "cancelled" });
 });
 
+// ── External Betty (API) configuration ──
+// Must be registered BEFORE /models/:fileName to avoid "custom" being captured as a fileName param
+
+router.get("/models/custom/config", (_req: Request, res: Response) => {
+  const cfg = readApiConfig();
+  res.json({ configured: !!(cfg?.apiKey), model: cfg?.model ?? "" });
+});
+
+router.put("/models/custom/config", (req: Request, res: Response) => {
+  const { apiKey, model } = req.body ?? {};
+  if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
+    res.status(400).json({ error: "API key is required" });
+    return;
+  }
+  const apiModel = typeof model === "string" && model.trim() ? model.trim() : "deepseek-chat";
+  writeApiConfig({ apiKey: apiKey.trim(), model: apiModel });
+  res.json({ ok: true });
+});
+
+router.delete("/models/custom/config", (_req: Request, res: Response) => {
+  deleteApiConfig();
+  res.json({ ok: true });
+});
+
 // ── DELETE /api/models/:fileName ──
 router.delete("/models/:fileName", async (req: Request, res: Response) => {
   const fileName = req.params.fileName;
@@ -1202,6 +1271,12 @@ router.delete("/models/:fileName", async (req: Request, res: Response) => {
   const entry = MODEL_CATALOG.find((e) => e.fileName === fileName);
   if (!entry) {
     res.status(400).json({ error: "Unknown model file" });
+    return;
+  }
+
+  // API models have no file on disk — they're disconnected via /models/custom/config
+  if (entry.source === "api") {
+    res.json({ ok: true });
     return;
   }
 
@@ -1316,6 +1391,11 @@ router.post("/models/preload", async (req: Request, res: Response) => {
   const model = body?.model;
   if (!model || typeof model !== "string") {
     res.status(400).json({ error: "missing model" });
+    return;
+  }
+  // API models — nothing to preload, they connect on demand
+  if (isApiModel(model)) {
+    res.json({ ok: true, warming: false });
     return;
   }
   // Reply immediately; the actual load runs in the background.

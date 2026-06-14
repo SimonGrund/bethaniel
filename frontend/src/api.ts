@@ -145,6 +145,10 @@ export async function clearQueue() {
   await apiFetch("/queue/clear", { method: "DELETE" });
 }
 
+export async function flushQueue() {
+  await apiFetch("/queue/flush", { method: "DELETE" });
+}
+
 export async function deleteTask(taskId: string) {
   await apiFetch(`/queue/task/${taskId}/remove`, { method: "DELETE" });
 }
@@ -190,4 +194,26 @@ export async function runConsistencyCheck(docId: string, minOccurrences = 2) {
     body: JSON.stringify({ docId, minOccurrences }),
   });
   return res.json();
+}
+
+// ── External Betty (API) ──
+
+export async function fetchCustomModelConfig(): Promise<{
+  configured: boolean;
+  model: string;
+}> {
+  const res = await apiFetch("/models/custom/config");
+  return res.json();
+}
+
+export async function saveCustomModelConfig(apiKey: string, model: string) {
+  await apiFetch("/models/custom/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, model }),
+  });
+}
+
+export async function deleteCustomModelConfig() {
+  await apiFetch("/models/custom/config", { method: "DELETE" });
 }
