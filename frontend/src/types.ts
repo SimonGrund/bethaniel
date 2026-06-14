@@ -9,7 +9,8 @@ export type TaskMode =
   | "timeline"
   | "combined_analysis"
   | "combined_edit"
-  | "analysis_summary";
+  | "analysis_summary"
+  | "blurb";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",

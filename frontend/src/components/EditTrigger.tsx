@@ -25,6 +25,7 @@ export default function EditTrigger() {
     spellCheck,
     dualEditor,
     dualCount,
+    characterDedup,
     wordsPerChunk,
     overlapParagraphs,
     parallel,
@@ -90,6 +91,7 @@ export default function EditTrigger() {
         spellCheck,
         dualEditor,
         dualCount,
+        characterDedup,
       });
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);

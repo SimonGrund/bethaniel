@@ -115,6 +115,7 @@ export async function addToQueue(params: {
   spellCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
+  characterDedup?: boolean;
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",
@@ -157,6 +158,19 @@ export async function deleteTask(taskId: string) {
 
 export async function deleteJob(jobId: string) {
   await apiFetch(`/queue/job/${jobId}`, { method: "DELETE" });
+}
+
+export async function spawnJobSummary(
+  jobId: string,
+  type: "summary" | "blurb" = "summary",
+): Promise<string> {
+  const res = await apiFetch(`/queue/job/${jobId}/summarize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type }),
+  });
+  const data = await res.json();
+  return data.taskId as string;
 }
 
 export async function getQueueStatus() {

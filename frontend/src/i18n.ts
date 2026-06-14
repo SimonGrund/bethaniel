@@ -643,7 +643,19 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Number of parallel editor passes per chunk. More agents = better recall but proportionally slower. 2-3 is a good balance for most models.",
     da: "Antal parallelle editor-gennemløb pr. chunk. Flere agenter = bedre recall men proportionelt langsommere. 2-3 er en god balance for de fleste modeller.",
     de: "Anzahl paralleler Editor-Durchläufe pro Abschnitt. Mehr Agenten = bessere Abdeckung, aber proportional langsamer. 2-3 ist eine gute Balance.",
-    es: "Número de pasadas paralelas del editor por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
+    es: "Número de pasadas de editor en paralelo por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
+  },
+  character_dedup: {
+    en: "AI character deduplication",
+    da: "AI-deduplikering af karakterer",
+    de: "KI-Charakter-Deduplizierung",
+    es: "Deduplicación de personajes con IA",
+  },
+  character_dedup_help: {
+    en: "After analysis, the model reviews character pairs and merges entries that refer to the same person. Improves catalog accuracy but adds ~10-30s latency per analysis job.",
+    da: "Efter analyse gennemgår modellen karakterpar og fletter indgange, der refererer til samme person. Forbedrer katalognøjagtighed men tilføjer ~10-30s ekstra pr. analysejob.",
+    de: "Nach der Analyse prüft das Modell Charakterpaare und führt Einträge zusammen, die sich auf dieselbe Person beziehen. Verbessert die Genauigkeit, fügt aber ~10-30s pro Analysejob hinzu.",
+    es: "Tras el análisis, el modelo revisa pares de personajes y fusiona entradas que se refieren a la misma persona. Mejora la precisión pero añade ~10-30s por trabajo de análisis.",
   },
   output_reflects: {
     en: "Output reflects",
@@ -1219,6 +1231,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Prosa-opsummering",
     de: "Prosazusammenfassung",
     es: "Resumen en prosa",
+  },
+  generate_summary: {
+    en: "Generate Text Summary",
+    da: "Generér tekstresumé",
+    de: "Textzusammenfassung generieren",
+    es: "Generar resumen de texto",
+  },
+  regenerate_summary: {
+    en: "Regenerate Summary",
+    da: "Regenerér resumé",
+    de: "Zusammenfassung neu generieren",
+    es: "Regenerar resumen",
+  },
+  blurb: {
+    en: "Marketing Blurb",
+    da: "Markedsføringstekst",
+    de: "Marketing-Text",
+    es: "Texto de marketing",
+  },
+  generate_blurb: {
+    en: "Generate Blurb",
+    da: "Generér markedsføringstekst",
+    de: "Marketing-Text generieren",
+    es: "Generar texto de marketing",
+  },
+  regenerate_blurb: {
+    en: "Regenerate Blurb",
+    da: "Regenerér markedsføringstekst",
+    de: "Marketing-Text neu generieren",
+    es: "Regenerar texto de marketing",
   },
   detailed_analysis_data: {
     en: "Detailed analysis data",

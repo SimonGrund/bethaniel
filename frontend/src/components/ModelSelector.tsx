@@ -89,6 +89,8 @@ export default function ModelSelector({
     setDualEditor,
     dualCount,
     setDualCount,
+    characterDedup,
+    setCharacterDedup,
     tasks,
     wizardStep,
     setWizardStep,
@@ -727,6 +729,18 @@ export default function ModelSelector({
                   <span className="help-text">{t("dual_count_help")}</span>
                 </div>
               )}
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={characterDedup}
+                    onChange={(e) => setCharacterDedup(e.target.checked)}
+                  />{" "}
+                  {t("character_dedup")}
+                </label>
+                <span className="help-text">{t("character_dedup_help")}</span>
+              </div>
 
               {highlightedModel && <ModelTuning fileName={highlightedModel} />}
             </div>

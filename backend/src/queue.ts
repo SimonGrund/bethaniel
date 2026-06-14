@@ -17,6 +17,7 @@ import {
   parseJsonResponse,
   reviewCorrectionsStream,
   parseReviewScores,
+  identityCheck,
   listLoadedModels,
   unloadModel,
 } from "./llm.js";
@@ -24,7 +25,10 @@ import { mergeAnalysisParts } from "./analysisMerge.js";
 import { extractCorrectionsFromDiff } from "./diff.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
+  BLURB_PROMPT,
+  CHARACTER_IDENTITY_PROMPT,
   buildReviewerPrompt,
+  buildTranslationReviewerPrompt,
 } from "./prompts.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
@@ -96,6 +100,23 @@ function stripAiSignoff(text: string): string {
 }
 
 /**
+ * Split text into non-empty trimmed paragraphs for translation review.
+ * Paired by index — short paragraphs (headings, dialogue fragments) are kept.
+ */
+function srcParasForReview(text: string): string[] {
+  return splitParagraphs(text);
+}
+function tgtParasForReview(text: string): string[] {
+  return splitParagraphs(text);
+}
+function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
+
+/**
  * Detect transient network errors that warrant a retry. llama-server can drop
  * connections under load (cold model load races, KV-cache reallocations,
  * parallel-slot saturation) producing generic "fetch failed" / undici errors.
@@ -140,6 +161,7 @@ interface JobData {
   spellCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
+  characterDedup?: boolean;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -373,25 +395,116 @@ async function processAnalysisJob(
         acc = "";
         tokCount = 0;
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
+        let handledByMultiAgent = false;
         try {
-          updateTask(taskId, {
-            phase: `${phasePrefix}analyzing chunk ${chunkLabel}`,
-          });
-          for await (const tok of analyzeStream(
-            model,
-            `[Chapter: ${chapterName}]\n\n${chunk.body}`,
-            chapterAwarePrompt,
-            ac.signal,
-          )) {
-            acc += tok;
-            tokCount++;
-            if (tokCount === 1) {
-              updateTask(taskId, {
-                phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
-              });
+          const agentCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+          if (agentCount > 1) {
+            // ── Multiple analysis agents per chunk (union-merge) ──
+            handledByMultiAgent = true;
+            updateTask(taskId, {
+              phase: `${phasePrefix}analyzing chunk ${chunkLabel} (${agentCount} agents)`,
+            });
+
+            const collectAnalysis = async (): Promise<string> => {
+              let a = "";
+              for await (const t of analyzeStream(
+                model,
+                `[Chapter: ${chapterName}]\n\n${chunk.body}`,
+                chapterAwarePrompt,
+                ac.signal,
+              )) a += t;
+              return a;
+            };
+
+            const promises = Array.from({ length: agentCount }, () =>
+              collectAnalysis(),
+            );
+            const results = await Promise.allSettled(promises);
+
+            const raws: string[] = [];
+            for (let idx = 0; idx < agentCount; idx++) {
+              const r = results[idx];
+              if (r.status === "fulfilled" && r.value) {
+                raws.push(r.value);
+              } else {
+                const reason =
+                  r.status === "rejected"
+                    ? r.reason instanceof Error
+                      ? r.reason.message
+                      : String(r.reason)
+                    : "empty output";
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `Analysis agent ${idx + 1}/${agentCount} failed for chunk ${chunkLabel} (${reason}).`,
+                  model,
+                });
+              }
             }
-            const intra = creepingProgress(tokCount);
-            updateProgress(taskId, (j + intra) / totalChunks);
+
+            if (raws.length === 0)
+              throw new Error(
+                `All ${agentCount} analysis agents failed for chunk ${chunkLabel}`,
+              );
+
+            // Parse each agent's output and merge
+            const parsedParts: unknown[] = [];
+            let parseFailures = 0;
+            for (const raw of raws) {
+              const parsed = parseJsonResponse(raw);
+              if (parsed) {
+                parsedParts.push(forceChapterLabel(parsed, chapterName));
+              } else {
+                parseFailures++;
+              }
+            }
+
+            if (parsedParts.length > 0) {
+              partialResults.push(mergeAnalysisParts(parsedParts));
+              if (parseFailures > 0) {
+                errors.push(
+                  `chunk ${chunkLabel}: ${parseFailures} agent(s) produced unparseable JSON`,
+                );
+              }
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Analysis chunk ${chunkLabel}: ${parsedParts.length}/${agentCount} agents succeeded, results merged.`,
+                model,
+              });
+            } else {
+              errors.push(
+                `chunk ${chunkLabel}: all ${agentCount} agent(s) produced unparseable JSON`,
+              );
+              if (!firstParseErrorRaw) firstParseErrorRaw = raws[0].slice(0, 500);
+            }
+
+            tokCount = Math.ceil(
+              raws.reduce((sum, r) => sum + r.length, 0) / raws.length / 3,
+            );
+          } else {
+            // ── Single analysis agent (original behavior) ──
+            updateTask(taskId, {
+              phase: `${phasePrefix}analyzing chunk ${chunkLabel}`,
+            });
+            for await (const tok of analyzeStream(
+              model,
+              `[Chapter: ${chapterName}]\n\n${chunk.body}`,
+              chapterAwarePrompt,
+              ac.signal,
+            )) {
+              acc += tok;
+              tokCount++;
+              if (tokCount === 1) {
+                updateTask(taskId, {
+                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
+                });
+              }
+              const intra = creepingProgress(tokCount);
+              updateProgress(taskId, (j + intra) / totalChunks);
+            }
           }
           lastErr = null;
           break;
@@ -410,12 +523,15 @@ async function processAnalysisJob(
       }
       if (lastErr) throw lastErr;
 
-      const parsed = parseJsonResponse(acc);
-      if (parsed) {
-        partialResults.push(forceChapterLabel(parsed, chapterName));
-      } else {
-        errors.push(`chunk ${chunkLabel}: failed to parse JSON`);
-        if (!firstParseErrorRaw) firstParseErrorRaw = acc.slice(0, 500);
+      // Single-agent: parse JSON output (multi-agent handled inline)
+      if (acc.length > 0) {
+        const parsed = parseJsonResponse(acc);
+        if (parsed) {
+          partialResults.push(forceChapterLabel(parsed, chapterName));
+        } else {
+          errors.push(`chunk ${chunkLabel}: failed to parse JSON`);
+          if (!firstParseErrorRaw) firstParseErrorRaw = acc.slice(0, 500);
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -509,6 +625,131 @@ function maybeSpawnAnalysisSummary(finishedJob: JobData): void {
 }
 
 /**
+ * After the prose summary completes, spawn a marketing blurb synthesis task.
+ * Same pattern as maybeSpawnAnalysisSummary but for the blurb.
+ */
+function maybeSpawnBlurb(summaryJob: JobData): void {
+  const jobId = summaryJob.jobId;
+  let alreadyHasBlurb = false;
+  for (const t of tasks.values()) {
+    if (t.jobId !== jobId) continue;
+    if (t.mode === "blurb") {
+      alreadyHasBlurb = true;
+      break;
+    }
+  }
+  if (alreadyHasBlurb) return;
+
+  void submitTask({
+    jobId,
+    name: "Blurb",
+    source: summaryJob.source,
+    original: "",
+    wordCount: 0,
+    model: summaryJob.model,
+    mode: "blurb",
+    prompt: BLURB_PROMPT,
+    fast: false,
+    wpc: summaryJob.wpc,
+    overlap: 0,
+  }).catch((err) => {
+    console.error("[Queue] failed to spawn blurb:", err);
+  });
+}
+
+interface CharEntry {
+  name: string;
+  aliases?: string[];
+  chapters?: string[];
+}
+
+/**
+ * LLM-powered character identity resolution. For pairs sharing ≥2 chapters
+ * or overlapping aliases, asks the model "same" or "different" and merges
+ * confirmed matches. Runs up to 3 iterative passes.
+ */
+async function resolveCharacterIdentities(
+  chars: CharEntry[],
+  model: string,
+  jobId: string,
+  ac: AbortController,
+): Promise<CharEntry[]> {
+  if (chars.length < 2) return chars;
+
+  const merged = new Set<number>();
+  const result: CharEntry[] = chars.map((c) => ({ ...c }));
+  const norm = (s: string) => s.toLowerCase().trim().replace(/\s+/g, " ");
+
+  for (let pass = 0; pass < 3; pass++) {
+    let changes = false;
+    for (let i = 0; i < result.length; i++) {
+      if (merged.has(i)) continue;
+      for (let j = i + 1; j < result.length; j++) {
+        if (merged.has(j)) continue;
+
+        const chI = new Set((result[i].chapters ?? []).map(norm));
+        const chJ = new Set((result[j].chapters ?? []).map(norm));
+        const sharedChapters = [...chI].filter((c) => chJ.has(c));
+        const aliI = new Set((result[i].aliases ?? []).map(norm));
+        const aliJ = new Set((result[j].aliases ?? []).map(norm));
+        const sharedAliases = [...aliI].filter((a) => aliJ.has(a));
+
+        if (sharedChapters.length < 2 && sharedAliases.length === 0) continue;
+
+        try {
+          const userMsg = `Entry A:\nname: ${result[i].name}\naliases: ${(result[i].aliases ?? []).join(", ")}\nchapters: ${(result[i].chapters ?? []).join(", ")}\n\nEntry B:\nname: ${result[j].name}\naliases: ${(result[j].aliases ?? []).join(", ")}\nchapters: ${(result[j].chapters ?? []).join(", ")}`;
+          const answer = await identityCheck(
+            model,
+            userMsg,
+            CHARACTER_IDENTITY_PROMPT,
+            ac.signal,
+          );
+          const isSame = answer.toLowerCase().trim() === "same";
+          appendLog({
+            level: "info",
+            source: "engine",
+            message: `Character identity: "${result[i].name}" + "${result[j].name}" → ${isSame ? "same" : "different"}`,
+            model,
+          });
+
+          if (isSame) {
+            const a = result[i];
+            const b = result[j];
+            a.name = a.name.length >= b.name.length ? a.name : b.name;
+            a.aliases = [
+              ...new Set([
+                ...(a.aliases ?? []),
+                ...(b.aliases ?? []),
+                a.name !== b.name ? b.name : "",
+              ].filter(Boolean)),
+            ];
+            a.chapters = [
+              ...new Set([...(a.chapters ?? []), ...(b.chapters ?? [])]),
+            ];
+            merged.add(j);
+            changes = true;
+          }
+        } catch (err) {
+          appendLog({
+            level: "warn",
+            source: "engine",
+            message: `Character identity check failed: ${err instanceof Error ? err.message : String(err)}`,
+            model,
+          });
+        }
+      }
+    }
+    if (!changes) break;
+    const kept = result.filter((_, i) => !merged.has(i));
+    result.length = 0;
+    result.push(...kept);
+    merged.clear();
+  }
+
+  return result;
+}
+
+/**
  * Synthesise a prose summary from all completed per-chapter analysis tasks
  * sharing this job's jobId. Output goes into result.editedText as Markdown.
  */
@@ -516,7 +757,7 @@ async function processSynthesisJob(
   job: JobData,
   ac: AbortController,
 ): Promise<void> {
-  const { taskId, jobId, model, prompt } = job;
+  const { taskId, jobId, model, prompt, mode, characterDedup } = job;
   updateTask(taskId, {
     status: "editing",
     startedAt: Date.now(),
@@ -553,6 +794,31 @@ async function processSynthesisJob(
   }
 
   const merged = mergeAnalysisParts(partials);
+
+  // ── LLM-powered character identity dedup (opt-in) ──
+  if (
+    characterDedup &&
+    Array.isArray(merged.characters) &&
+    merged.characters.length > 0
+  ) {
+    updateTask(taskId, { phase: "resolving character identities" });
+    const chars = merged.characters as CharEntry[];
+    const deduped = await resolveCharacterIdentities(
+      chars,
+      model,
+      jobId,
+      ac,
+    );
+    merged.characters = deduped;
+    appendLog({
+      level: "info",
+      source: "engine",
+      taskId,
+      message: `Character dedup: ${chars.length} → ${deduped.length} entries.`,
+      model,
+    });
+  }
+
   const payload = JSON.stringify(merged, null, 2);
 
   // ── Context-window sizing for the synthesis step ──────────────────────────
@@ -630,6 +896,11 @@ async function processSynthesisJob(
       structuredData: merged,
     },
   });
+
+  // After the prose summary completes, spawn a marketing blurb
+  if (success && mode === "analysis_summary") {
+    maybeSpawnBlurb(job);
+  }
 }
 
 async function processJob(job: JobData): Promise<void> {
@@ -651,7 +922,7 @@ async function processJob(job: JobData): Promise<void> {
   if (ANALYSIS_MODES.includes(mode)) {
     return processAnalysisJob(job, ac);
   }
-  if (mode === "analysis_summary") {
+  if (mode === "analysis_summary" || mode === "blurb") {
     return processSynthesisJob(job, ac);
   }
 
@@ -981,8 +1252,9 @@ async function processJob(job: JobData): Promise<void> {
                       taskId,
                       message: `Editor agent ${idx + 1}/${editorCount} exhausted retries for chunk ${chunkLabel}.`,
                       model,
-                    });
-                  }
+  });
+}
+
                 }
               }
 
@@ -1042,6 +1314,7 @@ async function processJob(job: JobData): Promise<void> {
             }
             }
           } else {
+            // ── Single rewrite agent ──
             for await (const tok of editChunkStream(
               model,
               chunk.body,
@@ -1227,8 +1500,143 @@ async function processJob(job: JobData): Promise<void> {
         }
       } else {
         const rewritten = restoreTypography(chunk.body, acc.trim());
+
+        // Translation: output the rewritten text directly. Running
+        // diff → corrections → apply makes no sense for translation
+        // (the entire text is "changed" source → target language), and
+        // the reviewer would flag every word as "changing meaning".
+        if (mode === "translate") {
+          let translatedText = rewritten;
+
+          if (job.reviewMode) {
+            // Split into paragraphs and pair them for review
+            const srcParas = srcParasForReview(chunk.body);
+            const tgtParas = tgtParasForReview(translatedText);
+            const n = Math.min(srcParas.length, tgtParas.length);
+
+            if (n > 1) {
+              const paraCorrections: Correction[] = srcParas
+                .slice(0, n)
+                .map((src, i) => ({
+                  original: src,
+                  corrected: tgtParas[i],
+                }));
+
+              updateTask(taskId, {
+                phase: `reviewing translation for chunk ${chunkLabel}`,
+              });
+
+              const reviewerPrompt = buildTranslationReviewerPrompt();
+              const rCount = job.reviewerCount ?? 1;
+              const runOne = async () => {
+                let a = "";
+                for await (const tok of reviewCorrectionsStream(
+                  model,
+                  chunk.body,
+                  paraCorrections,
+                  reviewerPrompt,
+                  ac.signal,
+                )) a += tok;
+                return a;
+              };
+              const reviewResults = await Promise.allSettled(
+                Array.from({ length: rCount }, () => runOne()),
+              );
+              const reviewOutputs: string[] = [];
+              for (const r of reviewResults) {
+                if (r.status === "fulfilled" && r.value)
+                  reviewOutputs.push(r.value);
+              }
+
+              if (reviewOutputs.length > 0) {
+                const allScores = reviewOutputs.map((o) =>
+                  parseReviewScores(o),
+                );
+                const threshold = job.reviewerThreshold ?? 3;
+
+                const flagged: { idx: number; conf: number; reason: string }[] =
+                  [];
+                for (let i = 0; i < n; i++) {
+                  let minConf = 5;
+                  let minReason = "";
+                  for (const scores of allScores) {
+                    const s = scores.get(i);
+                    if (s && s.confidence < minConf) {
+                      minConf = s.confidence;
+                      minReason = s.reason;
+                    }
+                  }
+                  if (minConf < threshold)
+                    flagged.push({ idx: i, conf: minConf, reason: minReason });
+                }
+
+                if (flagged.length > 0) {
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `Translation reviewer flagged ${flagged.length}/${n} paragraphs in chunk ${chunkLabel}. Re-translating…`,
+                    model,
+                  });
+
+                  const revisedParas = [...tgtParas];
+                  for (const f of flagged) {
+                    try {
+                      const rePrompt =
+                        prompt +
+                        `\n\nCRITICAL: Your previous translation of this paragraph was flagged: "${f.reason}". Provide an accurate, fluent, natural-feeling translation.`;
+                      let reAcc = "";
+                      for await (const tok of editChunkStream(
+                        model,
+                        srcParas[f.idx],
+                        rePrompt,
+                        ac.signal,
+                      )) reAcc += tok;
+                      const reTranslated = reAcc.trim();
+                      if (reTranslated) {
+                        revisedParas[f.idx] = reTranslated;
+                        appendLog({
+                          level: "info",
+                          source: "engine",
+                          taskId,
+                          message: `Re-translated paragraph ${f.idx + 1}/${n} (was confidence ${f.conf}).`,
+                          model,
+                        });
+                      }
+                    } catch (err) {
+                      appendLog({
+                        level: "warn",
+                        source: "engine",
+                        taskId,
+                        message: `Re-translation of paragraph ${f.idx + 1} failed: ${err instanceof Error ? err.message : String(err)}`,
+                        model,
+                      });
+                    }
+                  }
+                  translatedText = revisedParas.join("\n\n");
+                } else {
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `Translation reviewer passed all ${n} paragraphs in chunk ${chunkLabel}.`,
+                    model,
+                  });
+                }
+              }
+            }
+          }
+
+          const core = stripOverlapFromResponse(
+            translatedText,
+            chunk.overlapHeadParagraphs,
+          );
+          pieces.push(core);
+        } else {
+
+        let cs: Correction[];
         const diffCs = extractCorrectionsFromDiff(chunk.body, rewritten);
-        const cs = [...spellCorrections, ...diffCs];
+        cs = [...spellCorrections, ...diffCs];
 
         if (cs.length > 0) {
           if (job.reviewMode) {
@@ -1272,6 +1680,7 @@ async function processJob(job: JobData): Promise<void> {
               promise: reviewPromise,
             };
           } else {
+            // No reviewer — apply corrections immediately
             const spellToApply = cs.filter((c) => c.reason === "spell-check");
             const editorToApply = cs.filter((c) => c.reason !== "spell-check");
 
@@ -1314,6 +1723,7 @@ async function processJob(job: JobData): Promise<void> {
             chunk.overlapHeadParagraphs,
           );
           pieces.push(core);
+        }
         }
       }
     } catch (err) {
@@ -1597,6 +2007,7 @@ export async function submitTask(
       spellCheck: data.spellCheck,
       dualEditor: data.dualEditor,
       dualCount: data.dualCount,
+      characterDedup: data.characterDedup,
     },
   });
 
@@ -1692,6 +2103,7 @@ export async function retryTask(id: string): Promise<string> {
     spellCheck: spec.spellCheck,
     dualEditor: spec.dualEditor,
     dualCount: spec.dualCount,
+    characterDedup: spec.characterDedup,
   });
   return newTaskId;
 }

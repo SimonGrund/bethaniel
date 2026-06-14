@@ -59,6 +59,8 @@ interface AppState {
   setDualEditor: (b: boolean) => void;
   dualCount: number;
   setDualCount: (n: number) => void;
+  characterDedup: boolean;
+  setCharacterDedup: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -160,8 +162,8 @@ interface AppState {
   setHighlightedModel: (m: string) => void;
   showAdvancedSettings: boolean;
   setShowAdvancedSettings: (b: boolean) => void;
-  editSubOptionsOpen: boolean;
-  setEditSubOptionsOpen: (b: boolean) => void;
+  editSubOptionsOpen: "editing" | "analysis" | "translation" | null;
+  setEditSubOptionsOpen: (cat: "editing" | "analysis" | "translation" | null) => void;
 
   // Reset
   resetAll: () => void;
@@ -198,6 +200,8 @@ export const useStore = create<AppState>()(
       setDualEditor: (dualEditor) => set({ dualEditor }),
       dualCount: DEFAULT_DUAL_COUNT,
       setDualCount: (dualCount) => set({ dualCount }),
+      characterDedup: false,
+      setCharacterDedup: (characterDedup) => set({ characterDedup }),
       parallel: DEFAULT_PARALLEL,
       setParallel: (parallel) => set({ parallel }),
 
@@ -444,7 +448,7 @@ export const useStore = create<AppState>()(
       setHighlightedModel: (highlightedModel) => set({ highlightedModel }),
       showAdvancedSettings: false,
       setShowAdvancedSettings: (showAdvancedSettings) => set({ showAdvancedSettings }),
-      editSubOptionsOpen: false,
+      editSubOptionsOpen: null,
       setEditSubOptionsOpen: (editSubOptionsOpen) => set({ editSubOptionsOpen }),
 
       resetAll: () =>
@@ -460,6 +464,7 @@ export const useStore = create<AppState>()(
           spellCheck: true,
           dualEditor: true,
           dualCount: DEFAULT_DUAL_COUNT,
+          characterDedup: false,
           parallel: DEFAULT_PARALLEL,
           selectedModes: ["copy_edit"],
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -472,7 +477,7 @@ export const useStore = create<AppState>()(
           detectBreaks: false,
           wizardStep: "model",
           completedSteps: [],
-          editSubOptionsOpen: false,
+          editSubOptionsOpen: null,
           showAdvancedSettings: false,
           document: null,
           documentMd: "",
@@ -514,6 +519,7 @@ export const useStore = create<AppState>()(
         spellCheck: state.spellCheck,
         dualEditor: state.dualEditor,
         dualCount: state.dualCount,
+        characterDedup: state.characterDedup,
         parallel: state.parallel,
         scopeMode: state.scopeMode,
         selectedChapters: state.selectedChapters,

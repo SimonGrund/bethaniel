@@ -2077,6 +2077,20 @@ summary.review-source::before {
   background: var(--cat-bg);
 }
 
+/* Disabled (greyed out / locked) */
+.mode-cat-disabled {
+  opacity: 0.45;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.mode-tab-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .mode-cat-name {
   font-weight: 700;
   font-size: 1rem;
@@ -3876,4 +3890,118 @@ summary.review-source::before {
   font-size: 0.88rem;
   color: #2a2419;
   font-family: "Inter", sans-serif;
+}
+
+/* ── Generate summary / blurb buttons ── */
+
+.generate-buttons-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+/* ── Analysis section headers with icons and counts ── */
+
+.analysis-section-header {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.section-count {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #f0f4f8;
+  color: #64748b;
+  border-radius: 99px;
+  vertical-align: middle;
+}
+
+/* ── Minor items (hidden by default in catalog tables) ── */
+
+.minor-items-details {
+  margin-top: 0.4rem;
+}
+
+.minor-items-summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #64748b;
+  padding: 0.25rem 0;
+  user-select: none;
+}
+
+.minor-items-summary:hover {
+  color: #334155;
+}
+
+/* ── Timeline zoom toggle ── */
+
+.timeline-zoom {
+  margin: 0.25rem 0;
+}
+
+.timeline-zoom-toggles {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.5rem;
+}
+
+.timeline-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.timeline-zoom-btn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.timeline-zoom-btn:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.timeline-zoom-btn:not(:first-child) {
+  border-left: none;
+}
+
+.timeline-zoom-btn:hover:not(:disabled) {
+  background: #eef2ff;
+  color: #334155;
+  border-color: #a5b4fc;
+}
+
+.timeline-zoom-btn-active {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+.timeline-zoom-btn-active:hover:not(:disabled) {
+  background: #4338ca;
+  color: #fff;
+}
+
+.timeline-zoom-btn-empty {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.timeline-zoom-count {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.75;
 }

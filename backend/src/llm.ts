@@ -700,6 +700,33 @@ export function parseReviewScores(raw: string): Map<number, ReviewScore> {
   return scores;
 }
 
+/**
+ * Simple one-shot LLM call for character identity resolution.
+ * Collects the full (non-streamed) response and returns the trimmed text.
+ */
+export async function identityCheck(
+  model: string,
+  userMessage: string,
+  systemPrompt: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const cap = Math.max(16, Math.ceil(userMessage.length / 3) + 16);
+  let out = "";
+  for await (const tok of chatStream(
+    model,
+    [
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMessage },
+    ],
+    { max_tokens: cap },
+    signal,
+  )) {
+    out += tok;
+  }
+  return out.trim();
+}
+
 export async function* reviewCorrectionsStream(
   model: string,
   chunkText: string,
