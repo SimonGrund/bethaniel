@@ -739,9 +739,9 @@ async function processJob(job: JobData): Promise<void> {
               });
               if (spellResult.suspectWords.length > 0) {
                 chunkPrompt +=
-                  "\n\nSPELL-CHECK: A deterministic spell-checker flagged these words as likely misspelled. Check each one and correct those that are wrong:\n- " +
+                  "\n\nSPELL-CHECK: A deterministic spell-checker flagged these words as misspelled. Correct ALL of them — the reviewer will later double-check and discard any false positives. If a word is a proper noun or dialect, correct it anyway and let the reviewer decide:\n- " +
                   spellResult.suspectWords.join("\n- ") +
-                  "\n\nSome may be proper nouns or dialect — skip those. But if the word is genuinely misspelled, correct it.";
+                  "\n\nCorrect every one of these words. The reviewer handles precision — your job is recall.";
                 appendLog({
                   level: "info",
                   source: "engine",
