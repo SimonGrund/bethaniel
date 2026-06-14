@@ -600,6 +600,92 @@ function extractCorrectionsRegex(raw: string): Correction[] {
   return out;
 }
 
+// ── Reviewer — second-pass critical review of editor corrections ──
+
+function buildReviewerUserMessage(
+  chunkText: string,
+  corrections: Correction[],
+): string {
+  let msg = "ORIGINAL TEXT:\n" + chunkText + "\n\nPROPOSED CORRECTIONS:\n";
+  corrections.forEach((c, i) => {
+    msg += `[${i}] "${c.original}" → "${c.corrected}"\n`;
+  });
+  return msg;
+}
+
+interface ReviewScore {
+  confidence: number;
+  reason: string;
+}
+
+export function parseReviewScores(raw: string): Map<number, ReviewScore> {
+  const scores = new Map<number, ReviewScore>();
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+  text = text.replace(/```(?:jsonl?|ndjson)?/gi, "").replace(/```/g, "");
+
+  const lines = text
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/(?<=\})\s*(?=\{)/));
+
+  for (const line of lines) {
+    const s = line.trim().replace(/^[,\s]+|[,\s]+$/g, "");
+    if (!s || !s.startsWith("{") || !s.endsWith("}")) continue;
+
+    let obj: unknown;
+    try {
+      obj = JSON.parse(s);
+    } catch {
+      try {
+        obj = JSON.parse(sanitizeJsonEscapes(s));
+      } catch {
+        continue;
+      }
+    }
+    if (typeof obj !== "object" || obj === null) continue;
+    const rec = obj as Record<string, unknown>;
+    const index = rec.index;
+    const confidence = rec.confidence;
+    const reason = rec.reason;
+    if (
+      typeof index === "number" &&
+      typeof confidence === "number" &&
+      confidence >= 1 &&
+      confidence <= 5 &&
+      typeof reason === "string"
+    ) {
+      scores.set(index, { confidence, reason });
+    }
+  }
+
+  return scores;
+}
+
+export async function* reviewCorrectionsStream(
+  model: string,
+  chunkText: string,
+  corrections: Correction[],
+  systemPrompt: string,
+  signal?: AbortSignal,
+): AsyncGenerator<string> {
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const userMsg = buildReviewerUserMessage(chunkText, corrections);
+  const cap = slotSafeMaxTokens(
+    model,
+    systemMsg,
+    userMsg,
+    Math.max(256, corrections.length * 50 + 512),
+  );
+  yield* chatStream(
+    model,
+    [
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMsg },
+    ],
+    { max_tokens: cap },
+    signal,
+  );
+}
+
 /**
  * Restore the original text's typographic conventions in an LLM-rewritten
  * output. Detects what the original uses (curly vs straight quotes, ellipsis
@@ -749,8 +835,94 @@ export interface ApplyCorrectionsOptions {
   allowDialogueTags?: boolean;
 }
 
+/** Result of a fuzzy text search. */
+interface FuzzyMatch {
+  pos: number;
+  /** The actual matching substring from the text. */
+  match: string;
+}
+
 /**
- * Apply a list of corrections to text.
+ * Try to find `needle` in `text` with flexible whitespace AND typographic
+ * character variants (curly/straight quotes, em/en dashes, ellipsis).
+ *
+ * The LLM sometimes returns "original" text with slightly different
+ * characters than the raw chunk (e.g. straight apostrophes when the chunk
+ * has curly ones).  This function builds a regex that matches all common
+ * typographic equivalents so those corrections aren't lost.
+ *
+ * Returns null when there is not exactly one match.
+ */
+function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
+  // Collapse whitespace first so we don't emit redundant \s+
+  const collapsed = needle.replace(/\s+/g, " ").trim();
+  if (collapsed.length === 0) return null;
+
+  // Build a regex character-by-character, replacing:
+  //  - literal spaces → \s+
+  //  - typographic chars → equivalence class
+  //  - everything else → regex-escaped literal
+  let pattern = "";
+  for (let i = 0; i < collapsed.length; i++) {
+    const ch = collapsed[i];
+
+    if (ch === " ") {
+      pattern += "\\s+";
+    } else if (
+      ch === "." &&
+      collapsed[i + 1] === "." &&
+      collapsed[i + 2] === "."
+    ) {
+      // Ellipsis: match three dots or the ellipsis character
+      pattern += "(?:\\.\\.\\.|\\u2026)";
+      i += 2;
+    } else {
+      pattern += typographicClass(ch);
+    }
+  }
+
+  try {
+    const re = new RegExp(pattern, "g");
+    const first = re.exec(text);
+    if (!first) return null;
+    // Must be unambiguous — reject if there's a second match
+    if (re.exec(text) !== null) return null;
+    return { pos: first.index, match: first[0] };
+  } catch {
+    return null; // malformed regex (shouldn't happen)
+  }
+}
+
+/** Return a regex character class that matches `ch` and its typographic equivalents. */
+function typographicClass(ch: string): string {
+  // Single quotes / apostrophes
+  if (/['\u2018\u2019\u201A\u2039\u203A]/.test(ch)) {
+    return "['\u2018\u2019\u201A\u2039\u203A]";
+  }
+  // Double quotes
+  if (/["\u201C\u201D\u201E\u00AB\u00BB]/.test(ch)) {
+    return '["\u201C\u201D\u201E\u00AB\u00BB]';
+  }
+  // Dashes (hyphen, en-dash, em-dash)
+  if (/[-\u2013\u2014]/.test(ch)) {
+    return "[-\u2013\u2014]";
+  }
+  // Escape everything else for regex
+  return ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Apply a list of corrections to text using a two-pass strategy:
+ *
+ *  **Pass 1** — validate every correction and locate it in the **original**
+ *  text (before any mutation).  Corrections that cannot be found exactly get
+ *  a fuzzy-whitespace fallback.
+ *
+ *  **Pass 2** — sort the located corrections by position descending and apply
+ *  them from end to start.  Because we work against the original positions,
+ *  earlier corrections cannot invalidate the search for later ones — the
+ *  cascading-mutation problem is eliminated.
+ *
  * Returns [newText, applied, skipped].
  */
 export function applyCorrections(
@@ -758,18 +930,23 @@ export function applyCorrections(
   corrections: Correction[],
   opts?: ApplyCorrectionsOptions,
 ): [string, Correction[], Correction[]] {
-  const applied: Correction[] = [];
   const skipped: Correction[] = [];
-  let newText = text;
+
+  // ── Pass 1: validate & locate in ORIGINAL text ──
+  interface Located {
+    pos: number;
+    original: string; // the exact substring to replace (may differ from c.original when fuzzy)
+    corrected: string;
+    correction: Correction;
+  }
+  const located: Located[] = [];
 
   for (const c of corrections) {
+    // ── Rejection gates (unchanged) ──
     if (c.original === c.corrected) {
       skipped.push({ ...c, reason: "no-op" });
       continue;
     }
-    // Reject corrections that only change typographic style (curly/straight
-    // quotes, ellipsis char, dash style). The prompt says not to, but LLMs
-    // sometimes do it anyway.
     if (isTypographyOnlyChange(c.original, c.corrected)) {
       skipped.push({
         ...c,
@@ -777,7 +954,6 @@ export function applyCorrections(
       });
       continue;
     }
-    // Reject dialogue-tag-only corrections when the option is not enabled.
     if (
       !opts?.allowDialogueTags &&
       isDialogueTagChange(c.original, c.corrected)
@@ -793,16 +969,82 @@ export function applyCorrections(
       });
       continue;
     }
-    const count = newText.split(c.original).length - 1;
-    if (count === 0) {
-      skipped.push({ ...c, reason: "not found" });
-    } else if (count > 1) {
-      skipped.push({ ...c, reason: `ambiguous (${count} matches)` });
+
+    // ── Locate in the ORIGINAL text ──
+    const exactPos = text.indexOf(c.original);
+    if (exactPos !== -1) {
+      const secondPos = text.indexOf(c.original, exactPos + 1);
+      if (secondPos !== -1) {
+        const count = text.split(c.original).length - 1;
+        skipped.push({ ...c, reason: `ambiguous (${count} matches)` });
+      } else {
+        located.push({
+          pos: exactPos,
+          original: c.original,
+          corrected: c.corrected,
+          correction: c,
+        });
+      }
     } else {
-      newText = newText.replace(c.original, c.corrected);
-      applied.push(c);
+      // Approach 3: fuzzy whitespace-flexible fallback
+      const fuzzy = fuzzyFind(text, c.original);
+      if (fuzzy) {
+        located.push({
+          pos: fuzzy.pos,
+          original: fuzzy.match,
+          corrected: c.corrected,
+          correction: c,
+        });
+      } else {
+        skipped.push({ ...c, reason: "not found" });
+      }
     }
   }
+
+  // ── Pass 2: apply end→start using original positions ──
+  located.sort((a, b) => b.pos - a.pos);
+
+  const applied: Correction[] = [];
+  let newText = text;
+
+  for (const item of located) {
+    // Verify the text slice still matches (it always should because we
+    // process end→start, but overlapping fuzzy matches can shift things).
+    const slice = newText.slice(item.pos, item.pos + item.original.length);
+    if (slice === item.original) {
+      newText =
+        newText.slice(0, item.pos) +
+        item.corrected +
+        newText.slice(item.pos + item.original.length);
+      applied.push(item.correction);
+    } else {
+      // The region shifted — try an indexOf in the current text.
+      const idx = newText.indexOf(item.original);
+      if (idx !== -1) {
+        newText =
+          newText.slice(0, idx) +
+          item.corrected +
+          newText.slice(idx + item.original.length);
+        applied.push(item.correction);
+      } else {
+        // Last resort: fuzzy search in the already-mutated text.
+        const fuzzy = fuzzyFind(newText, item.original);
+        if (fuzzy) {
+          newText =
+            newText.slice(0, fuzzy.pos) +
+            item.corrected +
+            newText.slice(fuzzy.pos + fuzzy.match.length);
+          applied.push(item.correction);
+        } else {
+          skipped.push({
+            ...item.correction,
+            reason: "not found (collision with nearby edit)",
+          });
+        }
+      }
+    }
+  }
+
   return [newText, applied, skipped];
 }
 

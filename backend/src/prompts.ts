@@ -139,6 +139,7 @@ export function buildCopyEditRewritePrompt(
 export function buildCopyEditCorrectionsPrompt(
   opts: CopyEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript written in MARKDOWN.\n\n`;
   p += `YOUR JOB: find OBJECTIVE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
@@ -177,6 +178,13 @@ export function buildCopyEditCorrectionsPrompt(
 - Anything subjective ("flow", "clarity", "improvement")
 
 When in doubt, do NOT flag it.`;
+
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
 
   p += CORRECTIONS_JSON_FORMAT;
   if (styleGuide)
@@ -251,6 +259,7 @@ export function buildLineEditRewritePrompt(
 export function buildLineEditCorrectionsPrompt(
   opts: LineEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are a developmental line editor improving the quality of a manuscript written in MARKDOWN. Your goal is to suggest changes that make the prose stronger while PRESERVING the author's unique voice.\n\n`;
   p +=
@@ -264,6 +273,12 @@ export function buildLineEditCorrectionsPrompt(
 - Preserve all proper nouns exactly
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
   p += CORRECTIONS_JSON_FORMAT;
   if (styleGuide)
     p +=
@@ -279,6 +294,7 @@ export function buildCombinedEditPrompt(
   copyOpts: CopyEditOptions,
   lineOpts: LineEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are an editor performing TWO passes on a manuscript written in MARKDOWN, in a single combined review:\n`;
   p += `  1. COPY EDIT — find OBJECTIVE ERRORS (spelling, punctuation, grammar)\n`;
@@ -321,6 +337,12 @@ export function buildCombinedEditPrompt(
 - For line edits: only flag passages that genuinely benefit from change`;
 
   p += MARKDOWN_PRESERVATION_RULES;
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
   p += CORRECTIONS_JSON_FORMAT;
 
   if (styleGuide)
@@ -566,6 +588,49 @@ STRICT OUTPUT RULES — violating these makes the output unusable:
 - The response must END with the final sentence of the last section. No closing remarks, no offers of further help, no "Let me know if…", no "Feel free to…", no "I hope this helps", no "This summary should…", no notes about what you did or how to use it.
 - Do not address the reader. Do not refer to yourself, the model, the analysis process, or the input data. Write as if this were a back-cover synopsis.
 - Do not mention that sections were omitted, or that data was missing.`;
+
+// ═══════════════════════════════════════════════════════════════════
+// REVIEWER — second-pass critical review of editor corrections
+// ═══════════════════════════════════════════════════════════════════
+
+export function buildReviewerPrompt(styleGuide?: string): string {
+  let p = `You are a SKEPTICAL SECOND READER reviewing proposed corrections to a manuscript. The editor has already suggested changes — your job is to catch its MISTAKES.
+
+For each correction below, decide if it is a GENUINE IMPROVEMENT or a MISTAKE.
+
+Score each on a 1-5 confidence scale:
+- 5: Clearly correct — fixes a real error without introducing problems
+- 4: Likely correct — reasonable fix
+- 3: Uncertain — could go either way
+- 2: Likely wrong — probably not an error, or introduces new issues
+- 1: Clearly wrong — nonsensical, changes meaning, introduces errors
+
+Common editor mistakes to flag:
+- Adding or removing punctuation where the original was already correct (e.g. extra period before an existing period; "." → ".." is wrong)
+- "Fixing" something that wasn't broken — the original was correct
+- Changing meaning or character voice unintentionally
+- Introducing grammar or spelling errors where the original was fine
+- Unnecessary changes that don't improve the text
+
+Be SKEPTICAL. When in doubt, score LOWER. It's better to let a real error through than to introduce a fake correction.
+
+OUTPUT FORMAT — STRICT JSONL (one JSON object per line):
+{"index": 0, "confidence": 5, "reason": "Fixes spelling — recieve→receive"}
+{"index": 1, "confidence": 1, "reason": "Adds unnecessary period before existing period — original was correct"}
+{"index": 2, "confidence": 4, "reason": "Fixes grammar — 'he don't'→'he doesn't'"}
+
+Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the correction number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
+Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
+Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
+
+  if (styleGuide) {
+    p +=
+      "\n\nAUTHOR'S STYLE GUIDE — corrections that follow these rules are MORE likely to be correct:\n" +
+      styleGuide.trim() +
+      "\n";
+  }
+  return p;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // LEGACY EXPORTS (for backward compatibility)

@@ -109,6 +109,10 @@ export async function addToQueue(params: {
   styleGuide?: string;
   editOptions?: Record<string, boolean> | object;
   targetLang?: string;
+  reviewMode?: boolean;
+  reviewerThreshold?: number;
+  spellCheck?: boolean;
+  dualEditor?: boolean;
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",

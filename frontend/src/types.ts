@@ -116,6 +116,9 @@ export interface Correction {
   chunk?: string;
   id?: string;
   reason?: string;
+  confidence?: number;
+  reviewReason?: string;
+  flagged?: boolean;
 }
 
 export interface TaskResult {

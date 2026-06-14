@@ -32,6 +32,14 @@ interface AppState {
   setOverlapParagraphs: (n: number) => void;
   fastMode: boolean;
   setFastMode: (b: boolean) => void;
+  reviewMode: boolean;
+  setReviewMode: (b: boolean) => void;
+  reviewerThreshold: number;
+  setReviewerThreshold: (n: number) => void;
+  spellCheck: boolean;
+  setSpellCheck: (b: boolean) => void;
+  dualEditor: boolean;
+  setDualEditor: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -72,6 +80,9 @@ interface AppState {
 
   // Review
   acceptedCorrections: Record<string, Set<string>>;
+  showFlagged: Record<string, boolean>;
+  toggleShowFlagged: (taskId: string) => void;
+  autoAcceptNonFlagged: (taskId: string) => void;
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
@@ -132,6 +143,14 @@ export const useStore = create<AppState>((set, get) => ({
   setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
   fastMode: true,
   setFastMode: (fastMode) => set({ fastMode }),
+  reviewMode: true,
+  setReviewMode: (reviewMode) => set({ reviewMode }),
+  reviewerThreshold: 3,
+  setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
+  spellCheck: true,
+  setSpellCheck: (spellCheck) => set({ spellCheck }),
+  dualEditor: true,
+  setDualEditor: (dualEditor) => set({ dualEditor }),
   parallel: 3,
   setParallel: (parallel) => set({ parallel }),
 
@@ -179,9 +198,24 @@ export const useStore = create<AppState>((set, get) => ({
     const pending = get().pendingTaskIds;
     if (pending.length > 0 && pending.every((id) => id in tasks)) {
       set({ tasks, submitting: false, pendingTaskIds: [] });
-    } else {
-      set({ tasks });
     }
+    const state = get();
+    for (const [tid, task] of Object.entries(tasks)) {
+      if (
+        task.status === "done" &&
+        !state.acceptedCorrections[tid] &&
+        task.result
+      ) {
+        const nonFlaggedIds = new Set(
+          task.result.corrections
+            .filter((c) => !c.flagged)
+            .map((c) => c.id ?? "")
+            .filter(Boolean),
+        );
+        state.acceptedCorrections[tid] = nonFlaggedIds;
+      }
+    }
+    set({ tasks });
   },
 
   warmingModel: null,
@@ -190,6 +224,31 @@ export const useStore = create<AppState>((set, get) => ({
     set({ warmingModel, warmingStatus }),
 
   acceptedCorrections: {},
+  showFlagged: {},
+  toggleShowFlagged: (taskId) =>
+    set((state) => ({
+      showFlagged: {
+        ...state.showFlagged,
+        [taskId]: !state.showFlagged[taskId],
+      },
+    })),
+  autoAcceptNonFlagged: (taskId) =>
+    set((state) => {
+      const task = state.tasks[taskId];
+      if (!task?.result) return state;
+      const nonFlaggedIds = new Set(
+        task.result.corrections
+          .filter((c) => !c.flagged)
+          .map((c) => c.id ?? "")
+          .filter(Boolean),
+      );
+      return {
+        acceptedCorrections: {
+          ...state.acceptedCorrections,
+          [taskId]: nonFlaggedIds,
+        },
+      };
+    }),
   toggleCorrection: (taskId, correctionId) =>
     set((state) => {
       const current = state.acceptedCorrections[taskId] ?? new Set<string>();

@@ -12,6 +12,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(rootPkg.version),
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext",
+    },
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,
@@ -48,5 +53,8 @@ export default defineConfig({
         },
       },
     },
+  },
+  build: {
+    target: "esnext",
   },
 });

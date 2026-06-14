@@ -15,11 +15,16 @@ import {
   analyzeStream,
   synthesizeStream,
   parseJsonResponse,
+  reviewCorrectionsStream,
+  parseReviewScores,
   listLoadedModels,
   unloadModel,
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
-import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
+import {
+  ANALYSIS_SUMMARY_PROMPT,
+  buildReviewerPrompt,
+} from "./prompts.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
@@ -126,6 +131,11 @@ interface JobData {
   overlap: number;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  reviewMode?: boolean;
+  reviewerThreshold?: number;
+  styleGuide?: string;
+  spellCheck?: boolean;
+  dualEditor?: boolean;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -646,6 +656,7 @@ async function processJob(job: JobData): Promise<void> {
 
   const jobStart = performance.now();
   let totalOutTokens = 0;
+  let _dualMergedCorrections: Correction[] | null = null;
 
   updateTask(taskId, {
     status: "editing",
@@ -676,6 +687,147 @@ async function processJob(job: JobData): Promise<void> {
   const skipped: Correction[] = [];
   const errors: string[] = [];
 
+  // Pending reviewer state: the reviewer for the *previous* chunk runs in
+  // parallel with the *current* chunk's editor, hiding the reviewer's
+  // latency behind the next prefill+decode.
+  let pendingReview: {
+    cs: Correction[];
+    chunk: { body: string; core: string; overlapHeadParagraphs: number };
+    chunkLabel: string;
+    spellCorrections: Correction[];
+    editorAcc: string;
+    editorToks: number;
+    editorStart: number;
+    editorFirstTokenAt: number;
+    promise: Promise<string>;
+  } | null = null;
+
+  async function collectPendingReview(): Promise<void> {
+    if (!pendingReview) return;
+    const pr = pendingReview;
+    pendingReview = null;
+    try {
+      const reviewAcc = await pr.promise;
+      const scores = parseReviewScores(reviewAcc);
+      const threshold = job.reviewerThreshold ?? 3;
+
+      let flaggedCount = 0;
+      for (let i = 0; i < pr.cs.length; i++) {
+        const c = pr.cs[i];
+        const score = scores.get(i);
+        if (score) {
+          c.confidence = score.confidence;
+          c.reviewReason = score.reason;
+        }
+        if (score && score.confidence < threshold) {
+          c.flagged = true;
+          c.reviewReason = score.reason;
+          flaggedCount++;
+        }
+      }
+
+      appendLog({
+        level: "info",
+        source: "engine",
+        taskId,
+        message: flaggedCount > 0
+          ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}).`
+          : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel}.`,
+        model,
+      });
+
+      const toApply = pr.cs.filter((c) => !c.flagged);
+      const flagged = pr.cs.filter((c) => c.flagged);
+
+      const spellToApply = toApply.filter((c) => c.reason === "spell-check");
+      const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
+
+      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
+        allowDialogueTags: editOptions?.dialogueTags === true,
+      });
+
+      let spellAppliedBody = newBody;
+      for (const sc of spellToApply) {
+        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+      }
+
+      const core = stripOverlapFromResponse(
+        spellAppliedBody,
+        pr.chunk.overlapHeadParagraphs,
+      );
+
+      for (const c of applied) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of spellToApply) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of flagged) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      skipped.push(
+        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
+      );
+      pieces.push(core);
+    } catch (err) {
+      appendLog({
+        level: "warn",
+        source: "engine",
+        taskId,
+        message: `Reviewer failed for chunk ${pr.chunkLabel}: ${err instanceof Error ? err.message : String(err)}. All corrections passed unreviewed.`,
+        model,
+      });
+
+      const spellToApply = pr.cs.filter((c) => c.reason === "spell-check");
+      const editorToApply = pr.cs.filter((c) => c.reason !== "spell-check");
+
+      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
+        allowDialogueTags: editOptions?.dialogueTags === true,
+      });
+
+      let spellAppliedBody = newBody;
+      for (const sc of spellToApply) {
+        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+      }
+
+      const core = stripOverlapFromResponse(
+        spellAppliedBody,
+        pr.chunk.overlapHeadParagraphs,
+      );
+
+      for (const c of applied) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of spellToApply) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      skipped.push(
+        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
+      );
+      pieces.push(core);
+    }
+  }
+
   for (let j = 0; j < chunks.length; j++) {
     if (ac.signal.aborted) {
       updateTask(taskId, {
@@ -699,6 +851,11 @@ async function processJob(job: JobData): Promise<void> {
     let tokCount = 0;
     const chunkStart = performance.now();
     let firstTokenAt = 0;
+    let spellCorrections: Correction[] = [];
+
+    // ── Collect previous chunk's reviewer result ──
+    // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
+    if (pendingReview) await collectPendingReview();
 
     try {
       const MAX_ATTEMPTS = 5;
@@ -708,6 +865,7 @@ async function processJob(job: JobData): Promise<void> {
         acc = "";
         tokCount = 0;
         firstTokenAt = 0;
+        _dualMergedCorrections = null;
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
         try {
           updateTask(taskId, {
@@ -715,12 +873,91 @@ async function processJob(job: JobData): Promise<void> {
           });
 
           if (useFast) {
-            for await (const tok of findCorrectionsStream(
-              model,
-              chunk.body,
-              prompt,
-              ac.signal,
-            )) {
+            // ── Spell-check: generate explicit corrections (not hints) ──
+            spellCorrections = [];
+            if (job.spellCheck) {
+              const { getSpellCorrections } = await import("./spellcheck.js");
+              const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
+              const spellLang = dialect === "british" ? "en_GB" : "en_US";
+              spellCorrections = getSpellCorrections(chunk.body, spellLang, {
+                maxHints: 30,
+              });
+              if (spellCorrections.length > 0) {
+                appendLog({
+                  level: "info",
+                  source: "engine",
+                  taskId,
+                  message: `Spell-check produced ${spellCorrections.length} corrections in chunk ${chunkLabel}`,
+                  model,
+                });
+              }
+            }
+
+            // ── Run editor(s) — single or dual ──
+            const useDualEditor = job.dualEditor === true;
+            if (useDualEditor) {
+              updateTask(taskId, { phase: `${phasePrefix}dual-editing chunk ${chunkLabel}` });
+
+              // Collect both editor streams in parallel.
+              const collectStream = async (promptText: string) => {
+                let a = "";
+                for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) a += t;
+                return a;
+              };
+              const [rA, rB] = await Promise.allSettled([
+                collectStream(prompt),
+                collectStream(prompt),
+              ]);
+
+              if (rA.status === "rejected" && rB.status === "rejected") {
+                throw rA.reason ?? rB.reason;
+              }
+              if (rA.status === "rejected" || rB.status === "rejected") {
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `One dual-editor stream failed for chunk ${chunkLabel}, using the other.`,
+                  model,
+                });
+              }
+
+              // Track content for the tok-count / timing check below.
+              const rawA = rA.status === "fulfilled" ? rA.value : "";
+              const rawB = rB.status === "fulfilled" ? rB.value : "";
+              acc = rawA || rawB;
+              if (acc.length > 0) firstTokenAt = performance.now();
+
+              // Union-dedupe both correction sets by (original, corrected)
+              const parseAll = (raw: string) => {
+                const parsed = parseCorrectionsJson(raw);
+                const out: Correction[] = [];
+                const seen = new Set<string>();
+                for (const c of parsed) {
+                  const k = JSON.stringify([c.original, c.corrected]);
+                  if (!seen.has(k)) { seen.add(k); out.push(c); }
+                }
+                return out;
+              };
+              const csA = rawA ? parseAll(rawA) : [];
+              const csB = rawB ? parseAll(rawB) : [];
+              const merged: Correction[] = [];
+              const seen = new Set<string>();
+              for (const c of [...csA, ...csB]) {
+                const k = JSON.stringify([c.original, c.corrected]);
+                if (!seen.has(k)) { seen.add(k); merged.push(c); }
+              }
+              _dualMergedCorrections = merged;
+              // Rough token-count estimate so the zero-token warning does not
+              // fire spuriously and the timing log shows something useful.
+              if (firstTokenAt > 0) tokCount = Math.ceil(acc.length / 3);
+            } else {
+              for await (const tok of findCorrectionsStream(
+                model,
+                chunk.body,
+                prompt,
+                ac.signal,
+              )) {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
@@ -740,6 +977,7 @@ async function processJob(job: JobData): Promise<void> {
               }
               const intra = creepingProgress(tokCount);
               updateProgress(taskId, (j + intra) / chunks.length);
+            }
             }
           } else {
             for await (const tok of editChunkStream(
@@ -794,7 +1032,17 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `writing up corrections` });
-        const cs = parseCorrectionsJson(acc);
+        const editorCs: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
+        const isDual = _dualMergedCorrections !== null;
+        _dualMergedCorrections = null;
+
+        // Merge spell-check corrections (generated deterministically) with
+        // editor corrections.  Mark spell-check ones so applyCorrections can
+        // handle them with global replacement.
+        for (const sc of spellCorrections) {
+          sc.reason = "spell-check";
+        }
+        const cs: Correction[] = [...spellCorrections, ...editorCs];
 
         // Corrections are emitted as JSONL (one JSON object per line), so
         // truncation only ever drops the final partial line. No retry needed.
@@ -802,6 +1050,7 @@ async function processJob(job: JobData): Promise<void> {
         // chunks where a few late corrections may have been lost.
         const trimmedAcc = acc.trim();
         const looksTruncated =
+          !isDual &&
           acc.length > 800 &&
           trimmedAcc.length > 0 &&
           !trimmedAcc.endsWith("}");
@@ -829,25 +1078,78 @@ async function processJob(job: JobData): Promise<void> {
           });
         }
 
-        const [newBody, applied, sk] = applyCorrections(chunk.body, cs, {
-          allowDialogueTags: editOptions?.dialogueTags === true,
-        });
-        const core = stripOverlapFromResponse(
-          newBody,
-          chunk.overlapHeadParagraphs,
-        );
+        // If reviewMode is on, start a second LLM pass (reviewer) in the
+        // BACKGROUND. It will run in parallel with the *next* chunk's editor.
+        // When the next chunk's editor completes, the reviewer verdict is
+        // collected and corrections are applied (see "collect previous chunk's
+        // reviewer result" at the top of the loop). For the last chunk, the
+        // reviewer is collected after the loop.
+        if (job.reviewMode && cs.length > 0) {
+          const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+          let reviewAcc = "";
+          const reviewPromise = (async () => {
+            for await (const tok of reviewCorrectionsStream(
+              model,
+              chunk.body,
+              cs,
+              reviewerPrompt,
+              ac.signal,
+            )) {
+              reviewAcc += tok;
+            }
+            return reviewAcc;
+          })();
 
-        for (const c of applied) {
-          corrections.push({
-            ...c,
-            chunk: `Chunk ${chunkLabel}`,
-            id: uuidv4(),
+          pendingReview = {
+            cs: [...cs],
+            chunk,
+            chunkLabel,
+            spellCorrections: [...spellCorrections],
+            editorAcc: acc,
+            editorToks: tokCount,
+            editorStart: chunkStart,
+            editorFirstTokenAt: firstTokenAt,
+            promise: reviewPromise,
+          };
+        } else {
+          // No reviewer — apply corrections immediately
+          const toApply = cs;
+          const spellToApply = toApply.filter((c) => c.reason === "spell-check");
+          const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
+
+          const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
+            allowDialogueTags: editOptions?.dialogueTags === true,
           });
+
+          let spellAppliedBody = newBody;
+          for (const sc of spellToApply) {
+            spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+          }
+
+          const core = stripOverlapFromResponse(
+            spellAppliedBody,
+            chunk.overlapHeadParagraphs,
+          );
+
+          for (const c of applied) {
+            corrections.push({
+              ...c,
+              chunk: `Chunk ${chunkLabel}`,
+              id: uuidv4(),
+            });
+          }
+          for (const c of spellToApply) {
+            corrections.push({
+              ...c,
+              chunk: `Chunk ${chunkLabel}`,
+              id: uuidv4(),
+            });
+          }
+          skipped.push(
+            ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
+          );
+          pieces.push(core);
         }
-        skipped.push(
-          ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
-        );
-        pieces.push(core);
       } else {
         const rewritten = restoreTypography(chunk.body, acc.trim());
         const core = stripOverlapFromResponse(
@@ -906,6 +1208,9 @@ async function processJob(job: JobData): Promise<void> {
 
     updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
+
+  // Collect the final pending reviewer (last chunk).
+  if (pendingReview) await collectPendingReview();
 
   updateTask(taskId, { phase: "finalizing" });
   abortControllers.delete(taskId);
@@ -1093,6 +1398,11 @@ export async function submitTask(
       overlap: data.overlap,
       editOptions: data.editOptions,
       targetLang: data.targetLang,
+      reviewMode: data.reviewMode,
+      reviewerThreshold: data.reviewerThreshold,
+      styleGuide: data.styleGuide,
+      spellCheck: data.spellCheck,
+      dualEditor: data.dualEditor,
     },
   });
 
@@ -1181,6 +1491,11 @@ export async function retryTask(id: string): Promise<string> {
     overlap: spec.overlap,
     editOptions: spec.editOptions,
     targetLang: spec.targetLang,
+    reviewMode: spec.reviewMode,
+    reviewerThreshold: spec.reviewerThreshold,
+    styleGuide: spec.styleGuide,
+    spellCheck: spec.spellCheck,
+    dualEditor: spec.dualEditor,
   });
   return newTaskId;
 }

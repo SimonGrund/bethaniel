@@ -71,6 +71,14 @@ export default function ModelSelector({
     setOverlapParagraphs,
     parallel,
     setParallel,
+    reviewMode,
+    setReviewMode,
+    reviewerThreshold,
+    setReviewerThreshold,
+    spellCheck,
+    setSpellCheck,
+    dualEditor,
+    setDualEditor,
     tasks,
   } = useStore();
   const t = useTranslation(lang);
@@ -611,6 +619,59 @@ export default function ModelSelector({
               onChange={(e) => setParallel(Number(e.target.value))}
             />
             <span className="help-text">{t("parallel_help")}</span>
+          </div>
+
+          <div className="field">
+            <label className="option-check">
+              <input
+                type="checkbox"
+                checked={reviewMode}
+                onChange={(e) => setReviewMode(e.target.checked)}
+              />{" "}
+              {t("review_mode")}
+            </label>
+            <span className="help-text">{t("review_mode_help")}</span>
+          </div>
+
+          {reviewMode && (
+            <div className="field">
+              <label>
+                {t("reviewer_threshold")}: {reviewerThreshold}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={reviewerThreshold}
+                onChange={(e) => setReviewerThreshold(Number(e.target.value))}
+              />
+              <span className="help-text">{t("reviewer_threshold_help")}</span>
+            </div>
+          )}
+
+          <div className="field">
+            <label className="option-check">
+              <input
+                type="checkbox"
+                checked={spellCheck}
+                onChange={(e) => setSpellCheck(e.target.checked)}
+              />{" "}
+              {t("spell_check")}
+            </label>
+            <span className="help-text">{t("spell_check_help")}</span>
+          </div>
+
+          <div className="field">
+            <label className="option-check">
+              <input
+                type="checkbox"
+                checked={dualEditor}
+                onChange={(e) => setDualEditor(e.target.checked)}
+              />{" "}
+              {t("dual_editor")}
+            </label>
+            <span className="help-text">{t("dual_editor_help")}</span>
           </div>
 
           {model && <ModelTuning fileName={model} />}

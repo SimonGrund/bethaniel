@@ -263,7 +263,7 @@ function CorrectionCard({
   // Guard: if no correction ID, show a simple non-interactive card
   if (!correction.id) {
     return (
-      <div className="correction-card">
+      <div className={`correction-card ${correction.flagged ? "flagged" : ""}`}>
         <div className="correction-check">☐</div>
         {correction.chunk && (
           <div
@@ -282,6 +282,26 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
+        {correction.confidence !== undefined && (
+          <span
+            className="correction-confidence"
+            title={correction.reviewReason ?? ""}
+          >
+            {correction.confidence >= 5
+              ? "🟢"
+              : correction.confidence >= 4
+                ? "🟡"
+                : correction.confidence >= 3
+                  ? "🟠"
+                  : correction.confidence >= 2
+                    ? "🔴"
+                    : "⛔"}{" "}
+            {correction.confidence}/5
+          </span>
+        )}
+        {correction.flagged && (
+          <span className="correction-flag-badge">⚠ flagged</span>
+        )}
       </div>
     );
   }
@@ -291,7 +311,7 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""}`}
+        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
         onClick={() => onToggleOccurrence(0)}
       >
         <div className="correction-check">{accepted ? "☑" : "☐"}</div>
@@ -312,6 +332,26 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
+        {correction.confidence !== undefined && (
+          <span
+            className="correction-confidence"
+            title={correction.reviewReason ?? ""}
+          >
+            {correction.confidence >= 5
+              ? "🟢"
+              : correction.confidence >= 4
+                ? "🟡"
+                : correction.confidence >= 3
+                  ? "🟠"
+                  : correction.confidence >= 2
+                    ? "🔴"
+                    : "⛔"}{" "}
+            {correction.confidence}/5
+          </span>
+        )}
+        {correction.flagged && (
+          <span className="correction-flag-badge">⚠ flagged</span>
+        )}
       </div>
     );
   }
@@ -324,7 +364,7 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""}`}
+        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
         onClick={() => onToggleOccurrence(0)}
       >
         <div className="correction-check">{accepted ? "☑" : "☐"}</div>
@@ -334,6 +374,26 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
+        {correction.confidence !== undefined && (
+          <span
+            className="correction-confidence"
+            title={correction.reviewReason ?? ""}
+          >
+            {correction.confidence >= 5
+              ? "🟢"
+              : correction.confidence >= 4
+                ? "🟡"
+                : correction.confidence >= 3
+                  ? "🟠"
+                  : correction.confidence >= 2
+                    ? "🔴"
+                    : "⛔"}{" "}
+            {correction.confidence}/5
+          </span>
+        )}
+        {correction.flagged && (
+          <span className="correction-flag-badge">⚠ flagged</span>
+        )}
       </div>
     );
   }
@@ -355,7 +415,9 @@ function CorrectionCard({
   );
 
   return (
-    <div className={`correction-card ${allAccepted ? "accepted" : ""}`}>
+    <div
+      className={`correction-card ${allAccepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
+    >
       {/* Header row: master toggle + count badge */}
       <div
         className="correction-header"
@@ -399,6 +461,26 @@ function CorrectionCard({
             <span className="correction-context"> {firstCtx.after}</span>
           )}
         </span>
+        {correction.confidence !== undefined && (
+          <span
+            className="correction-confidence"
+            title={correction.reviewReason ?? ""}
+          >
+            {correction.confidence >= 5
+              ? "🟢"
+              : correction.confidence >= 4
+                ? "🟡"
+                : correction.confidence >= 3
+                  ? "🟠"
+                  : correction.confidence >= 2
+                    ? "🔴"
+                    : "⛔"}{" "}
+            {correction.confidence}/5
+          </span>
+        )}
+        {correction.flagged && (
+          <span className="correction-flag-badge">⚠ flagged</span>
+        )}
         {totalOcc > 1 && (
           <span
             className="occurrence-badge"
@@ -918,6 +1000,8 @@ export default function ReviewExport() {
     lang,
     tasks,
     acceptedCorrections,
+    showFlagged,
+    toggleShowFlagged,
     toggleCorrection,
     acceptAll,
     dismissAll,
@@ -1759,72 +1843,99 @@ export default function ReviewExport() {
                       </p>
                     ) : (
                       <>
-                        <div className="review-actions">
-                          <button
-                            className="btn-small"
-                            onClick={() => acceptAll(tid)}
-                          >
-                            {t("accept_all")}
-                          </button>
-                          <button
-                            className="btn-small"
-                            onClick={() => dismissAll(tid)}
-                          >
-                            {t("dismiss_all")}
-                          </button>
-                          <span className="small-note">
-                            {(() => {
-                              // Count corrections with at least one accepted occurrence
-                              let count = 0;
-                              for (const c of corrections) {
-                                if (!c.id) continue;
-                                if (
-                                  accepted.has(c.id) ||
-                                  [...accepted].some((k) =>
-                                    k.startsWith(`${c.id}:`),
-                                  )
-                                ) {
-                                  count++;
-                                }
-                              }
-                              return count;
-                            })()}{" "}
-                            {t("of")} {corrections.length}{" "}
-                            {t("proposed_changes")}
-                          </span>
-                        </div>
-
-                        {corrections.map((c, i) => {
-                          const totalOcc = findAllOccurrences(
-                            result.originalText,
-                            c.original,
+                        {(() => {
+                          const flaggedCount = corrections.filter(
+                            (c) => c.flagged,
                           ).length;
+                          const showAll = showFlagged[tid] === true;
+                          const visible = showAll
+                            ? corrections
+                            : corrections.filter((c) => !c.flagged);
+                          let acceptedCount = 0;
+                          for (const c of visible) {
+                            if (!c.id) continue;
+                            if (
+                              accepted.has(c.id) ||
+                              [...accepted].some((k) =>
+                                k.startsWith(`${c.id}:`),
+                              )
+                            ) {
+                              acceptedCount++;
+                            }
+                          }
                           return (
-                            <CorrectionCard
-                              key={c.id ?? i}
-                              correction={c}
-                              taskId={tid}
-                              acceptedIds={accepted}
-                              onToggleOccurrence={(occIdx: number) =>
-                                toggleOccurrence(
-                                  tid,
-                                  c.id ?? "",
-                                  occIdx,
-                                  totalOcc,
-                                )
-                              }
-                              onAcceptAllOccurrences={() => {
-                                if (c.id) acceptCorrection(tid, c.id);
-                              }}
-                              onDismissAllOccurrences={() => {
-                                if (c.id) dismissCorrection(tid, c.id);
-                              }}
-                              originalText={result.originalText}
-                            />
-                          );
-                        })}
+                            <>
+                              <div className="review-actions">
+                                {flaggedCount > 0 && (
+                                  <button
+                                    className="show-flagged-toggle"
+                                    onClick={() => toggleShowFlagged(tid)}
+                                  >
+                                    {showAll
+                                      ? t("hide_flagged")
+                                      : `${t("show_all_suggestions")} (${flaggedCount})`}
+                                  </button>
+                                )}
+                                <button
+                                  className="btn-small"
+                                  onClick={() => acceptAll(tid)}
+                                >
+                                  {t("accept_all")}
+                                </button>
+                                <button
+                                  className="btn-small"
+                                  onClick={() => dismissAll(tid)}
+                                >
+                                  {t("dismiss_all")}
+                                </button>
+                                <span className="small-note">
+                                  {acceptedCount}{" "}
+                                  {t("of")} {visible.length}{" "}
+                                  {t("proposed_changes")}
+                                  {flaggedCount > 0 && !showAll && (
+                                    <span
+                                      style={{
+                                        color: "#8b7355",
+                                        marginLeft: "0.3rem",
+                                      }}
+                                    >
+                                      (+{flaggedCount} flagged)
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
 
-                        {result.skipped.length > 0 && (
+                              {visible.map((c, i) => {
+                                const totalOcc = findAllOccurrences(
+                                  result.originalText,
+                                  c.original,
+                                ).length;
+                                return (
+                                  <CorrectionCard
+                                    key={c.id ?? i}
+                                    correction={c}
+                                    taskId={tid}
+                                    acceptedIds={accepted}
+                                    onToggleOccurrence={(occIdx: number) =>
+                                      toggleOccurrence(
+                                        tid,
+                                        c.id ?? "",
+                                        occIdx,
+                                        totalOcc,
+                                      )
+                                    }
+                                    onAcceptAllOccurrences={() => {
+                                      if (c.id) acceptCorrection(tid, c.id);
+                                    }}
+                                    onDismissAllOccurrences={() => {
+                                      if (c.id) dismissCorrection(tid, c.id);
+                                    }}
+                                    originalText={result.originalText}
+                                  />
+                                );
+                              })}
+
+                              {result.skipped.length > 0 && (
                           <div className="skipped-section-wrapper">
                             <details className="skipped-section">
                               <summary className="small-note">
@@ -1859,10 +1970,11 @@ export default function ReviewExport() {
                             </span>
                           </div>
                         )}
-                      </>
-                    )}
+                            </>
+                          );
+                        })()}
 
-                    {result.errors.length > 0 && (
+                        {result.errors.length > 0 && (
                       <div className="error-list">
                         {result.errors.map((e, i) => (
                           <p key={i} className="error-item">
@@ -1906,6 +2018,9 @@ export default function ReviewExport() {
                         {t("download_docx")}
                       </button>
                     </div>
+                      </>
+                    )}
+
                   </details>
                 );
               })}

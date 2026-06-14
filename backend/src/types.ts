@@ -94,6 +94,9 @@ export interface Correction {
   chunk?: string;
   id?: string;
   reason?: string;
+  confidence?: number;
+  reviewReason?: string;
+  flagged?: boolean;
 }
 
 export interface TaskResult {
@@ -144,6 +147,11 @@ export interface TaskRetrySpec {
   overlap: number;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  reviewMode?: boolean;
+  reviewerThreshold?: number;
+  styleGuide?: string;
+  spellCheck?: boolean;
+  dualEditor?: boolean;
 }
 
 export interface EditUnit {
@@ -163,6 +171,10 @@ export interface QueueAddRequest {
   styleGuide?: string;
   editOptions?: CopyEditOptions | LineEditOptions;
   targetLang?: string;
+  reviewMode?: boolean;
+  reviewerThreshold?: number;
+  spellCheck?: boolean;
+  dualEditor?: boolean;
 }
 
 // ── Structured output shapes for catalog / analysis modes ──
