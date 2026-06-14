@@ -980,7 +980,7 @@ async function processJob(job: JobData): Promise<void> {
               }
               if (score && score.confidence < threshold) {
                 c.flagged = true;
-                c.reason = score.reason;
+                c.reviewReason = score.reason;
                 flaggedCount++;
               }
               finalCorrections.push(c);
