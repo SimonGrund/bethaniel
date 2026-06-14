@@ -1015,7 +1015,7 @@ function buildFullManuscript(
   return chapters.join(`\n\n${PAGEBREAK_MARKER}\n\n`);
 }
 
-export default function ReviewExport() {
+export default function ReviewExport({ isOldResults }: { isOldResults?: boolean }) {
   const {
     lang,
     tasks,
@@ -1430,7 +1430,7 @@ export default function ReviewExport() {
             <details
               key={jid}
               className="review-group"
-              open={isLatest || undefined}
+              open={isOldResults ? undefined : true}
             >
               <summary className="review-source">
                 {t("results_for")} {src}{" "}
@@ -1492,65 +1492,6 @@ export default function ReviewExport() {
                   </div>
                 </div>
               )}
-
-              {/* ── Full manuscript download (edit jobs only) ── */}
-              {(() => {
-                const editTasks = entries.filter(([, task]) =>
-                  EDIT_MODES.includes(task.mode),
-                );
-                if (editTasks.length === 0) return null;
-                const allDone = editTasks.every(
-                  ([, task]) => task.status === "done",
-                );
-                const editTaskIds = editTasks.map(([tid]) => tid);
-                const hasAnyCorrections = editTasks.some(
-                  ([, task]) =>
-                    task.result?.corrections &&
-                    task.result.corrections.length > 0,
-                );
-                return (
-                  <div className="export-buttons full-manuscript-export">
-                    <button
-                      className="btn-primary"
-                      disabled={!hasAnyCorrections}
-                      onClick={() => {
-                        acceptAllJob(editTaskIds);
-                        setToast(t("accept_all_job_toast"));
-                      }}
-                    >
-                      {t("accept_all_job")}
-                    </button>
-                    <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        downloadFile(md, `${src}.full.md`);
-                      }}
-                    >
-                      {t("download_full_md")}
-                    </button>
-                    <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        handleFullDocxExport(md, `${src}.full.docx`);
-                      }}
-                    >
-                      {t("download_full_docx")}
-                    </button>
-                  </div>
-                );
-              })()}
 
               {/* ── Prose synthesis (primary output for analysis jobs) ── */}
               {(() => {
@@ -1752,6 +1693,14 @@ export default function ReviewExport() {
                 );
               })()}
 
+              <div
+                className="chapters-scroll"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+                  el.classList.toggle("chapters-scroll-at-bottom", atBottom);
+                }}
+              >
               {entries.map(([tid, task]) => {
                 const result = task.result;
 
@@ -1971,6 +1920,14 @@ export default function ReviewExport() {
                                 </span>
                               </div>
 
+                              <div
+                                className="corrections-scroll"
+                                onScroll={(e) => {
+                                  const el = e.currentTarget;
+                                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+                                  el.classList.toggle("corrections-scroll-at-bottom", atBottom);
+                                }}
+                              >
                               {visible.map((c, i) => {
                                 const totalOcc = findAllOccurrences(
                                   result.originalText,
@@ -2036,6 +1993,7 @@ export default function ReviewExport() {
                             </span>
                           </div>
                         )}
+                              </div>
                             </>
                           );
                         })()}
@@ -2064,7 +2022,7 @@ export default function ReviewExport() {
                           downloadFile(text, `${task.name}.edited.md`);
                         }}
                       >
-                        {t("download_md")}
+                        {t("download_chapter_md")}
                       </button>
                       <button
                         className="btn-secondary"
@@ -2081,7 +2039,7 @@ export default function ReviewExport() {
                           });
                         }}
                       >
-                        {t("download_docx")}
+                        {t("download_chapter_docx")}
                       </button>
                     </div>
                       </>
@@ -2090,38 +2048,81 @@ export default function ReviewExport() {
                   </details>
                 );
               })}
+              </div>
+
+              {/* ── Full manuscript download (edit jobs only) ── */}
+              {(() => {
+                const editTasks = entries.filter(([, task]) =>
+                  EDIT_MODES.includes(task.mode),
+                );
+                if (editTasks.length === 0) return null;
+                const allDone = editTasks.every(
+                  ([, task]) => task.status === "done",
+                );
+                const editTaskIds = editTasks.map(([tid]) => tid);
+                const hasAnyCorrections = editTasks.some(
+                  ([, task]) =>
+                    task.result?.corrections &&
+                    task.result.corrections.length > 0,
+                );
+                return (
+                  <div className="export-buttons full-manuscript-export">
+                    <button
+                      className="btn-primary"
+                      disabled={!hasAnyCorrections}
+                      onClick={() => {
+                        acceptAllJob(editTaskIds);
+                        setToast(t("accept_all_job_toast"));
+                      }}
+                    >
+                      {t("accept_all_job")}
+                    </button>
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        downloadFile(md, `${src}.full.md`);
+                      }}
+                    >
+                      {t("download_full_md")}
+                    </button>
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        handleFullDocxExport(md, `${src}.full.docx`);
+                      }}
+                    >
+                      {t("download_full_docx")}
+                    </button>
+                  </div>
+                );
+              })()}
             </details>
           );
           return jobNode;
         });
 
-        const latest = rendered[0];
-        const older = rendered.slice(1);
-        const olderJobIds = jobEntries.slice(1).map(([jid]) => jid);
+        const displayJobs = isOldResults ? rendered : rendered.slice(0, 1);
+
         return (
           <>
-            <div ref={latestRef}>{latest}</div>
-            {older.length > 0 && (
-              <details className="review-old-group">
-                <summary className="review-old-summary">
-                  Old stuff ({older.length})
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm review-old-delete-all"
-                    title={t("delete_all_older_tip")}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      void handleDeleteOlder(olderJobIds);
-                    }}
-                  >
-                    {t("delete_all_older")}
-                  </button>
-                </summary>
-                {older}
-              </details>
-            )}
-            {jobEntries.length > 0 && (
+            {displayJobs.map((jobNode, i) => (
+              <div key={i} ref={i === 0 ? latestRef : undefined}>
+                {jobNode}
+              </div>
+            ))}
+            {isOldResults && jobEntries.length > 0 && (
               <div className="review-clear-row">
                 <button
                   type="button"

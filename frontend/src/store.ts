@@ -1,6 +1,9 @@
-// ── Zustand store ──
+// ── Zustand store with localStorage persistence ──
+// Settings, model selection, edit options, scope, and wizard state persist
+// across browser sessions. Transient state (tasks, logs, document text) is not persisted.
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type {
   DocumentMeta,
   TaskState,
@@ -15,6 +18,18 @@ import type {
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
+export type WizardStep = "model" | "edits" | "upload" | "style" | "run" | "done" | "folded";
+
+// Defaults — extracted so resetAll can reference them
+const DEFAULT_SCOPE_MODE: ScopeMode = "whole_book";
+const DEFAULT_PARALLEL = 3;
+const DEFAULT_WORDS_PER_CHUNK = 2500;
+const DEFAULT_OVERLAP = 1;
+const DEFAULT_REVIEWER_THRESHOLD = 3;
+const DEFAULT_REVIEWER_COUNT = 1;
+const DEFAULT_DUAL_COUNT = 2;
+const DEFAULT_FIRST_N_WORDS = 5000;
+const DEFAULT_TARGET_LANG = "English";
 
 interface AppState {
   // Language
@@ -90,13 +105,9 @@ interface AppState {
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
-  /** Accept all corrections across a list of tasks (for "accept all changes" per job). */
   acceptAllJob: (taskIds: string[]) => void;
-  /** Accept all occurrences of a single correction (adds bare correctionId). */
   acceptCorrection: (taskId: string, correctionId: string) => void;
-  /** Dismiss all occurrences of a single correction (removes bare + indexed keys). */
   dismissCorrection: (taskId: string, correctionId: string) => void;
-  /** Toggle a single occurrence. If bare key is present, transitions to per-occurrence mode. */
   toggleOccurrence: (
     taskId: string,
     correctionId: string,
@@ -139,274 +150,384 @@ interface AppState {
   setApiKeyConfigured: (b: boolean) => void;
   apiModel: string;
   setApiModel: (m: string) => void;
+
+  // Wizard flow
+  wizardStep: WizardStep;
+  setWizardStep: (step: WizardStep) => void;
+  completedSteps: WizardStep[];
+  markStepComplete: (step: WizardStep) => void;
+  highlightedModel: string;
+  setHighlightedModel: (m: string) => void;
+  showAdvancedSettings: boolean;
+  setShowAdvancedSettings: (b: boolean) => void;
+  editSubOptionsOpen: boolean;
+  setEditSubOptionsOpen: (b: boolean) => void;
+
+  // Reset
+  resetAll: () => void;
+
+  // Wizard navigation: advance past already-completed steps
+  advanceWizard: (fromStep: WizardStep) => void;
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  lang: "en",
-  setLang: (lang) => set({ lang }),
+export const useStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      lang: "en",
+      setLang: (lang) => set({ lang }),
 
-  model: "",
-  setModel: (model) => set({ model }),
-  models: [],
-  setModels: (models) => set({ models }),
-  wordsPerChunk: 2500,
-  setWordsPerChunk: (wordsPerChunk) => set({ wordsPerChunk }),
-  overlapParagraphs: 1,
-  setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
-  fastMode: true,
-  setFastMode: (fastMode) => set({ fastMode }),
-  reviewMode: true,
-  setReviewMode: (reviewMode) => set({ reviewMode }),
-  reviewerThreshold: 3,
-  setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
-  reviewerCount: 1,
-  setReviewerCount: (reviewerCount) => set({ reviewerCount }),
-  spellCheck: true,
-  setSpellCheck: (spellCheck) => set({ spellCheck }),
-  dualEditor: true,
-  setDualEditor: (dualEditor) => set({ dualEditor }),
-  dualCount: 2,
-  setDualCount: (dualCount) => set({ dualCount }),
-  parallel: 3,
-  setParallel: (parallel) => set({ parallel }),
+      model: "",
+      setModel: (model) => set({ model }),
+      models: [],
+      setModels: (models) => set({ models }),
+      wordsPerChunk: DEFAULT_WORDS_PER_CHUNK,
+      setWordsPerChunk: (wordsPerChunk) => set({ wordsPerChunk }),
+      overlapParagraphs: DEFAULT_OVERLAP,
+      setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
+      fastMode: true,
+      setFastMode: (fastMode) => set({ fastMode }),
+      reviewMode: true,
+      setReviewMode: (reviewMode) => set({ reviewMode }),
+      reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
+      setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
+      reviewerCount: DEFAULT_REVIEWER_COUNT,
+      setReviewerCount: (reviewerCount) => set({ reviewerCount }),
+      spellCheck: true,
+      setSpellCheck: (spellCheck) => set({ spellCheck }),
+      dualEditor: true,
+      setDualEditor: (dualEditor) => set({ dualEditor }),
+      dualCount: DEFAULT_DUAL_COUNT,
+      setDualCount: (dualCount) => set({ dualCount }),
+      parallel: DEFAULT_PARALLEL,
+      setParallel: (parallel) => set({ parallel }),
 
-  selectedModes: ["copy_edit"],
-  toggleMode: (m) =>
-    set((state) => {
-      const has = state.selectedModes.includes(m);
-      if (has) {
-        // Don't allow deselecting the last mode
-        if (state.selectedModes.length <= 1) return state;
-        return { selectedModes: state.selectedModes.filter((x) => x !== m) };
-      }
-      return { selectedModes: [...state.selectedModes, m] };
-    }),
-  copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
-  setCopyEditOption: (key, val) =>
-    set((state) => ({
-      copyEditOptions: { ...state.copyEditOptions, [key]: val },
-    })),
-  lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
-  setLineEditOption: (key, val) =>
-    set((state) => ({
-      lineEditOptions: { ...state.lineEditOptions, [key]: val },
-    })),
-  targetLang: "English",
-  setTargetLang: (targetLang) => set({ targetLang }),
+      selectedModes: ["copy_edit"],
+      toggleMode: (m) =>
+        set((state) => {
+          const has = state.selectedModes.includes(m);
+          if (has) {
+            if (state.selectedModes.length <= 1) return state;
+            return { selectedModes: state.selectedModes.filter((x) => x !== m) };
+          }
+          return { selectedModes: [...state.selectedModes, m] };
+        }),
+      copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
+      setCopyEditOption: (key, val) =>
+        set((state) => ({
+          copyEditOptions: { ...state.copyEditOptions, [key]: val },
+        })),
+      lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
+      setLineEditOption: (key, val) =>
+        set((state) => ({
+          lineEditOptions: { ...state.lineEditOptions, [key]: val },
+        })),
+      targetLang: DEFAULT_TARGET_LANG,
+      setTargetLang: (targetLang) => set({ targetLang }),
 
-  document: null,
-  setDocument: (document) => set({ document }),
-  documentMd: "",
-  setDocumentMd: (documentMd) => set({ documentMd }),
+      document: null,
+      setDocument: (document) => set({ document }),
+      documentMd: "",
+      setDocumentMd: (documentMd) => set({ documentMd }),
 
-  scopeMode: "whole_book",
-  setScopeMode: (scopeMode) => set({ scopeMode }),
-  selectedChapters: [0],
-  setSelectedChapters: (selectedChapters) => set({ selectedChapters }),
-  firstNWords: 5000,
-  setFirstNWords: (firstNWords) => set({ firstNWords }),
+      scopeMode: DEFAULT_SCOPE_MODE,
+      setScopeMode: (scopeMode) => set({ scopeMode }),
+      selectedChapters: [0],
+      setSelectedChapters: (selectedChapters) => set({ selectedChapters }),
+      firstNWords: DEFAULT_FIRST_N_WORDS,
+      setFirstNWords: (firstNWords) => set({ firstNWords }),
 
-  styleGuide: "",
-  setStyleGuide: (styleGuide) => set({ styleGuide }),
+      styleGuide: "",
+      setStyleGuide: (styleGuide) => set({ styleGuide }),
 
-  tasks: {},
-  setTasks: (tasks) => {
-    const pending = get().pendingTaskIds;
-    if (pending.length > 0 && pending.every((id) => id in tasks)) {
-      set({ tasks, submitting: false, pendingTaskIds: [] });
-    }
-    const state = get();
-    for (const [tid, task] of Object.entries(tasks)) {
-      if (
-        task.status === "done" &&
-        !state.acceptedCorrections[tid] &&
-        task.result
-      ) {
-        const nonFlaggedIds = new Set(
-          task.result.corrections
-            .filter((c) => !c.flagged)
-            .map((c) => c.id ?? "")
-            .filter(Boolean),
-        );
-        state.acceptedCorrections[tid] = nonFlaggedIds;
-      }
-    }
-    set({ tasks });
-  },
-
-  warmingModel: null,
-  warmingStatus: null,
-  setWarming: (warmingModel, warmingStatus) =>
-    set({ warmingModel, warmingStatus }),
-
-  acceptedCorrections: {},
-  showFlagged: {},
-  toggleShowFlagged: (taskId) =>
-    set((state) => ({
-      showFlagged: {
-        ...state.showFlagged,
-        [taskId]: !state.showFlagged[taskId],
-      },
-    })),
-  autoAcceptNonFlagged: (taskId) =>
-    set((state) => {
-      const task = state.tasks[taskId];
-      if (!task?.result) return state;
-      const nonFlaggedIds = new Set(
-        task.result.corrections
-          .filter((c) => !c.flagged)
-          .map((c) => c.id ?? "")
-          .filter(Boolean),
-      );
-      return {
-        acceptedCorrections: {
-          ...state.acceptedCorrections,
-          [taskId]: nonFlaggedIds,
-        },
-      };
-    }),
-  toggleCorrection: (taskId, correctionId) =>
-    set((state) => {
-      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
-      const next = new Set(current);
-      if (next.has(correctionId)) {
-        next.delete(correctionId);
-      } else {
-        next.add(correctionId);
-      }
-      return {
-        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
-      };
-    }),
-  acceptAll: (taskId) =>
-    set((state) => {
-      const task = state.tasks[taskId];
-      if (!task?.result) return state;
-      const ids = new Set(
-        task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
-      );
-      return {
-        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: ids },
-      };
-    }),
-  dismissAll: (taskId) =>
-    set((state) => ({
-      acceptedCorrections: {
-        ...state.acceptedCorrections,
-        [taskId]: new Set<string>(),
-      },
-    })),
-  acceptAllJob: (taskIds) =>
-    set((state) => {
-      const next = { ...state.acceptedCorrections };
-      for (const tid of taskIds) {
-        const task = state.tasks[tid];
-        if (!task?.result) continue;
-        const ids = new Set(
-          task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
-        );
-        next[tid] = ids;
-      }
-      return { acceptedCorrections: next };
-    }),
-  acceptCorrection: (taskId, correctionId) =>
-    set((state) => {
-      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
-      const next = new Set(current);
-      next.add(correctionId);
-      return {
-        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
-      };
-    }),
-  dismissCorrection: (taskId, correctionId) =>
-    set((state) => {
-      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
-      const next = new Set(current);
-      // Remove bare key
-      next.delete(correctionId);
-      // Remove all indexed occurrence keys for this correction
-      for (const key of current) {
-        if (key.startsWith(`${correctionId}:`)) next.delete(key);
-      }
-      return {
-        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
-      };
-    }),
-  toggleOccurrence: (taskId, correctionId, occIdx, totalOccurrences) =>
-    set((state) => {
-      const current = state.acceptedCorrections[taskId] ?? new Set<string>();
-      const next = new Set(current);
-      const occKey = `${correctionId}:${occIdx}`;
-
-      if (current.has(correctionId)) {
-        // Bare key is present (all accepted). Transition to per-occurrence:
-        // remove bare key, add all occurrence keys EXCEPT the toggled one.
-        next.delete(correctionId);
-        for (let j = 0; j < totalOccurrences; j++) {
-          if (j !== occIdx) next.add(`${correctionId}:${j}`);
+      tasks: {},
+      setTasks: (tasks) => {
+        const pending = get().pendingTaskIds;
+        if (pending.length > 0 && pending.every((id) => id in tasks)) {
+          set({ tasks, submitting: false, pendingTaskIds: [] });
         }
-      } else if (current.has(occKey)) {
-        // Individual occurrence was accepted — remove it
-        next.delete(occKey);
-      } else {
-        // Individual occurrence was not accepted — add it
-        next.add(occKey);
-      }
-
-      // Clean up: if all individual occurrences are now accepted,
-      // collapse back to bare key
-      let allPresent = totalOccurrences > 0;
-      for (let j = 0; j < totalOccurrences && allPresent; j++) {
-        if (!next.has(`${correctionId}:${j}`)) allPresent = false;
-      }
-      if (allPresent) {
-        for (let j = 0; j < totalOccurrences; j++) {
-          next.delete(`${correctionId}:${j}`);
+        const state = get();
+        for (const [tid, task] of Object.entries(tasks)) {
+          if (
+            task.status === "done" &&
+            !state.acceptedCorrections[tid] &&
+            task.result
+          ) {
+            const nonFlaggedIds = new Set(
+              task.result.corrections
+                .filter((c) => !c.flagged)
+                .map((c) => c.id ?? "")
+                .filter(Boolean),
+            );
+            state.acceptedCorrections[tid] = nonFlaggedIds;
+          }
         }
-        next.add(correctionId);
-      }
+        set({ tasks });
+      },
 
-      return {
-        acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
-      };
+      warmingModel: null,
+      warmingStatus: null,
+      setWarming: (warmingModel, warmingStatus) =>
+        set({ warmingModel, warmingStatus }),
+
+      acceptedCorrections: {},
+      showFlagged: {},
+      toggleShowFlagged: (taskId) =>
+        set((state) => ({
+          showFlagged: {
+            ...state.showFlagged,
+            [taskId]: !state.showFlagged[taskId],
+          },
+        })),
+      autoAcceptNonFlagged: (taskId) =>
+        set((state) => {
+          const task = state.tasks[taskId];
+          if (!task?.result) return state;
+          const nonFlaggedIds = new Set(
+            task.result.corrections
+              .filter((c) => !c.flagged)
+              .map((c) => c.id ?? "")
+              .filter(Boolean),
+          );
+          return {
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: nonFlaggedIds,
+            },
+          };
+        }),
+      toggleCorrection: (taskId, correctionId) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const next = new Set(current);
+          if (next.has(correctionId)) {
+            next.delete(correctionId);
+          } else {
+            next.add(correctionId);
+          }
+          return {
+            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+          };
+        }),
+      acceptAll: (taskId) =>
+        set((state) => {
+          const task = state.tasks[taskId];
+          if (!task?.result) return state;
+          const ids = new Set(
+            task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+          );
+          return {
+            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: ids },
+          };
+        }),
+      dismissAll: (taskId) =>
+        set((state) => ({
+          acceptedCorrections: {
+            ...state.acceptedCorrections,
+            [taskId]: new Set<string>(),
+          },
+        })),
+      acceptAllJob: (taskIds) =>
+        set((state) => {
+          const next = { ...state.acceptedCorrections };
+          for (const tid of taskIds) {
+            const task = state.tasks[tid];
+            if (!task?.result) continue;
+            const ids = new Set(
+              task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+            );
+            next[tid] = ids;
+          }
+          return { acceptedCorrections: next };
+        }),
+      acceptCorrection: (taskId, correctionId) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const next = new Set(current);
+          next.add(correctionId);
+          return {
+            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+          };
+        }),
+      dismissCorrection: (taskId, correctionId) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const next = new Set(current);
+          next.delete(correctionId);
+          for (const key of current) {
+            if (key.startsWith(`${correctionId}:`)) next.delete(key);
+          }
+          return {
+            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+          };
+        }),
+      toggleOccurrence: (taskId, correctionId, occIdx, totalOccurrences) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const next = new Set(current);
+          const occKey = `${correctionId}:${occIdx}`;
+
+          if (current.has(correctionId)) {
+            next.delete(correctionId);
+            for (let j = 0; j < totalOccurrences; j++) {
+              if (j !== occIdx) next.add(`${correctionId}:${j}`);
+            }
+          } else if (current.has(occKey)) {
+            next.delete(occKey);
+          } else {
+            next.add(occKey);
+          }
+
+          let allPresent = totalOccurrences > 0;
+          for (let j = 0; j < totalOccurrences && allPresent; j++) {
+            if (!next.has(`${correctionId}:${j}`)) allPresent = false;
+          }
+          if (allPresent) {
+            for (let j = 0; j < totalOccurrences; j++) {
+              next.delete(`${correctionId}:${j}`);
+            }
+            next.add(correctionId);
+          }
+
+          return {
+            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+          };
+        }),
+
+      uploading: false,
+      setUploading: (uploading) => set({ uploading }),
+      submitting: false,
+      setSubmitting: (submitting) => set({ submitting }),
+      pendingTaskIds: [],
+      setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
+
+      detectBreaks: false,
+      setDetectBreaks: (detectBreaks) => set({ detectBreaks }),
+
+      logs: [],
+      setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
+      appendLog: (entry) =>
+        set((state) => {
+          if (state.logs.some((e) => e.id === entry.id)) return state;
+          const next = [...state.logs, entry].slice(-500);
+          return {
+            logs: next,
+            unreadLogCount: state.logPanelOpen
+              ? 0
+              : state.unreadLogCount + (entry.level === "info" ? 0 : 1),
+          };
+        }),
+      clearLogs: () => set({ logs: [], unreadLogCount: 0 }),
+      logPanelOpen: false,
+      setLogPanelOpen: (b) =>
+        set((state) => ({
+          logPanelOpen: b,
+          unreadLogCount: b ? 0 : state.unreadLogCount,
+        })),
+      unreadLogCount: 0,
+      resetUnreadLogs: () => set({ unreadLogCount: 0 }),
+
+      apiKeyConfigured: false,
+      setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
+      apiModel: "",
+      setApiModel: (apiModel) => set({ apiModel }),
+
+      wizardStep: "model",
+      setWizardStep: (wizardStep) => set({ wizardStep }),
+      completedSteps: [],
+      markStepComplete: (step) =>
+        set((state) => ({
+          completedSteps: state.completedSteps.includes(step)
+            ? state.completedSteps
+            : [...state.completedSteps, step],
+        })),
+      highlightedModel: "",
+      setHighlightedModel: (highlightedModel) => set({ highlightedModel }),
+      showAdvancedSettings: false,
+      setShowAdvancedSettings: (showAdvancedSettings) => set({ showAdvancedSettings }),
+      editSubOptionsOpen: false,
+      setEditSubOptionsOpen: (editSubOptionsOpen) => set({ editSubOptionsOpen }),
+
+      resetAll: () =>
+        set({
+          model: "",
+          highlightedModel: "",
+          wordsPerChunk: DEFAULT_WORDS_PER_CHUNK,
+          overlapParagraphs: DEFAULT_OVERLAP,
+          fastMode: true,
+          reviewMode: true,
+          reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
+          reviewerCount: DEFAULT_REVIEWER_COUNT,
+          spellCheck: true,
+          dualEditor: true,
+          dualCount: DEFAULT_DUAL_COUNT,
+          parallel: DEFAULT_PARALLEL,
+          selectedModes: ["copy_edit"],
+          copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
+          lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
+          targetLang: DEFAULT_TARGET_LANG,
+          scopeMode: DEFAULT_SCOPE_MODE,
+          selectedChapters: [0],
+          firstNWords: DEFAULT_FIRST_N_WORDS,
+          styleGuide: "",
+          detectBreaks: false,
+          wizardStep: "model",
+          completedSteps: [],
+          editSubOptionsOpen: false,
+          showAdvancedSettings: false,
+          document: null,
+          documentMd: "",
+          tasks: {},
+          pendingTaskIds: [],
+          submitting: false,
+        }),
+
+      advanceWizard: (fromStep) => {
+        const state = get();
+        const STEP_ORDER: WizardStep[] = ["model", "edits", "upload", "style", "run"];
+        const fromIdx = STEP_ORDER.indexOf(fromStep);
+        for (let i = fromIdx + 1; i < STEP_ORDER.length; i++) {
+          if (!state.completedSteps.includes(STEP_ORDER[i])) {
+            set({ wizardStep: STEP_ORDER[i] });
+            return;
+          }
+        }
+        // All subsequent steps already completed — go to run
+        set({ wizardStep: "run" });
+      },
     }),
-
-  uploading: false,
-  setUploading: (uploading) => set({ uploading }),
-  submitting: false,
-  setSubmitting: (submitting) => set({ submitting }),
-  pendingTaskIds: [],
-  setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
-
-  detectBreaks: false,
-  setDetectBreaks: (detectBreaks) => set({ detectBreaks }),
-
-  logs: [],
-  setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
-  appendLog: (entry) =>
-    set((state) => {
-      // De-dup by id (server reuses ids monotonically per session)
-      if (state.logs.some((e) => e.id === entry.id)) return state;
-      const next = [...state.logs, entry].slice(-500);
-      return {
-        logs: next,
-        unreadLogCount: state.logPanelOpen
-          ? 0
-          : state.unreadLogCount + (entry.level === "info" ? 0 : 1),
-      };
-    }),
-  clearLogs: () => set({ logs: [], unreadLogCount: 0 }),
-  logPanelOpen: false,
-  setLogPanelOpen: (b) =>
-    set((state) => ({
-      logPanelOpen: b,
-      unreadLogCount: b ? 0 : state.unreadLogCount,
-    })),
-  unreadLogCount: 0,
-  resetUnreadLogs: () => set({ unreadLogCount: 0 }),
-
-  apiKeyConfigured: false,
-  setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
-  apiModel: "",
-  setApiModel: (apiModel) => set({ apiModel }),
-}));
+    {
+      name: "bethaniel-settings",
+      partialize: (state) => ({
+        // Persisted across sessions
+        lang: state.lang,
+        model: state.model,
+        selectedModes: state.selectedModes,
+        copyEditOptions: state.copyEditOptions,
+        lineEditOptions: state.lineEditOptions,
+        targetLang: state.targetLang,
+        wordsPerChunk: state.wordsPerChunk,
+        overlapParagraphs: state.overlapParagraphs,
+        fastMode: state.fastMode,
+        reviewMode: state.reviewMode,
+        reviewerThreshold: state.reviewerThreshold,
+        reviewerCount: state.reviewerCount,
+        spellCheck: state.spellCheck,
+        dualEditor: state.dualEditor,
+        dualCount: state.dualCount,
+        parallel: state.parallel,
+        scopeMode: state.scopeMode,
+        selectedChapters: state.selectedChapters,
+        firstNWords: state.firstNWords,
+        styleGuide: state.styleGuide,
+        detectBreaks: state.detectBreaks,
+        document: state.document,
+        apiKeyConfigured: state.apiKeyConfigured,
+        apiModel: state.apiModel,
+        wizardStep: state.wizardStep,
+        completedSteps: state.completedSteps,
+        highlightedModel: state.highlightedModel,
+        editSubOptionsOpen: state.editSubOptionsOpen,
+      }),
+    },
+  ),
+);

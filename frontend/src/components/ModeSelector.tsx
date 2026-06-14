@@ -50,6 +50,11 @@ export default function ModeSelector() {
     setLineEditOption,
     targetLang,
     setTargetLang,
+    wizardStep,
+    advanceWizard,
+    markStepComplete,
+    editSubOptionsOpen,
+    setEditSubOptionsOpen,
   } = useStore();
   const t = useTranslation(lang);
   const [openCat, setOpenCat] = useState<Category | null>(null);
@@ -59,17 +64,16 @@ export default function ModeSelector() {
   const hasTranslation = selectedModes.includes("translate");
 
   function selectCategory(cat: Category) {
-    if (openCat === cat) {
+    if (openCat === cat || editSubOptionsOpen) {
       setOpenCat(null);
+      setEditSubOptionsOpen(false);
     } else {
       setOpenCat(cat);
       if (cat === "translation") {
-        // Auto-enable translate when opening the translation panel
         if (!selectedModes.includes("translate")) {
           toggleMode("translate");
         }
       } else {
-        // Remove translate when switching to editing or analysis
         if (selectedModes.includes("translate")) {
           toggleMode("translate");
         }
@@ -164,8 +168,16 @@ export default function ModeSelector() {
       </div>
 
       {/* ── Expanded sub-options ── */}
-      {openCat === "editing" && (
+      {(openCat === "editing" || (wizardStep === "edits" && editSubOptionsOpen && hasEditing)) && (
         <div className="mode-sub-panel mode-cat-amber">
+          <button
+            type="button"
+            className="mode-sub-close"
+            onClick={() => { setOpenCat(null); setEditSubOptionsOpen(false); }}
+            title={t("btn_cancel")}
+          >
+            −
+          </button>
           <div className="mode-sub-modes">
             {EDITING_MODES.map((m) => (
               <button
@@ -252,8 +264,16 @@ export default function ModeSelector() {
         </div>
       )}
 
-      {openCat === "analysis" && (
+      {(openCat === "analysis" || (wizardStep === "edits" && editSubOptionsOpen && hasAnalysis)) && (
         <div className="mode-sub-panel mode-cat-amber">
+          <button
+            type="button"
+            className="mode-sub-close"
+            onClick={() => { setOpenCat(null); setEditSubOptionsOpen(false); }}
+            title={t("btn_cancel")}
+          >
+            −
+          </button>
           <div className="mode-sub-modes">
             {ANALYSIS_MODES.map((m) => (
               <button
@@ -269,8 +289,16 @@ export default function ModeSelector() {
         </div>
       )}
 
-      {openCat === "translation" && (
+      {(openCat === "translation" || (wizardStep === "edits" && editSubOptionsOpen && hasTranslation)) && (
         <div className="mode-sub-panel mode-cat-amber">
+          <button
+            type="button"
+            className="mode-sub-close"
+            onClick={() => { setOpenCat(null); setEditSubOptionsOpen(false); }}
+            title={t("btn_cancel")}
+          >
+            −
+          </button>
           <div className="translate-lang">
             <label>
               {t("target_language")}:{" "}
@@ -283,6 +311,33 @@ export default function ModeSelector() {
               />
             </label>
           </div>
+        </div>
+      )}
+
+      {/* ── Wizard confirm buttons ── */}
+      {wizardStep === "edits" && selectedModes.length > 0 && (
+        <div className="wizard-confirm">
+          {!editSubOptionsOpen ? (
+            <button
+              type="button"
+              className="btn-primary btn-confirm-step"
+              onClick={() => setEditSubOptionsOpen(true)}
+            >
+              {t("wizard_confirm_edits")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary btn-confirm-step"
+              onClick={() => {
+                markStepComplete("edits");
+                setEditSubOptionsOpen(false);
+                advanceWizard("edits");
+              }}
+            >
+              {t("wizard_confirm_details")}
+            </button>
+          )}
         </div>
       )}
     </section>

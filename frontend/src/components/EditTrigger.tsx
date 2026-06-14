@@ -1,10 +1,9 @@
-// ── Edit trigger — Stage IV ──
+// ── Edit trigger — wizard step 5: Run ──
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { addToQueue } from "../api";
 import { buildUnits } from "./ScopeSelection";
-import EngineStatus from "./EngineStatus";
 
 export default function EditTrigger() {
   const {
@@ -33,6 +32,10 @@ export default function EditTrigger() {
     submitting,
     setSubmitting,
     tasks,
+    wizardStep,
+    setWizardStep,
+    markStepComplete,
+    apiModel,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -52,7 +55,6 @@ export default function EditTrigger() {
   const disabled =
     !doc || units.length === 0 || selectedModes.length === 0 || submitting;
 
-  // Build combined editOptions from all selected edit modes
   const buildEditOptions = () => {
     const opts: Record<string, boolean> = {};
     if (selectedModes.includes("copy_edit")) {
@@ -68,13 +70,6 @@ export default function EditTrigger() {
     if (!doc) return;
     setSubmitting(true);
     try {
-      console.log("[EditTrigger] addToQueue", {
-        docId: doc.id,
-        unitCount: units.length,
-        modes: selectedModes,
-        model,
-        fast: fastMode,
-      });
       const taskIds = await addToQueue({
         docId: doc.id,
         units,
@@ -96,13 +91,10 @@ export default function EditTrigger() {
         dualEditor,
         dualCount,
       });
-      console.log("[EditTrigger] taskIds:", taskIds);
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);
       }
-      // Keep submitting=true until queue:update arrives with these task IDs
       useStore.getState().setPendingTaskIds(taskIds.taskIds);
-      // Safety timeout: clear spinner after 10s if socket update never arrives
       setTimeout(() => {
         const s = useStore.getState();
         if (s.submitting && s.pendingTaskIds.length > 0) {
@@ -110,6 +102,8 @@ export default function EditTrigger() {
           s.setPendingTaskIds([]);
         }
       }, 10000);
+      setWizardStep("folded");
+      markStepComplete("run");
     } catch (err) {
       console.error("Failed to add to queue:", err);
       alert(
@@ -119,58 +113,67 @@ export default function EditTrigger() {
     }
   };
 
-  const modeLabel = selectedModes.map((m) => t(`mode_${m}`)).join(" + ");
+  if (wizardStep !== "run" && wizardStep !== "done" && wizardStep !== "folded") return null;
+
+  function modelLabel(): string {
+    if (!model) return "?";
+    if (model.startsWith("custom:")) return `External: ${apiModel || "DeepSeek"}`;
+    if (model.includes("Qwen3.5-4B")) return "Baby Betty";
+    if (model.includes("Qwen3.5-9B")) return "Basic Betty";
+    if (model.includes("Mistral")) return "Big Bad Betty";
+    return model.replace(".gguf", "");
+  }
+
+  const editLabel = selectedModes.map((m) => t(`mode_${m}`)).join(" + ");
+  const chapterLabel = units.length > 0
+    ? `${units.length} ${units.length === 1 ? "chapter" : "chapters"}`
+    : "";
 
   return (
-    <section className="stage edit-trigger-stage">
-      <div className="trigger-buttons-row">
-        <button
-          className={`btn-run${submitting ? " btn-run-launching" : ""}`}
-          disabled={disabled}
-          onClick={handleClick}
-        >
-          {submitting ? (
-            <div className="btn-run-spinner" />
-          ) : (
-            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-          )}
-          <span className="btn-run-label">
-            {submitting
-              ? "Launching…"
-              : isWorking
-                ? t("btn_add_to_queue_busy")
-                : t("btn_add_to_queue")}
+    <section className="wizard-run-section">
+      {/* Summary */}
+      <div className="wizard-run-summary">
+        <span className="run-summary-line">
+          {modelLabel()} · {editLabel}
+        </span>
+        {doc && (
+          <span className="run-summary-line">
+            {doc.name} · {chapterLabel} · {doc.wordCount.toLocaleString()} words
           </span>
-          {units.length > 0 && !submitting && (
-            <span className="btn-run-meta">
-              {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
-              {selectedModes.length}{" "}
-              {selectedModes.length === 1 ? "mode" : "modes"}
-            </span>
-          )}
-        </button>
-
-        <EngineStatus />
-
-        {/* <button className="btn-rent-betty" disabled title="Coming soon">
-          <span className="btn-rent-betty-label">Rent-A-Betty</span>
-          <span className="btn-rent-betty-sub">
-            Once the coffee budget runs out - or we get enough complaints about
-            Big Bad Betty being too hard to run - we might offer a paid,
-            cloud-based option to run edits without needing a powerful local
-            machine.
+        )}
+        {styleGuide && (
+          <span className="run-summary-line">
+            {t("style_guide")}: {t("provided")}
           </span>
-        </button> */}
+        )}
       </div>
 
-      {selectedModes.length > 1 && (
-        <p
-          className="mode-description"
-          style={{ marginTop: "0.5rem", textAlign: "center" }}
-        >
-          {modeLabel}
-        </p>
-      )}
+      {/* Run button */}
+      <button
+        className={`btn-run${submitting ? " btn-run-launching" : ""}`}
+        disabled={disabled || isWorking}
+        onClick={handleClick}
+      >
+        {submitting ? (
+          <div className="btn-run-spinner" />
+        ) : (
+          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+        )}
+        <span className="btn-run-label">
+          {submitting
+            ? "Launching…"
+            : isWorking
+              ? t("btn_add_to_queue_busy")
+              : t("btn_add_to_queue")}
+        </span>
+        {units.length > 0 && !submitting && !isWorking && (
+          <span className="btn-run-meta">
+            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+            {selectedModes.length}{" "}
+            {selectedModes.length === 1 ? "mode" : "modes"}
+          </span>
+        )}
+      </button>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useRef } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { uploadFile, getDocument, setDocumentDetectBreaks } from "../api";
+import ScopeSelection from "./ScopeSelection";
 
 export default function ManuscriptUpload() {
   const {
@@ -17,6 +18,9 @@ export default function ManuscriptUpload() {
     setScopeMode,
     detectBreaks,
     setDetectBreaks,
+    wizardStep,
+    advanceWizard,
+    markStepComplete,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -76,8 +80,8 @@ export default function ManuscriptUpload() {
   }, []);
 
   return (
-    <section className="card card-upload">
-      <div className="card-header">
+    <section>
+      <div className="section-label">
         {t("sec_manuscript")}
         <span className="info-tooltip" data-tip={t("tooltip_manuscript")}>
           ⓘ
@@ -205,6 +209,25 @@ export default function ManuscriptUpload() {
             }}
           />
         </div>
+      )}
+
+      {/* ── Scope selection (after upload, in wizard step 3) ── */}
+      {wizardStep === "upload" && doc && (
+        <>
+          <ScopeSelection />
+          <div className="wizard-confirm">
+            <button
+              type="button"
+              className="btn-primary btn-confirm-step"
+              onClick={() => {
+                markStepComplete("upload");
+                advanceWizard("upload");
+              }}
+            >
+              {t("wizard_confirm_upload")}
+            </button>
+          </div>
+        </>
       )}
     </section>
   );
