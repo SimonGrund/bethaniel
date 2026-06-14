@@ -735,7 +735,7 @@ async function processJob(job: JobData): Promise<void> {
               // Map UI dialect to dictionary: american → en_US, british → en_GB
               const spellLang = dialect === "british" ? "en_GB" : "en_US";
               const spellResult = findSuspectWords(chunk.body, spellLang, {
-                maxHints: 75,
+                maxHints: 30,
               });
               if (spellResult.suspectWords.length > 0) {
                 chunkPrompt +=
@@ -758,12 +758,15 @@ async function processJob(job: JobData): Promise<void> {
               updateTask(taskId, { phase: `${phasePrefix}dual-editing chunk ${chunkLabel}` });
 
               // Collect both editor streams in parallel.
-              const collectStream = async () => {
+              const collectStream = async (promptText: string) => {
                 let a = "";
-                for await (const t of findCorrectionsStream(model, chunk.body, chunkPrompt, ac.signal)) a += t;
+                for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) a += t;
                 return a;
               };
-              const [rA, rB] = await Promise.allSettled([collectStream(), collectStream()]);
+              const [rA, rB] = await Promise.allSettled([
+                collectStream(chunkPrompt),
+                collectStream(chunkPrompt),
+              ]);
 
               if (rA.status === "rejected" && rB.status === "rejected") {
                 throw rA.reason ?? rB.reason;
@@ -778,6 +781,27 @@ async function processJob(job: JobData): Promise<void> {
                 });
               }
 
+              // Track content for the tok-count / timing check below.
+              const rawA = rA.status === "fulfilled" ? rA.value : "";
+              const rawB = rB.status === "fulfilled" ? rB.value : "";
+              acc = rawA || rawB;
+              if (acc.length > 0) firstTokenAt = performance.now();
+
+              // If both streams returned empty, retry single-editor without
+              // spell-check hints (hints may have blown up the context).
+              if (!rawA && !rawB && chunkPrompt !== prompt) {
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `Both dual-editor streams empty for chunk ${chunkLabel} — retrying without spell hints.`,
+                  model,
+                });
+                const fallback = await collectStream(prompt);
+                acc = fallback;
+                if (acc.length > 0) firstTokenAt = performance.now();
+              }
+
               // Union-dedupe both correction sets by (original, corrected)
               const parseAll = (raw: string) => {
                 const parsed = parseCorrectionsJson(raw);
@@ -789,18 +813,18 @@ async function processJob(job: JobData): Promise<void> {
                 }
                 return out;
               };
-              const csA = rA.status === "fulfilled" ? parseAll(rA.value) : [];
-              const csB = rB.status === "fulfilled" ? parseAll(rB.value) : [];
+              const csA = rawA ? parseAll(rawA) : [];
+              const csB = rawB ? parseAll(rawB) : [];
               const merged: Correction[] = [];
               const seen = new Set<string>();
               for (const c of [...csA, ...csB]) {
                 const k = JSON.stringify([c.original, c.corrected]);
                 if (!seen.has(k)) { seen.add(k); merged.push(c); }
               }
-              // Store merged corrections for use after the retry loop.
-              // We use a mutable binding captured by this closure.
-              acc = "";
               _dualMergedCorrections = merged;
+              // Rough token-count estimate so the zero-token warning does not
+              // fire spuriously and the timing log shows something useful.
+              if (firstTokenAt > 0) tokCount = Math.ceil(acc.length / 3);
             } else {
               for await (const tok of findCorrectionsStream(
                 model,
