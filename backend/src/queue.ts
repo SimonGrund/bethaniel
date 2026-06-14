@@ -730,7 +730,7 @@ async function processJob(job: JobData): Promise<void> {
             // ── Build prompt for this chunk (may include spell-check hints) ──
             let chunkPrompt = prompt;
             if (job.spellCheck) {
-              const { findSuspectWords } = require("./spellcheck.js") as typeof import("./spellcheck.js");
+              const { findSuspectWords } = await import("./spellcheck.js");
               const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
               // Map UI dialect to dictionary: american → en_US, british → en_GB
               const spellLang = dialect === "british" ? "en_GB" : "en_US";

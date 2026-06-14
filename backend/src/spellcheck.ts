@@ -5,8 +5,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _require = createRequire(import.meta.url);
 const DICT_DIR = path.resolve(
   process.env.DICTIONARIES_DIR ?? path.resolve(__dirname, "../dictionaries"),
 );
@@ -53,7 +55,7 @@ function loadDict(dictName: string): SpellDict | null {
     const dic = fs.readFileSync(dicPath, "utf-8");
     // Dynamic import of nspell — avoids requiring it at import time
     // (keeps startup fast when spell-check is disabled).
-    const nspell = require("nspell") as (
+    const nspell = _require("nspell") as (
       aff: string,
       dic: string,
     ) => SpellDict;
