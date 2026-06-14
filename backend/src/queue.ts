@@ -710,6 +710,7 @@ async function processJob(job: JobData): Promise<void> {
     let tokCount = 0;
     const chunkStart = performance.now();
     let firstTokenAt = 0;
+    let spellCorrections: Correction[] = [];
 
     try {
       const MAX_ATTEMPTS = 5;
@@ -727,26 +728,21 @@ async function processJob(job: JobData): Promise<void> {
           });
 
           if (useFast) {
-            // ── Build prompt for this chunk (may include spell-check hints) ──
-            let chunkPrompt = prompt;
+            // ── Spell-check: generate explicit corrections (not hints) ──
+            let spellCorrections: Correction[] = [];
             if (job.spellCheck) {
-              const { findSuspectWords } = await import("./spellcheck.js");
+              const { getSpellCorrections } = await import("./spellcheck.js");
               const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
-              // Map UI dialect to dictionary: american → en_US, british → en_GB
               const spellLang = dialect === "british" ? "en_GB" : "en_US";
-              const spellResult = findSuspectWords(chunk.body, spellLang, {
+              spellCorrections = getSpellCorrections(chunk.body, spellLang, {
                 maxHints: 30,
               });
-              if (spellResult.suspectWords.length > 0) {
-                chunkPrompt +=
-                  "\n\nSPELL-CHECK: A deterministic spell-checker flagged these words as misspelled. Correct ALL of them — the reviewer will later double-check and discard any false positives. If a word is a proper noun or dialect, correct it anyway and let the reviewer decide:\n- " +
-                  spellResult.suspectWords.join("\n- ") +
-                  "\n\nCorrect every one of these words. The reviewer handles precision — your job is recall.";
+              if (spellCorrections.length > 0) {
                 appendLog({
                   level: "info",
                   source: "engine",
                   taskId,
-                  message: `Spell-check found ${spellResult.suspectWords.length} suspect words in chunk ${chunkLabel}`,
+                  message: `Spell-check produced ${spellCorrections.length} corrections in chunk ${chunkLabel}`,
                   model,
                 });
               }
@@ -764,8 +760,8 @@ async function processJob(job: JobData): Promise<void> {
                 return a;
               };
               const [rA, rB] = await Promise.allSettled([
-                collectStream(chunkPrompt),
-                collectStream(chunkPrompt),
+                collectStream(prompt),
+                collectStream(prompt),
               ]);
 
               if (rA.status === "rejected" && rB.status === "rejected") {
@@ -786,21 +782,6 @@ async function processJob(job: JobData): Promise<void> {
               const rawB = rB.status === "fulfilled" ? rB.value : "";
               acc = rawA || rawB;
               if (acc.length > 0) firstTokenAt = performance.now();
-
-              // If both streams returned empty, retry single-editor without
-              // spell-check hints (hints may have blown up the context).
-              if (!rawA && !rawB && chunkPrompt !== prompt) {
-                appendLog({
-                  level: "warn",
-                  source: "engine",
-                  taskId,
-                  message: `Both dual-editor streams empty for chunk ${chunkLabel} — retrying without spell hints.`,
-                  model,
-                });
-                const fallback = await collectStream(prompt);
-                acc = fallback;
-                if (acc.length > 0) firstTokenAt = performance.now();
-              }
 
               // Union-dedupe both correction sets by (original, corrected)
               const parseAll = (raw: string) => {
@@ -829,7 +810,7 @@ async function processJob(job: JobData): Promise<void> {
               for await (const tok of findCorrectionsStream(
                 model,
                 chunk.body,
-                chunkPrompt,
+                prompt,
                 ac.signal,
               )) {
               acc += tok;
@@ -906,9 +887,17 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `writing up corrections` });
-        const cs: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
+        const editorCs: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
         const isDual = _dualMergedCorrections !== null;
         _dualMergedCorrections = null;
+
+        // Merge spell-check corrections (generated deterministically) with
+        // editor corrections.  Mark spell-check ones so applyCorrections can
+        // handle them with global replacement.
+        for (const sc of spellCorrections) {
+          sc.reason = "spell-check";
+        }
+        const cs: Correction[] = [...spellCorrections, ...editorCs];
 
         // Corrections are emitted as JSONL (one JSON object per line), so
         // truncation only ever drops the final partial line. No retry needed.
@@ -1024,15 +1013,36 @@ async function processJob(job: JobData): Promise<void> {
         const toApply = finalCorrections.filter((c) => !c.flagged);
         const flagged = finalCorrections.filter((c) => c.flagged);
 
-        const [newBody, applied, sk] = applyCorrections(chunk.body, toApply, {
+        // Spell-check corrections use global replaceAll (a misspelled word
+        // should be fixed everywhere).  Editor corrections use the standard
+        // position-based applyCorrections.
+        const spellToApply = toApply.filter((c) => c.reason === "spell-check");
+        const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
+
+        const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
           allowDialogueTags: editOptions?.dialogueTags === true,
         });
+
+        // Apply spell-check corrections globally on top of the editor output.
+        let spellAppliedBody = newBody;
+        for (const sc of spellToApply) {
+          spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+        }
+
         const core = stripOverlapFromResponse(
-          newBody,
+          spellAppliedBody,
           chunk.overlapHeadParagraphs,
         );
 
         for (const c of applied) {
+          corrections.push({
+            ...c,
+            chunk: `Chunk ${chunkLabel}`,
+            id: uuidv4(),
+          });
+        }
+        // Spell-check corrections that were applied.
+        for (const c of spellToApply) {
           corrections.push({
             ...c,
             chunk: `Chunk ${chunkLabel}`,

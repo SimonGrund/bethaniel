@@ -1,11 +1,13 @@
 // ── Deterministic spell-checker (Hunspell via nspell) ──
-// Runs alongside the LLM editor. Feeds suspect words as hints so the
-// model catches typos that its stochastic sampling would otherwise miss.
+// Runs alongside the LLM editor. Can either feed suspect words as hints
+// or directly generate Correction[] objects using Hunspell suggestions.
 
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+
+import type { Correction } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const _require = createRequire(import.meta.url);
@@ -39,6 +41,7 @@ function langToDictName(lang: string, englishDialect?: string): string | null {
 // ── Lazy-loaded, per-language cache ──
 interface SpellDict {
   correct: (word: string) => boolean;
+  suggest: (word: string) => string[];
 }
 
 const cache = new Map<string, SpellDict>();
@@ -178,4 +181,62 @@ export function findSuspectWords(
 
   result.suspectWords = suspects;
   return result;
+}
+
+/**
+ * Like findSuspectWords, but also returns a Correction[] with the top
+ * Hunspell suggestion for each suspect word.  These corrections can be
+ * merged directly into the editor/reviewer pipeline so the user sees
+ * every spell-check hit in the accept/dismiss list.
+ */
+export function getSpellCorrections(
+  text: string,
+  lang: string,
+  opts?: {
+    englishDialect?: string;
+    styleGuideNames?: string[];
+    maxHints?: number;
+  },
+): Correction[] {
+  const dictName = langToDictName(lang, opts?.englishDialect);
+  if (!dictName) return [];
+
+  const dict = loadDict(dictName);
+  if (!dict) return [];
+
+  const maxHints = opts?.maxHints ?? 30;
+  const styleNames = new Set(
+    (opts?.styleGuideNames ?? []).flatMap((n) =>
+      n
+        .split(/[,\s]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
+  const corrections: Correction[] = [];
+  const seen = new Set<string>();
+
+  WORD_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = WORD_RE.exec(text)) !== null) {
+    const word = match[0];
+    const lower = word.toLowerCase();
+
+    if (isSkipWord(word)) continue;
+    if (seen.has(lower)) continue;
+    if (styleNames.has(lower)) continue;
+    if (isLikelyProperNoun(word)) continue;
+
+    seen.add(lower);
+
+    if (!dict.correct(word)) {
+      const suggestions = dict.suggest(word);
+      const corrected = suggestions.length > 0 ? suggestions[0] : word;
+      corrections.push({ original: word, corrected });
+      if (corrections.length >= maxHints) break;
+    }
+  }
+
+  return corrections;
 }
