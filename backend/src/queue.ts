@@ -687,6 +687,147 @@ async function processJob(job: JobData): Promise<void> {
   const skipped: Correction[] = [];
   const errors: string[] = [];
 
+  // Pending reviewer state: the reviewer for the *previous* chunk runs in
+  // parallel with the *current* chunk's editor, hiding the reviewer's
+  // latency behind the next prefill+decode.
+  let pendingReview: {
+    cs: Correction[];
+    chunk: { body: string; core: string; overlapHeadParagraphs: number };
+    chunkLabel: string;
+    spellCorrections: Correction[];
+    editorAcc: string;
+    editorToks: number;
+    editorStart: number;
+    editorFirstTokenAt: number;
+    promise: Promise<string>;
+  } | null = null;
+
+  async function collectPendingReview(): Promise<void> {
+    if (!pendingReview) return;
+    const pr = pendingReview;
+    pendingReview = null;
+    try {
+      const reviewAcc = await pr.promise;
+      const scores = parseReviewScores(reviewAcc);
+      const threshold = job.reviewerThreshold ?? 3;
+
+      let flaggedCount = 0;
+      for (let i = 0; i < pr.cs.length; i++) {
+        const c = pr.cs[i];
+        const score = scores.get(i);
+        if (score) {
+          c.confidence = score.confidence;
+          c.reviewReason = score.reason;
+        }
+        if (score && score.confidence < threshold) {
+          c.flagged = true;
+          c.reviewReason = score.reason;
+          flaggedCount++;
+        }
+      }
+
+      appendLog({
+        level: "info",
+        source: "engine",
+        taskId,
+        message: flaggedCount > 0
+          ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}).`
+          : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel}.`,
+        model,
+      });
+
+      const toApply = pr.cs.filter((c) => !c.flagged);
+      const flagged = pr.cs.filter((c) => c.flagged);
+
+      const spellToApply = toApply.filter((c) => c.reason === "spell-check");
+      const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
+
+      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
+        allowDialogueTags: editOptions?.dialogueTags === true,
+      });
+
+      let spellAppliedBody = newBody;
+      for (const sc of spellToApply) {
+        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+      }
+
+      const core = stripOverlapFromResponse(
+        spellAppliedBody,
+        pr.chunk.overlapHeadParagraphs,
+      );
+
+      for (const c of applied) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of spellToApply) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of flagged) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      skipped.push(
+        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
+      );
+      pieces.push(core);
+    } catch (err) {
+      appendLog({
+        level: "warn",
+        source: "engine",
+        taskId,
+        message: `Reviewer failed for chunk ${pr.chunkLabel}: ${err instanceof Error ? err.message : String(err)}. All corrections passed unreviewed.`,
+        model,
+      });
+
+      const spellToApply = pr.cs.filter((c) => c.reason === "spell-check");
+      const editorToApply = pr.cs.filter((c) => c.reason !== "spell-check");
+
+      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
+        allowDialogueTags: editOptions?.dialogueTags === true,
+      });
+
+      let spellAppliedBody = newBody;
+      for (const sc of spellToApply) {
+        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+      }
+
+      const core = stripOverlapFromResponse(
+        spellAppliedBody,
+        pr.chunk.overlapHeadParagraphs,
+      );
+
+      for (const c of applied) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      for (const c of spellToApply) {
+        corrections.push({
+          ...c,
+          chunk: `Chunk ${pr.chunkLabel}`,
+          id: uuidv4(),
+        });
+      }
+      skipped.push(
+        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
+      );
+      pieces.push(core);
+    }
+  }
+
   for (let j = 0; j < chunks.length; j++) {
     if (ac.signal.aborted) {
       updateTask(taskId, {
@@ -712,6 +853,10 @@ async function processJob(job: JobData): Promise<void> {
     let firstTokenAt = 0;
     let spellCorrections: Correction[] = [];
 
+    // ── Collect previous chunk's reviewer result ──
+    // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
+    if (pendingReview) await collectPendingReview();
+
     try {
       const MAX_ATTEMPTS = 5;
       let lastErr: unknown = null;
@@ -729,7 +874,7 @@ async function processJob(job: JobData): Promise<void> {
 
           if (useFast) {
             // ── Spell-check: generate explicit corrections (not hints) ──
-            let spellCorrections: Correction[] = [];
+            spellCorrections = [];
             if (job.spellCheck) {
               const { getSpellCorrections } = await import("./spellcheck.js");
               const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
@@ -933,25 +1078,16 @@ async function processJob(job: JobData): Promise<void> {
           });
         }
 
-        // Determine which corrections to pass through to applyCorrections.
-        // If reviewMode is on, run a second LLM pass to score each correction
-        // and flag low-confidence ones so they aren't applied to the preview.
-        let finalCorrections = cs;
-        const reviewMode = job.reviewMode && cs.length > 0;
-
-        if (reviewMode) {
-          updateTask(taskId, { phase: `reviewing ${cs.length} corrections` });
-          appendLog({
-            level: "info",
-            source: "engine",
-            taskId,
-            message: `Reviewing ${cs.length} corrections for chunk ${chunkLabel}…`,
-            model,
-          });
-          try {
-            let reviewAcc = "";
-            let reviewToks = 0;
-            const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+        // If reviewMode is on, start a second LLM pass (reviewer) in the
+        // BACKGROUND. It will run in parallel with the *next* chunk's editor.
+        // When the next chunk's editor completes, the reviewer verdict is
+        // collected and corrections are applied (see "collect previous chunk's
+        // reviewer result" at the top of the loop). For the last chunk, the
+        // reviewer is collected after the loop.
+        if (job.reviewMode && cs.length > 0) {
+          const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+          let reviewAcc = "";
+          const reviewPromise = (async () => {
             for await (const tok of reviewCorrectionsStream(
               model,
               chunk.body,
@@ -960,109 +1096,60 @@ async function processJob(job: JobData): Promise<void> {
               ac.signal,
             )) {
               reviewAcc += tok;
-              reviewToks++;
-              if (reviewToks % 5 === 0) {
-                updateProgress(taskId, (j + creepingProgress(reviewToks) * 0.3) / chunks.length);
-              }
             }
+            return reviewAcc;
+          })();
 
-            const scores = parseReviewScores(reviewAcc);
-            const threshold = job.reviewerThreshold ?? 3;
+          pendingReview = {
+            cs: [...cs],
+            chunk,
+            chunkLabel,
+            spellCorrections: [...spellCorrections],
+            editorAcc: acc,
+            editorToks: tokCount,
+            editorStart: chunkStart,
+            editorFirstTokenAt: firstTokenAt,
+            promise: reviewPromise,
+          };
+        } else {
+          // No reviewer — apply corrections immediately
+          const toApply = cs;
+          const spellToApply = toApply.filter((c) => c.reason === "spell-check");
+          const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
 
-            finalCorrections = [];
-            let flaggedCount = 0;
-            for (let i = 0; i < cs.length; i++) {
-              const c = cs[i];
-              const score = scores.get(i);
-              if (score) {
-                c.confidence = score.confidence;
-                c.reviewReason = score.reason;
-              }
-              if (score && score.confidence < threshold) {
-                c.flagged = true;
-                c.reviewReason = score.reason;
-                flaggedCount++;
-              }
-              finalCorrections.push(c);
-            }
+          const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
+            allowDialogueTags: editOptions?.dialogueTags === true,
+          });
 
-            appendLog({
-              level: "info",
-              source: "engine",
-              taskId,
-              message: flaggedCount > 0
-                ? `Reviewer flagged ${flaggedCount}/${cs.length} corrections in chunk ${chunkLabel} (confidence < ${threshold}).`
-                : `Reviewer passed all ${cs.length} corrections in chunk ${chunkLabel}.`,
-              model,
-            });
-          } catch (err) {
-            appendLog({
-              level: "warn",
-              source: "engine",
-              taskId,
-              message: `Reviewer failed for chunk ${chunkLabel}: ${err instanceof Error ? err.message : String(err)}. All corrections passed unreviewed.`,
-              model,
-            });
-            finalCorrections = cs; // fallback: pass all through
+          let spellAppliedBody = newBody;
+          for (const sc of spellToApply) {
+            spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
           }
+
+          const core = stripOverlapFromResponse(
+            spellAppliedBody,
+            chunk.overlapHeadParagraphs,
+          );
+
+          for (const c of applied) {
+            corrections.push({
+              ...c,
+              chunk: `Chunk ${chunkLabel}`,
+              id: uuidv4(),
+            });
+          }
+          for (const c of spellToApply) {
+            corrections.push({
+              ...c,
+              chunk: `Chunk ${chunkLabel}`,
+              id: uuidv4(),
+            });
+          }
+          skipped.push(
+            ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
+          );
+          pieces.push(core);
         }
-
-        // Split flagged corrections out — they go into the corrections list
-        // for the UI but are NOT applied to editedText (preview). The user can
-        // accept them later via the review toggle.
-        const toApply = finalCorrections.filter((c) => !c.flagged);
-        const flagged = finalCorrections.filter((c) => c.flagged);
-
-        // Spell-check corrections use global replaceAll (a misspelled word
-        // should be fixed everywhere).  Editor corrections use the standard
-        // position-based applyCorrections.
-        const spellToApply = toApply.filter((c) => c.reason === "spell-check");
-        const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
-
-        const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
-          allowDialogueTags: editOptions?.dialogueTags === true,
-        });
-
-        // Apply spell-check corrections globally on top of the editor output.
-        let spellAppliedBody = newBody;
-        for (const sc of spellToApply) {
-          spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
-        }
-
-        const core = stripOverlapFromResponse(
-          spellAppliedBody,
-          chunk.overlapHeadParagraphs,
-        );
-
-        for (const c of applied) {
-          corrections.push({
-            ...c,
-            chunk: `Chunk ${chunkLabel}`,
-            id: uuidv4(),
-          });
-        }
-        // Spell-check corrections that were applied.
-        for (const c of spellToApply) {
-          corrections.push({
-            ...c,
-            chunk: `Chunk ${chunkLabel}`,
-            id: uuidv4(),
-          });
-        }
-        // Flagged corrections go into the corrections list so the UI can show
-        // them (under the "show all suggestions" toggle), but they are NOT in
-        // `applied` so they don't affect the preview text.
-        for (const c of flagged) {
-          corrections.push({
-            ...c,
-            chunk: `Chunk ${chunkLabel}`,
-            id: uuidv4(),
-          });
-        }
-        skipped.push(
-          ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
-        );
-        pieces.push(core);
       } else {
         const rewritten = restoreTypography(chunk.body, acc.trim());
         const core = stripOverlapFromResponse(
@@ -1121,6 +1208,9 @@ async function processJob(job: JobData): Promise<void> {
 
     updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
+
+  // Collect the final pending reviewer (last chunk).
+  if (pendingReview) await collectPendingReview();
 
   updateTask(taskId, { phase: "finalizing" });
   abortControllers.delete(taskId);
