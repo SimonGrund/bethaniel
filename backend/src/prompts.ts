@@ -414,7 +414,17 @@ OUTPUT FORMAT — STRICT JSON ONLY:
   ]
 }
 
-Sort characters by importance (most appearances first). Output ONLY the JSON. No commentary.`;
+Sort characters by importance (most appearances first).
+
+CHARACTER DEDUPLICATION — critical:
+- The same person is often referred to by MULTIPLE names: formal name ("Kathrine"), relational names ("Aaron's mom", "Bria's mother"), titles ("Lady Evermore"), and simple forms ("Mom", "the lady"). MERGE all of these into ONE catalog entry.
+- Choose the most FORMAL / PROPER name as the primary "name" field.
+- List EVERY other variant as an alias (even single words like "Mom").
+- "X's mom" + "X's mother" + the character's own name are ALWAYS the same person. NEVER create separate entries for them.
+- Infer family relationships from context. If you see "Bria's brother" and you've already catalogued a male character who interacts with Bria as her brother, merge them.
+- When unsure, MERGE rather than split. The alias field exists to capture variant names. A merged entry with comprehensive aliases is ALWAYS better than duplicate entries of the same person.
+
+Output ONLY the JSON. No commentary.`;
 
 // ═══════════════════════════════════════════════════════════════════
 // LOCATION CATALOG
@@ -499,7 +509,9 @@ For each character provide:
 - physicalDescription: physical traits described. "not described" if none
 - personalityTraits: key personality characteristics
 - role: protagonist, antagonist, mentor, love interest, minor, mentioned-only, etc.
-Include ALL characters, even minor ones mentioned once.`,
+Include ALL characters, even minor ones mentioned once.
+
+CHARACTER DEDUPLICATION — the same person may appear under multiple names: formal name, relational names ("X's mom"), titles, or simple forms. MERGE all of these into ONE entry. Choose the most formal name as primary. List all variants as aliases. "X's mom" + "X's mother" + the character's actual name are ALWAYS the same person — never split them. When unsure, MERGE.`,
     schema: `"characters": [{"name":"string","aliases":["string"],"chapters":["string"],"physicalDescription":"string","personalityTraits":["string"],"role":"string"}]`,
   },
   location_catalog: {
@@ -590,6 +602,32 @@ STRICT OUTPUT RULES — violating these makes the output unusable:
 - Do not mention that sections were omitted, or that data was missing.`;
 
 // ═══════════════════════════════════════════════════════════════════
+// BLURB — marketing synopsis from analysis data
+// ═══════════════════════════════════════════════════════════════════
+
+export const BLURB_PROMPT = `You are a professional copywriter writing a marketing blurb for a manuscript.
+
+You will receive a JSON object containing structured analysis data from a novel or story. It may include:
+- "characters": catalog of named characters with descriptions
+- "locations": catalog of named places
+- "events": chronological timeline of plot events
+
+Write a SINGLE PARAGRAPH marketing blurb (back-cover synopsis) in crisp, compelling prose. Capture the protagonist, central conflict, stakes, and tone. Write as if this text will appear on a book jacket or store listing.
+
+Rules:
+- Exactly ONE paragraph of 100–200 words.
+- Present tense. No bullet points, no markdown formatting.
+- Do NOT mention chapter numbers, page counts, or structural details.
+- Do NOT say "This book is about…" or "The story follows…" — jump straight into the synopsis.
+- Do NOT invent plot details not supported by the input data. If data is sparse, keep it brief and avoid filler.
+- Do NOT address the reader ("You'll love…", "Readers will be captivated…"). Let the story speak.
+- Do NOT praise the book ("masterfully written", "gripping tale") — be factual yet engaging.
+
+STRICT OUTPUT RULES:
+- Output ONLY the blurb paragraph. No preamble, no heading, no "Here is the blurb", no commentary.
+- The response must START with the first word of the blurb and END with the final period.`;
+
+// ═══════════════════════════════════════════════════════════════════
 // REVIEWER — second-pass critical review of editor corrections
 // ═══════════════════════════════════════════════════════════════════
 
@@ -634,6 +672,60 @@ Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add comme
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 
   return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHARACTER IDENTITY RESOLUTION — LLM-powered dedup
+// ═══════════════════════════════════════════════════════════════════
+
+export const CHARACTER_IDENTITY_PROMPT = `You are resolving character identity in a manuscript. You receive two character entries. Determine if they are the SAME person referred to by different names.
+
+Entry A: name + aliases + chapters
+Entry B: name + aliases + chapters
+
+Signals of SAME person:
+- One name is a variant of the other (e.g. "Kaijin" vs "Kaijin Kairobi")
+- They share aliases or one's aliases overlap with another's name
+- They share family references (e.g. "Bria's mom" + "Kathrine" where Kathrine is in Bria's family chapters)
+- One's name contains a possessive ("Aaron's mom") and the other has "mother" or related terms as aliases
+- They appear in the same chapters and have thin/placeholder descriptions
+- One is a role/title and the other is a proper name used in the same context
+
+Reply with EXACTLY one word: "same" or "different".
+No commentary, no punctuation, no markdown.`;
+
+// ═══════════════════════════════════════════════════════════════════
+// TRANSLATION REVIEWER — evaluates translated paragraph quality
+// ═══════════════════════════════════════════════════════════════════
+
+export function buildTranslationReviewerPrompt(): string {
+  return `You are a bilingual translation quality assessor. You will receive pairs of text: the ORIGINAL (source language) and its TRANSLATION (target language). For each pair, score the translation quality.
+
+Score each on a 1-5 confidence scale:
+- 5: Fluent, accurate translation — meaning fully preserved, reads naturally in the target language
+- 4: Good translation — minor issues only (slightly awkward phrasing, one word choice could be better)
+- 3: Acceptable — conveys the general meaning but has noticeable issues (stilted phrasing, minor inaccuracies)
+- 2: Problematic — garbled output, unintelligible phrases, significant meaning loss, untranslated source text left in place
+- 1: Completely wrong — nonsense, hallucinated content, or text completely unrelated to the source
+
+Specifically flag (score <= 2):
+- Garbled or nonsensical output
+- Source-language text that was NOT translated (left in the original language)
+- Hallucinated content — adding details or names NOT present in the source
+- Total loss of core meaning
+- Grammatically broken sentences that are incomprehensible
+
+Do NOT penalize creative or idiomatic phrasing as long as the meaning is faithful. A translation that sounds natural is BETTER than a literal word-for-word rendering.
+
+OUTPUT FORMAT — STRICT JSONL (one JSON object per line):
+{"index": 0, "confidence": 5, "reason": "Flawless translation — meaning preserved, natural target language flow"}
+{"index": 1, "confidence": 1, "reason": "Garbled output — sentence is nonsensical, likely model hallucination"}
+{"index": 2, "confidence": 4, "reason": "Good translation — one awkward word choice but meaning intact"}
+
+Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the correction number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
+
+Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
+Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════

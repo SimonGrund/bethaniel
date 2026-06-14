@@ -3,7 +3,8 @@
 import { useCallback, useRef } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { uploadFile, getDocument, setDocumentDetectBreaks } from "../api";
+import { uploadFile, getDocument } from "../api";
+import ScopeSelection from "./ScopeSelection";
 
 export default function ManuscriptUpload() {
   const {
@@ -15,8 +16,9 @@ export default function ManuscriptUpload() {
     setUploading,
     setSelectedChapters,
     setScopeMode,
-    detectBreaks,
-    setDetectBreaks,
+    wizardStep,
+    advanceWizard,
+    markStepComplete,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -25,7 +27,7 @@ export default function ManuscriptUpload() {
     async (file: File) => {
       setUploading(true);
       try {
-        const meta = await uploadFile(file, detectBreaks);
+        const meta = await uploadFile(file, false);
         setDocument(meta);
         // Fetch full text
         const full = await getDocument(meta.id);
@@ -39,27 +41,7 @@ export default function ManuscriptUpload() {
         setUploading(false);
       }
     },
-    [detectBreaks],
-  );
-
-  const handleToggleDetect = useCallback(
-    async (next: boolean) => {
-      if (!doc) return;
-      setUploading(true);
-      try {
-        const meta = await setDocumentDetectBreaks(doc.id, next);
-        setDocument(meta);
-        setDetectBreaks(next);
-        // Re-fetch md in case normalization replaced markers in place.
-        const full = await getDocument(meta.id);
-        setDocumentMd(full.md);
-      } catch (err) {
-        console.error("Toggle break detection failed:", err);
-      } finally {
-        setUploading(false);
-      }
-    },
-    [doc],
+    [],
   );
 
   const onDrop = useCallback(
@@ -76,8 +58,8 @@ export default function ManuscriptUpload() {
   }, []);
 
   return (
-    <section className="card card-upload">
-      <div className="card-header">
+    <section>
+      <div className="section-label">
         {t("sec_manuscript")}
         <span className="info-tooltip" data-tip={t("tooltip_manuscript")}>
           ⓘ
@@ -108,26 +90,6 @@ export default function ManuscriptUpload() {
               <p className="small-note">{t("upload_prompt")}</p>
             )}
           </div>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginTop: "0.5rem",
-              fontSize: "0.85rem",
-              color: "#6b5c44",
-              cursor: "pointer",
-            }}
-            title="When enabled, Bethaniel inspects the manuscript on upload to identify scene-break and paragraph-break conventions, so the DOCX export can reproduce them. Most users can leave this off."
-          >
-            <input
-              type="checkbox"
-              checked={detectBreaks}
-              onChange={(e) => setDetectBreaks(e.target.checked)}
-              disabled={uploading}
-            />
-            Detect scene and paragraph breaks on upload
-          </label>
         </>
       ) : (
         <div className="file-summary">
@@ -135,54 +97,6 @@ export default function ManuscriptUpload() {
           <span className="file-stats">
             {doc.wordCount.toLocaleString()} words · {doc.chapters.length} ch.
           </span>
-          {doc.detectBreaks ? (
-            <>
-              <span
-                className="file-stats"
-                title="Detected scene-break marker. You can change how it's rendered in the DOCX export dialog."
-                style={{ color: "#6b5c44" }}
-              >
-                · scene break:{" "}
-                <code>{doc.detectedSceneBreak ?? "none found"}</code>
-              </span>
-              <span
-                className="file-stats"
-                title="Detected paragraph-break style."
-                style={{ color: "#6b5c44" }}
-              >
-                · paragraph break:{" "}
-                <code>{doc.detectedParagraphBreak ?? "empty line"}</code>
-              </span>
-            </>
-          ) : (
-            <span
-              className="file-stats"
-              style={{ color: "#9b8a6f" }}
-              title="Break detection is off. The document will be converted plainly between Markdown and DOCX."
-            >
-              · break detection off
-            </span>
-          )}
-          <label
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              fontSize: "0.8rem",
-              color: "#6b5c44",
-              cursor: uploading ? "not-allowed" : "pointer",
-              marginLeft: "0.5rem",
-            }}
-            title="Toggle to re-detect (or clear) scene and paragraph breaks for this document."
-          >
-            <input
-              type="checkbox"
-              checked={!!doc.detectBreaks}
-              onChange={(e) => handleToggleDetect(e.target.checked)}
-              disabled={uploading}
-            />
-            detect breaks
-          </label>
           <button
             type="button"
             className="btn-secondary btn-small"
@@ -205,6 +119,25 @@ export default function ManuscriptUpload() {
             }}
           />
         </div>
+      )}
+
+      {/* ── Scope selection (after upload, in wizard step 3) ── */}
+      {wizardStep === "upload" && doc && (
+        <>
+          <ScopeSelection />
+          <div className="wizard-confirm">
+            <button
+              type="button"
+              className="btn-primary btn-confirm-step"
+              onClick={() => {
+                markStepComplete("upload");
+                advanceWizard("upload");
+              }}
+            >
+              {t("wizard_confirm_upload")}
+            </button>
+          </div>
+        </>
       )}
     </section>
   );

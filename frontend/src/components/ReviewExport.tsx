@@ -9,6 +9,7 @@ import {
   clearQueue,
   deleteTask,
   deleteJob,
+  spawnJobSummary,
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
@@ -605,33 +606,7 @@ function StructuredDataView({
         ? data
         : ((data as Record<string, unknown>).characters ?? [])
     ) as Array<Record<string, unknown>>;
-    return (
-      <table className="catalog-table">
-        <thead>
-          <tr>
-            <th>{t("col_name")}</th>
-            <th>{t("col_aliases")}</th>
-            <th>{t("col_chapter")}</th>
-            <th>{t("col_description")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c, i) => (
-            <tr key={i}>
-              <td>{String(c.name ?? "")}</td>
-              <td>{(c.aliases as string[] | undefined)?.join(", ")}</td>
-              <td>
-                {(c.chapters as string[] | undefined)?.join(", ") ??
-                  String(c.firstMention ?? "")}
-              </td>
-              <td>
-                {String(c.physicalDescription ?? c.description ?? c.role ?? "")}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+    return <SplitCatalogTable mode="character" items={items} t={t} />;
   }
 
   if (mode === "location_catalog") {
@@ -640,31 +615,7 @@ function StructuredDataView({
         ? data
         : ((data as Record<string, unknown>).locations ?? [])
     ) as Array<Record<string, unknown>>;
-    return (
-      <table className="catalog-table">
-        <thead>
-          <tr>
-            <th>{t("col_name")}</th>
-            <th>{t("col_aliases")}</th>
-            <th>{t("col_chapter")}</th>
-            <th>{t("col_description")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((l, i) => (
-            <tr key={i}>
-              <td>{String(l.name ?? "")}</td>
-              <td>{(l.aliases as string[] | undefined)?.join(", ")}</td>
-              <td>
-                {(l.chapters as string[] | undefined)?.join(", ") ??
-                  String(l.firstMention ?? "")}
-              </td>
-              <td>{String(l.description ?? l.significance ?? "")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+    return <SplitCatalogTable mode="location" items={items} t={t} />;
   }
 
   if (mode === "timeline") {
@@ -673,32 +624,195 @@ function StructuredDataView({
         ? data
         : ((data as Record<string, unknown>).events ?? [])
     ) as Array<Record<string, unknown>>;
-    return (
-      <table className="catalog-table">
-        <thead>
-          <tr>
-            <th>{t("col_chapter")}</th>
-            <th>{t("col_event")}</th>
-            <th>{t("col_characters")}</th>
-            <th>{t("col_time_ref")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((e, i) => (
-            <tr key={i}>
-              <td>{String(e.chapter ?? "")}</td>
-              <td>{String(e.description ?? e.event ?? "")}</td>
-              <td>{(e.characters as string[] | undefined)?.join(", ")}</td>
-              <td>{String(e.timeReference ?? "")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+    return <TimelineZoomView items={items} t={t} />;
   }
 
   // Fallback: pretty-print JSON
   return <pre className="json-preview">{JSON.stringify(data, null, 2)}</pre>;
+}
+
+/** Render a catalog table split into key (≥2 chapters) and minor items. */
+function SplitCatalogTable({
+  mode,
+  items,
+  t,
+}: {
+  mode: "character" | "location";
+  items: Array<Record<string, unknown>>;
+  t: (key: string) => string;
+}) {
+  const isKey = (item: Record<string, unknown>) =>
+    Array.isArray(item.chapters) && item.chapters.length >= 2;
+  const keyItems = items.filter(isKey);
+  const minorItems = items.filter((item) => !isKey(item));
+  const minorLabel =
+    mode === "character"
+      ? minorItems.length === 1
+        ? "minor character"
+        : "minor characters"
+      : minorItems.length === 1
+        ? "minor location"
+        : "minor locations";
+
+  const renderTable = (rows: Array<Record<string, unknown>>) => (
+    <table className="catalog-table">
+      <thead>
+        <tr>
+          <th>{t("col_name")}</th>
+          <th>{t("col_aliases")}</th>
+          <th>{t("col_chapter")}</th>
+          <th>{t("col_description")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i}>
+            <td>{String(row.name ?? "")}</td>
+            <td>{(row.aliases as string[] | undefined)?.join(", ")}</td>
+            <td>
+              {(row.chapters as string[] | undefined)?.join(", ") ??
+                String(row.firstMention ?? "")}
+            </td>
+            <td>
+              {mode === "character"
+                ? String(
+                    row.physicalDescription ??
+                      row.description ??
+                      row.role ??
+                      "",
+                  )
+                : String(row.description ?? row.significance ?? "")}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <>
+      {keyItems.length > 0 && renderTable(keyItems)}
+      {keyItems.length === 0 && items.length > 0 && renderTable(items)}
+      {minorItems.length > 0 && keyItems.length > 0 && (
+        <details className="minor-items-details">
+          <summary className="minor-items-summary">
+            {minorItems.length} {minorLabel}
+          </summary>
+          {renderTable(minorItems)}
+        </details>
+      )}
+    </>
+  );
+}
+
+type TimelineTier = 1 | 2 | 3;
+
+function timelineTier(event: Record<string, unknown>): TimelineTier {
+  const hasTimeRef =
+    typeof event.timeReference === "string" && event.timeReference.length > 0;
+  const desc =
+    typeof event.description === "string"
+      ? event.description
+      : String(event.event ?? "");
+  // Tier by description length + explicit time references.
+  // Character count is too unreliable — model nearly always lists ≥2.
+  if (hasTimeRef || desc.length >= 200) return 1;
+  if (desc.length >= 80) return 2;
+  return 3;
+}
+
+/** Extract a sortable chapter order: "Chapter 3" → 3, "Ch5" → 5, "Prologue" → -1 */
+function chapterOrder(chapter: string): number {
+  const m = chapter.match(/\d+/);
+  return m ? parseInt(m[0], 10) : -1;
+}
+
+/** Timeline with three-button zoom toggle: Major · Medium · All. */
+function TimelineZoomView({
+  items,
+  t,
+}: {
+  items: Array<Record<string, unknown>>;
+  t: (key: string) => string;
+}) {
+  const [tier, setTier] = useState<TimelineTier>(1);
+  const tiers: { tier: TimelineTier; label: string; count: number }[] = [
+    { tier: 1, label: "Major", count: 0 },
+    { tier: 2, label: "Medium", count: 0 },
+    { tier: 3, label: "All", count: 0 },
+  ];
+
+  // Sort events by chapter name in natural order
+  const sorted = [...items].sort((a, b) => {
+    const ao = chapterOrder(String(a.chapter ?? ""));
+    const bo = chapterOrder(String(b.chapter ?? ""));
+    if (ao !== bo) return ao - bo;
+    return naturalCompare(String(a.chapter ?? ""), String(b.chapter ?? ""));
+  });
+
+  // Classify each event into its tier
+  const eventTiers = sorted.map((e) => timelineTier(e));
+  for (const et of eventTiers) {
+    for (const tObj of tiers) {
+      if (et <= tObj.tier) tObj.count++;
+    }
+  }
+
+  // Each tier includes all events at that tier AND above (zoom out = see more)
+  const filtered = sorted.filter((_, i) => eventTiers[i] <= tier);
+
+  const renderTable = (rows: Array<Record<string, unknown>>) => (
+    <table className="catalog-table">
+      <thead>
+        <tr>
+          <th>{t("col_chapter")}</th>
+          <th>{t("col_event")}</th>
+          <th>{t("col_characters")}</th>
+          <th>{t("col_time_ref")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((e, i) => (
+          <tr key={i}>
+            <td>{String(e.chapter ?? "")}</td>
+            <td>{String(e.description ?? e.event ?? "")}</td>
+            <td>{(e.characters as string[] | undefined)?.join(", ")}</td>
+            <td>{String(e.timeReference ?? "")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <div className="timeline-zoom">
+      <div className="timeline-zoom-toggles">
+        {tiers.map((tObj) => (
+          <button
+            key={tObj.tier}
+            type="button"
+            className={
+              "timeline-zoom-btn" +
+              (tier === tObj.tier ? " timeline-zoom-btn-active" : "") +
+              (tObj.count === 0 ? " timeline-zoom-btn-empty" : "")
+            }
+            onClick={() => setTier(tObj.tier)}
+            disabled={tObj.count === 0}
+          >
+            {tObj.label}
+            <span className="timeline-zoom-count">{tObj.count}</span>
+          </button>
+        ))}
+      </div>
+      {filtered.length > 0 ? (
+        renderTable(filtered)
+      ) : (
+        <p className="correction-empty">
+          {t("no_structured_data")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** Combined analysis renders each sub-section that exists in the data */
@@ -715,30 +829,14 @@ function CombinedAnalysisView({
   const obj = data as Record<string, unknown>;
   const sections: React.ReactNode[] = [];
 
-  if (obj.characters) {
-    sections.push(
-      <div key="chars">
-        <h4 style={{ margin: "0.6rem 0 0.2rem" }}>
-          {t("mode_character_catalog")}
-        </h4>
-        <StructuredDataView mode="character_catalog" data={obj} t={t} />
-      </div>,
-    );
-  }
-  if (obj.locations) {
-    sections.push(
-      <div key="locs">
-        <h4 style={{ margin: "0.6rem 0 0.2rem" }}>
-          {t("mode_location_catalog")}
-        </h4>
-        <StructuredDataView mode="location_catalog" data={obj} t={t} />
-      </div>,
-    );
-  }
   if (obj.events) {
+    const count = Array.isArray(obj.events) ? obj.events.length : 0;
     sections.push(
       <div key="events">
-        <h4 style={{ margin: "0.6rem 0 0.2rem" }}>{t("mode_timeline")}</h4>
+        <h4 className="analysis-section-header">
+          📅 {t("mode_timeline")}
+          {count > 0 && <span className="section-count">{count}</span>}
+        </h4>
         <StructuredDataView mode="timeline" data={obj} t={t} />
       </div>,
     );
@@ -1015,7 +1113,7 @@ function buildFullManuscript(
   return chapters.join(`\n\n${PAGEBREAK_MARKER}\n\n`);
 }
 
-export default function ReviewExport() {
+export default function ReviewExport({ isOldResults }: { isOldResults?: boolean }) {
   const {
     lang,
     tasks,
@@ -1029,7 +1127,6 @@ export default function ReviewExport() {
     acceptCorrection,
     dismissCorrection,
     toggleOccurrence,
-    document: doc,
   } = useStore();
   const t = useTranslation(lang);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -1042,35 +1139,6 @@ export default function ReviewExport() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Map a raw detected pattern to one of the dropdown sectionBreak values.
-  const mapDetectedSectionBreak = (
-    raw: string | null | undefined,
-  ): DocxExportOptions["sectionBreak"] => {
-    if (!raw) return "asterisks";
-    const t = raw.trim();
-    if (/[-]/.test(t) && !/[*]/.test(t)) return "dash";
-    return "asterisks";
-  };
-
-  const [docxOptions, setDocxOptions] = useState<DocxExportOptions>({
-    sectionBreak: mapDetectedSectionBreak(doc?.detectedSceneBreak),
-    smallBreak: "space",
-    lineSpacing: 1.3,
-  });
-
-  // When the document changes (new upload), re-default the section break
-  // to whatever was detected for that document.
-  useEffect(() => {
-    setDocxOptions((o) => ({
-      ...o,
-      sectionBreak: mapDetectedSectionBreak(doc?.detectedSceneBreak),
-    }));
-  }, [doc?.id, doc?.detectedSceneBreak]);
-  const [showDocxOptions, setShowDocxOptions] = useState(false);
-  const [pendingDocxExport, setPendingDocxExport] = useState<{
-    markdown: string;
-    filename: string;
-  } | null>(null);
   const latestRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1103,32 +1171,6 @@ export default function ReviewExport() {
     [],
   );
 
-  const handleFullDocxExport = useCallback(
-    (markdown: string, filename: string) => {
-      // If the user opted out of break detection on this document, skip the
-      // options dialog entirely and do a plain md↔docx conversion.
-      if (!doc?.detectBreaks) {
-        handleDownloadDocx(markdown, filename, { detectBreaks: false });
-        return;
-      }
-      setPendingDocxExport({ markdown, filename });
-      setShowDocxOptions(true);
-    },
-    [doc?.detectBreaks, handleDownloadDocx],
-  );
-
-  const confirmDocxExport = useCallback(() => {
-    if (pendingDocxExport) {
-      handleDownloadDocx(
-        pendingDocxExport.markdown,
-        pendingDocxExport.filename,
-        docxOptions,
-      );
-    }
-    setShowDocxOptions(false);
-    setPendingDocxExport(null);
-  }, [pendingDocxExport, docxOptions, handleDownloadDocx]);
-
   const handleRetry = useCallback(async (taskId: string) => {
     try {
       await retryTask(taskId);
@@ -1139,6 +1181,20 @@ export default function ReviewExport() {
       );
     }
   }, []);
+
+  const handleSpawnSummary = useCallback(
+    async (jobId: string, type: "summary" | "blurb" = "summary") => {
+      try {
+        await spawnJobSummary(jobId, type);
+      } catch (err) {
+        console.error("Spawn summary failed:", err);
+        alert(
+          `Failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+    [],
+  );
 
   const handleDeleteTask = useCallback(
     async (taskId: string, taskName: string) => {
@@ -1284,105 +1340,7 @@ export default function ReviewExport() {
         </div>
       )}
 
-      {showDocxOptions && (
-        <div className="modal-backdrop">
-          <div className="modal-dialog docx-options-dialog">
-            <h3>DOCX Export Options</h3>
 
-            {doc?.detectedSceneBreak && (
-              <p
-                style={{
-                  fontSize: "0.85rem",
-                  color: "#6b5c44",
-                  marginTop: 0,
-                  marginBottom: "0.75rem",
-                }}
-              >
-                Detected scene-break marker in your manuscript:{" "}
-                <code>{doc.detectedSceneBreak}</code>. Choose how it should
-                appear in the exported document below.
-              </p>
-            )}
-
-            <label className="docx-option-label">
-              Section breaks (scene breaks)
-              <select
-                value={docxOptions.sectionBreak}
-                onChange={(e) =>
-                  setDocxOptions((o) => ({
-                    ...o,
-                    sectionBreak: e.target
-                      .value as DocxExportOptions["sectionBreak"],
-                  }))
-                }
-              >
-                <option value="asterisks">* * * (centered)</option>
-                <option value="dash">— (em-dash, centered)</option>
-                <option value="blank">Blank line</option>
-              </select>
-            </label>
-
-            <label className="docx-option-label">
-              Paragraph spacing
-              <select
-                value={docxOptions.smallBreak}
-                onChange={(e) =>
-                  setDocxOptions((o) => ({
-                    ...o,
-                    smallBreak: e.target
-                      .value as DocxExportOptions["smallBreak"],
-                  }))
-                }
-              >
-                <option value="space">
-                  Full empty line between paragraphs
-                </option>
-                <option value="hash">Centered # marker</option>
-                <option value="none">No extra spacing</option>
-              </select>
-            </label>
-
-            <label className="docx-option-label">
-              Line spacing
-              <select
-                value={String(docxOptions.lineSpacing)}
-                onChange={(e) =>
-                  setDocxOptions((o) => ({
-                    ...o,
-                    lineSpacing: parseFloat(e.target.value),
-                  }))
-                }
-              >
-                <option value="1">1.0 (single)</option>
-                <option value="1.15">1.15</option>
-                <option value="1.3">1.3</option>
-                <option value="1.5">1.5</option>
-                <option value="2">2.0 (double)</option>
-              </select>
-            </label>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={confirmDocxExport}
-              >
-                Export DOCX
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setShowDocxOptions(false);
-                  setPendingDocxExport(null);
-                }}
-              >
-                {t("btn_cancel")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {jobEntries.length === 0 && (
         <p className="review-empty-state">{t("review_empty")}</p>
@@ -1406,7 +1364,10 @@ export default function ReviewExport() {
           // We count any errored task with chapter-name (i.e. excluding the
           // job-wide summary) as a chapter that should be re-run.
           const failedTasks = entries.filter(
-            ([, t]) => t.status === "error" && t.mode !== "analysis_summary",
+            ([, t]) =>
+              t.status === "error" &&
+              t.mode !== "analysis_summary" &&
+              t.mode !== "blurb",
           );
           const failedChapters = failedTasks.map(([, t]) => t.name);
           const src = entries[0]?.[1].source ?? "manuscript";
@@ -1430,7 +1391,7 @@ export default function ReviewExport() {
             <details
               key={jid}
               className="review-group"
-              open={isLatest || undefined}
+              open={isOldResults ? undefined : true}
             >
               <summary className="review-source">
                 {t("results_for")} {src}{" "}
@@ -1493,60 +1454,40 @@ export default function ReviewExport() {
                 </div>
               )}
 
-              {/* ── Full manuscript download (edit jobs only) ── */}
+              {/* ── Generate summary / blurb buttons (job level) ── */}
               {(() => {
-                const editTasks = entries.filter(([, task]) =>
-                  EDIT_MODES.includes(task.mode),
+                const hasAnalysisData = entries.some(
+                  ([, t]) =>
+                    ANALYSIS_MODES.includes(t.mode) &&
+                    t.result?.structuredData,
                 );
-                if (editTasks.length === 0) return null;
-                const allDone = editTasks.every(
-                  ([, task]) => task.status === "done",
+                if (!hasAnalysisData) return null;
+
+                const hasSummary = entries.some(
+                  ([, t]) => t.mode === "analysis_summary",
                 );
-                const editTaskIds = editTasks.map(([tid]) => tid);
-                const hasAnyCorrections = editTasks.some(
-                  ([, task]) =>
-                    task.result?.corrections &&
-                    task.result.corrections.length > 0,
+                const hasBlurb = entries.some(
+                  ([, t]) => t.mode === "blurb",
                 );
                 return (
-                  <div className="export-buttons full-manuscript-export">
+                  <div className="generate-buttons-row">
                     <button
-                      className="btn-primary"
-                      disabled={!hasAnyCorrections}
-                      onClick={() => {
-                        acceptAllJob(editTaskIds);
-                        setToast(t("accept_all_job_toast"));
-                      }}
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => void handleSpawnSummary(jid, "summary")}
                     >
-                      {t("accept_all_job")}
+                      {hasSummary
+                        ? t("regenerate_summary")
+                        : t("generate_summary")}
                     </button>
                     <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        downloadFile(md, `${src}.full.md`);
-                      }}
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => void handleSpawnSummary(jid, "blurb")}
                     >
-                      {t("download_full_md")}
-                    </button>
-                    <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        handleFullDocxExport(md, `${src}.full.docx`);
-                      }}
-                    >
-                      {t("download_full_docx")}
+                      {hasBlurb
+                        ? t("regenerate_blurb")
+                        : t("generate_blurb")}
                     </button>
                   </div>
                 );
@@ -1628,7 +1569,7 @@ export default function ReviewExport() {
                           handleDownloadDocx(
                             summaryTask.result!.editedText,
                             `${src}.summary.docx`,
-                            { detectBreaks: doc?.detectBreaks ?? false },
+                            { detectBreaks: false },
                           )
                         }
                       >
@@ -1639,7 +1580,94 @@ export default function ReviewExport() {
                 );
               })()}
 
-              {/* ── Aggregated analysis sections (one per analysis mode) ── */}
+              {/* ── Blurb (marketing synopsis) ── */}
+              {(() => {
+                const blurbTask = entries
+                  .map(([, t]) => t)
+                  .find((t) => t.mode === "blurb");
+                if (!blurbTask) return null;
+
+                if (
+                  blurbTask.status !== "done" ||
+                  !blurbTask.result?.editedText
+                ) {
+                  const pct = Math.round((blurbTask.progress ?? 0) * 100);
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span
+                          className={`task-status-pill qs-${blurbTask.status}`}
+                        >
+                          {t(`status_${blurbTask.status}`)}
+                        </span>{" "}
+                        {t("blurb")}
+                      </summary>
+                      <div className="task-placeholder">
+                        {blurbTask.status === "editing" && (
+                          <>
+                            <div className="q-bar">
+                              <div
+                                className={`q-fill qs-${blurbTask.status}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="small-note">
+                              {pct}%
+                              {blurbTask.phase
+                                ? ` — ${blurbTask.phase}`
+                                : ""}
+                            </p>
+                          </>
+                        )}
+                        {blurbTask.status === "error" && (
+                          <p className="error-item">
+                            ⚠️{" "}
+                            {blurbTask.result?.errors?.join("; ") ??
+                              t("status_error")}
+                          </p>
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("blurb")}</strong>
+                    </summary>
+                    <MarkdownView text={blurbTask.result.editedText} />
+                    <div className="export-buttons">
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          downloadFile(
+                            blurbTask.result!.editedText,
+                            `${src}.blurb.md`,
+                            "text/markdown",
+                          )
+                        }
+                      >
+                        Download Markdown
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          handleDownloadDocx(
+                            blurbTask.result!.editedText,
+                            `${src}.blurb.docx`,
+                            { detectBreaks: false },
+                          )
+                        }
+                      >
+                        Download DOCX
+                      </button>
+                    </div>
+                  </details>
+                );
+              })()}
+
+              {/* ── Aggregated analysis sections (one top-level card per mode) ── */}
               {(() => {
                 const analysisByMode = new Map<string, TaskState[]>();
                 for (const [, task] of entries) {
@@ -1653,53 +1681,76 @@ export default function ReviewExport() {
                   }
                 }
                 if (analysisByMode.size === 0) return null;
-                const hasSummary = entries.some(
-                  ([, t]) => t.mode === "analysis_summary",
-                );
-                return (
-                  <details className="review-task" open={!hasSummary}>
-                    <summary className="review-task-summary">
-                      {t("detailed_analysis_data")}
-                    </summary>
-                    {Array.from(analysisByMode.entries()).map(
-                      ([mode, modeTasks]) => {
-                        const merged = aggregateAnalysisTasks(modeTasks);
-                        const modeLabel = t(`mode_${mode}`);
-                        return (
-                          <details key={`agg-${mode}`} className="review-task">
+
+                return Array.from(analysisByMode.entries()).flatMap(
+                  ([mode, modeTasks]) => {
+                    const merged = aggregateAnalysisTasks(modeTasks);
+
+                    if (mode === "combined_analysis") {
+                      // Split combined_analysis into separate character / location / timeline cards
+                      const obj = merged as Record<string, unknown>;
+                      const subCards: React.ReactNode[] = [];
+
+                      const subModes: {
+                        key: string;
+                        mode: string;
+                        icon: string;
+                        label: string;
+                      }[] = [
+                        {
+                          key: "characters",
+                          mode: "character_catalog",
+                          icon: "👤",
+                          label: t("mode_character_catalog"),
+                        },
+                        {
+                          key: "locations",
+                          mode: "location_catalog",
+                          icon: "📍",
+                          label: t("mode_location_catalog"),
+                        },
+                        {
+                          key: "events",
+                          mode: "timeline",
+                          icon: "📅",
+                          label: t("mode_timeline"),
+                        },
+                      ];
+
+                      for (const sm of subModes) {
+                        const items = obj[sm.key];
+                        if (!Array.isArray(items) || items.length === 0) continue;
+                        subCards.push(
+                          <details
+                            key={`agg-${mode}-${sm.key}`}
+                            className="review-task review-summary-card"
+                            open
+                          >
                             <summary className="review-task-summary">
-                              {modeLabel} — {t("aggregated_summary")} (
-                              {modeTasks.length}{" "}
-                              {modeTasks.length === 1 ? "chapter" : "chapters"})
+                              <strong>
+                                {sm.icon} {sm.label}
+                              </strong>{" "}
+                              <span className="review-source-meta">
+                                {t("aggregated_summary")} (
+                                {modeTasks.length}{" "}
+                                {modeTasks.length === 1
+                                  ? "chapter"
+                                  : "chapters"}
+                                )
+                              </span>
                             </summary>
-                            {mode === "combined_analysis" ? (
-                              <CombinedAnalysisView data={merged} t={t} />
-                            ) : mode === "character_catalog" ? (
-                              <StructuredDataView
-                                mode="character_catalog"
-                                data={merged}
-                                t={t}
-                              />
-                            ) : mode === "location_catalog" ? (
-                              <StructuredDataView
-                                mode="location_catalog"
-                                data={merged}
-                                t={t}
-                              />
-                            ) : (
-                              <StructuredDataView
-                                mode="timeline"
-                                data={merged}
-                                t={t}
-                              />
-                            )}
+                            <StructuredDataView
+                              mode={sm.mode}
+                              data={{ [sm.key]: items }}
+                              t={t}
+                            />
                             <div className="export-buttons">
                               <button
                                 className="btn-secondary"
                                 onClick={() =>
                                   downloadFile(
-                                    JSON.stringify(merged, null, 2),
-                                    `${src}.${mode}.merged.json`,
+                                    JSON.stringify({ [sm.key]: items }, null, 2),
+                                    `${src}.${sm.key}.merged.json`,
                                     "application/json",
                                   )
                                 }
@@ -1712,46 +1763,160 @@ export default function ReviewExport() {
                               <summary className="review-task-summary">
                                 {t("per_chapter_breakdown")}
                               </summary>
-                              {modeTasks.map((task) => (
-                                <details
-                                  key={`agg-${mode}-${task.id}`}
-                                  className="review-task"
-                                >
-                                  <summary className="review-task-summary">
-                                    {task.name}
-                                  </summary>
-                                  {mode === "combined_analysis" ? (
-                                    <CombinedAnalysisView
-                                      data={task.result!.structuredData}
-                                      t={t}
-                                    />
-                                  ) : (
+                              {modeTasks.map((task) => {
+                                const td = task.result
+                                  ?.structuredData as
+                                  | Record<string, unknown>
+                                  | undefined;
+                                const subItems = td?.[sm.key];
+                                if (
+                                  !Array.isArray(subItems) ||
+                                  subItems.length === 0
+                                )
+                                  return (
+                                    <p key={task.id} className="small-note">
+                                      {task.name}: {t("no_structured_data")}
+                                    </p>
+                                  );
+                                return (
+                                  <details
+                                    key={`agg-${mode}-${sm.key}-${task.id}`}
+                                    className="review-task"
+                                  >
+                                    <summary className="review-task-summary">
+                                      {task.name}
+                                    </summary>
                                     <StructuredDataView
-                                      mode={mode}
-                                      data={task.result!.structuredData}
+                                      mode={sm.mode}
+                                      data={{ [sm.key]: subItems }}
                                       t={t}
                                     />
-                                  )}
-                                  {task.result!.errors.length > 0 && (
-                                    <div className="error-list">
-                                      {task.result!.errors.map((e, i) => (
-                                        <p key={i} className="error-item">
-                                          ⚠️ {e}
-                                        </p>
-                                      ))}
-                                    </div>
-                                  )}
-                                </details>
-                              ))}
+                                    {(task.result?.errors?.length ?? 0) > 0 && (
+                                      <div className="error-list">
+                                        {task.result!.errors.map((e, i) => (
+                                          <p key={i} className="error-item">
+                                            ⚠️ {e}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </details>
+                                );
+                              })}
                             </details>
-                          </details>
+                          </details>,
                         );
-                      },
-                    )}
-                  </details>
+                      }
+                      return subCards;
+                    }
+
+                    const modeLabel = t(`mode_${mode}`);
+                    return (
+                      <details
+                        key={`agg-${mode}`}
+                        className="review-task review-summary-card"
+                        open
+                      >
+                        <summary className="review-task-summary">
+                          <strong>
+                            {mode === "combined_analysis" && "🔍 "}
+                            {mode === "character_catalog" && "👤 "}
+                            {mode === "location_catalog" && "📍 "}
+                            {mode === "timeline" && "📅 "}
+                            {modeLabel}
+                          </strong>{" "}
+                          <span className="review-source-meta">
+                            {t("aggregated_summary")} (
+                            {modeTasks.length}{" "}
+                            {modeTasks.length === 1 ? "chapter" : "chapters"})
+                          </span>
+                        </summary>
+                        {mode === "combined_analysis" ? (
+                          <CombinedAnalysisView data={merged} t={t} />
+                        ) : mode === "character_catalog" ? (
+                          <StructuredDataView
+                            mode="character_catalog"
+                            data={merged}
+                            t={t}
+                          />
+                        ) : mode === "location_catalog" ? (
+                          <StructuredDataView
+                            mode="location_catalog"
+                            data={merged}
+                            t={t}
+                          />
+                        ) : (
+                          <StructuredDataView
+                            mode="timeline"
+                            data={merged}
+                            t={t}
+                          />
+                        )}
+                        <div className="export-buttons">
+                          <button
+                            className="btn-secondary"
+                            onClick={() =>
+                              downloadFile(
+                                JSON.stringify(merged, null, 2),
+                                `${src}.${mode}.merged.json`,
+                                "application/json",
+                              )
+                            }
+                          >
+                            Download merged JSON
+                          </button>
+                        </div>
+
+                        <details className="review-task">
+                          <summary className="review-task-summary">
+                            {t("per_chapter_breakdown")}
+                          </summary>
+                          {modeTasks.map((task) => (
+                            <details
+                              key={`agg-${mode}-${task.id}`}
+                              className="review-task"
+                            >
+                              <summary className="review-task-summary">
+                                {task.name}
+                              </summary>
+                              {mode === "combined_analysis" ? (
+                                <CombinedAnalysisView
+                                  data={task.result!.structuredData}
+                                  t={t}
+                                />
+                              ) : (
+                                <StructuredDataView
+                                  mode={mode}
+                                  data={task.result!.structuredData}
+                                  t={t}
+                                />
+                              )}
+                              {task.result!.errors.length > 0 && (
+                                <div className="error-list">
+                                  {task.result!.errors.map((e, i) => (
+                                    <p key={i} className="error-item">
+                                      ⚠️ {e}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </details>
+                          ))}
+                        </details>
+                      </details>
+                    );
+                  },
                 );
               })()}
 
+              <div
+                className="chapters-scroll"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+                  el.classList.toggle("chapters-scroll-at-bottom", atBottom);
+                }}
+              >
               {entries.map(([tid, task]) => {
                 const result = task.result;
 
@@ -1971,6 +2136,14 @@ export default function ReviewExport() {
                                 </span>
                               </div>
 
+                              <div
+                                className="corrections-scroll"
+                                onScroll={(e) => {
+                                  const el = e.currentTarget;
+                                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+                                  el.classList.toggle("corrections-scroll-at-bottom", atBottom);
+                                }}
+                              >
                               {visible.map((c, i) => {
                                 const totalOcc = findAllOccurrences(
                                   result.originalText,
@@ -2036,6 +2209,7 @@ export default function ReviewExport() {
                             </span>
                           </div>
                         )}
+                              </div>
                             </>
                           );
                         })()}
@@ -2064,7 +2238,7 @@ export default function ReviewExport() {
                           downloadFile(text, `${task.name}.edited.md`);
                         }}
                       >
-                        {t("download_md")}
+                        {t("download_chapter_md")}
                       </button>
                       <button
                         className="btn-secondary"
@@ -2077,11 +2251,11 @@ export default function ReviewExport() {
                                 accepted,
                               );
                           handleDownloadDocx(text, `${task.name}.edited.docx`, {
-                            detectBreaks: doc?.detectBreaks ?? false,
+                            detectBreaks: false,
                           });
                         }}
                       >
-                        {t("download_docx")}
+                        {t("download_chapter_docx")}
                       </button>
                     </div>
                       </>
@@ -2090,38 +2264,81 @@ export default function ReviewExport() {
                   </details>
                 );
               })}
+              </div>
+
+              {/* ── Full manuscript download (edit jobs only) ── */}
+              {(() => {
+                const editTasks = entries.filter(([, task]) =>
+                  EDIT_MODES.includes(task.mode),
+                );
+                if (editTasks.length === 0) return null;
+                const allDone = editTasks.every(
+                  ([, task]) => task.status === "done",
+                );
+                const editTaskIds = editTasks.map(([tid]) => tid);
+                const hasAnyCorrections = editTasks.some(
+                  ([, task]) =>
+                    task.result?.corrections &&
+                    task.result.corrections.length > 0,
+                );
+                return (
+                  <div className="export-buttons full-manuscript-export">
+                    <button
+                      className="btn-primary"
+                      disabled={!hasAnyCorrections}
+                      onClick={() => {
+                        acceptAllJob(editTaskIds);
+                        setToast(t("accept_all_job_toast"));
+                      }}
+                    >
+                      {t("accept_all_job")}
+                    </button>
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        downloadFile(md, `${src}.full.md`);
+                      }}
+                    >
+                      {t("download_full_md")}
+                    </button>
+                    <button
+                      className="btn-primary"
+                      disabled={!allDone}
+                      title={allDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() => {
+                        const md = buildFullManuscript(
+                          entries,
+                          acceptedCorrections,
+                        );
+                        handleDownloadDocx(md, `${src}.full.docx`, { detectBreaks: false });
+                      }}
+                    >
+                      {t("download_full_docx")}
+                    </button>
+                  </div>
+                );
+              })()}
             </details>
           );
           return jobNode;
         });
 
-        const latest = rendered[0];
-        const older = rendered.slice(1);
-        const olderJobIds = jobEntries.slice(1).map(([jid]) => jid);
+        const displayJobs = isOldResults ? rendered : rendered.slice(0, 1);
+
         return (
           <>
-            <div ref={latestRef}>{latest}</div>
-            {older.length > 0 && (
-              <details className="review-old-group">
-                <summary className="review-old-summary">
-                  Old stuff ({older.length})
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm review-old-delete-all"
-                    title={t("delete_all_older_tip")}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      void handleDeleteOlder(olderJobIds);
-                    }}
-                  >
-                    {t("delete_all_older")}
-                  </button>
-                </summary>
-                {older}
-              </details>
-            )}
-            {jobEntries.length > 0 && (
+            {displayJobs.map((jobNode, i) => (
+              <div key={i} ref={i === 0 ? latestRef : undefined}>
+                {jobNode}
+              </div>
+            ))}
+            {isOldResults && jobEntries.length > 0 && (
               <div className="review-clear-row">
                 <button
                   type="button"

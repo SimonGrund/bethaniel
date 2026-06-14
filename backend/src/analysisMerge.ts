@@ -59,8 +59,10 @@ export function mergeCharacters(parts: CharLike[][]): CharLike[] {
     if (!Array.isArray(list)) continue;
     for (const c of list) {
       if (!c || typeof c.name !== "string") continue;
+      // Expand aliases with family-term normalisation
+      const expandedAliases = expandFamilyAliases(c.aliases ?? []);
       // Match on name OR any alias to consolidate cross-chunk references
-      const candidateKeys = [c.name, ...(c.aliases ?? [])]
+      const candidateKeys = [c.name, ...expandedAliases]
         .filter(Boolean)
         .map(norm);
       let existingKey: string | undefined;
@@ -73,7 +75,7 @@ export function mergeCharacters(parts: CharLike[][]): CharLike[] {
       if (!existingKey) {
         const merged: CharLike = {
           name: c.name,
-          aliases: uniq(c.aliases ?? []),
+          aliases: uniq(expandedAliases),
           chapters: uniq(c.chapters ?? []),
           physicalDescription: c.physicalDescription,
           personalityTraits: uniq(c.personalityTraits ?? []),
@@ -84,7 +86,7 @@ export function mergeCharacters(parts: CharLike[][]): CharLike[] {
         const existing = byKey.get(existingKey)!;
         existing.aliases = uniq([
           ...(existing.aliases ?? []),
-          ...(c.aliases ?? []),
+          ...expandedAliases,
           c.name,
         ]).filter((a) => norm(a) !== norm(existing.name));
         existing.chapters = uniq([
@@ -109,16 +111,225 @@ export function mergeCharacters(parts: CharLike[][]): CharLike[] {
   }
   // Deduplicate the values (same record indexed under multiple keys)
   const seen = new Set<CharLike>();
-  const result: CharLike[] = [];
+  let result: CharLike[] = [];
   for (const v of byKey.values()) {
     if (!seen.has(v)) {
       seen.add(v);
       result.push(v);
     }
   }
+
+  // ── Heuristic merge passes (zero-cost, no LLM) ──
+  result = mergeBySubNameContainment(result);
+  result = mergeByAliasOverlap(result);
+  result = mergeByChapterMatch(result);
+  result = mergeByFamilyReferences(result);
+
   // Sort by chapter count descending (proxy for importance)
   result.sort((a, b) => (b.chapters?.length ?? 0) - (a.chapters?.length ?? 0));
   return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Heuristic merge helpers
+// ═══════════════════════════════════════════════════════════════════
+
+const FAMILY_TERMS: Record<string, string> = {
+  mom: "mother", mum: "mother", mama: "mother", mother: "mother",
+  dad: "father", pop: "father", papa: "father", father: "father",
+  bro: "brother", brother: "brother",
+  sis: "sister", sister: "sister",
+};
+
+function expandFamilyAliases(aliases: string[]): string[] {
+  const out = [...aliases];
+  for (const a of aliases) {
+    // Normalise family terms: "mom" → add "mother" as alias
+    const words = a.toLowerCase().split(/\s+/);
+    for (const w of words) {
+      const fam = FAMILY_TERMS[w];
+      if (fam && fam !== w) out.push(fam);
+    }
+    // Strip possessives: "Aaron's mom" → add "mom" / "mother" as standalone
+    const stripped = a.replace(/^[a-z]+'s\s+/i, "").trim();
+    if (stripped && norm(stripped) !== norm(a)) {
+      out.push(stripped);
+      // Also try normalised versions of the stripped term
+      const sWords = stripped.toLowerCase().split(/\s+/);
+      for (const sw of sWords) {
+        const fam = FAMILY_TERMS[sw];
+        if (fam && fam !== sw) out.push(fam);
+      }
+    }
+  }
+  return uniq(out);
+}
+
+/** Merge entries where one name is fully contained in another. */
+function mergeBySubNameContainment(chars: CharLike[]): CharLike[] {
+  const merged = new Set<number>();
+  const out: CharLike[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (merged.has(i)) continue;
+    let current: CharLike = { ...chars[i], aliases: [...(chars[i].aliases ?? [])] };
+    for (let j = i + 1; j < chars.length; j++) {
+      if (merged.has(j)) continue;
+      const ni = norm(current.name);
+      const nj = norm(chars[j].name);
+      if (
+        ni.length > 0 && nj.length > 0 &&
+        (ni.includes(nj) || nj.includes(ni))
+      ) {
+        current = mergeTwo(current, chars[j]);
+        merged.add(j);
+      }
+    }
+    out.push(current);
+  }
+  return out;
+}
+
+/** Merge entries that share ≥1 normalised alias. */
+function mergeByAliasOverlap(chars: CharLike[]): CharLike[] {
+  const merged = new Set<number>();
+  const out: CharLike[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (merged.has(i)) continue;
+    let current: CharLike = { ...chars[i], aliases: [...(chars[i].aliases ?? [])] };
+    const aliasesI = new Set((current.aliases ?? []).map(norm));
+    for (let j = i + 1; j < chars.length; j++) {
+      if (merged.has(j)) continue;
+      const aliasesJ = new Set((chars[j].aliases ?? []).map(norm));
+      const overlap = [...aliasesI].some((a) => aliasesJ.has(a));
+      if (overlap) {
+        current = mergeTwo(current, chars[j]);
+        for (const a of chars[j].aliases ?? []) aliasesI.add(norm(a));
+        merged.add(j);
+      }
+    }
+    out.push(current);
+  }
+  return out;
+}
+
+/** Merge entries that appear in exactly the same chapters. */
+function mergeByChapterMatch(chars: CharLike[]): CharLike[] {
+  const merged = new Set<number>();
+  const out: CharLike[] = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (merged.has(i)) continue;
+    let current: CharLike = { ...chars[i], aliases: [...(chars[i].aliases ?? [])] };
+    const chI = new Set((chars[i].chapters ?? []).map(norm));
+    const isPlaceholder =
+      !chars[i].physicalDescription ||
+      /^(not described|unspecified|unknown|n\/a)$/i.test(chars[i].physicalDescription?.trim() ?? "");
+    // Only merge by chapter match if both entries have placeholder descriptions
+    // (strong signal they're the same person labelled differently)
+    if (chI.size === 0) { out.push(current); continue; }
+    for (let j = i + 1; j < chars.length; j++) {
+      if (merged.has(j)) continue;
+      const chJ = new Set((chars[j].chapters ?? []).map(norm));
+      const isPlaceholderJ =
+        !chars[j].physicalDescription ||
+        /^(not described|unspecified|unknown|n\/a)$/i.test(chars[j].physicalDescription?.trim() ?? "");
+      if (
+        isPlaceholder && isPlaceholderJ &&
+        chI.size > 0 && chI.size === chJ.size &&
+        [...chI].every((c) => chJ.has(c))
+      ) {
+        current = mergeTwo(current, chars[j]);
+        merged.add(j);
+      }
+    }
+    out.push(current);
+  }
+  return out;
+}
+
+/**
+ * Resolve family-reference entries like "Bria's mom" by finding the parent
+ * character who matches the family role.
+ */
+function mergeByFamilyReferences(chars: CharLike[]): CharLike[] {
+  // First pass: index characters by canonical name
+  const byName = new Map<string, number>();
+  for (let i = 0; i < chars.length; i++) {
+    byName.set(norm(chars[i].name), i);
+    for (const a of chars[i].aliases ?? []) {
+      if (!byName.has(norm(a))) byName.set(norm(a), i);
+    }
+  }
+
+  const merged = new Set<number>();
+  const out: CharLike[] = [];
+
+  const extractPossessor = (s: string): string | null => {
+    const m = s.match(/^([a-z]+)'s\s+/i);
+    return m ? norm(m[1]) : null;
+  };
+
+  for (let i = 0; i < chars.length; i++) {
+    if (merged.has(i)) continue;
+    let current: CharLike = { ...chars[i], aliases: [...(chars[i].aliases ?? [])] };
+
+    // Check if this is a family-reference entry
+    const possessor = extractPossessor(current.name);
+    if (possessor && byName.has(possessor)) {
+      // Try to find a character whose aliases include a shared family term
+      const refFamilyTerms = new Set<string>();
+      for (const a of current.aliases ?? []) {
+        const stripped = a.replace(/^[a-z]+'s\s+/i, "").trim().toLowerCase();
+        if (FAMILY_TERMS[stripped]) refFamilyTerms.add(FAMILY_TERMS[stripped]);
+        for (const w of stripped.split(/\s+/)) {
+          if (FAMILY_TERMS[w]) refFamilyTerms.add(FAMILY_TERMS[w]);
+        }
+      }
+
+      for (let j = 0; j < chars.length; j++) {
+        if (j === i || merged.has(j)) continue;
+        const otherFamilyTerms = new Set<string>();
+        for (const a of chars[j].aliases ?? []) {
+          const stripped = a.replace(/^[a-z]+'s\s+/i, "").trim().toLowerCase();
+          if (FAMILY_TERMS[stripped]) otherFamilyTerms.add(FAMILY_TERMS[stripped]);
+          for (const w of stripped.split(/\s+/)) {
+            if (FAMILY_TERMS[w]) otherFamilyTerms.add(FAMILY_TERMS[w]);
+          }
+        }
+        // Also check the name itself for family terms
+        for (const w of norm(chars[j].name).split(/\s+/)) {
+          if (FAMILY_TERMS[w]) otherFamilyTerms.add(FAMILY_TERMS[w]);
+        }
+        if (norm(chars[j].name) === possessor) otherFamilyTerms.add("self");
+
+        const sharesTerm =
+          [...refFamilyTerms].some((t) => otherFamilyTerms.has(t));
+        if (sharesTerm) {
+          current = mergeTwo(current, chars[j]);
+          merged.add(j);
+        }
+      }
+    }
+    out.push(current);
+  }
+  return out;
+}
+
+function mergeTwo(a: CharLike, b: CharLike): CharLike {
+  return {
+    name: a.name.length >= b.name.length ? a.name : b.name,
+    aliases: uniq([
+      ...(a.aliases ?? []),
+      ...(b.aliases ?? []),
+      a.name !== b.name ? b.name : "",
+    ].filter(Boolean)),
+    chapters: uniq([...(a.chapters ?? []), ...(b.chapters ?? [])]),
+    physicalDescription: pickLonger(a.physicalDescription, b.physicalDescription),
+    personalityTraits: uniq([
+      ...(a.personalityTraits ?? []),
+      ...(b.personalityTraits ?? []),
+    ]),
+    role: pickLonger(a.role, b.role),
+  };
 }
 
 export function mergeLocations(parts: LocLike[][]): LocLike[] {

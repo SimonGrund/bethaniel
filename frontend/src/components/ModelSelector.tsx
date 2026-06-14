@@ -89,7 +89,16 @@ export default function ModelSelector({
     setDualEditor,
     dualCount,
     setDualCount,
+    characterDedup,
+    setCharacterDedup,
     tasks,
+    wizardStep,
+    setWizardStep,
+    highlightedModel,
+    setHighlightedModel,
+    markStepComplete,
+    completedSteps,
+    advanceWizard,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -149,7 +158,7 @@ export default function ModelSelector({
       setStoreApiModel(apiModelName);
       setApiKeyInput("");
       setApiConfigOpen(false);
-      setModel("custom:deepseek-chat");
+      setHighlightedModel("custom:deepseek-chat");
       await refresh();
     } catch (err) {
       setApiError(err instanceof Error ? err.message : t("api_config_error"));
@@ -166,7 +175,7 @@ export default function ModelSelector({
       setStoreApiModel("");
       setApiKeyInput("");
       setApiConfigOpen(false);
-      // Clear model selection if currently on the API model
+      setHighlightedModel("");
       if (model === "custom:deepseek-chat") setModel("");
       await refresh();
     } catch (err) {
@@ -248,14 +257,15 @@ export default function ModelSelector({
 
   // Auto-tune parallel jobs when model changes
   useEffect(() => {
-    if (!model || model.startsWith("custom:")) return;
-    fetchSystemRecommendation(model)
+    const activeModel = wizardStep === "model" ? highlightedModel : model;
+    if (!activeModel || activeModel.startsWith("custom:")) return;
+    fetchSystemRecommendation(activeModel)
       .then((r) => {
         setParallel(r.recommendedParallel);
         setMaxParallel(r.recommendedParallel);
       })
       .catch(() => {});
-  }, [model]);
+  }, [highlightedModel, model, wizardStep]);
 
   // Pre-warm the selected model so the first task doesn't pay the cold-load
   // cost (mmap + KV alloc + Metal offload). Fire-and-forget — the backend
@@ -266,15 +276,16 @@ export default function ModelSelector({
   const bootTimeRef = useRef<number>(Date.now());
   const clearLogsLocal = useStore((s) => s.clearLogs);
   useEffect(() => {
-    if (!model) return;
+    const activeModel = wizardStep === "model" ? highlightedModel : model;
+    if (!activeModel) return;
     const prev = prevModelRef.current;
-    prevModelRef.current = model;
+    prevModelRef.current = activeModel;
     // Skip warm-up + log-flush for cloud/Ollama/API models — only local GGUFs
     // need the cold-load mitigation.
-    if (model.startsWith("ollama:") || model.startsWith("custom:")) return;
+    if (activeModel.startsWith("ollama:") || activeModel.startsWith("custom:")) return;
     // Only flush on a real switch, not on the initial auto-select after boot,
     // so users keep useful startup diagnostics.
-    if (prev && prev !== model) {
+    if (prev && prev !== activeModel) {
       clearLogsLocal();
       fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
     }
@@ -285,11 +296,11 @@ export default function ModelSelector({
       fetch(`${BASE}/api/models/preload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model }),
+        body: JSON.stringify({ model: activeModel }),
       }).catch(() => {});
     }, delay);
     return () => clearTimeout(timer);
-  }, [model, clearLogsLocal]);
+  }, [highlightedModel, model, wizardStep, clearLogsLocal]);
 
   // Auto-tune words-per-chunk when model tier changes.
   // Big models are slow per token and have stricter context budgets, so we
@@ -416,7 +427,9 @@ export default function ModelSelector({
           const isDownloading = !isApiModel && downloading.has(entry.id);
           // over-spec: machine lacks RAM but download is still allowed
           const isOverSpec = !isApiModel && !entry.allowed && !isInstalled;
-          const isSelected = model === entry.fileName;
+          const isSelected = wizardStep === "model"
+            ? highlightedModel === entry.fileName
+            : model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
           const isRecommended = entry.tier === recommendedTier;
           // show "Best for your machine" when the machine is low-spec
@@ -447,15 +460,15 @@ export default function ModelSelector({
                   if (isLockedOut) return;
                   if (isApiModel) {
                     if (isInstalled) {
-                      setModel(entry.fileName);
+                      setHighlightedModel(entry.fileName);
                       setApiConfigOpen(false);
                     } else {
-                      setApiConfigOpen(!apiConfigOpen);
+                      setHighlightedModel(entry.fileName);
                     }
                     return;
                   }
                   if (isInstalled) {
-                    setModel(entry.fileName);
+                    setHighlightedModel(entry.fileName);
                   } else if (!isDownloading) {
                     setConfirmEntry(entry);
                   }
@@ -554,81 +567,6 @@ export default function ModelSelector({
                   ✕
                 </button>
               )}
-
-              {/* ── External Betty: inline API config ── */}
-              {isApiModel && !isInstalled && !isLockedOut && apiConfigOpen && (
-                <div className="api-config-inline">
-                  <div className="api-config-row">
-                    <label>{t("api_key_label")}</label>
-                      <input
-                        type={showApiKey ? "text" : "password"}
-                        value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder={t("api_key_placeholder")}
-                      />
-                      <button
-                        type="button"
-                        className="btn-show-key"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                      >
-                        {showApiKey ? t("api_hide_key") : t("api_show_key")}
-                      </button>
-                  </div>
-                  <div className="api-config-row">
-                    <label>{t("api_model_label")}</label>
-                    <select
-                      className="api-config-select"
-                      value={apiModelName}
-                      onChange={(e) => setApiModelName(e.target.value)}
-                    >
-                      <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
-                      <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
-                    </select>
-                  </div>
-                  <div className="api-privacy-warning">
-                    {t("api_privacy_warning")}
-                  </div>
-                  {apiError && <div className="api-error">{apiError}</div>}
-                  <div className="api-config-actions">
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={handleSaveApiConfig}
-                      disabled={apiSaving || !apiKeyInput.trim()}
-                    >
-                      {apiSaving ? t("api_config_saving") : t("api_connect")}
-                    </button>
-                    {apiKeyConfigured && (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={handleDisconnectApi}
-                      >
-                        {t("api_disconnect")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-              {isApiModel && isInstalled && isSelected && !isLockedOut && (
-                <div className="api-config-inline">
-                  <div className="api-config-row">
-                    <label>{t("api_model_label")}: {apiModelName}</label>
-                  </div>
-                  <div className="api-privacy-warning">
-                    {t("api_privacy_warning")}
-                  </div>
-                  <div className="api-config-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={handleDisconnectApi}
-                    >
-                      {t("api_disconnect")}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
@@ -649,6 +587,264 @@ export default function ModelSelector({
         </button>
         */}
       </div>
+
+      {/* ── Advanced settings (expandable) ── */}
+      {wizardStep === "model" && highlightedModel && (
+        <>
+          <button
+            type="button"
+            className="expander-toggle advanced-toggle"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? "▾" : "▸"} {t("advanced_settings")}
+          </button>
+
+          {showAdvanced && (
+            <div className="advanced-panel">
+              <div className="field">
+                <label>
+                  {t("words_per_chunk")}: {wordsPerChunk}
+                </label>
+                <input
+                  type="range"
+                  min={1000}
+                  max={5000}
+                  step={250}
+                  value={wordsPerChunk}
+                  onChange={(e) => setWordsPerChunk(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="field">
+                <label>
+                  {t("paragraph_overlap")}: {overlapParagraphs}
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={overlapParagraphs}
+                  onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="field">
+                <label>
+                  {t("parallel_jobs")}: {parallel}
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={maxParallel}
+                  step={1}
+                  value={parallel}
+                  onChange={(e) => setParallel(Number(e.target.value))}
+                />
+                <span className="help-text">{t("parallel_help")}</span>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={reviewMode}
+                    onChange={(e) => setReviewMode(e.target.checked)}
+                  />{" "}
+                  {t("review_mode")}
+                </label>
+                <span className="help-text">{t("review_mode_help")}</span>
+              </div>
+
+              {reviewMode && (
+                <div className="field">
+                  <label>
+                    {t("reviewer_threshold")}: {reviewerThreshold}
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={reviewerThreshold}
+                    onChange={(e) => setReviewerThreshold(Number(e.target.value))}
+                  />
+                  <span className="help-text">{t("reviewer_threshold_help")}</span>
+                </div>
+              )}
+              {reviewMode && (
+                <div className="field">
+                  <label>
+                    {t("reviewer_count")}: {reviewerCount}
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={4}
+                    step={1}
+                    value={reviewerCount}
+                    onChange={(e) => setReviewerCount(Number(e.target.value))}
+                  />
+                  <span className="help-text">{t("reviewer_count_help")}</span>
+                </div>
+              )}
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={spellCheck}
+                    onChange={(e) => setSpellCheck(e.target.checked)}
+                  />{" "}
+                  {t("spell_check")}
+                </label>
+                <span className="help-text">{t("spell_check_help")}</span>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={dualEditor}
+                    onChange={(e) => setDualEditor(e.target.checked)}
+                  />{" "}
+                  {t("dual_editor")}
+                </label>
+                <span className="help-text">{t("dual_editor_help")}</span>
+              </div>
+
+              {dualEditor && (
+                <div className="field">
+                  <label>
+                    {t("dual_count")}: {dualCount}
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={4}
+                    step={1}
+                    value={dualCount}
+                    onChange={(e) => setDualCount(Number(e.target.value))}
+                  />
+                  <span className="help-text">{t("dual_count_help")}</span>
+                </div>
+              )}
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={characterDedup}
+                    onChange={(e) => setCharacterDedup(e.target.checked)}
+                  />{" "}
+                  {t("character_dedup")}
+                </label>
+                <span className="help-text">{t("character_dedup_help")}</span>
+              </div>
+
+              {highlightedModel && <ModelTuning fileName={highlightedModel} />}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── External Betty: API config panel ── */}
+      {catalog.some((e) => e.fileName.startsWith("custom:")) && (
+        <>
+          {!apiKeyConfigured && !modelLocked && highlightedModel === "custom:deepseek-chat" && (
+            <div className="api-config-inline">
+              <div className="api-config-row">
+                <label>{t("api_key_label")}</label>
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder={t("api_key_placeholder")}
+                />
+                <button
+                  type="button"
+                  className="btn-show-key"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? t("api_hide_key") : t("api_show_key")}
+                </button>
+              </div>
+              <div className="api-config-row">
+                <label>{t("api_model_label")}</label>
+                <select
+                  className="api-config-select"
+                  value={apiModelName}
+                  onChange={(e) => setApiModelName(e.target.value)}
+                >
+                  <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
+                  <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
+                </select>
+              </div>
+              <div className="api-privacy-warning">
+                {t("api_privacy_warning")}
+              </div>
+              {apiError && <div className="api-error">{apiError}</div>}
+              <div className="api-config-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSaveApiConfig}
+                  disabled={apiSaving || !apiKeyInput.trim()}
+                >
+                  {apiSaving ? t("api_config_saving") : t("api_connect")}
+                </button>
+                {apiKeyConfigured && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleDisconnectApi}
+                  >
+                    {t("api_disconnect")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {apiKeyConfigured && !modelLocked && (model?.startsWith("custom:") || highlightedModel === "custom:deepseek-chat") && (
+            <div className="api-config-inline">
+              <div className="api-config-row">
+                <label>{t("api_model_label")}: {apiModelName}</label>
+              </div>
+              <div className="api-privacy-warning">
+                {t("api_privacy_warning")}
+              </div>
+              <div className="api-config-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleDisconnectApi}
+                >
+                  {t("api_disconnect")}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Confirm Model button (wizard step 1) ── */}
+      {wizardStep === "model" && highlightedModel && !modelLocked && (
+        <div className="wizard-confirm">
+          <button
+            type="button"
+            className="btn-primary btn-confirm-step"
+            onClick={() => {
+              setModel(highlightedModel);
+              markStepComplete("model");
+              advanceWizard("model");
+            }}
+          >
+            {t("wizard_confirm_model")}
+          </button>
+        </div>
+      )}
+
+
 
       {confirmEntry && (
         <div className="model-confirm-overlay">
@@ -736,148 +932,6 @@ export default function ModelSelector({
 
       {error && <div className="model-error">{error}</div>}
 
-      <button
-        type="button"
-        className="expander-toggle advanced-toggle"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-      >
-        {showAdvanced ? "▾" : "▸"} {t("advanced_settings")}
-      </button>
-
-      {showAdvanced && (
-        <div className="advanced-panel">
-          <div className="field">
-            <label>
-              {t("words_per_chunk")}: {wordsPerChunk}
-            </label>
-            <input
-              type="range"
-              min={1000}
-              max={5000}
-              step={250}
-              value={wordsPerChunk}
-              onChange={(e) => setWordsPerChunk(Number(e.target.value))}
-            />
-          </div>
-
-          <div className="field">
-            <label>
-              {t("paragraph_overlap")}: {overlapParagraphs}
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={3}
-              step={1}
-              value={overlapParagraphs}
-              onChange={(e) => setOverlapParagraphs(Number(e.target.value))}
-            />
-          </div>
-
-          <div className="field">
-            <label>
-              {t("parallel_jobs")}: {parallel}
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={maxParallel}
-              step={1}
-              value={parallel}
-              onChange={(e) => setParallel(Number(e.target.value))}
-            />
-            <span className="help-text">{t("parallel_help")}</span>
-          </div>
-
-          <div className="field">
-            <label className="option-check">
-              <input
-                type="checkbox"
-                checked={reviewMode}
-                onChange={(e) => setReviewMode(e.target.checked)}
-              />{" "}
-              {t("review_mode")}
-            </label>
-            <span className="help-text">{t("review_mode_help")}</span>
-          </div>
-
-          {reviewMode && (
-            <div className="field">
-              <label>
-                {t("reviewer_threshold")}: {reviewerThreshold}
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={reviewerThreshold}
-                onChange={(e) => setReviewerThreshold(Number(e.target.value))}
-              />
-              <span className="help-text">{t("reviewer_threshold_help")}</span>
-            </div>
-          )}
-          {reviewMode && (
-            <div className="field">
-              <label>
-                {t("reviewer_count")}: {reviewerCount}
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={4}
-                step={1}
-                value={reviewerCount}
-                onChange={(e) => setReviewerCount(Number(e.target.value))}
-              />
-              <span className="help-text">{t("reviewer_count_help")}</span>
-            </div>
-          )}
-
-          <div className="field">
-            <label className="option-check">
-              <input
-                type="checkbox"
-                checked={spellCheck}
-                onChange={(e) => setSpellCheck(e.target.checked)}
-              />{" "}
-              {t("spell_check")}
-            </label>
-            <span className="help-text">{t("spell_check_help")}</span>
-          </div>
-
-          <div className="field">
-            <label className="option-check">
-              <input
-                type="checkbox"
-                checked={dualEditor}
-                onChange={(e) => setDualEditor(e.target.checked)}
-              />{" "}
-              {t("dual_editor")}
-            </label>
-            <span className="help-text">{t("dual_editor_help")}</span>
-          </div>
-
-          {dualEditor && (
-            <div className="field">
-              <label>
-                {t("dual_count")}: {dualCount}
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={4}
-                step={1}
-                value={dualCount}
-                onChange={(e) => setDualCount(Number(e.target.value))}
-              />
-              <span className="help-text">{t("dual_count_help")}</span>
-            </div>
-          )}
-
-          {model && <ModelTuning fileName={model} />}
-        </div>
-      )}
     </div>
   );
 }

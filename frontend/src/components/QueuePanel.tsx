@@ -230,24 +230,29 @@ export default function QueuePanel() {
         (a.submittedAt ?? 0) - (b.submittedAt ?? 0),
     );
 
+  const allEntries = Object.entries(tasks).sort(
+    ([, a], [, b]) =>
+      (a.submittedAt ?? 0) - (b.submittedAt ?? 0),
+  );
+
   const runningEntries = entries.filter(([, s]) => s.status === "editing");
   const queuedEntries = entries.filter(([, s]) => s.status === "queued");
-  const finishedEntries = entries.filter(
+  const finishedEntries = allEntries.filter(
     ([, s]) =>
       s.status === "done" || s.status === "error" || s.status === "cancelled",
   );
 
   const nq = queuedEntries.length;
   const nr = runningEntries.length;
-  const nd = entries.filter(([, s]) => s.status === "done").length;
-  const ne = entries.filter(([, s]) => s.status === "error").length;
-  const nc = entries.filter(([, s]) => s.status === "cancelled").length;
+  const nd = allEntries.filter(([, s]) => s.status === "done").length;
+  const ne = allEntries.filter(([, s]) => s.status === "error").length;
+  const nc = allEntries.filter(([, s]) => s.status === "cancelled").length;
 
   const hasActive = nr > 0 || nq > 0;
 
   return (
-    <details className="collapsible-panel" open={hasActive || undefined}>
-      <summary className="collapsible-header">
+    <div className="collapsible-panel">
+      <div className="collapsible-header">
         <span className="collapsible-title">{t("queue_panel")}</span>
         <span className="collapsible-badge">
           {nr > 0 && <span className="badge badge-active">{nr} running</span>}
@@ -265,10 +270,10 @@ export default function QueuePanel() {
             {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
           </button>
         )}
-      </summary>
+      </div>
 
       <div className="q-panel">
-        {entries.length === 0 ? (
+        {allEntries.length === 0 ? (
           <p
             className="small-note"
             style={{ textAlign: "center", padding: "0.8rem 0" }}
@@ -338,6 +343,6 @@ export default function QueuePanel() {
           </div>
         )}
       </div>
-    </details>
+    </div>
   );
 }

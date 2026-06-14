@@ -1,14 +1,15 @@
-// ── App shell ──
+// ── App shell — wizard-guided flow ──
 
 import { useEffect, useState } from "react";
 import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
+import { getDocument } from "./api";
 import Sidebar from "./components/Sidebar";
+import StepBar from "./components/StepBar";
 import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
-import ScopeSelection from "./components/ScopeSelection";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
@@ -20,7 +21,17 @@ import "./styles/global.css";
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function App() {
-  const { lang, setLang, setTasks, tasks } = useStore();
+  const {
+    lang,
+    setLang,
+    setTasks,
+    tasks,
+    wizardStep,
+    setWizardStep,
+    model,
+    resetAll,
+    completedSteps,
+  } = useStore();
   const setLogs = useStore((s) => s.setLogs);
   const appendLog = useStore((s) => s.appendLog);
   const clearLogsLocal = useStore((s) => s.clearLogs);
@@ -36,13 +47,32 @@ export default function App() {
         setModelReady((data.installed ?? []).length > 0);
       })
       .catch(() => {
-        // If endpoint doesn't exist (dev/Ollama mode), skip the gate
         setModelReady(true);
       });
   }, []);
 
+  // Rehydrate document text on page refresh (metadata is persisted, md is not)
+  useEffect(() => {
+    const { document: docMeta, documentMd, setDocumentMd, setDocument } = useStore.getState();
+    if (docMeta && !documentMd) {
+      getDocument(docMeta.id)
+        .then((full: { md: string }) => {
+          setDocumentMd(full.md);
+          // Refresh metadata in case chapters were re-detected
+          setDocument({ ...docMeta, chapters: full.md ? docMeta.chapters : [] });
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   // Socket.IO connection for real-time queue updates
   useEffect(() => {
+    // Pre-fetch tasks via HTTP so Old Results are available immediately
+    fetch(`${BASE}/api/queue/status`)
+      .then((r) => r.json())
+      .then((data: Record<string, TaskState>) => setTasks(data))
+      .catch(() => {});
+
     const socket = getSocket();
     socket.on("connect", () => {
       console.log("[Socket] connected:", socket.id);
@@ -54,7 +84,6 @@ export default function App() {
       console.error("[Socket] connect_error:", err.message);
     });
     socket.on("queue:update", (data: Record<string, TaskState>) => {
-      console.log("[Socket] queue:update", Object.keys(data).length, "tasks");
       setTasks(data);
     });
     socket.on("log:snapshot", (entries) => {
@@ -117,14 +146,29 @@ export default function App() {
     );
   }
 
+  const isSetupPhase = wizardStep !== "done";
+  const isFolded = wizardStep === "folded";
+  const allSetupStepsDone = completedSteps.includes("model")
+    && completedSteps.includes("edits")
+    && completedSteps.includes("upload")
+    && completedSteps.includes("style");
+  const hasRun = completedSteps.includes("run");
+  const hasActiveTasks = Object.values(tasks).some(
+    (t) => t.status === "queued" || t.status === "editing",
+  );
+  const hasCompletedTasks = Object.values(tasks).some(
+    (t) => t.status === "done" || t.status === "error" || t.status === "cancelled",
+  );
+
   return (
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
+        {/* Header */}
         <div className="title-header">
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
           <BettyWorking />
-          <div className="lang-toggle">
+          <div className="lang-toggle" style={{ marginLeft: "auto" }}>
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value as Lang)}
@@ -137,31 +181,99 @@ export default function App() {
           </div>
         </div>
 
-        <ModelSelector onModelInstalled={() => setModelReady(true)} />
+        {/* Wizard setup phase */}
+        {isSetupPhase && (
+          <div className="wizard-layout">
+            <div className="wizard-header-row">
+              <StepBar />
+              {completedSteps.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-run-reset-mode"
+                  onClick={() => {
+                    resetAll();
+                    fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
+                  }}
+                  title={t("reset_all")}
+                >
+                  {t("reset_all")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-former-runs"
+                onClick={() => setWizardStep("done")}
+              >
+                {t("former_runs")}
+              </button>
+            </div>
 
-        <ModeSelector />
+            <div className={`wizard-content${isFolded ? " wizard-content-collapsed" : ""}`}>
+              <button
+                type="button"
+                className="btn-minimize-step"
+                onClick={() => setWizardStep("folded")}
+                title={t("minimize")}
+              >
+                −
+              </button>
+              {wizardStep === "model" && (
+                <ModelSelector onModelInstalled={() => setModelReady(true)} />
+              )}
 
-        <div className="section-label">
-          <span className="num">III.</span> {t("sec_content")}
-        </div>
+              {wizardStep === "edits" && <ModeSelector />}
 
-        <div className="top-row">
-          <ManuscriptUpload />
-          <StyleGuideEditor />
-        </div>
+              {wizardStep === "upload" && (
+                <div className="top-row">
+                  <ManuscriptUpload />
+                </div>
+              )}
 
-        <ScopeSelection />
-        <EditTrigger />
+              {wizardStep === "style" && (
+                <div className="wizard-style-only">
+                  <StyleGuideEditor />
+                </div>
+              )}
 
-        <div className="section-label">
-          <span className="num">IV.</span> {t("sec_output")}
-        </div>
+              {wizardStep === "run" && <EditTrigger />}
+            </div>
 
-        <div className="bottom-row">
-          <div className="results-col">
-            <ReviewExport />
+            {isFolded && allSetupStepsDone && !hasActiveTasks && !hasCompletedTasks && <EditTrigger />}
+
+            {/* ── Task progress / results (below wizard content) ── */}
+            {(hasActiveTasks || hasCompletedTasks) && (
+              <div className="bottom-row">
+                <div className="results-col">
+                  <ReviewExport />
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Old Results view (explicitly accessed via header button) */}
+        {!isSetupPhase && (
+          <>
+            <div className="results-header-bar">
+              <button
+                type="button"
+                className="btn-back-to-setup"
+                onClick={() => setWizardStep("folded")}
+                title={t("new_run")}
+              >
+                ←
+              </button>
+              <span className="back-to-setup-label">
+                {t("return_to_dashboard")}
+              </span>
+            </div>
+            <div className="bottom-row">
+              <div className="results-col">
+                <ReviewExport isOldResults />
+              </div>
+            </div>
+          </>
+        )}
 
         <footer className="app-footer">
           <img src="/logo-icon.svg" alt="" className="footer-logo" />

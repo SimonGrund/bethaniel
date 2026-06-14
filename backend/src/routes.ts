@@ -33,6 +33,8 @@ import {
   TIMELINE_PROMPT,
   buildCombinedAnalysisPrompt,
   buildCombinedEditPrompt,
+  ANALYSIS_SUMMARY_PROMPT,
+  BLURB_PROMPT,
 } from "./prompts.js";
 import type {
   TaskMode,
@@ -392,6 +394,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       spellCheck,
       dualEditor,
       dualCount,
+      characterDedup,
     } = req.body;
 
     // Resolve once so prompt selection and execution path stay in sync.
@@ -560,6 +563,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           spellCheck: spellCheck ?? true,
           dualEditor: dualEditor ?? true,
           dualCount: dualCount ?? 2,
+          characterDedup: characterDedup ?? false,
           styleGuide,
         });
         taskIds.push(taskId);
@@ -666,6 +670,59 @@ router.post("/queue/retry/:taskId", async (req: Request, res: Response) => {
     });
   }
 });
+
+// ── Manually spawn an analysis summary or blurb for a completed job ──
+router.post(
+  "/queue/job/:jobId/summarize",
+  async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const { type } = req.body as { type?: string };
+      const mode: TaskMode = type === "blurb" ? "blurb" : "analysis_summary";
+      const prompt =
+        mode === "blurb" ? BLURB_PROMPT : ANALYSIS_SUMMARY_PROMPT;
+      const name = mode === "blurb" ? "Blurb" : "Summary";
+
+      // Find any existing summary/blurb task for this job and remove it
+      const snapshot = getTasksSnapshot();
+      for (const [tid, t] of Object.entries(snapshot)) {
+        if (t.jobId === jobId && t.mode === mode) {
+          removeTask(tid);
+        }
+      }
+
+      // Find a sibling analysis task to get the model and source name
+      const siblings = Object.values(snapshot).filter(
+        (t) => t.jobId === jobId && ANALYSIS_MODES.includes(t.mode),
+      );
+      if (siblings.length === 0) {
+        res.status(400).json({ error: "No completed analysis tasks found for this job" });
+        return;
+      }
+      const ref = siblings[0];
+
+      const taskId = await submitTask({
+        jobId,
+        name,
+        source: ref.source,
+        original: "",
+        wordCount: 0,
+        model: ref.model ?? "",
+        mode,
+        prompt,
+        fast: false,
+        wpc: 2500,
+        overlap: 0,
+      });
+      res.json({ taskId });
+    } catch (err) {
+      res.status(500).json({
+        error:
+          err instanceof Error ? err.message : "Failed to spawn summary task",
+      });
+    }
+  },
+);
 
 // ── Get task result ──
 router.get("/results/:taskId", (req: Request, res: Response) => {

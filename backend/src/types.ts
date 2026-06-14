@@ -9,7 +9,8 @@ export type TaskMode =
   | "timeline"
   | "combined_analysis"
   | "combined_edit"
-  | "analysis_summary";
+  | "analysis_summary"
+  | "blurb";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
@@ -154,6 +155,7 @@ export interface TaskRetrySpec {
   spellCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
+  characterDedup?: boolean;
 }
 
 export interface EditUnit {
@@ -179,6 +181,7 @@ export interface QueueAddRequest {
   spellCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
+  characterDedup?: boolean;
 }
 
 // ── Structured output shapes for catalog / analysis modes ──
