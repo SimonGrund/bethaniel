@@ -585,6 +585,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Vertrauen",
     es: "confianza",
   },
+  spell_check: {
+    en: "Spell-check hints",
+    da: "Stavekontrol-hints",
+    de: "Rechtschreibprüfung-Hinweise",
+    es: "Sugerencias de ortografía",
+  },
+  spell_check_help: {
+    en: "Feed Hunspell-flagged suspect words to the editor as hints. Catches typos the LLM randomly misses.",
+    da: "Giv Hunspell-markerede mistænkelige ord til redaktøren som hints. Fanger stavefejl som LLM'en tilfældigt overser.",
+    de: "Hunspell-markierte verdächtige Wörter als Hinweise an den Editor. Erkennt Tippfehler, die das LLM zufällig übersieht.",
+    es: "Pasa palabras sospechosas detectadas por Hunspell al editor como pistas. Detecta errores que el LLM omite aleatoriamente.",
+  },
+  dual_editor: {
+    en: "Dual editor",
+    da: "Dobbelt editor",
+    de: "Doppel-Editor",
+    es: "Editor dual",
+  },
+  dual_editor_help: {
+    en: "Run two editor passes in parallel and union their corrections (maximizes recall). Disable if running single-slot to avoid 2× time.",
+    da: "Kør to editor-gennemløb parallelt og foren deres rettelser (maksimerer recall). Deaktiver ved enkelt-slot for at undgå 2× tid.",
+    de: "Zwei Editor-Durchläufe parallel und vereinigt ihre Korrekturen (maximiert Recall). Bei Single-Slot deaktivieren, um 2× Zeit zu vermeiden.",
+    es: "Ejecuta dos pasadas del editor en paralelo y une sus correcciones (maximiza recall). Desactivar con un solo slot para evitar 2× tiempo.",
+  },
   output_reflects: {
     en: "Output reflects",
     da: "Output afspejler",

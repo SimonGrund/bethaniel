@@ -134,6 +134,8 @@ interface JobData {
   reviewMode?: boolean;
   reviewerThreshold?: number;
   styleGuide?: string;
+  spellCheck?: boolean;
+  dualEditor?: boolean;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -654,6 +656,7 @@ async function processJob(job: JobData): Promise<void> {
 
   const jobStart = performance.now();
   let totalOutTokens = 0;
+  let _dualMergedCorrections: Correction[] | null = null;
 
   updateTask(taskId, {
     status: "editing",
@@ -716,6 +719,7 @@ async function processJob(job: JobData): Promise<void> {
         acc = "";
         tokCount = 0;
         firstTokenAt = 0;
+        _dualMergedCorrections = null;
         const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
         try {
           updateTask(taskId, {
@@ -723,12 +727,87 @@ async function processJob(job: JobData): Promise<void> {
           });
 
           if (useFast) {
-            for await (const tok of findCorrectionsStream(
-              model,
-              chunk.body,
-              prompt,
-              ac.signal,
-            )) {
+            // ── Build prompt for this chunk (may include spell-check hints) ──
+            let chunkPrompt = prompt;
+            if (job.spellCheck) {
+              const { findSuspectWords } = require("./spellcheck.js") as typeof import("./spellcheck.js");
+              const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
+              // Map UI dialect to dictionary: american → en_US, british → en_GB
+              const spellLang = dialect === "british" ? "en_GB" : "en_US";
+              const spellResult = findSuspectWords(chunk.body, spellLang, {
+                maxHints: 75,
+              });
+              if (spellResult.suspectWords.length > 0) {
+                chunkPrompt +=
+                  "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+                  spellResult.suspectWords.join(", ") +
+                  "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+                appendLog({
+                  level: "info",
+                  source: "engine",
+                  taskId,
+                  message: `Spell-check found ${spellResult.suspectWords.length} suspect words in chunk ${chunkLabel}`,
+                  model,
+                });
+              }
+            }
+
+            // ── Run editor(s) — single or dual ──
+            const useDualEditor = job.dualEditor === true;
+            if (useDualEditor) {
+              updateTask(taskId, { phase: `${phasePrefix}dual-editing chunk ${chunkLabel}` });
+
+              // Collect both editor streams in parallel.
+              const collectStream = async () => {
+                let a = "";
+                for await (const t of findCorrectionsStream(model, chunk.body, chunkPrompt, ac.signal)) a += t;
+                return a;
+              };
+              const [rA, rB] = await Promise.allSettled([collectStream(), collectStream()]);
+
+              if (rA.status === "rejected" && rB.status === "rejected") {
+                throw rA.reason ?? rB.reason;
+              }
+              if (rA.status === "rejected" || rB.status === "rejected") {
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `One dual-editor stream failed for chunk ${chunkLabel}, using the other.`,
+                  model,
+                });
+              }
+
+              // Union-dedupe both correction sets by (original, corrected)
+              const parseAll = (raw: string) => {
+                const parsed = parseCorrectionsJson(raw);
+                const out: Correction[] = [];
+                const seen = new Set<string>();
+                for (const c of parsed) {
+                  const k = JSON.stringify([c.original, c.corrected]);
+                  if (!seen.has(k)) { seen.add(k); out.push(c); }
+                }
+                return out;
+              };
+              const csA = rA.status === "fulfilled" ? parseAll(rA.value) : [];
+              const csB = rB.status === "fulfilled" ? parseAll(rB.value) : [];
+              const merged: Correction[] = [];
+              const seen = new Set<string>();
+              for (const c of [...csA, ...csB]) {
+                const k = JSON.stringify([c.original, c.corrected]);
+                if (!seen.has(k)) { seen.add(k); merged.push(c); }
+              }
+              // Store merged corrections for use after the retry loop.
+              // We use a mutable binding captured by this closure.
+              acc = "";
+              _dualMergedCorrections = merged;
+            } else {
+              for await (const tok of findCorrectionsStream(
+                model,
+                chunk.body,
+                chunkPrompt,
+                ac.signal,
+              )) {
               acc += tok;
               tokCount++;
               if (tokCount === 1) {
@@ -748,6 +827,7 @@ async function processJob(job: JobData): Promise<void> {
               }
               const intra = creepingProgress(tokCount);
               updateProgress(taskId, (j + intra) / chunks.length);
+            }
             }
           } else {
             for await (const tok of editChunkStream(
@@ -802,7 +882,9 @@ async function processJob(job: JobData): Promise<void> {
 
       if (useFast) {
         updateTask(taskId, { phase: `writing up corrections` });
-        const cs = parseCorrectionsJson(acc);
+        const cs: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
+        const isDual = _dualMergedCorrections !== null;
+        _dualMergedCorrections = null;
 
         // Corrections are emitted as JSONL (one JSON object per line), so
         // truncation only ever drops the final partial line. No retry needed.
@@ -810,6 +892,7 @@ async function processJob(job: JobData): Promise<void> {
         // chunks where a few late corrections may have been lost.
         const trimmedAcc = acc.trim();
         const looksTruncated =
+          !isDual &&
           acc.length > 800 &&
           trimmedAcc.length > 0 &&
           !trimmedAcc.endsWith("}");
@@ -1194,6 +1277,8 @@ export async function submitTask(
       reviewMode: data.reviewMode,
       reviewerThreshold: data.reviewerThreshold,
       styleGuide: data.styleGuide,
+      spellCheck: data.spellCheck,
+      dualEditor: data.dualEditor,
     },
   });
 
@@ -1285,6 +1370,8 @@ export async function retryTask(id: string): Promise<string> {
     reviewMode: spec.reviewMode,
     reviewerThreshold: spec.reviewerThreshold,
     styleGuide: spec.styleGuide,
+    spellCheck: spec.spellCheck,
+    dualEditor: spec.dualEditor,
   });
   return newTaskId;
 }

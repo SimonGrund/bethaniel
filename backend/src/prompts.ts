@@ -139,6 +139,7 @@ export function buildCopyEditRewritePrompt(
 export function buildCopyEditCorrectionsPrompt(
   opts: CopyEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript written in MARKDOWN.\n\n`;
   p += `YOUR JOB: find OBJECTIVE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
@@ -177,6 +178,13 @@ export function buildCopyEditCorrectionsPrompt(
 - Anything subjective ("flow", "clarity", "improvement")
 
 When in doubt, do NOT flag it.`;
+
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
 
   p += CORRECTIONS_JSON_FORMAT;
   if (styleGuide)
@@ -251,6 +259,7 @@ export function buildLineEditRewritePrompt(
 export function buildLineEditCorrectionsPrompt(
   opts: LineEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are a developmental line editor improving the quality of a manuscript written in MARKDOWN. Your goal is to suggest changes that make the prose stronger while PRESERVING the author's unique voice.\n\n`;
   p +=
@@ -264,6 +273,12 @@ export function buildLineEditCorrectionsPrompt(
 - Preserve all proper nouns exactly
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
   p += CORRECTIONS_JSON_FORMAT;
   if (styleGuide)
     p +=
@@ -279,6 +294,7 @@ export function buildCombinedEditPrompt(
   copyOpts: CopyEditOptions,
   lineOpts: LineEditOptions,
   styleGuide?: string,
+  suspectWords?: string[],
 ): string {
   let p = `You are an editor performing TWO passes on a manuscript written in MARKDOWN, in a single combined review:\n`;
   p += `  1. COPY EDIT — find OBJECTIVE ERRORS (spelling, punctuation, grammar)\n`;
@@ -321,6 +337,12 @@ export function buildCombinedEditPrompt(
 - For line edits: only flag passages that genuinely benefit from change`;
 
   p += MARKDOWN_PRESERVATION_RULES;
+  if (suspectWords && suspectWords.length > 0) {
+    p +=
+      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
+      suspectWords.join(", ") +
+      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+  }
   p += CORRECTIONS_JSON_FORMAT;
 
   if (styleGuide)

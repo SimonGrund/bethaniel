@@ -75,6 +75,10 @@ export default function ModelSelector({
     setReviewMode,
     reviewerThreshold,
     setReviewerThreshold,
+    spellCheck,
+    setSpellCheck,
+    dualEditor,
+    setDualEditor,
     tasks,
   } = useStore();
   const t = useTranslation(lang);
@@ -645,6 +649,30 @@ export default function ModelSelector({
               <span className="help-text">{t("reviewer_threshold_help")}</span>
             </div>
           )}
+
+          <div className="field">
+            <label className="option-check">
+              <input
+                type="checkbox"
+                checked={spellCheck}
+                onChange={(e) => setSpellCheck(e.target.checked)}
+              />{" "}
+              {t("spell_check")}
+            </label>
+            <span className="help-text">{t("spell_check_help")}</span>
+          </div>
+
+          <div className="field">
+            <label className="option-check">
+              <input
+                type="checkbox"
+                checked={dualEditor}
+                onChange={(e) => setDualEditor(e.target.checked)}
+              />{" "}
+              {t("dual_editor")}
+            </label>
+            <span className="help-text">{t("dual_editor_help")}</span>
+          </div>
 
           {model && <ModelTuning fileName={model} />}
         </div>

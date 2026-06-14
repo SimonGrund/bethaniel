@@ -40,6 +40,22 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     en: "Confidence threshold (1-5). Corrections below this are hidden by default.",
     da: "Tillidstærskel (1-5). Rettelser under dette niveau skjules.",
   },
+  spell_check: {
+    en: "Spell-check hints",
+    da: "Stavekontrol-hints",
+  },
+  spell_check_help: {
+    en: "Feed Hunspell-flagged suspect words to the editor as hints. Catches typos the LLM randomly misses.",
+    da: "Giv Hunspell-markerede mistænkelige ord til redaktøren som hints.",
+  },
+  dual_editor: {
+    en: "Dual editor",
+    da: "Dobbelt editor",
+  },
+  dual_editor_help: {
+    en: "Run two editor passes in parallel and union their corrections. Disable if running single-slot.",
+    da: "Kør to editor-gennemløb parallelt og foren deres rettelser.",
+  },
   parallel_chapters: { en: "Parallel chapters", da: "Parallelle kapitler" },
   parallel_help: {
     en: "Max concurrent editing workers. With large 27B+ models, leave at 1.",

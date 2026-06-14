@@ -22,6 +22,8 @@ export default function EditTrigger() {
     fastMode,
     reviewMode,
     reviewerThreshold,
+    spellCheck,
+    dualEditor,
     wordsPerChunk,
     overlapParagraphs,
     parallel,
@@ -87,6 +89,8 @@ export default function EditTrigger() {
           : undefined,
         reviewMode,
         reviewerThreshold,
+        spellCheck,
+        dualEditor,
       });
       console.log("[EditTrigger] taskIds:", taskIds);
       if (taskIds.warnings.length > 0) {

@@ -365,6 +365,8 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       targetLang,
       reviewMode,
       reviewerThreshold,
+      spellCheck,
+      dualEditor,
     } = req.body;
 
     // Resolve once so prompt selection and execution path stay in sync.
@@ -375,7 +377,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${resolvedFast} review=${reviewMode ?? false}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${resolvedFast} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -529,6 +531,8 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           reviewMode: reviewMode ?? true,
           reviewerThreshold: reviewerThreshold ?? 3,
+          spellCheck: spellCheck ?? true,
+          dualEditor: dualEditor ?? true,
           styleGuide,
         });
         taskIds.push(taskId);
