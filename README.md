@@ -25,6 +25,45 @@ The Electron app bundles `llama-server` for local GGUF model inference.
 └─────────────────────────────────────────┘
 ```
 
+## Editing Modes & Agent Architecture
+
+### Task Modes
+
+| Category   | Modes                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| **Editing**    | Copy edit (spelling, punctuation, grammar) and line edit (style, rhythm, phrasing). Select specific sub-options or run combined. |
+| **Translation** | Full-text translation to any target language. Paragraph-level review catches garbled output and re-translates flagged sections. |
+| **Analysis**   | Character catalog, location catalog, timeline. Auto-generates a prose summary and marketing blurb from the structured data. |
+
+### External API Support
+
+- **External Betty** — Connect to DeepSeek (or any OpenAI-compatible endpoint) via a local API key stored on your machine. No key leaves your device. Select "External Betty" as the model in the wizard to bypass local inference and use cloud-hosted models instead.
+
+### Multi-Agent Orchestration
+
+- **Dual editor agents** — Configurable 2–4 parallel editor passes per chunk of text. Corrections are union-deduplicated across agents, giving broader coverage than a single pass. Failed agents are retried automatically.
+
+- **Reviewer agents** — A skeptical second-reader LLM scores every proposed correction on a 1–5 confidence scale. With multiple reviewer agents, the strictest score wins. Corrections scoring below a configurable threshold are flagged and hidden by default. Reviewers run in parallel with the next chunk's editor to hide latency.
+
+- **Translation review-and-revise** — After translating a chunk, the text is split into paragraphs. Each source→translated paragraph pair is scored by a translation-quality reviewer. Any paragraph flagged as garbled or nonsensical is re-translated with added context about the issue.
+
+### Analysis Features
+
+- **Timeline zoom** — Three-level toggle (Major / Medium / All) filters timeline events by significance based on description length and time references. Major events appear by default; click to expand.
+
+- **Key/minor split** — Characters and locations appearing in ≥2 chapters are shown as "key" by default. Single-chapter entries are collapsed under a "minor" toggle.
+
+- **Prose summary + Blurb** — After analysis completes, a ~400-word Markdown prose summary and a ~150-word marketing blurb are auto-generated from the merged character/location/timeline data. Regeneration buttons are available at the job level.
+
+- **Character identity dedup** — Three-level approach for merging duplicate character entries (e.g. "Aaron's mom" + "Bria's mother" + "Kathrine" recognized as one person):
+  1. Heuristic merge rules (family-term normalization, alias overlap, chapter-list matching)
+  2. Prompt-level dedup instructions baked into the analysis system prompt
+  3. Opt-in LLM-powered identity resolution (toggle in Advanced Settings — sends candidate pairs to the model for yes/no verification)
+
+### Wizard-Guided UX
+
+Progressive disclosure across five steps: **Model** → **Modes** → **Upload** → **Style** → **Run**. All settings persist across sessions via local storage. Completed jobs remain accessible for review, correction accept/dismiss, Markdown/DOCX export, and retry.
+
 ## First-Time Install
 
 ```bash
