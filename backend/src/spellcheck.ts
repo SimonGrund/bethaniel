@@ -38,7 +38,7 @@ function langToDictName(lang: string, englishDialect?: string): string | null {
 
 // ── Lazy-loaded, per-language cache ──
 interface SpellDict {
-  check: (word: string) => boolean;
+  correct: (word: string) => boolean;
 }
 
 const cache = new Map<string, SpellDict>();
@@ -170,7 +170,7 @@ export function findSuspectWords(
 
     seen.add(lower);
 
-    if (!dict.check(word)) {
+    if (!dict.correct(word)) {
       suspects.push(word);
       if (suspects.length >= maxHints) break;
     }
