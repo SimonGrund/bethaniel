@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { getSocket } from "../socket";
-import { fetchSystemRecommendation } from "../api";
+import {
+  fetchSystemRecommendation,
+  fetchCustomModelConfig,
+  saveCustomModelConfig,
+  deleteCustomModelConfig,
+} from "../api";
 
 interface CatalogEntry {
   id: string;
@@ -52,6 +57,7 @@ const TIER_COLORS: Record<string, string> = {
   small: "model-tier-green",
   normal: "model-tier-blue",
   big: "model-tier-purple",
+  custom: "model-tier-custom",
 };
 
 export default function ModelSelector({
@@ -75,10 +81,14 @@ export default function ModelSelector({
     setReviewMode,
     reviewerThreshold,
     setReviewerThreshold,
+    reviewerCount,
+    setReviewerCount,
     spellCheck,
     setSpellCheck,
     dualEditor,
     setDualEditor,
+    dualCount,
+    setDualCount,
     tasks,
   } = useStore();
   const t = useTranslation(lang);
@@ -102,19 +112,66 @@ export default function ModelSelector({
   const [confirmDelete, setConfirmDelete] = useState<CatalogEntry | null>(null);
   const [preferredOrder, setPreferredOrder] = useState<string[]>([]);
 
+  // External Betty (API) config
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiModelName, setApiModelName] = useState("deepseek-chat");
+  const [apiSaving, setApiSaving] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiConfigOpen, setApiConfigOpen] = useState(false);
+  const { apiKeyConfigured, setApiKeyConfigured, setApiModel: setStoreApiModel } = useStore();
+
   function refresh() {
     return Promise.all([
       fetch(`${BASE}/api/hardware`).then((r) => r.json()),
       fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
       fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
       fetch(`${BASE}/api/models`).then((r) => r.json()),
-    ]).then(([hw, cat, inst, modelsData]) => {
+      fetchCustomModelConfig().catch(() => ({ configured: false, model: "" }) as const),
+    ]).then(([hw, cat, inst, modelsData, customCfg]) => {
       setHardware(hw);
       setCatalog(cat.catalog ?? []);
       setPreferredOrder(cat.preferredOrder ?? []);
       setInstalled(inst.installed ?? []);
       setModels(modelsData.models ?? []);
+      setApiKeyConfigured(customCfg.configured);
+      setStoreApiModel(customCfg.model ?? "");
+      if (customCfg.model) setApiModelName(customCfg.model);
     });
+  }
+
+  async function handleSaveApiConfig() {
+    setApiError(null);
+    setApiSaving(true);
+    try {
+      await saveCustomModelConfig(apiKeyInput, apiModelName);
+      setApiKeyConfigured(true);
+      setStoreApiModel(apiModelName);
+      setApiKeyInput("");
+      setApiConfigOpen(false);
+      setModel("custom:deepseek-chat");
+      await refresh();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : t("api_config_error"));
+    } finally {
+      setApiSaving(false);
+    }
+  }
+
+  async function handleDisconnectApi() {
+    setApiError(null);
+    try {
+      await deleteCustomModelConfig();
+      setApiKeyConfigured(false);
+      setStoreApiModel("");
+      setApiKeyInput("");
+      setApiConfigOpen(false);
+      // Clear model selection if currently on the API model
+      if (model === "custom:deepseek-chat") setModel("");
+      await refresh();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : t("api_config_error"));
+    }
   }
 
   useEffect(() => {
@@ -182,9 +239,16 @@ export default function ModelSelector({
     }
   }, [models]);
 
+  // Close External Betty config panel when user selects a local model
+  useEffect(() => {
+    if (model && !model.startsWith("custom:")) {
+      setApiConfigOpen(false);
+    }
+  }, [model]);
+
   // Auto-tune parallel jobs when model changes
   useEffect(() => {
-    if (!model) return;
+    if (!model || model.startsWith("custom:")) return;
     fetchSystemRecommendation(model)
       .then((r) => {
         setParallel(r.recommendedParallel);
@@ -205,9 +269,9 @@ export default function ModelSelector({
     if (!model) return;
     const prev = prevModelRef.current;
     prevModelRef.current = model;
-    // Skip warm-up + log-flush for cloud/Ollama models — only local GGUFs
+    // Skip warm-up + log-flush for cloud/Ollama/API models — only local GGUFs
     // need the cold-load mitigation.
-    if (model.startsWith("ollama:")) return;
+    if (model.startsWith("ollama:") || model.startsWith("custom:")) return;
     // Only flush on a real switch, not on the initial auto-select after boot,
     // so users keep useful startup diagnostics.
     if (prev && prev !== model) {
@@ -345,10 +409,13 @@ export default function ModelSelector({
       )}
       <div className="model-selector-cards">
         {catalog.map((entry) => {
-          const isInstalled = installed.some((i) => i.id === entry.id);
-          const isDownloading = downloading.has(entry.id);
+          const isApiModel = entry.fileName.startsWith("custom:");
+          const isInstalled = isApiModel
+            ? apiKeyConfigured
+            : installed.some((i) => i.id === entry.id);
+          const isDownloading = !isApiModel && downloading.has(entry.id);
           // over-spec: machine lacks RAM but download is still allowed
-          const isOverSpec = !entry.allowed && !isInstalled;
+          const isOverSpec = !isApiModel && !entry.allowed && !isInstalled;
           const isSelected = model === entry.fileName;
           const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
           const isRecommended = entry.tier === recommendedTier;
@@ -358,7 +425,7 @@ export default function ModelSelector({
           const minRam = hardware?.appleSilicon
             ? entry.minRamAppleSiliconGb
             : entry.minRamGb;
-          const entryProgress = progressMap.get(entry.id);
+          const entryProgress = !isApiModel ? progressMap.get(entry.id) : undefined;
 
           return (
             <div key={entry.id} className="model-card-wrap">
@@ -378,6 +445,15 @@ export default function ModelSelector({
                 disabled={isLockedOut}
                 onClick={() => {
                   if (isLockedOut) return;
+                  if (isApiModel) {
+                    if (isInstalled) {
+                      setModel(entry.fileName);
+                      setApiConfigOpen(false);
+                    } else {
+                      setApiConfigOpen(!apiConfigOpen);
+                    }
+                    return;
+                  }
                   if (isInstalled) {
                     setModel(entry.fileName);
                   } else if (!isDownloading) {
@@ -393,16 +469,33 @@ export default function ModelSelector({
                   )}
                 </span>
                 <span className="model-card-meta">
-                  {formatBytes(entry.sizeBytes)}
-                  {entry.sizeBytes > 0 ? " · " : ""}
-                  {entry.fitsGpu === null
-                    ? `${t("model_requires")} ${minRam} GB RAM`
-                    : entry.fitsGpu
-                      ? t("model_fits_gpu")
-                      : t("model_cpu_fallback")}
+                  {isApiModel
+                    ? apiKeyConfigured
+                      ? `${t("api_model_label")}: ${apiModelName}`
+                      : t("api_not_configured")
+                    : <>
+                        {formatBytes(entry.sizeBytes)}
+                        {entry.sizeBytes > 0 ? " · " : ""}
+                        {entry.fitsGpu === null
+                          ? `${t("model_requires")} ${minRam} GB RAM`
+                          : entry.fitsGpu
+                            ? t("model_fits_gpu")
+                            : t("model_cpu_fallback")}
+                      </>}
                 </span>
 
-                {isDownloading && entryProgress ? (
+                {isApiModel ? (
+                  isInstalled ? (
+                    <span className="model-card-status">
+                      <span className="model-installed-check">✓</span>
+                      <span className="model-recommended-badge">{t("api_connected")}</span>
+                    </span>
+                  ) : (
+                    <span className="model-card-status">
+                      {t("api_connect")}
+                    </span>
+                  )
+                ) : isDownloading && entryProgress ? (
                   <span className="model-card-progress">
                     <span className="model-progress-bar">
                       <span
@@ -451,7 +544,7 @@ export default function ModelSelector({
                   ✕
                 </button>
               )}
-              {isInstalled && !isDownloading && !isLockedOut && (
+              {isInstalled && !isDownloading && !isLockedOut && !isApiModel && (
                 <button
                   type="button"
                   className="model-card-overlay-btn model-delete-btn"
@@ -460,6 +553,81 @@ export default function ModelSelector({
                 >
                   ✕
                 </button>
+              )}
+
+              {/* ── External Betty: inline API config ── */}
+              {isApiModel && !isInstalled && !isLockedOut && apiConfigOpen && (
+                <div className="api-config-inline">
+                  <div className="api-config-row">
+                    <label>{t("api_key_label")}</label>
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder={t("api_key_placeholder")}
+                      />
+                      <button
+                        type="button"
+                        className="btn-show-key"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                      >
+                        {showApiKey ? t("api_hide_key") : t("api_show_key")}
+                      </button>
+                  </div>
+                  <div className="api-config-row">
+                    <label>{t("api_model_label")}</label>
+                    <select
+                      className="api-config-select"
+                      value={apiModelName}
+                      onChange={(e) => setApiModelName(e.target.value)}
+                    >
+                      <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
+                      <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
+                    </select>
+                  </div>
+                  <div className="api-privacy-warning">
+                    {t("api_privacy_warning")}
+                  </div>
+                  {apiError && <div className="api-error">{apiError}</div>}
+                  <div className="api-config-actions">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={handleSaveApiConfig}
+                      disabled={apiSaving || !apiKeyInput.trim()}
+                    >
+                      {apiSaving ? t("api_config_saving") : t("api_connect")}
+                    </button>
+                    {apiKeyConfigured && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={handleDisconnectApi}
+                      >
+                        {t("api_disconnect")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {isApiModel && isInstalled && isSelected && !isLockedOut && (
+                <div className="api-config-inline">
+                  <div className="api-config-row">
+                    <label>{t("api_model_label")}: {apiModelName}</label>
+                  </div>
+                  <div className="api-privacy-warning">
+                    {t("api_privacy_warning")}
+                  </div>
+                  <div className="api-config-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleDisconnectApi}
+                    >
+                      {t("api_disconnect")}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           );
@@ -649,6 +817,22 @@ export default function ModelSelector({
               <span className="help-text">{t("reviewer_threshold_help")}</span>
             </div>
           )}
+          {reviewMode && (
+            <div className="field">
+              <label>
+                {t("reviewer_count")}: {reviewerCount}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={1}
+                value={reviewerCount}
+                onChange={(e) => setReviewerCount(Number(e.target.value))}
+              />
+              <span className="help-text">{t("reviewer_count_help")}</span>
+            </div>
+          )}
 
           <div className="field">
             <label className="option-check">
@@ -674,6 +858,23 @@ export default function ModelSelector({
             <span className="help-text">{t("dual_editor_help")}</span>
           </div>
 
+          {dualEditor && (
+            <div className="field">
+              <label>
+                {t("dual_count")}: {dualCount}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={1}
+                value={dualCount}
+                onChange={(e) => setDualCount(Number(e.target.value))}
+              />
+              <span className="help-text">{t("dual_count_help")}</span>
+            </div>
+          )}
+
           {model && <ModelTuning fileName={model} />}
         </div>
       )}
@@ -697,6 +898,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
   const t = useTranslation(lang);
   const [cfg, setCfg] = useState<ModelConfig | null>(null);
   const [saved, setSaved] = useState(false);
+  const isCustom = fileName.startsWith("custom:");
 
   useEffect(() => {
     let cancelled = false;
@@ -705,13 +907,13 @@ function ModelTuning({ fileName }: { fileName: string }) {
       .then((data) => {
         if (cancelled) return;
         setCfg({
-          num_ctx: data.num_ctx,
-          num_predict: data.num_predict,
-          temperature: data.temperature,
-          top_p: data.top_p,
-          top_k: data.top_k,
-          repeat_penalty: data.repeat_penalty,
-          no_mmap: !!data.no_mmap,
+          num_ctx: isCustom ? 0 : (data.num_ctx ?? 0),
+          num_predict: data.num_predict ?? 4096,
+          temperature: data.temperature ?? 0.1,
+          top_p: data.top_p ?? 0.8,
+          top_k: data.top_k ?? 20,
+          repeat_penalty: data.repeat_penalty ?? 1.05,
+          no_mmap: isCustom ? false : !!data.no_mmap,
         });
       })
       .catch(() => {});
@@ -795,6 +997,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
       </div>
       <span className="help-text">{t("model_tuning_help")}</span>
 
+      {!isCustom && (
       <div className="field">
         <label>
           {t("context_window")}: {cfg.num_ctx.toLocaleString()}
@@ -809,6 +1012,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
         />
         <span className="help-text">{t("context_window_help")}</span>
       </div>
+      )}
 
       <div className="field">
         <label>
@@ -885,6 +1089,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
         <span className="help-text">{t("repeat_penalty_help")}</span>
       </div>
 
+      {!isCustom && (
       <div className="field model-tuning-checkbox">
         <label>
           <input
@@ -895,6 +1100,7 @@ function ModelTuning({ fileName }: { fileName: string }) {
           {t("disable_mmap")}
         </label>
       </div>
+      )}
 
       <div className="field">
         <button

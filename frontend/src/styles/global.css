@@ -1644,6 +1644,37 @@ h4 {
   color: #c44;
 }
 
+.q-flush-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: #f5f0e6;
+  color: #8b7355;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.q-flush-btn:hover {
+  background: #e8d9b8;
+  border-color: #c4a97a;
+}
+
+.q-flush-confirm {
+  background: #fce4e4;
+  border-color: #c88;
+  color: #933;
+}
+
+.q-flush-confirm:hover {
+  background: #f5c8c8;
+  border-color: #a44;
+}
+
 .q-item-body {
   padding: 0.3rem 0.55rem 0.45rem;
   border-top: 1px solid #e8d9b8;
@@ -2257,6 +2288,12 @@ h4 {
   --tier-glow: rgba(74, 26, 107, 0.3);
 }
 
+.model-tier-custom {
+  --tier-color: #b8860b;
+  --tier-bg: #fdf6e3;
+  --tier-glow: rgba(184, 134, 11, 0.3);
+}
+
 .model-tier-vip {
   --tier-color: #3b7fff;
   --tier-bg: #0c0c18;
@@ -2576,6 +2613,17 @@ h4 {
   }
 }
 
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .model-progress-text {
   font-size: 0.72rem;
   font-weight: 600;
@@ -2788,6 +2836,112 @@ h4 {
 .model-tuning-reset:hover {
   background: #efe9dd;
   border-color: #8a7e6a;
+}
+
+/* ── External Betty API config inline UI ── */
+.api-config-inline {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #fdf6e3;
+  border: 1px solid #d4b04c;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.api-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.api-config-row label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b5a1e;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.api-config-row input[type="password"],
+.api-config-row input[type="text"] {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d4b04c;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: #fffef9;
+  color: #3a2f10;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.api-config-row .btn-show-key {
+  align-self: flex-start;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  border: 1px solid #d4b04c;
+  border-radius: 4px;
+  background: #fffef9;
+  color: #6b5a1e;
+  cursor: pointer;
+}
+
+.api-config-row .btn-show-key:hover {
+  background: #f5e8c0;
+}
+
+.api-config-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.api-config-actions .btn-primary {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+}
+
+.api-config-actions .btn-secondary {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  background: #fffef9;
+  border: 1px solid #d4b04c;
+  color: #6b5a1e;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.api-config-actions .btn-secondary:hover {
+  background: #f5e8c0;
+}
+
+.api-config-select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d4b04c;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: #fffef9;
+  color: #3a2f10;
+  font-family: inherit;
+}
+
+.api-privacy-warning {
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  font-size: 0.7rem;
+  color: #6b5a1e;
+  line-height: 1.4;
+}
+
+.api-error {
+  font-size: 0.7rem;
+  color: #9b2335;
+  margin-top: 0.15rem;
 }
 
 /* ── Sidebar queue ── */

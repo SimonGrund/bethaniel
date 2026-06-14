@@ -502,6 +502,9 @@ export function ensureModelLoaded(
   numCtxOverride?: number,
   desiredSlots?: number,
 ): Promise<void> {
+  // API models — nothing to load locally
+  if (modelFile.startsWith("custom:")) return Promise.resolve();
+
   if (!modelFile || modelFile.trim().length === 0) {
     return Promise.reject(
       new Error("No model specified — please select a model in Settings."),

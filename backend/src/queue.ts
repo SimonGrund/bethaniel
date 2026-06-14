@@ -21,6 +21,7 @@ import {
   unloadModel,
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
+import { extractCorrectionsFromDiff } from "./diff.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
   buildReviewerPrompt,
@@ -32,6 +33,7 @@ import {
   loadTaskStates,
   deleteTaskState,
   deleteTaskStatesIn,
+  deleteAllTaskStates,
 } from "./db.js";
 
 /**
@@ -133,9 +135,11 @@ interface JobData {
   targetLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
+  reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
   dualEditor?: boolean;
+  dualCount?: number;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -699,7 +703,7 @@ async function processJob(job: JobData): Promise<void> {
     editorToks: number;
     editorStart: number;
     editorFirstTokenAt: number;
-    promise: Promise<string>;
+    promise: Promise<string[]>;
   } | null = null;
 
   async function collectPendingReview(): Promise<void> {
@@ -707,21 +711,38 @@ async function processJob(job: JobData): Promise<void> {
     const pr = pendingReview;
     pendingReview = null;
     try {
-      const reviewAcc = await pr.promise;
-      const scores = parseReviewScores(reviewAcc);
+      const reviewOutputs = await pr.promise;
       const threshold = job.reviewerThreshold ?? 3;
+
+      // Merge scores from all reviewer agents:
+      // each correction gets the MINIMUM confidence across reviewers.
+      // If ANY reviewer flags it, it gets flagged.
+      const allScores: Map<number, { confidence: number; reason: string }>[] = [];
+      for (const output of reviewOutputs) {
+        allScores.push(parseReviewScores(output));
+      }
 
       let flaggedCount = 0;
       for (let i = 0; i < pr.cs.length; i++) {
         const c = pr.cs[i];
-        const score = scores.get(i);
-        if (score) {
-          c.confidence = score.confidence;
-          c.reviewReason = score.reason;
+        let minConfidence = 5;
+        let minReason = "";
+        for (const scores of allScores) {
+          const score = scores.get(i);
+          if (score) {
+            if (score.confidence < minConfidence) {
+              minConfidence = score.confidence;
+              minReason = score.reason;
+            }
+          }
         }
-        if (score && score.confidence < threshold) {
+        if (minReason) {
+          c.confidence = minConfidence;
+          c.reviewReason = minReason;
+        }
+        if (minConfidence < threshold) {
           c.flagged = true;
-          c.reviewReason = score.reason;
+          c.reviewReason = minReason;
           flaggedCount++;
         }
       }
@@ -731,8 +752,8 @@ async function processJob(job: JobData): Promise<void> {
         source: "engine",
         taskId,
         message: flaggedCount > 0
-          ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}).`
-          : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel}.`,
+          ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}, ${reviewOutputs.length} agents).`
+          : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel} (${reviewOutputs.length} agents).`,
         model,
       });
 
@@ -893,42 +914,86 @@ async function processJob(job: JobData): Promise<void> {
               }
             }
 
-            // ── Run editor(s) — single or dual ──
-            const useDualEditor = job.dualEditor === true;
-            if (useDualEditor) {
-              updateTask(taskId, { phase: `${phasePrefix}dual-editing chunk ${chunkLabel}` });
+            // ── Run editor(s) — single or multi ──
+            const editorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+            if (editorCount > 1) {
+              updateTask(taskId, { phase: `${phasePrefix}editing chunk ${chunkLabel} (${editorCount} agents)` });
 
-              // Collect both editor streams in parallel.
+              // Collect N editor streams in parallel.
               const collectStream = async (promptText: string) => {
                 let a = "";
                 for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) a += t;
                 return a;
               };
-              const [rA, rB] = await Promise.allSettled([
-                collectStream(prompt),
-                collectStream(prompt),
-              ]);
 
-              if (rA.status === "rejected" && rB.status === "rejected") {
-                throw rA.reason ?? rB.reason;
-              }
-              if (rA.status === "rejected" || rB.status === "rejected") {
-                appendLog({
-                  level: "warn",
-                  source: "engine",
-                  taskId,
-                  message: `One dual-editor stream failed for chunk ${chunkLabel}, using the other.`,
-                  model,
-                });
+              const promises = Array.from({ length: editorCount }, () =>
+                collectStream(prompt),
+              );
+              const results = await Promise.allSettled(promises);
+
+              // Build raw values per agent.
+              let raws: string[] = [];
+              const DUAL_RETRIES = 2;
+
+              for (let idx = 0; idx < editorCount; idx++) {
+                const r = results[idx];
+                if (r.status === "fulfilled") {
+                  raws.push(r.value);
+                } else {
+                  const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+                  appendLog({
+                    level: "warn",
+                    source: "engine",
+                    taskId,
+                    message: `Editor agent ${idx + 1}/${editorCount} failed for chunk ${chunkLabel} (${reason}). Retrying…`,
+                    model,
+                  });
+
+                  let retried = false;
+                  for (let rt = 1; rt <= DUAL_RETRIES; rt++) {
+                    try {
+                      const val = await collectStream(prompt);
+                      raws.push(val);
+                      retried = true;
+                      appendLog({
+                        level: "info",
+                        source: "engine",
+                        taskId,
+                        message: `Editor agent ${idx + 1}/${editorCount} retry ${rt} succeeded for chunk ${chunkLabel}.`,
+                        model,
+                      });
+                      break;
+                    } catch (retryErr) {
+                      const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                      appendLog({
+                        level: "warn",
+                        source: "engine",
+                        taskId,
+                        message: `Editor agent ${idx + 1}/${editorCount} retry ${rt}/${DUAL_RETRIES} failed for chunk ${chunkLabel}: ${retryMsg}`,
+                        model,
+                      });
+                    }
+                  }
+                  if (!retried) {
+                    appendLog({
+                      level: "warn",
+                      source: "engine",
+                      taskId,
+                      message: `Editor agent ${idx + 1}/${editorCount} exhausted retries for chunk ${chunkLabel}.`,
+                      model,
+                    });
+                  }
+                }
               }
 
-              // Track content for the tok-count / timing check below.
-              const rawA = rA.status === "fulfilled" ? rA.value : "";
-              const rawB = rB.status === "fulfilled" ? rB.value : "";
-              acc = rawA || rawB;
+              if (raws.length === 0) {
+                throw new Error(`All ${editorCount} editor agents failed for chunk ${chunkLabel}`);
+              }
+
+              acc = raws.filter(Boolean).join("\n");
               if (acc.length > 0) firstTokenAt = performance.now();
 
-              // Union-dedupe both correction sets by (original, corrected)
+              // Union-dedupe all correction sets by (original, corrected)
               const parseAll = (raw: string) => {
                 const parsed = parseCorrectionsJson(raw);
                 const out: Correction[] = [];
@@ -939,17 +1004,14 @@ async function processJob(job: JobData): Promise<void> {
                 }
                 return out;
               };
-              const csA = rawA ? parseAll(rawA) : [];
-              const csB = rawB ? parseAll(rawB) : [];
+              const allCs = raws.flatMap((r) => parseAll(r));
               const merged: Correction[] = [];
               const seen = new Set<string>();
-              for (const c of [...csA, ...csB]) {
+              for (const c of allCs) {
                 const k = JSON.stringify([c.original, c.corrected]);
                 if (!seen.has(k)) { seen.add(k); merged.push(c); }
               }
               _dualMergedCorrections = merged;
-              // Rough token-count estimate so the zero-token warning does not
-              // fire spuriously and the timing log shows something useful.
               if (firstTokenAt > 0) tokCount = Math.ceil(acc.length / 3);
             } else {
               for await (const tok of findCorrectionsStream(
@@ -1086,18 +1148,31 @@ async function processJob(job: JobData): Promise<void> {
         // reviewer is collected after the loop.
         if (job.reviewMode && cs.length > 0) {
           const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
-          let reviewAcc = "";
+          const rCount = job.reviewerCount ?? 1;
+
           const reviewPromise = (async () => {
-            for await (const tok of reviewCorrectionsStream(
-              model,
-              chunk.body,
-              cs,
-              reviewerPrompt,
-              ac.signal,
-            )) {
-              reviewAcc += tok;
+            const runOne = async () => {
+              let acc = "";
+              for await (const tok of reviewCorrectionsStream(
+                model,
+                chunk.body,
+                cs,
+                reviewerPrompt,
+                ac.signal,
+              )) {
+                acc += tok;
+              }
+              return acc;
+            };
+            const results = await Promise.allSettled(
+              Array.from({ length: rCount }, () => runOne()),
+            );
+            const outputs: string[] = [];
+            for (const r of results) {
+              if (r.status === "fulfilled" && r.value) outputs.push(r.value);
             }
-            return reviewAcc;
+            if (outputs.length === 0) throw new Error(`All ${rCount} reviewer agents failed`);
+            return outputs;
           })();
 
           pendingReview = {
@@ -1152,11 +1227,94 @@ async function processJob(job: JobData): Promise<void> {
         }
       } else {
         const rewritten = restoreTypography(chunk.body, acc.trim());
-        const core = stripOverlapFromResponse(
-          rewritten,
-          chunk.overlapHeadParagraphs,
-        );
-        pieces.push(core);
+        const diffCs = extractCorrectionsFromDiff(chunk.body, rewritten);
+        const cs = [...spellCorrections, ...diffCs];
+
+        if (cs.length > 0) {
+          if (job.reviewMode) {
+            const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+            const rCount = job.reviewerCount ?? 1;
+
+            const reviewPromise = (async () => {
+              const runOne = async () => {
+                let acc = "";
+                for await (const tok of reviewCorrectionsStream(
+                  model,
+                  chunk.body,
+                  cs,
+                  reviewerPrompt,
+                  ac.signal,
+                )) {
+                  acc += tok;
+                }
+                return acc;
+              };
+              const results = await Promise.allSettled(
+                Array.from({ length: rCount }, () => runOne()),
+              );
+              const outputs: string[] = [];
+              for (const r of results) {
+                if (r.status === "fulfilled" && r.value) outputs.push(r.value);
+              }
+              if (outputs.length === 0) throw new Error(`All ${rCount} reviewer agents failed`);
+              return outputs;
+            })();
+
+            pendingReview = {
+              cs: [...cs],
+              chunk,
+              chunkLabel,
+              spellCorrections: [...spellCorrections],
+              editorAcc: acc,
+              editorToks: tokCount,
+              editorStart: chunkStart,
+              editorFirstTokenAt: firstTokenAt,
+              promise: reviewPromise,
+            };
+          } else {
+            const spellToApply = cs.filter((c) => c.reason === "spell-check");
+            const editorToApply = cs.filter((c) => c.reason !== "spell-check");
+
+            const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
+              allowDialogueTags: editOptions?.dialogueTags === true,
+            });
+
+            let spellAppliedBody = newBody;
+            for (const sc of spellToApply) {
+              spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+            }
+
+            const core = stripOverlapFromResponse(
+              spellAppliedBody,
+              chunk.overlapHeadParagraphs,
+            );
+
+            for (const c of applied) {
+              corrections.push({
+                ...c,
+                chunk: `Chunk ${chunkLabel}`,
+                id: uuidv4(),
+              });
+            }
+            for (const c of spellToApply) {
+              corrections.push({
+                ...c,
+                chunk: `Chunk ${chunkLabel}`,
+                id: uuidv4(),
+              });
+            }
+            skipped.push(
+              ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
+            );
+            pieces.push(core);
+          }
+        } else {
+          const core = stripOverlapFromResponse(
+            rewritten,
+            chunk.overlapHeadParagraphs,
+          );
+          pieces.push(core);
+        }
       }
     } catch (err) {
       pieces.push(chunk.core);
@@ -1228,6 +1386,40 @@ async function processJob(job: JobData): Promise<void> {
       message: `Job done: ${(totalMs / 1000).toFixed(1)}s · ${totalOutTokens} tokens · ${overallTps} tok/s`,
       model,
     });
+  }
+
+  // Deduplicate corrections — overlapping chunks and chunk boundaries can
+  // produce the same correction multiple times, sometimes with extra context.
+  {
+    // Pass 1: exact dedup by (original, corrected) with whitespace normalisation.
+    const seen = new Set<string>();
+    const deduped: Correction[] = [];
+    const norm = (s: string) => s.trim().replace(/\s+/g, " ");
+    for (const c of corrections) {
+      const k = JSON.stringify([norm(c.original), norm(c.corrected)]);
+      if (!seen.has(k)) {
+        seen.add(k);
+        deduped.push(c);
+      }
+    }
+
+    // Pass 2: remove corrections whose (original, corrected) pair is fully
+    // contained within a shorter correction — i.e. the shorter one already
+    // captures the same fix with less context, making the longer one redundant.
+    const subsumeFree: Correction[] = [];
+    for (const c of deduped) {
+      const subsumed = deduped.some(
+        (other) =>
+          other !== c &&
+          other.original.length < c.original.length &&
+          c.original.includes(other.original) &&
+          c.corrected.includes(other.corrected),
+      );
+      if (!subsumed) subsumeFree.push(c);
+    }
+
+    corrections.length = 0;
+    corrections.push(...subsumeFree);
   }
 
   const result: TaskResult = {
@@ -1400,9 +1592,11 @@ export async function submitTask(
       targetLang: data.targetLang,
       reviewMode: data.reviewMode,
       reviewerThreshold: data.reviewerThreshold,
+      reviewerCount: data.reviewerCount,
       styleGuide: data.styleGuide,
       spellCheck: data.spellCheck,
       dualEditor: data.dualEditor,
+      dualCount: data.dualCount,
     },
   });
 
@@ -1493,9 +1687,11 @@ export async function retryTask(id: string): Promise<string> {
     targetLang: spec.targetLang,
     reviewMode: spec.reviewMode,
     reviewerThreshold: spec.reviewerThreshold,
+    reviewerCount: spec.reviewerCount,
     styleGuide: spec.styleGuide,
     spellCheck: spec.spellCheck,
     dualEditor: spec.dualEditor,
+    dualCount: spec.dualCount,
   });
   return newTaskId;
 }
@@ -1512,6 +1708,28 @@ export function removeCompleted(): void {
   if (removed.length > 0) {
     try {
       deleteTaskStatesIn(removed);
+    } catch (err) {
+      console.warn("[Queue] failed to delete persisted tasks:", err);
+    }
+  }
+  broadcast();
+}
+
+/**
+ * Flush the entire queue — cancel all active/pending tasks, then
+ * remove every task from the in-memory map and persisted state.
+ * Leaves the queue completely empty.
+ */
+export function flushAll(): void {
+  cancelAll();
+  const allIds = Array.from(tasks.keys());
+  for (const id of allIds) {
+    abortControllers.delete(id);
+  }
+  tasks.clear();
+  if (allIds.length > 0) {
+    try {
+      deleteTaskStatesIn(allIds);
     } catch (err) {
       console.warn("[Queue] failed to delete persisted tasks:", err);
     }

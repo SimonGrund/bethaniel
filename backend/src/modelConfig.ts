@@ -6,6 +6,9 @@
 // `readModelConfig` returns the layered result: catalog defaults + sidecar
 // overrides. `writeModelConfig` persists a full snapshot of the effective
 // settings. `resetModelConfig` deletes the sidecar so defaults take over again.
+//
+// For API models (source "api"), configuration (API key, model name, tuning
+// overrides) is stored in a single api-config.json in DATA_DIR.
 
 import * as fs from "fs";
 import * as path from "path";
@@ -21,6 +24,21 @@ export interface ModelSettings {
   system: string;
   no_mmap: boolean;
 }
+
+/** API model configuration stored in DATA_DIR/api-config.json. */
+export interface ApiConfig {
+  apiKey: string;
+  model: string;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repeat_penalty?: number;
+  num_predict?: number;
+}
+
+const DATA_DIR =
+  process.env.DATA_DIR ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../data");
+const API_CONFIG_PATH = path.join(DATA_DIR, "api-config.json");
 
 /** Fallback used only when a fileName has no catalog entry (shouldn't normally
  *  happen — routes validate against the catalog before calling these). */
@@ -50,6 +68,41 @@ function configPathForModel(modelsDir: string, ggufFileName: string): string {
   return path.join(modelsDir, `${base}.json`);
 }
 
+// ── API config persistence ──
+
+function ensureDataDir(): void {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+}
+
+/** Read API model configuration from disk. Returns null if not configured. */
+export function readApiConfig(): ApiConfig | null {
+  try {
+    const raw = fs.readFileSync(API_CONFIG_PATH, "utf-8");
+    return JSON.parse(raw) as ApiConfig;
+  } catch {
+    return null;
+  }
+}
+
+/** Write API model configuration to disk. */
+export function writeApiConfig(config: ApiConfig): void {
+  ensureDataDir();
+  const existing = readApiConfig();
+  const merged: ApiConfig = { ...existing, ...config };
+  fs.writeFileSync(API_CONFIG_PATH, JSON.stringify(merged, null, 2) + "\n");
+}
+
+/** Check whether any API model is configured. */
+export function hasApiConfig(): boolean {
+  const cfg = readApiConfig();
+  return !!(cfg?.apiKey);
+}
+
+/** Delete the API config file entirely. */
+export function deleteApiConfig(): void {
+  try { fs.unlinkSync(API_CONFIG_PATH); } catch {}
+}
+
 /**
  * Write effective model settings JSON alongside the GGUF file.
  * Stores a full snapshot — `readModelConfig` still layers it over catalog
@@ -60,6 +113,19 @@ export function writeModelConfig(
   ggufFileName: string,
   settings: ModelSettings,
 ): void {
+  const entry = getModelByFileName(ggufFileName);
+  if (entry?.source === "api") {
+    const apiCfg = readApiConfig() || { apiKey: "", model: "deepseek-chat" };
+    writeApiConfig({
+      ...apiCfg,
+      temperature: settings.temperature,
+      top_p: settings.top_p,
+      top_k: settings.top_k,
+      repeat_penalty: settings.repeat_penalty,
+      num_predict: settings.num_predict,
+    });
+    return;
+  }
   const configPath = configPathForModel(modelsDir, ggufFileName);
   fs.writeFileSync(configPath, JSON.stringify(settings, null, 2) + "\n");
   console.log(`[modelConfig] Wrote config: ${configPath}`);
@@ -68,11 +134,28 @@ export function writeModelConfig(
 /**
  * Read model settings: catalog defaults overlaid with any sidecar JSON.
  * Returns catalog defaults when no sidecar exists (no write side-effect).
+ * For API models, reads from api-config.json overlaid on catalog defaults.
  */
 export function readModelConfig(
   modelsDir: string,
   ggufFileName: string,
 ): ModelSettings {
+  const entry = getModelByFileName(ggufFileName);
+  if (entry?.source === "api") {
+    const defaults = entry.defaults;
+    const apiCfg = readApiConfig();
+    return {
+      num_ctx: defaults.num_ctx,
+      num_predict: apiCfg?.num_predict ?? defaults.num_predict,
+      temperature: apiCfg?.temperature ?? defaults.temperature,
+      top_p: apiCfg?.top_p ?? defaults.top_p,
+      top_k: apiCfg?.top_k ?? defaults.top_k,
+      repeat_penalty: apiCfg?.repeat_penalty ?? defaults.repeat_penalty,
+      system: defaults.system,
+      no_mmap: false,
+    };
+  }
+
   const defaults = getDefaultsForFile(ggufFileName);
   const configPath = configPathForModel(modelsDir, ggufFileName);
   try {
@@ -98,6 +181,18 @@ export function resetModelConfig(
   modelsDir: string,
   ggufFileName: string,
 ): ModelSettings {
+  const entry = getModelByFileName(ggufFileName);
+  if (entry?.source === "api") {
+    const apiCfg = readApiConfig();
+    if (apiCfg) {
+      writeApiConfig({
+        apiKey: apiCfg.apiKey,
+        model: apiCfg.model,
+      });
+    }
+    return getDefaultsForFile(ggufFileName);
+  }
+
   const configPath = configPathForModel(modelsDir, ggufFileName);
   try {
     fs.unlinkSync(configPath);

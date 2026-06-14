@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { cancelTask } from "../api";
+import { cancelTask, flushQueue } from "../api";
 import type { TaskState } from "../types";
 
 function formatDuration(ms: number): string {
@@ -187,6 +187,8 @@ export default function QueuePanel() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showQueued, setShowQueued] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [confirmFlush, setConfirmFlush] = useState(false);
+  const [flushing, setFlushing] = useState(false);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -205,11 +207,28 @@ export default function QueuePanel() {
     }
   };
 
-  const entries = Object.entries(tasks).sort(
-    ([, a], [, b]) =>
-      (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
-      (a.submittedAt ?? 0) - (b.submittedAt ?? 0),
-  );
+  const handleFlush = async () => {
+    if (!confirmFlush) {
+      setConfirmFlush(true);
+      return;
+    }
+    setFlushing(true);
+    try {
+      await flushQueue();
+    } catch (err) {
+      console.error("Failed to flush queue:", err);
+    }
+    setFlushing(false);
+    setConfirmFlush(false);
+  };
+
+  const entries = Object.entries(tasks)
+    .filter(([, s]) => s.status === "queued" || s.status === "editing")
+    .sort(
+      ([, a], [, b]) =>
+        (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
+        (a.submittedAt ?? 0) - (b.submittedAt ?? 0),
+    );
 
   const runningEntries = entries.filter(([, s]) => s.status === "editing");
   const queuedEntries = entries.filter(([, s]) => s.status === "queued");
@@ -236,6 +255,16 @@ export default function QueuePanel() {
           {nd > 0 && <span className="badge badge-done">{nd} done</span>}
           {ne > 0 && <span className="badge badge-error">{ne} failed</span>}
         </span>
+        {entries.length > 0 && (
+          <button
+            className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
+            onClick={handleFlush}
+            disabled={flushing}
+            title={t("clear_all")}
+          >
+            {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
+          </button>
+        )}
       </summary>
 
       <div className="q-panel">

@@ -86,11 +86,11 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
   const standards: string[] = [];
   if (opts.englishDialect === "american")
     standards.push(
-      "- Use AMERICAN ENGLISH spelling: color (not colour), honor (not honour), center (not centre), gray (not grey), realize (not realise), etc. If you find a British spelling, correct it to American.",
+      "- Use AMERICAN ENGLISH spelling: color (not colour), honor (not honour), center (not centre), gray (not grey), realize (not realise), etc. If you find a British spelling, correct it to American. ONLY change established word pairs like these. NEVER invent a spelling — if unsure, leave the word alone.",
     );
   if (opts.englishDialect === "british")
     standards.push(
-      "- Use BRITISH ENGLISH spelling: colour (not color), honour (not honor), centre (not center), grey (not gray), realise (not realize), etc. If you find an American spelling, correct it to British.",
+      "- Use BRITISH ENGLISH spelling: colour (not color), honour (not honor), centre (not center), grey (not gray), realise (not realize), etc. If you find an American spelling, correct it to British. ONLY change established word pairs like these. NEVER invent a spelling — if unsure, leave the word alone.",
     );
   if (opts.oxfordComma)
     standards.push(
@@ -156,10 +156,10 @@ export function buildCopyEditCorrectionsPrompt(
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
   if (opts.englishDialect === "american")
     p +=
-      "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+      "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.). Only change known pairs — never invent spellings.\n";
   if (opts.englishDialect === "british")
     p +=
-      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (opts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (opts.dialogueTags)
@@ -314,10 +314,10 @@ export function buildCombinedEditPrompt(
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
   if (copyOpts.englishDialect === "american")
     p +=
-      "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.)\n";
+      "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.). Only change known pairs — never invent spellings.\n";
   if (copyOpts.englishDialect === "british")
     p +=
-      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.)\n";
+      "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (copyOpts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (copyOpts.dialogueTags)
@@ -611,10 +611,20 @@ Common editor mistakes to flag:
 - Changing meaning or character voice unintentionally
 - Introducing grammar or spelling errors where the original was fine
 - Unnecessary changes that don't improve the text
+- Ignoring or contradicting the author's style guide — if the author has specified preferences below, any correction that violates them is a MISTAKE
 
-Be SKEPTICAL. When in doubt, score LOWER. It's better to let a real error through than to introduce a fake correction.
+IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-blue wool dress", "well-known author") are standard English grammar. Adding a hyphen to form a compound modifier before a noun is a VALID improvement — do NOT flag it as "adding punctuation." Score these 4-5 unless the hyphen creates confusion.
 
-OUTPUT FORMAT — STRICT JSONL (one JSON object per line):
+Be SKEPTICAL. When in doubt, score LOWER. It's better to let a real error through than to introduce a fake correction.`;
+
+  if (styleGuide) {
+    p +=
+      "\n\nAUTHOR'S STYLE GUIDE:\n" +
+      styleGuide.trim() +
+      "\n\nIMPORTANT: Corrections that CONTRADICT the style guide above are MISTAKES — score them 1-2. Corrections that ALIGN with or enforce the style guide are more likely to be correct.";
+  }
+
+  p += `\n\nOUTPUT FORMAT — STRICT JSONL (one JSON object per line):
 {"index": 0, "confidence": 5, "reason": "Fixes spelling — recieve→receive"}
 {"index": 1, "confidence": 1, "reason": "Adds unnecessary period before existing period — original was correct"}
 {"index": 2, "confidence": 4, "reason": "Fixes grammar — 'he don't'→'he doesn't'"}
@@ -623,12 +633,6 @@ Each line is one JSON object with exactly three keys: index, confidence, reason.
 Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 
-  if (styleGuide) {
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — corrections that follow these rules are MORE likely to be correct:\n" +
-      styleGuide.trim() +
-      "\n";
-  }
   return p;
 }
 

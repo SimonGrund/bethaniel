@@ -149,9 +149,11 @@ export interface TaskRetrySpec {
   targetLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
+  reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
   dualEditor?: boolean;
+  dualCount?: number;
 }
 
 export interface EditUnit {
@@ -173,8 +175,10 @@ export interface QueueAddRequest {
   targetLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
+  reviewerCount?: number;
   spellCheck?: boolean;
   dualEditor?: boolean;
+  dualCount?: number;
 }
 
 // ── Structured output shapes for catalog / analysis modes ──

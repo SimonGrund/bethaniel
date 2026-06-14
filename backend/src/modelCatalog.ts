@@ -7,14 +7,14 @@ import type { ModelSettings } from "./modelConfig.js";
 
 export interface ModelCatalogEntry {
   id: string;
-  tier: "small" | "normal" | "big";
+  tier: "small" | "normal" | "big" | "custom";
   name: string;
   description: string;
   fileName: string;
-  /** "gguf" = download from url, "ollama" = pull via Ollama API */
-  source: "gguf" | "ollama";
+  /** "gguf" = download from url, "ollama" = pull via Ollama API, "api" = external API model */
+  source: "gguf" | "ollama" | "api";
   /** HuggingFace (or other) download URL. Required for source "gguf". */
-  url: string;
+  url: string | "";
   /** Ollama model tag (e.g. "qwen3:32b"). Required for source "ollama". */
   ollamaTag?: string;
   sha256: string;
@@ -102,6 +102,26 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
       system: BASE_SYSTEM_PROMPT,
     },
   },
+  {
+    id: "custom-deepseek",
+    tier: "custom",
+    name: "External Betty",
+    description:
+      "Connect your own DeepSeek API key. You choose the model. Your manuscript is sent to DeepSeek's servers.",
+    fileName: "custom:deepseek-chat",
+    source: "api",
+    url: "",
+    sha256: "",
+    sizeBytes: 0,
+    minRamGb: 0,
+    minRamAppleSiliconGb: 0,
+    defaults: {
+      ...COMMON_DEFAULTS,
+      num_ctx: 131072,
+      num_predict: 8192,
+      system: BASE_SYSTEM_PROMPT,
+    },
+  },
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -136,4 +156,14 @@ export function getPreferredOrder(): string[] {
 /** Whether this catalog entry is obtained via Ollama (vs. direct GGUF download). */
 export function isOllamaModel(entry: ModelCatalogEntry): boolean {
   return entry.source === "ollama";
+}
+
+/** Whether this catalog entry uses an external API (vs. local GGUF / Ollama). */
+export function isApiModelEntry(entry: ModelCatalogEntry): boolean {
+  return entry.source === "api";
+}
+
+/** Quick check: is this model identifier an external API model? */
+export function isApiModel(fileName: string): boolean {
+  return fileName.startsWith("custom:");
 }

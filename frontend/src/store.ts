@@ -36,10 +36,14 @@ interface AppState {
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
   setReviewerThreshold: (n: number) => void;
+  reviewerCount: number;
+  setReviewerCount: (n: number) => void;
   spellCheck: boolean;
   setSpellCheck: (b: boolean) => void;
   dualEditor: boolean;
   setDualEditor: (b: boolean) => void;
+  dualCount: number;
+  setDualCount: (n: number) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -86,6 +90,8 @@ interface AppState {
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
+  /** Accept all corrections across a list of tasks (for "accept all changes" per job). */
+  acceptAllJob: (taskIds: string[]) => void;
   /** Accept all occurrences of a single correction (adds bare correctionId). */
   acceptCorrection: (taskId: string, correctionId: string) => void;
   /** Dismiss all occurrences of a single correction (removes bare + indexed keys). */
@@ -127,6 +133,12 @@ interface AppState {
   setLogPanelOpen: (b: boolean) => void;
   unreadLogCount: number;
   resetUnreadLogs: () => void;
+
+  // External Betty (API)
+  apiKeyConfigured: boolean;
+  setApiKeyConfigured: (b: boolean) => void;
+  apiModel: string;
+  setApiModel: (m: string) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -147,10 +159,14 @@ export const useStore = create<AppState>((set, get) => ({
   setReviewMode: (reviewMode) => set({ reviewMode }),
   reviewerThreshold: 3,
   setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
+  reviewerCount: 1,
+  setReviewerCount: (reviewerCount) => set({ reviewerCount }),
   spellCheck: true,
   setSpellCheck: (spellCheck) => set({ spellCheck }),
   dualEditor: true,
   setDualEditor: (dualEditor) => set({ dualEditor }),
+  dualCount: 2,
+  setDualCount: (dualCount) => set({ dualCount }),
   parallel: 3,
   setParallel: (parallel) => set({ parallel }),
 
@@ -280,6 +296,19 @@ export const useStore = create<AppState>((set, get) => ({
         [taskId]: new Set<string>(),
       },
     })),
+  acceptAllJob: (taskIds) =>
+    set((state) => {
+      const next = { ...state.acceptedCorrections };
+      for (const tid of taskIds) {
+        const task = state.tasks[tid];
+        if (!task?.result) continue;
+        const ids = new Set(
+          task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+        );
+        next[tid] = ids;
+      }
+      return { acceptedCorrections: next };
+    }),
   acceptCorrection: (taskId, correctionId) =>
     set((state) => {
       const current = state.acceptedCorrections[taskId] ?? new Set<string>();
@@ -375,4 +404,9 @@ export const useStore = create<AppState>((set, get) => ({
     })),
   unreadLogCount: 0,
   resetUnreadLogs: () => set({ unreadLogCount: 0 }),
+
+  apiKeyConfigured: false,
+  setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
+  apiModel: "",
+  setApiModel: (apiModel) => set({ apiModel }),
 }));

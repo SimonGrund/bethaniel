@@ -519,6 +519,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Alle ablehnen",
     es: "Descartar todo",
   },
+  accept_all_job: {
+    en: "Accept all changes",
+    da: "Acceptér alle rettelser",
+    de: "Alle Änderungen akzeptieren",
+    es: "Aceptar todos los cambios",
+  },
+  accept_all_job_toast: {
+    en: "All changes were flagged for acceptance",
+    da: "Alle rettelser blev markeret til accept",
+    de: "Alle Änderungen wurden zur Übernahme markiert",
+    es: "Todos los cambios fueron marcados para aceptación",
+  },
   no_corrections_unit: {
     en: "No corrections proposed.",
     da: "Ingen rettelser foreslået.",
@@ -560,6 +572,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Tillidstærskel (1-5). Rettelser under denne score skjules som standard. 3 = afbalanceret, 4 = streng, 2 = tilladelig.",
     de: "Vertrauensschwelle (1-5). Korrekturen unter diesem Wert werden standardmäßig ausgeblendet. 3 = ausgewogen, 4 = streng, 2 = nachsichtig.",
     es: "Umbral de confianza (1-5). Correcciones por debajo se ocultan por defecto. 3 = equilibrado, 4 = estricto, 2 = permisivo.",
+  },
+  reviewer_count: {
+    en: "Reviewer agents",
+    da: "Reviewer-agenter",
+    de: "Prüfer-Agenten",
+    es: "Agentes revisores",
+  },
+  reviewer_count_help: {
+    en: "Number of parallel reviewer passes per chunk. More agents = fewer false positives pass through, but proportionally slower. 1-2 is a good balance.",
+    da: "Antal parallelle reviewer-gennemløb pr. chunk. Flere agenter = færre falske positiver slipper igennem, men proportionelt langsommere. 1-2 er en god balance.",
+    de: "Anzahl paralleler Prüfer-Durchläufe pro Abschnitt. Mehr Agenten = weniger falsch-positive Ergebnisse, aber proportional langsamer. 1-2 ist eine gute Balance.",
+    es: "Número de pasadas paralelas del revisor por fragmento. Más agentes = menos falsos positivos, pero proporcionalmente más lento. 1-2 es un buen equilibrio.",
   },
   show_all_suggestions: {
     en: "Show all suggestions",
@@ -608,6 +632,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Kør to editor-gennemløb parallelt og foren deres rettelser (maksimerer recall). Deaktiver ved enkelt-slot for at undgå 2× tid.",
     de: "Zwei Editor-Durchläufe parallel und vereinigt ihre Korrekturen (maximiert Recall). Bei Single-Slot deaktivieren, um 2× Zeit zu vermeiden.",
     es: "Ejecuta dos pasadas del editor en paralelo y une sus correcciones (maximiza recall). Desactivar con un solo slot para evitar 2× tiempo.",
+  },
+  dual_count: {
+    en: "Editor agents",
+    da: "Editor-agenter",
+    de: "Editor-Agenten",
+    es: "Agentes editores",
+  },
+  dual_count_help: {
+    en: "Number of parallel editor passes per chunk. More agents = better recall but proportionally slower. 2-3 is a good balance for most models.",
+    da: "Antal parallelle editor-gennemløb pr. chunk. Flere agenter = bedre recall men proportionelt langsommere. 2-3 er en god balance for de fleste modeller.",
+    de: "Anzahl paralleler Editor-Durchläufe pro Abschnitt. Mehr Agenten = bessere Abdeckung, aber proportional langsamer. 2-3 ist eine gute Balance.",
+    es: "Número de pasadas paralelas del editor por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
   },
   output_reflects: {
     en: "Output reflects",
@@ -1349,6 +1385,90 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Modelmotor-binæren kunne ikke startes. Geninstallér Bethaniel for at gendanne den medfølgende motor.",
     de: "Die Modell-Engine konnte nicht gestartet werden. Installiere Bethaniel neu, um die mitgelieferte Engine wiederherzustellen.",
     es: "No se pudo iniciar el binario del motor del modelo. Reinstala Bethaniel para restaurar el motor incluido.",
+  },
+  model_name_custom_betty: {
+    en: "External Betty",
+    da: "External Betty",
+    de: "External Betty",
+    es: "External Betty",
+  },
+  model_desc_custom_deepseek: {
+    en: "Connect your own DeepSeek API key and choose your model.",
+    da: "Tilslut din egen DeepSeek API-nøgle og vælg din model.",
+    de: "Verbinde deinen eigenen DeepSeek-API-Schlüssel und wähle dein Modell.",
+    es: "Conecta tu propia clave API de DeepSeek y elige tu modelo.",
+  },
+  api_key_label: {
+    en: "API Key",
+    da: "API-nøgle",
+    de: "API-Schlüssel",
+    es: "Clave API",
+  },
+  api_key_placeholder: {
+    en: "sk-...",
+    da: "sk-...",
+    de: "sk-...",
+    es: "sk-...",
+  },
+  api_model_label: {
+    en: "Model",
+    da: "Model",
+    de: "Modell",
+    es: "Modelo",
+  },
+  api_connect: {
+    en: "Connect",
+    da: "Tilslut",
+    de: "Verbinden",
+    es: "Conectar",
+  },
+  api_disconnect: {
+    en: "Disconnect",
+    da: "Afbryd",
+    de: "Trennen",
+    es: "Desconectar",
+  },
+  api_connected: {
+    en: "Connected",
+    da: "Tilsluttet",
+    de: "Verbunden",
+    es: "Conectado",
+  },
+  api_not_configured: {
+    en: "Not configured",
+    da: "Ikke konfigureret",
+    de: "Nicht konfiguriert",
+    es: "No configurado",
+  },
+  api_privacy_warning: {
+    en: "Your manuscript text will be sent to DeepSeek's servers for processing. Your API key is stored locally and never leaves your machine.",
+    da: "Dit manuskripts tekst sendes til DeepSeeks servere til behandling. Din API-nøgle gemmes lokalt og forlader aldrig din maskine.",
+    de: "Dein Manuskripttext wird zur Verarbeitung an die Server von DeepSeek gesendet. Dein API-Schlüssel wird lokal gespeichert und verlässt deinen Rechner nie.",
+    es: "El texto de tu manuscrito se enviará a los servidores de DeepSeek para su procesamiento. Tu clave API se almacena localmente y nunca sale de tu equipo.",
+  },
+  api_show_key: {
+    en: "Show",
+    da: "Vis",
+    de: "Zeigen",
+    es: "Mostrar",
+  },
+  api_hide_key: {
+    en: "Hide",
+    da: "Skjul",
+    de: "Verbergen",
+    es: "Ocultar",
+  },
+  api_config_saving: {
+    en: "Saving...",
+    da: "Gemmer...",
+    de: "Speichern...",
+    es: "Guardando...",
+  },
+  api_config_error: {
+    en: "Failed to save API configuration",
+    da: "Kunne ikke gemme API-konfiguration",
+    de: "Fehler beim Speichern der API-Konfiguration",
+    es: "Error al guardar la configuración de la API",
   },
 };
 
