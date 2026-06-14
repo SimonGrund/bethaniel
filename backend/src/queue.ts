@@ -739,9 +739,9 @@ async function processJob(job: JobData): Promise<void> {
               });
               if (spellResult.suspectWords.length > 0) {
                 chunkPrompt +=
-                  "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
-                  spellResult.suspectWords.join(", ") +
-                  "\nDo NOT flag any of these words unless you are certain they are misspelled.";
+                  "\n\nSPELL-CHECK: A deterministic spell-checker flagged these words as likely misspelled. Check each one and correct those that are wrong:\n- " +
+                  spellResult.suspectWords.join("\n- ") +
+                  "\n\nSome may be proper nouns or dialect — skip those. But if the word is genuinely misspelled, correct it.";
                 appendLog({
                   level: "info",
                   source: "engine",
