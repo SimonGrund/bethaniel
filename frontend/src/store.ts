@@ -36,10 +36,14 @@ interface AppState {
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
   setReviewerThreshold: (n: number) => void;
+  reviewerCount: number;
+  setReviewerCount: (n: number) => void;
   spellCheck: boolean;
   setSpellCheck: (b: boolean) => void;
   dualEditor: boolean;
   setDualEditor: (b: boolean) => void;
+  dualCount: number;
+  setDualCount: (n: number) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -155,10 +159,14 @@ export const useStore = create<AppState>((set, get) => ({
   setReviewMode: (reviewMode) => set({ reviewMode }),
   reviewerThreshold: 3,
   setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
+  reviewerCount: 1,
+  setReviewerCount: (reviewerCount) => set({ reviewerCount }),
   spellCheck: true,
   setSpellCheck: (spellCheck) => set({ spellCheck }),
   dualEditor: true,
   setDualEditor: (dualEditor) => set({ dualEditor }),
+  dualCount: 2,
+  setDualCount: (dualCount) => set({ dualCount }),
   parallel: 3,
   setParallel: (parallel) => set({ parallel }),
 

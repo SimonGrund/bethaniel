@@ -176,6 +176,11 @@ export function deleteTaskStatesIn(ids: string[]): void {
   d.prepare(`DELETE FROM tasks WHERE id IN (${placeholders})`).run(...ids);
 }
 
+export function deleteAllTaskStates(): void {
+  const d = getDb();
+  d.prepare("DELETE FROM tasks").run();
+}
+
 export function closeDb(): void {
   if (db) {
     db.close();

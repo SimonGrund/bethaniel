@@ -81,10 +81,14 @@ export default function ModelSelector({
     setReviewMode,
     reviewerThreshold,
     setReviewerThreshold,
+    reviewerCount,
+    setReviewerCount,
     spellCheck,
     setSpellCheck,
     dualEditor,
     setDualEditor,
+    dualCount,
+    setDualCount,
     tasks,
   } = useStore();
   const t = useTranslation(lang);
@@ -813,6 +817,22 @@ export default function ModelSelector({
               <span className="help-text">{t("reviewer_threshold_help")}</span>
             </div>
           )}
+          {reviewMode && (
+            <div className="field">
+              <label>
+                {t("reviewer_count")}: {reviewerCount}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={1}
+                value={reviewerCount}
+                onChange={(e) => setReviewerCount(Number(e.target.value))}
+              />
+              <span className="help-text">{t("reviewer_count_help")}</span>
+            </div>
+          )}
 
           <div className="field">
             <label className="option-check">
@@ -837,6 +857,23 @@ export default function ModelSelector({
             </label>
             <span className="help-text">{t("dual_editor_help")}</span>
           </div>
+
+          {dualEditor && (
+            <div className="field">
+              <label>
+                {t("dual_count")}: {dualCount}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={1}
+                value={dualCount}
+                onChange={(e) => setDualCount(Number(e.target.value))}
+              />
+              <span className="help-text">{t("dual_count_help")}</span>
+            </div>
+          )}
 
           {model && <ModelTuning fileName={model} />}
         </div>

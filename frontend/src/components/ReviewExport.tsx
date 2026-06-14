@@ -185,10 +185,6 @@ function extractSentenceContext(
 
   const editEnd = idx + original.length;
 
-  // Find sentence boundaries using common sentence-ending punctuation
-  // A sentence boundary is a period/exclamation/question mark followed by whitespace or end
-  const sentenceEndRe = /[.!?][\s\n]/g;
-
   // ── Determine the start of the context ──
   // Find the start of the sentence containing the edit.
   // Look backwards from the edit position for a sentence boundary.
@@ -203,16 +199,33 @@ function extractSentenceContext(
 
   if (beforeBoundaries.length > 0) {
     const sentenceStart = beforeBoundaries[beforeBoundaries.length - 1];
-    // If the edit is very near the start of its sentence (within 5 chars of non-whitespace),
-    // also include the previous sentence.
+    // If the edit is near or at the start of its sentence, always include
+    // the previous sentence so the user sees context on both sides.
     const gapToEdit = textBefore.slice(sentenceStart).trim();
-    if (gapToEdit.length <= 5 && beforeBoundaries.length >= 2) {
+    const gapChars = gapToEdit.replace(/\s+/g, " ").length;
+    if (gapChars <= 15 && beforeBoundaries.length >= 2) {
       contextStart = beforeBoundaries[beforeBoundaries.length - 2];
     } else {
       contextStart = sentenceStart;
     }
   }
   // else contextStart stays 0 (beginning of text)
+
+  // If the before-context ends up empty or very short (edit at chunk start),
+  // pull in surrounding characters directly to give at least some context.
+  let before = fullText.slice(contextStart, idx).trim();
+  if (!before && contextStart > 0) {
+    // Back up one more sentence as fallback
+    if (beforeBoundaries.length >= 2) {
+      contextStart = beforeBoundaries[beforeBoundaries.length - 2];
+      before = fullText.slice(contextStart, idx).trim();
+    }
+  }
+  if (!before && idx > 0) {
+    // Last resort: grab up to 80 chars before the edit
+    const rawBefore = fullText.slice(Math.max(0, idx - 80), idx).trim();
+    before = rawBefore.replace(/.*[.!?]\s*/s, "").trim() || rawBefore.slice(-60);
+  }
 
   // ── Determine the end of the context ──
   // Find the end of the sentence containing the edit.
@@ -222,11 +235,11 @@ function extractSentenceContext(
   let contextEnd = fullText.length;
   if (afterMatch) {
     const firstSentenceEnd = afterMatch.index + 1; // include the punctuation
-
-    // If the edit ends near the end of the sentence (within 10 chars to the punctuation),
-    // also include the next sentence.
+    // Always try to include the next sentence if the edit is near the end
+    // of its own sentence, so the user sees what comes after.
     const gapToEnd = fullText.slice(editEnd, firstSentenceEnd).trim();
-    if (gapToEnd.length <= 10) {
+    const gapChars = gapToEnd.replace(/\s+/g, " ").length;
+    if (gapChars <= 15) {
       const nextMatch = afterRe.exec(fullText);
       contextEnd = nextMatch ? nextMatch.index + 1 : fullText.length;
     } else {
@@ -234,9 +247,16 @@ function extractSentenceContext(
     }
   }
 
-  // Extract the before/after context (excluding the original text itself)
-  const before = fullText.slice(contextStart, idx).trim();
-  const after = fullText.slice(editEnd, contextEnd).trim();
+  // Extract the after context (excluding the original text itself)
+  let after = fullText.slice(editEnd, contextEnd).trim();
+  if (!after && editEnd < fullText.length) {
+    // Grab trailing text as fallback — strip leading whitespace/newlines,
+    // then stop at the first sentence-ending punctuation or 100 chars.
+    const rawAfter = fullText.slice(editEnd, Math.min(editEnd + 100, fullText.length));
+    const trimmed = rawAfter.replace(/^[\s\n]+/, "").trim();
+    const sentenceEnd = trimmed.match(/^.*?[.!?](?=[\s\n]|$)/);
+    after = sentenceEnd ? sentenceEnd[0].trim() : trimmed.slice(0, 80).trim();
+  }
 
   return { before, after };
 }
@@ -1005,6 +1025,7 @@ export default function ReviewExport() {
     toggleCorrection,
     acceptAll,
     dismissAll,
+    acceptAllJob,
     acceptCorrection,
     dismissCorrection,
     toggleOccurrence,
@@ -1012,7 +1033,14 @@ export default function ReviewExport() {
   } = useStore();
   const t = useTranslation(lang);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // Map a raw detected pattern to one of the dropdown sectionBreak values.
   const mapDetectedSectionBreak = (
@@ -1234,6 +1262,28 @@ export default function ReviewExport() {
         </div>
       )}
 
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#22c55e",
+            color: "#fff",
+            padding: "0.75rem 1.5rem",
+            borderRadius: "8px",
+            fontWeight: 600,
+            fontSize: "0.95rem",
+            boxShadow: "0 4px 16px rgba(34,197,94,0.35)",
+            zIndex: 9999,
+            animation: "toast-in 0.3s ease",
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
       {showDocxOptions && (
         <div className="modal-backdrop">
           <div className="modal-dialog docx-options-dialog">
@@ -1452,8 +1502,24 @@ export default function ReviewExport() {
                 const allDone = editTasks.every(
                   ([, task]) => task.status === "done",
                 );
+                const editTaskIds = editTasks.map(([tid]) => tid);
+                const hasAnyCorrections = editTasks.some(
+                  ([, task]) =>
+                    task.result?.corrections &&
+                    task.result.corrections.length > 0,
+                );
                 return (
                   <div className="export-buttons full-manuscript-export">
+                    <button
+                      className="btn-primary"
+                      disabled={!hasAnyCorrections}
+                      onClick={() => {
+                        acceptAllJob(editTaskIds);
+                        setToast(t("accept_all_job_toast"));
+                      }}
+                    >
+                      {t("accept_all_job")}
+                    </button>
                     <button
                       className="btn-primary"
                       disabled={!allDone}

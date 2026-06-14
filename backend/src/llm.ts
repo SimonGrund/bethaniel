@@ -841,6 +841,29 @@ function isTypographyOnlyChange(original: string, corrected: string): boolean {
 }
 
 /**
+ * Returns true if the original already contains quote marks and the only
+ * change is swapping one quote style for another (e.g. double → single).
+ * Adding quotes where none existed or fixing misplaced quotes passes through.
+ */
+const QUOTE_CHARS_RE = /['\u2018\u2019\u201A\u2039\u203A"\u201C\u201D\u201E\u00AB\u00BB]/g;
+function isQuoteStyleChange(original: string, corrected: string): boolean {
+  const orgHasQuote = QUOTE_CHARS_RE.test(original);
+  if (!orgHasQuote) return false;
+  const orgStripped = original.replace(QUOTE_CHARS_RE, "");
+  const corrStripped = corrected.replace(QUOTE_CHARS_RE, "");
+  return orgStripped === corrStripped && original !== corrected;
+}
+
+/**
+ * Returns true if the corrected text introduces doubled punctuation the
+ * original didn't have (e.g. "..", "\"\"", ",,"). Excludes valid ellipsis.
+ */
+function hasDoublePunctuation(original: string, corrected: string): boolean {
+  const dupRe = /([.!?,;:'")\]}])\1/;
+  return !dupRe.test(original) && dupRe.test(corrected);
+}
+
+/**
  * Detect if a correction only changes dialogue tag punctuation/casing.
  * Patterns: period→comma before tag, capital→lowercase on tag verb, etc.
  * e.g. `"Hello." She said` → `"Hello," she said`
@@ -925,8 +948,6 @@ function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
     const re = new RegExp(pattern, "g");
     const first = re.exec(text);
     if (!first) return null;
-    // Must be unambiguous — reject if there's a second match
-    if (re.exec(text) !== null) return null;
     return { pos: first.index, match: first[0] };
   } catch {
     return null; // malformed regex (shouldn't happen)
@@ -994,6 +1015,20 @@ export function applyCorrections(
       });
       continue;
     }
+    if (isQuoteStyleChange(c.original, c.corrected)) {
+      skipped.push({
+        ...c,
+        reason: "quote style change (e.g. double → single)",
+      });
+      continue;
+    }
+    if (hasDoublePunctuation(c.original, c.corrected)) {
+      skipped.push({
+        ...c,
+        reason: "introduces doubled punctuation",
+      });
+      continue;
+    }
     if (
       !opts?.allowDialogueTags &&
       isDialogueTagChange(c.original, c.corrected)
@@ -1013,17 +1048,16 @@ export function applyCorrections(
     // ── Locate in the ORIGINAL text ──
     const exactPos = text.indexOf(c.original);
     if (exactPos !== -1) {
-      const secondPos = text.indexOf(c.original, exactPos + 1);
-      if (secondPos !== -1) {
-        const count = text.split(c.original).length - 1;
-        skipped.push({ ...c, reason: `ambiguous (${count} matches)` });
-      } else {
+      // Find ALL occurrences — apply the same correction everywhere
+      let pos = exactPos;
+      while (pos !== -1) {
         located.push({
-          pos: exactPos,
+          pos,
           original: c.original,
           corrected: c.corrected,
           correction: c,
         });
+        pos = text.indexOf(c.original, pos + 1);
       }
     } else {
       // Approach 3: fuzzy whitespace-flexible fallback
@@ -1059,29 +1093,41 @@ export function applyCorrections(
       applied.push(item.correction);
     } else {
       // The region shifted — try an indexOf in the current text.
-      const idx = newText.indexOf(item.original);
-      if (idx !== -1) {
-        newText =
-          newText.slice(0, idx) +
-          item.corrected +
-          newText.slice(idx + item.original.length);
-        applied.push(item.correction);
-      } else {
-        // Last resort: fuzzy search in the already-mutated text.
-        const fuzzy = fuzzyFind(newText, item.original);
-        if (fuzzy) {
+        const idx = newText.indexOf(item.original);
+        if (idx !== -1) {
           newText =
-            newText.slice(0, fuzzy.pos) +
+            newText.slice(0, idx) +
             item.corrected +
-            newText.slice(fuzzy.pos + fuzzy.match.length);
+            newText.slice(idx + item.original.length);
           applied.push(item.correction);
         } else {
-          skipped.push({
-            ...item.correction,
-            reason: "not found (collision with nearby edit)",
-          });
+          // Check if this correction was already applied by an overlapping
+          // correction (e.g. two corrections targeting the same word with
+          // different amounts of context, where the longer one was applied
+          // first and already covers this change).
+          const sliceAtOrigPos = newText.slice(
+            item.pos,
+            item.pos + item.corrected.length,
+          );
+          if (sliceAtOrigPos === item.corrected) {
+            applied.push(item.correction);
+          } else {
+            // Last resort: fuzzy search in the already-mutated text.
+            const fuzzy = fuzzyFind(newText, item.original);
+            if (fuzzy) {
+              newText =
+                newText.slice(0, fuzzy.pos) +
+                item.corrected +
+                newText.slice(fuzzy.pos + fuzzy.match.length);
+              applied.push(item.correction);
+            } else {
+              skipped.push({
+                ...item.correction,
+                reason: "not found (collision with nearby edit)",
+              });
+            }
+          }
         }
-      }
     }
   }
 

@@ -573,6 +573,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Vertrauensschwelle (1-5). Korrekturen unter diesem Wert werden standardmäßig ausgeblendet. 3 = ausgewogen, 4 = streng, 2 = nachsichtig.",
     es: "Umbral de confianza (1-5). Correcciones por debajo se ocultan por defecto. 3 = equilibrado, 4 = estricto, 2 = permisivo.",
   },
+  reviewer_count: {
+    en: "Reviewer agents",
+    da: "Reviewer-agenter",
+    de: "Prüfer-Agenten",
+    es: "Agentes revisores",
+  },
+  reviewer_count_help: {
+    en: "Number of parallel reviewer passes per chunk. More agents = fewer false positives pass through, but proportionally slower. 1-2 is a good balance.",
+    da: "Antal parallelle reviewer-gennemløb pr. chunk. Flere agenter = færre falske positiver slipper igennem, men proportionelt langsommere. 1-2 er en god balance.",
+    de: "Anzahl paralleler Prüfer-Durchläufe pro Abschnitt. Mehr Agenten = weniger falsch-positive Ergebnisse, aber proportional langsamer. 1-2 ist eine gute Balance.",
+    es: "Número de pasadas paralelas del revisor por fragmento. Más agentes = menos falsos positivos, pero proporcionalmente más lento. 1-2 es un buen equilibrio.",
+  },
   show_all_suggestions: {
     en: "Show all suggestions",
     da: "Vis alle forslag",
@@ -620,6 +632,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Kør to editor-gennemløb parallelt og foren deres rettelser (maksimerer recall). Deaktiver ved enkelt-slot for at undgå 2× tid.",
     de: "Zwei Editor-Durchläufe parallel und vereinigt ihre Korrekturen (maximiert Recall). Bei Single-Slot deaktivieren, um 2× Zeit zu vermeiden.",
     es: "Ejecuta dos pasadas del editor en paralelo y une sus correcciones (maximiza recall). Desactivar con un solo slot para evitar 2× tiempo.",
+  },
+  dual_count: {
+    en: "Editor agents",
+    da: "Editor-agenter",
+    de: "Editor-Agenten",
+    es: "Agentes editores",
+  },
+  dual_count_help: {
+    en: "Number of parallel editor passes per chunk. More agents = better recall but proportionally slower. 2-3 is a good balance for most models.",
+    da: "Antal parallelle editor-gennemløb pr. chunk. Flere agenter = bedre recall men proportionelt langsommere. 2-3 er en god balance for de fleste modeller.",
+    de: "Anzahl paralleler Editor-Durchläufe pro Abschnitt. Mehr Agenten = bessere Abdeckung, aber proportional langsamer. 2-3 ist eine gute Balance.",
+    es: "Número de pasadas paralelas del editor por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
   },
   output_reflects: {
     en: "Output reflects",

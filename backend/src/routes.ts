@@ -388,8 +388,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       targetLang,
       reviewMode,
       reviewerThreshold,
+      reviewerCount,
       spellCheck,
       dualEditor,
+      dualCount,
     } = req.body;
 
     // Resolve once so prompt selection and execution path stay in sync.
@@ -554,8 +556,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           reviewMode: reviewMode ?? true,
           reviewerThreshold: reviewerThreshold ?? 3,
+          reviewerCount: reviewerCount ?? 1,
           spellCheck: spellCheck ?? true,
           dualEditor: dualEditor ?? true,
+          dualCount: dualCount ?? 2,
           styleGuide,
         });
         taskIds.push(taskId);
