@@ -17,12 +17,28 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   words_per_chunk: { en: "Words per chunk", da: "Ord pr. chunk" },
   paragraph_overlap: { en: "Paragraph overlap", da: "Paragrafoverlap" },
   fast_mode: {
-    en: "⚡ Fast mode (corrections only)",
-    da: "⚡ Hurtig tilstand (kun rettelser)",
+    en: "Fast mode (corrections only)",
+    da: "Hurtig tilstand (kun rettelser)",
   },
   fast_mode_help: {
     en: "Returns a JSON list of edits instead of rewriting the whole chunk. Typically 3–10× faster.",
     da: "Returnerer en JSON-liste af rettelser. Typisk 3–10× hurtigere.",
+  },
+  review_mode: {
+    en: "Review mode (Editor + Reviewer)",
+    da: "Review-tilstand (Editor + Reviewer)",
+  },
+  review_mode_help: {
+    en: "Second LLM pass reviews every correction. Catches nonsensical edits at ~2× time.",
+    da: "Anden LLM-gennemgang verificerer hver rettelse. Fanger meningsløse forslag på ~2× tid.",
+  },
+  reviewer_threshold: {
+    en: "Reviewer strictness",
+    da: "Reviewer-strenghed",
+  },
+  reviewer_threshold_help: {
+    en: "Confidence threshold (1-5). Corrections below this are hidden by default.",
+    da: "Tillidstærskel (1-5). Rettelser under dette niveau skjules.",
   },
   parallel_chapters: { en: "Parallel chapters", da: "Parallelle kapitler" },
   parallel_help: {

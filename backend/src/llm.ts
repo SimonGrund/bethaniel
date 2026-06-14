@@ -600,6 +600,92 @@ function extractCorrectionsRegex(raw: string): Correction[] {
   return out;
 }
 
+// ── Reviewer — second-pass critical review of editor corrections ──
+
+function buildReviewerUserMessage(
+  chunkText: string,
+  corrections: Correction[],
+): string {
+  let msg = "ORIGINAL TEXT:\n" + chunkText + "\n\nPROPOSED CORRECTIONS:\n";
+  corrections.forEach((c, i) => {
+    msg += `[${i}] "${c.original}" → "${c.corrected}"\n`;
+  });
+  return msg;
+}
+
+interface ReviewScore {
+  confidence: number;
+  reason: string;
+}
+
+export function parseReviewScores(raw: string): Map<number, ReviewScore> {
+  const scores = new Map<number, ReviewScore>();
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+  text = text.replace(/```(?:jsonl?|ndjson)?/gi, "").replace(/```/g, "");
+
+  const lines = text
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/(?<=\})\s*(?=\{)/));
+
+  for (const line of lines) {
+    const s = line.trim().replace(/^[,\s]+|[,\s]+$/g, "");
+    if (!s || !s.startsWith("{") || !s.endsWith("}")) continue;
+
+    let obj: unknown;
+    try {
+      obj = JSON.parse(s);
+    } catch {
+      try {
+        obj = JSON.parse(sanitizeJsonEscapes(s));
+      } catch {
+        continue;
+      }
+    }
+    if (typeof obj !== "object" || obj === null) continue;
+    const rec = obj as Record<string, unknown>;
+    const index = rec.index;
+    const confidence = rec.confidence;
+    const reason = rec.reason;
+    if (
+      typeof index === "number" &&
+      typeof confidence === "number" &&
+      confidence >= 1 &&
+      confidence <= 5 &&
+      typeof reason === "string"
+    ) {
+      scores.set(index, { confidence, reason });
+    }
+  }
+
+  return scores;
+}
+
+export async function* reviewCorrectionsStream(
+  model: string,
+  chunkText: string,
+  corrections: Correction[],
+  systemPrompt: string,
+  signal?: AbortSignal,
+): AsyncGenerator<string> {
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  const userMsg = buildReviewerUserMessage(chunkText, corrections);
+  const cap = slotSafeMaxTokens(
+    model,
+    systemMsg,
+    userMsg,
+    Math.max(256, corrections.length * 50 + 512),
+  );
+  yield* chatStream(
+    model,
+    [
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMsg },
+    ],
+    { max_tokens: cap },
+    signal,
+  );
+}
+
 /**
  * Restore the original text's typographic conventions in an LLM-rewritten
  * output. Detects what the original uses (curly vs straight quotes, ellipsis
@@ -782,7 +868,11 @@ function fuzzyFind(text: string, needle: string): FuzzyMatch | null {
 
     if (ch === " ") {
       pattern += "\\s+";
-    } else if (ch === "." && collapsed[i + 1] === "." && collapsed[i + 2] === ".") {
+    } else if (
+      ch === "." &&
+      collapsed[i + 1] === "." &&
+      collapsed[i + 2] === "."
+    ) {
       // Ellipsis: match three dots or the ellipsis character
       pattern += "(?:\\.\\.\\.|\\u2026)";
       i += 2;
@@ -811,7 +901,7 @@ function typographicClass(ch: string): string {
   }
   // Double quotes
   if (/["\u201C\u201D\u201E\u00AB\u00BB]/.test(ch)) {
-    return "[\"\u201C\u201D\u201E\u00AB\u00BB]";
+    return '["\u201C\u201D\u201E\u00AB\u00BB]';
   }
   // Dashes (hyphen, en-dash, em-dash)
   if (/[-\u2013\u2014]/.test(ch)) {

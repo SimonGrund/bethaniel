@@ -15,11 +15,16 @@ import {
   analyzeStream,
   synthesizeStream,
   parseJsonResponse,
+  reviewCorrectionsStream,
+  parseReviewScores,
   listLoadedModels,
   unloadModel,
 } from "./llm.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
-import { ANALYSIS_SUMMARY_PROMPT } from "./prompts.js";
+import {
+  ANALYSIS_SUMMARY_PROMPT,
+  buildReviewerPrompt,
+} from "./prompts.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
@@ -126,6 +131,9 @@ interface JobData {
   overlap: number;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  reviewMode?: boolean;
+  reviewerThreshold?: number;
+  styleGuide?: string;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -829,7 +837,87 @@ async function processJob(job: JobData): Promise<void> {
           });
         }
 
-        const [newBody, applied, sk] = applyCorrections(chunk.body, cs, {
+        // Determine which corrections to pass through to applyCorrections.
+        // If reviewMode is on, run a second LLM pass to score each correction
+        // and flag low-confidence ones so they aren't applied to the preview.
+        let finalCorrections = cs;
+        const reviewMode = job.reviewMode && cs.length > 0;
+
+        if (reviewMode) {
+          updateTask(taskId, { phase: `reviewing ${cs.length} corrections` });
+          appendLog({
+            level: "info",
+            source: "engine",
+            taskId,
+            message: `Reviewing ${cs.length} corrections for chunk ${chunkLabel}…`,
+            model,
+          });
+          try {
+            let reviewAcc = "";
+            let reviewToks = 0;
+            const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+            for await (const tok of reviewCorrectionsStream(
+              model,
+              chunk.body,
+              cs,
+              reviewerPrompt,
+              ac.signal,
+            )) {
+              reviewAcc += tok;
+              reviewToks++;
+              if (reviewToks % 5 === 0) {
+                updateProgress(taskId, (j + creepingProgress(reviewToks) * 0.3) / chunks.length);
+              }
+            }
+
+            const scores = parseReviewScores(reviewAcc);
+            const threshold = job.reviewerThreshold ?? 3;
+
+            finalCorrections = [];
+            let flaggedCount = 0;
+            for (let i = 0; i < cs.length; i++) {
+              const c = cs[i];
+              const score = scores.get(i);
+              if (score) {
+                c.confidence = score.confidence;
+                c.reviewReason = score.reason;
+              }
+              if (score && score.confidence < threshold) {
+                c.flagged = true;
+                c.reason = score.reason;
+                flaggedCount++;
+              }
+              finalCorrections.push(c);
+            }
+
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: flaggedCount > 0
+                ? `Reviewer flagged ${flaggedCount}/${cs.length} corrections in chunk ${chunkLabel} (confidence < ${threshold}).`
+                : `Reviewer passed all ${cs.length} corrections in chunk ${chunkLabel}.`,
+              model,
+            });
+          } catch (err) {
+            appendLog({
+              level: "warn",
+              source: "engine",
+              taskId,
+              message: `Reviewer failed for chunk ${chunkLabel}: ${err instanceof Error ? err.message : String(err)}. All corrections passed unreviewed.`,
+              model,
+            });
+            finalCorrections = cs; // fallback: pass all through
+          }
+        }
+
+        // Split flagged corrections out — they go into the corrections list
+        // for the UI but are NOT applied to editedText (preview). The user can
+        // accept them later via the review toggle.
+        const toApply = finalCorrections.filter((c) => !c.flagged);
+        const flagged = finalCorrections.filter((c) => c.flagged);
+
+        const [newBody, applied, sk] = applyCorrections(chunk.body, toApply, {
           allowDialogueTags: editOptions?.dialogueTags === true,
         });
         const core = stripOverlapFromResponse(
@@ -838,6 +926,16 @@ async function processJob(job: JobData): Promise<void> {
         );
 
         for (const c of applied) {
+          corrections.push({
+            ...c,
+            chunk: `Chunk ${chunkLabel}`,
+            id: uuidv4(),
+          });
+        }
+        // Flagged corrections go into the corrections list so the UI can show
+        // them (under the "show all suggestions" toggle), but they are NOT in
+        // `applied` so they don't affect the preview text.
+        for (const c of flagged) {
           corrections.push({
             ...c,
             chunk: `Chunk ${chunkLabel}`,
@@ -1093,6 +1191,9 @@ export async function submitTask(
       overlap: data.overlap,
       editOptions: data.editOptions,
       targetLang: data.targetLang,
+      reviewMode: data.reviewMode,
+      reviewerThreshold: data.reviewerThreshold,
+      styleGuide: data.styleGuide,
     },
   });
 
@@ -1181,6 +1282,9 @@ export async function retryTask(id: string): Promise<string> {
     overlap: spec.overlap,
     editOptions: spec.editOptions,
     targetLang: spec.targetLang,
+    reviewMode: spec.reviewMode,
+    reviewerThreshold: spec.reviewerThreshold,
+    styleGuide: spec.styleGuide,
   });
   return newTaskId;
 }

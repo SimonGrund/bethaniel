@@ -1175,6 +1175,47 @@ h4 {
   background: #f0f5eb;
 }
 
+.correction-card.flagged {
+  opacity: 0.68;
+  border-left-color: #c9a860;
+  background: #fdf9ee;
+}
+
+.correction-card.flagged .correction-flag-badge {
+  font-size: 0.7rem;
+  background: #f0e0b0;
+  color: #6b5500;
+  padding: 0 4px;
+  border-radius: 2px;
+  margin-left: 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.correction-confidence {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  margin-left: 0.4rem;
+  opacity: 0.85;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.show-flagged-toggle {
+  font-size: 0.78rem;
+  color: #64748b;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  border-radius: 3px;
+  padding: 0.15rem 0.5rem;
+  margin-right: 0.5rem;
+}
+
+.show-flagged-toggle:hover {
+  background: #e2e8f0;
+}
+
 .correction-check {
   flex-shrink: 0;
   font-size: 1.1rem;

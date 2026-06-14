@@ -20,6 +20,8 @@ export default function EditTrigger() {
     lineEditOptions,
     targetLang,
     fastMode,
+    reviewMode,
+    reviewerThreshold,
     wordsPerChunk,
     overlapParagraphs,
     parallel,
@@ -83,6 +85,8 @@ export default function EditTrigger() {
         targetLang: selectedModes.includes("translate")
           ? targetLang
           : undefined,
+        reviewMode,
+        reviewerThreshold,
       });
       console.log("[EditTrigger] taskIds:", taskIds);
       if (taskIds.warnings.length > 0) {
