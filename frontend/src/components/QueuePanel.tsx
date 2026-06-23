@@ -260,16 +260,6 @@ export default function QueuePanel() {
           {nd > 0 && <span className="badge badge-done">{nd} done</span>}
           {ne > 0 && <span className="badge badge-error">{ne} failed</span>}
         </span>
-        {entries.length > 0 && (
-          <button
-            className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
-            onClick={handleFlush}
-            disabled={flushing}
-            title={t("clear_all")}
-          >
-            {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
-          </button>
-        )}
       </div>
 
       <div className="q-panel">
@@ -340,6 +330,19 @@ export default function QueuePanel() {
                   )}
               </>
             )}
+          </div>
+        )}
+
+        {entries.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+            <button
+              className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
+              onClick={handleFlush}
+              disabled={flushing}
+              title={t("clear_all")}
+            >
+              {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
+            </button>
           </div>
         )}
       </div>

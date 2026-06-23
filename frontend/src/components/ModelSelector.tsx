@@ -740,7 +740,9 @@ export default function ModelSelector({
       </div>
 
       {/* ── Advanced settings (expandable) ── */}
-      {wizardStep === "model" && highlightedModel && (
+      {/* Available before a model is picked; per-model tuning below stays
+          gated on highlightedModel. */}
+      {wizardStep === "model" && (
         <>
           <button
             type="button"
