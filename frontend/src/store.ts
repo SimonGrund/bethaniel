@@ -18,7 +18,14 @@ import type {
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
-export type WizardStep = "model" | "edits" | "upload" | "style" | "run" | "done" | "folded";
+export type WizardStep =
+  | "model"
+  | "edits"
+  | "upload"
+  | "style"
+  | "run"
+  | "done"
+  | "folded";
 
 // Defaults — extracted so resetAll can reference them
 const DEFAULT_SCOPE_MODE: ScopeMode = "whole_book";
@@ -61,6 +68,8 @@ interface AppState {
   setDualCount: (n: number) => void;
   characterDedup: boolean;
   setCharacterDedup: (b: boolean) => void;
+  styleComplianceAgent: boolean;
+  setStyleComplianceAgent: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -125,10 +134,6 @@ interface AppState {
   pendingTaskIds: string[];
   setPendingTaskIds: (ids: string[]) => void;
 
-  // User pref: detect scene/paragraph breaks on upload (default off)
-  detectBreaks: boolean;
-  setDetectBreaks: (b: boolean) => void;
-
   // Model warm-up
   warmingModel: string | null;
   warmingStatus: "warming" | "ready" | "error" | null;
@@ -147,11 +152,20 @@ interface AppState {
   unreadLogCount: number;
   resetUnreadLogs: () => void;
 
+  // Session boundary — tasks submitted before this timestamp belong to a previous session
+  sessionStartedAt: number;
+
   // External Betty (API)
   apiKeyConfigured: boolean;
   setApiKeyConfigured: (b: boolean) => void;
   apiModel: string;
   setApiModel: (m: string) => void;
+
+  // Model visibility toggles (hidden by default)
+  showCustomBetty: boolean;
+  setShowCustomBetty: (b: boolean) => void;
+  showExternalBetty: boolean;
+  setShowExternalBetty: (b: boolean) => void;
 
   // Wizard flow
   wizardStep: WizardStep;
@@ -163,7 +177,9 @@ interface AppState {
   showAdvancedSettings: boolean;
   setShowAdvancedSettings: (b: boolean) => void;
   editSubOptionsOpen: "editing" | "analysis" | "translation" | null;
-  setEditSubOptionsOpen: (cat: "editing" | "analysis" | "translation" | null) => void;
+  setEditSubOptionsOpen: (
+    cat: "editing" | "analysis" | "translation" | null,
+  ) => void;
 
   // Reset
   resetAll: () => void;
@@ -202,6 +218,9 @@ export const useStore = create<AppState>()(
       setDualCount: (dualCount) => set({ dualCount }),
       characterDedup: false,
       setCharacterDedup: (characterDedup) => set({ characterDedup }),
+      styleComplianceAgent: true,
+      setStyleComplianceAgent: (styleComplianceAgent) =>
+        set({ styleComplianceAgent }),
       parallel: DEFAULT_PARALLEL,
       setParallel: (parallel) => set({ parallel }),
 
@@ -211,7 +230,9 @@ export const useStore = create<AppState>()(
           const has = state.selectedModes.includes(m);
           if (has) {
             if (state.selectedModes.length <= 1) return state;
-            return { selectedModes: state.selectedModes.filter((x) => x !== m) };
+            return {
+              selectedModes: state.selectedModes.filter((x) => x !== m),
+            };
           }
           return { selectedModes: [...state.selectedModes, m] };
         }),
@@ -301,7 +322,8 @@ export const useStore = create<AppState>()(
         }),
       toggleCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           if (next.has(correctionId)) {
             next.delete(correctionId);
@@ -309,7 +331,10 @@ export const useStore = create<AppState>()(
             next.add(correctionId);
           }
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       acceptAll: (taskId) =>
@@ -320,7 +345,10 @@ export const useStore = create<AppState>()(
             task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
           );
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: ids },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: ids,
+            },
           };
         }),
       dismissAll: (taskId) =>
@@ -345,28 +373,37 @@ export const useStore = create<AppState>()(
         }),
       acceptCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           next.add(correctionId);
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       dismissCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           next.delete(correctionId);
           for (const key of current) {
             if (key.startsWith(`${correctionId}:`)) next.delete(key);
           }
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       toggleOccurrence: (taskId, correctionId, occIdx, totalOccurrences) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           const occKey = `${correctionId}:${occIdx}`;
 
@@ -393,7 +430,10 @@ export const useStore = create<AppState>()(
           }
 
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
 
@@ -403,9 +443,6 @@ export const useStore = create<AppState>()(
       setSubmitting: (submitting) => set({ submitting }),
       pendingTaskIds: [],
       setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
-
-      detectBreaks: false,
-      setDetectBreaks: (detectBreaks) => set({ detectBreaks }),
 
       logs: [],
       setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
@@ -430,10 +467,16 @@ export const useStore = create<AppState>()(
       unreadLogCount: 0,
       resetUnreadLogs: () => set({ unreadLogCount: 0 }),
 
+      sessionStartedAt: Date.now(),
+
       apiKeyConfigured: false,
       setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
       apiModel: "",
       setApiModel: (apiModel) => set({ apiModel }),
+      showCustomBetty: false,
+      setShowCustomBetty: (showCustomBetty) => set({ showCustomBetty }),
+      showExternalBetty: false,
+      setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
       wizardStep: "model",
       setWizardStep: (wizardStep) => set({ wizardStep }),
@@ -447,9 +490,11 @@ export const useStore = create<AppState>()(
       highlightedModel: "",
       setHighlightedModel: (highlightedModel) => set({ highlightedModel }),
       showAdvancedSettings: false,
-      setShowAdvancedSettings: (showAdvancedSettings) => set({ showAdvancedSettings }),
+      setShowAdvancedSettings: (showAdvancedSettings) =>
+        set({ showAdvancedSettings }),
       editSubOptionsOpen: null,
-      setEditSubOptionsOpen: (editSubOptionsOpen) => set({ editSubOptionsOpen }),
+      setEditSubOptionsOpen: (editSubOptionsOpen) =>
+        set({ editSubOptionsOpen }),
 
       resetAll: () =>
         set({
@@ -465,6 +510,7 @@ export const useStore = create<AppState>()(
           dualEditor: true,
           dualCount: DEFAULT_DUAL_COUNT,
           characterDedup: false,
+          styleComplianceAgent: true,
           parallel: DEFAULT_PARALLEL,
           selectedModes: ["copy_edit"],
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -474,7 +520,6 @@ export const useStore = create<AppState>()(
           selectedChapters: [0],
           firstNWords: DEFAULT_FIRST_N_WORDS,
           styleGuide: "",
-          detectBreaks: false,
           wizardStep: "model",
           completedSteps: [],
           editSubOptionsOpen: null,
@@ -488,7 +533,13 @@ export const useStore = create<AppState>()(
 
       advanceWizard: (fromStep) => {
         const state = get();
-        const STEP_ORDER: WizardStep[] = ["model", "edits", "upload", "style", "run"];
+        const STEP_ORDER: WizardStep[] = [
+          "model",
+          "edits",
+          "upload",
+          "style",
+          "run",
+        ];
         const fromIdx = STEP_ORDER.indexOf(fromStep);
         for (let i = fromIdx + 1; i < STEP_ORDER.length; i++) {
           if (!state.completedSteps.includes(STEP_ORDER[i])) {
@@ -520,12 +571,12 @@ export const useStore = create<AppState>()(
         dualEditor: state.dualEditor,
         dualCount: state.dualCount,
         characterDedup: state.characterDedup,
+        styleComplianceAgent: state.styleComplianceAgent,
         parallel: state.parallel,
         scopeMode: state.scopeMode,
         selectedChapters: state.selectedChapters,
         firstNWords: state.firstNWords,
         styleGuide: state.styleGuide,
-        detectBreaks: state.detectBreaks,
         document: state.document,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,

@@ -13,28 +13,15 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-export async function uploadFile(file: File, detectBreaks = false) {
+export async function uploadFile(file: File) {
   const form = new FormData();
   form.append("file", file);
-  form.append("detectBreaks", String(detectBreaks));
   const res = await apiFetch("/upload", { method: "POST", body: form });
   return res.json();
 }
 
 export async function getDocument(id: string) {
   const res = await apiFetch(`/documents/${id}`);
-  return res.json();
-}
-
-export async function setDocumentDetectBreaks(
-  id: string,
-  detectBreaks: boolean,
-) {
-  const res = await apiFetch(`/documents/${id}/detect-breaks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ detectBreaks }),
-  });
   return res.json();
 }
 
@@ -116,6 +103,7 @@ export async function addToQueue(params: {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  styleComplianceAgent?: boolean;
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",
@@ -185,9 +173,7 @@ export async function getTaskResult(taskId: string) {
 
 export interface DocxExportOptions {
   sectionBreak?: "asterisks" | "dash" | "blank";
-  smallBreak?: "space" | "hash" | "none";
   lineSpacing?: number;
-  detectBreaks?: boolean;
 }
 
 export async function exportDocx(
@@ -201,6 +187,38 @@ export async function exportDocx(
   });
   if (!res.ok) throw new Error("DOCX export failed");
   return res.blob();
+}
+
+/** Export markdown to EPUB. `docId` resolves embedded images (media/<docId>/…). */
+export async function exportEpub(
+  markdown: string,
+  meta?: { title?: string; author?: string },
+): Promise<Blob> {
+  const res = await fetch(`${BASE}/api/export/epub`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ markdown, ...meta }),
+  });
+  if (!res.ok) throw new Error("EPUB export failed");
+  return res.blob();
+}
+
+/**
+ * Run the AI "auto-format for ebook" pass over the final manuscript markdown.
+ * Returns the reformatted markdown (neat headers + canonical scene breaks),
+ * with images left untouched in place.
+ */
+export async function formatEbook(
+  markdown: string,
+  model: string,
+): Promise<string> {
+  const res = await apiFetch("/format-ebook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ markdown, model }),
+  });
+  const data = await res.json();
+  return data.md as string;
 }
 
 export async function runConsistencyCheck(docId: string, minOccurrences = 2) {
@@ -232,4 +250,26 @@ export async function saveCustomModelConfig(apiKey: string, model: string) {
 
 export async function deleteCustomModelConfig() {
   await apiFetch("/models/custom/config", { method: "DELETE" });
+}
+
+// ── Custom Betty (custom GGUF path) ──
+
+export async function fetchCustomGgufConfig(): Promise<{
+  configured: boolean;
+  path: string;
+}> {
+  const res = await apiFetch("/models/custom-gguf/config");
+  return res.json();
+}
+
+export async function saveCustomGgufConfig(ggufPath: string) {
+  await apiFetch("/models/custom-gguf/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ggufPath }),
+  });
+}
+
+export async function deleteCustomGgufConfig() {
+  await apiFetch("/models/custom-gguf/config", { method: "DELETE" });
 }

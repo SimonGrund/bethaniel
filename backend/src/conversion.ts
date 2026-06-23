@@ -4,8 +4,53 @@ import JSZip from "jszip";
 import mammoth from "mammoth";
 import TurndownService from "turndown";
 import HTMLtoDOCX from "html-to-docx";
+import * as fs from "fs";
+import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
+
+// Where uploaded-document media (images extracted from .docx) live on disk.
+// Markdown image refs are stored as `media/<docId>/<file>` relative to DATA_DIR,
+// so they round-trip independently of any single request.
+const DATA_DIR = process.env.DATA_DIR ?? "./data";
+export const MEDIA_DIR = path.join(DATA_DIR, "media");
+
+/** Map an image MIME type to a file extension. */
+function extFromContentType(contentType: string | undefined): string {
+  switch ((contentType ?? "").toLowerCase()) {
+    case "image/jpeg":
+    case "image/jpg":
+      return "jpg";
+    case "image/gif":
+      return "gif";
+    case "image/svg+xml":
+      return "svg";
+    case "image/webp":
+      return "webp";
+    case "image/tiff":
+      return "tiff";
+    case "image/bmp":
+      return "bmp";
+    default:
+      return "png";
+  }
+}
+
+/** Resolve a markdown image ref (`media/<docId>/x.png`) to an absolute path. */
+export function resolveMediaPath(ref: string): string {
+  return path.join(DATA_DIR, ref);
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  webp: "image/webp",
+  tiff: "image/tiff",
+  bmp: "image/bmp",
+};
 
 const turndown = new TurndownService({
   headingStyle: "atx",
@@ -77,18 +122,49 @@ export async function extractPagebreaksFromDocx(
   return breaks;
 }
 
-/** Convert .docx bytes to Markdown via mammoth + turndown. */
-export async function docxToMarkdown(docxBuffer: Buffer): Promise<string> {
-  const result = await mammoth.convertToHtml(
-    { buffer: docxBuffer },
-    {
-      styleMap: [
-        "p[style-name='Heading 1'] => h1:fresh",
-        "p[style-name='Heading 2'] => h2:fresh",
-        "p[style-name='Heading 3'] => h3:fresh",
-      ],
-    },
-  );
+/**
+ * Convert .docx bytes to Markdown via mammoth + turndown.
+ *
+ * When `docId` is given, embedded images are extracted to
+ * `MEDIA_DIR/<docId>/imageN.<ext>` and referenced from the markdown as
+ * `![](media/<docId>/imageN.ext)` so graphics survive the edit/export pipeline.
+ */
+export async function docxToMarkdown(
+  docxBuffer: Buffer,
+  opts: { docId?: string } = {},
+): Promise<string> {
+  const { docId } = opts;
+
+  // Image extraction: write each embedded image to disk and reference it with a
+  // lightweight relative path (instead of inlining a huge base64 data URI into
+  // the markdown that the LLM would then have to round-trip).
+  const mammothOpts: Record<string, unknown> = {
+    styleMap: [
+      "p[style-name='Heading 1'] => h1:fresh",
+      "p[style-name='Heading 2'] => h2:fresh",
+      "p[style-name='Heading 3'] => h3:fresh",
+    ],
+  };
+  if (docId) {
+    const docMediaDir = path.join(MEDIA_DIR, docId);
+    await fs.promises.mkdir(docMediaDir, { recursive: true });
+    let imageCount = 0;
+    mammothOpts.convertImage = mammoth.images.imgElement(
+      async (image: { contentType?: string; read: (e: string) => Promise<string> }) => {
+        imageCount += 1;
+        const ext = extFromContentType(image.contentType);
+        const fileName = `image${imageCount}.${ext}`;
+        const b64 = await image.read("base64");
+        await fs.promises.writeFile(
+          path.join(docMediaDir, fileName),
+          Buffer.from(b64, "base64"),
+        );
+        return { src: `media/${docId}/${fileName}` };
+      },
+    );
+  }
+
+  const result = await mammoth.convertToHtml({ buffer: docxBuffer }, mammothOpts);
 
   const normalizeDividerLine = (line: string): string => {
     const t = line.trim();
@@ -121,13 +197,17 @@ export async function docxToMarkdown(docxBuffer: Buffer): Promise<string> {
   let pendingPageBreak = false;
   let blockIndex = 0;
 
+  // Separate paragraphs with a blank line (standard markdown), so the whole
+  // pipeline — chunking (splits on blank lines), the LLM, and the exporter —
+  // agree on what a paragraph boundary is. Extra empty Word paragraphs add
+  // further blank lines (collapsed harmlessly on render).
   const appendBlock = (block: string) => {
     if (!block) {
       pendingEmptyParagraphs += 1;
       return;
     }
     if (text) {
-      text += "\n".repeat(pendingEmptyParagraphs + 1);
+      text += "\n".repeat(pendingEmptyParagraphs + 2);
     }
     text += block;
     pendingEmptyParagraphs = 0;
@@ -182,23 +262,15 @@ export async function docxToMarkdown(docxBuffer: Buffer): Promise<string> {
 
 /** Options for DOCX export formatting. */
 export interface DocxExportOptions {
-  /** How to render section/scene breaks (e.g. "***" centered, "---", blank line). Default: "***" */
+  /** How to render section/scene breaks. Default: "asterisks" (centered * * *). */
   sectionBreak: "asterisks" | "dash" | "blank";
-  /** How to render small breaks between paragraphs. Default: "space" (extra vertical space) */
-  smallBreak: "space" | "hash" | "none";
   /** Line spacing multiplier. Default: 1.3 */
   lineSpacing: number;
-  /** If false, skip all break-aware rendering (no scene-break detection, no
-   * automatic chapter page breaks). Used when the user opted out of break
-   * detection at upload — the markdown is then round-tripped plainly. */
-  detectBreaks: boolean;
 }
 
 export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
   sectionBreak: "asterisks",
-  smallBreak: "space",
   lineSpacing: 1.3,
-  detectBreaks: true,
 };
 
 /** Convert Markdown to .docx, return the binary buffer. */
@@ -210,8 +282,9 @@ export async function markdownToDocx(
     ...DEFAULT_DOCX_EXPORT_OPTIONS,
     ...opts,
   };
-  // Convert markdown to simple HTML for docx generation
-  const html = mdToHtml(md, options);
+  // Convert markdown to simple HTML for docx generation (images embedded as
+  // base64 data URIs, which html-to-docx inlines into the .docx).
+  const html = mdToHtml(md, options, embedImageDataUri);
   const docxBuffer = await HTMLtoDOCX(html, undefined, {
     table: { row: { cantSplit: true } },
     footer: true,
@@ -222,19 +295,34 @@ export async function markdownToDocx(
   return Buffer.from(docxBuffer as ArrayBuffer);
 }
 
-// Adjust mdToHtml to prevent misplaced page breaks before regular text
-function mdToHtml(md: string, opts: DocxExportOptions): string {
+/**
+ * Render markdown to HTML, faithfully reproducing the input's paragraph layout:
+ *   - A blank line separates paragraphs (standard markdown).
+ *   - A single newline inside a block is a soft line break (<br/>).
+ *   - Real structural markers (page breaks, headings, scene breaks) are honoured.
+ *
+ * `imageResolver(alt, src)` turns a markdown image ref into an <img> tag; the
+ * DOCX path embeds base64 data URIs, the EPUB path rewrites to relative refs.
+ *
+ * Exported so the EPUB builder can reuse the exact same block parsing.
+ */
+export function mdToHtml(
+  md: string,
+  opts: DocxExportOptions,
+  imageResolver: ImageResolver = embedImageDataUri,
+): string {
   const lines = md.split("\n");
   const htmlLines: string[] = [];
   const lineHeight = `line-height:${opts.lineSpacing}`;
   let lastWasPagebreak = false;
   let seenChapterHeading = false;
-  let blankRun = 0;
 
   const paragraphLines: string[] = [];
   const flushParagraph = () => {
     if (paragraphLines.length === 0) return;
-    const joined = paragraphLines.map((ln) => inlineFormat(ln)).join("<br/>");
+    const joined = paragraphLines
+      .map((ln) => inlineFormat(ln, imageResolver))
+      .join("<br/>");
     htmlLines.push(`<p style="${lineHeight}">${joined}</p>`);
     paragraphLines.length = 0;
     lastWasPagebreak = false;
@@ -243,20 +331,12 @@ function mdToHtml(md: string, opts: DocxExportOptions): string {
   for (const line of lines) {
     const trimmed = line.trim();
 
+    // Blank line: pure paragraph separator — no extra empty paragraph (which is
+    // what doubled the spacing in the old renderer).
     if (trimmed === "") {
       flushParagraph();
-      blankRun += 1;
-      if (blankRun >= 1) {
-        if (opts.smallBreak === "space") {
-          htmlLines.push(`<p style="${lineHeight}">&nbsp;</p>`);
-        } else if (opts.smallBreak === "hash") {
-          htmlLines.push(`<p style="text-align:center;${lineHeight}">#</p>`);
-        }
-      }
       continue;
     }
-
-    blankRun = 0;
 
     if (trimmed === PAGEBREAK_MARKER) {
       flushParagraph();
@@ -285,7 +365,7 @@ function mdToHtml(md: string, opts: DocxExportOptions): string {
         );
       }
       htmlLines.push(
-        `<h${level} style="${lineHeight}">${inlineFormat(headingMatch[2])}</h${level}>`,
+        `<h${level} style="${lineHeight}">${inlineFormat(headingMatch[2], imageResolver)}</h${level}>`,
       );
       if (isChapter) seenChapterHeading = true;
       lastWasPagebreak = false;
@@ -299,7 +379,9 @@ function mdToHtml(md: string, opts: DocxExportOptions): string {
           `<div class="page-break" style="page-break-after:always"></div>`,
         );
       }
-      htmlLines.push(`<h1 style="${lineHeight}">${inlineFormat(trimmed)}</h1>`);
+      htmlLines.push(
+        `<h1 style="${lineHeight}">${inlineFormat(trimmed, imageResolver)}</h1>`,
+      );
       seenChapterHeading = true;
       lastWasPagebreak = false;
       continue;
@@ -327,7 +409,32 @@ function renderSceneBreak(
   return `<p style="text-align:center;${lineHeight};margin-top:12pt;margin-bottom:12pt">* * *</p>`;
 }
 
-function inlineFormat(text: string): string {
+/** Turns a markdown image (alt, src) into an <img> tag (or "" if unresolvable). */
+export type ImageResolver = (alt: string, src: string) => string;
+
+function escapeHtmlAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+/** DOCX image resolver: inline the file as a base64 data URI. */
+export const embedImageDataUri: ImageResolver = (alt, src) => {
+  try {
+    const abs = src.startsWith("media/") ? resolveMediaPath(src) : src;
+    const ext = path.extname(abs).slice(1).toLowerCase();
+    const mime = MIME_BY_EXT[ext] ?? "image/png";
+    const data = fs.readFileSync(abs).toString("base64");
+    return `<img src="data:${mime};base64,${data}" alt="${escapeHtmlAttr(alt)}" />`;
+  } catch {
+    return ""; // image missing on disk — drop gracefully
+  }
+};
+
+function inlineFormat(text: string, imageResolver: ImageResolver): string {
+  // Images first (before emphasis), so their URLs aren't mangled.
+  text = text.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (_m, alt: string, src: string) => imageResolver(alt, src),
+  );
   // Bold
   text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");

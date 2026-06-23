@@ -31,6 +31,7 @@ export default function App() {
     model,
     resetAll,
     completedSteps,
+    sessionStartedAt,
   } = useStore();
   const setLogs = useStore((s) => s.setLogs);
   const appendLog = useStore((s) => s.appendLog);
@@ -154,10 +155,10 @@ export default function App() {
     && completedSteps.includes("style");
   const hasRun = completedSteps.includes("run");
   const hasActiveTasks = Object.values(tasks).some(
-    (t) => t.status === "queued" || t.status === "editing",
+    (t) => (t.status === "queued" || t.status === "editing") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
   const hasCompletedTasks = Object.values(tasks).some(
-    (t) => t.status === "done" || t.status === "error" || t.status === "cancelled",
+    (t) => (t.status === "done" || t.status === "error" || t.status === "cancelled") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
 
   return (

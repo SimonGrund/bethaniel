@@ -3,7 +3,7 @@
 // via the backend's supervisor, and opens a BrowserWindow pointed at the
 // backend's built-in frontend.
 
-import { app, BrowserWindow, shell, dialog } from "electron";
+import { app, BrowserWindow, shell, dialog, ipcMain } from "electron";
 import { ChildProcess, fork } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -157,6 +157,17 @@ let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let backendPort = 4000;
 let isQuitting = false;
+
+// ── IPC: Native file picker for GGUF models ──
+ipcMain.handle("dialog:openGguf", async () => {
+  const result = await dialog.showOpenDialog({
+    title: "Select a GGUF model file",
+    filters: [{ name: "GGUF Models", extensions: ["gguf"] }],
+    properties: ["openFile"],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
 
 // ── App lifecycle ──
 

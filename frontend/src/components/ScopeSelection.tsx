@@ -10,7 +10,7 @@ type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
 const PROLOGUE_RE = /^(prologue|prolog|forord)/i;
 const EPILOGUE_RE = /^(epilogue|epilog|efterord|afterword)/i;
 
-function shortChapterLabel(index: number, title: string): string {
+export function shortChapterLabel(index: number, title: string): string {
   const trimmed = title.trim();
   if (/^frontmatter$/i.test(trimmed)) return "Frontmatter";
   if (PROLOGUE_RE.test(trimmed)) return "Prologue";

@@ -9,6 +9,9 @@ import {
   fetchCustomModelConfig,
   saveCustomModelConfig,
   deleteCustomModelConfig,
+  fetchCustomGgufConfig,
+  saveCustomGgufConfig,
+  deleteCustomGgufConfig,
 } from "../api";
 
 interface CatalogEntry {
@@ -91,6 +94,9 @@ export default function ModelSelector({
     setDualCount,
     characterDedup,
     setCharacterDedup,
+    styleComplianceAgent,
+    setStyleComplianceAgent,
+    styleGuide,
     tasks,
     wizardStep,
     setWizardStep,
@@ -99,6 +105,10 @@ export default function ModelSelector({
     markStepComplete,
     completedSteps,
     advanceWizard,
+    showCustomBetty,
+    setShowCustomBetty,
+    showExternalBetty,
+    setShowExternalBetty,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -128,7 +138,19 @@ export default function ModelSelector({
   const [apiSaving, setApiSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiConfigOpen, setApiConfigOpen] = useState(false);
-  const { apiKeyConfigured, setApiKeyConfigured, setApiModel: setStoreApiModel } = useStore();
+  const {
+    apiKeyConfigured,
+    setApiKeyConfigured,
+    setApiModel: setStoreApiModel,
+  } = useStore();
+
+  // Custom Betty (custom GGUF path)
+  const [customGgufPath, setCustomGgufPath] = useState("");
+  const [customGgufConfigured, setCustomGgufConfigured] = useState(false);
+  const [customGgufSaving, setCustomGgufSaving] = useState(false);
+  const [customGgufError, setCustomGgufError] = useState<string | null>(null);
+  const [customGgufConfigOpen, setCustomGgufConfigOpen] = useState(false);
+  const [showCustomGgufModal, setShowCustomGgufModal] = useState(false);
 
   function refresh() {
     return Promise.all([
@@ -136,8 +158,13 @@ export default function ModelSelector({
       fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
       fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
       fetch(`${BASE}/api/models`).then((r) => r.json()),
-      fetchCustomModelConfig().catch(() => ({ configured: false, model: "" }) as const),
-    ]).then(([hw, cat, inst, modelsData, customCfg]) => {
+      fetchCustomModelConfig().catch(
+        () => ({ configured: false, model: "" }) as const,
+      ),
+      fetchCustomGgufConfig().catch(
+        () => ({ configured: false, path: "" }) as const,
+      ),
+    ]).then(([hw, cat, inst, modelsData, customCfg, ggufCfg]) => {
       setHardware(hw);
       setCatalog(cat.catalog ?? []);
       setPreferredOrder(cat.preferredOrder ?? []);
@@ -146,6 +173,8 @@ export default function ModelSelector({
       setApiKeyConfigured(customCfg.configured);
       setStoreApiModel(customCfg.model ?? "");
       if (customCfg.model) setApiModelName(customCfg.model);
+      setCustomGgufConfigured(ggufCfg.configured);
+      if (ggufCfg.path) setCustomGgufPath(ggufCfg.path);
     });
   }
 
@@ -160,6 +189,8 @@ export default function ModelSelector({
       setApiConfigOpen(false);
       setHighlightedModel("custom:deepseek-chat");
       await refresh();
+      setModel("custom:deepseek-chat");
+      markStepComplete("model");
     } catch (err) {
       setApiError(err instanceof Error ? err.message : t("api_config_error"));
     } finally {
@@ -180,6 +211,60 @@ export default function ModelSelector({
       await refresh();
     } catch (err) {
       setApiError(err instanceof Error ? err.message : t("api_config_error"));
+    }
+  }
+
+  // ── Custom Betty (custom GGUF) handlers ──
+
+  async function handleBrowseGguf() {
+    // Native Electron file picker — falls back to manual path entry
+    try {
+      const win = window as unknown as {
+        bethaniel?: { selectGgufFile?: () => Promise<string | null> };
+      };
+      if (win.bethaniel?.selectGgufFile) {
+        const selected = await win.bethaniel.selectGgufFile();
+        if (selected) {
+          setCustomGgufPath(selected);
+          setCustomGgufError(null);
+        }
+        return;
+      }
+    } catch {
+      // Fall through to manual input — user types the path
+    }
+  }
+
+  async function handleSaveCustomGgufConfig() {
+    setCustomGgufError(null);
+    setCustomGgufSaving(true);
+    try {
+      await saveCustomGgufConfig(customGgufPath);
+      setCustomGgufConfigured(true);
+      setShowCustomGgufModal(false);
+      setHighlightedModel("custom:gguf");
+      await refresh();
+      setModel("custom:gguf");
+      markStepComplete("model");
+    } catch (err) {
+      setCustomGgufError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCustomGgufSaving(false);
+    }
+  }
+
+  async function handleDisconnectCustomGguf() {
+    setCustomGgufError(null);
+    try {
+      await deleteCustomGgufConfig();
+      setCustomGgufConfigured(false);
+      setCustomGgufPath("");
+      setCustomGgufConfigOpen(false);
+      setHighlightedModel("");
+      if (model === "custom:gguf") setModel("");
+      await refresh();
+    } catch (err) {
+      setCustomGgufError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -252,6 +337,7 @@ export default function ModelSelector({
   useEffect(() => {
     if (model && !model.startsWith("custom:")) {
       setApiConfigOpen(false);
+      setCustomGgufConfigOpen(false);
     }
   }, [model]);
 
@@ -282,7 +368,12 @@ export default function ModelSelector({
     prevModelRef.current = activeModel;
     // Skip warm-up + log-flush for cloud/Ollama/API models — only local GGUFs
     // need the cold-load mitigation.
-    if (activeModel.startsWith("ollama:") || activeModel.startsWith("custom:")) return;
+    if (
+      activeModel.startsWith("ollama:") ||
+      (activeModel.startsWith("custom:") &&
+        !activeModel.startsWith("custom:gguf"))
+    )
+      return;
     // Only flush on a real switch, not on the initial auto-select after boot,
     // so users keep useful startup diagnostics.
     if (prev && prev !== activeModel) {
@@ -419,74 +510,114 @@ export default function ModelSelector({
         <div className="model-lock-notice"> {t("model_locked_while_busy")}</div>
       )}
       <div className="model-selector-cards">
-        {catalog.map((entry) => {
-          const isApiModel = entry.fileName.startsWith("custom:");
-          const isInstalled = isApiModel
-            ? apiKeyConfigured
-            : installed.some((i) => i.id === entry.id);
-          const isDownloading = !isApiModel && downloading.has(entry.id);
-          // over-spec: machine lacks RAM but download is still allowed
-          const isOverSpec = !isApiModel && !entry.allowed && !isInstalled;
-          const isSelected = wizardStep === "model"
-            ? highlightedModel === entry.fileName
-            : model === entry.fileName;
-          const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
-          const isRecommended = entry.tier === recommendedTier;
-          // show "Best for your machine" when the machine is low-spec
-          const isBestForMachine = !anyAllowed && isRecommended;
-          const isLockedOut = modelLocked && !isSelected && isInstalled;
-          const minRam = hardware?.appleSilicon
-            ? entry.minRamAppleSiliconGb
-            : entry.minRamGb;
-          const entryProgress = !isApiModel ? progressMap.get(entry.id) : undefined;
+        {catalog
+          .filter((entry) => {
+            if (entry.fileName === "custom:gguf") return showCustomBetty;
+            if (entry.fileName === "custom:deepseek-chat")
+              return showExternalBetty;
+            return true;
+          })
+          .map((entry) => {
+            const isApiModel =
+              entry.fileName.startsWith("custom:") &&
+              entry.fileName !== "custom:gguf";
+            const isCustomGguf = entry.fileName === "custom:gguf";
+            const isInstalled = isCustomGguf
+              ? customGgufConfigured
+              : isApiModel
+                ? apiKeyConfigured
+                : installed.some((i) => i.id === entry.id);
+            const isDownloading =
+              !isApiModel && !isCustomGguf && downloading.has(entry.id);
+            // over-spec: machine lacks RAM but download is still allowed
+            const isOverSpec =
+              !isApiModel && !isCustomGguf && !entry.allowed && !isInstalled;
+            const isSelected =
+              wizardStep === "model"
+                ? highlightedModel === entry.fileName
+                : model === entry.fileName;
+            const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
+            const isRecommended = entry.tier === recommendedTier;
+            // show "Best for your machine" when the machine is low-spec
+            const isBestForMachine = !anyAllowed && isRecommended;
+            const isLockedOut = modelLocked && !isSelected && isInstalled;
+            const minRam = hardware?.appleSilicon
+              ? entry.minRamAppleSiliconGb
+              : entry.minRamGb;
+            const entryProgress = !isApiModel
+              ? progressMap.get(entry.id)
+              : undefined;
 
-          return (
-            <div key={entry.id} className="model-card-wrap">
-              <button
-                type="button"
-                className={[
-                  "model-card",
-                  tierClass,
-                  isSelected && isInstalled ? "model-card-selected" : "",
-                  isInstalled ? "model-card-ready" : "",
-                  isOverSpec ? "model-card-overspec" : "",
-                  isDownloading ? "model-card-downloading" : "",
-                  isLockedOut ? "model-card-locked-active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                disabled={isLockedOut}
-                onClick={() => {
-                  if (isLockedOut) return;
-                  if (isApiModel) {
+            return (
+              <div key={entry.id} className="model-card-wrap">
+                <button
+                  type="button"
+                  className={[
+                    "model-card",
+                    tierClass,
+                    isSelected && isInstalled ? "model-card-selected" : "",
+                    isInstalled ? "model-card-ready" : "",
+                    isOverSpec ? "model-card-overspec" : "",
+                    isDownloading ? "model-card-downloading" : "",
+                    isLockedOut ? "model-card-locked-active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={isLockedOut}
+                  onClick={() => {
+                    if (isLockedOut) return;
+                    if (isCustomGguf) {
+                      if (isInstalled) {
+                        setHighlightedModel(entry.fileName);
+                        setModel(entry.fileName);
+                        markStepComplete("model");
+                      } else {
+                        setShowCustomGgufModal(true);
+                      }
+                      return;
+                    }
+                    if (isApiModel) {
+                      if (isInstalled) {
+                        setHighlightedModel(entry.fileName);
+                        setApiConfigOpen(false);
+                        setModel(entry.fileName);
+                        markStepComplete("model");
+                      } else {
+                        setHighlightedModel(entry.fileName);
+                      }
+                      return;
+                    }
                     if (isInstalled) {
                       setHighlightedModel(entry.fileName);
-                      setApiConfigOpen(false);
-                    } else {
-                      setHighlightedModel(entry.fileName);
+                      setModel(entry.fileName);
+                      markStepComplete("model");
+                    } else if (!isDownloading) {
+                      setConfirmEntry(entry);
                     }
-                    return;
-                  }
-                  if (isInstalled) {
-                    setHighlightedModel(entry.fileName);
-                  } else if (!isDownloading) {
-                    setConfirmEntry(entry);
-                  }
-                }}
-              >
-                <span className="model-card-name">{entry.name}</span>
-                <span className="model-card-desc">
-                  {t(
-                    "model_desc_" + entry.id.replace(/[.\-]/g, "_"),
-                    entry.description,
-                  )}
-                </span>
-                <span className="model-card-meta">
-                  {isApiModel
-                    ? apiKeyConfigured
-                      ? `${t("api_model_label")}: ${apiModelName}`
-                      : t("api_not_configured")
-                    : <>
+                  }}
+                >
+                  <span className="model-card-name">{entry.name}</span>
+                  <span className="model-card-desc">
+                    {t(
+                      "model_desc_" + entry.id.replace(/[.\-]/g, "_"),
+                      entry.description,
+                    )}
+                  </span>
+                  <span className="model-card-meta">
+                    {isCustomGguf ? (
+                      customGgufConfigured ? (
+                        customGgufPath.split("/").pop() || customGgufPath
+                      ) : (
+                        t("custom_gguf_path_label")
+                      )
+                    ) : isApiModel ? (
+                      apiKeyConfigured ? (
+                        `${t("api_model_label")}: ${apiModelName}`
+                      ) : (
+                        t("api_not_configured")
+                      )
+                    ) : (
+                      <>
                         {formatBytes(entry.sizeBytes)}
                         {entry.sizeBytes > 0 ? " · " : ""}
                         {entry.fitsGpu === null
@@ -494,82 +625,102 @@ export default function ModelSelector({
                           : entry.fitsGpu
                             ? t("model_fits_gpu")
                             : t("model_cpu_fallback")}
-                      </>}
-                </span>
+                      </>
+                    )}
+                  </span>
 
-                {isApiModel ? (
-                  isInstalled ? (
+                  {isCustomGguf ? (
+                    isInstalled ? (
+                      <span className="model-card-status">
+                        <span className="model-installed-check">✓</span>
+                        <span className="model-recommended-badge">
+                          {t("custom_gguf_configured")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="model-card-status">
+                        {t("custom_gguf_connect")}
+                      </span>
+                    )
+                  ) : isApiModel ? (
+                    isInstalled ? (
+                      <span className="model-card-status">
+                        <span className="model-installed-check">✓</span>
+                        <span className="model-recommended-badge">
+                          {t("api_connected")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="model-card-status">
+                        {t("api_connect")}
+                      </span>
+                    )
+                  ) : isDownloading && entryProgress ? (
+                    <span className="model-card-progress">
+                      <span className="model-progress-bar">
+                        <span
+                          className="model-progress-fill"
+                          style={{ width: `${entryProgress.percent}%` }}
+                        />
+                      </span>
+                      <span className="model-progress-text">
+                        {entryProgress.percent}%
+                      </span>
+                    </span>
+                  ) : isInstalled ? (
                     <span className="model-card-status">
                       <span className="model-installed-check">✓</span>
-                      <span className="model-recommended-badge">{t("api_connected")}</span>
+                      {isRecommended && (
+                        <span className="model-recommended-badge">
+                          {t("model_recommended")}
+                        </span>
+                      )}
+                    </span>
+                  ) : isOverSpec ? (
+                    <span className="model-card-status model-card-overspec-status">
+                      {isBestForMachine && (
+                        <span className="model-recommended-badge model-recommended-low-spec">
+                          {t("model_recommended_for_machine")}
+                        </span>
+                      )}
+                      <span className="model-overspec-label">
+                        {t("model_download")}
+                      </span>
                     </span>
                   ) : (
                     <span className="model-card-status">
-                      {t("api_connect")}
-                    </span>
-                  )
-                ) : isDownloading && entryProgress ? (
-                  <span className="model-card-progress">
-                    <span className="model-progress-bar">
-                      <span
-                        className="model-progress-fill"
-                        style={{ width: `${entryProgress.percent}%` }}
-                      />
-                    </span>
-                    <span className="model-progress-text">
-                      {entryProgress.percent}%
-                    </span>
-                  </span>
-                ) : isInstalled ? (
-                  <span className="model-card-status">
-                    <span className="model-installed-check">✓</span>
-                    {isRecommended && (
-                      <span className="model-recommended-badge">
-                        {t("model_recommended")}
-                      </span>
-                    )}
-                  </span>
-                ) : isOverSpec ? (
-                  <span className="model-card-status model-card-overspec-status">
-                    {isBestForMachine && (
-                      <span className="model-recommended-badge model-recommended-low-spec">
-                        {t("model_recommended_for_machine")}
-                      </span>
-                    )}
-                    <span className="model-overspec-label">
                       {t("model_download")}
                     </span>
-                  </span>
-                ) : (
-                  <span className="model-card-status">
-                    {t("model_download")}
-                  </span>
-                )}
-              </button>
+                  )}
+                </button>
 
-              {isDownloading && (
-                <button
-                  type="button"
-                  className="model-card-overlay-btn model-cancel-btn"
-                  onClick={() => cancelDownload(entry.id)}
-                  title={t("model_cancel_download")}
-                >
-                  ✕
-                </button>
-              )}
-              {isInstalled && !isDownloading && !isLockedOut && !isApiModel && (
-                <button
-                  type="button"
-                  className="model-card-overlay-btn model-delete-btn"
-                  onClick={() => setConfirmDelete(entry)}
-                  title={t("model_delete")}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          );
-        })}
+                {isDownloading && (
+                  <button
+                    type="button"
+                    className="model-card-overlay-btn model-cancel-btn"
+                    onClick={() => cancelDownload(entry.id)}
+                    title={t("model_cancel_download")}
+                  >
+                    ✕
+                  </button>
+                )}
+                {isInstalled &&
+                  !isDownloading &&
+                  !isLockedOut &&
+                  !isApiModel &&
+                  !isCustomGguf && (
+                    <button
+                      type="button"
+                      className="model-card-overlay-btn model-delete-btn"
+                      onClick={() => setConfirmDelete(entry)}
+                      title={t("model_delete")}
+                    >
+                      ✕
+                    </button>
+                  )}
+              </div>
+            );
+          })}
 
         {/* Business Betty — placeholder locked card 
         <button
@@ -667,9 +818,13 @@ export default function ModelSelector({
                     max={5}
                     step={1}
                     value={reviewerThreshold}
-                    onChange={(e) => setReviewerThreshold(Number(e.target.value))}
+                    onChange={(e) =>
+                      setReviewerThreshold(Number(e.target.value))
+                    }
                   />
-                  <span className="help-text">{t("reviewer_threshold_help")}</span>
+                  <span className="help-text">
+                    {t("reviewer_threshold_help")}
+                  </span>
                 </div>
               )}
               {reviewMode && (
@@ -731,6 +886,26 @@ export default function ModelSelector({
               )}
 
               <div className="field">
+                <label
+                  className="option-check"
+                  style={{ opacity: styleGuide?.trim() ? 1 : 0.5 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={styleComplianceAgent && !!styleGuide?.trim()}
+                    disabled={!styleGuide?.trim()}
+                    onChange={(e) => setStyleComplianceAgent(e.target.checked)}
+                  />{" "}
+                  {t("style_compliance_agent")}
+                </label>
+                <span className="help-text">
+                  {styleGuide?.trim()
+                    ? t("style_compliance_agent_help")
+                    : t("style_compliance_agent_disabled_help")}
+                </span>
+              </div>
+
+              <div className="field">
                 <label className="option-check">
                   <input
                     type="checkbox"
@@ -742,58 +917,197 @@ export default function ModelSelector({
                 <span className="help-text">{t("character_dedup_help")}</span>
               </div>
 
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={showCustomBetty}
+                    onChange={(e) => setShowCustomBetty(e.target.checked)}
+                  />{" "}
+                  {t("show_custom_betty")}
+                </label>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={showExternalBetty}
+                    onChange={(e) => setShowExternalBetty(e.target.checked)}
+                  />{" "}
+                  {t("show_external_betty")}
+                </label>
+              </div>
+
               {highlightedModel && <ModelTuning fileName={highlightedModel} />}
             </div>
           )}
         </>
       )}
 
-      {/* ── External Betty: API config panel ── */}
-      {catalog.some((e) => e.fileName.startsWith("custom:")) && (
-        <>
-          {!apiKeyConfigured && !modelLocked && highlightedModel === "custom:deepseek-chat" && (
-            <div className="api-config-inline">
-              <div className="api-config-row">
-                <label>{t("api_key_label")}</label>
+      {/* ── Custom Betty: configured state (inline disconnect) ── */}
+      {customGgufConfigured &&
+        !modelLocked &&
+        (model === "custom:gguf" || highlightedModel === "custom:gguf") && (
+          <div className="custom-gguf-config-inline">
+            <div className="custom-gguf-config-row">
+              <label>
+                {t("custom_gguf_path_label")}: {customGgufPath.split("/").pop()}
+              </label>
+            </div>
+            <div className="custom-gguf-config-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleDisconnectCustomGguf}
+              >
+                {t("custom_gguf_disconnect")}
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* ── Custom Betty: modal for setting GGUF path ── */}
+      {showCustomGgufModal && (
+        <div
+          className="model-confirm-overlay"
+          onClick={() => setShowCustomGgufModal(false)}
+        >
+          <div
+            className="model-confirm-dialog custom-gguf-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="custom-gguf-title">{t("custom_betty_title")}</h3>
+            <p className="custom-gguf-desc">{t("custom_betty_desc")}</p>
+            <div className="custom-gguf-config-row">
+              <label className="custom-gguf-label">{t("custom_gguf_path_label")}</label>
+              <div className="custom-gguf-input-row">
                 <input
-                  type={showApiKey ? "text" : "password"}
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder={t("api_key_placeholder")}
+                  type="text"
+                  className="custom-gguf-input"
+                  value={customGgufPath}
+                  onChange={(e) => {
+                    setCustomGgufPath(e.target.value);
+                    setCustomGgufError(null);
+                  }}
+                  placeholder={t("custom_gguf_path_placeholder")}
+                  autoFocus
                 />
                 <button
                   type="button"
-                  className="btn-show-key"
-                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="btn-secondary custom-gguf-browse-btn"
+                  onClick={handleBrowseGguf}
                 >
-                  {showApiKey ? t("api_hide_key") : t("api_show_key")}
+                  {t("custom_gguf_browse")}
                 </button>
               </div>
-              <div className="api-config-row">
-                <label>{t("api_model_label")}</label>
-                <select
-                  className="api-config-select"
-                  value={apiModelName}
-                  onChange={(e) => setApiModelName(e.target.value)}
-                >
-                  <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
-                  <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
-                </select>
+            </div>
+            {customGgufError && (
+              <div className="model-error">
+                {customGgufError}
               </div>
-              <div className="api-privacy-warning">
-                {t("api_privacy_warning")}
+            )}
+            <div className="model-confirm-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleSaveCustomGgufConfig}
+                disabled={customGgufSaving || !customGgufPath.trim()}
+              >
+                {customGgufSaving ? "..." : t("custom_gguf_connect")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowCustomGgufModal(false);
+                  setCustomGgufError(null);
+                }}
+              >
+                {t("btn_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── External Betty: API config panel ── */}
+      {catalog.some((e) => e.fileName.startsWith("custom:")) && (
+        <>
+          {!apiKeyConfigured &&
+            !modelLocked &&
+            highlightedModel === "custom:deepseek-chat" && (
+              <div className="api-config-inline">
+                <div className="api-config-row">
+                  <label>{t("api_key_label")}</label>
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder={t("api_key_placeholder")}
+                  />
+                  <button
+                    type="button"
+                    className="btn-show-key"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? t("api_hide_key") : t("api_show_key")}
+                  </button>
+                </div>
+                <div className="api-config-row">
+                  <label>{t("api_model_label")}</label>
+                  <select
+                    className="api-config-select"
+                    value={apiModelName}
+                    onChange={(e) => setApiModelName(e.target.value)}
+                  >
+                    <option value="deepseek-chat">
+                      deepseek-chat (DeepSeek V3)
+                    </option>
+                    <option value="deepseek-reasoner">
+                      deepseek-reasoner (DeepSeek R1)
+                    </option>
+                  </select>
+                </div>
+                <div className="api-privacy-warning">
+                  {t("api_privacy_warning")}
+                </div>
+                {apiError && <div className="api-error">{apiError}</div>}
+                <div className="api-config-actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleSaveApiConfig}
+                    disabled={apiSaving || !apiKeyInput.trim()}
+                  >
+                    {apiSaving ? t("api_config_saving") : t("api_connect")}
+                  </button>
+                  {apiKeyConfigured && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleDisconnectApi}
+                    >
+                      {t("api_disconnect")}
+                    </button>
+                  )}
+                </div>
               </div>
-              {apiError && <div className="api-error">{apiError}</div>}
-              <div className="api-config-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleSaveApiConfig}
-                  disabled={apiSaving || !apiKeyInput.trim()}
-                >
-                  {apiSaving ? t("api_config_saving") : t("api_connect")}
-                </button>
-                {apiKeyConfigured && (
+            )}
+          {apiKeyConfigured &&
+            !modelLocked &&
+            (model?.startsWith("custom:") ||
+              highlightedModel === "custom:deepseek-chat") && (
+              <div className="api-config-inline">
+                <div className="api-config-row">
+                  <label>
+                    {t("api_model_label")}: {apiModelName}
+                  </label>
+                </div>
+                <div className="api-privacy-warning">
+                  {t("api_privacy_warning")}
+                </div>
+                <div className="api-config-actions">
                   <button
                     type="button"
                     className="btn-secondary"
@@ -801,50 +1115,11 @@ export default function ModelSelector({
                   >
                     {t("api_disconnect")}
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-          )}
-          {apiKeyConfigured && !modelLocked && (model?.startsWith("custom:") || highlightedModel === "custom:deepseek-chat") && (
-            <div className="api-config-inline">
-              <div className="api-config-row">
-                <label>{t("api_model_label")}: {apiModelName}</label>
-              </div>
-              <div className="api-privacy-warning">
-                {t("api_privacy_warning")}
-              </div>
-              <div className="api-config-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleDisconnectApi}
-                >
-                  {t("api_disconnect")}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
         </>
       )}
-
-      {/* ── Confirm Model button (wizard step 1) ── */}
-      {wizardStep === "model" && highlightedModel && !modelLocked && (
-        <div className="wizard-confirm">
-          <button
-            type="button"
-            className="btn-primary btn-confirm-step"
-            onClick={() => {
-              setModel(highlightedModel);
-              markStepComplete("model");
-              advanceWizard("model");
-            }}
-          >
-            {t("wizard_confirm_model")}
-          </button>
-        </div>
-      )}
-
-
 
       {confirmEntry && (
         <div className="model-confirm-overlay">
@@ -931,7 +1206,6 @@ export default function ModelSelector({
       )}
 
       {error && <div className="model-error">{error}</div>}
-
     </div>
   );
 }
@@ -1052,20 +1326,20 @@ function ModelTuning({ fileName }: { fileName: string }) {
       <span className="help-text">{t("model_tuning_help")}</span>
 
       {!isCustom && (
-      <div className="field">
-        <label>
-          {t("context_window")}: {cfg.num_ctx.toLocaleString()}
-        </label>
-        <input
-          type="range"
-          min={2048}
-          max={32768}
-          step={1024}
-          value={cfg.num_ctx}
-          {...sliderProps("num_ctx", (v) => Number(v))}
-        />
-        <span className="help-text">{t("context_window_help")}</span>
-      </div>
+        <div className="field">
+          <label>
+            {t("context_window")}: {cfg.num_ctx.toLocaleString()}
+          </label>
+          <input
+            type="range"
+            min={2048}
+            max={32768}
+            step={1024}
+            value={cfg.num_ctx}
+            {...sliderProps("num_ctx", (v) => Number(v))}
+          />
+          <span className="help-text">{t("context_window_help")}</span>
+        </div>
       )}
 
       <div className="field">
@@ -1144,16 +1418,16 @@ function ModelTuning({ fileName }: { fileName: string }) {
       </div>
 
       {!isCustom && (
-      <div className="field model-tuning-checkbox">
-        <label>
-          <input
-            type="checkbox"
-            checked={cfg.no_mmap}
-            onChange={(e) => save({ ...cfg, no_mmap: e.target.checked })}
-          />{" "}
-          {t("disable_mmap")}
-        </label>
-      </div>
+        <div className="field model-tuning-checkbox">
+          <label>
+            <input
+              type="checkbox"
+              checked={cfg.no_mmap}
+              onChange={(e) => save({ ...cfg, no_mmap: e.target.checked })}
+            />{" "}
+            {t("disable_mmap")}
+          </label>
+        </div>
       )}
 
       <div className="field">

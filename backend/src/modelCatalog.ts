@@ -11,8 +11,8 @@ export interface ModelCatalogEntry {
   name: string;
   description: string;
   fileName: string;
-  /** "gguf" = download from url, "ollama" = pull via Ollama API, "api" = external API model */
-  source: "gguf" | "ollama" | "api";
+  /** "gguf" = download from url, "ollama" = pull via Ollama API, "api" = external API model, "custom_gguf" = user-specified GGUF file path */
+  source: "gguf" | "ollama" | "api" | "custom_gguf";
   /** HuggingFace (or other) download URL. Required for source "gguf". */
   url: string | "";
   /** Ollama model tag (e.g. "qwen3:32b"). Required for source "ollama". */
@@ -103,6 +103,24 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     },
   },
   {
+    id: "custom-gguf",
+    tier: "custom",
+    name: "Custom Betty",
+    description:
+      "Point to any GGUF file on your computer. Your model, your rules.",
+    fileName: "custom:gguf",
+    source: "custom_gguf",
+    url: "",
+    sha256: "",
+    sizeBytes: 0,
+    minRamGb: 0,
+    minRamAppleSiliconGb: 0,
+    defaults: {
+      ...COMMON_DEFAULTS,
+      system: BASE_SYSTEM_PROMPT,
+    },
+  },
+  {
     id: "custom-deepseek",
     tier: "custom",
     name: "External Betty",
@@ -163,7 +181,12 @@ export function isApiModelEntry(entry: ModelCatalogEntry): boolean {
   return entry.source === "api";
 }
 
+/** Quick check: is this model identifier a user-specified GGUF path? */
+export function isCustomGgufModel(fileName: string): boolean {
+  return fileName.startsWith("custom:gguf");
+}
+
 /** Quick check: is this model identifier an external API model? */
 export function isApiModel(fileName: string): boolean {
-  return fileName.startsWith("custom:");
+  return fileName.startsWith("custom:") && !isCustomGgufModel(fileName);
 }

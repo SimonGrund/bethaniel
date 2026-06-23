@@ -81,12 +81,6 @@ export interface DocumentMeta {
   chapters: Chapter[];
   wordCount: number;
   uploadedAt: number;
-  /** Whether scene/paragraph break detection ran on this document. */
-  detectBreaks?: boolean;
-  /** Raw scene-break pattern detected at upload (e.g. "***", "\\*", "---"). */
-  detectedSceneBreak?: string | null;
-  /** Paragraph (small) break style — usually "empty line". */
-  detectedParagraphBreak?: string | null;
 }
 
 export interface Correction {
@@ -156,6 +150,7 @@ export interface TaskRetrySpec {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  styleComplianceAgent?: boolean;
 }
 
 export interface EditUnit {

@@ -119,6 +119,83 @@ npm run dev
 Runs the Vite dev server on `http://localhost:5173` (with hot reload) and the
 backend with `nodemon` on `http://localhost:4000`.
 
+## CLI (`betty`)
+
+`betty` runs the full editing pipeline headlessly — no Electron, no server. It
+reads a manuscript, runs one or more modes against a model, **automatically
+keeps every change the reviewer agent accepted** (low-confidence changes are
+dropped, exactly like the app's review pane), and writes one or more export
+formats. Don't run it while the desktop app is open — both compete for the
+llama-server port.
+
+```bash
+# From the repo root:
+npm run betty -- --model Baby-betty --mode copy line \
+  --input-doc book.docx --export-format docx md
+```
+
+### Flags
+
+| Flag                   | Required          | Notes                                                                                   |
+| ---------------------- | ----------------- | --------------------------------------------------------------------------------------- |
+| `--model <name>`       | yes               | Friendly name (`Baby Betty`), tier (`small`), id (`qwen3.5-4b`), gguf filename, or `custom:<id>` (case/space/hyphen-insensitive) |
+| `--mode <mode>...`     | yes               | One or more of `copy line analysis translation` (space- or comma-separated). `copy`+`line` merge into one combined edit |
+| `--input-doc <path>`   | yes               | `.docx`, `.md`, or `.txt`                                                                |
+| `--export-format <f>...`| yes              | One or more of `docx md epub`                                                            |
+| `--language <lang>`    | for `translation` | Target language                                                                         |
+| `--style-guide <path>` | no                | Style-guide text file applied to the run                                                 |
+| `--out-dir <dir>`      | no                | Output directory (default: the input file's directory)                                   |
+| `--data-dir <dir>`     | no                | Data dir with `api-config.json` / the SQLite db (default: the desktop app's data dir)    |
+| `--api-key <key>`      | for External Betty (first run) | API key for External Betty; saved to the data dir so later runs don't need it  |
+| `--no-review`          | no                | Disable the reviewer (keep all editor changes)                                           |
+| `-h, --help`           | no                | Show full help                                                                           |
+
+Each mode writes its own file named `<input>.<label>.<ext>` — labels are
+`edit` (copy+line), `copy`, `line`, `analysis` (synthesized summary), and
+`translation`. So the example above produces `book.edit.docx` and
+`book.edit.md`.
+
+### More examples
+
+```bash
+# Translate to Spanish, export EPUB
+npm run betty -- --model Big-bad-betty --mode translation --language Spanish \
+  --input-doc book.md --export-format epub
+
+# Character/location/timeline analysis summary, export DOCX
+npm run betty -- --model Basic-betty --mode analysis \
+  --input-doc book.docx --export-format docx
+
+# External Betty (DeepSeek API) — first run saves the key for next time
+npm run betty -- --model "External Betty" --api-key sk-... --mode copy \
+  --input-doc book.docx --export-format md
+```
+
+### External Betty (API models)
+
+API models read their key from `api-config.json` in the data dir. The CLI looks
+for it in the desktop app's data dir first, then the repo's `backend/data`, so
+if you've configured External Betty in the app (or the dev server) it works
+without extra flags. Otherwise pass `--api-key` once (it's saved) or point
+`--data-dir` at a folder that has an `api-config.json`.
+
+> **Tip:** `npm run betty` runs from the `backend/` workspace, so relative
+> `--input-doc`/`--out-dir` paths resolve from there. Use absolute paths, or
+> install `betty` on your PATH (below) — the launcher runs from your current
+> directory.
+
+### Installing `betty` on your PATH (optional)
+
+```bash
+cd backend
+npm run install:betty      # npm link → global `betty` command
+betty --model Baby-betty --mode copy --input-doc book.md -f md   # from anywhere
+npm run uninstall:betty    # remove it later
+```
+
+You can also call the launcher directly without installing:
+`./backend/betty --help`.
+
 ## Configuration
 
 | Env variable     | Default        | Notes                         |

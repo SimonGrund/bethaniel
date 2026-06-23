@@ -29,6 +29,7 @@ import {
   CHARACTER_IDENTITY_PROMPT,
   buildReviewerPrompt,
   buildTranslationReviewerPrompt,
+  buildStyleCompliancePrompt,
 } from "./prompts.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
@@ -162,6 +163,7 @@ interface JobData {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  styleComplianceAgent?: boolean;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -1186,9 +1188,28 @@ async function processJob(job: JobData): Promise<void> {
             }
 
             // ── Run editor(s) — single or multi ──
-            const editorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+            // The normal editor prompt runs `baseEditorCount` times; when a
+            // style sheet is present and the toggle is on, one extra agent runs
+            // the dedicated style-compliance pass. Its corrections merge into
+            // the same union-deduped set as the regular editors.
+            const baseEditorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+            const styleAgentActive = !!(
+              job.styleComplianceAgent &&
+              job.styleGuide &&
+              job.styleGuide.trim()
+            );
+            const editorPrompts: string[] = Array.from(
+              { length: baseEditorCount },
+              () => prompt,
+            );
+            if (styleAgentActive) {
+              editorPrompts.push(buildStyleCompliancePrompt(job.styleGuide!, mode));
+            }
+            const editorCount = editorPrompts.length;
             if (editorCount > 1) {
-              updateTask(taskId, { phase: `${phasePrefix}editing chunk ${chunkLabel} (${editorCount} agents)` });
+              updateTask(taskId, {
+                phase: `${phasePrefix}editing chunk ${chunkLabel} (${editorCount} agents${styleAgentActive ? ", incl. style-sheet" : ""})`,
+              });
 
               // Collect N editor streams in parallel.
               const collectStream = async (promptText: string) => {
@@ -1197,9 +1218,7 @@ async function processJob(job: JobData): Promise<void> {
                 return a;
               };
 
-              const promises = Array.from({ length: editorCount }, () =>
-                collectStream(prompt),
-              );
+              const promises = editorPrompts.map((pr) => collectStream(pr));
               const results = await Promise.allSettled(promises);
 
               // Build raw values per agent.
@@ -1223,7 +1242,7 @@ async function processJob(job: JobData): Promise<void> {
                   let retried = false;
                   for (let rt = 1; rt <= DUAL_RETRIES; rt++) {
                     try {
-                      const val = await collectStream(prompt);
+                      const val = await collectStream(editorPrompts[idx]);
                       raws.push(val);
                       retried = true;
                       appendLog({
@@ -1420,7 +1439,7 @@ async function processJob(job: JobData): Promise<void> {
         // reviewer result" at the top of the loop). For the last chunk, the
         // reviewer is collected after the loop.
         if (job.reviewMode && cs.length > 0) {
-          const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+          const reviewerPrompt = buildReviewerPrompt(job.styleGuide, mode);
           const rCount = job.reviewerCount ?? 1;
 
           const reviewPromise = (async () => {
@@ -1526,7 +1545,7 @@ async function processJob(job: JobData): Promise<void> {
                 phase: `reviewing translation for chunk ${chunkLabel}`,
               });
 
-              const reviewerPrompt = buildTranslationReviewerPrompt();
+              const reviewerPrompt = buildTranslationReviewerPrompt(job.styleGuide);
               const rCount = job.reviewerCount ?? 1;
               const runOne = async () => {
                 let a = "";
@@ -1640,7 +1659,7 @@ async function processJob(job: JobData): Promise<void> {
 
         if (cs.length > 0) {
           if (job.reviewMode) {
-            const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+            const reviewerPrompt = buildReviewerPrompt(job.styleGuide, mode);
             const rCount = job.reviewerCount ?? 1;
 
             const reviewPromise = (async () => {
@@ -2008,6 +2027,7 @@ export async function submitTask(
       dualEditor: data.dualEditor,
       dualCount: data.dualCount,
       characterDedup: data.characterDedup,
+      styleComplianceAgent: data.styleComplianceAgent,
     },
   });
 
@@ -2104,6 +2124,7 @@ export async function retryTask(id: string): Promise<string> {
     dualEditor: spec.dualEditor,
     dualCount: spec.dualCount,
     characterDedup: spec.characterDedup,
+    styleComplianceAgent: spec.styleComplianceAgent,
   });
   return newTaskId;
 }

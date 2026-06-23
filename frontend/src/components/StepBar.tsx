@@ -6,12 +6,12 @@ import type { WizardStep } from "../store";
 
 const STEP_ORDER: WizardStep[] = ["model", "edits", "upload", "style"];
 
-const STEP_META: Record<WizardStep, { icon: string; brief: string } | null> = {
-  model: { icon: "🧠", brief: "model_step_brief" },
-  edits: { icon: "✏️", brief: "edits_step_brief" },
-  upload: { icon: "📄", brief: "upload_step_brief" },
-  style: { icon: "📋", brief: "style_step_brief" },
-  run: { icon: "🚀", brief: "run_step_brief" },
+const STEP_META: Record<WizardStep, { num: number; nameKey: string; brief: string } | null> = {
+  model: { num: 1, nameKey: "step_name_model", brief: "model_step_brief" },
+  edits: { num: 2, nameKey: "step_name_edits", brief: "edits_step_brief" },
+  upload: { num: 3, nameKey: "step_name_upload", brief: "upload_step_brief" },
+  style: { num: 4, nameKey: "step_name_style", brief: "style_step_brief" },
+  run: { num: 5, nameKey: "", brief: "run_step_brief" },
   done: null,
   folded: null,
 };
@@ -80,24 +80,28 @@ export default function StepBar() {
 
   return (
     <div className="step-bar">
-      {STEP_ORDER.map((step) => {
+      {STEP_ORDER.map((step, i) => {
         const meta = STEP_META[step];
         const isCurrent = wizardStep === step;
         const isCompleted = completedSteps.includes(step);
         const label = getLabel(step);
 
         return (
-          <button
-            key={step}
-            type="button"
-            className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${!isCompleted ? " step-card-pending" : ""}`}
-            onClick={() => setWizardStep(isCurrent ? "folded" : step)}
-            title={t(meta?.brief ?? "")}
-          >
-            <span className="step-card-icon">{meta?.icon ?? ""}</span>
-            <span className="step-card-label">{label}</span>
-            {isCompleted && <span className="step-card-check">✓</span>}
-          </button>
+          <>
+            {i > 0 && <span key={`arrow-${step}`} className="step-bar-arrow">›</span>}
+            <button
+              key={step}
+              type="button"
+              className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${!isCompleted ? " step-card-pending" : ""}`}
+              onClick={() => setWizardStep(isCurrent ? "folded" : step)}
+              title={t(meta?.brief ?? "")}
+            >
+              <span className="step-card-num">{meta?.num}</span>
+              <span className="step-card-name">{t(meta?.nameKey ?? "")}</span>
+              {label && <span className="step-card-label">{label}</span>}
+              {isCompleted && <span className="step-card-check">✓</span>}
+            </button>
+          </>
         );
       })}
 

@@ -1,6 +1,6 @@
 {
   "name": "bethaniel",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "productName": "Bethaniel",
   "description": "A private copy editor for pre-print manuscripts",
@@ -24,7 +24,8 @@
     "dist:win": "node scripts/build.mjs --platform win",
     "dist:linux": "node scripts/build.mjs --platform linux",
     "release": "node scripts/build.mjs --publish always",
-    "release:mac": "node scripts/build.mjs --platform mac --publish always"
+    "release:mac": "node scripts/build.mjs --platform mac --publish always",
+    "betty": "npm run cli --workspace=backend --"
   },
   "engines": {
     "node": ">=22.12.0"

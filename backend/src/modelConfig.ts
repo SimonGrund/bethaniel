@@ -36,9 +36,23 @@ export interface ApiConfig {
   num_predict?: number;
 }
 
+/** Custom GGUF model configuration stored in DATA_DIR/custom-gguf-config.json. */
+export interface CustomGgufConfig {
+  ggufPath: string;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repeat_penalty?: number;
+  num_predict?: number;
+  num_ctx?: number;
+  no_mmap?: boolean;
+}
+
 const DATA_DIR =
-  process.env.DATA_DIR ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../data");
+  process.env.DATA_DIR ??
+  path.resolve(path.dirname(new URL(import.meta.url).pathname), "../data");
 const API_CONFIG_PATH = path.join(DATA_DIR, "api-config.json");
+const CUSTOM_GGUF_CONFIG_PATH = path.join(DATA_DIR, "custom-gguf-config.json");
 
 /** Fallback used only when a fileName has no catalog entry (shouldn't normally
  *  happen — routes validate against the catalog before calling these). */
@@ -71,7 +85,9 @@ function configPathForModel(modelsDir: string, ggufFileName: string): string {
 // ── API config persistence ──
 
 function ensureDataDir(): void {
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch {}
 }
 
 /** Read API model configuration from disk. Returns null if not configured. */
@@ -95,12 +111,65 @@ export function writeApiConfig(config: ApiConfig): void {
 /** Check whether any API model is configured. */
 export function hasApiConfig(): boolean {
   const cfg = readApiConfig();
-  return !!(cfg?.apiKey);
+  return !!cfg?.apiKey;
 }
 
 /** Delete the API config file entirely. */
 export function deleteApiConfig(): void {
-  try { fs.unlinkSync(API_CONFIG_PATH); } catch {}
+  try {
+    fs.unlinkSync(API_CONFIG_PATH);
+  } catch {}
+}
+
+// ── Custom GGUF config persistence ──
+
+/** Read Custom GGUF model configuration from disk. Returns null if not configured. */
+export function readCustomGgufConfig(): CustomGgufConfig | null {
+  try {
+    const raw = fs.readFileSync(CUSTOM_GGUF_CONFIG_PATH, "utf-8");
+    return JSON.parse(raw) as CustomGgufConfig;
+  } catch {
+    return null;
+  }
+}
+
+/** Write Custom GGUF model configuration to disk. */
+export function writeCustomGgufConfig(config: Partial<CustomGgufConfig>): void {
+  ensureDataDir();
+  const existing = readCustomGgufConfig();
+  const merged: CustomGgufConfig = {
+    ...existing,
+    ...config,
+  } as CustomGgufConfig;
+  fs.writeFileSync(
+    CUSTOM_GGUF_CONFIG_PATH,
+    JSON.stringify(merged, null, 2) + "\n",
+  );
+}
+
+/** Check whether a custom GGUF model is configured. */
+export function hasCustomGgufConfig(): boolean {
+  const cfg = readCustomGgufConfig();
+  if (!cfg?.ggufPath) return false;
+  try {
+    return fs.existsSync(cfg.ggufPath);
+  } catch {
+    return false;
+  }
+}
+
+/** Delete the Custom GGUF config file entirely. */
+export function deleteCustomGgufConfig(): void {
+  try {
+    fs.unlinkSync(CUSTOM_GGUF_CONFIG_PATH);
+  } catch {}
+}
+
+/** Get the resolved GGUF file path for a custom GGUF model, or null if not configured. */
+export function getCustomGgufPath(): string | null {
+  const cfg = readCustomGgufConfig();
+  if (!cfg?.ggufPath) return null;
+  return cfg.ggufPath;
 }
 
 /**
@@ -123,6 +192,18 @@ export function writeModelConfig(
       top_k: settings.top_k,
       repeat_penalty: settings.repeat_penalty,
       num_predict: settings.num_predict,
+    });
+    return;
+  }
+  if (entry?.source === "custom_gguf") {
+    writeCustomGgufConfig({
+      temperature: settings.temperature,
+      top_p: settings.top_p,
+      top_k: settings.top_k,
+      repeat_penalty: settings.repeat_penalty,
+      num_predict: settings.num_predict,
+      num_ctx: settings.num_ctx,
+      no_mmap: settings.no_mmap,
     });
     return;
   }
@@ -153,6 +234,21 @@ export function readModelConfig(
       repeat_penalty: apiCfg?.repeat_penalty ?? defaults.repeat_penalty,
       system: defaults.system,
       no_mmap: false,
+    };
+  }
+
+  if (entry?.source === "custom_gguf") {
+    const defaults = entry.defaults;
+    const cfg = readCustomGgufConfig();
+    return {
+      num_ctx: cfg?.num_ctx ?? defaults.num_ctx,
+      num_predict: cfg?.num_predict ?? defaults.num_predict,
+      temperature: cfg?.temperature ?? defaults.temperature,
+      top_p: cfg?.top_p ?? defaults.top_p,
+      top_k: cfg?.top_k ?? defaults.top_k,
+      repeat_penalty: cfg?.repeat_penalty ?? defaults.repeat_penalty,
+      system: defaults.system,
+      no_mmap: cfg?.no_mmap ?? defaults.no_mmap,
     };
   }
 
@@ -189,6 +285,14 @@ export function resetModelConfig(
         apiKey: apiCfg.apiKey,
         model: apiCfg.model,
       });
+    }
+    return getDefaultsForFile(ggufFileName);
+  }
+
+  if (entry?.source === "custom_gguf") {
+    const cfg = readCustomGgufConfig();
+    if (cfg?.ggufPath) {
+      writeCustomGgufConfig({ ggufPath: cfg.ggufPath });
     }
     return getDefaultsForFile(ggufFileName);
   }

@@ -5,6 +5,8 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
+  exportEpub,
+  formatEbook,
   retryTask,
   clearQueue,
   deleteTask,
@@ -1116,7 +1118,9 @@ function buildFullManuscript(
 export default function ReviewExport({ isOldResults }: { isOldResults?: boolean }) {
   const {
     lang,
-    tasks,
+    model,
+    tasks: allTasks,
+    sessionStartedAt,
     acceptedCorrections,
     showFlagged,
     toggleShowFlagged,
@@ -1128,9 +1132,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     dismissCorrection,
     toggleOccurrence,
   } = useStore();
+  const tasks = isOldResults
+    ? allTasks
+    : Object.fromEntries(
+        Object.entries(allTasks).filter(([, t]) => (t.submittedAt ?? 0) >= sessionStartedAt),
+      );
   const t = useTranslation(lang);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    msg: string;
+    kind: "accept" | "dismiss" | "error";
+  } | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -1169,6 +1181,36 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       }
     },
     [],
+  );
+
+  const [formattingEbook, setFormattingEbook] = useState(false);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // One-click AI ebook formatting: tidy structure, then export EPUB.
+  const handleAutoFormatEbook = useCallback(
+    async (markdown: string, baseName: string) => {
+      setFormattingEbook(true);
+      try {
+        const formatted = await formatEbook(markdown, model);
+        const epubBlob = await exportEpub(formatted, { title: baseName });
+        downloadBlob(epubBlob, `${baseName}.ebook.epub`);
+        setToast({ msg: t("ebook_done_toast"), kind: "accept" });
+      } catch (err) {
+        console.error("Auto-format ebook failed:", err);
+        setToast({ msg: t("ebook_failed_toast"), kind: "error" });
+      } finally {
+        setFormattingEbook(false);
+      }
+    },
+    [model, t],
   );
 
   const handleRetry = useCallback(async (taskId: string) => {
@@ -1319,24 +1361,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       )}
 
       {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#22c55e",
-            color: "#fff",
-            padding: "0.75rem 1.5rem",
-            borderRadius: "8px",
-            fontWeight: 600,
-            fontSize: "0.95rem",
-            boxShadow: "0 4px 16px rgba(34,197,94,0.35)",
-            zIndex: 9999,
-            animation: "toast-in 0.3s ease",
-          }}
-        >
-          {toast}
+        <div className={`review-toast review-toast-${toast.kind}`}>
+          {toast.msg}
         </div>
       )}
 
@@ -1387,6 +1413,30 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 ),
             ),
           ).map((m) => modelNames[m] ?? m);
+
+          // ── Shared manuscript-wide edit state (accept-all toggle + downloads) ──
+          const editTasks = entries.filter(([, task]) =>
+            EDIT_MODES.includes(task.mode),
+          );
+          const editTaskIds = editTasks.map(([tid]) => tid);
+          const allEditDone = editTasks.every(
+            ([, task]) => task.status === "done",
+          );
+          const allEditCorrections = editTasks.flatMap(([tid, task]) =>
+            (task.result?.corrections ?? [])
+              .filter((c) => c.id)
+              .map((c) => ({ tid, id: c.id as string })),
+          );
+          const hasAnyCorrections = allEditCorrections.length > 0;
+          const allAccepted =
+            hasAnyCorrections &&
+            allEditCorrections.every(({ tid, id }) => {
+              const set = acceptedCorrections[tid] ?? new Set<string>();
+              return (
+                set.has(id) || [...set].some((k) => k.startsWith(`${id}:`))
+              );
+            });
+
           const jobNode = (
             <details
               key={jid}
@@ -1428,6 +1478,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   ×
                 </button>
               </summary>
+
+              <div className="review-group-body">
 
               {failedChapters.length > 0 && (
                 <div className="review-warning-banner">
@@ -1569,7 +1621,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           handleDownloadDocx(
                             summaryTask.result!.editedText,
                             `${src}.summary.docx`,
-                            { detectBreaks: false },
                           )
                         }
                       >
@@ -1656,7 +1707,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           handleDownloadDocx(
                             blurbTask.result!.editedText,
                             `${src}.blurb.docx`,
-                            { detectBreaks: false },
                           )
                         }
                       >
@@ -2041,6 +2091,19 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           ↻ {t("retry_task")}
                         </button>
                       )}
+                      {!isTranslation && hasChanges && (
+                        <button
+                          type="button"
+                          className="btn-small btn-accept summary-accept-btn"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            acceptAll(tid);
+                          }}
+                        >
+                          {t("accept_all_job")}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="review-delete-btn review-delete-btn-task"
@@ -2108,13 +2171,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   </button>
                                 )}
                                 <button
-                                  className="btn-small"
+                                  className="btn-small btn-accept"
                                   onClick={() => acceptAll(tid)}
                                 >
                                   {t("accept_all")}
                                 </button>
                                 <button
-                                  className="btn-small"
+                                  className="btn-small btn-dismiss"
                                   onClick={() => dismissAll(tid)}
                                 >
                                   {t("dismiss_all")}
@@ -2250,9 +2313,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 corrections,
                                 accepted,
                               );
-                          handleDownloadDocx(text, `${task.name}.edited.docx`, {
-                            detectBreaks: false,
-                          });
+                          handleDownloadDocx(text, `${task.name}.edited.docx`);
                         }}
                       >
                         {t("download_chapter_docx")}
@@ -2266,64 +2327,91 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               })}
               </div>
 
-              {/* ── Full manuscript download (edit jobs only) ── */}
-              {(() => {
-                const editTasks = entries.filter(([, task]) =>
-                  EDIT_MODES.includes(task.mode),
-                );
-                if (editTasks.length === 0) return null;
-                const allDone = editTasks.every(
-                  ([, task]) => task.status === "done",
-                );
-                const editTaskIds = editTasks.map(([tid]) => tid);
-                const hasAnyCorrections = editTasks.some(
-                  ([, task]) =>
-                    task.result?.corrections &&
-                    task.result.corrections.length > 0,
-                );
-                return (
-                  <div className="export-buttons full-manuscript-export">
-                    <button
-                      className="btn-primary"
-                      disabled={!hasAnyCorrections}
-                      onClick={() => {
+              {/* ── Accept-all toggle: bottom of the chapter list, right-aligned ── */}
+              {editTasks.length > 0 && (
+                <div className="accept-all-job-row">
+                  <button
+                    className={`btn-primary btn-accept-all-job ${
+                      allAccepted ? "btn-dismiss" : "btn-accept"
+                    }`}
+                    disabled={!hasAnyCorrections}
+                    onClick={() => {
+                      if (allAccepted) {
+                        editTaskIds.forEach((tid) => dismissAll(tid));
+                        setToast({
+                          msg: t("dismiss_all_job_toast"),
+                          kind: "dismiss",
+                        });
+                      } else {
                         acceptAllJob(editTaskIds);
-                        setToast(t("accept_all_job_toast"));
-                      }}
-                    >
-                      {t("accept_all_job")}
-                    </button>
-                    <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        downloadFile(md, `${src}.full.md`);
-                      }}
-                    >
-                      {t("download_full_md")}
-                    </button>
-                    <button
-                      className="btn-primary"
-                      disabled={!allDone}
-                      title={allDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() => {
-                        const md = buildFullManuscript(
-                          entries,
-                          acceptedCorrections,
-                        );
-                        handleDownloadDocx(md, `${src}.full.docx`, { detectBreaks: false });
-                      }}
-                    >
-                      {t("download_full_docx")}
-                    </button>
-                  </div>
-                );
-              })()}
+                        setToast({
+                          msg: t("accept_all_job_toast"),
+                          kind: "accept",
+                        });
+                      }
+                    }}
+                  >
+                    {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                  </button>
+                </div>
+              )}
+
+              </div>{/* ── end .review-group-body (bright card) ── */}
+
+              {/* ── Full manuscript downloads: below the bright card, but still
+                   collapsing with this <details> container ── */}
+              {editTasks.length > 0 && (
+                <div className="export-buttons full-manuscript-export">
+                  <button
+                    className="btn-primary"
+                    disabled={!allEditDone}
+                    title={allEditDone ? undefined : t("full_manuscript_wait")}
+                    onClick={() => {
+                      const md = buildFullManuscript(
+                        entries,
+                        acceptedCorrections,
+                      );
+                      downloadFile(md, `${src}.full.md`);
+                    }}
+                  >
+                    {t("download_full_md")}
+                  </button>
+                  <button
+                    className="btn-primary"
+                    disabled={!allEditDone}
+                    title={allEditDone ? undefined : t("full_manuscript_wait")}
+                    onClick={() => {
+                      const md = buildFullManuscript(
+                        entries,
+                        acceptedCorrections,
+                      );
+                      handleDownloadDocx(md, `${src}.full.docx`);
+                    }}
+                  >
+                    {t("download_full_docx")}
+                  </button>
+                  <button
+                    className="btn-primary"
+                    disabled={!allEditDone || formattingEbook}
+                    title={
+                      allEditDone
+                        ? t("auto_format_ebook_tip")
+                        : t("full_manuscript_wait")
+                    }
+                    onClick={() => {
+                      const md = buildFullManuscript(
+                        entries,
+                        acceptedCorrections,
+                      );
+                      handleAutoFormatEbook(md, src);
+                    }}
+                  >
+                    {formattingEbook
+                      ? t("formatting_ebook")
+                      : t("auto_format_ebook")}
+                  </button>
+                </div>
+              )}
             </details>
           );
           return jobNode;

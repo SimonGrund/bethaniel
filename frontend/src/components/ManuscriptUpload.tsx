@@ -4,7 +4,7 @@ import { useCallback, useRef } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { uploadFile, getDocument } from "../api";
-import ScopeSelection from "./ScopeSelection";
+import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
 
 export default function ManuscriptUpload() {
   const {
@@ -27,7 +27,7 @@ export default function ManuscriptUpload() {
     async (file: File) => {
       setUploading(true);
       try {
-        const meta = await uploadFile(file, false);
+        const meta = await uploadFile(file);
         setDocument(meta);
         // Fetch full text
         const full = await getDocument(meta.id);
@@ -95,7 +95,16 @@ export default function ManuscriptUpload() {
         <div className="file-summary">
           <span className="file-name">{doc.name}</span>
           <span className="file-stats">
-            {doc.wordCount.toLocaleString()} words · {doc.chapters.length} ch.
+            {doc.wordCount.toLocaleString()} words ·{" "}
+            {doc.chapters.length === 0
+              ? "no chapters detected"
+              : doc.chapters
+                  .slice(0, 4)
+                  .map((ch, i) => shortChapterLabel(i, ch.title))
+                  .join(" · ") +
+                (doc.chapters.length > 4
+                  ? ` · +${doc.chapters.length - 4} more`
+                  : "")}
           </span>
           <button
             type="button"

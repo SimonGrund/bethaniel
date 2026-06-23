@@ -5,7 +5,7 @@ import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import { promises as fs, createWriteStream, createReadStream } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { createHash } from "crypto";
@@ -17,10 +17,12 @@ import { execFileSync } from "child_process";
 import {
   docxToMarkdown,
   markdownToDocx,
+  MEDIA_DIR,
   type DocxExportOptions,
 } from "./conversion.js";
+import { markdownToEpub } from "./epub.js";
+import { formatEbookMarkdown } from "./ebook.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
-import { normalizeSceneBreaks, detectParagraphBreak } from "./sceneBreaks.js";
 import { listModels, getModelSizeBytes } from "./llm.js";
 import {
   buildCopyEditRewritePrompt,
@@ -28,9 +30,9 @@ import {
   buildLineEditRewritePrompt,
   buildLineEditCorrectionsPrompt,
   buildTranslationPrompt,
-  CHARACTER_CATALOG_PROMPT,
-  LOCATION_CATALOG_PROMPT,
-  TIMELINE_PROMPT,
+  buildCharacterCatalogPrompt,
+  buildLocationCatalogPrompt,
+  buildTimelinePrompt,
   buildCombinedAnalysisPrompt,
   buildCombinedEditPrompt,
   ANALYSIS_SUMMARY_PROMPT,
@@ -58,12 +60,17 @@ import {
   writeApiConfig,
   deleteApiConfig,
   hasApiConfig,
+  readCustomGgufConfig,
+  writeCustomGgufConfig,
+  deleteCustomGgufConfig,
+  hasCustomGgufConfig,
 } from "./modelConfig.js";
 import {
   MODEL_CATALOG,
   DEFAULT_MODEL_FILENAME,
   isOllamaModel,
   isApiModel,
+  isCustomGgufModel,
   getPreferredOrder,
 } from "./modelCatalog.js";
 import type { ModelCatalogEntry } from "./modelCatalog.js";
@@ -111,47 +118,27 @@ router.post(
       }
 
       const fileName = req.file.originalname;
+      // Generate the document id up front so .docx image extraction can write
+      // media into MEDIA_DIR/<docId>/ and the markdown can reference it.
+      const docId = uuidv4();
       let md: string;
 
       if (fileName.toLowerCase().endsWith(".docx")) {
-        md = await docxToMarkdown(req.file.buffer);
+        md = await docxToMarkdown(req.file.buffer, { docId });
       } else {
         md = req.file.buffer.toString("utf-8");
-      }
-
-      // Whether to detect and normalize scene/paragraph breaks. Sent by the
-      // frontend as a multipart form field. Defaults to false (most users
-      // just want plain md↔docx round-tripping).
-      const detectBreaks =
-        String(req.body?.detectBreaks ?? "false").toLowerCase() === "true";
-
-      let detectedSceneBreak: string | null = null;
-      let detectedParagraphBreak: string | null = null;
-      if (detectBreaks) {
-        const normalized = normalizeSceneBreaks(md);
-        if (normalized.count > 0) {
-          console.log(
-            `[Upload] Normalized ${normalized.count} scene breaks (pattern: ${JSON.stringify(normalized.detectedPattern)})`,
-          );
-          md = normalized.text;
-        }
-        detectedSceneBreak = normalized.detectedPattern;
-        detectedParagraphBreak = detectParagraphBreak(md);
       }
 
       const chapters = findChapters(md);
       const wordCount = md.split(/\s+/).filter(Boolean).length;
 
       const doc: DocumentMeta = {
-        id: uuidv4(),
+        id: docId,
         name: fileName,
         md,
         chapters,
         wordCount,
         uploadedAt: Date.now(),
-        detectBreaks,
-        detectedSceneBreak,
-        detectedParagraphBreak,
       };
 
       saveDocument(doc);
@@ -163,9 +150,6 @@ router.post(
         chapters: doc.chapters,
         wordCount: doc.wordCount,
         uploadedAt: doc.uploadedAt,
-        detectBreaks: doc.detectBreaks,
-        detectedSceneBreak: doc.detectedSceneBreak,
-        detectedParagraphBreak: doc.detectedParagraphBreak,
       });
     } catch (err) {
       res
@@ -205,51 +189,6 @@ router.delete("/documents/:id", (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// ── Re-run (or clear) break detection on an existing document ──
-router.post("/documents/:id/detect-breaks", (req: Request, res: Response) => {
-  const doc = getDocument(req.params.id);
-  if (!doc) {
-    res.status(404).json({ error: "Document not found" });
-    return;
-  }
-  const detectBreaks =
-    req.body?.detectBreaks === true || req.body?.detectBreaks === "true";
-
-  let md = doc.md;
-  let detectedSceneBreak: string | null = null;
-  let detectedParagraphBreak: string | null = null;
-
-  if (detectBreaks) {
-    const normalized = normalizeSceneBreaks(md);
-    if (normalized.count > 0) md = normalized.text;
-    detectedSceneBreak = normalized.detectedPattern;
-    detectedParagraphBreak = detectParagraphBreak(md);
-  }
-  // When turning detection off we leave md as-is. Any canonical
-  // SCENE_BREAK_MARKER tokens already inserted on a previous detection pass
-  // are absorbed by mdToHtml as blank paragraphs in plain mode.
-
-  const updated: DocumentMeta = {
-    ...doc,
-    md,
-    detectBreaks,
-    detectedSceneBreak,
-    detectedParagraphBreak,
-  };
-  saveDocument(updated);
-
-  res.json({
-    id: updated.id,
-    name: updated.name,
-    chapters: updated.chapters,
-    wordCount: updated.wordCount,
-    uploadedAt: updated.uploadedAt,
-    detectBreaks: updated.detectBreaks,
-    detectedSceneBreak: updated.detectedSceneBreak,
-    detectedParagraphBreak: updated.detectedParagraphBreak,
-  });
-});
-
 // ── List installed models ──
 router.get("/models", async (_req: Request, res: Response) => {
   const models = await listModels();
@@ -277,7 +216,8 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
       modelSizeGb: 0,
       modelSource: "estimated",
       kvPerJobGb: 0,
-      reason: "API model — parallel limited by provider rate limits, not local hardware",
+      reason:
+        "API model — parallel limited by provider rate limits, not local hardware",
     });
     return;
   }
@@ -395,6 +335,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       dualEditor,
       dualCount,
       characterDedup,
+      styleComplianceAgent,
     } = req.body;
 
     // Resolve once so prompt selection and execution path stay in sync.
@@ -508,16 +449,16 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           );
           break;
         case "character_catalog":
-          systemPrompt = CHARACTER_CATALOG_PROMPT;
+          systemPrompt = buildCharacterCatalogPrompt(styleGuide);
           break;
         case "location_catalog":
-          systemPrompt = LOCATION_CATALOG_PROMPT;
+          systemPrompt = buildLocationCatalogPrompt(styleGuide);
           break;
         case "timeline":
-          systemPrompt = TIMELINE_PROMPT;
+          systemPrompt = buildTimelinePrompt(styleGuide);
           break;
         case "combined_analysis":
-          systemPrompt = buildCombinedAnalysisPrompt(analysisModes);
+          systemPrompt = buildCombinedAnalysisPrompt(analysisModes, styleGuide);
           break;
         default:
           res.status(400).json({ error: `Unknown mode: ${currentMode}` });
@@ -564,6 +505,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           dualEditor: dualEditor ?? true,
           dualCount: dualCount ?? 2,
           characterDedup: characterDedup ?? false,
+          styleComplianceAgent: styleComplianceAgent ?? true,
           styleGuide,
         });
         taskIds.push(taskId);
@@ -679,8 +621,7 @@ router.post(
       const { jobId } = req.params;
       const { type } = req.body as { type?: string };
       const mode: TaskMode = type === "blurb" ? "blurb" : "analysis_summary";
-      const prompt =
-        mode === "blurb" ? BLURB_PROMPT : ANALYSIS_SUMMARY_PROMPT;
+      const prompt = mode === "blurb" ? BLURB_PROMPT : ANALYSIS_SUMMARY_PROMPT;
       const name = mode === "blurb" ? "Blurb" : "Summary";
 
       // Find any existing summary/blurb task for this job and remove it
@@ -696,7 +637,9 @@ router.post(
         (t) => t.jobId === jobId && ANALYSIS_MODES.includes(t.mode),
       );
       if (siblings.length === 0) {
-        res.status(400).json({ error: "No completed analysis tasks found for this job" });
+        res
+          .status(400)
+          .json({ error: "No completed analysis tasks found for this job" });
         return;
       }
       const ref = siblings[0];
@@ -756,6 +699,62 @@ router.post("/export/docx", async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : "DOCX conversion failed",
     });
   }
+});
+
+// ── Export: convert markdown to epub ──
+router.post("/export/epub", async (req: Request, res: Response) => {
+  try {
+    const { markdown, title, author } = req.body;
+    if (typeof markdown !== "string") {
+      res.status(400).json({ error: "markdown must be a string" });
+      return;
+    }
+    const epubBuffer = await markdownToEpub(markdown, {
+      title: typeof title === "string" ? title : undefined,
+      author: typeof author === "string" ? author : undefined,
+    });
+    res.setHeader("Content-Type", "application/epub+zip");
+    res.setHeader("Content-Disposition", 'attachment; filename="edited.epub"');
+    res.send(epubBuffer);
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "EPUB conversion failed",
+    });
+  }
+});
+
+// ── AI auto-format for ebook (formatting-only LLM pass) ──
+router.post("/format-ebook", async (req: Request, res: Response) => {
+  try {
+    const { markdown, model } = req.body;
+    if (typeof markdown !== "string") {
+      res.status(400).json({ error: "markdown must be a string" });
+      return;
+    }
+    const formatted = await formatEbookMarkdown(
+      model || DEFAULT_MODEL_FILENAME,
+      markdown,
+    );
+    res.json({ md: formatted });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Ebook formatting failed",
+    });
+  }
+});
+
+// ── Serve extracted document media (images) ──
+router.get("/media/:docId/:file", (req: Request, res: Response) => {
+  // Guard against path traversal — only allow plain filenames/ids.
+  const { docId, file } = req.params;
+  if (!/^[\w-]+$/.test(docId) || !/^[\w.-]+$/.test(file)) {
+    res.status(400).end();
+    return;
+  }
+  const filePath = resolve(MEDIA_DIR, docId, file);
+  res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
 });
 
 // ── Diff HTML ──
@@ -890,9 +889,10 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
   const vramMib = hw.gpu.vramGb != null ? hw.gpu.vramGb * 1024 : null;
   const catalog = MODEL_CATALOG.map((entry) => ({
     ...entry,
-    allowed: allowedTiers.includes(entry.tier),
+    allowed:
+      entry.source === "custom_gguf" ? true : allowedTiers.includes(entry.tier),
     fitsGpu:
-      entry.source === "api"
+      entry.source === "api" || entry.source === "custom_gguf"
         ? null
         : vramMib === null
           ? null
@@ -948,6 +948,20 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
     if (hasApiConfig()) {
       for (const entry of MODEL_CATALOG) {
         if (entry.source === "api") {
+          installed.push({
+            id: entry.id,
+            tier: entry.tier,
+            name: entry.name,
+            fileName: entry.fileName,
+          });
+        }
+      }
+    }
+
+    // Check Custom GGUF models — "installed" when the user has configured a valid path
+    if (hasCustomGgufConfig()) {
+      for (const entry of MODEL_CATALOG) {
+        if (entry.source === "custom_gguf") {
           installed.push({
             id: entry.id,
             tier: entry.tier,
@@ -1301,12 +1315,54 @@ router.post("/models/download/cancel", async (req: Request, res: Response) => {
   res.json({ ok: true, status: "cancelled" });
 });
 
+// ── Custom Betty (custom GGUF) configuration ──
+// Must be registered BEFORE /models/:fileName to avoid path capture
+
+router.get("/models/custom-gguf/config", (_req: Request, res: Response) => {
+  const cfg = readCustomGgufConfig();
+  res.json({ configured: !!cfg?.ggufPath, path: cfg?.ggufPath ?? "" });
+});
+
+router.put(
+  "/models/custom-gguf/config",
+  async (req: Request, res: Response) => {
+    const { ggufPath } = req.body ?? {};
+    if (
+      !ggufPath ||
+      typeof ggufPath !== "string" ||
+      ggufPath.trim().length === 0
+    ) {
+      res.status(400).json({ error: "GGUF file path is required" });
+      return;
+    }
+    const trimmed = ggufPath.trim();
+    // Validate file exists and has .gguf extension
+    if (!trimmed.toLowerCase().endsWith(".gguf")) {
+      res.status(400).json({ error: "Path must point to a .gguf file" });
+      return;
+    }
+    try {
+      await fs.stat(trimmed);
+    } catch {
+      res.status(400).json({ error: "File not found at the given path" });
+      return;
+    }
+    writeCustomGgufConfig({ ggufPath: trimmed });
+    res.json({ ok: true });
+  },
+);
+
+router.delete("/models/custom-gguf/config", (_req: Request, res: Response) => {
+  deleteCustomGgufConfig();
+  res.json({ ok: true });
+});
+
 // ── External Betty (API) configuration ──
 // Must be registered BEFORE /models/:fileName to avoid "custom" being captured as a fileName param
 
 router.get("/models/custom/config", (_req: Request, res: Response) => {
   const cfg = readApiConfig();
-  res.json({ configured: !!(cfg?.apiKey), model: cfg?.model ?? "" });
+  res.json({ configured: !!cfg?.apiKey, model: cfg?.model ?? "" });
 });
 
 router.put("/models/custom/config", (req: Request, res: Response) => {
@@ -1315,7 +1371,8 @@ router.put("/models/custom/config", (req: Request, res: Response) => {
     res.status(400).json({ error: "API key is required" });
     return;
   }
-  const apiModel = typeof model === "string" && model.trim() ? model.trim() : "deepseek-chat";
+  const apiModel =
+    typeof model === "string" && model.trim() ? model.trim() : "deepseek-chat";
   writeApiConfig({ apiKey: apiKey.trim(), model: apiModel });
   res.json({ ok: true });
 });
