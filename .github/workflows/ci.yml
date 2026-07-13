@@ -60,6 +60,26 @@ jobs:
         # Lower-severity issues are reported but do not block CI.
         run: npm audit --audit-level=high
 
+  # ── Automated tests ──────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --prefer-offline
+
+      - name: Run backend tests
+        run: npm test --workspace=backend
+
   # ── Dependency review (PRs only) ─────────────────────────────────────────
   dependency-review:
     name: Dependency Review

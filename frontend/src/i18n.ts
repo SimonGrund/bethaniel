@@ -45,18 +45,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Absatzüberlappung",
     es: "Solapamiento de párrafos",
   },
-  fast_mode: {
-    en: "⚡ Fast mode (corrections only)",
-    da: "⚡ Hurtig tilstand (kun rettelser)",
-    de: "⚡ Schnellmodus (nur Korrekturen)",
-    es: "⚡ Modo rápido (solo correcciones)",
-  },
-  fast_mode_help: {
-    en: "Returns a JSON list of edits instead of rewriting the whole chunk. Typically 3–10× faster.",
-    da: "Returnerer en JSON-liste af rettelser. Typisk 3–10× hurtigere.",
-    de: "Gibt eine JSON-Liste von Änderungen zurück, statt den ganzen Abschnitt neu zu schreiben. Typisch 3–10× schneller.",
-    es: "Devuelve una lista JSON de ediciones en lugar de reescribir todo el fragmento. Normalmente 3–10× más rápido.",
-  },
   parallel_chapters: {
     en: "Parallel chapters",
     da: "Parallelle kapitler",
@@ -657,6 +645,42 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Anzahl paralleler Editor-Durchläufe pro Abschnitt. Mehr Agenten = bessere Abdeckung, aber proportional langsamer. 2-3 ist eine gute Balance.",
     es: "Número de pasadas de editor en paralelo por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
   },
+  export_check_title: {
+    en: "Export spell check",
+    da: "Stavekontrol ved eksport",
+    de: "Rechtschreibprüfung beim Export",
+    es: "Revisión ortográfica al exportar",
+  },
+  export_check_excluded: {
+    en: "{n} accepted correction(s) would have introduced misspellings. They were un-accepted and remain in the list for manual review:",
+    da: "{n} accepterede rettelse(r) ville have indført stavefejl. De blev fravalgt og står stadig på listen til manuel gennemgang:",
+    de: "{n} akzeptierte Korrektur(en) hätten Rechtschreibfehler eingeführt. Sie wurden abgewählt und bleiben zur manuellen Prüfung in der Liste:",
+    es: "{n} corrección(es) aceptada(s) habrían introducido errores ortográficos. Se desmarcaron y siguen en la lista para revisión manual:",
+  },
+  export_check_autofixed: {
+    en: "{n} introduced error(s) were fixed automatically by restoring the original wording or quotation marks",
+    da: "{n} indført(e) fejl blev rettet automatisk ved at gendanne den oprindelige ordlyd eller anførselstegn",
+    de: "{n} eingeführte(r) Fehler wurde(n) automatisch behoben, indem der ursprüngliche Wortlaut bzw. die Anführungszeichen wiederhergestellt wurden",
+    es: "{n} error(es) introducido(s) se corrigieron automáticamente restaurando la redacción o las comillas originales",
+  },
+  export_check_manual: {
+    en: "Also check these words in the exported text",
+    da: "Tjek også disse ord i den eksporterede tekst",
+    de: "Prüfen Sie außerdem diese Wörter im exportierten Text",
+    es: "Revise también estas palabras en el texto exportado",
+  },
+  extra_pass: {
+    en: "Thorough mode (second pass)",
+    da: "Grundig tilstand (andet gennemløb)",
+    de: "Gründlicher Modus (zweiter Durchlauf)",
+    es: "Modo minucioso (segunda pasada)",
+  },
+  extra_pass_help: {
+    en: "After the first pass, run a second copy-edit pass over the edited text to catch residual errors. Roughly doubles run time; applies to copy edits.",
+    da: "Efter første gennemløb køres endnu et korrektur-gennemløb over den redigerede tekst for at fange resterende fejl. Cirka dobbelt køretid; gælder korrektur.",
+    de: "Nach dem ersten Durchlauf wird ein zweiter Korrektur-Durchlauf über den bearbeiteten Text ausgeführt, um Restfehler zu finden. Etwa doppelte Laufzeit; gilt für das Korrektorat.",
+    es: "Tras la primera pasada, ejecuta una segunda pasada de corrección sobre el texto editado para detectar errores restantes. Aproximadamente duplica el tiempo; aplica a la corrección.",
+  },
   character_dedup: {
     en: "AI character deduplication",
     da: "AI-deduplikering af karakterer",
@@ -668,6 +692,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Efter analyse gennemgår modellen karakterpar og fletter indgange, der refererer til samme person. Forbedrer katalognøjagtighed men tilføjer ~10-30s ekstra pr. analysejob.",
     de: "Nach der Analyse prüft das Modell Charakterpaare und führt Einträge zusammen, die sich auf dieselbe Person beziehen. Verbessert die Genauigkeit, fügt aber ~10-30s pro Analysejob hinzu.",
     es: "Tras el análisis, el modelo revisa pares de personajes y fusiona entradas que se refieren a la misma persona. Mejora la precisión pero añade ~10-30s por trabajo de análisis.",
+  },
+  show_engine_status: {
+    en: "Show engine diagnostics",
+    da: "Vis motordiagnostik",
+    de: "Engine-Diagnose anzeigen",
+    es: "Mostrar diagnóstico del motor",
+  },
+  show_engine_status_help: {
+    en: "Streams live prefill/decode timings and per-chunk engine messages next to the Start button while a job runs.",
+    da: "Viser live prefill/decode-tidsmålinger og motorbeskeder pr. stykke ved siden af Start-knappen, mens et job kører.",
+    de: "Zeigt während eines Laufs Live-Prefill/Decode-Zeiten und Engine-Meldungen pro Abschnitt neben der Start-Schaltfläche.",
+    es: "Muestra tiempos de prefill/decode en vivo y mensajes del motor por fragmento junto al botón de inicio mientras se ejecuta un trabajo.",
   },
   style_compliance_agent: {
     en: "Style-sheet compliance agent",
@@ -1469,6 +1505,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Kontekstvinduet er for stort til den tilgængelige hukommelse. Reducér det i avancerede indstillinger og prøv igen.",
     de: "Kontextfenster zu groß für den verfügbaren Speicher. Verkleinere es in den erweiterten Einstellungen und versuche es erneut.",
     es: "Ventana de contexto demasiado grande para la memoria disponible. Redúcela en ajustes avanzados e inténtalo de nuevo.",
+  },
+  log_hint_timeout: {
+    en: "The model took too long to respond and the request timed out. Try a smaller model or a smaller chunk size in advanced settings.",
+    da: "Modellen var for længe om at svare, og forespørgslen fik timeout. Prøv en mindre model eller en mindre chunk-størrelse i avancerede indstillinger.",
+    de: "Das Modell hat zu lange gebraucht und die Anfrage ist abgelaufen. Versuche ein kleineres Modell oder eine kleinere Chunk-Größe in den erweiterten Einstellungen.",
+    es: "El modelo tardó demasiado en responder y la solicitud expiró. Prueba un modelo más pequeño o un tamaño de fragmento menor en ajustes avanzados.",
+  },
+  log_hint_bad_output: {
+    en: "The model returned output that couldn't be parsed. This chunk may have degraded results; re-running the job often helps.",
+    da: "Modellen returnerede output, der ikke kunne fortolkes. Dette stykke kan have forringede resultater; at køre opgaven igen hjælper ofte.",
+    de: "Das Modell lieferte nicht auswertbare Ausgabe. Dieser Abschnitt kann verschlechterte Ergebnisse haben; ein erneuter Lauf hilft oft.",
+    es: "El modelo devolvió una salida que no se pudo analizar. Este fragmento puede tener resultados degradados; volver a ejecutar suele ayudar.",
   },
   log_hint_engine_crash_generic: {
     en: "The model engine stopped unexpectedly. Try re-running the job; if it keeps happening, switch to a smaller model or re-download the current one.",

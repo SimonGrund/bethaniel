@@ -53,6 +53,8 @@ Options:
   --api-key <key>          API key for External Betty; saved to the data dir so
                            later runs don't need it again
   --no-review              Disable the reviewer agent (keep all editor changes)
+  --extra-pass             Thorough mode: run a second copy-edit pass over the
+                           edited text (~2x time; copy-edit jobs only)
   -h, --help               Show this help
 
 Examples:
@@ -79,6 +81,7 @@ interface CliArgs {
   dataDir?: string;
   apiKey?: string;
   noReview: boolean;
+  extraPass: boolean;
 }
 
 // Custom parser so `--mode copy line` and `--export-format docx md` (space- or
@@ -96,6 +99,7 @@ function parseCliArgs(): CliArgs {
   let dataDir: string | undefined;
   let apiKey: string | undefined;
   let noReview = false;
+  let extraPass = false;
 
   let i = 0;
   const collectMulti = (target: string[]): void => {
@@ -128,6 +132,10 @@ function parseCliArgs(): CliArgs {
         break;
       case "--no-review":
         noReview = true;
+        i++;
+        break;
+      case "--extra-pass":
+        extraPass = true;
         i++;
         break;
       case "-m":
@@ -190,6 +198,7 @@ function parseCliArgs(): CliArgs {
     dataDir,
     apiKey,
     noReview,
+    extraPass,
   };
 }
 
@@ -347,7 +356,6 @@ interface Job {
   label: string; // used in the output filename
   taskMode: string;
   prompt: string;
-  fast: boolean;
   targetLang?: string;
   editOptions?: Record<string, boolean | string>;
   isAnalysis: boolean;
@@ -364,7 +372,6 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
       label: "edit",
       taskMode: "combined_edit",
       prompt: p.buildCombinedEditPrompt(copyOpts, lineOpts, styleGuide),
-      fast: true,
       editOptions: { ...copyOpts, ...lineOpts } as Record<string, boolean | string>,
       isAnalysis: false,
     });
@@ -373,7 +380,6 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
       label: "copy",
       taskMode: "copy_edit",
       prompt: p.buildCopyEditCorrectionsPrompt(copyOpts, styleGuide),
-      fast: true,
       editOptions: { ...copyOpts } as Record<string, boolean | string>,
       isAnalysis: false,
     });
@@ -382,7 +388,6 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
       label: "line",
       taskMode: "line_edit",
       prompt: p.buildLineEditCorrectionsPrompt(lineOpts, styleGuide),
-      fast: true,
       editOptions: { ...lineOpts } as Record<string, boolean | string>,
       isAnalysis: false,
     });
@@ -396,7 +401,6 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
         ["character_catalog", "location_catalog", "timeline"] as never,
         styleGuide,
       ),
-      fast: true,
       isAnalysis: true,
     });
   }
@@ -406,7 +410,6 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
       label: "translation",
       taskMode: "translate",
       prompt: p.buildTranslationPrompt(args.language!, styleGuide),
-      fast: false,
       targetLang: args.language,
       isAnalysis: false,
     });
@@ -426,6 +429,7 @@ async function runJob(
   model: string,
   styleGuide: string | undefined,
   noReview: boolean,
+  extraPass: boolean,
 ): Promise<{ finalMd: string; errors: string[] }> {
   const jobId = randomUUID();
   const taskIds: string[] = [];
@@ -439,7 +443,6 @@ async function runJob(
       model,
       mode: job.taskMode as never,
       prompt: job.prompt,
-      fast: job.fast,
       wpc: 2500,
       overlap: 1,
       editOptions: job.editOptions,
@@ -452,6 +455,7 @@ async function runJob(
       dualCount: 2,
       characterDedup: false,
       styleComplianceAgent: Boolean(styleGuide),
+      extraPass,
       styleGuide,
     });
     taskIds.push(id);
@@ -462,7 +466,8 @@ async function runJob(
     const snap = p.getTasksSnapshot();
     for (const t of Object.values(snap)) {
       if (t.jobId !== jobId) continue;
-      const line = `[${job.label}] ${t.name} ${t.status} ${t.progress}% ${t.phase}`.trim();
+      const pct = Math.round((t.progress ?? 0) * 100);
+      const line = `[${job.label}] ${t.name} ${t.status} ${pct}% ${t.phase}`.trim();
       if (printed.get(t.id) !== line) {
         printed.set(t.id, line);
         console.log(`  ${line}`);
@@ -592,6 +597,7 @@ async function main(): Promise<void> {
       model,
       styleGuide,
       args.noReview,
+      args.extraPass,
     );
     allErrors.push(...errors);
 

@@ -52,8 +52,6 @@ interface AppState {
   setWordsPerChunk: (n: number) => void;
   overlapParagraphs: number;
   setOverlapParagraphs: (n: number) => void;
-  fastMode: boolean;
-  setFastMode: (b: boolean) => void;
   reviewMode: boolean;
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
@@ -70,6 +68,8 @@ interface AppState {
   setCharacterDedup: (b: boolean) => void;
   styleComplianceAgent: boolean;
   setStyleComplianceAgent: (b: boolean) => void;
+  extraPass: boolean;
+  setExtraPass: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -118,6 +118,7 @@ interface AppState {
   dismissAll: (taskId: string) => void;
   acceptAllJob: (taskIds: string[]) => void;
   acceptCorrection: (taskId: string, correctionId: string) => void;
+  unacceptCorrections: (taskId: string, correctionIds: string[]) => void;
   dismissCorrection: (taskId: string, correctionId: string) => void;
   toggleOccurrence: (
     taskId: string,
@@ -176,6 +177,8 @@ interface AppState {
   setHighlightedModel: (m: string) => void;
   showAdvancedSettings: boolean;
   setShowAdvancedSettings: (b: boolean) => void;
+  showEngineStatus: boolean;
+  setShowEngineStatus: (b: boolean) => void;
   editSubOptionsOpen: "editing" | "analysis" | "translation" | null;
   setEditSubOptionsOpen: (
     cat: "editing" | "analysis" | "translation" | null,
@@ -202,8 +205,6 @@ export const useStore = create<AppState>()(
       setWordsPerChunk: (wordsPerChunk) => set({ wordsPerChunk }),
       overlapParagraphs: DEFAULT_OVERLAP,
       setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
-      fastMode: true,
-      setFastMode: (fastMode) => set({ fastMode }),
       reviewMode: true,
       setReviewMode: (reviewMode) => set({ reviewMode }),
       reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
@@ -221,6 +222,8 @@ export const useStore = create<AppState>()(
       styleComplianceAgent: true,
       setStyleComplianceAgent: (styleComplianceAgent) =>
         set({ styleComplianceAgent }),
+      extraPass: true,
+      setExtraPass: (extraPass) => set({ extraPass }),
       parallel: DEFAULT_PARALLEL,
       setParallel: (parallel) => set({ parallel }),
 
@@ -341,8 +344,14 @@ export const useStore = create<AppState>()(
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
+          // Flagged corrections are the ones the pipeline refused to
+          // auto-apply — bulk accept must not sweep them in. They stay
+          // individually acceptable via "Show all suggestions".
           const ids = new Set(
-            task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+            task.result.corrections
+              .filter((c) => !c.flagged)
+              .map((c) => c.id ?? "")
+              .filter(Boolean),
           );
           return {
             acceptedCorrections: {
@@ -364,12 +373,37 @@ export const useStore = create<AppState>()(
           for (const tid of taskIds) {
             const task = state.tasks[tid];
             if (!task?.result) continue;
+            // Same rule as acceptAll: bulk accept skips flagged corrections.
             const ids = new Set(
-              task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+              task.result.corrections
+                .filter((c) => !c.flagged)
+                .map((c) => c.id ?? "")
+                .filter(Boolean),
             );
             next[tid] = ids;
           }
           return { acceptedCorrections: next };
+        }),
+      // Remove corrections from the accepted set — both the bare id and any
+      // per-occurrence "id:N" keys. Used by the export-time spell check to
+      // exclude corrections that would introduce misspellings.
+      unacceptCorrections: (taskId, correctionIds) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId];
+          if (!current) return state;
+          const next = new Set(current);
+          for (const id of correctionIds) {
+            next.delete(id);
+            for (const key of current) {
+              if (key.startsWith(`${id}:`)) next.delete(key);
+            }
+          }
+          return {
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
+          };
         }),
       acceptCorrection: (taskId, correctionId) =>
         set((state) => {
@@ -473,9 +507,9 @@ export const useStore = create<AppState>()(
       setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
       apiModel: "",
       setApiModel: (apiModel) => set({ apiModel }),
-      showCustomBetty: false,
+      showCustomBetty: true,
       setShowCustomBetty: (showCustomBetty) => set({ showCustomBetty }),
-      showExternalBetty: false,
+      showExternalBetty: true,
       setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
       wizardStep: "model",
@@ -492,6 +526,8 @@ export const useStore = create<AppState>()(
       showAdvancedSettings: false,
       setShowAdvancedSettings: (showAdvancedSettings) =>
         set({ showAdvancedSettings }),
+      showEngineStatus: true,
+      setShowEngineStatus: (showEngineStatus) => set({ showEngineStatus }),
       editSubOptionsOpen: null,
       setEditSubOptionsOpen: (editSubOptionsOpen) =>
         set({ editSubOptionsOpen }),
@@ -502,7 +538,6 @@ export const useStore = create<AppState>()(
           highlightedModel: "",
           wordsPerChunk: DEFAULT_WORDS_PER_CHUNK,
           overlapParagraphs: DEFAULT_OVERLAP,
-          fastMode: true,
           reviewMode: true,
           reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
           reviewerCount: DEFAULT_REVIEWER_COUNT,
@@ -511,6 +546,7 @@ export const useStore = create<AppState>()(
           dualCount: DEFAULT_DUAL_COUNT,
           characterDedup: false,
           styleComplianceAgent: true,
+          extraPass: true,
           parallel: DEFAULT_PARALLEL,
           selectedModes: ["copy_edit"],
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -563,7 +599,6 @@ export const useStore = create<AppState>()(
         targetLang: state.targetLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,
-        fastMode: state.fastMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
         reviewerCount: state.reviewerCount,
@@ -572,6 +607,7 @@ export const useStore = create<AppState>()(
         dualCount: state.dualCount,
         characterDedup: state.characterDedup,
         styleComplianceAgent: state.styleComplianceAgent,
+        extraPass: state.extraPass,
         parallel: state.parallel,
         scopeMode: state.scopeMode,
         selectedChapters: state.selectedChapters,
@@ -584,6 +620,7 @@ export const useStore = create<AppState>()(
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,
         editSubOptionsOpen: state.editSubOptionsOpen,
+        showEngineStatus: state.showEngineStatus,
       }),
     },
   ),

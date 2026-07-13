@@ -16,6 +16,12 @@ import {
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
 import { ANALYSIS_MODES, EDIT_MODES } from "../types";
+import {
+  applyAccepted,
+  findAllOccurrences,
+  verifyAcceptedCorrections,
+  type VerifyOutcome,
+} from "../exportVerify";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -40,68 +46,6 @@ function formatDuration(task: TaskState): string | null {
   const mins = Math.floor(secs / 60);
   const rem = secs % 60;
   return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
-}
-
-/** Apply only accepted corrections to the original text. */
-function applyAccepted(
-  originalText: string,
-  corrections: Correction[],
-  acceptedIds: Set<string>,
-): string {
-  // Build a flat list of (position, correction) for every accepted occurrence.
-  // Key format:
-  //   - Bare "correctionId" in the set → all occurrences accepted
-  //   - "correctionId:0", "correctionId:1" → individual occurrences accepted
-  const positioned: { correction: Correction; index: number }[] = [];
-
-  for (const c of corrections) {
-    if (!c.id) continue;
-    const allAccepted = acceptedIds.has(c.id);
-    if (!allAccepted) {
-      // Check if ANY individual occurrence key exists for this correction
-      const hasAny = (() => {
-        for (const key of acceptedIds) {
-          if (key.startsWith(`${c.id}:`)) return true;
-        }
-        return false;
-      })();
-      if (!hasAny) continue; // skip entirely — nothing accepted for this correction
-    }
-
-    let occIdx = 0;
-    let idx = -1;
-    while ((idx = originalText.indexOf(c.original, idx + 1)) !== -1) {
-      const occKey = `${c.id}:${occIdx}`;
-      if (allAccepted || acceptedIds.has(occKey)) {
-        positioned.push({ correction: c, index: idx });
-      }
-      occIdx++;
-    }
-  }
-
-  if (positioned.length === 0) return originalText;
-
-  // Sort all replacements from last to first so earlier indices don't shift
-  positioned.sort((a, b) => b.index - a.index);
-
-  let result = originalText;
-  for (const { correction, index } of positioned) {
-    result =
-      result.slice(0, index) +
-      correction.corrected +
-      result.slice(index + correction.original.length);
-  }
-  return result;
-}
-
-/** Find all occurrences of `search` in `text`, returning their start indices. */
-function findAllOccurrences(text: string, search: string): number[] {
-  const indices: number[] = [];
-  let idx = -1;
-  while ((idx = text.indexOf(search, idx + 1)) !== -1) {
-    indices.push(idx);
-  }
-  return indices;
 }
 
 function InlineDiff({ before, after }: { before: string; after: string }) {
@@ -1090,6 +1034,7 @@ const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
 function buildFullManuscript(
   entries: [string, TaskState][],
   acceptedCorrections: Record<string, Set<string>>,
+  fixedTexts: Record<string, string> = {},
 ): string {
   const editEntries = entries
     .filter(([, task]) => EDIT_MODES.includes(task.mode))
@@ -1101,6 +1046,10 @@ function buildFullManuscript(
     const isTranslation = task.mode === "translate";
     if (isTranslation) {
       chapters.push(task.result.editedText);
+    } else if (fixedTexts[tid] !== undefined) {
+      // The export check already assembled this chapter and repaired
+      // introduced errors in place — use its text verbatim.
+      chapters.push(fixedTexts[tid]);
     } else {
       const accepted = acceptedCorrections[tid] ?? new Set<string>();
       chapters.push(
@@ -1211,6 +1160,77 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       }
     },
     [model, t],
+  );
+
+  const [verifying, setVerifying] = useState(false);
+  const [verifyReport, setVerifyReport] = useState<VerifyOutcome | null>(null);
+
+  // Export-time spell check: verify the accepted corrections of the tasks
+  // being exported, un-accept any that would introduce misspellings, then
+  // build the final markdown from the (possibly cleaned) acceptance state.
+  // Reads via getState so the rebuild sees the post-cleanup accepted sets.
+  const verifyThenExport = useCallback(
+    async (
+      taskIds: string[],
+      build: (
+        accepted: Record<string, Set<string>>,
+        fixedTexts: Record<string, string>,
+      ) => string,
+      exportFn: (markdown: string) => void | Promise<void>,
+    ) => {
+      // `verifying` must only cover the (fast) spell check + rebuild. The
+      // export step itself can be very slow (ebook formatting streams the
+      // whole manuscript through the LLM) and has its own progress state —
+      // holding `verifying` through it would disable every export button in
+      // the app for the duration, making unrelated exports fail silently.
+      let markdown: string;
+      setVerifying(true);
+      try {
+        const state = useStore.getState();
+        const toVerify = taskIds
+          .map((tid) => ({ taskId: tid, task: state.tasks[tid] }))
+          .filter(
+            ({ task }) =>
+              task?.result &&
+              EDIT_MODES.includes(task.mode) &&
+              task.mode !== "translate",
+          )
+          .map(({ taskId, task }) => ({ taskId, result: task!.result! }));
+        let fixedTexts: Record<string, string> = {};
+        if (toVerify.length > 0) {
+          const outcome = await verifyAcceptedCorrections(
+            toVerify,
+            state.acceptedCorrections,
+            state.unacceptCorrections,
+            {
+              englishDialect:
+                typeof state.copyEditOptions.englishDialect === "string"
+                  ? state.copyEditOptions.englishDialect
+                  : undefined,
+              styleGuide: state.styleGuide || undefined,
+            },
+          );
+          fixedTexts = outcome.fixedTexts;
+          if (
+            outcome.checked &&
+            (outcome.excluded.length > 0 ||
+              outcome.autoFixed.length > 0 ||
+              outcome.unattributed.length > 0)
+          ) {
+            setVerifyReport(outcome);
+          }
+        }
+        markdown = build(useStore.getState().acceptedCorrections, fixedTexts);
+      } finally {
+        setVerifying(false);
+      }
+      try {
+        await exportFn(markdown);
+      } catch (err) {
+        console.error("Export failed:", err);
+      }
+    },
+    [],
   );
 
   const handleRetry = useCallback(async (taskId: string) => {
@@ -1363,6 +1383,50 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       {toast && (
         <div className={`review-toast review-toast-${toast.kind}`}>
           {toast.msg}
+        </div>
+      )}
+
+      {verifyReport && (
+        <div className="verify-report-banner">
+          <button
+            className="verify-report-dismiss"
+            aria-label={t("btn_cancel")}
+            onClick={() => setVerifyReport(null)}
+          >
+            ✕
+          </button>
+          <strong>{t("export_check_title")}</strong>
+          {verifyReport.excluded.length > 0 && (
+            <p>
+              {t("export_check_excluded").replace(
+                "{n}",
+                String(verifyReport.excluded.length),
+              )}
+            </p>
+          )}
+          {verifyReport.excluded.length > 0 && (
+            <ul>
+              {verifyReport.excluded.map((e, i) => (
+                <li key={i}>
+                  “{e.original}” → “{e.corrected}” <em>({e.word})</em>
+                </li>
+              ))}
+            </ul>
+          )}
+          {verifyReport.autoFixed.length > 0 && (
+            <p>
+              {t("export_check_autofixed").replace(
+                "{n}",
+                String(verifyReport.autoFixed.length),
+              )}
+              : {verifyReport.autoFixed.join(", ")}
+            </p>
+          )}
+          {verifyReport.unattributed.length > 0 && (
+            <p>
+              {t("export_check_manual")}: {verifyReport.unattributed.join(", ")}
+            </p>
+          )}
         </div>
       )}
 
@@ -2290,30 +2354,56 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     <div className="export-buttons">
                       <button
                         className="btn-secondary"
+                        disabled={verifying}
                         onClick={() => {
-                          const text = isTranslation
-                            ? result.editedText
-                            : applyAccepted(
+                          if (isTranslation) {
+                            downloadFile(
+                              result.editedText,
+                              `${task.name}.edited.md`,
+                            );
+                            return;
+                          }
+                          verifyThenExport(
+                            [tid],
+                            (acc, fixed) =>
+                              fixed[tid] ??
+                              applyAccepted(
                                 result.originalText,
                                 corrections,
-                                accepted,
-                              );
-                          downloadFile(text, `${task.name}.edited.md`);
+                                acc[tid] ?? new Set<string>(),
+                              ),
+                            (md) => downloadFile(md, `${task.name}.edited.md`),
+                          );
                         }}
                       >
                         {t("download_chapter_md")}
                       </button>
                       <button
                         className="btn-secondary"
+                        disabled={verifying}
                         onClick={() => {
-                          const text = isTranslation
-                            ? result.editedText
-                            : applyAccepted(
+                          if (isTranslation) {
+                            handleDownloadDocx(
+                              result.editedText,
+                              `${task.name}.edited.docx`,
+                            );
+                            return;
+                          }
+                          verifyThenExport(
+                            [tid],
+                            (acc, fixed) =>
+                              fixed[tid] ??
+                              applyAccepted(
                                 result.originalText,
                                 corrections,
-                                accepted,
-                              );
-                          handleDownloadDocx(text, `${task.name}.edited.docx`);
+                                acc[tid] ?? new Set<string>(),
+                              ),
+                            (md) =>
+                              handleDownloadDocx(
+                                md,
+                                `${task.name}.edited.docx`,
+                              ),
+                          );
                         }}
                       >
                         {t("download_chapter_docx")}
@@ -2364,47 +2454,47 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 <div className="export-buttons full-manuscript-export">
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone}
+                    disabled={!allEditDone || verifying}
                     title={allEditDone ? undefined : t("full_manuscript_wait")}
-                    onClick={() => {
-                      const md = buildFullManuscript(
-                        entries,
-                        acceptedCorrections,
-                      );
-                      downloadFile(md, `${src}.full.md`);
-                    }}
+                    onClick={() =>
+                      verifyThenExport(
+                        editTaskIds,
+                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                        (md) => downloadFile(md, `${src}.full.md`),
+                      )
+                    }
                   >
                     {t("download_full_md")}
                   </button>
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone}
+                    disabled={!allEditDone || verifying}
                     title={allEditDone ? undefined : t("full_manuscript_wait")}
-                    onClick={() => {
-                      const md = buildFullManuscript(
-                        entries,
-                        acceptedCorrections,
-                      );
-                      handleDownloadDocx(md, `${src}.full.docx`);
-                    }}
+                    onClick={() =>
+                      verifyThenExport(
+                        editTaskIds,
+                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                        (md) => handleDownloadDocx(md, `${src}.full.docx`),
+                      )
+                    }
                   >
                     {t("download_full_docx")}
                   </button>
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone || formattingEbook}
+                    disabled={!allEditDone || formattingEbook || verifying}
                     title={
                       allEditDone
                         ? t("auto_format_ebook_tip")
                         : t("full_manuscript_wait")
                     }
-                    onClick={() => {
-                      const md = buildFullManuscript(
-                        entries,
-                        acceptedCorrections,
-                      );
-                      handleAutoFormatEbook(md, src);
-                    }}
+                    onClick={() =>
+                      verifyThenExport(
+                        editTaskIds,
+                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                        (md) => handleAutoFormatEbook(md, src),
+                      )
+                    }
                   >
                     {formattingEbook
                       ? t("formatting_ebook")

@@ -96,6 +96,8 @@ export default function ModelSelector({
     setCharacterDedup,
     styleComplianceAgent,
     setStyleComplianceAgent,
+    extraPass,
+    setExtraPass,
     styleGuide,
     tasks,
     wizardStep,
@@ -109,6 +111,8 @@ export default function ModelSelector({
     setShowCustomBetty,
     showExternalBetty,
     setShowExternalBetty,
+    showEngineStatus,
+    setShowEngineStatus,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -888,6 +892,18 @@ export default function ModelSelector({
               )}
 
               <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={extraPass}
+                    onChange={(e) => setExtraPass(e.target.checked)}
+                  />{" "}
+                  {t("extra_pass")}
+                </label>
+                <span className="help-text">{t("extra_pass_help")}</span>
+              </div>
+
+              <div className="field">
                 <label
                   className="option-check"
                   style={{ opacity: styleGuide?.trim() ? 1 : 0.5 }}
@@ -917,6 +933,18 @@ export default function ModelSelector({
                   {t("character_dedup")}
                 </label>
                 <span className="help-text">{t("character_dedup_help")}</span>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={showEngineStatus}
+                    onChange={(e) => setShowEngineStatus(e.target.checked)}
+                  />{" "}
+                  {t("show_engine_status")}
+                </label>
+                <span className="help-text">{t("show_engine_status_help")}</span>
               </div>
 
               <div className="field">

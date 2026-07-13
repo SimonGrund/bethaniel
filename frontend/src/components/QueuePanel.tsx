@@ -139,6 +139,7 @@ function renderTaskRow(
           )}
           {s.status === "editing" && s.phase && (
             <span
+              title={s.phase}
               style={{
                 fontSize: "0.7rem",
                 color: "#6b5c44",
@@ -146,7 +147,7 @@ function renderTaskRow(
               }}
             >
               {" "}
-              — {s.phase}
+              — {s.phase.length > 40 ? `${s.phase.slice(0, 39)}…` : s.phase}
             </span>
           )}
           {s.finishedAt && s.startedAt && (

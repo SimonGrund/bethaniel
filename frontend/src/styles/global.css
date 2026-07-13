@@ -292,6 +292,16 @@ h4 {
   letter-spacing: 0.02em;
 }
 
+.footer-feedback-link {
+  font-size: 0.72rem;
+  color: #a0906e;
+  letter-spacing: 0.02em;
+}
+
+.footer-feedback-link:hover {
+  color: #8b7355;
+}
+
 /* ── Splash / loading screen ── */
 .splash {
   display: flex;
@@ -1627,6 +1637,42 @@ summary.review-source::before {
 .review-toast-error {
   background: #b5482f;
   box-shadow: 0 4px 16px rgba(181, 72, 47, 0.4);
+}
+
+/* Export-time spell-check report: persistent (dismissible) amber banner. */
+.verify-report-banner {
+  position: relative;
+  margin: 0.75rem 0;
+  padding: 0.75rem 2.25rem 0.75rem 1rem;
+  background: #fdf3dd;
+  border: 1px solid #d9b36a;
+  border-radius: 8px;
+  color: #6b5324;
+  font-size: 0.9rem;
+}
+.verify-report-banner p {
+  margin: 0.35rem 0 0;
+}
+.verify-report-banner ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+}
+.verify-report-banner li {
+  margin: 0.15rem 0;
+}
+.verify-report-dismiss {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: #8b7355;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+}
+.verify-report-dismiss:hover {
+  color: #6b5324;
 }
 
 .task-duration {

@@ -89,7 +89,6 @@ export async function addToQueue(params: {
   units: { name: string; original: string }[];
   model: string;
   modes: string[];
-  fast: boolean;
   wordsPerChunk: number;
   overlapParagraphs: number;
   parallel: number;
@@ -104,6 +103,7 @@ export async function addToQueue(params: {
   dualCount?: number;
   characterDedup?: boolean;
   styleComplianceAgent?: boolean;
+  extraPass?: boolean;
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",
@@ -174,6 +174,40 @@ export async function getTaskResult(taskId: string) {
 export interface DocxExportOptions {
   sectionBreak?: "asterisks" | "dash" | "blank";
   lineSpacing?: number;
+}
+
+export interface VerifyChapterPayload {
+  before: string;
+  after: string;
+  corrections: { id: string; corrected: string }[];
+}
+
+export interface VerifyChapterResult {
+  suspects: string[];
+  offenders: { id: string; word: string }[];
+  /** Errors the server repaired in place (reverted misspellings, collapsed
+   *  doubled quote pairs). */
+  autoFixes?: { kind: "spelling" | "quotes"; detail: string }[];
+  /** The chapter's `after` text with those repairs applied — present only
+   *  when it differs from what was sent. */
+  fixedAfter?: string;
+}
+
+/**
+ * Spell-verify frontend-assembled chapters against their originals. Returns
+ * introduced misspellings per chapter and the accepted corrections
+ * responsible, so the caller can un-accept them before export.
+ */
+export async function verifyCorrections(
+  chapters: VerifyChapterPayload[],
+  opts?: { englishDialect?: string; styleGuide?: string },
+): Promise<{ checked: boolean; chapters: VerifyChapterResult[] }> {
+  const res = await apiFetch("/verify-corrections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chapters, ...opts }),
+  });
+  return res.json();
 }
 
 export async function exportDocx(

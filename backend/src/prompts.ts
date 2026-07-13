@@ -48,6 +48,8 @@ GOOD example: {"original": "*She wisphered softly*", "corrected": "*She whispere
 BAD example:  {"original": "*She wisphered softly*", "corrected": "She whispered softly"}
 BAD example:  {"original": "how many Karim had sent", "corrected": "how many **Karim** had sent"}
 
+QUOTATION MARKS: Before suggesting that dialogue is missing quotation marks, check the surrounding text — the marks usually already exist just outside your "original" span. If quotation marks are genuinely missing, copy the mark style the manuscript already uses (curly “…” vs straight "…") exactly; NEVER change one quote style to the other, and NEVER place a quotation mark directly next to an existing one.
+
 If there are NO issues to flag, output nothing (an empty response is valid).
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences, no closing summary.`;
 

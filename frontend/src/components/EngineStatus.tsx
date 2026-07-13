@@ -2,9 +2,9 @@
 // Streams the last few diagnostics log entries next to the "Start Job"
 // button. When multiple tasks run in parallel, displays a grid of
 // per-runner streams, each with an amber border and task ID header.
-
-// Toggle this to show/hide the inline engine status feed next to Start Job
-const SHOW_ENGINE_STATUS = false;
+//
+// Visibility is user-controlled via the "Show engine diagnostics" toggle in
+// advanced settings (persisted as `showEngineStatus`), defaulting on.
 
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
@@ -48,8 +48,7 @@ function StreamCell({
 }
 
 export default function EngineStatus() {
-  if (!SHOW_ENGINE_STATUS) return null;
-
+  const showEngineStatus = useStore((s) => s.showEngineStatus);
   const tasks = useStore((s) => s.tasks);
   const logs = useStore((s) => s.logs);
   const warmingModel = useStore((s) => s.warmingModel);
@@ -111,6 +110,10 @@ export default function EngineStatus() {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [generalLines.length, jobLogs.length]);
+
+  // Guard placed after all hooks so hook order stays stable when the user
+  // toggles this on/off at runtime.
+  if (!showEngineStatus) return null;
 
   if (jobLogs.length === 0) {
     // No job has run yet — but if the selected model is warming up, surface

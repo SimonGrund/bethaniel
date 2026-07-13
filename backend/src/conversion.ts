@@ -1,9 +1,7 @@
 // ── File conversion (pure JS — no external binaries) ──
 
 import JSZip from "jszip";
-import mammoth from "mammoth";
-import TurndownService from "turndown";
-import HTMLtoDOCX from "html-to-docx";
+import type TurndownService from "turndown";
 import * as fs from "fs";
 import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
@@ -52,17 +50,26 @@ const MIME_BY_EXT: Record<string, string> = {
   bmp: "image/bmp",
 };
 
-const turndown = new TurndownService({
-  headingStyle: "atx",
-  codeBlockStyle: "fenced",
-  bulletListMarker: "-",
-});
-
-// Keep line breaks as-is
-turndown.addRule("lineBreak", {
-  filter: "br",
-  replacement: () => "\n",
-});
+// Heavy conversion deps (mammoth, turndown, html-to-docx) are dynamically
+// imported on first use so they don't load before the server starts listening.
+// They're only needed when a user actually imports/exports a .docx.
+let _turndown: TurndownService | null = null;
+async function getTurndown(): Promise<TurndownService> {
+  if (_turndown) return _turndown;
+  const { default: TurndownCtor } = await import("turndown");
+  const td = new TurndownCtor({
+    headingStyle: "atx",
+    codeBlockStyle: "fenced",
+    bulletListMarker: "-",
+  });
+  // Keep line breaks as-is
+  td.addRule("lineBreak", {
+    filter: "br",
+    replacement: () => "\n",
+  });
+  _turndown = td;
+  return td;
+}
 
 /**
  * Extract page-break paragraph indices from a .docx file.
@@ -134,6 +141,8 @@ export async function docxToMarkdown(
   opts: { docId?: string } = {},
 ): Promise<string> {
   const { docId } = opts;
+  const mammoth = (await import("mammoth")).default;
+  const turndown = await getTurndown();
 
   // Image extraction: write each embedded image to disk and reference it with a
   // lightweight relative path (instead of inlining a huge base64 data URI into
@@ -285,6 +294,7 @@ export async function markdownToDocx(
   // Convert markdown to simple HTML for docx generation (images embedded as
   // base64 data URIs, which html-to-docx inlines into the .docx).
   const html = mdToHtml(md, options, embedImageDataUri);
+  const HTMLtoDOCX = (await import("html-to-docx")).default;
   const docxBuffer = await HTMLtoDOCX(html, undefined, {
     table: { row: { cantSplit: true } },
     footer: true,

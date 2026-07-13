@@ -9,10 +9,15 @@ import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import routes from "./routes.js";
-import { initQueue, closeQueue, getTasksSnapshot } from "./queue.js";
+import {
+  initQueue,
+  closeQueue,
+  getTasksSnapshot,
+  failActiveTasks,
+} from "./queue.js";
 import { closeDb } from "./db.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
-import { setLogIo, getLogSnapshot } from "./logBus.js";
+import { setLogIo, getLogSnapshot, appendLog } from "./logBus.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -112,6 +117,36 @@ async function shutdown() {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+
+// ── Global error handlers ──
+// Without these, an unhandled async error tears down the whole process and
+// Electron quits with no indication of what failed. Surface them to the log bus
+// (so the UI shows them) instead of dying silently.
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? reason.stack ?? reason.message : String(reason);
+  console.error("[Bethaniel] Unhandled promise rejection:", msg);
+  appendLog({
+    level: "error",
+    source: "engine",
+    message: `Unhandled error: ${reason instanceof Error ? reason.message : String(reason)}`,
+  });
+});
+
+process.on("uncaughtException", (err) => {
+  // A truly uncaught exception leaves the process in an undefined state — log,
+  // fail any in-flight tasks so the UI doesn't show a hung run, then shut down.
+  console.error("[Bethaniel] Uncaught exception:", err.stack ?? err.message);
+  appendLog({
+    level: "error",
+    source: "engine",
+    message: `Fatal error: ${err.message}`,
+  });
+  try {
+    const failed = failActiveTasks(`Engine stopped unexpectedly: ${err.message}`);
+    if (failed > 0) console.error(`[Bethaniel] Marked ${failed} active task(s) as errored.`);
+  } catch {}
+  void shutdown();
+});
 
 start().catch((err) => {
   console.error("[Bethaniel] Failed to start:", err);

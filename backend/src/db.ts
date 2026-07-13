@@ -120,11 +120,15 @@ export function saveTaskState(task: TaskState): void {
   ).run(task.id, JSON.stringify(task), task.finishedAt ?? Date.now());
 }
 
+const MAX_KEPT_TASKS = 200;
+
 export function loadTaskStates(): TaskState[] {
   const d = getDb();
   const rows = d
-    .prepare("SELECT state FROM tasks ORDER BY finished_at DESC")
-    .all() as { state: string }[];
+    .prepare(
+      "SELECT state FROM tasks ORDER BY finished_at DESC LIMIT ?",
+    )
+    .all(MAX_KEPT_TASKS) as { state: string }[];
   const out: TaskState[] = [];
   for (const r of rows) {
     try {
@@ -134,6 +138,22 @@ export function loadTaskStates(): TaskState[] {
     }
   }
   return out;
+}
+
+export function pruneOldTasks(): number {
+  const d = getDb();
+  const row = d
+    .prepare("SELECT COUNT(*) as cnt FROM tasks")
+    .get() as { cnt: number };
+  if (row.cnt <= MAX_KEPT_TASKS) return 0;
+  const ids = d
+    .prepare(
+      "SELECT id FROM tasks ORDER BY finished_at DESC LIMIT -1 OFFSET ?",
+    )
+    .all(MAX_KEPT_TASKS) as { id: string }[];
+  if (ids.length === 0) return 0;
+  deleteTaskStatesIn(ids.map((r) => r.id));
+  return ids.length;
 }
 
 export function deleteTaskState(id: string): void {

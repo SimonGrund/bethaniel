@@ -23,11 +23,14 @@ import {
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
-import { listModels, getModelSizeBytes } from "./llm.js";
+import { listModels, getModelSizeBytes, attributeSuspects } from "./llm.js";
+import { findNewSuspectWords } from "./spellcheck.js";
 import {
-  buildCopyEditRewritePrompt,
+  collapseIntroducedQuotePairs,
+  revertSuspectRuns,
+} from "./correctionHygiene.js";
+import {
   buildCopyEditCorrectionsPrompt,
-  buildLineEditRewritePrompt,
   buildLineEditCorrectionsPrompt,
   buildTranslationPrompt,
   buildCharacterCatalogPrompt,
@@ -321,7 +324,6 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       model,
       mode,
       modes,
-      fast,
       wordsPerChunk,
       overlapParagraphs,
       parallel,
@@ -336,17 +338,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       dualCount,
       characterDedup,
       styleComplianceAgent,
+      extraPass,
     } = req.body;
-
-    // Resolve once so prompt selection and execution path stay in sync.
-    const resolvedFast = fast ?? true;
 
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} fast=${resolvedFast} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -408,9 +408,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_COPY_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = resolvedFast
-            ? buildCopyEditCorrectionsPrompt(opts, styleGuide)
-            : buildCopyEditRewritePrompt(opts, styleGuide);
+          systemPrompt = buildCopyEditCorrectionsPrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
           break;
         }
@@ -419,9 +417,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_LINE_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = resolvedFast
-            ? buildLineEditCorrectionsPrompt(opts, styleGuide)
-            : buildLineEditRewritePrompt(opts, styleGuide);
+          systemPrompt = buildLineEditCorrectionsPrompt(opts, styleGuide);
           taskEditOptions = { ...opts };
           break;
         }
@@ -493,7 +489,6 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           model: model || DEFAULT_MODEL_FILENAME,
           mode: currentMode,
           prompt: systemPrompt,
-          fast: currentMode === "translate" ? false : resolvedFast,
           wpc: wordsPerChunk ?? 2500,
           overlap: overlapParagraphs ?? 1,
           editOptions: taskEditOptions,
@@ -506,6 +501,9 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           dualCount: dualCount ?? 2,
           characterDedup: characterDedup ?? false,
           styleComplianceAgent: styleComplianceAgent ?? true,
+          // Off unless the client asks: the UI always sends it explicitly;
+          // headless/API callers that omit it shouldn't get surprise 2× runs.
+          extraPass: extraPass === true,
           styleGuide,
         });
         taskIds.push(taskId);
@@ -653,7 +651,6 @@ router.post(
         model: ref.model ?? "",
         mode,
         prompt,
-        fast: false,
         wpc: 2500,
         overlap: 0,
       });
@@ -675,6 +672,94 @@ router.get("/results/:taskId", (req: Request, res: Response) => {
     return;
   }
   res.json(task);
+});
+
+// ── Export check: spell-verify accepted corrections ──
+// The review UI assembles the export text by applying accepted corrections
+// onto each chapter's original — a path that bypasses the pipeline's spell
+// gates. This endpoint diffs each assembled chapter against its original for
+// introduced misspellings and names the accepted corrections responsible, so
+// the UI can un-accept them before exporting.
+router.post("/verify-corrections", (req: Request, res: Response) => {
+  const { chapters, englishDialect, styleGuide } = req.body ?? {};
+  if (!Array.isArray(chapters)) {
+    res.status(400).json({ error: "chapters must be an array" });
+    return;
+  }
+
+  const spellOpts = {
+    englishDialect:
+      typeof englishDialect === "string" ? englishDialect : undefined,
+    styleGuideNames:
+      typeof styleGuide === "string" && styleGuide.trim()
+        ? [styleGuide]
+        : undefined,
+  };
+
+  let checked = true;
+  const results: {
+    suspects: string[];
+    offenders: { id: string; word: string }[];
+    autoFixes: { kind: "spelling" | "quotes"; detail: string }[];
+    fixedAfter?: string;
+  }[] = [];
+  for (const ch of chapters) {
+    const before = typeof ch?.before === "string" ? ch.before : "";
+    const after = typeof ch?.after === "string" ? ch.after : "";
+    const corrections: { id: string; corrected: string }[] = Array.isArray(
+      ch?.corrections,
+    )
+      ? ch.corrections.filter(
+          (c: unknown): c is { id: string; corrected: string } =>
+            typeof (c as { id?: unknown })?.id === "string" &&
+            typeof (c as { corrected?: unknown })?.corrected === "string",
+        )
+      : [];
+
+    const suspects = findNewSuspectWords(before, after, "en", spellOpts);
+    if (suspects === null) {
+      checked = false;
+      results.push({ suspects: [], offenders: [], autoFixes: [] });
+      continue;
+    }
+    const attributed = attributeSuspects(suspects, corrections);
+    const offenders = [...attributed].map(([c, word]) => ({ id: c.id, word }));
+    const offenderWords = new Set(offenders.map((o) => o.word));
+    const unattributed = suspects.filter((w) => !offenderWords.has(w));
+
+    // ── Auto-repair what un-accepting can't reach ──
+    // Unattributed misspellings (e.g. two overlapping corrections splicing
+    // "Studentss") are reverted to the original wording via word-diff
+    // alignment; doubled quote pairs introduced by quote-adding corrections
+    // ("” / “" / ”” …) are collapsed to a single quote in the manuscript's
+    // style. The repaired text is returned as `fixedAfter` for the export
+    // to use. When offenders exist the client un-accepts and re-verifies,
+    // so `fixedAfter` is only consumed on a clean pass.
+    const autoFixes: { kind: "spelling" | "quotes"; detail: string }[] = [];
+    let fixedAfter = after;
+    let remaining = unattributed;
+    if (unattributed.length > 0) {
+      const rev = revertSuspectRuns(before, fixedAfter, unattributed);
+      fixedAfter = rev.text;
+      for (const w of rev.reverted) autoFixes.push({ kind: "spelling", detail: w });
+      const revertedSet = new Set(rev.reverted);
+      remaining = unattributed.filter((w) => !revertedSet.has(w));
+    }
+    const quoteFix = collapseIntroducedQuotePairs(before, fixedAfter);
+    fixedAfter = quoteFix.text;
+    for (const p of quoteFix.fixes) autoFixes.push({ kind: "quotes", detail: p });
+
+    results.push({
+      // Only suspects that could neither be pinned on a correction nor
+      // auto-reverted remain — the UI reports them as "check manually".
+      suspects: remaining,
+      offenders,
+      autoFixes,
+      ...(fixedAfter !== after ? { fixedAfter } : {}),
+    });
+  }
+
+  res.json({ checked, chapters: results });
 });
 
 // ── Export: convert markdown to docx ──
@@ -725,6 +810,13 @@ router.post("/export/epub", async (req: Request, res: Response) => {
 
 // ── AI auto-format for ebook (formatting-only LLM pass) ──
 router.post("/format-ebook", async (req: Request, res: Response) => {
+  // Formatting streams the whole manuscript through the LLM (minutes). If the
+  // client goes away — window closed, app reloaded, fetch aborted — stop the
+  // run instead of burning llama slots on output nobody will receive.
+  const ac = new AbortController();
+  req.on("close", () => {
+    if (!res.writableEnded) ac.abort();
+  });
   try {
     const { markdown, model } = req.body;
     if (typeof markdown !== "string") {
@@ -734,6 +826,7 @@ router.post("/format-ebook", async (req: Request, res: Response) => {
     const formatted = await formatEbookMarkdown(
       model || DEFAULT_MODEL_FILENAME,
       markdown,
+      { signal: ac.signal },
     );
     res.json({ md: formatted });
   } catch (err) {

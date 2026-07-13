@@ -73,7 +73,17 @@ function loadDict(dictName: string): SpellDict | null {
 
 // ── Tokenization helpers ──
 
-const WORD_RE = /\p{L}[\p{L}'-]*[\p{L}]/gu;
+// Word tokens include typographic apostrophes (’ U+2019, ʼ U+02BC) so a
+// contraction like "hadn’t" is one token, not the stem "hadn" — the stem
+// isn't a dictionary word, and Hunspell's suggestion for it ("hadj" in
+// en_GB) turns into a corrupting correction.
+const WORD_RE = /\p{L}[\p{L}'’ʼ-]*[\p{L}]/gu;
+
+/** Dictionaries and SKIP_WORDS use the straight apostrophe; manuscripts
+ *  usually use ’. Normalize before any lookup. */
+function normalizeApostrophes(word: string): string {
+  return word.replace(/[’ʼ]/g, "'");
+}
 
 /**
  * Words we never flag. Many of these are legitimate words that aren't in
@@ -100,7 +110,7 @@ function isLikelyProperNoun(word: string): boolean {
 function isSkipWord(word: string): boolean {
   if (word.length < 3) return true;
   if (/^\d+/.test(word)) return true;
-  if (SKIP_WORDS.has(word.toLowerCase())) return true;
+  if (SKIP_WORDS.has(normalizeApostrophes(word).toLowerCase())) return true;
   return false;
 }
 
@@ -164,7 +174,7 @@ export function findSuspectWords(
   let match: RegExpExecArray | null;
   while ((match = WORD_RE.exec(text)) !== null) {
     const word = match[0];
-    const lower = word.toLowerCase();
+    const lower = normalizeApostrophes(word).toLowerCase();
 
     if (isSkipWord(word)) continue;
     if (seen.has(lower)) continue;
@@ -173,7 +183,7 @@ export function findSuspectWords(
 
     seen.add(lower);
 
-    if (!dict.correct(word)) {
+    if (!dict.correct(normalizeApostrophes(word))) {
       suspects.push(word);
       if (suspects.length >= maxHints) break;
     }
@@ -181,6 +191,105 @@ export function findSuspectWords(
 
   result.suspectWords = suspects;
   return result;
+}
+
+/**
+ * Build a predicate that returns `true` when a word is acceptable — i.e. present
+ * in the Hunspell dictionary for `lang`, a known skip-word (common contractions
+ * and interjections), or a style-guide name. Returns `null` when no dictionary
+ * is available for the language, in which case callers should skip spell-vetting
+ * entirely (no behavior change).
+ *
+ * Unlike {@link findSuspectWords} this deliberately does NOT treat a leading
+ * capital as a proper noun. The gate that consumes this validator vets the
+ * `corrected` side of LLM corrections, and a sentence-initial real word that the
+ * model corrupted into a non-word ("Apparently" → "Appwrently") is still
+ * capitalized — honoring the proper-noun heuristic here would let exactly that
+ * corruption through. Genuine names are instead covered by `styleGuideNames` and
+ * by the gate only rejecting words newly introduced by a correction.
+ */
+export function getWordValidator(
+  lang: string,
+  opts?: { englishDialect?: string; styleGuideNames?: string[] },
+): ((word: string) => boolean) | null {
+  const dictName = langToDictName(lang, opts?.englishDialect);
+  if (!dictName) return null;
+
+  const dict = loadDict(dictName);
+  if (!dict) return null;
+
+  const styleNames = new Set(
+    (opts?.styleGuideNames ?? []).flatMap((n) =>
+      n
+        .split(/[,\s]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
+  return (word: string): boolean => {
+    if (isSkipWord(word)) return true;
+    const norm = normalizeApostrophes(word);
+    if (styleNames.has(norm.toLowerCase())) return true;
+    return dict.correct(norm);
+  };
+}
+
+/**
+ * Words present in `after` but absent from `before` that the dictionary
+ * rejects — i.e. misspellings *introduced* by whatever transformed `before`
+ * into `after`. Used as a post-apply safety net on edited text.
+ *
+ * Like {@link getWordValidator} (and unlike {@link findSuspectWords}) this
+ * does NOT skip capitalized words: a corrupted sentence-initial word is
+ * capitalized, and genuine proper nouns already occur in `before` so they
+ * can never be reported as introduced.
+ *
+ * Returns `null` when no dictionary is available — callers skip verification.
+ */
+export function findNewSuspectWords(
+  before: string,
+  after: string,
+  lang: string,
+  opts?: { englishDialect?: string; styleGuideNames?: string[] },
+): string[] | null {
+  const dictName = langToDictName(lang, opts?.englishDialect);
+  if (!dictName) return null;
+
+  const dict = loadDict(dictName);
+  if (!dict) return null;
+
+  const styleNames = new Set(
+    (opts?.styleGuideNames ?? []).flatMap((n) =>
+      n
+        .split(/[,\s]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
+  const beforeWords = new Set<string>();
+  WORD_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = WORD_RE.exec(before)) !== null) {
+    beforeWords.add(normalizeApostrophes(match[0]).toLowerCase());
+  }
+
+  const seen = new Set<string>();
+  const introduced: string[] = [];
+  WORD_RE.lastIndex = 0;
+  while ((match = WORD_RE.exec(after)) !== null) {
+    const word = match[0];
+    const lower = normalizeApostrophes(word).toLowerCase();
+    if (beforeWords.has(lower)) continue;
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    if (isSkipWord(word)) continue;
+    if (styleNames.has(lower)) continue;
+    if (!dict.correct(normalizeApostrophes(word))) introduced.push(word);
+  }
+
+  return introduced;
 }
 
 /**
@@ -221,7 +330,8 @@ export function getSpellCorrections(
   let match: RegExpExecArray | null;
   while ((match = WORD_RE.exec(text)) !== null) {
     const word = match[0];
-    const lower = word.toLowerCase();
+    const norm = normalizeApostrophes(word);
+    const lower = norm.toLowerCase();
 
     if (isSkipWord(word)) continue;
     if (seen.has(lower)) continue;
@@ -230,8 +340,8 @@ export function getSpellCorrections(
 
     seen.add(lower);
 
-    if (!dict.correct(word)) {
-      const suggestions = dict.suggest(word);
+    if (!dict.correct(norm)) {
+      const suggestions = dict.suggest(norm);
       const corrected = suggestions.length > 0 ? suggestions[0] : word;
       corrections.push({ original: word, corrected });
       if (corrections.length >= maxHints) break;

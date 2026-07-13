@@ -29,7 +29,7 @@ npm run release       # Build + publish (electron-builder --publish always)
 ### Backend dev (standalone)
 ```bash
 # In backend/
-npm run dev    # tsx src/index.ts (with nodemon)
+npm run dev    # tsx src/index.ts — NO file watching; restart manually to pick up changes
 npm run build  # tsc
 ```
 
@@ -40,7 +40,16 @@ npm run dev    # vite --host 0.0.0.0 on :5173
 npm run build  # tsc -b && vite build
 ```
 
-There are **no automated tests** in this repo.
+### Tests
+```bash
+# In backend/
+npm test   # node:test via the tsx loader (test/**/*.test.ts) — no extra deps
+```
+
+The automated tests cover the copy/line-edit correction pipeline
+(`backend/test/` — apply/spell/word-boundary safeguards, quote hygiene &
+export auto-repair, reviewer retry/aggregation, second-pass merge). The
+frontend has no automated tests.
 
 ## Architecture
 

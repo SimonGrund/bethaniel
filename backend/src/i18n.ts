@@ -16,14 +16,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
   words_per_chunk: { en: "Words per chunk", da: "Ord pr. chunk" },
   paragraph_overlap: { en: "Paragraph overlap", da: "Paragrafoverlap" },
-  fast_mode: {
-    en: "Fast mode (corrections only)",
-    da: "Hurtig tilstand (kun rettelser)",
-  },
-  fast_mode_help: {
-    en: "Returns a JSON list of edits instead of rewriting the whole chunk. Typically 3–10× faster.",
-    da: "Returnerer en JSON-liste af rettelser. Typisk 3–10× hurtigere.",
-  },
   review_mode: {
     en: "Review mode (Editor + Reviewer)",
     da: "Review-tilstand (Editor + Reviewer)",

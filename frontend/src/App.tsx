@@ -282,6 +282,14 @@ export default function App() {
             © {new Date().getFullYear()} Bethaniel · v{__APP_VERSION__} · All
             rights reserved.
           </span>
+          <a
+            href="https://www.bethaniel.eu/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-feedback-link"
+          >
+            Give Feedback
+          </a>
         </footer>
       </main>
       <LogPanel />
