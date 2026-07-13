@@ -1,7 +1,6 @@
 // ── Diff generation — ported from book_editor.py + ui.py ──
 
 import { diffWordsWithSpace } from "diff";
-import type { Correction } from "./types.js";
 
 /** Tokenize text into words, whitespace, and punctuation — matches Python _tok(). */
 function tokenize(s: string): string[] {
@@ -116,46 +115,4 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-/**
- * Extract correction pairs from the diff between original and rewritten text.
- * Walks word-level changes grouping consecutive removed→added sequences into
- * {original, corrected} pairs suitable for the accept/dismiss review UI.
- */
-export function extractCorrectionsFromDiff(
-  original: string,
-  rewritten: string,
-): Correction[] {
-  const changes = diffWordsWithSpace(original, rewritten);
-  const corrections: Correction[] = [];
-
-  let i = 0;
-  while (i < changes.length) {
-    // Skip unchanged tokens
-    while (i < changes.length && !changes[i].added && !changes[i].removed) i++;
-    if (i >= changes.length) break;
-
-    // Collect removed tokens (exist only in original)
-    const removed: string[] = [];
-    while (i < changes.length && changes[i].removed) {
-      removed.push(changes[i].value);
-      i++;
-    }
-
-    // Collect added tokens (exist only in rewritten)
-    const added: string[] = [];
-    while (i < changes.length && changes[i].added) {
-      added.push(changes[i].value);
-      i++;
-    }
-
-    const orig = removed.join("").trim();
-    const corr = added.join("").trim();
-    if (orig && corr && orig !== corr) {
-      corrections.push({ original: orig, corrected: corr });
-    }
-  }
-
-  return corrections;
 }

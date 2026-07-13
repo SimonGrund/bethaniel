@@ -70,25 +70,19 @@ export default function ModeSelector() {
     } else {
       setOpenCat(cat);
       if (cat === "translation") {
-        // Toggle translate ON first (so we have >1 mode to satisfy min-1 guard)
         if (!selectedModes.includes("translate")) toggleMode("translate");
-        // Then remove everything else
         for (const m of selectedModes) {
           if (m !== "translate") toggleMode(m);
         }
       } else if (cat === "analysis") {
-        // Remove translation if present
         if (selectedModes.includes("translate")) toggleMode("translate");
-        // Auto-select the first analysis mode if none active (min-1 guard)
         if (!ANALYSIS_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("character_catalog");
         }
-        // Remove all editing modes
         for (const m of EDITING_MODES) {
           if (selectedModes.includes(m)) toggleMode(m);
         }
       } else {
-        // editing
         if (selectedModes.includes("translate")) toggleMode("translate");
         if (!EDITING_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("copy_edit");
@@ -97,6 +91,7 @@ export default function ModeSelector() {
           if (selectedModes.includes(m)) toggleMode(m);
         }
       }
+      markStepComplete("edits");
     }
   }
 
@@ -335,44 +330,6 @@ export default function ModeSelector() {
         </div>
       )}
 
-      {/* ── Wizard confirm buttons ── */}
-      {wizardStep === "edits" && selectedModes.length > 0 && (
-        <div className="wizard-confirm">
-          {openCat === "translation" || openCat === "analysis" || openCat === "editing" ? (
-            <button
-              type="button"
-              className="btn-primary btn-confirm-step"
-              onClick={() => {
-                markStepComplete("edits");
-                setEditSubOptionsOpen(null);
-                advanceWizard("edits");
-              }}
-            >
-              {t("wizard_confirm_details")}
-            </button>
-          ) : !editSubOptionsOpen ? (
-            <button
-              type="button"
-              className="btn-primary btn-confirm-step"
-              onClick={() => setEditSubOptionsOpen(openCat)}
-            >
-              {t("wizard_confirm_edits")}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-primary btn-confirm-step"
-              onClick={() => {
-                markStepComplete("edits");
-                setEditSubOptionsOpen(null);
-                advanceWizard("edits");
-              }}
-            >
-              {t("wizard_confirm_details")}
-            </button>
-          )}
-        </div>
-      )}
     </section>
   );
 }

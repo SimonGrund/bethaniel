@@ -81,12 +81,6 @@ export interface DocumentMeta {
   chapters: Chapter[];
   wordCount: number;
   uploadedAt: number;
-  /** Whether scene/paragraph break detection ran on this document. */
-  detectBreaks?: boolean;
-  /** Raw scene-break pattern detected at upload (e.g. "***", "\\*", "---"). */
-  detectedSceneBreak?: string | null;
-  /** Paragraph (small) break style — usually "empty line". */
-  detectedParagraphBreak?: string | null;
 }
 
 export interface Correction {
@@ -98,6 +92,8 @@ export interface Correction {
   confidence?: number;
   reviewReason?: string;
   flagged?: boolean;
+  /** Which thorough-mode pass produced this correction (absent = first). */
+  pass?: number;
 }
 
 export interface TaskResult {
@@ -143,7 +139,6 @@ export interface TaskRetrySpec {
   model: string;
   mode: TaskMode;
   prompt: string;
-  fast: boolean;
   wpc: number;
   overlap: number;
   editOptions?: Record<string, boolean | string>;
@@ -156,6 +151,8 @@ export interface TaskRetrySpec {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  styleComplianceAgent?: boolean;
+  extraPass?: boolean;
 }
 
 export interface EditUnit {
@@ -168,7 +165,6 @@ export interface QueueAddRequest {
   units: EditUnit[];
   model: string;
   modes: TaskMode[];
-  fast?: boolean;
   wordsPerChunk?: number;
   overlapParagraphs?: number;
   parallel?: number;
@@ -182,6 +178,7 @@ export interface QueueAddRequest {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  extraPass?: boolean;
 }
 
 // ── Structured output shapes for catalog / analysis modes ──

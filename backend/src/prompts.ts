@@ -6,6 +6,7 @@ import type {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
 } from "./types.js";
+import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // SHARED PREAMBLES
@@ -47,6 +48,8 @@ GOOD example: {"original": "*She wisphered softly*", "corrected": "*She whispere
 BAD example:  {"original": "*She wisphered softly*", "corrected": "She whispered softly"}
 BAD example:  {"original": "how many Karim had sent", "corrected": "how many **Karim** had sent"}
 
+QUOTATION MARKS: Before suggesting that dialogue is missing quotation marks, check the surrounding text — the marks usually already exist just outside your "original" span. If quotation marks are genuinely missing, copy the mark style the manuscript already uses (curly “…” vs straight "…") exactly; NEVER change one quote style to the other, and NEVER place a quotation mark directly next to an existing one.
+
 If there are NO issues to flag, output nothing (an empty response is valid).
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences, no closing summary.`;
 
@@ -62,6 +65,85 @@ OUTPUT RULES — ABSOLUTE:
    - Links and images
 3. Preserve paragraph breaks (blank lines) EXACTLY.
 4. Preserve single line breaks within paragraphs.`;
+
+// ═══════════════════════════════════════════════════════════════════
+// STYLE SHEET (style guide) — shared, role-aware rendering
+// ═══════════════════════════════════════════════════════════════════
+//
+// The author's style sheet is the HIGHEST authority. Instead of the old
+// passive "preserve these / don't flag matches" footer, render it as an
+// ACTIVE, two-directional instruction: ENFORCE violations, RESPECT matches,
+// OVERRIDE generic defaults. A short pointer is also injected near the TOP of
+// editor prompts so the sheet is not buried beneath the verbose rules below.
+
+/** One-line pointer placed near the top of editor prompts when a sheet exists. */
+const STYLE_SHEET_TOP_POINTER = `
+⚠ A STYLE SHEET IS IN EFFECT (full text at the END of these instructions). It is the HIGHEST authority and OVERRIDES the generic rules here: text that VIOLATES it is an error you must flag; text that MATCHES it must never be flagged.
+`;
+
+type StyleRole = "copy" | "line" | "combined" | "translate" | "reviewer" | "analysis";
+
+/** Render the trailing style-sheet block, tailored to the consuming role. */
+function buildStyleSheetBlock(styleGuide: string, role: StyleRole): string {
+  const sheet = styleGuide.trim();
+  if (!sheet) return "";
+
+  if (role === "translate") {
+    return `
+
+═══ GLOSSARY & TRANSLATION NOTES — BINDING ═══
+The notes below are BINDING and OVERRIDE the general guidance above. Any listed source term, name, title, or honorific MUST be rendered exactly as specified — never improvise an alternative rendering, and never leave a listed term untranslated unless the notes say to keep it. Stated register/formality rules override the defaults. Where a term is not listed, follow the general translation principles.
+
+NOTES:
+${sheet}
+`;
+  }
+
+  if (role === "reviewer") {
+    return `
+
+═══ AUTHOR'S STYLE SHEET — GROUND TRUTH ═══
+${sheet}
+
+Use the style sheet as ground truth when scoring (you have the full chapter text above, so you can check conformance directly):
+- A correction that brings the text INTO LINE with the style sheet is correct — score it 4–5.
+- A correction that CONTRADICTS the style sheet is a MISTAKE — score it 1–2.
+- If a correction changed something the style sheet shows should have gone the OTHER way (e.g. "re-corrected" a spelling/punctuation the sheet endorses), score it 1–2.`;
+  }
+
+  if (role === "analysis") {
+    return `
+
+═══ AUTHOR'S STYLE SHEET — GROUND TRUTH FOR NAMING ═══
+The author provided the style sheet below. Treat any canonical character names, spellings, place names, titles, and relationships it lists as GROUND TRUTH:
+- Use the canonical spelling/name from the sheet as the primary "name", even if the text uses a variant more often. List the text variants as aliases.
+- Names or places the sheet groups together (or marks as the same person/place) are a STRONG merge signal — merge them into ONE entry.
+- Use stated relationships ("X is Y's mother") to resolve relational references in the text.
+Where the sheet is silent, infer from the text as usual.
+
+STYLE SHEET:
+${sheet}
+`;
+  }
+
+  // Editor roles: copy / line / combined — active, two-directional enforcement.
+  const enforceLine =
+    role === "line"
+      ? `1. ENFORCE — prose that VIOLATES a stated preference (e.g. a banned word, a semicolon where the sheet forbids them, a sentence-length or voice rule) IS a candidate for improvement, and a fix that brings it into line is exactly what to suggest. Conversely, NEVER suggest a change that would VIOLATE a stated preference (do not add a banned construction, do not flatten a voice the sheet protects).`
+      : `1. ENFORCE — text that VIOLATES any rule below is an ERROR you must flag/fix: a name spelled against the sheet, the wrong dialect form, the wrong serial-comma usage, a disallowed punctuation mark or word, etc. These are exactly the errors you exist to catch — even where a generic rule above told you to leave such things alone (e.g. "leave proper nouns alone" does NOT apply when the sheet specifies a spelling).`;
+
+  return `
+
+═══ AUTHOR'S STYLE SHEET — HIGHEST AUTHORITY ═══
+The style sheet below was written by the author. It OVERRIDES every generic rule above. Apply it in BOTH directions:
+${enforceLine}
+2. RESPECT — NEVER flag text that already MATCHES the sheet; a choice the sheet endorses is correct by definition.
+3. When the sheet is SILENT on something, fall back to the generic rules above.
+
+STYLE SHEET:
+${sheet}
+`;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // COPY EDIT
@@ -122,17 +204,15 @@ export function buildCopyEditRewritePrompt(
   opts: CopyEditOptions,
   styleGuide?: string,
 ): string {
-  let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript.\n\n`;
+  let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript.\n`;
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += "\n";
   p += buildCopyEditScope(opts);
   p += "\n" + COPY_EDIT_DONTS;
   p += "\n" + REWRITE_OUTPUT_RULES;
   p += `\n5. If a sentence has no objective error, output it BYTE-FOR-BYTE identically.\n6. When in doubt, change NOTHING.`;
   p += `\n\nRemember: this is the final pass before print. The author has already done the stylistic editing. You are only catching errors they missed.`;
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — PRESERVE THESE EXACTLY:\n" +
-      styleGuide.trim() +
-      "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "copy");
   return p;
 }
 
@@ -141,8 +221,9 @@ export function buildCopyEditCorrectionsPrompt(
   styleGuide?: string,
   suspectWords?: string[],
 ): string {
-  let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript written in MARKDOWN.\n\n`;
-  p += `YOUR JOB: find OBJECTIVE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
+  let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript written in MARKDOWN.\n`;
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += `\nYOUR JOB: find OBJECTIVE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
   p += "WHAT COUNTS AS AN ERROR:\n";
   // Reuse the scope items
   if (opts.spelling) p += "- Spelling errors and typos\n";
@@ -187,11 +268,7 @@ When in doubt, do NOT flag it.`;
   }
 
   p += CORRECTIONS_JSON_FORMAT;
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — DO NOT FLAG ANYTHING THAT MATCHES THESE RULES:\n" +
-      styleGuide.trim() +
-      "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "copy");
   return p;
 }
 
@@ -240,19 +317,19 @@ export function buildLineEditRewritePrompt(
   opts: LineEditOptions,
   styleGuide?: string,
 ): string {
-  let p = `You are a developmental line editor improving the quality of a manuscript. Your goal is to make the prose stronger while PRESERVING the author's unique voice and style.\n\n`;
+  let p = `You are a developmental line editor improving the quality of a manuscript. Your goal is to make the prose stronger while PRESERVING the author's unique voice and style.\n`;
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += "\n";
   p += "AREAS TO IMPROVE:\n" + buildLineEditScope(opts);
   p += `\n\nIMPORTANT CONSTRAINTS:
 - Preserve the author's voice — do not flatten distinctive style into generic "good writing"
 - Keep the same meaning, plot, and character actions
 - Do not add new content or remove plot-relevant details
 - Preserve intentional dialect, slang, and character voice in dialogue
-- Preserve all proper nouns exactly
+- Preserve all proper nouns exactly (unless the style sheet specifies a spelling)
 - If a passage is already strong, leave it BYTE-FOR-BYTE identical`;
   p += "\n" + REWRITE_OUTPUT_RULES;
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — RESPECT THESE:\n" + styleGuide.trim() + "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "line");
   return p;
 }
 
@@ -261,7 +338,9 @@ export function buildLineEditCorrectionsPrompt(
   styleGuide?: string,
   suspectWords?: string[],
 ): string {
-  let p = `You are a developmental line editor improving the quality of a manuscript written in MARKDOWN. Your goal is to suggest changes that make the prose stronger while PRESERVING the author's unique voice.\n\n`;
+  let p = `You are a developmental line editor improving the quality of a manuscript written in MARKDOWN. Your goal is to suggest changes that make the prose stronger while PRESERVING the author's unique voice.\n`;
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += "\n";
   p +=
     "Return a JSON list of suggested improvements. AREAS TO CONSIDER:\n" +
     buildLineEditScope(opts);
@@ -270,7 +349,7 @@ export function buildLineEditCorrectionsPrompt(
 - Keep the same meaning, plot, and character actions
 - Do not add or remove plot-relevant content
 - Preserve intentional dialect/slang in dialogue
-- Preserve all proper nouns exactly
+- Preserve all proper nouns exactly (unless the style sheet specifies a spelling)
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
   if (suspectWords && suspectWords.length > 0) {
@@ -280,9 +359,7 @@ export function buildLineEditCorrectionsPrompt(
       "\nDo NOT flag any of these words unless you are certain they are misspelled.";
   }
   p += CORRECTIONS_JSON_FORMAT;
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — RESPECT THESE:\n" + styleGuide.trim() + "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "line");
   return p;
 }
 
@@ -298,8 +375,9 @@ export function buildCombinedEditPrompt(
 ): string {
   let p = `You are an editor performing TWO passes on a manuscript written in MARKDOWN, in a single combined review:\n`;
   p += `  1. COPY EDIT — find OBJECTIVE ERRORS (spelling, punctuation, grammar)\n`;
-  p += `  2. LINE EDIT — suggest PROSE IMPROVEMENTS (clarity, rhythm, voice)\n\n`;
-  p += `Return ALL findings — both kinds — as a single JSON list of corrections.\n\n`;
+  p += `  2. LINE EDIT — suggest PROSE IMPROVEMENTS (clarity, rhythm, voice)\n`;
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += `\nReturn ALL findings — both kinds — as a single JSON list of corrections.\n\n`;
 
   p += "═══ COPY EDIT — WHAT COUNTS AS AN ERROR ═══\n";
   if (copyOpts.spelling) p += "- Spelling errors and typos\n";
@@ -344,12 +422,7 @@ export function buildCombinedEditPrompt(
       "\nDo NOT flag any of these words unless you are certain they are misspelled.";
   }
   p += CORRECTIONS_JSON_FORMAT;
-
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE — RESPECT THESE & DO NOT FLAG ANYTHING THAT MATCHES:\n" +
-      styleGuide.trim() +
-      "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "combined");
   return p;
 }
 
@@ -361,13 +434,16 @@ export function buildTranslationPrompt(
   targetLang: string,
   styleGuide?: string,
 ): string {
-  let p = `You are a literary translator. Translate the following text into ${targetLang}.
+  let p = `You are a literary translator. Translate the following text into ${targetLang}.`;
+  if (styleGuide)
+    p += `\n⚠ A BINDING GLOSSARY / TRANSLATION NOTES SECTION IS PROVIDED AT THE END — listed terms and names MUST be rendered exactly as specified.`;
+  p += `
 
 TRANSLATION PRINCIPLES:
 - Preserve the author's tone, voice, and style — this is a LITERARY translation, not a technical one
 - Preserve the emotional register: if the original is playful, the translation should be playful; if solemn, solemn
 - Translate idioms into equivalent idiomatic expressions in the target language rather than literal translations
-- Preserve all proper nouns EXACTLY unless the style guide specifies translated equivalents
+- Preserve all proper nouns EXACTLY unless the glossary specifies translated equivalents
 - Preserve dialogue style: informal dialogue stays informal, formal stays formal
 - Preserve intentional dialect or slang — find equivalent registers in the target language
 
@@ -376,12 +452,40 @@ FORMATTING RULES:
 - Preserve paragraph breaks and line structure
 - Output ONLY the translated Markdown. No preamble, no commentary, no "Here is the translation..."`;
 
-  if (styleGuide)
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE & TRANSLATION NOTES:\n" +
-      styleGuide.trim() +
-      "\n";
+  p += buildStyleSheetBlock(styleGuide ?? "", "translate");
   return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FORMAT FOR EBOOK
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * A pure-formatting pass that tidies a manuscript's structure for ebook
+ * export. It must NOT change a single word of the prose — only headings,
+ * scene-break markers, and paragraph spacing.
+ */
+export function buildFormatEbookPrompt(): string {
+  return `You are an ebook typesetter. Your ONLY job is to clean up the STRUCTURE and FORMATTING of the manuscript below for ebook publication. You are NOT an editor.
+
+ABSOLUTE RULE — DO NOT CHANGE THE PROSE:
+- Do NOT add, remove, reword, rephrase, reorder, split, merge, or "improve" any sentence, word, or punctuation of the actual text.
+- Do NOT fix spelling, grammar, or style. Leave the wording 100% identical.
+- The ONLY things you may change are the structural/formatting elements listed below.
+
+WHAT TO FORMAT:
+1. Chapter / part headings: when a line is clearly a chapter or section title (e.g. "CHAPTER ONE", "Chapter 12", "Prologue", "Part Two"), make it a Markdown heading using "## " (two hashes + a space). Keep the exact title text. If it is already a proper heading, leave it.
+2. Scene breaks: when a line is a scene/section divider (e.g. "***", "* * *", "---", "___", a lone "#", or a decorative glyph line), replace that whole line with exactly:
+${SCENE_BREAK_MARKER}
+3. Paragraph spacing: ensure exactly ONE blank line between paragraphs. Collapse runs of 3+ blank lines down to a single blank line. Do not merge separate paragraphs into one.
+4. Leave all other Markdown intact: bold (**…**), italic (*…* / _…_), lists, blockquotes, links.
+
+IMAGE PLACEHOLDERS:
+- Some lines contain placeholder tokens like ⟦IMG:0⟧, ⟦IMG:1⟧. These represent images. Keep every placeholder EXACTLY as-is, on its own line, in its original position. Never delete, move, reword, or duplicate them.
+
+${REWRITE_OUTPUT_RULES}
+
+Output ONLY the reformatted Markdown — the complete text, nothing else.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -426,6 +530,11 @@ CHARACTER DEDUPLICATION — critical:
 
 Output ONLY the JSON. No commentary.`;
 
+/** Character catalog prompt, optionally anchored to the author's style sheet. */
+export function buildCharacterCatalogPrompt(styleGuide?: string): string {
+  return CHARACTER_CATALOG_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // LOCATION CATALOG
 // ═══════════════════════════════════════════════════════════════════
@@ -454,7 +563,20 @@ OUTPUT FORMAT — STRICT JSON ONLY:
   ]
 }
 
-Sort locations by importance (most appearances first). Output ONLY the JSON. No commentary.`;
+Sort locations by importance (most appearances first).
+
+LOCATION DEDUPLICATION — critical:
+- The same place is often referred to by MULTIPLE names: a proper name ("Thornfield Hall"), generic descriptions ("the house", "home", "the old Victorian"), and relational forms ("the manor"). MERGE all of these into ONE catalog entry.
+- Choose the most PROPER / SPECIFIC name as the primary "name" field; list every other variant as an alias.
+- A generic reference ("the house") that clearly points to an already-named place is the SAME location — never create a separate entry for it.
+- When unsure, MERGE rather than split. A merged entry with comprehensive aliases is ALWAYS better than duplicates of the same place.
+
+Output ONLY the JSON. No commentary.`;
+
+/** Location catalog prompt, optionally anchored to the author's style sheet. */
+export function buildLocationCatalogPrompt(styleGuide?: string): string {
+  return LOCATION_CATALOG_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // TIMELINE
@@ -488,6 +610,11 @@ OUTPUT FORMAT — STRICT JSON ONLY:
 }
 
 Events should be in STORY-CHRONOLOGICAL order (which may differ from chapter order if the story uses flashbacks). Output ONLY the JSON. No commentary.`;
+
+/** Timeline prompt, optionally anchored to the author's style sheet. */
+export function buildTimelinePrompt(styleGuide?: string): string {
+  return TIMELINE_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // COMBINED ANALYSIS (characters + locations + timeline in one pass)
@@ -523,7 +650,9 @@ For each location provide:
 - chapters: which chapters/sections it appears in
 - description: physical description as given in text. "not described" if none
 - significance: why this location matters to the story
-Include ALL locations, from major settings to briefly mentioned places.`,
+Include ALL locations, from major settings to briefly mentioned places.
+
+LOCATION DEDUPLICATION — the same place may appear under multiple names: a proper name, generic descriptions ("the house", "home"), or relational forms. MERGE all of these into ONE entry. Choose the most proper/specific name as primary; list variants as aliases. A generic reference that clearly points to a named place is the SAME location — never split them. When unsure, MERGE.`,
     schema: `"locations": [{"name":"string","aliases":["string"],"chapters":["string"],"description":"string","significance":"string"}]`,
   },
   timeline: {
@@ -540,12 +669,15 @@ Events should be in STORY-CHRONOLOGICAL order.`,
   },
 };
 
-export function buildCombinedAnalysisPrompt(analysisModes: TaskMode[]): string {
+export function buildCombinedAnalysisPrompt(
+  analysisModes: TaskMode[],
+  styleGuide?: string,
+): string {
   const sections = analysisModes
     .filter((m) => m in ANALYSIS_SECTIONS)
     .map((m) => ANALYSIS_SECTIONS[m]);
 
-  if (sections.length === 0) return CHARACTER_CATALOG_PROMPT; // fallback
+  if (sections.length === 0) return buildCharacterCatalogPrompt(styleGuide); // fallback
 
   const instructions = sections
     .map((s, i) => `${i + 1}. ${s.instruction}`)
@@ -564,7 +696,7 @@ OUTPUT FORMAT — STRICT JSON ONLY:
 ${schemaFields}
 }
 
-Output ONLY the JSON object. No commentary, no markdown fences, no preamble.`;
+Output ONLY the JSON object. No commentary, no markdown fences, no preamble.${buildStyleSheetBlock(styleGuide ?? "", "analysis")}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -631,17 +763,57 @@ STRICT OUTPUT RULES:
 // REVIEWER — second-pass critical review of editor corrections
 // ═══════════════════════════════════════════════════════════════════
 
-export function buildReviewerPrompt(styleGuide?: string): string {
-  let p = `You are a SKEPTICAL SECOND READER reviewing proposed corrections to a manuscript. The editor has already suggested changes — your job is to catch its MISTAKES.
+export function buildReviewerPrompt(
+  styleGuide?: string,
+  mode: TaskMode = "copy_edit",
+): string {
+  // The reviewer scores findings of different KINDS depending on the task:
+  // copy edits are objective (right/wrong), line edits are subjective
+  // (better/worse). A single copy-edit-centric rubric mis-scores line edits.
+  const isLine = mode === "line_edit";
+  const isCombined = mode === "combined_edit";
 
-For each correction below, decide if it is a GENUINE IMPROVEMENT or a MISTAKE.
+  let p = `You are a SKEPTICAL SECOND READER reviewing proposed changes to a manuscript. The editor has already suggested changes — your job is to catch its MISTAKES. You are given the full chapter text above, then a numbered list of proposed changes.
+
+For each change below, decide if it is a GENUINE IMPROVEMENT or a MISTAKE.
 
 Score each on a 1-5 confidence scale:
-- 5: Clearly correct — fixes a real error without introducing problems
-- 4: Likely correct — reasonable fix
+- 5: Clearly correct — a real improvement with no downside
+- 4: Likely correct — reasonable change
 - 3: Uncertain — could go either way
-- 2: Likely wrong — probably not an error, or introduces new issues
-- 1: Clearly wrong — nonsensical, changes meaning, introduces errors
+- 2: Likely wrong — probably not warranted, or introduces new issues
+- 1: Clearly wrong — nonsensical, changes meaning, introduces errors`;
+
+  if (isCombined) {
+    p += `
+
+These changes are a MIX of two kinds — judge each by its kind:
+• OBJECTIVE COPY EDITS (spelling, punctuation, grammar): score on right-vs-wrong.
+• SUBJECTIVE LINE EDITS (clarity, rhythm, word choice, voice): score on better-vs-worse — a valid rewrite need not fix an "error".
+
+Common COPY-EDIT mistakes to flag:
+- Adding or removing punctuation where the original was already correct (e.g. "." → ".." is wrong)
+- "Fixing" something that wasn't broken; introducing a grammar/spelling error where the original was fine
+
+Common LINE-EDIT mistakes to flag:
+- Flattening the author's distinctive voice into generic "good writing"
+- Changing meaning, plot, or character action; making the prose blander or wordier
+- A rewrite that is merely a lateral change, no better than the original (score 2-3)
+
+IMPORTANT: Hyphenated compound adjectives (e.g. "well-known author") are standard grammar — adding a hyphen to form a compound modifier before a noun is VALID; do NOT flag it as "adding punctuation." Score 4-5 unless the hyphen creates confusion.`;
+  } else if (isLine) {
+    p += `
+
+These are SUBJECTIVE LINE EDITS (clarity, rhythm, word choice, voice) — judge each on better-vs-worse, NOT right-vs-wrong. A valid line edit improves the prose; it need not fix an "error". Do NOT apply copy-edit logic such as "this added punctuation, therefore it is wrong."
+
+Common line-edit mistakes to flag:
+- Flattening the author's distinctive voice into generic "good writing"
+- Changing the meaning, plot, or character action
+- Making the prose blander, wordier, or more clichéd than the original
+- A purely lateral rewrite that is no better than the original (score 2-3)
+- Suggestions that contradict the author's stated preferences (see style sheet, if any)`;
+  } else {
+    p += `
 
 Common editor mistakes to flag:
 - Adding or removing punctuation where the original was already correct (e.g. extra period before an existing period; "." → ".." is wrong)
@@ -649,18 +821,14 @@ Common editor mistakes to flag:
 - Changing meaning or character voice unintentionally
 - Introducing grammar or spelling errors where the original was fine
 - Unnecessary changes that don't improve the text
-- Ignoring or contradicting the author's style guide — if the author has specified preferences below, any correction that violates them is a MISTAKE
+- Ignoring or contradicting the author's style sheet — any correction that violates it is a MISTAKE
 
-IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-blue wool dress", "well-known author") are standard English grammar. Adding a hyphen to form a compound modifier before a noun is a VALID improvement — do NOT flag it as "adding punctuation." Score these 4-5 unless the hyphen creates confusion.
-
-Be SKEPTICAL. When in doubt, score LOWER. It's better to let a real error through than to introduce a fake correction.`;
-
-  if (styleGuide) {
-    p +=
-      "\n\nAUTHOR'S STYLE GUIDE:\n" +
-      styleGuide.trim() +
-      "\n\nIMPORTANT: Corrections that CONTRADICT the style guide above are MISTAKES — score them 1-2. Corrections that ALIGN with or enforce the style guide are more likely to be correct.";
+IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-blue wool dress", "well-known author") are standard English grammar. Adding a hyphen to form a compound modifier before a noun is a VALID improvement — do NOT flag it as "adding punctuation." Score these 4-5 unless the hyphen creates confusion.`;
   }
+
+  p += `\n\nBe SKEPTICAL. When in doubt, score LOWER. It's better to let a real ${isLine ? "passage stand" : "error through"} than to ${isLine ? "impose a pointless rewrite" : "introduce a fake correction"}.`;
+
+  p += buildStyleSheetBlock(styleGuide ?? "", "reviewer");
 
   p += `\n\nOUTPUT FORMAT — STRICT JSONL (one JSON object per line):
 {"index": 0, "confidence": 5, "reason": "Fixes spelling — recieve→receive"}
@@ -698,8 +866,8 @@ No commentary, no punctuation, no markdown.`;
 // TRANSLATION REVIEWER — evaluates translated paragraph quality
 // ═══════════════════════════════════════════════════════════════════
 
-export function buildTranslationReviewerPrompt(): string {
-  return `You are a bilingual translation quality assessor. You will receive pairs of text: the ORIGINAL (source language) and its TRANSLATION (target language). For each pair, score the translation quality.
+export function buildTranslationReviewerPrompt(styleGuide?: string): string {
+  let p = `You are a bilingual translation quality assessor. You will receive pairs of text: the ORIGINAL (source language) and its TRANSLATION (target language). For each pair, score the translation quality.
 
 Score each on a 1-5 confidence scale:
 - 5: Fluent, accurate translation — meaning fully preserved, reads naturally in the target language
@@ -713,9 +881,27 @@ Specifically flag (score <= 2):
 - Source-language text that was NOT translated (left in the original language)
 - Hallucinated content — adding details or names NOT present in the source
 - Total loss of core meaning
-- Grammatically broken sentences that are incomprehensible
+- Grammatically broken sentences that are incomprehensible`;
 
-Do NOT penalize creative or idiomatic phrasing as long as the meaning is faithful. A translation that sounds natural is BETTER than a literal word-for-word rendering.
+  if (styleGuide && styleGuide.trim()) {
+    p += `
+- A name or term rendered in VIOLATION of the binding glossary below (wrong equivalent, or a listed term left untranslated when it should be translated, or vice-versa)`;
+  }
+
+  p += `
+
+Do NOT penalize creative or idiomatic phrasing as long as the meaning is faithful. A translation that sounds natural is BETTER than a literal word-for-word rendering.`;
+
+  if (styleGuide && styleGuide.trim()) {
+    p += `
+
+═══ BINDING GLOSSARY / TRANSLATION NOTES ═══
+Translations must conform to the notes below. A rendering that contradicts a listed term, name, or rule is a defect — score it <= 2 and name the violated term in the reason.
+
+${styleGuide.trim()}`;
+  }
+
+  p += `
 
 OUTPUT FORMAT — STRICT JSONL (one JSON object per line):
 {"index": 0, "confidence": 5, "reason": "Flawless translation — meaning preserved, natural target language flow"}
@@ -726,6 +912,51 @@ Each line is one JSON object with exactly three keys: index, confidence, reason.
 
 Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
+
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STYLE-SHEET COMPLIANCE AGENT — dedicated style-sheet enforcement pass
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * A focused editor whose ONLY job is to find violations of the author's style
+ * sheet and emit them in the standard corrections JSONL. Runs as an extra agent
+ * alongside the normal editors (gated by the `styleComplianceAgent` toggle and
+ * the presence of a style sheet). `mode` tailors whether it may suggest
+ * subjective preference fixes (line/combined) or only objective ones (copy).
+ */
+export function buildStyleCompliancePrompt(
+  styleGuide: string,
+  mode: TaskMode = "copy_edit",
+): string {
+  const sheet = styleGuide.trim();
+  const allowPreferences = mode === "line_edit" || mode === "combined_edit";
+
+  let p = `You are a STYLE-SHEET COMPLIANCE EDITOR on a manuscript written in MARKDOWN. You have exactly ONE job: scan the text for places that VIOLATE the author's style sheet (reproduced below) and return them as corrections. Ignore everything the style sheet does not speak to — other editors handle general errors.
+
+WHAT TO FLAG — only deviations from the STYLE SHEET, e.g.:
+- A name, term, or place spelled or capitalized differently from what the sheet specifies
+- The wrong spelling dialect, hyphenation, number style, or punctuation where the sheet states a rule
+- A serial/Oxford comma used contrary to the sheet's rule
+- A word, phrase, or construction the sheet bans (or the absence of one it requires)${
+    allowPreferences
+      ? "\n- Prose that breaks a stated stylistic PREFERENCE (sentence length, voice, banned constructions)"
+      : ""
+  }
+
+For each violation, output a correction whose "corrected" value brings the text INTO LINE with the sheet. Do NOT flag anything that already conforms. If the text fully complies, output nothing.`;
+
+  p += MARKDOWN_PRESERVATION_RULES;
+  p += CORRECTIONS_JSON_FORMAT;
+
+  p += `
+
+═══ AUTHOR'S STYLE SHEET — THE ONLY RULES THAT MATTER HERE ═══
+${sheet}
+`;
+  return p;
 }
 
 // ═══════════════════════════════════════════════════════════════════

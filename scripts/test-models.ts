@@ -239,7 +239,8 @@ async function main() {
     process.exit(1);
   }
 
-  const MODELS_DIR = join(__dirname, "..", "backend", "models");
+  const MODELS_DIR =
+    process.env.MODELS_DIR ?? join(__dirname, "..", "backend", "models");
 
   // Best-effort size lookup for non-GGUF models via Ollama tags.
   let ollamaSizes = new Map<string, number>();

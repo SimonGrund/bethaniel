@@ -1,0 +1,10 @@
+{
+  "num_ctx": 8192,
+  "num_predict": 5376,
+  "temperature": 0.1,
+  "top_p": 0.8,
+  "top_k": 20,
+  "repeat_penalty": 1.05,
+  "system": "You are a meticulous copy editor and line editor. /no_think",
+  "no_mmap": true
+}

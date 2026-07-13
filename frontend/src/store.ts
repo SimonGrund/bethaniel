@@ -18,7 +18,14 @@ import type {
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
-export type WizardStep = "model" | "edits" | "upload" | "style" | "run" | "done" | "folded";
+export type WizardStep =
+  | "model"
+  | "edits"
+  | "upload"
+  | "style"
+  | "run"
+  | "done"
+  | "folded";
 
 // Defaults — extracted so resetAll can reference them
 const DEFAULT_SCOPE_MODE: ScopeMode = "whole_book";
@@ -45,8 +52,6 @@ interface AppState {
   setWordsPerChunk: (n: number) => void;
   overlapParagraphs: number;
   setOverlapParagraphs: (n: number) => void;
-  fastMode: boolean;
-  setFastMode: (b: boolean) => void;
   reviewMode: boolean;
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
@@ -61,6 +66,10 @@ interface AppState {
   setDualCount: (n: number) => void;
   characterDedup: boolean;
   setCharacterDedup: (b: boolean) => void;
+  styleComplianceAgent: boolean;
+  setStyleComplianceAgent: (b: boolean) => void;
+  extraPass: boolean;
+  setExtraPass: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
 
@@ -109,6 +118,7 @@ interface AppState {
   dismissAll: (taskId: string) => void;
   acceptAllJob: (taskIds: string[]) => void;
   acceptCorrection: (taskId: string, correctionId: string) => void;
+  unacceptCorrections: (taskId: string, correctionIds: string[]) => void;
   dismissCorrection: (taskId: string, correctionId: string) => void;
   toggleOccurrence: (
     taskId: string,
@@ -124,10 +134,6 @@ interface AppState {
   setSubmitting: (b: boolean) => void;
   pendingTaskIds: string[];
   setPendingTaskIds: (ids: string[]) => void;
-
-  // User pref: detect scene/paragraph breaks on upload (default off)
-  detectBreaks: boolean;
-  setDetectBreaks: (b: boolean) => void;
 
   // Model warm-up
   warmingModel: string | null;
@@ -147,11 +153,20 @@ interface AppState {
   unreadLogCount: number;
   resetUnreadLogs: () => void;
 
+  // Session boundary — tasks submitted before this timestamp belong to a previous session
+  sessionStartedAt: number;
+
   // External Betty (API)
   apiKeyConfigured: boolean;
   setApiKeyConfigured: (b: boolean) => void;
   apiModel: string;
   setApiModel: (m: string) => void;
+
+  // Model visibility toggles (hidden by default)
+  showCustomBetty: boolean;
+  setShowCustomBetty: (b: boolean) => void;
+  showExternalBetty: boolean;
+  setShowExternalBetty: (b: boolean) => void;
 
   // Wizard flow
   wizardStep: WizardStep;
@@ -162,8 +177,12 @@ interface AppState {
   setHighlightedModel: (m: string) => void;
   showAdvancedSettings: boolean;
   setShowAdvancedSettings: (b: boolean) => void;
+  showEngineStatus: boolean;
+  setShowEngineStatus: (b: boolean) => void;
   editSubOptionsOpen: "editing" | "analysis" | "translation" | null;
-  setEditSubOptionsOpen: (cat: "editing" | "analysis" | "translation" | null) => void;
+  setEditSubOptionsOpen: (
+    cat: "editing" | "analysis" | "translation" | null,
+  ) => void;
 
   // Reset
   resetAll: () => void;
@@ -186,8 +205,6 @@ export const useStore = create<AppState>()(
       setWordsPerChunk: (wordsPerChunk) => set({ wordsPerChunk }),
       overlapParagraphs: DEFAULT_OVERLAP,
       setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
-      fastMode: true,
-      setFastMode: (fastMode) => set({ fastMode }),
       reviewMode: true,
       setReviewMode: (reviewMode) => set({ reviewMode }),
       reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
@@ -202,6 +219,11 @@ export const useStore = create<AppState>()(
       setDualCount: (dualCount) => set({ dualCount }),
       characterDedup: false,
       setCharacterDedup: (characterDedup) => set({ characterDedup }),
+      styleComplianceAgent: true,
+      setStyleComplianceAgent: (styleComplianceAgent) =>
+        set({ styleComplianceAgent }),
+      extraPass: true,
+      setExtraPass: (extraPass) => set({ extraPass }),
       parallel: DEFAULT_PARALLEL,
       setParallel: (parallel) => set({ parallel }),
 
@@ -211,7 +233,9 @@ export const useStore = create<AppState>()(
           const has = state.selectedModes.includes(m);
           if (has) {
             if (state.selectedModes.length <= 1) return state;
-            return { selectedModes: state.selectedModes.filter((x) => x !== m) };
+            return {
+              selectedModes: state.selectedModes.filter((x) => x !== m),
+            };
           }
           return { selectedModes: [...state.selectedModes, m] };
         }),
@@ -301,7 +325,8 @@ export const useStore = create<AppState>()(
         }),
       toggleCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           if (next.has(correctionId)) {
             next.delete(correctionId);
@@ -309,18 +334,30 @@ export const useStore = create<AppState>()(
             next.add(correctionId);
           }
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       acceptAll: (taskId) =>
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
+          // Flagged corrections are the ones the pipeline refused to
+          // auto-apply — bulk accept must not sweep them in. They stay
+          // individually acceptable via "Show all suggestions".
           const ids = new Set(
-            task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+            task.result.corrections
+              .filter((c) => !c.flagged)
+              .map((c) => c.id ?? "")
+              .filter(Boolean),
           );
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: ids },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: ids,
+            },
           };
         }),
       dismissAll: (taskId) =>
@@ -336,37 +373,71 @@ export const useStore = create<AppState>()(
           for (const tid of taskIds) {
             const task = state.tasks[tid];
             if (!task?.result) continue;
+            // Same rule as acceptAll: bulk accept skips flagged corrections.
             const ids = new Set(
-              task.result.corrections.map((c) => c.id ?? "").filter(Boolean),
+              task.result.corrections
+                .filter((c) => !c.flagged)
+                .map((c) => c.id ?? "")
+                .filter(Boolean),
             );
             next[tid] = ids;
           }
           return { acceptedCorrections: next };
         }),
+      // Remove corrections from the accepted set — both the bare id and any
+      // per-occurrence "id:N" keys. Used by the export-time spell check to
+      // exclude corrections that would introduce misspellings.
+      unacceptCorrections: (taskId, correctionIds) =>
+        set((state) => {
+          const current = state.acceptedCorrections[taskId];
+          if (!current) return state;
+          const next = new Set(current);
+          for (const id of correctionIds) {
+            next.delete(id);
+            for (const key of current) {
+              if (key.startsWith(`${id}:`)) next.delete(key);
+            }
+          }
+          return {
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
+          };
+        }),
       acceptCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           next.add(correctionId);
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       dismissCorrection: (taskId, correctionId) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           next.delete(correctionId);
           for (const key of current) {
             if (key.startsWith(`${correctionId}:`)) next.delete(key);
           }
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
       toggleOccurrence: (taskId, correctionId, occIdx, totalOccurrences) =>
         set((state) => {
-          const current = state.acceptedCorrections[taskId] ?? new Set<string>();
+          const current =
+            state.acceptedCorrections[taskId] ?? new Set<string>();
           const next = new Set(current);
           const occKey = `${correctionId}:${occIdx}`;
 
@@ -393,7 +464,10 @@ export const useStore = create<AppState>()(
           }
 
           return {
-            acceptedCorrections: { ...state.acceptedCorrections, [taskId]: next },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: next,
+            },
           };
         }),
 
@@ -403,9 +477,6 @@ export const useStore = create<AppState>()(
       setSubmitting: (submitting) => set({ submitting }),
       pendingTaskIds: [],
       setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
-
-      detectBreaks: false,
-      setDetectBreaks: (detectBreaks) => set({ detectBreaks }),
 
       logs: [],
       setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
@@ -430,10 +501,16 @@ export const useStore = create<AppState>()(
       unreadLogCount: 0,
       resetUnreadLogs: () => set({ unreadLogCount: 0 }),
 
+      sessionStartedAt: Date.now(),
+
       apiKeyConfigured: false,
       setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),
       apiModel: "",
       setApiModel: (apiModel) => set({ apiModel }),
+      showCustomBetty: true,
+      setShowCustomBetty: (showCustomBetty) => set({ showCustomBetty }),
+      showExternalBetty: true,
+      setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
       wizardStep: "model",
       setWizardStep: (wizardStep) => set({ wizardStep }),
@@ -447,9 +524,13 @@ export const useStore = create<AppState>()(
       highlightedModel: "",
       setHighlightedModel: (highlightedModel) => set({ highlightedModel }),
       showAdvancedSettings: false,
-      setShowAdvancedSettings: (showAdvancedSettings) => set({ showAdvancedSettings }),
+      setShowAdvancedSettings: (showAdvancedSettings) =>
+        set({ showAdvancedSettings }),
+      showEngineStatus: true,
+      setShowEngineStatus: (showEngineStatus) => set({ showEngineStatus }),
       editSubOptionsOpen: null,
-      setEditSubOptionsOpen: (editSubOptionsOpen) => set({ editSubOptionsOpen }),
+      setEditSubOptionsOpen: (editSubOptionsOpen) =>
+        set({ editSubOptionsOpen }),
 
       resetAll: () =>
         set({
@@ -457,7 +538,6 @@ export const useStore = create<AppState>()(
           highlightedModel: "",
           wordsPerChunk: DEFAULT_WORDS_PER_CHUNK,
           overlapParagraphs: DEFAULT_OVERLAP,
-          fastMode: true,
           reviewMode: true,
           reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
           reviewerCount: DEFAULT_REVIEWER_COUNT,
@@ -465,6 +545,8 @@ export const useStore = create<AppState>()(
           dualEditor: true,
           dualCount: DEFAULT_DUAL_COUNT,
           characterDedup: false,
+          styleComplianceAgent: true,
+          extraPass: true,
           parallel: DEFAULT_PARALLEL,
           selectedModes: ["copy_edit"],
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -474,7 +556,6 @@ export const useStore = create<AppState>()(
           selectedChapters: [0],
           firstNWords: DEFAULT_FIRST_N_WORDS,
           styleGuide: "",
-          detectBreaks: false,
           wizardStep: "model",
           completedSteps: [],
           editSubOptionsOpen: null,
@@ -488,7 +569,13 @@ export const useStore = create<AppState>()(
 
       advanceWizard: (fromStep) => {
         const state = get();
-        const STEP_ORDER: WizardStep[] = ["model", "edits", "upload", "style", "run"];
+        const STEP_ORDER: WizardStep[] = [
+          "model",
+          "edits",
+          "upload",
+          "style",
+          "run",
+        ];
         const fromIdx = STEP_ORDER.indexOf(fromStep);
         for (let i = fromIdx + 1; i < STEP_ORDER.length; i++) {
           if (!state.completedSteps.includes(STEP_ORDER[i])) {
@@ -512,7 +599,6 @@ export const useStore = create<AppState>()(
         targetLang: state.targetLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,
-        fastMode: state.fastMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
         reviewerCount: state.reviewerCount,
@@ -520,12 +606,13 @@ export const useStore = create<AppState>()(
         dualEditor: state.dualEditor,
         dualCount: state.dualCount,
         characterDedup: state.characterDedup,
+        styleComplianceAgent: state.styleComplianceAgent,
+        extraPass: state.extraPass,
         parallel: state.parallel,
         scopeMode: state.scopeMode,
         selectedChapters: state.selectedChapters,
         firstNWords: state.firstNWords,
         styleGuide: state.styleGuide,
-        detectBreaks: state.detectBreaks,
         document: state.document,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,
@@ -533,6 +620,7 @@ export const useStore = create<AppState>()(
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,
         editSubOptionsOpen: state.editSubOptionsOpen,
+        showEngineStatus: state.showEngineStatus,
       }),
     },
   ),

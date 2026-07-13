@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Bethaniel CLI launcher. Works from any directory, and when symlinked onto
+# PATH (e.g. via `npm link` or a manual symlink) — it resolves symlinks back to
+# this script's real location so it always finds the local tsx + cli.ts.
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+# tsx may be hoisted to a parent node_modules (npm workspace). Walk up to find it.
+TSX=""
+SEARCH="$DIR"
+while [ "$SEARCH" != "/" ]; do
+  if [ -x "$SEARCH/node_modules/.bin/tsx" ]; then
+    TSX="$SEARCH/node_modules/.bin/tsx"
+    break
+  fi
+  SEARCH="$(dirname "$SEARCH")"
+done
+if [ -z "$TSX" ]; then
+  echo "betty: could not find tsx — run 'npm install' in the Bethaniel repo first." >&2
+  exit 1
+fi
+
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
+exec "$TSX" "$DIR/src/cli.ts" "$@"

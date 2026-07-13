@@ -139,6 +139,7 @@ function renderTaskRow(
           )}
           {s.status === "editing" && s.phase && (
             <span
+              title={s.phase}
               style={{
                 fontSize: "0.7rem",
                 color: "#6b5c44",
@@ -146,7 +147,7 @@ function renderTaskRow(
               }}
             >
               {" "}
-              — {s.phase}
+              — {s.phase.length > 40 ? `${s.phase.slice(0, 39)}…` : s.phase}
             </span>
           )}
           {s.finishedAt && s.startedAt && (
@@ -260,16 +261,6 @@ export default function QueuePanel() {
           {nd > 0 && <span className="badge badge-done">{nd} done</span>}
           {ne > 0 && <span className="badge badge-error">{ne} failed</span>}
         </span>
-        {entries.length > 0 && (
-          <button
-            className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
-            onClick={handleFlush}
-            disabled={flushing}
-            title={t("clear_all")}
-          >
-            {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
-          </button>
-        )}
       </div>
 
       <div className="q-panel">
@@ -340,6 +331,19 @@ export default function QueuePanel() {
                   )}
               </>
             )}
+          </div>
+        )}
+
+        {entries.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+            <button
+              className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
+              onClick={handleFlush}
+              disabled={flushing}
+              title={t("clear_all")}
+            >
+              {flushing ? "…" : confirmFlush ? `${t("clear_all")}?` : t("clear_all")}
+            </button>
           </div>
         )}
       </div>

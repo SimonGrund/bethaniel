@@ -3,14 +3,22 @@
 
 import { v4 as uuidv4 } from "uuid";
 import type { Server as SocketServer } from "socket.io";
-import type { TaskState, TaskResult, TaskMode, Correction } from "./types.js";
-import { ANALYSIS_MODES } from "./types.js";
+import type {
+  TaskState,
+  TaskResult,
+  TaskMode,
+  Correction,
+  CopyEditOptions,
+} from "./types.js";
+import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import {
   editChunkStream,
   findCorrectionsStream,
   parseCorrectionsJson,
   applyCorrections,
+  applyCorrectionsVerified,
+  isRealWordSwap,
   restoreTypography,
   analyzeStream,
   synthesizeStream,
@@ -20,15 +28,24 @@ import {
   identityCheck,
   listLoadedModels,
   unloadModel,
+  estimateTokens,
+  getContextWindow,
 } from "./llm.js";
+import {
+  runWithRetry,
+  aggregateReviewScores,
+  flagUnanchoredCorrections,
+} from "./reviewResilience.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
-import { extractCorrectionsFromDiff } from "./diff.js";
+import { sanitizeQuoteCorrections } from "./correctionHygiene.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
   BLURB_PROMPT,
   CHARACTER_IDENTITY_PROMPT,
   buildReviewerPrompt,
   buildTranslationReviewerPrompt,
+  buildStyleCompliancePrompt,
+  buildCopyEditCorrectionsPrompt,
 } from "./prompts.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
@@ -38,6 +55,7 @@ import {
   deleteTaskState,
   deleteTaskStatesIn,
   deleteAllTaskStates,
+  pruneOldTasks,
 } from "./db.js";
 
 /**
@@ -139,6 +157,59 @@ function isTransientFetchError(err: unknown): boolean {
   );
 }
 
+const REVIEWER_MAX_ATTEMPTS = 3;
+
+/**
+ * One reviewer agent call with retries. Local inference fails via OOM, slot
+ * exhaustion, and garbage output — not just network — so any error except
+ * abort is retried. An output that parses to zero review scores (truncated,
+ * <think>-only, prose) also counts as a failed attempt; if every attempt
+ * falls short, the output with the most parsed scores is kept and the
+ * still-unscored corrections are flagged downstream by aggregateReviewScores.
+ */
+function runReviewerAgentWithRetry(opts: {
+  model: string;
+  chunkText: string;
+  cs: Correction[];
+  reviewerPrompt: string;
+  signal: AbortSignal;
+  taskId: string;
+  chunkLabel: string;
+  agentLabel: string;
+}): Promise<string> {
+  return runWithRetry(
+    async () => {
+      let acc = "";
+      for await (const tok of reviewCorrectionsStream(
+        opts.model,
+        opts.chunkText,
+        opts.cs,
+        opts.reviewerPrompt,
+        opts.signal,
+      )) {
+        acc += tok;
+      }
+      return acc;
+    },
+    {
+      maxAttempts: REVIEWER_MAX_ATTEMPTS,
+      backoffMs: (attempt) => 750 * attempt,
+      isValid: (out) => parseReviewScores(out).size > 0,
+      isAborted: () => opts.signal.aborted,
+      keepBest: (a, b) =>
+        parseReviewScores(a).size >= parseReviewScores(b).size ? a : b,
+      onRetry: (attempt, why) =>
+        appendLog({
+          level: "warn",
+          source: "engine",
+          taskId: opts.taskId,
+          message: `${opts.agentLabel} retry ${attempt}/${REVIEWER_MAX_ATTEMPTS} for chunk ${opts.chunkLabel}: ${why}`,
+          model: opts.model,
+        }),
+    },
+  );
+}
+
 interface JobData {
   taskId: string;
   jobId: string;
@@ -149,7 +220,6 @@ interface JobData {
   model: string;
   mode: TaskMode;
   prompt: string;
-  fast: boolean;
   wpc: number;
   overlap: number;
   editOptions?: Record<string, boolean | string>;
@@ -162,6 +232,9 @@ interface JobData {
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
+  styleComplianceAgent?: boolean;
+  /** Thorough mode: run a second copy-edit pass over the edited text. */
+  extraPass?: boolean;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -347,8 +420,10 @@ async function processAnalysisJob(
   });
 
   // Smaller chunks for analysis: 8192 ctx must hold input prompt + system +
-  // JSON output. ~2500 words ≈ 3500 tokens leaves ~4k tokens for output.
-  const analysisTargetWords = Math.min(Math.max(wpc, 2500), 2500);
+  // JSON output. ~2500 words ≈ 3500 tokens leaves ~4k tokens for output, so
+  // 2500 is the ceiling — but honor a smaller configured wpc (e.g. big-model
+  // users tune down to 1500) instead of forcing exactly 2500.
+  const analysisTargetWords = Math.min(Math.max(wpc, 1000), 2500);
   const chunks = splitIntoChunks(original, analysisTargetWords, overlap);
   const totalChunks = chunks.length;
   updateTask(taskId, { phase: `0/${totalChunks} chunks` });
@@ -616,11 +691,15 @@ function maybeSpawnAnalysisSummary(finishedJob: JobData): void {
     model: finishedJob.model,
     mode: "analysis_summary",
     prompt: ANALYSIS_SUMMARY_PROMPT,
-    fast: false,
     wpc: finishedJob.wpc,
     overlap: 0,
   }).catch((err) => {
-    console.error("[Queue] failed to spawn analysis_summary:", err);
+    appendLog({
+      level: "error",
+      source: "engine",
+      message: `Failed to spawn analysis summary: ${err instanceof Error ? err.message : String(err)}`,
+      model: finishedJob.model,
+    });
   });
 }
 
@@ -649,11 +728,15 @@ function maybeSpawnBlurb(summaryJob: JobData): void {
     model: summaryJob.model,
     mode: "blurb",
     prompt: BLURB_PROMPT,
-    fast: false,
     wpc: summaryJob.wpc,
     overlap: 0,
   }).catch((err) => {
-    console.error("[Queue] failed to spawn blurb:", err);
+    appendLog({
+      level: "error",
+      source: "engine",
+      message: `Failed to spawn blurb: ${err instanceof Error ? err.message : String(err)}`,
+      model: summaryJob.model,
+    });
   });
 }
 
@@ -910,7 +993,6 @@ async function processJob(job: JobData): Promise<void> {
     model,
     mode,
     prompt,
-    fast,
     wpc,
     overlap,
     editOptions,
@@ -926,8 +1008,37 @@ async function processJob(job: JobData): Promise<void> {
     return processSynthesisJob(job, ac);
   }
 
-  // Translation always uses rewrite (full text) mode, never fast/JSON corrections
-  const useFast = mode === "translate" ? false : fast;
+  // Edits always run corrections-mode (discrete {original,corrected} pairs).
+  // Translation is the only mode that rewrites the whole chunk — it inherently
+  // replaces the entire text (source → target language).
+  const isCorrectionsMode = mode !== "translate";
+
+  // Spell-safety validator — blocks any correction that would inject a new
+  // non-word (e.g. "Apparently" → "Appwrently"). English-only, mirroring the
+  // dialect-driven dictionary the spell-checker uses; undefined when the
+  // dictionary can't be loaded or the mode never applies corrections.
+  let isAcceptableWord: ((word: string) => boolean) | undefined;
+  // Post-apply safety net: reports dictionary-rejected words that applying
+  // corrections *introduced* into a chunk, so the offending corrections can
+  // be reverted and flagged. Same language/dialect as the validator; null
+  // from findNewSuspectWords (no dictionary) degrades to no verification.
+  let findNewSuspects:
+    | ((before: string, after: string) => string[] | null)
+    | undefined;
+  if (isCorrectionsMode) {
+    const { getWordValidator, findNewSuspectWords } = await import(
+      "./spellcheck.js"
+    );
+    const editDialect = (editOptions as Record<string, unknown>)
+      ?.englishDialect as string | undefined;
+    const spellOpts = {
+      englishDialect: editDialect,
+      styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
+    };
+    isAcceptableWord = getWordValidator("en", spellOpts) ?? undefined;
+    findNewSuspects = (before: string, after: string) =>
+      findNewSuspectWords(before, after, "en", spellOpts);
+  }
 
   const jobStart = performance.now();
   let totalOutTokens = 0;
@@ -954,709 +1065,536 @@ async function processJob(job: JobData): Promise<void> {
     console.warn(`[Queue] preload of ${model} failed: ${msg}`);
   }
 
-  const chunks = splitIntoChunks(original, wpc, overlap);
-  updateTask(taskId, { phase: `0/${chunks.length} chunks` });
-
-  const pieces: string[] = [];
-  const corrections: Correction[] = [];
-  const skipped: Correction[] = [];
   const errors: string[] = [];
+  let totalChunks = 0;
 
-  // Pending reviewer state: the reviewer for the *previous* chunk runs in
-  // parallel with the *current* chunk's editor, hiding the reviewer's
-  // latency behind the next prefill+decode.
-  let pendingReview: {
-    cs: Correction[];
-    chunk: { body: string; core: string; overlapHeadParagraphs: number };
-    chunkLabel: string;
-    spellCorrections: Correction[];
-    editorAcc: string;
-    editorToks: number;
-    editorStart: number;
-    editorFirstTokenAt: number;
-    promise: Promise<string[]>;
-  } | null = null;
+  // One full editor(+reviewer) pass over `sourceText`. Extracted as a closure
+  // so thorough mode can run the identical pipeline a second time over the
+  // first pass's output (with copy-edit prompts). Returns null when the job
+  // is cancelled mid-pass. `pass.mode`/`pass.prompt` shadow the job-level
+  // ones so the body below reads exactly as it did pre-extraction.
+  const runCorrectionPass = async (
+    sourceText: string,
+    pass: {
+      n: number;
+      total: number;
+      progressBase: number;
+      progressSpan: number;
+      mode: TaskMode;
+      prompt: string;
+    },
+  ): Promise<{
+    text: string;
+    corrections: Correction[];
+    skipped: Correction[];
+  } | null> => {
+    const { mode, prompt } = pass;
+    const passPrefix = pass.total > 1 ? `pass ${pass.n}/${pass.total} — ` : "";
+    const chunks = splitIntoChunks(sourceText, wpc, overlap);
+    totalChunks += chunks.length;
+    updateTask(taskId, { phase: `${passPrefix}0/${chunks.length} chunks` });
 
-  async function collectPendingReview(): Promise<void> {
-    if (!pendingReview) return;
-    const pr = pendingReview;
-    pendingReview = null;
-    try {
-      const reviewOutputs = await pr.promise;
-      const threshold = job.reviewerThreshold ?? 3;
+    const pieces: string[] = [];
+    const corrections: Correction[] = [];
+    const skipped: Correction[] = [];
 
-      // Merge scores from all reviewer agents:
-      // each correction gets the MINIMUM confidence across reviewers.
-      // If ANY reviewer flags it, it gets flagged.
-      const allScores: Map<number, { confidence: number; reason: string }>[] = [];
-      for (const output of reviewOutputs) {
-        allScores.push(parseReviewScores(output));
-      }
+    // Pending reviewer state: the reviewer for the *previous* chunk runs in
+    // parallel with the *current* chunk's editor, hiding the reviewer's
+    // latency behind the next prefill+decode.
+    let pendingReview: {
+      cs: Correction[];
+      chunk: { body: string; core: string; overlapHeadParagraphs: number };
+      chunkLabel: string;
+      spellCorrections: Correction[];
+      editorAcc: string;
+      editorToks: number;
+      editorStart: number;
+      editorFirstTokenAt: number;
+      promise: Promise<string[]>;
+    } | null = null;
 
-      let flaggedCount = 0;
-      for (let i = 0; i < pr.cs.length; i++) {
-        const c = pr.cs[i];
-        let minConfidence = 5;
-        let minReason = "";
-        for (const scores of allScores) {
-          const score = scores.get(i);
-          if (score) {
-            if (score.confidence < minConfidence) {
-              minConfidence = score.confidence;
-              minReason = score.reason;
-            }
-          }
-        }
-        if (minReason) {
-          c.confidence = minConfidence;
-          c.reviewReason = minReason;
-        }
-        if (minConfidence < threshold) {
-          c.flagged = true;
-          c.reviewReason = minReason;
-          flaggedCount++;
-        }
-      }
+    async function collectPendingReview(): Promise<void> {
+      if (!pendingReview) return;
+      const pr = pendingReview;
+      pendingReview = null;
+      try {
+        const reviewOutputs = await pr.promise;
+        const threshold = job.reviewerThreshold ?? 3;
 
-      appendLog({
-        level: "info",
-        source: "engine",
-        taskId,
-        message: flaggedCount > 0
-          ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}, ${reviewOutputs.length} agents).`
-          : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel} (${reviewOutputs.length} agents).`,
-        model,
-      });
+        // Merge scores from all reviewer agents:
+        // each correction gets the MINIMUM confidence across reviewers.
+        // If ANY reviewer flags it, it gets flagged. Corrections no reviewer
+        // scored are flagged as unvetted rather than passed through.
+        const allScores = reviewOutputs.map((output) => parseReviewScores(output));
+        const { flaggedCount, unscoredCount } = aggregateReviewScores(
+          pr.cs,
+          allScores,
+          threshold,
+        );
 
-      const toApply = pr.cs.filter((c) => !c.flagged);
-      const flagged = pr.cs.filter((c) => c.flagged);
-
-      const spellToApply = toApply.filter((c) => c.reason === "spell-check");
-      const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
-
-      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
-        allowDialogueTags: editOptions?.dialogueTags === true,
-      });
-
-      let spellAppliedBody = newBody;
-      for (const sc of spellToApply) {
-        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
-      }
-
-      const core = stripOverlapFromResponse(
-        spellAppliedBody,
-        pr.chunk.overlapHeadParagraphs,
-      );
-
-      for (const c of applied) {
-        corrections.push({
-          ...c,
-          chunk: `Chunk ${pr.chunkLabel}`,
-          id: uuidv4(),
-        });
-      }
-      for (const c of spellToApply) {
-        corrections.push({
-          ...c,
-          chunk: `Chunk ${pr.chunkLabel}`,
-          id: uuidv4(),
-        });
-      }
-      for (const c of flagged) {
-        corrections.push({
-          ...c,
-          chunk: `Chunk ${pr.chunkLabel}`,
-          id: uuidv4(),
-        });
-      }
-      skipped.push(
-        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
-      );
-      pieces.push(core);
-    } catch (err) {
-      appendLog({
-        level: "warn",
-        source: "engine",
-        taskId,
-        message: `Reviewer failed for chunk ${pr.chunkLabel}: ${err instanceof Error ? err.message : String(err)}. All corrections passed unreviewed.`,
-        model,
-      });
-
-      const spellToApply = pr.cs.filter((c) => c.reason === "spell-check");
-      const editorToApply = pr.cs.filter((c) => c.reason !== "spell-check");
-
-      const [newBody, applied, sk] = applyCorrections(pr.chunk.body, editorToApply, {
-        allowDialogueTags: editOptions?.dialogueTags === true,
-      });
-
-      let spellAppliedBody = newBody;
-      for (const sc of spellToApply) {
-        spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
-      }
-
-      const core = stripOverlapFromResponse(
-        spellAppliedBody,
-        pr.chunk.overlapHeadParagraphs,
-      );
-
-      for (const c of applied) {
-        corrections.push({
-          ...c,
-          chunk: `Chunk ${pr.chunkLabel}`,
-          id: uuidv4(),
-        });
-      }
-      for (const c of spellToApply) {
-        corrections.push({
-          ...c,
-          chunk: `Chunk ${pr.chunkLabel}`,
-          id: uuidv4(),
-        });
-      }
-      skipped.push(
-        ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
-      );
-      pieces.push(core);
-    }
-  }
-
-  for (let j = 0; j < chunks.length; j++) {
-    if (ac.signal.aborted) {
-      updateTask(taskId, {
-        status: "cancelled",
-        finishedAt: Date.now(),
-        result: {
-          editedText: original,
-          originalText: original,
-          corrections: [],
-          skipped: [],
-          errors: ["cancelled"],
-        },
-      });
-      abortControllers.delete(taskId);
-      return;
-    }
-
-    const chunk = chunks[j];
-    const chunkLabel = `${j + 1}/${chunks.length}`;
-    let acc = "";
-    let tokCount = 0;
-    const chunkStart = performance.now();
-    let firstTokenAt = 0;
-    let spellCorrections: Correction[] = [];
-
-    // ── Collect previous chunk's reviewer result ──
-    // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
-    if (pendingReview) await collectPendingReview();
-
-    try {
-      const MAX_ATTEMPTS = 5;
-      let lastErr: unknown = null;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        if (ac.signal.aborted) throw new Error("cancelled");
-        acc = "";
-        tokCount = 0;
-        firstTokenAt = 0;
-        _dualMergedCorrections = null;
-        const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
-        try {
-          updateTask(taskId, {
-            phase: `${phasePrefix}processing chunk ${chunkLabel}`,
+        if (unscoredCount > 0) {
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId,
+            message: `Reviewer left ${unscoredCount}/${pr.cs.length} corrections unscored in chunk ${pr.chunkLabel}; they are flagged for manual review.`,
+            model,
           });
+        }
+        appendLog({
+          level: "info",
+          source: "engine",
+          taskId,
+          message: flaggedCount > 0
+            ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}, ${reviewOutputs.length} agents).`
+            : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel} (${reviewOutputs.length} agents).`,
+          model,
+        });
 
-          if (useFast) {
-            // ── Spell-check: generate explicit corrections (not hints) ──
-            spellCorrections = [];
-            if (job.spellCheck) {
-              const { getSpellCorrections } = await import("./spellcheck.js");
-              const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
-              const spellLang = dialect === "british" ? "en_GB" : "en_US";
-              spellCorrections = getSpellCorrections(chunk.body, spellLang, {
-                maxHints: 30,
-              });
-              if (spellCorrections.length > 0) {
-                appendLog({
-                  level: "info",
-                  source: "engine",
-                  taskId,
-                  message: `Spell-check produced ${spellCorrections.length} corrections in chunk ${chunkLabel}`,
-                  model,
+        const toApply = pr.cs.filter((c) => !c.flagged);
+        const flagged = pr.cs.filter((c) => c.flagged);
+
+        // Spell-check and editor corrections are applied together so spell fixes
+        // also get position-safe, word-boundary-aware splicing (not raw replaceAll).
+        const [newBody, applied, sk, reverted] = applyCorrectionsVerified(
+          pr.chunk.body,
+          toApply,
+          {
+            allowDialogueTags: editOptions?.dialogueTags === true,
+            isAcceptableWord,
+            findNewSuspects,
+          },
+        );
+
+        if (reverted.length > 0) {
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId,
+            message: `Post-apply spell check reverted ${reverted.length} correction(s) in chunk ${pr.chunkLabel} that introduced misspellings; they are flagged for manual review.`,
+            model,
+          });
+        }
+
+        const core = stripOverlapFromResponse(
+          newBody,
+          pr.chunk.overlapHeadParagraphs,
+        );
+
+        for (const c of applied) {
+          corrections.push({
+            ...c,
+            chunk: `Chunk ${pr.chunkLabel}`,
+            id: uuidv4(),
+          });
+        }
+        for (const c of [...flagged, ...reverted]) {
+          corrections.push({
+            ...c,
+            chunk: `Chunk ${pr.chunkLabel}`,
+            id: uuidv4(),
+          });
+        }
+        skipped.push(
+          ...sk.map((s) => ({ ...s, chunk: `Chunk ${pr.chunkLabel}` })),
+        );
+        pieces.push(core);
+      } catch (err) {
+        // Reviewer exhausted its retries. Applying unvetted corrections is how
+        // corrupted text reaches the manuscript, so apply NOTHING: keep the
+        // chunk text unchanged and surface every correction as flagged so the
+        // user can accept/dismiss them manually. Deliberately not pushed to
+        // errors[] — the result is usable, the task stays "done".
+        appendLog({
+          level: "warn",
+          source: "engine",
+          taskId,
+          message: `Reviewer failed for chunk ${pr.chunkLabel} after retries: ${err instanceof Error ? err.message : String(err)}. ${pr.cs.length} corrections flagged for manual review — none auto-applied.`,
+          model,
+        });
+
+        for (const c of pr.cs) {
+          corrections.push({
+            ...c,
+            flagged: true,
+            reviewReason: "reviewer unavailable — not auto-applied",
+            chunk: `Chunk ${pr.chunkLabel}`,
+            id: uuidv4(),
+          });
+        }
+        pieces.push(pr.chunk.core);
+      }
+    }
+
+    for (let j = 0; j < chunks.length; j++) {
+      if (ac.signal.aborted) {
+        updateTask(taskId, {
+          status: "cancelled",
+          finishedAt: Date.now(),
+          result: {
+            editedText: original,
+            originalText: original,
+            corrections: [],
+            skipped: [],
+            errors: ["cancelled"],
+          },
+        });
+        abortControllers.delete(taskId);
+        return null;
+      }
+
+      const chunk = chunks[j];
+      const chunkLabel =
+        pass.n > 1
+          ? `${j + 1}/${chunks.length} (pass ${pass.n})`
+          : `${j + 1}/${chunks.length}`;
+      let acc = "";
+      let tokCount = 0;
+      const chunkStart = performance.now();
+      let firstTokenAt = 0;
+      let spellCorrections: Correction[] = [];
+
+      // ── Collect previous chunk's reviewer result ──
+      // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
+      if (pendingReview) await collectPendingReview();
+
+      try {
+        const MAX_ATTEMPTS = 5;
+        let lastErr: unknown = null;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          if (ac.signal.aborted) throw new Error("cancelled");
+          acc = "";
+          tokCount = 0;
+          firstTokenAt = 0;
+          _dualMergedCorrections = null;
+          const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
+          try {
+            updateTask(taskId, {
+              phase: `${phasePrefix}processing chunk ${chunkLabel}`,
+            });
+
+            if (isCorrectionsMode) {
+              // ── Spell-check: generate explicit corrections (not hints) ──
+              spellCorrections = [];
+              if (job.spellCheck) {
+                const { getSpellCorrections } = await import("./spellcheck.js");
+                const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
+                const spellLang = dialect === "british" ? "en_GB" : "en_US";
+                spellCorrections = getSpellCorrections(chunk.body, spellLang, {
+                  maxHints: 30,
                 });
-              }
-            }
-
-            // ── Run editor(s) — single or multi ──
-            const editorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
-            if (editorCount > 1) {
-              updateTask(taskId, { phase: `${phasePrefix}editing chunk ${chunkLabel} (${editorCount} agents)` });
-
-              // Collect N editor streams in parallel.
-              const collectStream = async (promptText: string) => {
-                let a = "";
-                for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) a += t;
-                return a;
-              };
-
-              const promises = Array.from({ length: editorCount }, () =>
-                collectStream(prompt),
-              );
-              const results = await Promise.allSettled(promises);
-
-              // Build raw values per agent.
-              let raws: string[] = [];
-              const DUAL_RETRIES = 2;
-
-              for (let idx = 0; idx < editorCount; idx++) {
-                const r = results[idx];
-                if (r.status === "fulfilled") {
-                  raws.push(r.value);
-                } else {
-                  const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+                if (spellCorrections.length > 0) {
                   appendLog({
-                    level: "warn",
+                    level: "info",
                     source: "engine",
                     taskId,
-                    message: `Editor agent ${idx + 1}/${editorCount} failed for chunk ${chunkLabel} (${reason}). Retrying…`,
+                    message: `Spell-check produced ${spellCorrections.length} corrections in chunk ${chunkLabel}`,
                     model,
                   });
+                }
+              }
 
-                  let retried = false;
-                  for (let rt = 1; rt <= DUAL_RETRIES; rt++) {
-                    try {
-                      const val = await collectStream(prompt);
-                      raws.push(val);
-                      retried = true;
-                      appendLog({
-                        level: "info",
-                        source: "engine",
-                        taskId,
-                        message: `Editor agent ${idx + 1}/${editorCount} retry ${rt} succeeded for chunk ${chunkLabel}.`,
-                        model,
-                      });
-                      break;
-                    } catch (retryErr) {
-                      const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-                      appendLog({
-                        level: "warn",
-                        source: "engine",
-                        taskId,
-                        message: `Editor agent ${idx + 1}/${editorCount} retry ${rt}/${DUAL_RETRIES} failed for chunk ${chunkLabel}: ${retryMsg}`,
-                        model,
-                      });
-                    }
+              // ── Run editor(s) — single or multi ──
+              // The normal editor prompt runs `baseEditorCount` times; when a
+              // style sheet is present and the toggle is on, one extra agent runs
+              // the dedicated style-compliance pass. Its corrections merge into
+              // the same union-deduped set as the regular editors.
+              const baseEditorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+              const styleAgentActive = !!(
+                job.styleComplianceAgent &&
+                job.styleGuide &&
+                job.styleGuide.trim()
+              );
+              const editorPrompts: string[] = Array.from(
+                { length: baseEditorCount },
+                () => prompt,
+              );
+              if (styleAgentActive) {
+                editorPrompts.push(buildStyleCompliancePrompt(job.styleGuide!, mode));
+              }
+              const editorCount = editorPrompts.length;
+              if (editorCount > 1) {
+                updateTask(taskId, {
+                  phase: `${phasePrefix}editing chunk ${chunkLabel} (${editorCount} agents${styleAgentActive ? ", incl. style-sheet" : ""})`,
+                });
+
+                // Collect N editor streams in parallel. Record the earliest
+                // first-token arrival across all agents so prefill/decode timing
+                // is real (not measured after Promise.allSettled has already
+                // joined every finished stream).
+                let dualFirstTokenAt = 0;
+                const collectStream = async (promptText: string) => {
+                  let a = "";
+                  for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) {
+                    if (dualFirstTokenAt === 0) dualFirstTokenAt = performance.now();
+                    a += t;
                   }
-                  if (!retried) {
+                  return a;
+                };
+
+                const promises = editorPrompts.map((pr) => collectStream(pr));
+                const results = await Promise.allSettled(promises);
+
+                // Build raw values per agent.
+                let raws: string[] = [];
+                const DUAL_RETRIES = 2;
+
+                for (let idx = 0; idx < editorCount; idx++) {
+                  const r = results[idx];
+                  if (r.status === "fulfilled") {
+                    raws.push(r.value);
+                  } else {
+                    const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
                     appendLog({
                       level: "warn",
                       source: "engine",
                       taskId,
-                      message: `Editor agent ${idx + 1}/${editorCount} exhausted retries for chunk ${chunkLabel}.`,
+                      message: `Editor agent ${idx + 1}/${editorCount} failed for chunk ${chunkLabel} (${reason}). Retrying…`,
                       model,
-  });
-}
+                    });
 
+                    let retried = false;
+                    for (let rt = 1; rt <= DUAL_RETRIES; rt++) {
+                      try {
+                        const val = await collectStream(editorPrompts[idx]);
+                        raws.push(val);
+                        retried = true;
+                        appendLog({
+                          level: "info",
+                          source: "engine",
+                          taskId,
+                          message: `Editor agent ${idx + 1}/${editorCount} retry ${rt} succeeded for chunk ${chunkLabel}.`,
+                          model,
+                        });
+                        break;
+                      } catch (retryErr) {
+                        const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                        appendLog({
+                          level: "warn",
+                          source: "engine",
+                          taskId,
+                          message: `Editor agent ${idx + 1}/${editorCount} retry ${rt}/${DUAL_RETRIES} failed for chunk ${chunkLabel}: ${retryMsg}`,
+                          model,
+                        });
+                      }
+                    }
+                    if (!retried) {
+                      appendLog({
+                        level: "warn",
+                        source: "engine",
+                        taskId,
+                        message: `Editor agent ${idx + 1}/${editorCount} exhausted retries for chunk ${chunkLabel}.`,
+                        model,
+                      });
+                      // Surface degraded results: this chunk ran with fewer
+                      // editors than requested. Recorded on the task so the run
+                      // doesn't silently report success with missing agents.
+                      errors.push(
+                        `chunk ${chunkLabel}: editor agent ${idx + 1}/${editorCount} failed after retries`,
+                      );
+                    }
+                  }
                 }
-              }
 
-              if (raws.length === 0) {
-                throw new Error(`All ${editorCount} editor agents failed for chunk ${chunkLabel}`);
-              }
+                if (raws.length === 0) {
+                  throw new Error(`All ${editorCount} editor agents failed for chunk ${chunkLabel}`);
+                }
 
-              acc = raws.filter(Boolean).join("\n");
-              if (acc.length > 0) firstTokenAt = performance.now();
+                acc = raws.filter(Boolean).join("\n");
+                if (dualFirstTokenAt > 0) firstTokenAt = dualFirstTokenAt;
 
-              // Union-dedupe all correction sets by (original, corrected)
-              const parseAll = (raw: string) => {
-                const parsed = parseCorrectionsJson(raw);
-                const out: Correction[] = [];
+                // Union-dedupe all correction sets by (original, corrected)
+                const parseAll = (raw: string) => {
+                  const parsed = parseCorrectionsJson(raw);
+                  const out: Correction[] = [];
+                  const seen = new Set<string>();
+                  for (const c of parsed) {
+                    const k = JSON.stringify([c.original, c.corrected]);
+                    if (!seen.has(k)) { seen.add(k); out.push(c); }
+                  }
+                  return out;
+                };
+                const allCs = raws.flatMap((r) => parseAll(r));
+                const merged: Correction[] = [];
                 const seen = new Set<string>();
-                for (const c of parsed) {
+                for (const c of allCs) {
                   const k = JSON.stringify([c.original, c.corrected]);
-                  if (!seen.has(k)) { seen.add(k); out.push(c); }
+                  if (!seen.has(k)) { seen.add(k); merged.push(c); }
                 }
-                return out;
-              };
-              const allCs = raws.flatMap((r) => parseAll(r));
-              const merged: Correction[] = [];
-              const seen = new Set<string>();
-              for (const c of allCs) {
-                const k = JSON.stringify([c.original, c.corrected]);
-                if (!seen.has(k)) { seen.add(k); merged.push(c); }
+                _dualMergedCorrections = merged;
+                // Aggregate output-token estimate across all parallel agents.
+                // Paired with the real first-token time above this yields an
+                // honest aggregate decode throughput (tokens / wall-clock).
+                if (firstTokenAt > 0) tokCount = estimateTokens(acc);
+              } else {
+                for await (const tok of findCorrectionsStream(
+                  model,
+                  chunk.body,
+                  prompt,
+                  ac.signal,
+                )) {
+                acc += tok;
+                tokCount++;
+                if (tokCount === 1) {
+                  firstTokenAt = performance.now();
+                  updateTask(taskId, {
+                    phase: `${phasePrefix}chunk ${chunkLabel}`,
+                  });
+                }
+                // Live tok/s every 20 tokens
+                if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
+                  const elapsed = performance.now() - firstTokenAt;
+                  if (elapsed > 0) {
+                    updateTask(taskId, {
+                      tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                    });
+                  }
+                }
+                const intra = creepingProgress(tokCount);
+                updateProgress(taskId, (j + intra) / chunks.length);
               }
-              _dualMergedCorrections = merged;
-              if (firstTokenAt > 0) tokCount = Math.ceil(acc.length / 3);
+              }
             } else {
-              for await (const tok of findCorrectionsStream(
+              // ── Single rewrite agent ──
+              for await (const tok of editChunkStream(
                 model,
                 chunk.body,
                 prompt,
                 ac.signal,
               )) {
-              acc += tok;
-              tokCount++;
-              if (tokCount === 1) {
-                firstTokenAt = performance.now();
-                updateTask(taskId, {
-                  phase: `${phasePrefix}chunk ${chunkLabel}`,
-                });
-              }
-              // Live tok/s every 20 tokens
-              if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
-                const elapsed = performance.now() - firstTokenAt;
-                if (elapsed > 0) {
-                  updateTask(taskId, {
-                    tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
-                  });
-                }
-              }
-              const intra = creepingProgress(tokCount);
-              updateProgress(taskId, (j + intra) / chunks.length);
-            }
-            }
-          } else {
-            // ── Single rewrite agent ──
-            for await (const tok of editChunkStream(
-              model,
-              chunk.body,
-              prompt,
-              ac.signal,
-            )) {
-              acc += tok;
-              tokCount++;
-              if (tokCount === 1) {
-                firstTokenAt = performance.now();
-                updateTask(taskId, {
-                  phase: `${phasePrefix}chunk ${chunkLabel}`,
-                });
-              }
-              // Live tok/s every 20 tokens
-              if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
-                const elapsed = performance.now() - firstTokenAt;
-                if (elapsed > 0) {
-                  updateTask(taskId, {
-                    tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
-                  });
-                }
-              }
-              const intra = Math.min(
-                0.98,
-                acc.length / Math.max(1, chunk.body.length),
-              );
-              updateProgress(taskId, (j + intra) / chunks.length);
-            }
-          }
-          lastErr = null;
-          break; // success
-        } catch (err) {
-          lastErr = err;
-          const msg = err instanceof Error ? err.message : String(err);
-          if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
-            throw err;
-          }
-          const waitMs = 750 * attempt;
-          console.warn(
-            `[Queue] chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
-          );
-          updateTask(taskId, {
-            phase: `chunk ${chunkLabel} retrying after error`,
-          });
-          await new Promise((r) => setTimeout(r, waitMs));
-        }
-      }
-      if (lastErr) throw lastErr;
-
-      if (useFast) {
-        updateTask(taskId, { phase: `writing up corrections` });
-        const editorCs: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
-        const isDual = _dualMergedCorrections !== null;
-        _dualMergedCorrections = null;
-
-        // Merge spell-check corrections (generated deterministically) with
-        // editor corrections.  Mark spell-check ones so applyCorrections can
-        // handle them with global replacement.
-        for (const sc of spellCorrections) {
-          sc.reason = "spell-check";
-        }
-        const cs: Correction[] = [...spellCorrections, ...editorCs];
-
-        // Corrections are emitted as JSONL (one JSON object per line), so
-        // truncation only ever drops the final partial line. No retry needed.
-        // Just note when the response was likely cut off so users can spot
-        // chunks where a few late corrections may have been lost.
-        const trimmedAcc = acc.trim();
-        const looksTruncated =
-          !isDual &&
-          acc.length > 800 &&
-          trimmedAcc.length > 0 &&
-          !trimmedAcc.endsWith("}");
-        if (looksTruncated) {
-          appendLog({
-            level: "info",
-            source: "engine",
-            taskId,
-            message: `Chunk ${chunkLabel}: response ended mid-line (${acc.length} chars, ${cs.length} corrections parsed). Last partial entry dropped — consider raising max output tokens if this happens often.`,
-            model,
-          });
-        }
-
-        // Debug: log raw response when parsing yields zero corrections
-        if (cs.length === 0 && acc.length > 0) {
-          const preview = acc.slice(0, 600);
-          console.warn(
-            `[Queue] chunk ${chunkLabel} JSON parse yielded 0 corrections. Raw (${acc.length} chars):\n${preview}`,
-          );
-          appendLog({
-            level: "warn",
-            source: "engine",
-            message: `Chunk ${chunkLabel}: model returned ${acc.length} chars but 0 corrections parsed. Preview: ${acc.slice(0, 200)}`,
-            model,
-          });
-        }
-
-        // If reviewMode is on, start a second LLM pass (reviewer) in the
-        // BACKGROUND. It will run in parallel with the *next* chunk's editor.
-        // When the next chunk's editor completes, the reviewer verdict is
-        // collected and corrections are applied (see "collect previous chunk's
-        // reviewer result" at the top of the loop). For the last chunk, the
-        // reviewer is collected after the loop.
-        if (job.reviewMode && cs.length > 0) {
-          const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
-          const rCount = job.reviewerCount ?? 1;
-
-          const reviewPromise = (async () => {
-            const runOne = async () => {
-              let acc = "";
-              for await (const tok of reviewCorrectionsStream(
-                model,
-                chunk.body,
-                cs,
-                reviewerPrompt,
-                ac.signal,
-              )) {
                 acc += tok;
-              }
-              return acc;
-            };
-            const results = await Promise.allSettled(
-              Array.from({ length: rCount }, () => runOne()),
-            );
-            const outputs: string[] = [];
-            for (const r of results) {
-              if (r.status === "fulfilled" && r.value) outputs.push(r.value);
-            }
-            if (outputs.length === 0) throw new Error(`All ${rCount} reviewer agents failed`);
-            return outputs;
-          })();
-
-          pendingReview = {
-            cs: [...cs],
-            chunk,
-            chunkLabel,
-            spellCorrections: [...spellCorrections],
-            editorAcc: acc,
-            editorToks: tokCount,
-            editorStart: chunkStart,
-            editorFirstTokenAt: firstTokenAt,
-            promise: reviewPromise,
-          };
-        } else {
-          // No reviewer — apply corrections immediately
-          const toApply = cs;
-          const spellToApply = toApply.filter((c) => c.reason === "spell-check");
-          const editorToApply = toApply.filter((c) => c.reason !== "spell-check");
-
-          const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
-            allowDialogueTags: editOptions?.dialogueTags === true,
-          });
-
-          let spellAppliedBody = newBody;
-          for (const sc of spellToApply) {
-            spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
-          }
-
-          const core = stripOverlapFromResponse(
-            spellAppliedBody,
-            chunk.overlapHeadParagraphs,
-          );
-
-          for (const c of applied) {
-            corrections.push({
-              ...c,
-              chunk: `Chunk ${chunkLabel}`,
-              id: uuidv4(),
-            });
-          }
-          for (const c of spellToApply) {
-            corrections.push({
-              ...c,
-              chunk: `Chunk ${chunkLabel}`,
-              id: uuidv4(),
-            });
-          }
-          skipped.push(
-            ...sk.map((s) => ({ ...s, chunk: `Chunk ${chunkLabel}` })),
-          );
-          pieces.push(core);
-        }
-      } else {
-        const rewritten = restoreTypography(chunk.body, acc.trim());
-
-        // Translation: output the rewritten text directly. Running
-        // diff → corrections → apply makes no sense for translation
-        // (the entire text is "changed" source → target language), and
-        // the reviewer would flag every word as "changing meaning".
-        if (mode === "translate") {
-          let translatedText = rewritten;
-
-          if (job.reviewMode) {
-            // Split into paragraphs and pair them for review
-            const srcParas = srcParasForReview(chunk.body);
-            const tgtParas = tgtParasForReview(translatedText);
-            const n = Math.min(srcParas.length, tgtParas.length);
-
-            if (n > 1) {
-              const paraCorrections: Correction[] = srcParas
-                .slice(0, n)
-                .map((src, i) => ({
-                  original: src,
-                  corrected: tgtParas[i],
-                }));
-
-              updateTask(taskId, {
-                phase: `reviewing translation for chunk ${chunkLabel}`,
-              });
-
-              const reviewerPrompt = buildTranslationReviewerPrompt();
-              const rCount = job.reviewerCount ?? 1;
-              const runOne = async () => {
-                let a = "";
-                for await (const tok of reviewCorrectionsStream(
-                  model,
-                  chunk.body,
-                  paraCorrections,
-                  reviewerPrompt,
-                  ac.signal,
-                )) a += tok;
-                return a;
-              };
-              const reviewResults = await Promise.allSettled(
-                Array.from({ length: rCount }, () => runOne()),
-              );
-              const reviewOutputs: string[] = [];
-              for (const r of reviewResults) {
-                if (r.status === "fulfilled" && r.value)
-                  reviewOutputs.push(r.value);
-              }
-
-              if (reviewOutputs.length > 0) {
-                const allScores = reviewOutputs.map((o) =>
-                  parseReviewScores(o),
+                tokCount++;
+                if (tokCount === 1) {
+                  firstTokenAt = performance.now();
+                  updateTask(taskId, {
+                    phase: `${phasePrefix}chunk ${chunkLabel}`,
+                  });
+                }
+                // Live tok/s every 20 tokens
+                if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
+                  const elapsed = performance.now() - firstTokenAt;
+                  if (elapsed > 0) {
+                    updateTask(taskId, {
+                      tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                    });
+                  }
+                }
+                const intra = Math.min(
+                  0.98,
+                  acc.length / Math.max(1, chunk.body.length),
                 );
-                const threshold = job.reviewerThreshold ?? 3;
-
-                const flagged: { idx: number; conf: number; reason: string }[] =
-                  [];
-                for (let i = 0; i < n; i++) {
-                  let minConf = 5;
-                  let minReason = "";
-                  for (const scores of allScores) {
-                    const s = scores.get(i);
-                    if (s && s.confidence < minConf) {
-                      minConf = s.confidence;
-                      minReason = s.reason;
-                    }
-                  }
-                  if (minConf < threshold)
-                    flagged.push({ idx: i, conf: minConf, reason: minReason });
-                }
-
-                if (flagged.length > 0) {
-                  appendLog({
-                    level: "info",
-                    source: "engine",
-                    taskId,
-                    message: `Translation reviewer flagged ${flagged.length}/${n} paragraphs in chunk ${chunkLabel}. Re-translating…`,
-                    model,
-                  });
-
-                  const revisedParas = [...tgtParas];
-                  for (const f of flagged) {
-                    try {
-                      const rePrompt =
-                        prompt +
-                        `\n\nCRITICAL: Your previous translation of this paragraph was flagged: "${f.reason}". Provide an accurate, fluent, natural-feeling translation.`;
-                      let reAcc = "";
-                      for await (const tok of editChunkStream(
-                        model,
-                        srcParas[f.idx],
-                        rePrompt,
-                        ac.signal,
-                      )) reAcc += tok;
-                      const reTranslated = reAcc.trim();
-                      if (reTranslated) {
-                        revisedParas[f.idx] = reTranslated;
-                        appendLog({
-                          level: "info",
-                          source: "engine",
-                          taskId,
-                          message: `Re-translated paragraph ${f.idx + 1}/${n} (was confidence ${f.conf}).`,
-                          model,
-                        });
-                      }
-                    } catch (err) {
-                      appendLog({
-                        level: "warn",
-                        source: "engine",
-                        taskId,
-                        message: `Re-translation of paragraph ${f.idx + 1} failed: ${err instanceof Error ? err.message : String(err)}`,
-                        model,
-                      });
-                    }
-                  }
-                  translatedText = revisedParas.join("\n\n");
-                } else {
-                  appendLog({
-                    level: "info",
-                    source: "engine",
-                    taskId,
-                    message: `Translation reviewer passed all ${n} paragraphs in chunk ${chunkLabel}.`,
-                    model,
-                  });
-                }
+                updateProgress(taskId, (j + intra) / chunks.length);
               }
             }
+            lastErr = null;
+            break; // success
+          } catch (err) {
+            lastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
+              throw err;
+            }
+            const waitMs = 750 * attempt;
+            console.warn(
+              `[Queue] chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
+            );
+            updateTask(taskId, {
+              phase: `chunk ${chunkLabel} retrying after error`,
+            });
+            await new Promise((r) => setTimeout(r, waitMs));
+          }
+        }
+        if (lastErr) throw lastErr;
+
+        if (isCorrectionsMode) {
+          updateTask(taskId, { phase: `writing up corrections` });
+          const editorCsRaw: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
+          const isDual = _dualMergedCorrections !== null;
+          _dualMergedCorrections = null;
+
+          // ── Quote hygiene ──
+          // The model regularly re-quotes dialogue whose quotation marks sit
+          // just outside its "original" span — often in the other style —
+          // which would splice doubled quotes (“"…"”) into the text. Strip
+          // duplicated edge quotes, match added quotes to the manuscript's
+          // style, and drop corrections that had nothing else to say.
+          const quoteSan = sanitizeQuoteCorrections(chunk.body, editorCsRaw);
+          const editorCs = quoteSan.kept;
+          if (quoteSan.dropped.length > 0 || quoteSan.adjusted > 0) {
+            skipped.push(...quoteSan.dropped);
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: quote hygiene — ${quoteSan.adjusted} correction(s) restyled, ${quoteSan.dropped.length} dropped (would duplicate existing quotation marks).`,
+              model,
+            });
           }
 
-          const core = stripOverlapFromResponse(
-            translatedText,
-            chunk.overlapHeadParagraphs,
-          );
-          pieces.push(core);
-        } else {
+          // Merge spell-check corrections (generated deterministically) with
+          // editor corrections.  Mark spell-check ones so applyCorrections can
+          // handle them with global replacement.
+          for (const sc of spellCorrections) {
+            sc.reason = "spell-check";
+          }
+          const cs: Correction[] = [...spellCorrections, ...editorCs];
 
-        let cs: Correction[];
-        const diffCs = extractCorrectionsFromDiff(chunk.body, rewritten);
-        cs = [...spellCorrections, ...diffCs];
+          // Corrections are emitted as JSONL (one JSON object per line), so
+          // truncation only ever drops the final partial line. No retry needed.
+          // Just note when the response was likely cut off so users can spot
+          // chunks where a few late corrections may have been lost.
+          const trimmedAcc = acc.trim();
+          const looksTruncated =
+            !isDual &&
+            acc.length > 800 &&
+            trimmedAcc.length > 0 &&
+            !trimmedAcc.endsWith("}");
+          if (looksTruncated) {
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: response ended mid-line (${acc.length} chars, ${cs.length} corrections parsed). Last partial entry dropped — consider raising max output tokens if this happens often.`,
+              model,
+            });
+          }
 
-        if (cs.length > 0) {
-          if (job.reviewMode) {
-            const reviewerPrompt = buildReviewerPrompt(job.styleGuide);
+          // Debug: log raw response when parsing yields zero corrections
+          if (cs.length === 0 && acc.length > 0) {
+            const preview = acc.slice(0, 600);
+            console.warn(
+              `[Queue] chunk ${chunkLabel} JSON parse yielded 0 corrections. Raw (${acc.length} chars):\n${preview}`,
+            );
+            appendLog({
+              level: "warn",
+              source: "engine",
+              message: `Chunk ${chunkLabel}: model returned ${acc.length} chars but 0 corrections parsed. Preview: ${acc.slice(0, 200)}`,
+              model,
+            });
+          }
+
+          // If reviewMode is on, start a second LLM pass (reviewer) in the
+          // BACKGROUND. It will run in parallel with the *next* chunk's editor.
+          // When the next chunk's editor completes, the reviewer verdict is
+          // collected and corrections are applied (see "collect previous chunk's
+          // reviewer result" at the top of the loop). For the last chunk, the
+          // reviewer is collected after the loop.
+          if (job.reviewMode && cs.length > 0) {
+            const reviewerPrompt = buildReviewerPrompt(job.styleGuide, mode);
             const rCount = job.reviewerCount ?? 1;
 
             const reviewPromise = (async () => {
-              const runOne = async () => {
-                let acc = "";
-                for await (const tok of reviewCorrectionsStream(
+              const runOne = () =>
+                runReviewerAgentWithRetry({
                   model,
-                  chunk.body,
+                  chunkText: chunk.body,
                   cs,
                   reviewerPrompt,
-                  ac.signal,
-                )) {
-                  acc += tok;
-                }
-                return acc;
-              };
+                  signal: ac.signal,
+                  taskId,
+                  chunkLabel,
+                  agentLabel: "Reviewer agent",
+                });
               const results = await Promise.allSettled(
                 Array.from({ length: rCount }, () => runOne()),
               );
@@ -1664,7 +1602,22 @@ async function processJob(job: JobData): Promise<void> {
               for (const r of results) {
                 if (r.status === "fulfilled" && r.value) outputs.push(r.value);
               }
-              if (outputs.length === 0) throw new Error(`All ${rCount} reviewer agents failed`);
+              if (outputs.length === 0)
+                throw new Error(
+                  `All ${rCount} reviewer agents failed after ${REVIEWER_MAX_ATTEMPTS} attempts each`,
+                );
+              if (outputs.length < rCount) {
+                // Survivors still vet every correction (min-confidence merge), so
+                // this is a warning, not a task error — unscored corrections are
+                // flagged by aggregateReviewScores either way.
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `Only ${outputs.length}/${rCount} reviewer agents contributed for chunk ${chunkLabel}; scoring on survivors.`,
+                  model,
+                });
+              }
               return outputs;
             })();
 
@@ -1680,32 +1633,54 @@ async function processJob(job: JobData): Promise<void> {
               promise: reviewPromise,
             };
           } else {
-            // No reviewer — apply corrections immediately
-            const spellToApply = cs.filter((c) => c.reason === "spell-check");
-            const editorToApply = cs.filter((c) => c.reason !== "spell-check");
+            // No reviewer — apply corrections immediately. Because no reviewer
+            // vetted them, real-word→real-word swaps in a copy edit (e.g.
+            // "form"→"from") are surfaced as flagged rather than auto-applied, so
+            // a possible silent corruption is shown for manual confirmation.
+            const toApply: Correction[] = [];
+            const flaggedSwaps: Correction[] = [];
+            const flagSwaps = mode === "copy_edit" && !!isAcceptableWord;
+            for (const c of cs) {
+              if (
+                flagSwaps &&
+                isRealWordSwap(c.original, c.corrected, isAcceptableWord!)
+              ) {
+                flaggedSwaps.push({
+                  ...c,
+                  flagged: true,
+                  reviewReason: "word substitution — verify",
+                });
+              } else {
+                toApply.push(c);
+              }
+            }
 
-            const [newBody, applied, sk] = applyCorrections(chunk.body, editorToApply, {
-              allowDialogueTags: editOptions?.dialogueTags === true,
-            });
+            const [newBody, applied, sk, reverted] = applyCorrectionsVerified(
+              chunk.body,
+              toApply,
+              {
+                allowDialogueTags: editOptions?.dialogueTags === true,
+                isAcceptableWord,
+                findNewSuspects,
+              },
+            );
 
-            let spellAppliedBody = newBody;
-            for (const sc of spellToApply) {
-              spellAppliedBody = spellAppliedBody.replaceAll(sc.original, sc.corrected);
+            if (reverted.length > 0) {
+              appendLog({
+                level: "warn",
+                source: "engine",
+                taskId,
+                message: `Post-apply spell check reverted ${reverted.length} correction(s) in chunk ${chunkLabel} that introduced misspellings; they are flagged for manual review.`,
+                model,
+              });
             }
 
             const core = stripOverlapFromResponse(
-              spellAppliedBody,
+              newBody,
               chunk.overlapHeadParagraphs,
             );
 
-            for (const c of applied) {
-              corrections.push({
-                ...c,
-                chunk: `Chunk ${chunkLabel}`,
-                id: uuidv4(),
-              });
-            }
-            for (const c of spellToApply) {
+            for (const c of [...applied, ...flaggedSwaps, ...reverted]) {
               corrections.push({
                 ...c,
                 chunk: `Chunk ${chunkLabel}`,
@@ -1718,67 +1693,304 @@ async function processJob(job: JobData): Promise<void> {
             pieces.push(core);
           }
         } else {
-          const core = stripOverlapFromResponse(
-            rewritten,
-            chunk.overlapHeadParagraphs,
-          );
-          pieces.push(core);
+          const rewritten = restoreTypography(chunk.body, acc.trim());
+
+          // Translation: output the rewritten text directly. Running
+          // diff → corrections → apply makes no sense for translation
+          // (the entire text is "changed" source → target language), and
+          // the reviewer would flag every word as "changing meaning".
+          if (mode === "translate") {
+            let translatedText = rewritten;
+
+            if (job.reviewMode) {
+              // Split into paragraphs and pair them for review
+              const srcParas = srcParasForReview(chunk.body);
+              const tgtParas = tgtParasForReview(translatedText);
+              const n = Math.min(srcParas.length, tgtParas.length);
+
+              if (n > 1) {
+                const paraCorrections: Correction[] = srcParas
+                  .slice(0, n)
+                  .map((src, i) => ({
+                    original: src,
+                    corrected: tgtParas[i],
+                  }));
+
+                updateTask(taskId, {
+                  phase: `reviewing translation for chunk ${chunkLabel}`,
+                });
+
+                const reviewerPrompt = buildTranslationReviewerPrompt(job.styleGuide);
+                const rCount = job.reviewerCount ?? 1;
+                const runOne = () =>
+                  runReviewerAgentWithRetry({
+                    model,
+                    chunkText: chunk.body,
+                    cs: paraCorrections,
+                    reviewerPrompt,
+                    signal: ac.signal,
+                    taskId,
+                    chunkLabel,
+                    agentLabel: "Rewrite-reviewer agent",
+                  });
+                const reviewResults = await Promise.allSettled(
+                  Array.from({ length: rCount }, () => runOne()),
+                );
+                const reviewOutputs: string[] = [];
+                for (const r of reviewResults) {
+                  if (r.status === "fulfilled" && r.value)
+                    reviewOutputs.push(r.value);
+                }
+                if (reviewOutputs.length > 0 && reviewOutputs.length < rCount) {
+                  appendLog({
+                    level: "warn",
+                    source: "engine",
+                    taskId,
+                    message: `Only ${reviewOutputs.length}/${rCount} rewrite-reviewer agents contributed for chunk ${chunkLabel}; scoring on survivors.`,
+                    model,
+                  });
+                }
+
+                if (reviewOutputs.length > 0) {
+                  const allScores = reviewOutputs.map((o) =>
+                    parseReviewScores(o),
+                  );
+                  const threshold = job.reviewerThreshold ?? 3;
+
+                  const flagged: { idx: number; conf: number; reason: string }[] =
+                    [];
+                  for (let i = 0; i < n; i++) {
+                    let minConf = 5;
+                    let minReason = "";
+                    for (const scores of allScores) {
+                      const s = scores.get(i);
+                      if (s && s.confidence < minConf) {
+                        minConf = s.confidence;
+                        minReason = s.reason;
+                      }
+                    }
+                    if (minConf < threshold)
+                      flagged.push({ idx: i, conf: minConf, reason: minReason });
+                  }
+
+                  if (flagged.length > 0) {
+                    appendLog({
+                      level: "info",
+                      source: "engine",
+                      taskId,
+                      message: `Translation reviewer flagged ${flagged.length}/${n} paragraphs in chunk ${chunkLabel}. Re-translating…`,
+                      model,
+                    });
+
+                    const revisedParas = [...tgtParas];
+                    for (const f of flagged) {
+                      try {
+                        const rePrompt =
+                          prompt +
+                          `\n\nCRITICAL: Your previous translation of this paragraph was flagged: "${f.reason}". Provide an accurate, fluent, natural-feeling translation.`;
+                        let reAcc = "";
+                        for await (const tok of editChunkStream(
+                          model,
+                          srcParas[f.idx],
+                          rePrompt,
+                          ac.signal,
+                        )) reAcc += tok;
+                        const reTranslated = reAcc.trim();
+                        if (reTranslated) {
+                          revisedParas[f.idx] = reTranslated;
+                          appendLog({
+                            level: "info",
+                            source: "engine",
+                            taskId,
+                            message: `Re-translated paragraph ${f.idx + 1}/${n} (was confidence ${f.conf}).`,
+                            model,
+                          });
+                        }
+                      } catch (err) {
+                        appendLog({
+                          level: "warn",
+                          source: "engine",
+                          taskId,
+                          message: `Re-translation of paragraph ${f.idx + 1} failed: ${err instanceof Error ? err.message : String(err)}`,
+                          model,
+                        });
+                      }
+                    }
+                    translatedText = revisedParas.join("\n\n");
+                  } else {
+                    appendLog({
+                      level: "info",
+                      source: "engine",
+                      taskId,
+                      message: `Translation reviewer passed all ${n} paragraphs in chunk ${chunkLabel}.`,
+                      model,
+                    });
+                  }
+                }
+              }
+            }
+
+            const core = stripOverlapFromResponse(
+              translatedText,
+              chunk.overlapHeadParagraphs,
+            );
+            pieces.push(core);
+          }
         }
+      } catch (err) {
+        pieces.push(chunk.core);
+        errors.push(
+          `chunk ${j + 1}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // Per-chunk timing summary
+      {
+        const now = performance.now();
+        const prefillMs = firstTokenAt > 0 ? firstTokenAt - chunkStart : -1;
+        const decodeMs = firstTokenAt > 0 ? now - firstTokenAt : -1;
+        const tokPerSec =
+          decodeMs > 0 && tokCount > 1
+            ? ((tokCount - 1) / (decodeMs / 1000)).toFixed(1)
+            : "n/a";
+        // Rough input-token estimate (shared CHARS_PER_TOKEN ratio) — gives a
+        // useful prefill tok/s number even though llama-server's streaming
+        // endpoint doesn't expose exact prompt-token counts.
+        const inputTokenEst = estimateTokens(chunk.body);
+        const prefillTps =
+          prefillMs > 0 ? (inputTokenEst / (prefillMs / 1000)).toFixed(0) : "n/a";
+        totalOutTokens += tokCount;
+
+        // Context-budget telemetry: estimate what one editor request actually
+        // occupies (system prompt + chunk body) against the model's per-slot
+        // context window. This is the real signal for diagnosing prefill
+        // slowness. Always surfaced to the diagnostics feed (info), escalating to
+        // a warning once a request crowds the window (≥80%).
+        {
+          const ctxWindow = getContextWindow(model);
+          const systemTokens = estimateTokens(prompt);
+          const reqTokens = systemTokens + inputTokenEst;
+          const pct = ctxWindow > 0 ? Math.round((reqTokens / ctxWindow) * 100) : 0;
+          const msg = `Chunk ${chunkLabel} context: ~${reqTokens} tok (system ${systemTokens} + chunk ${inputTokenEst}) of ${ctxWindow} (${pct}%)`;
+          console.log(`[Queue] ${msg}`);
+          appendLog({
+            level: pct >= 80 ? "warn" : "info",
+            source: "engine",
+            taskId,
+            message: pct >= 80 ? `${msg} — near context limit; prefill may crawl` : msg,
+            model,
+          });
+        }
+        // Push live tok/s to task state for UI display
+        if (tokPerSec !== "n/a") {
+          updateTask(taskId, { tokPerSec });
+        }
+        console.log(
+          `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
+        );
+        if (tokCount > 0) {
+          appendLog({
+            level: "info",
+            source: "engine",
+            message: `Chunk ${chunkLabel}: prefill ~${prefillTps} tok/s · decode ${tokPerSec} tok/s (${tokCount} tokens)`,
+            model,
+          });
+        }
+        if (tokCount === 0) {
+          appendLog({
+            level: "warn",
+            source: "engine",
+            message: `Chunk ${chunkLabel}: model returned 0 content tokens — check --reasoning flag or model template`,
+            model,
+          });
         }
       }
-    } catch (err) {
-      pieces.push(chunk.core);
-      errors.push(
-        `chunk ${j + 1}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+
+      updateTask(taskId, {
+        progress: pass.progressBase + ((j + 1) / chunks.length) * pass.progressSpan,
+      });
     }
 
-    // Per-chunk timing summary
-    {
-      const now = performance.now();
-      const prefillMs = firstTokenAt > 0 ? firstTokenAt - chunkStart : -1;
-      const decodeMs = firstTokenAt > 0 ? now - firstTokenAt : -1;
-      const tokPerSec =
-        decodeMs > 0 && tokCount > 1
-          ? ((tokCount - 1) / (decodeMs / 1000)).toFixed(1)
-          : "n/a";
-      // Rough input-token estimate (3.5 chars/token avg across our supported
-      // languages) — gives a useful prefill tok/s number even though llama-
-      // server's streaming endpoint doesn't expose exact prompt-token counts.
-      const inputTokenEst = Math.ceil(chunk.body.length / 3.5);
-      const prefillTps =
-        prefillMs > 0 ? (inputTokenEst / (prefillMs / 1000)).toFixed(0) : "n/a";
-      totalOutTokens += tokCount;
-      // Push live tok/s to task state for UI display
-      if (tokPerSec !== "n/a") {
-        updateTask(taskId, { tokPerSec });
-      }
-      console.log(
-        `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
-      );
-      if (tokCount > 0) {
+    // Collect the final pending reviewer (last chunk).
+    if (pendingReview) await collectPendingReview();
+
+    return {
+      text: pieces.join("\n\n").trim(),
+      corrections,
+      skipped,
+    };
+  };
+
+  // Thorough mode: a second copy-edit pass over the first pass's output
+  // catches residual errors (both leftovers and anything the pipeline itself
+  // introduced). Limited to copy-edit checks — re-running line edits would
+  // rewrite already-rewritten prose and drift from the author's voice — so it
+  // only applies when the job includes copy_edit.
+  const extraPass =
+    job.extraPass === true &&
+    isCorrectionsMode &&
+    (mode === "copy_edit" || mode === "combined_edit");
+
+  const pass1 = await runCorrectionPass(original, {
+    n: 1,
+    total: extraPass ? 2 : 1,
+    progressBase: 0,
+    progressSpan: extraPass ? 0.5 : 1,
+    mode,
+    prompt,
+  });
+  if (!pass1) return;
+
+  let editedText = pass1.text;
+  const corrections = pass1.corrections;
+  const skipped = pass1.skipped;
+
+  if (extraPass && !ac.signal.aborted) {
+    appendLog({
+      level: "info",
+      source: "engine",
+      taskId,
+      message:
+        "Thorough mode: running a second copy-edit pass over the edited text.",
+      model,
+    });
+    const pass2 = await runCorrectionPass(editedText, {
+      n: 2,
+      total: 2,
+      progressBase: 0.5,
+      progressSpan: 0.5,
+      mode: "copy_edit",
+      prompt:
+        mode === "copy_edit"
+          ? prompt
+          : buildCopyEditCorrectionsPrompt(
+              {
+                ...DEFAULT_COPY_EDIT_OPTIONS,
+                ...editOptions,
+              } as CopyEditOptions,
+              job.styleGuide,
+            ),
+    });
+    if (pass2) {
+      editedText = pass2.text;
+      // Export locates accepted corrections in the TRUE original text (plain
+      // indexOf in the frontend's applyAccepted), so pass-2 spans that only
+      // exist in pass-1 output must be flagged rather than silently merged.
+      const p2 = pass2.corrections.map((c) => ({ ...c, pass: 2 }));
+      const unanchored = flagUnanchoredCorrections(original, p2);
+      if (unanchored > 0) {
         appendLog({
           level: "info",
           source: "engine",
-          message: `Chunk ${chunkLabel}: prefill ~${prefillTps} tok/s · decode ${tokPerSec} tok/s (${tokCount} tokens)`,
+          taskId,
+          message: `Second pass: ${unanchored}/${p2.length} corrections overlap first-pass changes and are flagged for manual review.`,
           model,
         });
       }
-      if (tokCount === 0) {
-        appendLog({
-          level: "warn",
-          source: "engine",
-          message: `Chunk ${chunkLabel}: model returned 0 content tokens — check --reasoning flag or model template`,
-          model,
-        });
-      }
+      corrections.push(...p2);
+      skipped.push(...pass2.skipped);
     }
-
-    updateTask(taskId, { progress: (j + 1) / chunks.length });
   }
-
-  // Collect the final pending reviewer (last chunk).
-  if (pendingReview) await collectPendingReview();
 
   updateTask(taskId, { phase: "finalizing" });
   abortControllers.delete(taskId);
@@ -1787,7 +1999,7 @@ async function processJob(job: JobData): Promise<void> {
   const overallTps =
     totalMs > 0 ? ((totalOutTokens / totalMs) * 1000).toFixed(1) : "n/a";
   console.log(
-    `[Queue] job ${taskId} done: wall=${(totalMs / 1000).toFixed(1)}s chunks=${chunks.length} tokens=${totalOutTokens} tok/s=${overallTps}`,
+    `[Queue] job ${taskId} done: wall=${(totalMs / 1000).toFixed(1)}s chunks=${totalChunks} tokens=${totalOutTokens} tok/s=${overallTps}`,
   );
   if (totalOutTokens > 0) {
     appendLog({
@@ -1832,8 +2044,24 @@ async function processJob(job: JobData): Promise<void> {
     corrections.push(...subsumeFree);
   }
 
+  // Chapter-level spell net: anything reported here survived the per-chunk
+  // verified apply, so it is an assembly/overlap-strip artifact with no
+  // correction to attribute — report it, don't mutate the text.
+  if (findNewSuspects) {
+    const assemblySuspects = findNewSuspects(original, editedText);
+    if (assemblySuspects && assemblySuspects.length > 0) {
+      appendLog({
+        level: "warn",
+        source: "engine",
+        taskId,
+        message: `Chapter check: ${assemblySuspects.length} suspect word(s) present in the edited text but not the original: ${assemblySuspects.slice(0, 10).join(", ")}${assemblySuspects.length > 10 ? ", …" : ""}. Review the diff before export.`,
+        model,
+      });
+    }
+  }
+
   const result: TaskResult = {
-    editedText: pieces.join("\n\n").trim(),
+    editedText,
     originalText: original,
     corrections,
     skipped,
@@ -1950,6 +2178,10 @@ export function initQueue(socketIo: SocketServer, conc = 1): void {
         `[Queue] hydrated ${saved.length} tasks from previous sessions`,
       );
     }
+    const pruned = pruneOldTasks();
+    if (pruned > 0) {
+      console.log(`[Queue] pruned ${pruned} old tasks from database`);
+    }
   } catch (err) {
     console.warn("[Queue] failed to hydrate tasks:", err);
   }
@@ -1995,7 +2227,6 @@ export async function submitTask(
       model: data.model,
       mode: data.mode,
       prompt: data.prompt,
-      fast: data.fast,
       wpc: data.wpc,
       overlap: data.overlap,
       editOptions: data.editOptions,
@@ -2008,6 +2239,8 @@ export async function submitTask(
       dualEditor: data.dualEditor,
       dualCount: data.dualCount,
       characterDedup: data.characterDedup,
+      styleComplianceAgent: data.styleComplianceAgent,
+      extraPass: data.extraPass,
     },
   });
 
@@ -2024,6 +2257,34 @@ export function cancelAll(): void {
   pending.length = 0;
   for (const ac of abortControllers.values()) ac.abort();
   broadcast();
+}
+
+/**
+ * Mark every non-terminal task as errored with the given reason. Called by the
+ * process-level error handlers so a crash surfaces in the UI instead of tasks
+ * appearing to hang or silently completing. Returns the number of tasks failed.
+ */
+export function failActiveTasks(reason: string): number {
+  let failed = 0;
+  for (const task of tasks.values()) {
+    if (["done", "error", "cancelled"].includes(task.status)) continue;
+    updateTask(task.id, {
+      status: "error",
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [reason],
+      },
+    });
+    failed++;
+  }
+  pending.length = 0;
+  for (const ac of abortControllers.values()) ac.abort();
+  if (failed > 0) broadcast();
+  return failed;
 }
 
 /**
@@ -2091,7 +2352,6 @@ export async function retryTask(id: string): Promise<string> {
     model: spec.model,
     mode: spec.mode,
     prompt: spec.prompt,
-    fast: spec.fast,
     wpc: spec.wpc,
     overlap: spec.overlap,
     editOptions: spec.editOptions,
@@ -2104,6 +2364,8 @@ export async function retryTask(id: string): Promise<string> {
     dualEditor: spec.dualEditor,
     dualCount: spec.dualCount,
     characterDedup: spec.characterDedup,
+    styleComplianceAgent: spec.styleComplianceAgent,
+    extraPass: spec.extraPass,
   });
   return newTaskId;
 }
@@ -2201,8 +2463,15 @@ export function removeJob(jobId: string): number {
   return removed.length;
 }
 
-export function getTasksSnapshot(): Record<string, TaskState> {
-  return Object.fromEntries(tasks);
+export function getTasksSnapshot(): Record<string, Omit<TaskState, "retrySpec">> {
+  // Strip retrySpec — it embeds full chapter text per task. The frontend
+  // only reads retrySpec via REST when the user clicks "retry".
+  const snapshot: Record<string, Omit<TaskState, "retrySpec">> = {};
+  for (const [id, task] of tasks) {
+    const { retrySpec: _retrySpec, ...rest } = task;
+    snapshot[id] = rest;
+  }
+  return snapshot;
 }
 
 export function getTask(id: string): TaskState | undefined {

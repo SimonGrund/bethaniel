@@ -35,22 +35,6 @@ function getDb(): Database.Database {
       CREATE INDEX IF NOT EXISTS idx_tasks_finished_at
         ON tasks (finished_at DESC);
     `);
-    // Idempotent migration: add detected_scene_break column if missing.
-    const cols = db.prepare("PRAGMA table_info(documents)").all() as {
-      name: string;
-    }[];
-    const colNames = new Set(cols.map((c) => c.name));
-    if (!colNames.has("detected_scene_break")) {
-      db.exec("ALTER TABLE documents ADD COLUMN detected_scene_break TEXT");
-    }
-    if (!colNames.has("detected_paragraph_break")) {
-      db.exec("ALTER TABLE documents ADD COLUMN detected_paragraph_break TEXT");
-    }
-    if (!colNames.has("detect_breaks")) {
-      db.exec(
-        "ALTER TABLE documents ADD COLUMN detect_breaks INTEGER NOT NULL DEFAULT 0",
-      );
-    }
   }
   return db;
 }
@@ -60,9 +44,8 @@ export function saveDocument(doc: DocumentMeta): void {
   d.prepare(
     `
     INSERT OR REPLACE INTO documents
-      (id, name, md, chapters, word_count, uploaded_at,
-       detect_breaks, detected_scene_break, detected_paragraph_break)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, name, md, chapters, word_count, uploaded_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `,
   ).run(
     doc.id,
@@ -71,9 +54,6 @@ export function saveDocument(doc: DocumentMeta): void {
     JSON.stringify(doc.chapters),
     doc.wordCount,
     doc.uploadedAt,
-    doc.detectBreaks ? 1 : 0,
-    doc.detectedSceneBreak ?? null,
-    doc.detectedParagraphBreak ?? null,
   );
 }
 
@@ -90,10 +70,6 @@ export function getDocument(id: string): DocumentMeta | null {
     chapters: JSON.parse(row.chapters as string),
     wordCount: row.word_count as number,
     uploadedAt: row.uploaded_at as number,
-    detectBreaks: ((row.detect_breaks as number) ?? 0) === 1,
-    detectedSceneBreak: (row.detected_scene_break as string | null) ?? null,
-    detectedParagraphBreak:
-      (row.detected_paragraph_break as string | null) ?? null,
   };
 }
 
@@ -109,10 +85,6 @@ export function listDocuments(): DocumentMeta[] {
     chapters: JSON.parse(row.chapters as string),
     wordCount: row.word_count as number,
     uploadedAt: row.uploaded_at as number,
-    detectBreaks: ((row.detect_breaks as number) ?? 0) === 1,
-    detectedSceneBreak: (row.detected_scene_break as string | null) ?? null,
-    detectedParagraphBreak:
-      (row.detected_paragraph_break as string | null) ?? null,
   }));
 }
 
@@ -148,11 +120,15 @@ export function saveTaskState(task: TaskState): void {
   ).run(task.id, JSON.stringify(task), task.finishedAt ?? Date.now());
 }
 
+const MAX_KEPT_TASKS = 200;
+
 export function loadTaskStates(): TaskState[] {
   const d = getDb();
   const rows = d
-    .prepare("SELECT state FROM tasks ORDER BY finished_at DESC")
-    .all() as { state: string }[];
+    .prepare(
+      "SELECT state FROM tasks ORDER BY finished_at DESC LIMIT ?",
+    )
+    .all(MAX_KEPT_TASKS) as { state: string }[];
   const out: TaskState[] = [];
   for (const r of rows) {
     try {
@@ -162,6 +138,22 @@ export function loadTaskStates(): TaskState[] {
     }
   }
   return out;
+}
+
+export function pruneOldTasks(): number {
+  const d = getDb();
+  const row = d
+    .prepare("SELECT COUNT(*) as cnt FROM tasks")
+    .get() as { cnt: number };
+  if (row.cnt <= MAX_KEPT_TASKS) return 0;
+  const ids = d
+    .prepare(
+      "SELECT id FROM tasks ORDER BY finished_at DESC LIMIT -1 OFFSET ?",
+    )
+    .all(MAX_KEPT_TASKS) as { id: string }[];
+  if (ids.length === 0) return 0;
+  deleteTaskStatesIn(ids.map((r) => r.id));
+  return ids.length;
 }
 
 export function deleteTaskState(id: string): void {

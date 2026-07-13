@@ -103,12 +103,6 @@ export interface DocumentMeta {
   wordCount: number;
   uploadedAt: number;
   md?: string; // only when fetched with full text
-  /** Whether scene/paragraph break detection ran on this document. */
-  detectBreaks?: boolean;
-  /** Raw scene-break pattern detected at upload (e.g. "***", "\\*", "---"). */
-  detectedSceneBreak?: string | null;
-  /** Paragraph (small) break style — usually "empty line". */
-  detectedParagraphBreak?: string | null;
 }
 
 export interface Correction {

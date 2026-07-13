@@ -9,7 +9,7 @@ import * as net from "net";
 import * as os from "os";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
-import { readModelConfig } from "./modelConfig.js";
+import { readModelConfig, getCustomGgufPath } from "./modelConfig.js";
 import { appendLog, diagnoseEngineExit } from "./logBus.js";
 import { getModelByFileName } from "./modelCatalog.js";
 
@@ -503,7 +503,8 @@ export function ensureModelLoaded(
   desiredSlots?: number,
 ): Promise<void> {
   // API models — nothing to load locally
-  if (modelFile.startsWith("custom:")) return Promise.resolve();
+  if (modelFile.startsWith("custom:") && !modelFile.startsWith("custom:gguf"))
+    return Promise.resolve();
 
   if (!modelFile || modelFile.trim().length === 0) {
     return Promise.reject(
@@ -511,8 +512,13 @@ export function ensureModelLoaded(
     );
   }
 
-  // Normalize to bare filename
-  const file = modelFile.endsWith(".gguf") ? modelFile : modelFile + ".gguf";
+  // Custom GGUF — resolve the actual file path from config
+  const isCustomGguf = modelFile.startsWith("custom:gguf");
+  const file = isCustomGguf
+    ? modelFile // use the full prefix as the key for tracking
+    : modelFile.endsWith(".gguf")
+      ? modelFile
+      : modelFile + ".gguf";
 
   // Determine the context size this call wants.
   const targetCtx = numCtxOverride ?? readModelConfig(MODELS_DIR, file).num_ctx;
@@ -560,19 +566,35 @@ async function doLoad(
   // Kill existing server if running
   await killChild();
 
-  const modelPath = path.join(MODELS_DIR, file);
-  if (!fs.existsSync(modelPath)) {
+  // Resolve model path: custom GGUF uses user-specified path, others use MODELS_DIR
+  const isCustomGguf = file.startsWith("custom:gguf");
+  const resolvedPath = isCustomGguf
+    ? getCustomGgufPath()
+    : path.join(MODELS_DIR, file);
+  if (!resolvedPath) {
     appendLog({
       level: "error",
       source: "engine",
-      message: `Model file not found: ${file}`,
+      message: `Custom GGUF path not configured. Go to Settings to select a GGUF file.`,
       hintKey: "log_hint_model_missing",
       model: file,
     });
-    throw new Error(`Model file not found: ${modelPath}`);
+    throw new Error(
+      "Custom Betty GGUF path not configured. Go to Settings to select a GGUF file.",
+    );
+  }
+  if (!fs.existsSync(resolvedPath)) {
+    appendLog({
+      level: "error",
+      source: "engine",
+      message: `Model file not found: ${isCustomGguf ? resolvedPath : file}`,
+      hintKey: "log_hint_model_missing",
+      model: file,
+    });
+    throw new Error(`Model file not found: ${resolvedPath}`);
   }
 
-  const modelSize = fs.statSync(modelPath).size;
+  const modelSize = fs.statSync(resolvedPath).size;
   const threads = detectThreads();
   const parallelSlots = detectParallelSlots(modelSize, numCtx, desiredSlots);
   const ngl = detectNGL(modelSize, numCtx, parallelSlots);
@@ -584,7 +606,7 @@ async function doLoad(
 
   const args = [
     "-m",
-    modelPath,
+    resolvedPath,
     "--host",
     LLAMA_HOST,
     "--port",

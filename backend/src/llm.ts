@@ -9,7 +9,12 @@ import {
   getCurrentModel,
   getLlamaBaseUrl,
 } from "./llamaServer.js";
-import { readModelConfig, readApiConfig, type ModelSettings } from "./modelConfig.js";
+import {
+  readModelConfig,
+  readApiConfig,
+  type ModelSettings,
+} from "./modelConfig.js";
+import { appendLog } from "./logBus.js";
 import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
@@ -18,9 +23,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODELS_DIR =
   process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
+/**
+ * Average characters-per-token for our supported languages. Used everywhere we
+ * estimate token counts from text length so prefill/decode logging and slot
+ * budgeting agree (previously llm.ts used 3 and queue.ts used 3.5). 3.5 is a
+ * conservative middle ground for English prose plus JSON formatting overhead.
+ */
+export const CHARS_PER_TOKEN = 3.5;
+
+/** Estimate token count from raw text length using {@link CHARS_PER_TOKEN}. */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+/** Per-slot context window (tokens) for a model, from its active config. */
+export function getContextWindow(model: string): number {
+  return getActiveConfig(model).num_ctx;
+}
+
 /** Get the current model's config, or defaults if unavailable. */
 function getActiveConfig(model: string): ModelSettings {
-  const file = model.startsWith("custom:") ? model : (model.endsWith(".gguf") ? model : model + ".gguf");
+  const file = model.startsWith("custom:")
+    ? model
+    : model.endsWith(".gguf")
+      ? model
+      : model + ".gguf";
   return readModelConfig(MODELS_DIR, file);
 }
 
@@ -67,11 +94,13 @@ export async function unloadModel(_name: string): Promise<boolean> {
 async function* parseSSE(
   response: Response,
   signal?: AbortSignal,
+  model?: string,
 ): AsyncGenerator<string> {
   const reader = response.body?.getReader();
   if (!reader) return;
   const decoder = new TextDecoder();
   let buffer = "";
+  let dropped = 0;
 
   try {
     while (true) {
@@ -95,12 +124,22 @@ async function* parseSSE(
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) yield content;
         } catch {
-          // Skip malformed SSE lines
+          // Malformed SSE line — count it so a fully-garbled stream (which
+          // otherwise surfaces only as "0 content tokens") is diagnosable.
+          dropped++;
         }
       }
     }
   } finally {
     reader.releaseLock();
+    if (dropped > 0) {
+      appendLog({
+        level: "warn",
+        source: "engine",
+        message: `Dropped ${dropped} malformed SSE line(s) from model stream${model ? ` (${model})` : ""}`,
+        model,
+      });
+    }
   }
 }
 
@@ -126,10 +165,12 @@ async function* chatStream(
   const cfg = getActiveConfig(model);
 
   // ── Route: external API model (e.g. DeepSeek) ──
-  if (model.startsWith("custom:")) {
+  if (model.startsWith("custom:") && !model.startsWith("custom:gguf")) {
     const apiConfig = readApiConfig();
     if (!apiConfig?.apiKey) {
-      throw new Error("External Betty API key not configured. Go to Settings to add your API key.");
+      throw new Error(
+        "External Betty API key not configured. Go to Settings to add your API key.",
+      );
     }
 
     const baseUrl = process.env.DEEPSEEK_API_BASE || "https://api.deepseek.com";
@@ -143,7 +184,8 @@ async function* chatStream(
     };
     if (options.top_k != null) apiBody.top_k = options.top_k ?? cfg.top_k;
     if (options.repeat_penalty != null) {
-      apiBody.frequency_penalty = (options.repeat_penalty ?? cfg.repeat_penalty) - 1.0;
+      apiBody.frequency_penalty =
+        (options.repeat_penalty ?? cfg.repeat_penalty) - 1.0;
     }
 
     const res = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -161,7 +203,7 @@ async function* chatStream(
       throw new Error(`DeepSeek API error ${res.status}: ${text}`);
     }
 
-    yield* parseSSE(res, signal);
+    yield* parseSSE(res, signal, model);
     return;
   }
 
@@ -197,7 +239,7 @@ async function* chatStream(
     throw new Error(`llama-server error ${res.status}: ${text}`);
   }
 
-  yield* parseSSE(res, signal);
+  yield* parseSSE(res, signal, model);
 }
 
 // ── Prompt helpers (same as before) ──
@@ -220,9 +262,8 @@ function buildSystemMessage(model: string, taskPrompt: string): string {
  * Compute a max_tokens value that fits inside the llama-server slot context
  * budget. Each slot must hold (system + user prompt) + generated tokens
  * simultaneously; if max_tokens leaves no room, decode aborts mid-stream
- * with "Context size has been exceeded." Estimate prompt tokens
- * conservatively (3 chars/token underestimates some scripts) and reserve
- * 256 tokens for chat-template/role overhead.
+ * with "Context size has been exceeded." Estimate prompt tokens via the shared
+ * CHARS_PER_TOKEN ratio and reserve 256 tokens for chat-template/role overhead.
  */
 function slotSafeMaxTokens(
   model: string,
@@ -231,7 +272,7 @@ function slotSafeMaxTokens(
   requestedCap: number,
 ): number {
   const cfg = getActiveConfig(model);
-  const promptTokenEst = Math.ceil((systemMsg.length + userText.length) / 3);
+  const promptTokenEst = estimateTokens(systemMsg + userText);
   const slotBudget = cfg.num_ctx - promptTokenEst - 256;
   return Math.max(256, Math.min(requestedCap, slotBudget));
 }
@@ -872,7 +913,8 @@ function isTypographyOnlyChange(original: string, corrected: string): boolean {
  * change is swapping one quote style for another (e.g. double → single).
  * Adding quotes where none existed or fixing misplaced quotes passes through.
  */
-const QUOTE_CHARS_RE = /['\u2018\u2019\u201A\u2039\u203A"\u201C\u201D\u201E\u00AB\u00BB]/g;
+const QUOTE_CHARS_RE =
+  /['\u2018\u2019\u201A\u2039\u203A"\u201C\u201D\u201E\u00AB\u00BB]/g;
 function isQuoteStyleChange(original: string, corrected: string): boolean {
   const orgHasQuote = QUOTE_CHARS_RE.test(original);
   if (!orgHasQuote) return false;
@@ -923,6 +965,124 @@ function markdownMarkerViolation(
 export interface ApplyCorrectionsOptions {
   /** Whether dialogue-tag corrections are allowed (matches CopyEditOptions.dialogueTags). */
   allowDialogueTags?: boolean;
+  /**
+   * Optional spell validator (from spellcheck.getWordValidator). When provided,
+   * any correction whose `corrected` text introduces a word this predicate
+   * rejects — and which wasn't already an unaccepted word in `original` — is
+   * skipped. This stops the editor from turning a correctly-spelled word into a
+   * brand-new non-word (e.g. "Apparently" → "Appwrently").
+   */
+  isAcceptableWord?: (word: string) => boolean;
+}
+
+/**
+ * Word tokens for spell-vetting — matches spellcheck.ts WORD_RE (2+ letters).
+ * Includes typographic apostrophes (’ ʼ) so a corrupted contraction like
+ * "did’t" is vetted as one token instead of dissolving into "did" + "t";
+ * the validator normalizes apostrophes before its dictionary lookup.
+ */
+const WORD_TOKEN_RE = /\p{L}[\p{L}'’ʼ-]*[\p{L}]/gu;
+
+/**
+ * Returns the first word `corrected` introduces that `isAcceptable` rejects and
+ * that wasn't already an unaccepted word in `original`, or null if none. Used to
+ * reject corrections that would inject a new misspelled non-word.
+ */
+function introducedBadWord(
+  original: string,
+  corrected: string,
+  isAcceptable: (word: string) => boolean,
+): string | null {
+  const tokensOf = (s: string): string[] => s.match(WORD_TOKEN_RE) ?? [];
+  const origBad = new Set(
+    tokensOf(original).filter((w) => !isAcceptable(w)),
+  );
+  for (const w of tokensOf(corrected)) {
+    if (!isAcceptable(w) && !origBad.has(w)) return w;
+  }
+  return null;
+}
+
+/**
+ * True when a correction is a single-word → single-word substitution where both
+ * sides are valid dictionary words (e.g. "form" → "from", "their" → "there").
+ * The spell gate can't catch these (both are real words), yet they may be a
+ * silent corruption rather than an intended fix — callers can route them to
+ * review instead of applying them blindly.
+ */
+export function isRealWordSwap(
+  original: string,
+  corrected: string,
+  isAcceptable: (word: string) => boolean,
+): boolean {
+  const a = original.match(WORD_TOKEN_RE) ?? [];
+  const b = corrected.match(WORD_TOKEN_RE) ?? [];
+  if (a.length !== 1 || b.length !== 1 || a[0] === b[0]) return false;
+  return isAcceptable(a[0]) && isAcceptable(b[0]);
+}
+
+// Characters that continue a word (letters, digits, apostrophes, hyphens).
+// Used for word-boundary checks so a single-word correction can't be matched
+// inside a larger word (e.g. "from" must not match within "formal").
+const WORD_CHAR_RE = /[\p{L}\p{N}'’-]/u;
+function isWordChar(ch: string): boolean {
+  return ch !== "" && WORD_CHAR_RE.test(ch);
+}
+
+// A letter/digit at a match edge must not butt against a word character in
+// the surrounding text. This generalizes whole-word matching to multi-word
+// needles: "the student" must not match inside "the students, soldiers" —
+// that splice produced "the studentss" on export. Edges that are themselves
+// punctuation (quotes, apostrophes, dashes) carry no boundary requirement.
+const EDGE_ALNUM_RE = /[\p{L}\p{N}]/u;
+function hasCleanWordEdges(text: string, pos: number, match: string): boolean {
+  if (match.length === 0) return false;
+  if (EDGE_ALNUM_RE.test(match[0]) && pos > 0 && isWordChar(text[pos - 1])) {
+    return false;
+  }
+  const afterIdx = pos + match.length;
+  if (
+    EDGE_ALNUM_RE.test(match[match.length - 1]) &&
+    afterIdx < text.length &&
+    isWordChar(text[afterIdx])
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** All start positions of `needle` in `text` whose word edges are clean. */
+function findOccurrences(text: string, needle: string): number[] {
+  const out: number[] = [];
+  let pos = text.indexOf(needle);
+  while (pos !== -1) {
+    if (hasCleanWordEdges(text, pos, needle)) out.push(pos);
+    pos = text.indexOf(needle, pos + 1);
+  }
+  return out;
+}
+
+// Capitalized token ending in a lowercase letter (a likely proper noun).
+const PROPER_NOUN_RE = /[A-Z\p{Lu}][\p{Ll}'’-]*\p{Ll}/gu;
+
+/**
+ * Returns the first proper-noun-like token `original` contains that the
+ * correction alters or drops, or null if none. A capitalized token whose
+ * lowercased form is NOT an acceptable dictionary word is treated as a name
+ * (this lets ordinary sentence-initial words like "Apparently" through, since
+ * "apparently" is a real word, while protecting "Aaron").
+ */
+function altersProperNoun(
+  original: string,
+  corrected: string,
+  isAcceptable: (word: string) => boolean,
+): string | null {
+  const correctedTokens = new Set(corrected.match(WORD_TOKEN_RE) ?? []);
+  for (const token of original.match(PROPER_NOUN_RE) ?? []) {
+    if (isAcceptable(token.toLowerCase())) continue; // ordinary capitalized word
+    if (!correctedTokens.has(token)) return token; // name altered or dropped
+  }
+  return null;
 }
 
 /** Result of a fuzzy text search. */
@@ -1071,25 +1231,49 @@ export function applyCorrections(
       });
       continue;
     }
+    if (opts?.isAcceptableWord) {
+      const badWord = introducedBadWord(
+        c.original,
+        c.corrected,
+        opts.isAcceptableWord,
+      );
+      if (badWord) {
+        skipped.push({
+          ...c,
+          reason: `introduces misspelled word: ${badWord}`,
+        });
+        continue;
+      }
+      const name = altersProperNoun(
+        c.original,
+        c.corrected,
+        opts.isAcceptableWord,
+      );
+      if (name) {
+        skipped.push({ ...c, reason: `alters proper noun: ${name}` });
+        continue;
+      }
+    }
 
     // ── Locate in the ORIGINAL text ──
-    const exactPos = text.indexOf(c.original);
-    if (exactPos !== -1) {
-      // Find ALL occurrences — apply the same correction everywhere
-      let pos = exactPos;
-      while (pos !== -1) {
+    // Matching is edge-boundary-checked: a fix like "from" can't be spliced
+    // inside an unrelated word ("formal"), and a multi-word original like
+    // "the student" can't match the prefix of "the students".
+    const positions = findOccurrences(text, c.original);
+    if (positions.length > 0) {
+      // Apply the same correction at every (boundary-checked) occurrence.
+      for (const pos of positions) {
         located.push({
           pos,
           original: c.original,
           corrected: c.corrected,
           correction: c,
         });
-        pos = text.indexOf(c.original, pos + 1);
       }
     } else {
       // Approach 3: fuzzy whitespace-flexible fallback
       const fuzzy = fuzzyFind(text, c.original);
-      if (fuzzy) {
+      if (fuzzy && hasCleanWordEdges(text, fuzzy.pos, fuzzy.match)) {
         located.push({
           pos: fuzzy.pos,
           original: fuzzy.match,
@@ -1119,46 +1303,141 @@ export function applyCorrections(
         newText.slice(item.pos + item.original.length);
       applied.push(item.correction);
     } else {
-      // The region shifted — try an indexOf in the current text.
-        const idx = newText.indexOf(item.original);
-        if (idx !== -1) {
-          newText =
-            newText.slice(0, idx) +
-            item.corrected +
-            newText.slice(idx + item.original.length);
+      // The region shifted — try a (boundary-checked) indexOf in the current text.
+      const idx = findOccurrences(newText, item.original)[0] ?? -1;
+      if (idx !== -1) {
+        newText =
+          newText.slice(0, idx) +
+          item.corrected +
+          newText.slice(idx + item.original.length);
+        applied.push(item.correction);
+      } else {
+        // Check if this correction was already applied by an overlapping
+        // correction (e.g. two corrections targeting the same word with
+        // different amounts of context, where the longer one was applied
+        // first and already covers this change).
+        const sliceAtOrigPos = newText.slice(
+          item.pos,
+          item.pos + item.corrected.length,
+        );
+        if (sliceAtOrigPos === item.corrected) {
           applied.push(item.correction);
         } else {
-          // Check if this correction was already applied by an overlapping
-          // correction (e.g. two corrections targeting the same word with
-          // different amounts of context, where the longer one was applied
-          // first and already covers this change).
-          const sliceAtOrigPos = newText.slice(
-            item.pos,
-            item.pos + item.corrected.length,
-          );
-          if (sliceAtOrigPos === item.corrected) {
+          // Last resort: fuzzy search in the already-mutated text.
+          const fuzzy = fuzzyFind(newText, item.original);
+          if (fuzzy && hasCleanWordEdges(newText, fuzzy.pos, fuzzy.match)) {
+            newText =
+              newText.slice(0, fuzzy.pos) +
+              item.corrected +
+              newText.slice(fuzzy.pos + fuzzy.match.length);
             applied.push(item.correction);
           } else {
-            // Last resort: fuzzy search in the already-mutated text.
-            const fuzzy = fuzzyFind(newText, item.original);
-            if (fuzzy) {
-              newText =
-                newText.slice(0, fuzzy.pos) +
-                item.corrected +
-                newText.slice(fuzzy.pos + fuzzy.match.length);
-              applied.push(item.correction);
-            } else {
-              skipped.push({
-                ...item.correction,
-                reason: "not found (collision with nearby edit)",
-              });
-            }
+            skipped.push({
+              ...item.correction,
+              reason: "not found (collision with nearby edit)",
+            });
           }
         }
+      }
     }
   }
 
   return [newText, applied, skipped];
+}
+
+const MAX_REVERT_ITERATIONS = 5;
+
+/**
+ * Map each introduced suspect word to the first correction whose `corrected`
+ * side contains it (case-insensitive, word-boundary; apostrophes — straight
+ * and typographic — count as word characters). Suspects contained in no
+ * correction are omitted: they are assembly artifacts the caller reports
+ * rather than reverts. Shared by applyCorrectionsVerified and the
+ * /verify-corrections export check.
+ */
+export function attributeSuspects<T extends { corrected: string }>(
+  suspects: string[],
+  corrections: T[],
+): Map<T, string> {
+  const wordRe = (word: string) => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![\\p{L}'’ʼ-])${escaped}(?![\\p{L}'’ʼ-])`, "iu");
+  };
+  const offenders = new Map<T, string>();
+  for (const word of suspects) {
+    const re = wordRe(word);
+    let attributed = false;
+    for (const c of corrections) {
+      if (re.test(c.corrected)) {
+        if (!offenders.has(c)) offenders.set(c, word);
+        attributed = true;
+      }
+    }
+    if (attributed) continue;
+    // Fallback for contraction splices: a multi-word correction whose
+    // original ends mid-contraction ("He hadn" → "He had" applied inside
+    // "He hadn’t") leaves a suspect ("had’t") whose full form appears in no
+    // correction — but its apostrophe-split stem ("had") does. Segments
+    // under 3 chars are skipped ("t") to avoid matching everything.
+    const segments = word.split(/[’'ʼ]/).filter((s) => s.length >= 3);
+    for (const seg of segments) {
+      const segRe = wordRe(seg);
+      for (const c of corrections) {
+        if (!offenders.has(c) && segRe.test(c.corrected)) offenders.set(c, word);
+      }
+    }
+  }
+  return offenders;
+}
+
+/**
+ * applyCorrections plus a post-apply safety net: if the applied result
+ * contains suspect words that were absent from the input text (per the
+ * injected `findNewSuspects`, normally spellcheck.findNewSuspectWords), the
+ * corrections responsible are excluded and the whole set is re-applied from
+ * scratch on the ORIGINAL text — reusing the battle-tested two-pass apply
+ * rather than surgically undoing splices. Loops until clean (Hunspell only,
+ * cheap). Reverted corrections come back flagged so the user sees what was
+ * undone. Suspects attributable to no correction (overlap/fuzzy artifacts)
+ * are left for the caller's chapter-level check to report.
+ */
+export function applyCorrectionsVerified(
+  text: string,
+  corrections: Correction[],
+  opts?: ApplyCorrectionsOptions & {
+    findNewSuspects?: (before: string, after: string) => string[] | null;
+  },
+): [string, Correction[], Correction[], Correction[]] {
+  let active = corrections;
+  const reverted: Correction[] = [];
+
+  for (let iteration = 0; ; iteration++) {
+    const [newText, applied, skipped] = applyCorrections(text, active, opts);
+    if (iteration >= MAX_REVERT_ITERATIONS) {
+      return [newText, applied, skipped, reverted];
+    }
+    const suspects = opts?.findNewSuspects?.(text, newText);
+    if (!suspects || suspects.length === 0) {
+      return [newText, applied, skipped, reverted];
+    }
+
+    // Attribute each introduced suspect to the applied correction(s) whose
+    // `corrected` side contains it. `applied` holds references into `active`,
+    // so offenders can be excluded by identity on the next iteration.
+    const offenders = attributeSuspects(suspects, applied);
+    if (offenders.size === 0) {
+      return [newText, applied, skipped, reverted];
+    }
+
+    for (const [c, word] of offenders) {
+      reverted.push({
+        ...c,
+        flagged: true,
+        reviewReason: `applying introduced misspelling "${word}" — reverted`,
+      });
+    }
+    active = active.filter((c) => !offenders.has(c));
+  }
 }
 
 /** Parse a generic JSON response, tolerating code fences and thinking blocks. */

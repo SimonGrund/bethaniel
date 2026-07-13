@@ -18,7 +18,6 @@ export default function EditTrigger() {
     copyEditOptions,
     lineEditOptions,
     targetLang,
-    fastMode,
     reviewMode,
     reviewerThreshold,
     reviewerCount,
@@ -26,6 +25,8 @@ export default function EditTrigger() {
     dualEditor,
     dualCount,
     characterDedup,
+    styleComplianceAgent,
+    extraPass,
     wordsPerChunk,
     overlapParagraphs,
     parallel,
@@ -76,7 +77,6 @@ export default function EditTrigger() {
         units,
         model,
         modes: selectedModes,
-        fast: fastMode,
         wordsPerChunk,
         overlapParagraphs,
         parallel,
@@ -92,6 +92,8 @@ export default function EditTrigger() {
         dualEditor,
         dualCount,
         characterDedup,
+        styleComplianceAgent,
+        extraPass,
       });
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);

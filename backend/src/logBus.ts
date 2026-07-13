@@ -144,5 +144,30 @@ export function diagnoseTaskError(message: string): Diagnosis | null {
   if (text.includes("failed to start llama-server")) {
     return { hintKey: "log_hint_binary_missing", level: "error" };
   }
+  if (
+    text.includes("context size has been exceeded") ||
+    text.includes("exceed context") ||
+    text.includes("context window") ||
+    text.includes("n_ctx") ||
+    text.includes("kv cache")
+  ) {
+    return { hintKey: "log_hint_context_too_large", level: "error" };
+  }
+  if (
+    text.includes("timed out") ||
+    text.includes("timeout") ||
+    text.includes("etimedout")
+  ) {
+    return { hintKey: "log_hint_timeout", level: "error" };
+  }
+  if (
+    text.includes("failed to parse json") ||
+    text.includes("parse json") ||
+    text.includes("unexpected token") ||
+    text.includes("is not valid json") ||
+    text.includes("0 content tokens")
+  ) {
+    return { hintKey: "log_hint_bad_output", level: "warn" };
+  }
   return null;
 }
