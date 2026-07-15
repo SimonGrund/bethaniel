@@ -143,6 +143,19 @@ async function* parseSSE(
   }
 }
 
+/**
+ * On the external API, reasoning models (e.g. deepseek-reasoner) spend
+ * max_tokens on hidden chain-of-thought BEFORE the visible answer, so the
+ * tight per-call caps used for chat models (reviewer: ~corrections×50+512)
+ * truncate the answer mid-line or return it empty. Give such models CoT
+ * headroom on top of the requested visible-output cap, within DeepSeek's
+ * 65536 output-token limit.
+ */
+export function apiMaxTokens(requested: number, apiModelName: string): number {
+  if (!/reason|think|\br1\b/i.test(apiModelName)) return requested;
+  return Math.min(65536, requested + 32768);
+}
+
 // ── Core streaming chat via OpenAI-compatible API ──
 
 async function* chatStream(
@@ -174,13 +187,14 @@ async function* chatStream(
     }
 
     const baseUrl = process.env.DEEPSEEK_API_BASE || "https://api.deepseek.com";
+    const apiModel = apiConfig.model || "deepseek-chat";
     const apiBody: Record<string, unknown> = {
-      model: apiConfig.model || "deepseek-chat",
+      model: apiModel,
       messages,
       stream: true,
       temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? cfg.top_p,
-      max_tokens: options.max_tokens ?? cfg.num_predict,
+      max_tokens: apiMaxTokens(options.max_tokens ?? cfg.num_predict, apiModel),
     };
     if (options.top_k != null) apiBody.top_k = options.top_k ?? cfg.top_k;
     if (options.repeat_penalty != null) {
