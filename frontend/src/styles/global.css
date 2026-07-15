@@ -1277,20 +1277,31 @@ h4 {
   background: #f0f5eb;
 }
 
+/* No `opacity` on the card itself: that creates a stacking context that
+   traps the reason tooltips beneath neighboring cards. Dim the diff text
+   instead. */
 .correction-card.flagged {
-  opacity: 0.68;
-  border-left-color: #c9a860;
+  border-left: 3px solid #c9a860;
   background: #fdf9ee;
 }
 
-.correction-card.flagged .correction-flag-badge {
-  font-size: 0.7rem;
+.correction-card.flagged .correction-diff {
+  opacity: 0.75;
+}
+
+.correction-flag-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
   background: #f0e0b0;
   color: #6b5500;
-  padding: 0 4px;
-  border-radius: 2px;
+  border: 1px solid #d9c078;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
   margin-left: 0.35rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
   flex-shrink: 0;
 }
 
@@ -1298,7 +1309,7 @@ h4 {
   font-size: 0.72rem;
   white-space: nowrap;
   margin-left: 0.4rem;
-  opacity: 0.85;
+  color: #6b5c44;
   cursor: help;
   flex-shrink: 0;
 }
@@ -1333,7 +1344,14 @@ h4 {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
-  z-index: 100;
+  z-index: 1000;
+}
+
+/* Lift the hovered badge above sibling cards so its tooltip isn't painted
+   over by later content. */
+.correction-confidence[data-tip]:hover,
+.correction-flag-badge[data-tip]:hover {
+  z-index: 1000;
 }
 
 .correction-confidence[data-tip]:hover::after,
@@ -1343,13 +1361,18 @@ h4 {
 
 .show-flagged-toggle {
   font-size: 0.78rem;
-  color: #64748b;
+  font-weight: 600;
+  color: #6b5500;
   cursor: pointer;
-  border: 1px solid #d1d5db;
-  background: #f8fafc;
+  border: 1px solid #d9c078;
+  background: #f8ecc8;
   border-radius: 3px;
   padding: 0.15rem 0.5rem;
   margin-right: 0.5rem;
+}
+
+.show-flagged-toggle:hover {
+  background: #f0e0b0;
 }
 
 .show-flagged-toggle:hover {
@@ -1874,7 +1897,12 @@ summary.review-source::before {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
-  z-index: 100;
+  z-index: 1000;
+}
+
+/* Lift the hovered anchor so the tooltip paints above later siblings. */
+.info-tooltip:hover {
+  z-index: 1000;
 }
 
 .info-tooltip:hover::after {
