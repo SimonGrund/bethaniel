@@ -1460,13 +1460,19 @@ router.get("/models/custom/config", (_req: Request, res: Response) => {
 
 router.put("/models/custom/config", (req: Request, res: Response) => {
   const { apiKey, model } = req.body ?? {};
-  if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
+  // Model can be changed without re-entering the key (the key never leaves
+  // the backend, so the frontend can't echo it back).
+  const key =
+    typeof apiKey === "string" && apiKey.trim().length > 0
+      ? apiKey.trim()
+      : (readApiConfig()?.apiKey ?? "");
+  if (!key) {
     res.status(400).json({ error: "API key is required" });
     return;
   }
   const apiModel =
     typeof model === "string" && model.trim() ? model.trim() : "deepseek-chat";
-  writeApiConfig({ apiKey: apiKey.trim(), model: apiModel });
+  writeApiConfig({ apiKey: key, model: apiModel });
   res.json({ ok: true });
 });
 

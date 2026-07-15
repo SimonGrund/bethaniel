@@ -8,6 +8,7 @@ import {
   fetchSystemRecommendation,
   fetchCustomModelConfig,
   saveCustomModelConfig,
+  saveCustomModelName,
   deleteCustomModelConfig,
   fetchCustomGgufConfig,
   saveCustomGgufConfig,
@@ -199,6 +200,20 @@ export default function ModelSelector({
       setApiError(err instanceof Error ? err.message : t("api_config_error"));
     } finally {
       setApiSaving(false);
+    }
+  }
+
+  /** Change the DeepSeek model. Persists immediately when a key is stored;
+   *  otherwise just preselects the value used when connecting. */
+  async function handleChangeApiModel(name: string) {
+    setApiModelName(name);
+    if (!apiKeyConfigured) return;
+    setApiError(null);
+    try {
+      await saveCustomModelName(name);
+      setStoreApiModel(name);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : t("api_config_error"));
     }
   }
 
@@ -969,6 +984,30 @@ export default function ModelSelector({
                 </label>
               </div>
 
+              <div className="field">
+                <label>
+                  {t("api_model_label")}{" "}
+                  <span
+                    className="info-tooltip"
+                    data-tip={t("api_model_tooltip")}
+                  >
+                    ⓘ
+                  </span>
+                </label>
+                <select
+                  className="api-config-select"
+                  value={apiModelName}
+                  onChange={(e) => handleChangeApiModel(e.target.value)}
+                >
+                  <option value="deepseek-chat">
+                    deepseek-chat (DeepSeek V3)
+                  </option>
+                  <option value="deepseek-reasoner">
+                    deepseek-reasoner (DeepSeek R1)
+                  </option>
+                </select>
+              </div>
+
               {highlightedModel && <ModelTuning fileName={highlightedModel} />}
             </div>
           )}
@@ -1131,8 +1170,26 @@ export default function ModelSelector({
               <div className="api-config-inline">
                 <div className="api-config-row">
                   <label>
-                    {t("api_model_label")}: {apiModelName}
+                    {t("api_model_label")}{" "}
+                    <span
+                      className="info-tooltip"
+                      data-tip={t("api_model_tooltip")}
+                    >
+                      ⓘ
+                    </span>
                   </label>
+                  <select
+                    className="api-config-select"
+                    value={apiModelName}
+                    onChange={(e) => handleChangeApiModel(e.target.value)}
+                  >
+                    <option value="deepseek-chat">
+                      deepseek-chat (DeepSeek V3)
+                    </option>
+                    <option value="deepseek-reasoner">
+                      deepseek-reasoner (DeepSeek R1)
+                    </option>
+                  </select>
                 </div>
                 <div className="api-privacy-warning">
                   {t("api_privacy_warning")}
