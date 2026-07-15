@@ -12,6 +12,7 @@ import {
   dominantQuoteStyle,
   sanitizeQuoteCorrections,
   collapseIntroducedQuotePairs,
+  foldContainedCorrections,
   revertSuspectRuns,
 } from "../src/correctionHygiene.ts";
 import { applyCorrections } from "../src/llm.ts";
@@ -128,6 +129,122 @@ test("revert with no suspects is a no-op", () => {
   const { text, reverted } = revertSuspectRuns("a b c", "a B c", []);
   assert.equal(text, "a B c");
   assert.equal(reverted.length, 0);
+});
+
+// ── foldContainedCorrections ──
+// Real case: combined_edit produced a sentence-level line edit AND a
+// contained word fix ("knifes"→"knives"). The word fix applied first and the
+// rewrite was then skipped as "not found (collision with nearby edit)".
+
+const KNIFES_TEXT =
+  "Bria and Kindra stood ready; Kindra with a sword and shield, Bria with her two knifes and her enhanced speed and strength. " +
+  "Her heart beat fast and the knifes were in her hands before she even noticed it.";
+const KNIFES_REWRITE_1 = {
+  original:
+    "Bria and Kindra stood ready; Kindra with a sword and shield, Bria with her two knifes and her enhanced speed and strength.",
+  corrected:
+    "Bria and Kindra stood ready: Kindra with a sword and shield, Bria with her two knives and her enhanced speed and strength.",
+};
+const KNIFES_REWRITE_2 = {
+  original:
+    "Her heart beat fast and the knifes were in her hands before she even noticed it.",
+  corrected:
+    "Her heart beat fast, and the knives were in her hands before she even noticed.",
+};
+
+test("fold: drops a word fix fully covered by sentence rewrites", () => {
+  const { kept, dropped } = foldContainedCorrections(KNIFES_TEXT, [
+    KNIFES_REWRITE_1,
+    KNIFES_REWRITE_2,
+    { original: "knifes", corrected: "knives" },
+  ]);
+  assert.equal(dropped.length, 1);
+  assert.equal(dropped[0].original, "knifes");
+  assert.equal(kept.length, 2);
+  // The rewrites already contain the fix — corrected text unchanged.
+  assert.equal(kept[0].corrected, KNIFES_REWRITE_1.corrected);
+  assert.equal(kept[1].corrected, KNIFES_REWRITE_2.corrected);
+});
+
+test("fold: merges the fix into a rewrite that missed it", () => {
+  const text = "He took the knifes away before dinner.";
+  const { kept, dropped } = foldContainedCorrections(text, [
+    {
+      original: "He took the knifes away before dinner.",
+      corrected: "He took the knifes away well before dinner.",
+    },
+    { original: "knifes", corrected: "knives" },
+  ]);
+  assert.equal(dropped.length, 1);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].corrected, "He took the knives away well before dinner.");
+});
+
+test("fold: keeps a word fix that also occurs outside the rewrite", () => {
+  const text =
+    "The knifes gleamed in the light. She hid the knifes under the floorboard.";
+  const { kept, dropped } = foldContainedCorrections(text, [
+    {
+      original: "The knifes gleamed in the light.",
+      corrected: "The knives gleamed in the lamplight.",
+    },
+    { original: "knifes", corrected: "knives" },
+  ]);
+  assert.equal(dropped.length, 0);
+  assert.equal(kept.length, 2);
+});
+
+test("fold: word-boundary safe — no folding inside larger words", () => {
+  const text = "The rat scurried while the strategy unfolded.";
+  const { kept, dropped } = foldContainedCorrections(text, [
+    {
+      original: "The rat scurried while the strategy unfolded.",
+      corrected: "The rat scurried away while the strategy unfolded.",
+    },
+    { original: "rat", corrected: "mouse" },
+  ]);
+  // "rat" occurs inside "strategy" as a substring but only the whole word
+  // counts; folding must replace only the standalone "rat".
+  assert.equal(dropped.length, 1);
+  assert.equal(
+    kept[0].corrected,
+    "The mouse scurried away while the strategy unfolded.",
+  );
+});
+
+// ── applyCorrections overlap resolution ──
+
+test("apply: larger rewrite wins over a contained fix (old stored data)", () => {
+  const [out, applied, skipped] = applyCorrections(KNIFES_TEXT, [
+    { original: "knifes", corrected: "knives" },
+    KNIFES_REWRITE_1,
+    KNIFES_REWRITE_2,
+  ]);
+  assert.equal(
+    out,
+    KNIFES_REWRITE_1.corrected + " " + KNIFES_REWRITE_2.corrected,
+  );
+  assert.equal(applied.length, 2);
+  assert.equal(skipped.length, 1);
+  assert.match(skipped[0].reason ?? "", /overlaps a larger applied edit/);
+});
+
+test("apply: rival rewrites of the same sentence — one applies, honest reason", () => {
+  const text = "The fighters fell backwards, stumbling over their comrades.";
+  const [out, applied, skipped] = applyCorrections(text, [
+    {
+      original: "The fighters fell backwards, stumbling over their comrades.",
+      corrected: "The fighters fell backward, stumbling over their comrades.",
+    },
+    {
+      original: "The fighters fell backwards, stumbling over their comrades.",
+      corrected: "The fighters fell backward, tripping over their comrades.",
+    },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.equal(out, "The fighters fell backward, stumbling over their comrades.");
+  assert.equal(skipped.length, 1);
+  assert.match(skipped[0].reason ?? "", /alternative rewrite of the same text/);
 });
 
 // ── applyCorrections edge boundaries (root cause of the splice) ──

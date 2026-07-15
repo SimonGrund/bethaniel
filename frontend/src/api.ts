@@ -282,6 +282,15 @@ export async function saveCustomModelConfig(apiKey: string, model: string) {
   });
 }
 
+/** Change the External Betty model without re-entering the stored API key. */
+export async function saveCustomModelName(model: string) {
+  await apiFetch("/models/custom/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+}
+
 export async function deleteCustomModelConfig() {
   await apiFetch("/models/custom/config", { method: "DELETE" });
 }

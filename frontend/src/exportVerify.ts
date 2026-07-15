@@ -85,21 +85,32 @@ export function applyAccepted(
 
   if (positioned.length === 0) return originalText;
 
-  // Sort all replacements from last to first so earlier indices don't shift
-  positioned.sort((a, b) => b.index - a.index);
-
   // Overlapping spans (two accepted corrections claiming the same region)
-  // would corrupt each other when applied in sequence — apply the later one
-  // and skip any earlier span that reaches into it.
+  // would corrupt each other when applied in sequence. The larger edit wins —
+  // a sentence rewrite carries any word fix contained in it — matching the
+  // backend's applyCorrections so the export reproduces the engine's text.
+  positioned.sort(
+    (a, b) => b.correction.original.length - a.correction.original.length,
+  );
+  const chosen: typeof positioned = [];
+  for (const p of positioned) {
+    const clashes = chosen.some(
+      (k) =>
+        p.index < k.index + k.correction.original.length &&
+        k.index < p.index + p.correction.original.length,
+    );
+    if (!clashes) chosen.push(p);
+  }
+
+  // Sort all replacements from last to first so earlier indices don't shift
+  chosen.sort((a, b) => b.index - a.index);
+
   let result = originalText;
-  let lastAppliedStart = Infinity;
-  for (const { correction, index } of positioned) {
-    if (index + correction.original.length > lastAppliedStart) continue;
+  for (const { correction, index } of chosen) {
     result =
       result.slice(0, index) +
       correction.corrected +
       result.slice(index + correction.original.length);
-    lastAppliedStart = index;
   }
   return result;
 }

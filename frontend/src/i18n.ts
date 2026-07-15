@@ -1578,6 +1578,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Modell",
     es: "Modelo",
   },
+  api_model_tooltip: {
+    en: "deepseek-chat (recommended) is fast, inexpensive, and edits just as well. deepseek-reasoner thinks before every answer — several times slower and pricier, with little benefit for editing. Changes take effect on the next run.",
+    da: "deepseek-chat (anbefalet) er hurtig, billig og redigerer lige så godt. deepseek-reasoner tænker før hvert svar — flere gange langsommere og dyrere, med ringe fordel ved redigering. Ændringer træder i kraft ved næste kørsel.",
+    de: "deepseek-chat (empfohlen) ist schnell, günstig und redigiert genauso gut. deepseek-reasoner denkt vor jeder Antwort nach — mehrfach langsamer und teurer, mit wenig Nutzen beim Redigieren. Änderungen gelten ab dem nächsten Lauf.",
+    es: "deepseek-chat (recomendado) es rápido, económico y edita igual de bien. deepseek-reasoner razona antes de cada respuesta — varias veces más lento y caro, con poco beneficio para la edición. Los cambios se aplican en la próxima ejecución.",
+  },
   api_connect: {
     en: "Connect",
     da: "Tilslut",
