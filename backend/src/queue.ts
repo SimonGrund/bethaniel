@@ -37,7 +37,10 @@ import {
   flagUnanchoredCorrections,
 } from "./reviewResilience.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
-import { sanitizeQuoteCorrections } from "./correctionHygiene.js";
+import {
+  sanitizeQuoteCorrections,
+  foldContainedCorrections,
+} from "./correctionHygiene.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
   BLURB_PROMPT,
@@ -1519,7 +1522,6 @@ async function processJob(job: JobData): Promise<void> {
           // duplicated edge quotes, match added quotes to the manuscript's
           // style, and drop corrections that had nothing else to say.
           const quoteSan = sanitizeQuoteCorrections(chunk.body, editorCsRaw);
-          const editorCs = quoteSan.kept;
           if (quoteSan.dropped.length > 0 || quoteSan.adjusted > 0) {
             skipped.push(...quoteSan.dropped);
             appendLog({
@@ -1527,6 +1529,22 @@ async function processJob(job: JobData): Promise<void> {
               source: "engine",
               taskId,
               message: `Chunk ${chunkLabel}: quote hygiene — ${quoteSan.adjusted} correction(s) restyled, ${quoteSan.dropped.length} dropped (would duplicate existing quotation marks).`,
+              model,
+            });
+          }
+
+          // ── Contained-correction folding ──
+          // A word fix inside a sentence rewrite would collide with it at
+          // apply time; merge it into the rewrite and drop the duplicate.
+          const fold = foldContainedCorrections(chunk.body, quoteSan.kept);
+          const editorCs = fold.kept;
+          if (fold.dropped.length > 0 || fold.folded > 0) {
+            skipped.push(...fold.dropped);
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: ${fold.dropped.length} smaller correction(s) merged into overlapping rewrites (${fold.folded} rewrite(s) absorbed a contained fix).`,
               model,
             });
           }

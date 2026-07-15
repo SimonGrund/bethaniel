@@ -1303,6 +1303,44 @@ h4 {
   flex-shrink: 0;
 }
 
+/* Reviewer-reason tooltip on the score and flag badges (styled like
+   .info-tooltip; right-anchored — the badges sit at the card's right edge). */
+.correction-confidence,
+.correction-flag-badge {
+  position: relative;
+}
+
+.correction-flag-badge[data-tip] {
+  cursor: help;
+}
+
+.correction-confidence[data-tip]::after,
+.correction-flag-badge[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  background: #3a3224;
+  color: #f7f1e3;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  white-space: normal;
+  width: max-content;
+  max-width: 340px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+
+.correction-confidence[data-tip]:hover::after,
+.correction-flag-badge[data-tip]:hover::after {
+  opacity: 1;
+}
+
 .show-flagged-toggle {
   font-size: 0.78rem;
   color: #64748b;

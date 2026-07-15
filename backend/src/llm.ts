@@ -1300,13 +1300,45 @@ export function applyCorrections(
     }
   }
 
-  // ── Pass 2: apply end→start using original positions ──
-  located.sort((a, b) => b.pos - a.pos);
+  // ── Pass 2a: resolve overlapping spans — the larger edit wins ──
+  // A sentence rewrite and a word fix inside it would otherwise splice
+  // end→start: the inner fix mutates the sentence first and the rewrite is
+  // skipped. The larger edit carries the contained change (ingestion folds
+  // it in via foldContainedCorrections), so it takes precedence. Rival
+  // rewrites of the same span keep the first-listed version.
+  const byLength = [...located].sort(
+    (a, b) => b.original.length - a.original.length,
+  );
+  const chosen: Located[] = [];
+  const overlapSkipped = new Set<Correction>();
+  for (const item of byLength) {
+    const clash = chosen.find(
+      (k) =>
+        item.pos < k.pos + k.original.length &&
+        k.pos < item.pos + item.original.length,
+    );
+    if (!clash) {
+      chosen.push(item);
+      continue;
+    }
+    if (overlapSkipped.has(item.correction)) continue;
+    overlapSkipped.add(item.correction);
+    skipped.push({
+      ...item.correction,
+      reason:
+        clash.correction.original === item.correction.original
+          ? "alternative rewrite of the same text (another version was applied)"
+          : "overlaps a larger applied edit",
+    });
+  }
+
+  // ── Pass 2b: apply end→start using original positions ──
+  chosen.sort((a, b) => b.pos - a.pos);
 
   const applied: Correction[] = [];
   let newText = text;
 
-  for (const item of located) {
+  for (const item of chosen) {
     // Verify the text slice still matches (it always should because we
     // process end→start, but overlapping fuzzy matches can shift things).
     const slice = newText.slice(item.pos, item.pos + item.original.length);

@@ -208,6 +208,42 @@ function extractSentenceContext(
   return { before, after };
 }
 
+/** Reviewer confidence score; hover shows the reviewer's reasoning. */
+function ConfidenceBadge({ correction }: { correction: Correction }) {
+  if (correction.confidence === undefined) return null;
+  const icon =
+    correction.confidence >= 5
+      ? "🟢"
+      : correction.confidence >= 4
+        ? "🟡"
+        : correction.confidence >= 3
+          ? "🟠"
+          : correction.confidence >= 2
+            ? "🔴"
+            : "⛔";
+  return (
+    <span
+      className="correction-confidence"
+      data-tip={correction.reviewReason || undefined}
+    >
+      {icon} {correction.confidence}/5
+    </span>
+  );
+}
+
+/** Flag badge; hover shows why the reviewer (or pipeline) flagged it. */
+function FlagBadge({ correction }: { correction: Correction }) {
+  if (!correction.flagged) return null;
+  return (
+    <span
+      className="correction-flag-badge"
+      data-tip={correction.reviewReason || undefined}
+    >
+      ⚠ flagged
+    </span>
+  );
+}
+
 function CorrectionCard({
   correction,
   taskId,
@@ -249,26 +285,8 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        {correction.confidence !== undefined && (
-          <span
-            className="correction-confidence"
-            title={correction.reviewReason ?? ""}
-          >
-            {correction.confidence >= 5
-              ? "🟢"
-              : correction.confidence >= 4
-                ? "🟡"
-                : correction.confidence >= 3
-                  ? "🟠"
-                  : correction.confidence >= 2
-                    ? "🔴"
-                    : "⛔"}{" "}
-            {correction.confidence}/5
-          </span>
-        )}
-        {correction.flagged && (
-          <span className="correction-flag-badge">⚠ flagged</span>
-        )}
+        <ConfidenceBadge correction={correction} />
+        <FlagBadge correction={correction} />
       </div>
     );
   }
@@ -299,26 +317,8 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        {correction.confidence !== undefined && (
-          <span
-            className="correction-confidence"
-            title={correction.reviewReason ?? ""}
-          >
-            {correction.confidence >= 5
-              ? "🟢"
-              : correction.confidence >= 4
-                ? "🟡"
-                : correction.confidence >= 3
-                  ? "🟠"
-                  : correction.confidence >= 2
-                    ? "🔴"
-                    : "⛔"}{" "}
-            {correction.confidence}/5
-          </span>
-        )}
-        {correction.flagged && (
-          <span className="correction-flag-badge">⚠ flagged</span>
-        )}
+        <ConfidenceBadge correction={correction} />
+        <FlagBadge correction={correction} />
       </div>
     );
   }
@@ -341,26 +341,8 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        {correction.confidence !== undefined && (
-          <span
-            className="correction-confidence"
-            title={correction.reviewReason ?? ""}
-          >
-            {correction.confidence >= 5
-              ? "🟢"
-              : correction.confidence >= 4
-                ? "🟡"
-                : correction.confidence >= 3
-                  ? "🟠"
-                  : correction.confidence >= 2
-                    ? "🔴"
-                    : "⛔"}{" "}
-            {correction.confidence}/5
-          </span>
-        )}
-        {correction.flagged && (
-          <span className="correction-flag-badge">⚠ flagged</span>
-        )}
+        <ConfidenceBadge correction={correction} />
+        <FlagBadge correction={correction} />
       </div>
     );
   }
@@ -428,26 +410,8 @@ function CorrectionCard({
             <span className="correction-context"> {firstCtx.after}</span>
           )}
         </span>
-        {correction.confidence !== undefined && (
-          <span
-            className="correction-confidence"
-            title={correction.reviewReason ?? ""}
-          >
-            {correction.confidence >= 5
-              ? "🟢"
-              : correction.confidence >= 4
-                ? "🟡"
-                : correction.confidence >= 3
-                  ? "🟠"
-                  : correction.confidence >= 2
-                    ? "🔴"
-                    : "⛔"}{" "}
-            {correction.confidence}/5
-          </span>
-        )}
-        {correction.flagged && (
-          <span className="correction-flag-badge">⚠ flagged</span>
-        )}
+        <ConfidenceBadge correction={correction} />
+        <FlagBadge correction={correction} />
         {totalOcc > 1 && (
           <span
             className="occurrence-badge"

@@ -201,6 +201,153 @@ export function collapseIntroducedQuotePairs(
   return { text: out, fixes };
 }
 
+// ── Contained-correction folding ──
+//
+// combined_edit regularly produces a sentence-level rewrite AND a smaller
+// fix inside the same sentence (rewrite of "…her two knifes and…" plus
+// "knifes"→"knives"). At apply time the corrections are spliced end→start,
+// so the inner fix mutates the sentence first and the rewrite is skipped as
+// "not found (collision with nearby edit)". Folding resolves this at
+// ingestion: the small fix is merged into every containing rewrite's
+// `corrected`, and dropped as a separate correction when it occurs nowhere
+// else in the chunk.
+
+const FOLD_WORD_CHAR_RE = /[\p{L}\p{N}'’ʼ-]/u;
+const FOLD_EDGE_ALNUM_RE = /[\p{L}\p{N}]/u;
+
+function cleanWordEdgesAt(text: string, pos: number, match: string): boolean {
+  if (match.length === 0) return false;
+  if (
+    FOLD_EDGE_ALNUM_RE.test(match[0]) &&
+    pos > 0 &&
+    FOLD_WORD_CHAR_RE.test(text[pos - 1])
+  ) {
+    return false;
+  }
+  const after = pos + match.length;
+  if (
+    FOLD_EDGE_ALNUM_RE.test(match[match.length - 1]) &&
+    after < text.length &&
+    FOLD_WORD_CHAR_RE.test(text[after])
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function boundaryOccurrences(text: string, needle: string): number[] {
+  const out: number[] = [];
+  let idx = -1;
+  while ((idx = text.indexOf(needle, idx + 1)) !== -1) {
+    if (cleanWordEdgesAt(text, idx, needle)) out.push(idx);
+  }
+  return out;
+}
+
+/** Replace every boundary-checked occurrence of `needle` in `text`. */
+function replaceWholeWordish(
+  text: string,
+  needle: string,
+  replacement: string,
+): string {
+  const positions = boundaryOccurrences(text, needle);
+  let out = text;
+  for (let i = positions.length - 1; i >= 0; i--) {
+    const pos = positions[i];
+    out = out.slice(0, pos) + replacement + out.slice(pos + needle.length);
+  }
+  return out;
+}
+
+export interface FoldResult {
+  kept: Correction[];
+  /** Contained corrections removed because every occurrence of their
+   *  `original` lies inside a containing rewrite (which now carries the fix). */
+  dropped: Correction[];
+  /** Number of rewrites whose `corrected` absorbed a contained fix. */
+  folded: number;
+}
+
+/**
+ * Merge corrections whose `original` span lies inside a larger correction's
+ * span into that larger correction. Processing is smallest-first so chains
+ * (word fix ⊂ clause fix ⊂ sentence rewrite) propagate outward.
+ */
+export function foldContainedCorrections(
+  contextText: string,
+  corrections: Correction[],
+): FoldResult {
+  interface Entry {
+    c: Correction;
+    corrected: string;
+    spans: [number, number][];
+  }
+  const entries: Entry[] = corrections.map((c) => ({
+    c,
+    corrected: c.corrected,
+    spans: boundaryOccurrences(contextText, c.original).map(
+      (p) => [p, p + c.original.length] as [number, number],
+    ),
+  }));
+
+  const bySize = [...entries].sort(
+    (a, b) => a.c.original.length - b.c.original.length,
+  );
+
+  let folded = 0;
+  const droppedSet = new Set<Entry>();
+
+  for (const inner of bySize) {
+    if (inner.spans.length === 0 || inner.c.original === inner.c.corrected)
+      continue;
+    const containers = entries.filter(
+      (outer) =>
+        outer !== inner &&
+        !droppedSet.has(outer) &&
+        outer.c.original.length > inner.c.original.length &&
+        outer.c.original.includes(inner.c.original),
+    );
+    if (containers.length === 0) continue;
+
+    // Fold the fix into every containing rewrite that still shows the flaw.
+    for (const outer of containers) {
+      const next = replaceWholeWordish(
+        outer.corrected,
+        inner.c.original,
+        inner.corrected,
+      );
+      if (next !== outer.corrected) {
+        outer.corrected = next;
+        folded++;
+      }
+    }
+
+    // Drop the inner correction only when every occurrence in the chunk is
+    // covered by a container span — elsewhere it must still apply on its own.
+    const containerSpans = containers.flatMap((o) => o.spans);
+    const allCovered = inner.spans.every(([s, e]) =>
+      containerSpans.some(([cs, ce]) => s >= cs && e <= ce),
+    );
+    if (allCovered) droppedSet.add(inner);
+  }
+
+  const kept: Correction[] = [];
+  const dropped: Correction[] = [];
+  for (const entry of entries) {
+    if (droppedSet.has(entry)) {
+      dropped.push({
+        ...entry.c,
+        reason: "merged into an overlapping rewrite",
+      });
+    } else if (entry.corrected !== entry.c.corrected) {
+      kept.push({ ...entry.c, corrected: entry.corrected });
+    } else {
+      kept.push(entry.c);
+    }
+  }
+  return { kept, dropped, folded };
+}
+
 // Word tokens — matches spellcheck.ts WORD_RE (2+ letters, apostrophes join).
 const WORD_RE = /\p{L}[\p{L}'’ʼ-]*[\p{L}]/gu;
 
