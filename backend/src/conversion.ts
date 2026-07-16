@@ -364,6 +364,16 @@ export function mdToHtml(
       continue;
     }
 
+    // Lone "#": minor section break (smaller than a scene break) — render as
+    // a real empty line. The &#160; keeps html-to-docx from dropping the
+    // paragraph; numeric (not &nbsp;) so the EPUB XHTML parses it too.
+    if (trimmed === "#") {
+      flushParagraph();
+      htmlLines.push(`<p style="${lineHeight}">&#160;</p>`);
+      lastWasPagebreak = false;
+      continue;
+    }
+
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
     if (headingMatch) {
       flushParagraph();

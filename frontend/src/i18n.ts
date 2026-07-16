@@ -544,10 +544,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "omitido",
   },
   skipped_tooltip: {
-    en: "These corrections were skipped because they touched markdown formatting (headings, bold, italic, links), were flagged by the reviewer as low-confidence, or were ambiguous (e.g. the original text couldn't be uniquely located). This is a safety measure to avoid corrupting the document structure.",
-    da: "Disse rettelser blev sprunget over fordi de berørte markdown-formattering (overskrifter, fed, kursiv, links), blev markeret som lav tillid af revieweren eller var tvetydige (f.eks. kunne originalteksten ikke entydigt lokaliseres). Dette er en sikkerhedsforanstaltning for at undgå at ødelægge dokumentstrukturen.",
-    de: "Diese Korrekturen wurden übersprungen, weil sie Markdown-Formatierung (Überschriften, Fett, Kursiv, Links) betrafen, vom Reviewer als unsicher markiert wurden oder mehrdeutig waren (z. B. konnte der Originaltext nicht eindeutig lokalisiert werden). Dies ist eine Sicherheitsmaßnahme zum Schutz der Dokumentstruktur.",
-    es: "Estas correcciones se omitieron porque tocaban formato markdown (encabezados, negrita, cursiva, enlaces), fueron marcadas como baja confianza por el revisor o eran ambiguas (p. ej., el texto original no se pudo localizar de forma única). Es una medida de seguridad para evitar corromper la estructura del documento.",
+    en: "Skipped changes were discarded by safety checks and are never applied: they duplicated another applied edit, were merged into a larger overlapping rewrite, touched markdown formatting, would have introduced a misspelling, or their original text couldn't be found. Each entry shows its reason. Unlike flagged suggestions, skipped ones cannot be accepted.",
+    da: "Oversprungne ændringer blev kasseret af sikkerhedstjek og anvendes aldrig: de duplikerede en anden anvendt rettelse, blev flettet ind i en større overlappende omskrivning, berørte markdown-formatering, ville have indført en stavefejl, eller originalteksten kunne ikke findes. Hver post viser sin årsag. I modsætning til markerede forslag kan oversprungne ikke accepteres.",
+    de: "Übersprungene Änderungen wurden von Sicherheitsprüfungen verworfen und nie angewendet: sie duplizierten eine andere angewendete Korrektur, wurden in eine größere überlappende Umformulierung eingearbeitet, betrafen Markdown-Formatierung, hätten einen Rechtschreibfehler eingeführt, oder ihr Originaltext war nicht auffindbar. Jeder Eintrag zeigt seinen Grund. Anders als markierte Vorschläge können übersprungene nicht angenommen werden.",
+    es: "Los cambios omitidos fueron descartados por las comprobaciones de seguridad y nunca se aplican: duplicaban otra corrección aplicada, se fusionaron en una reescritura mayor superpuesta, tocaban formato markdown, habrían introducido una falta de ortografía o su texto original no se pudo encontrar. Cada entrada muestra su motivo. A diferencia de las sugerencias marcadas, las omitidas no se pueden aceptar.",
+  },
+  flagged_tooltip: {
+    en: "Flagged suggestions were NOT applied automatically — the reviewer scored them low-confidence or couldn't vet them. Hover a ⚠ flagged badge to see why. You can still accept the ones you agree with; \"Accept all\" leaves them untouched.",
+    da: "Markerede forslag blev IKKE anvendt automatisk — revieweren gav dem lav tillid eller kunne ikke vurdere dem. Hold musen over et ⚠-mærke for at se hvorfor. Du kan stadig acceptere dem, du er enig i; \"Accepter alle\" rører dem ikke.",
+    de: "Markierte Vorschläge wurden NICHT automatisch angewendet — der Reviewer bewertete sie mit geringer Zuversicht oder konnte sie nicht prüfen. Fahre über ein ⚠-Abzeichen, um den Grund zu sehen. Du kannst sie einzeln annehmen; \"Alle akzeptieren\" lässt sie unberührt.",
+    es: "Las sugerencias marcadas NO se aplicaron automáticamente: el revisor les dio baja confianza o no pudo evaluarlas. Pasa el cursor sobre una insignia ⚠ para ver el motivo. Aún puedes aceptar las que te convenzan; \"Aceptar todo\" no las toca.",
   },
   review_mode: {
     en: "Review mode (Editor + Reviewer)",

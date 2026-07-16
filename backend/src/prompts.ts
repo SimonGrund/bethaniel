@@ -475,8 +475,9 @@ ABSOLUTE RULE — DO NOT CHANGE THE PROSE:
 
 WHAT TO FORMAT:
 1. Chapter / part headings: when a line is clearly a chapter or section title (e.g. "CHAPTER ONE", "Chapter 12", "Prologue", "Part Two"), make it a Markdown heading using "## " (two hashes + a space). Keep the exact title text. If it is already a proper heading, leave it.
-2. Scene breaks: when a line is a scene/section divider (e.g. "***", "* * *", "---", "___", a lone "#", or a decorative glyph line), replace that whole line with exactly:
+2. Scene breaks: when a line is a scene/section divider (e.g. "***", "* * *", "---", "___", or a decorative glyph line), replace that whole line with exactly:
 ${SCENE_BREAK_MARKER}
+   EXCEPTION: a lone "#" on its own line is a MINOR section break (a deliberate blank line, smaller than a scene break). Keep every lone "#" line exactly as-is — do not convert it to a scene break and do not delete it.
 3. Paragraph spacing: ensure exactly ONE blank line between paragraphs. Collapse runs of 3+ blank lines down to a single blank line. Do not merge separate paragraphs into one.
 4. Leave all other Markdown intact: bold (**…**), italic (*…* / _…_), lists, blockquotes, links.
 

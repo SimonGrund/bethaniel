@@ -231,7 +231,8 @@ function ConfidenceBadge({ correction }: { correction: Correction }) {
   );
 }
 
-/** Flag badge; hover shows why the reviewer (or pipeline) flagged it. */
+/** Flag badge — shows the reviewer's reason inline (ellipsized), full text
+ *  on hover. Rendered prominently so flagged suggestions can't be missed. */
 function FlagBadge({ correction }: { correction: Correction }) {
   if (!correction.flagged) return null;
   return (
@@ -239,7 +240,7 @@ function FlagBadge({ correction }: { correction: Correction }) {
       className="correction-flag-badge"
       data-tip={correction.reviewReason || undefined}
     >
-      ⚠ flagged
+      ⚠ flagged{correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
     </span>
   );
 }
@@ -2192,10 +2193,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   <button
                                     className="show-flagged-toggle"
                                     onClick={() => toggleShowFlagged(tid)}
+                                    title={t("flagged_tooltip")}
                                   >
                                     {showAll
                                       ? t("hide_flagged")
-                                      : `${t("show_all_suggestions")} (${flaggedCount})`}
+                                      : `⚠ ${t("show_all_suggestions")} (${flaggedCount})`}
                                   </button>
                                 )}
                                 <button
@@ -2216,12 +2218,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   {t("proposed_changes")}
                                   {flaggedCount > 0 && !showAll && (
                                     <span
+                                      className="info-tooltip"
+                                      data-tip={t("flagged_tooltip")}
                                       style={{
                                         color: "#8b7355",
                                         marginLeft: "0.3rem",
                                       }}
                                     >
-                                      (+{flaggedCount} flagged)
+                                      (+{flaggedCount} {t("flagged_label")}) ⓘ
                                     </span>
                                   )}
                                 </span>
@@ -2265,6 +2269,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 );
                               })}
 
+                              </div>
+
+                              {/* Outside .corrections-scroll so the ⓘ tooltip
+                                  isn't clipped by the overflow container. */}
                               {result.skipped.length > 0 && (
                           <div className="skipped-section-wrapper">
                             <details className="skipped-section">
@@ -2300,7 +2308,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </span>
                           </div>
                         )}
-                              </div>
                             </>
                           );
                         })()}
