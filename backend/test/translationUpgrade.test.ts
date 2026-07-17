@@ -40,3 +40,36 @@ test("upgradeGuard: rejects output shorter than 60% of draft", () => {
   assert.equal(r.ok, false);
   if (!r.ok) assert.match(r.reason, /too short/i);
 });
+
+import {
+  buildTranslationUpgradePrompt,
+  buildFluencyReviewerPrompt,
+} from "../src/prompts.ts";
+
+test("buildTranslationUpgradePrompt: names target language, forbids meaning/paragraph changes", () => {
+  const p = buildTranslationUpgradePrompt("Danish");
+  assert.match(p, /native Danish line editor/i);
+  assert.match(p, /Do NOT add, drop, or alter any meaning/);
+  assert.match(p, /Do NOT merge, split, add, or remove paragraphs/);
+  assert.doesNotMatch(p, /BINDING GLOSSARY/);
+});
+
+test("buildTranslationUpgradePrompt: includes binding glossary when style guide given", () => {
+  const p = buildTranslationUpgradePrompt("Danish", "Betty → Betty (never translate)");
+  assert.match(p, /BINDING GLOSSARY/);
+  assert.match(p, /never translate/);
+});
+
+test("buildFluencyReviewerPrompt: JSONL contract and drift flagging", () => {
+  const p = buildFluencyReviewerPrompt("Danish");
+  assert.match(p, /"index": 0, "confidence": 5/);
+  assert.match(p, /STRICT JSONL/);
+  assert.match(p, /Meaning added, dropped, or altered/);
+  assert.doesNotMatch(p, /BINDING GLOSSARY/);
+});
+
+test("buildFluencyReviewerPrompt: glossary violations become defects when style guide given", () => {
+  const p = buildFluencyReviewerPrompt("Danish", "Betty → Betty (never translate)");
+  assert.match(p, /BINDING GLOSSARY/);
+  assert.match(p, /VIOLATION/);
+});
