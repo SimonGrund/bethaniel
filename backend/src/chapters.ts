@@ -261,3 +261,87 @@ export function isChapterHeadingLine(line: string): boolean {
   if (!t || t.length > 120) return false;
   return CHAPTER_LINE_PATTERNS.some((re) => re.test(t));
 }
+
+// ── Part grouping (story-analysis hierarchy middle tier) ──
+//
+// Explicit "Part One" / "Book Two" / "Del 2" headings define the groups; a
+// heading unit and everything up to the next heading form one part, with any
+// leading units (prologue, frontmatter) attached to the first part. Without
+// explicit structure, chapters are auto-grouped into runs of 4-6; books under
+// 8 chapters get a single implicit part (the part tier is skipped upstream).
+
+export interface PartGroup {
+  title: string;
+  unitIndices: number[];
+}
+
+const PART_WORDS = [
+  "part",
+  "book",
+  "del",
+  "parte",
+  "partie",
+  "libro",
+  "livre",
+  "teil",
+  "bog",
+  "bok",
+  "boek",
+];
+
+const PART_HEADING_RE = new RegExp(
+  `^[*_#\\s]*(?:${PART_WORDS.join("|")})\\s+(?:[\\dIVXLCivxlc]+|\\p{L}+)\\b`,
+  "iu",
+);
+
+export function isPartHeading(name: string): boolean {
+  const t = name.trim();
+  return !!t && t.length <= 120 && PART_HEADING_RE.test(t);
+}
+
+export function groupIntoParts(unitNames: string[]): PartGroup[] {
+  const n = unitNames.length;
+  const headingIdx = unitNames
+    .map((name, i) => (isPartHeading(name) ? i : -1))
+    .filter((i) => i >= 0);
+
+  // Explicit structure needs at least two part headings.
+  if (headingIdx.length >= 2) {
+    const parts: PartGroup[] = [];
+    for (let h = 0; h < headingIdx.length; h++) {
+      const start = h === 0 ? 0 : headingIdx[h]; // leading units join part 1
+      const end = h + 1 < headingIdx.length ? headingIdx[h + 1] : n;
+      parts.push({
+        title: unitNames[headingIdx[h]].trim(),
+        unitIndices: Array.from({ length: end - start }, (_, k) => start + k),
+      });
+    }
+    return parts;
+  }
+
+  // Short book: single implicit part.
+  if (n < 8) {
+    return [
+      {
+        title: "",
+        unitIndices: Array.from({ length: n }, (_, i) => i),
+      },
+    ];
+  }
+
+  // Auto-group into runs of 4-6, distributed evenly.
+  const groups = Math.ceil(n / 6);
+  const base = Math.floor(n / groups);
+  const extra = n % groups;
+  const parts: PartGroup[] = [];
+  let cursor = 0;
+  for (let g = 0; g < groups; g++) {
+    const size = base + (g < extra ? 1 : 0);
+    parts.push({
+      title: `Chapters ${cursor + 1}–${cursor + size}`,
+      unitIndices: Array.from({ length: size }, (_, k) => cursor + k),
+    });
+    cursor += size;
+  }
+  return parts;
+}

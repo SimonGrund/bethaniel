@@ -5,7 +5,7 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
-type Category = "editing" | "analysis" | "translation";
+type Category = "editing" | "analysis" | "translation" | "feedback";
 
 const EDITING_MODES: TaskMode[] = ["copy_edit", "line_edit"];
 const ANALYSIS_MODES: TaskMode[] = [
@@ -37,11 +37,13 @@ const CATEGORY_COLOR: Record<Category, string> = {
   editing: "mode-cat-amber",
   analysis: "mode-cat-amber",
   translation: "mode-cat-amber",
+  feedback: "mode-cat-amber",
 };
 
 export default function ModeSelector() {
   const {
     lang,
+    model,
     selectedModes,
     toggleMode,
     copyEditOptions,
@@ -58,10 +60,15 @@ export default function ModeSelector() {
   } = useStore();
   const t = useTranslation(lang);
   const [openCat, setOpenCat] = useState<Category | null>(null);
+  // Mirrors ModelSelector's API-model detection: External-Betty style models
+  // are "custom:<provider>" entries; "custom:gguf" is a local file.
+  const isApiModelSelected =
+    model.startsWith("custom:") && model !== "custom:gguf";
 
   const hasEditing = selectedModes.some((m) => EDITING_MODES.includes(m));
   const hasAnalysis = selectedModes.some((m) => ANALYSIS_MODES.includes(m));
   const hasTranslation = selectedModes.includes("translate");
+  const hasFeedback = selectedModes.includes("text_evaluator");
 
   function selectCategory(cat: Category) {
     if (openCat === cat || editSubOptionsOpen) {
@@ -74,8 +81,16 @@ export default function ModeSelector() {
         for (const m of selectedModes) {
           if (m !== "translate") toggleMode(m);
         }
+      } else if (cat === "feedback") {
+        if (!selectedModes.includes("text_evaluator"))
+          toggleMode("text_evaluator");
+        for (const m of selectedModes) {
+          if (m !== "text_evaluator") toggleMode(m);
+        }
       } else if (cat === "analysis") {
         if (selectedModes.includes("translate")) toggleMode("translate");
+        if (selectedModes.includes("text_evaluator"))
+          toggleMode("text_evaluator");
         if (!ANALYSIS_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("character_catalog");
         }
@@ -84,6 +99,8 @@ export default function ModeSelector() {
         }
       } else {
         if (selectedModes.includes("translate")) toggleMode("translate");
+        if (selectedModes.includes("text_evaluator"))
+          toggleMode("text_evaluator");
         if (!EDITING_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("copy_edit");
         }
@@ -136,10 +153,8 @@ export default function ModeSelector() {
         {/* Analysis */}
         <button
           type="button"
-          disabled
           className={[
             "mode-cat-card",
-            "mode-cat-disabled",
             CATEGORY_COLOR.analysis,
             openCat === "analysis" ? "mode-cat-open" : "",
             hasAnalysis ? "mode-cat-active" : "",
@@ -179,6 +194,28 @@ export default function ModeSelector() {
           <span className="mode-cat-desc">{t("mode_desc_translate")}</span>
           {hasTranslation && (
             <span className="mode-cat-badge">{t("mode_translate")}</span>
+          )}
+        </button>
+
+        {/* Writing feedback */}
+        <button
+          type="button"
+          className={[
+            "mode-cat-card",
+            CATEGORY_COLOR.feedback,
+            openCat === "feedback" ? "mode-cat-open" : "",
+            hasFeedback ? "mode-cat-active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() => selectCategory("feedback")}
+        >
+          <span className="mode-cat-name">{t("group_feedback")}</span>
+          <span className="mode-cat-desc">
+            {t("mode_desc_text_evaluator")}
+          </span>
+          {hasFeedback && (
+            <span className="mode-cat-badge">{t("mode_text_evaluator")}</span>
           )}
         </button>
       </div>
@@ -294,14 +331,39 @@ export default function ModeSelector() {
             {ANALYSIS_MODES.map((m) => (
               <button
                 key={m}
-                disabled
-                className={`mode-tab${isSelected(m) ? " active" : ""} mode-tab-disabled`}
+                className={`mode-tab${isSelected(m) ? " active" : ""}`}
+                onClick={() => toggleMode(m)}
                 title={t(`mode_desc_${m}`)}
               >
                 {t(`mode_${m}`)}
               </button>
             ))}
           </div>
+          <p className="mode-analysis-hint">{t("mode_desc_analysis_hint")}</p>
+          {!isApiModelSelected && (
+            <p className="mode-analysis-warning">
+              ⚠ {t("analysis_local_warning")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {(openCat === "feedback" || (wizardStep === "edits" && editSubOptionsOpen === "feedback")) && (
+        <div className="mode-sub-panel mode-cat-amber">
+          <button
+            type="button"
+            className="mode-sub-close"
+            onClick={() => { setOpenCat(null); setEditSubOptionsOpen(null); }}
+            title={t("btn_cancel")}
+          >
+            −
+          </button>
+          <p className="mode-analysis-hint">{t("mode_desc_feedback_hint")}</p>
+          {!isApiModelSelected && (
+            <p className="mode-analysis-warning">
+              ⚠ {t("feedback_local_warning")}
+            </p>
+          )}
         </div>
       )}
 

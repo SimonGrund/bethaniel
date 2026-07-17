@@ -22,8 +22,14 @@ import { fileURLToPath } from "node:url";
 import { readFile, writeFile, stat, mkdir } from "node:fs/promises";
 
 // ── CLI modes / export formats ──────────────────────────────────────────────
-type CliMode = "copy" | "line" | "analysis" | "translation";
-const CLI_MODES: CliMode[] = ["copy", "line", "analysis", "translation"];
+type CliMode = "copy" | "line" | "analysis" | "translation" | "feedback";
+const CLI_MODES: CliMode[] = [
+  "copy",
+  "line",
+  "analysis",
+  "translation",
+  "feedback",
+];
 type ExportFormat = "docx" | "md" | "epub";
 const EXPORT_FORMATS: ExportFormat[] = ["docx", "md", "epub"];
 
@@ -37,8 +43,8 @@ Required:
   --model <name|id|file>   Friendly name ("Baby Betty"), catalog id, gguf
                            filename, or custom:<id> (API/Ollama)
   --mode <mode>...         One or more of: copy line analysis translation
-                           (space- or comma-separated; copy+line merge into a
-                           single combined edit)
+                           feedback (space- or comma-separated; copy+line merge
+                           into a single combined edit)
   --input-doc <path>       .docx, .md, or .txt manuscript
   --export-format <fmt>... One or more of: docx md epub
 
@@ -221,7 +227,6 @@ type Pipeline = {
   buildLineEditCorrectionsPrompt: typeof import("./prompts.js").buildLineEditCorrectionsPrompt;
   buildCombinedEditPrompt: typeof import("./prompts.js").buildCombinedEditPrompt;
   buildTranslationPrompt: typeof import("./prompts.js").buildTranslationPrompt;
-  buildCombinedAnalysisPrompt: typeof import("./prompts.js").buildCombinedAnalysisPrompt;
   DEFAULT_COPY_EDIT_OPTIONS: typeof import("./types.js").DEFAULT_COPY_EDIT_OPTIONS;
   DEFAULT_LINE_EDIT_OPTIONS: typeof import("./types.js").DEFAULT_LINE_EDIT_OPTIONS;
 };
@@ -250,7 +255,6 @@ async function loadPipeline(): Promise<Pipeline> {
     buildLineEditCorrectionsPrompt: prompts.buildLineEditCorrectionsPrompt,
     buildCombinedEditPrompt: prompts.buildCombinedEditPrompt,
     buildTranslationPrompt: prompts.buildTranslationPrompt,
-    buildCombinedAnalysisPrompt: prompts.buildCombinedAnalysisPrompt,
     DEFAULT_COPY_EDIT_OPTIONS: types.DEFAULT_COPY_EDIT_OPTIONS,
     DEFAULT_LINE_EDIT_OPTIONS: types.DEFAULT_LINE_EDIT_OPTIONS,
   };
@@ -358,7 +362,8 @@ interface Job {
   prompt: string;
   targetLang?: string;
   editOptions?: Record<string, boolean | string>;
-  isAnalysis: boolean;
+  isAnalysis: boolean; // waits for + exports the auto-spawned analysis_summary
+  wholeBook?: boolean; // ONE task spans the manuscript (units travel together)
 }
 
 function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): Job[] {
@@ -397,11 +402,21 @@ function buildJobs(p: Pipeline, args: CliArgs, styleGuide: string | undefined): 
     jobs.push({
       label: "analysis",
       taskMode: "combined_analysis",
-      prompt: p.buildCombinedAnalysisPrompt(
-        ["character_catalog", "location_catalog", "timeline"] as never,
-        styleGuide,
-      ),
+      // The story-read orchestrator builds its own pass prompts.
+      prompt: "",
       isAnalysis: true,
+      wholeBook: true,
+    });
+  }
+
+  if (has("feedback")) {
+    jobs.push({
+      label: "feedback",
+      taskMode: "text_evaluator",
+      // The evaluator orchestrator builds its own pass prompts.
+      prompt: "",
+      isAnalysis: false,
+      wholeBook: true,
     });
   }
 
@@ -433,32 +448,55 @@ async function runJob(
 ): Promise<{ finalMd: string; errors: string[] }> {
   const jobId = randomUUID();
   const taskIds: string[] = [];
-  for (const unit of units) {
+  if (job.wholeBook) {
+    // Story analysis / writing feedback: ONE task spans the whole manuscript —
+    // the orchestrator walks the chapters itself.
     const id = await p.submitTask({
       jobId,
-      name: unit.name,
+      name: job.isAnalysis ? "Story analysis" : "Writing report",
       source,
-      original: unit.original,
-      wordCount: unit.original.split(/\s+/).filter(Boolean).length,
+      original: "",
+      wordCount: units.reduce(
+        (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+        0,
+      ),
       model,
       mode: job.taskMode as never,
       prompt: job.prompt,
       wpc: 2500,
-      overlap: 1,
-      editOptions: job.editOptions,
-      targetLang: job.targetLang,
-      reviewMode: !noReview,
-      reviewerThreshold: 3,
-      reviewerCount: 1,
-      spellCheck: true,
-      dualEditor: true,
-      dualCount: 2,
-      characterDedup: false,
-      styleComplianceAgent: Boolean(styleGuide),
-      extraPass,
+      overlap: 0,
       styleGuide,
+      units,
     });
     taskIds.push(id);
+  } else {
+    for (const unit of units) {
+      const id = await p.submitTask({
+        jobId,
+        name: unit.name,
+        source,
+        original: unit.original,
+        wordCount: unit.original.split(/\s+/).filter(Boolean).length,
+        model,
+        mode: job.taskMode as never,
+        prompt: job.prompt,
+        wpc: 2500,
+        overlap: 1,
+        editOptions: job.editOptions,
+        targetLang: job.targetLang,
+        reviewMode: !noReview,
+        reviewerThreshold: 3,
+        reviewerCount: 1,
+        spellCheck: true,
+        dualEditor: true,
+        dualCount: 2,
+        characterDedup: false,
+        styleComplianceAgent: Boolean(styleGuide),
+        extraPass,
+        styleGuide,
+      });
+      taskIds.push(id);
+    }
   }
 
   const printed = new Map<string, string>();

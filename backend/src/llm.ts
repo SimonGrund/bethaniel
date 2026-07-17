@@ -352,15 +352,24 @@ export async function* findCorrectionsStream(
   );
 }
 
-/** Streaming analysis call — collects JSON output for catalog/timeline modes. */
+/** Streaming analysis call — collects JSON output for catalog/timeline modes.
+ *  `numCtxOverride` requests a larger context window for this single call
+ *  (story-read passes: chapter text + entity registry can exceed a local
+ *  model's default context). */
 export async function* analyzeStream(
   model: string,
   text: string,
   systemPrompt: string,
   signal?: AbortSignal,
+  numCtxOverride?: number,
 ): AsyncGenerator<string> {
   const systemMsg = buildSystemMessage(model, systemPrompt);
-  const cap = slotSafeMaxTokens(model, systemMsg, text, 4096);
+  const cap = numCtxOverride
+    ? Math.max(
+        256,
+        Math.min(4096, numCtxOverride - estimateTokens(systemMsg + text) - 256),
+      )
+    : slotSafeMaxTokens(model, systemMsg, text, 4096);
   yield* chatStream(
     model,
     [
@@ -370,6 +379,7 @@ export async function* analyzeStream(
     {
       max_tokens: cap,
       response_format: { type: "json_object" },
+      numCtxOverride,
     },
     signal,
   );
@@ -759,29 +769,6 @@ export function parseReviewScores(raw: string): Map<number, ReviewScore> {
  * Simple one-shot LLM call for character identity resolution.
  * Collects the full (non-streamed) response and returns the trimmed text.
  */
-export async function identityCheck(
-  model: string,
-  userMessage: string,
-  systemPrompt: string,
-  signal?: AbortSignal,
-): Promise<string> {
-  const systemMsg = buildSystemMessage(model, systemPrompt);
-  const cap = Math.max(16, Math.ceil(userMessage.length / 3) + 16);
-  let out = "";
-  for await (const tok of chatStream(
-    model,
-    [
-      { role: "system", content: systemMsg },
-      { role: "user", content: userMessage },
-    ],
-    { max_tokens: cap },
-    signal,
-  )) {
-    out += tok;
-  }
-  return out.trim();
-}
-
 export async function* reviewCorrectionsStream(
   model: string,
   chunkText: string,

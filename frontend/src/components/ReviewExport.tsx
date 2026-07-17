@@ -12,6 +12,7 @@ import {
   deleteTask,
   deleteJob,
   spawnJobSummary,
+  spawnWritingReport,
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
@@ -619,6 +620,11 @@ function SplitCatalogTable({
 type TimelineTier = 1 | 2 | 3;
 
 function timelineTier(event: Record<string, unknown>): TimelineTier {
+  // Story-read pipeline: the part-synthesis pass assigns an explicit tier
+  // (1 major / 2 medium / 3 minor) — trust it over the length heuristics.
+  if (event.tier === 1 || event.tier === 2 || event.tier === 3) {
+    return event.tier as TimelineTier;
+  }
   const hasTimeRef =
     typeof event.timeReference === "string" && event.timeReference.length > 0;
   const desc =
@@ -653,13 +659,16 @@ function TimelineZoomView({
     { tier: 3, label: "All", count: 0 },
   ];
 
-  // Sort events by chapter name in natural order
-  const sorted = [...items].sort((a, b) => {
-    const ao = chapterOrder(String(a.chapter ?? ""));
-    const bo = chapterOrder(String(b.chapter ?? ""));
-    if (ao !== bo) return ao - bo;
-    return naturalCompare(String(a.chapter ?? ""), String(b.chapter ?? ""));
-  });
+  // Reading-order sequence (story-read pipeline) wins; otherwise sort by
+  // chapter name in natural order.
+  const sorted = items.some((e) => typeof e.seq === "number")
+    ? [...items].sort((a, b) => Number(a.seq ?? 0) - Number(b.seq ?? 0))
+    : [...items].sort((a, b) => {
+        const ao = chapterOrder(String(a.chapter ?? ""));
+        const bo = chapterOrder(String(b.chapter ?? ""));
+        if (ao !== bo) return ao - bo;
+        return naturalCompare(String(a.chapter ?? ""), String(b.chapter ?? ""));
+      });
 
   // Classify each event into its tier
   const eventTiers = sorted.map((e) => timelineTier(e));
@@ -721,6 +730,101 @@ function TimelineZoomView({
         <p className="correction-empty">
           {t("no_structured_data")}
         </p>
+      )}
+    </div>
+  );
+}
+
+type OutlineZoom = "story" | "parts" | "chapters";
+
+/**
+ * Layered story outline from the story-read pipeline: whole-story synopsis,
+ * a paragraph per part, and 2-3 sentences per chapter — zoomable like the
+ * timeline's Major/Medium/All toggle.
+ */
+function OutlineZoomView({
+  data,
+  t,
+}: {
+  data: Record<string, unknown>;
+  t: (key: string) => string;
+}) {
+  const synopsis = typeof data.synopsis === "string" ? data.synopsis : "";
+  const parts = (Array.isArray(data.parts) ? data.parts : []) as Array<
+    Record<string, unknown>
+  >;
+  const chapterSummaries = (
+    Array.isArray(data.chapterSummaries) ? data.chapterSummaries : []
+  ) as Array<Record<string, unknown>>;
+
+  const zooms: { zoom: OutlineZoom; label: string; available: boolean }[] = [
+    { zoom: "story", label: "Story", available: synopsis.length > 0 },
+    { zoom: "parts", label: "Parts", available: parts.length > 0 },
+    {
+      zoom: "chapters",
+      label: "Chapters",
+      available: chapterSummaries.length > 0,
+    },
+  ];
+  const firstAvailable =
+    zooms.find((z) => z.available)?.zoom ?? ("story" as OutlineZoom);
+  const [zoom, setZoom] = useState<OutlineZoom>(firstAvailable);
+
+  return (
+    <div className="timeline-zoom">
+      <div className="timeline-zoom-toggles">
+        {zooms.map((z) => (
+          <button
+            key={z.zoom}
+            type="button"
+            className={
+              "timeline-zoom-btn" +
+              (zoom === z.zoom ? " timeline-zoom-btn-active" : "") +
+              (!z.available ? " timeline-zoom-btn-empty" : "")
+            }
+            onClick={() => setZoom(z.zoom)}
+            disabled={!z.available}
+          >
+            {z.label}
+          </button>
+        ))}
+      </div>
+
+      {zoom === "story" && (
+        <div className="outline-synopsis">
+          {synopsis.split(/\n\s*\n/).map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
+        </div>
+      )}
+
+      {zoom === "parts" &&
+        parts.map((p, i) => (
+          <div key={i} className="outline-part">
+            <h4 className="analysis-section-header">
+              {String(p.title ?? `Part ${i + 1}`)}
+            </h4>
+            <p>{String(p.summary ?? "")}</p>
+          </div>
+        ))}
+
+      {zoom === "chapters" && (
+        <table className="catalog-table">
+          <thead>
+            <tr>
+              <th>{t("col_chapter")}</th>
+              <th>{t("col_description")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chapterSummaries.map((c, i) => (
+              <tr key={i}>
+                <td>{String(c.chapter ?? "")}</td>
+                <td>{String(c.summary ?? "")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -932,6 +1036,7 @@ function aggregateAnalysisTasks(tasks: TaskState[]): Record<string, unknown> {
   let anyChars = false;
   let anyLocs = false;
   let anyEvents = false;
+  let outline: unknown = null;
 
   for (const task of tasks) {
     const data = task.result?.structuredData;
@@ -976,17 +1081,35 @@ function aggregateAnalysisTasks(tasks: TaskState[]): Record<string, unknown> {
           description: ev.description ?? ev.event ?? "",
           characters: ev.characters ?? [],
           timeReference: ev.timeReference ?? "",
+          // Story-read pipeline: global reading-order sequence + curated tier.
+          ...(typeof ev.seq === "number" ? { seq: ev.seq } : {}),
+          ...(typeof ev.tier === "number" ? { tier: ev.tier } : {}),
         });
       }
     }
+
+    // Story-read pipeline: layered outline (synopsis / parts / chapters).
+    if (!outline && data && typeof data === "object") {
+      const o = (data as Record<string, unknown>).outline;
+      if (o && typeof o === "object") outline = o;
+    }
   }
 
-  events.sort((a, b) => naturalCompare(String(a.chapter), String(b.chapter)));
+  // Reading-order sequence numbers (story-read pipeline) beat chapter-name
+  // heuristics; fall back to natural chapter sort for legacy results.
+  if (events.some((e) => typeof e.seq === "number")) {
+    events.sort((a, b) => Number(a.seq ?? 0) - Number(b.seq ?? 0));
+  } else {
+    events.sort((a, b) =>
+      naturalCompare(String(a.chapter), String(b.chapter)),
+    );
+  }
 
   const out: Record<string, unknown> = {};
   if (anyChars) out.characters = finalizeNamed(chars);
   if (anyLocs) out.locations = finalizeNamed(locs);
   if (anyEvents) out.events = events;
+  if (outline) out.outline = outline;
   return out;
 }
 
@@ -1223,6 +1346,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     [],
   );
 
+  const handleSpawnWritingReport = useCallback(async (jobId: string) => {
+    try {
+      await spawnWritingReport(jobId);
+    } catch (err) {
+      console.error("Spawn writing report failed:", err);
+      alert(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, []);
+
   const handleDeleteTask = useCallback(
     async (taskId: string, taskName: string) => {
       if (
@@ -1422,7 +1554,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ([, t]) =>
               t.status === "error" &&
               t.mode !== "analysis_summary" &&
-              t.mode !== "blurb",
+              t.mode !== "blurb" &&
+              t.mode !== "text_evaluator",
           );
           const failedChapters = failedTasks.map(([, t]) => t.name);
           const src = entries[0]?.[1].source ?? "manuscript";
@@ -1571,6 +1704,140 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         : t("generate_blurb")}
                     </button>
                   </div>
+                );
+              })()}
+
+              {/* ── Generate writing report button (post-edit, job level) ── */}
+              {(() => {
+                // Only the real edit modes qualify — the report digests their
+                // corrections. (Frontend EDIT_MODES includes translate, which
+                // has nothing to critique.)
+                const reportSourceModes = [
+                  "copy_edit",
+                  "line_edit",
+                  "combined_edit",
+                ];
+                const hasEditResults = entries.some(
+                  ([, t]) =>
+                    reportSourceModes.includes(t.mode) &&
+                    t.status === "done" &&
+                    t.result?.originalText,
+                );
+                if (!hasEditResults) return null;
+
+                const hasReport = entries.some(
+                  ([, t]) => t.mode === "text_evaluator",
+                );
+                return (
+                  <div className="generate-buttons-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => void handleSpawnWritingReport(jid)}
+                    >
+                      {hasReport
+                        ? t("regenerate_writing_report")
+                        : t("generate_writing_report")}
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* ── Writing report (text evaluator) ── */}
+              {(() => {
+                const reportTask = entries
+                  .map(([, t]) => t)
+                  .find((t) => t.mode === "text_evaluator");
+                if (!reportTask) return null;
+
+                if (
+                  reportTask.status !== "done" ||
+                  !reportTask.result?.editedText
+                ) {
+                  const pct = Math.round((reportTask.progress ?? 0) * 100);
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span
+                          className={`task-status-pill qs-${reportTask.status}`}
+                        >
+                          {t(`status_${reportTask.status}`)}
+                        </span>{" "}
+                        {t("writing_report")}
+                      </summary>
+                      <div className="task-placeholder">
+                        {reportTask.status === "editing" && (
+                          <>
+                            <div className="q-bar">
+                              <div
+                                className={`q-fill qs-${reportTask.status}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="small-note">
+                              {pct}%
+                              {reportTask.phase
+                                ? ` — ${reportTask.phase}`
+                                : ""}
+                            </p>
+                          </>
+                        )}
+                        {(reportTask.status === "error" ||
+                          reportTask.status === "cancelled") && (
+                          <>
+                            {reportTask.status === "error" && (
+                              <p className="error-item">
+                                ⚠️{" "}
+                                {reportTask.result?.errors?.join("; ") ??
+                                  t("status_error")}
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              className="btn-retry"
+                              onClick={() => void handleRetry(reportTask.id)}
+                            >
+                              ↻ {t("retry")}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("writing_report")}</strong>
+                    </summary>
+                    <MarkdownView text={reportTask.result.editedText} />
+                    <div className="export-buttons">
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          downloadFile(
+                            reportTask.result!.editedText,
+                            `${src}.writing-report.md`,
+                            "text/markdown",
+                          )
+                        }
+                      >
+                        Download Markdown
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          handleDownloadDocx(
+                            reportTask.result!.editedText,
+                            `${src}.writing-report.docx`,
+                          )
+                        }
+                      >
+                        Download DOCX
+                      </button>
+                    </div>
+                  </details>
                 );
               })()}
 
@@ -1769,6 +2036,25 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       // Split combined_analysis into separate character / location / timeline cards
                       const obj = merged as Record<string, unknown>;
                       const subCards: React.ReactNode[] = [];
+
+                      // Layered outline first — the highest-altitude view.
+                      if (obj.outline && typeof obj.outline === "object") {
+                        subCards.push(
+                          <details
+                            key={`agg-${mode}-outline`}
+                            className="review-task review-summary-card"
+                            open
+                          >
+                            <summary className="review-task-summary">
+                              <strong>🗺️ {t("mode_outline")}</strong>
+                            </summary>
+                            <OutlineZoomView
+                              data={obj.outline as Record<string, unknown>}
+                              t={t}
+                            />
+                          </details>,
+                        );
+                      }
 
                       const subModes: {
                         key: string;
@@ -2004,8 +2290,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 if (isAnalysisMode(task.mode) && result?.structuredData) {
                   return null;
                 }
-                // The synthesis task is rendered as its own primary card above.
-                if (task.mode === "analysis_summary") {
+                // The synthesis / report tasks are rendered as their own
+                // primary cards above.
+                if (
+                  task.mode === "analysis_summary" ||
+                  task.mode === "text_evaluator"
+                ) {
                   return null;
                 }
 

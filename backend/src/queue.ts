@@ -9,6 +9,8 @@ import type {
   TaskMode,
   Correction,
   CopyEditOptions,
+  CorrectionsDigest,
+  EditUnit,
 } from "./types.js";
 import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
@@ -25,7 +27,6 @@ import {
   parseJsonResponse,
   reviewCorrectionsStream,
   parseReviewScores,
-  identityCheck,
   listLoadedModels,
   unloadModel,
   estimateTokens,
@@ -44,7 +45,6 @@ import {
 import {
   ANALYSIS_SUMMARY_PROMPT,
   BLURB_PROMPT,
-  CHARACTER_IDENTITY_PROMPT,
   buildReviewerPrompt,
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
@@ -53,6 +53,15 @@ import {
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
+  runStoryAnalysis,
+  type StoryAnalysisState,
+  type LlmCall,
+} from "./storyAnalysis.js";
+import {
+  runTextEvaluation,
+  type TextEvaluatorState,
+} from "./textEvaluator.js";
+import {
   saveTaskState,
   loadTaskStates,
   deleteTaskState,
@@ -60,39 +69,6 @@ import {
   deleteAllTaskStates,
   pruneOldTasks,
 } from "./db.js";
-
-/**
- * Force every entry in a parsed analysis result to claim it belongs to
- * `chapterName`. Models often invent chapter numbers per-chunk; this guarantees
- * downstream aggregation groups everything under the real chapter.
- */
-function forceChapterLabel(parsed: unknown, chapterName: string): unknown {
-  if (!parsed || typeof parsed !== "object") return parsed;
-  const obj = parsed as Record<string, unknown>;
-
-  const fixNamedList = (key: string) => {
-    const v = obj[key];
-    if (!Array.isArray(v)) return;
-    for (const item of v) {
-      if (item && typeof item === "object") {
-        (item as Record<string, unknown>).chapters = [chapterName];
-        delete (item as Record<string, unknown>).firstMention;
-      }
-    }
-  };
-  fixNamedList("characters");
-  fixNamedList("locations");
-
-  const events = obj.events;
-  if (Array.isArray(events)) {
-    for (const ev of events) {
-      if (ev && typeof ev === "object") {
-        (ev as Record<string, unknown>).chapter = chapterName;
-      }
-    }
-  }
-  return obj;
-}
 
 /**
  * Strip common AI sign-offs / preambles from a generated prose summary.
@@ -238,6 +214,12 @@ interface JobData {
   styleComplianceAgent?: boolean;
   /** Thorough mode: run a second copy-edit pass over the edited text. */
   extraPass?: boolean;
+  /** Story analysis: all manuscript chapters (one task spans the whole book). */
+  units?: EditUnit[];
+  /** Story analysis: resume checkpoint from a cancelled/failed prior run. */
+  resumeState?: unknown;
+  /** Text evaluator: recurring-habit digest from a finished edit job. */
+  correctionsDigest?: CorrectionsDigest;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -269,9 +251,16 @@ function flushBroadcast(): void {
   // text per task — with hundreds of tasks this serialized into hundreds
   // of MB on every progress tick and crashed Node with OOM. The frontend
   // only reads retrySpec via REST when the user clicks "retry".
-  const snapshot: Record<string, Omit<TaskState, "retrySpec">> = {};
+  const snapshot: Record<
+    string,
+    Omit<TaskState, "retrySpec" | "analysisCheckpoint">
+  > = {};
   for (const [id, task] of tasks) {
-    const { retrySpec: _retrySpec, ...rest } = task;
+    const {
+      retrySpec: _retrySpec,
+      analysisCheckpoint: _checkpoint,
+      ...rest
+    } = task;
     snapshot[id] = rest;
   }
   console.log(
@@ -396,269 +385,6 @@ function creepingProgress(tokens: number): number {
 }
 
 /**
- * Process catalog/timeline analysis using map-reduce over chunks.
- * Each chunk is analyzed independently (map), then partial JSONs are merged
- * by deduplicating characters/locations on name+aliases and concatenating
- * timeline events (reduce). This lets analysis scale beyond the model's
- * context window.
- */
-async function processAnalysisJob(
-  job: JobData,
-  ac: AbortController,
-): Promise<void> {
-  const {
-    taskId,
-    name: chapterName,
-    original,
-    model,
-    prompt,
-    wpc,
-    overlap,
-  } = job;
-
-  updateTask(taskId, {
-    status: "editing",
-    startedAt: Date.now(),
-    phase: "splitting",
-  });
-
-  // Smaller chunks for analysis: 8192 ctx must hold input prompt + system +
-  // JSON output. ~2500 words ≈ 3500 tokens leaves ~4k tokens for output, so
-  // 2500 is the ceiling — but honor a smaller configured wpc (e.g. big-model
-  // users tune down to 1500) instead of forcing exactly 2500.
-  const analysisTargetWords = Math.min(Math.max(wpc, 1000), 2500);
-  const chunks = splitIntoChunks(original, analysisTargetWords, overlap);
-  const totalChunks = chunks.length;
-  updateTask(taskId, { phase: `0/${totalChunks} chunks` });
-
-  const partialResults: unknown[] = [];
-  const errors: string[] = [];
-  let firstParseErrorRaw: string | null = null;
-
-  // Inject the chapter name into the system prompt so the model labels every
-  // entry's `chapter`/`chapters` field with this exact value (instead of
-  // hallucinating "Chapter 1", "Chapter 2"… per chunk).
-  const chapterAwarePrompt =
-    prompt +
-    `\n\nIMPORTANT: The text you are analyzing is from a single chapter named exactly "${chapterName}". For every entry, set the "chapter" field (or include "${chapterName}" in the "chapters" array) to "${chapterName}". Do NOT invent chapter numbers or use any other label.`;
-
-  for (let j = 0; j < chunks.length; j++) {
-    if (ac.signal.aborted) {
-      updateTask(taskId, {
-        status: "cancelled",
-        finishedAt: Date.now(),
-        result: {
-          editedText: "",
-          originalText: original,
-          corrections: [],
-          skipped: [],
-          errors: ["cancelled"],
-          structuredData: mergeAnalysisParts(partialResults),
-        },
-      });
-      abortControllers.delete(taskId);
-      return;
-    }
-
-    const chunk = chunks[j];
-    const chunkLabel = `${j + 1}/${totalChunks}`;
-    let acc = "";
-    let tokCount = 0;
-
-    try {
-      const MAX_ATTEMPTS = 5;
-      let lastErr: unknown = null;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        if (ac.signal.aborted) throw new Error("cancelled");
-        acc = "";
-        tokCount = 0;
-        const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
-        let handledByMultiAgent = false;
-        try {
-          const agentCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
-          if (agentCount > 1) {
-            // ── Multiple analysis agents per chunk (union-merge) ──
-            handledByMultiAgent = true;
-            updateTask(taskId, {
-              phase: `${phasePrefix}analyzing chunk ${chunkLabel} (${agentCount} agents)`,
-            });
-
-            const collectAnalysis = async (): Promise<string> => {
-              let a = "";
-              for await (const t of analyzeStream(
-                model,
-                `[Chapter: ${chapterName}]\n\n${chunk.body}`,
-                chapterAwarePrompt,
-                ac.signal,
-              )) a += t;
-              return a;
-            };
-
-            const promises = Array.from({ length: agentCount }, () =>
-              collectAnalysis(),
-            );
-            const results = await Promise.allSettled(promises);
-
-            const raws: string[] = [];
-            for (let idx = 0; idx < agentCount; idx++) {
-              const r = results[idx];
-              if (r.status === "fulfilled" && r.value) {
-                raws.push(r.value);
-              } else {
-                const reason =
-                  r.status === "rejected"
-                    ? r.reason instanceof Error
-                      ? r.reason.message
-                      : String(r.reason)
-                    : "empty output";
-                appendLog({
-                  level: "warn",
-                  source: "engine",
-                  taskId,
-                  message: `Analysis agent ${idx + 1}/${agentCount} failed for chunk ${chunkLabel} (${reason}).`,
-                  model,
-                });
-              }
-            }
-
-            if (raws.length === 0)
-              throw new Error(
-                `All ${agentCount} analysis agents failed for chunk ${chunkLabel}`,
-              );
-
-            // Parse each agent's output and merge
-            const parsedParts: unknown[] = [];
-            let parseFailures = 0;
-            for (const raw of raws) {
-              const parsed = parseJsonResponse(raw);
-              if (parsed) {
-                parsedParts.push(forceChapterLabel(parsed, chapterName));
-              } else {
-                parseFailures++;
-              }
-            }
-
-            if (parsedParts.length > 0) {
-              partialResults.push(mergeAnalysisParts(parsedParts));
-              if (parseFailures > 0) {
-                errors.push(
-                  `chunk ${chunkLabel}: ${parseFailures} agent(s) produced unparseable JSON`,
-                );
-              }
-              appendLog({
-                level: "info",
-                source: "engine",
-                taskId,
-                message: `Analysis chunk ${chunkLabel}: ${parsedParts.length}/${agentCount} agents succeeded, results merged.`,
-                model,
-              });
-            } else {
-              errors.push(
-                `chunk ${chunkLabel}: all ${agentCount} agent(s) produced unparseable JSON`,
-              );
-              if (!firstParseErrorRaw) firstParseErrorRaw = raws[0].slice(0, 500);
-            }
-
-            tokCount = Math.ceil(
-              raws.reduce((sum, r) => sum + r.length, 0) / raws.length / 3,
-            );
-          } else {
-            // ── Single analysis agent (original behavior) ──
-            updateTask(taskId, {
-              phase: `${phasePrefix}analyzing chunk ${chunkLabel}`,
-            });
-            for await (const tok of analyzeStream(
-              model,
-              `[Chapter: ${chapterName}]\n\n${chunk.body}`,
-              chapterAwarePrompt,
-              ac.signal,
-            )) {
-              acc += tok;
-              tokCount++;
-              if (tokCount === 1) {
-                updateTask(taskId, {
-                  phase: `${phasePrefix}receiving chunk ${chunkLabel}`,
-                });
-              }
-              const intra = creepingProgress(tokCount);
-              updateProgress(taskId, (j + intra) / totalChunks);
-            }
-          }
-          lastErr = null;
-          break;
-        } catch (err) {
-          lastErr = err;
-          const msg = err instanceof Error ? err.message : String(err);
-          if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
-            throw err;
-          }
-          const waitMs = 750 * attempt;
-          console.warn(
-            `[Queue] analysis chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
-          );
-          await new Promise((r) => setTimeout(r, waitMs));
-        }
-      }
-      if (lastErr) throw lastErr;
-
-      // Single-agent: parse JSON output (multi-agent handled inline)
-      if (acc.length > 0) {
-        const parsed = parseJsonResponse(acc);
-        if (parsed) {
-          partialResults.push(forceChapterLabel(parsed, chapterName));
-        } else {
-          errors.push(`chunk ${chunkLabel}: failed to parse JSON`);
-          if (!firstParseErrorRaw) firstParseErrorRaw = acc.slice(0, 500);
-        }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[Queue] analysis chunk ${chunkLabel} failed: ${msg}`);
-      errors.push(`chunk ${chunkLabel}: ${msg}`);
-    }
-
-    updateTask(taskId, { progress: (j + 1) / totalChunks });
-  }
-
-  updateTask(taskId, { phase: "merging results" });
-  const merged = mergeAnalysisParts(partialResults);
-  const hasAnyData =
-    Object.keys(merged).length > 0 &&
-    Object.values(merged).some((v) => Array.isArray(v) && v.length > 0);
-
-  if (!hasAnyData && firstParseErrorRaw) {
-    errors.push(`raw output sample: ${firstParseErrorRaw}`);
-  }
-
-  abortControllers.delete(taskId);
-
-  const result: TaskResult = {
-    editedText: "",
-    originalText: original,
-    corrections: [],
-    skipped: [],
-    errors,
-    structuredData: hasAnyData ? merged : null,
-  };
-
-  // If any chunks failed, surface as error (even if we have partial data),
-  // so the user knows to re-run this chapter. The partial data is preserved.
-  const hadChunkFailure = errors.length > 0;
-  updateTask(taskId, {
-    status: hasAnyData && !hadChunkFailure ? "done" : "error",
-    progress: 1,
-    finishedAt: Date.now(),
-    result,
-  });
-
-  // Once all per-chapter analysis tasks of this job are done, spawn a single
-  // prose-summary task synthesising them.
-  if (hasAnyData) {
-    maybeSpawnAnalysisSummary(job);
-  }
-}
-
-/**
  * If every analysis sibling task in this job is now done (or terminal),
  * queue an `analysis_summary` synthesis task. No-op if a summary task for
  * this job already exists or if some siblings are still running.
@@ -743,97 +469,6 @@ function maybeSpawnBlurb(summaryJob: JobData): void {
   });
 }
 
-interface CharEntry {
-  name: string;
-  aliases?: string[];
-  chapters?: string[];
-}
-
-/**
- * LLM-powered character identity resolution. For pairs sharing ≥2 chapters
- * or overlapping aliases, asks the model "same" or "different" and merges
- * confirmed matches. Runs up to 3 iterative passes.
- */
-async function resolveCharacterIdentities(
-  chars: CharEntry[],
-  model: string,
-  jobId: string,
-  ac: AbortController,
-): Promise<CharEntry[]> {
-  if (chars.length < 2) return chars;
-
-  const merged = new Set<number>();
-  const result: CharEntry[] = chars.map((c) => ({ ...c }));
-  const norm = (s: string) => s.toLowerCase().trim().replace(/\s+/g, " ");
-
-  for (let pass = 0; pass < 3; pass++) {
-    let changes = false;
-    for (let i = 0; i < result.length; i++) {
-      if (merged.has(i)) continue;
-      for (let j = i + 1; j < result.length; j++) {
-        if (merged.has(j)) continue;
-
-        const chI = new Set((result[i].chapters ?? []).map(norm));
-        const chJ = new Set((result[j].chapters ?? []).map(norm));
-        const sharedChapters = [...chI].filter((c) => chJ.has(c));
-        const aliI = new Set((result[i].aliases ?? []).map(norm));
-        const aliJ = new Set((result[j].aliases ?? []).map(norm));
-        const sharedAliases = [...aliI].filter((a) => aliJ.has(a));
-
-        if (sharedChapters.length < 2 && sharedAliases.length === 0) continue;
-
-        try {
-          const userMsg = `Entry A:\nname: ${result[i].name}\naliases: ${(result[i].aliases ?? []).join(", ")}\nchapters: ${(result[i].chapters ?? []).join(", ")}\n\nEntry B:\nname: ${result[j].name}\naliases: ${(result[j].aliases ?? []).join(", ")}\nchapters: ${(result[j].chapters ?? []).join(", ")}`;
-          const answer = await identityCheck(
-            model,
-            userMsg,
-            CHARACTER_IDENTITY_PROMPT,
-            ac.signal,
-          );
-          const isSame = answer.toLowerCase().trim() === "same";
-          appendLog({
-            level: "info",
-            source: "engine",
-            message: `Character identity: "${result[i].name}" + "${result[j].name}" → ${isSame ? "same" : "different"}`,
-            model,
-          });
-
-          if (isSame) {
-            const a = result[i];
-            const b = result[j];
-            a.name = a.name.length >= b.name.length ? a.name : b.name;
-            a.aliases = [
-              ...new Set([
-                ...(a.aliases ?? []),
-                ...(b.aliases ?? []),
-                a.name !== b.name ? b.name : "",
-              ].filter(Boolean)),
-            ];
-            a.chapters = [
-              ...new Set([...(a.chapters ?? []), ...(b.chapters ?? [])]),
-            ];
-            merged.add(j);
-            changes = true;
-          }
-        } catch (err) {
-          appendLog({
-            level: "warn",
-            source: "engine",
-            message: `Character identity check failed: ${err instanceof Error ? err.message : String(err)}`,
-            model,
-          });
-        }
-      }
-    }
-    if (!changes) break;
-    const kept = result.filter((_, i) => !merged.has(i));
-    result.length = 0;
-    result.push(...kept);
-    merged.clear();
-  }
-
-  return result;
-}
 
 /**
  * Synthesise a prose summary from all completed per-chapter analysis tasks
@@ -843,7 +478,7 @@ async function processSynthesisJob(
   job: JobData,
   ac: AbortController,
 ): Promise<void> {
-  const { taskId, jobId, model, prompt, mode, characterDedup } = job;
+  const { taskId, jobId, model, prompt, mode } = job;
   updateTask(taskId, {
     status: "editing",
     startedAt: Date.now(),
@@ -879,31 +514,16 @@ async function processSynthesisJob(
     return;
   }
 
-  const merged = mergeAnalysisParts(partials);
-
-  // ── LLM-powered character identity dedup (opt-in) ──
-  if (
-    characterDedup &&
-    Array.isArray(merged.characters) &&
-    merged.characters.length > 0
-  ) {
-    updateTask(taskId, { phase: "resolving character identities" });
-    const chars = merged.characters as CharEntry[];
-    const deduped = await resolveCharacterIdentities(
-      chars,
-      model,
-      jobId,
-      ac,
-    );
-    merged.characters = deduped;
-    appendLog({
-      level: "info",
-      source: "engine",
-      taskId,
-      message: `Character dedup: ${chars.length} → ${deduped.length} entries.`,
-      model,
-    });
-  }
+  // The story-read pipeline produces ONE clean, identity-resolved result per
+  // job — pass it through untouched. The heuristic re-merge is only for
+  // combining multiple legacy per-chapter partials, and its name-containment
+  // passes could wrongly re-merge entities the story read kept separate.
+  const merged =
+    partials.length === 1 &&
+    typeof partials[0] === "object" &&
+    partials[0] !== null
+      ? { ...(partials[0] as Record<string, unknown>) }
+      : mergeAnalysisParts(partials);
 
   const payload = JSON.stringify(merged, null, 2);
 
@@ -989,6 +609,287 @@ async function processSynthesisJob(
   }
 }
 
+/**
+ * LLM adapter for the story-read orchestrator: collects analyzeStream into a
+ * string, sizes the context window per call (chapter text + registry can
+ * exceed a local model's default context), and retries transient fetch
+ * errors with backoff (same policy as the edit pipeline).
+ */
+function makeStoryLlm(job: JobData, ac: AbortController): LlmCall {
+  const CTX_STEPS = [8192, 16384, 32768, 65536, 131072];
+  return async (system, user, opts) => {
+    const outTokens = opts?.maxTokens ?? 4096;
+    const needed = estimateTokens(system + user) + outTokens + 512;
+    const requiredCtx = CTX_STEPS.find((c) => c >= needed) ?? CTX_STEPS.at(-1)!;
+    const MAX_ATTEMPTS = 5;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        let acc = "";
+        for await (const tok of analyzeStream(
+          job.model,
+          user,
+          system,
+          ac.signal,
+          requiredCtx,
+        )) {
+          acc += tok;
+        }
+        return acc;
+      } catch (err) {
+        if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) throw err;
+        const waitMs = 750 * attempt;
+        console.warn(
+          `[Queue] story-analysis call attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)}); retrying in ${waitMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
+  };
+}
+
+/** Minimal shape check before trusting a persisted resume checkpoint. */
+function isUsableCheckpoint(
+  v: unknown,
+  unitCount: number,
+): v is StoryAnalysisState {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Partial<StoryAnalysisState>;
+  return (
+    Array.isArray(s.registry) &&
+    Array.isArray(s.events) &&
+    Array.isArray(s.chapterSummaries) &&
+    typeof s.nextChapterIndex === "number" &&
+    s.nextChapterIndex <= unitCount
+  );
+}
+
+/**
+ * Sequential story-read analysis: ONE task spans the whole manuscript.
+ * Chapters are read in order carrying an entity registry + story-so-far
+ * (storyAnalysis.ts), which fixes the two failure modes of the old parallel
+ * pipeline — duplicate/split entities and scrambled timelines. Progress is
+ * per chapter; a checkpoint is persisted after every chapter so cancel/crash
+ * + retry resumes instead of restarting.
+ */
+async function processStoryAnalysisJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId, model } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "preparing story read",
+  });
+
+  try {
+    await ensureModelLoaded(model, undefined, 1);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
+
+  const resume = isUsableCheckpoint(job.resumeState, units.length)
+    ? job.resumeState
+    : undefined;
+  if (resume) {
+    appendLog({
+      level: "info",
+      source: "task",
+      taskId,
+      message: `Story analysis: resuming at chapter ${resume.nextChapterIndex + 1}/${units.length}.`,
+      model,
+    });
+  }
+
+  try {
+    const { structuredData } = await runStoryAnalysis(units, {
+      llm: makeStoryLlm(job, ac),
+      styleGuide: job.styleGuide,
+      signal: ac.signal,
+      resumeFrom: resume,
+      onProgress: (done, total, label) => {
+        updateTask(taskId, {
+          phase:
+            done >= total
+              ? "synthesizing story"
+              : `reading chapter ${done + 1}/${total} — ${label}`,
+        });
+        updateProgress(taskId, Math.min(0.97, done / (total + 1)));
+      },
+      onCheckpoint: (state) => {
+        const t = tasks.get(taskId);
+        if (!t) return;
+        t.analysisCheckpoint = structuredClone(state);
+        try {
+          saveTaskState(t); // survive a process crash mid-run
+        } catch {
+          /* checkpoint persistence is best-effort */
+        }
+      },
+    });
+
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData,
+      },
+    });
+    maybeSpawnAnalysisSummary(job);
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    // The checkpoint stays on the task (and in the DB), so retrying this
+    // task resumes from the last completed chapter.
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
+/** Minimal shape check before trusting a persisted evaluator checkpoint. */
+function isUsableTextEvalCheckpoint(v: unknown): v is TextEvaluatorState {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Partial<TextEvaluatorState>;
+  return (
+    Array.isArray(s.passages) &&
+    Array.isArray(s.observations) &&
+    typeof s.nextPassageIndex === "number" &&
+    s.nextPassageIndex <= s.passages.length
+  );
+}
+
+/**
+ * Text evaluator: ONE task spans the whole manuscript. Passages sampled
+ * across the selected chapters are critiqued one by one (textEvaluator.ts),
+ * then a single narrative writing report is synthesized. A checkpoint is
+ * persisted after every passage so cancel/crash + retry resumes. The optional
+ * corrections digest (post-edit variant) feeds the "recurring habits" section.
+ */
+async function processTextEvaluatorJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId, model } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "sampling passages",
+  });
+
+  try {
+    await ensureModelLoaded(model, undefined, 1);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
+
+  const resume = isUsableTextEvalCheckpoint(job.resumeState)
+    ? job.resumeState
+    : undefined;
+  if (resume) {
+    appendLog({
+      level: "info",
+      source: "task",
+      taskId,
+      message: `Writing report: resuming at passage ${resume.nextPassageIndex + 1}/${resume.passages.length}.`,
+      model,
+    });
+  }
+
+  try {
+    const { report, structuredData } = await runTextEvaluation(units, {
+      llm: makeStoryLlm(job, ac),
+      styleGuide: job.styleGuide,
+      correctionsDigest: job.correctionsDigest,
+      signal: ac.signal,
+      resumeFrom: resume,
+      onProgress: (done, total, label) => {
+        updateTask(taskId, {
+          phase:
+            done >= total - 1
+              ? "writing report"
+              : `critiquing passage ${done + 1}/${total - 1} — ${label}`,
+        });
+        updateProgress(taskId, Math.min(0.97, done / total));
+      },
+      onCheckpoint: (state) => {
+        const t = tasks.get(taskId);
+        if (!t) return;
+        t.analysisCheckpoint = structuredClone(state);
+        try {
+          saveTaskState(t); // survive a process crash mid-run
+        } catch {
+          /* checkpoint persistence is best-effort */
+        }
+      },
+    });
+
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: stripAiSignoff(report),
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData,
+      },
+    });
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    // The checkpoint stays on the task (and in the DB), so retrying this
+    // task resumes from the last completed passage.
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
 async function processJob(job: JobData): Promise<void> {
   const {
     taskId,
@@ -1003,12 +904,16 @@ async function processJob(job: JobData): Promise<void> {
   const ac = new AbortController();
   abortControllers.set(taskId, ac);
 
-  // Analysis modes (catalog / timeline) use a single LLM call, not chunking
+  // Analysis modes: sequential story-read over the whole manuscript
+  // (entity registry + story-so-far carried between chapters).
   if (ANALYSIS_MODES.includes(mode)) {
-    return processAnalysisJob(job, ac);
+    return processStoryAnalysisJob(job, ac);
   }
   if (mode === "analysis_summary" || mode === "blurb") {
     return processSynthesisJob(job, ac);
+  }
+  if (mode === "text_evaluator") {
+    return processTextEvaluatorJob(job, ac);
   }
 
   // Edits always run corrections-mode (discrete {original,corrected} pairs).
@@ -2259,6 +2164,8 @@ export async function submitTask(
       characterDedup: data.characterDedup,
       styleComplianceAgent: data.styleComplianceAgent,
       extraPass: data.extraPass,
+      units: data.units,
+      correctionsDigest: data.correctionsDigest,
     },
   });
 
@@ -2350,6 +2257,9 @@ export async function retryTask(id: string): Promise<string> {
 
   const spec = task.retrySpec;
   const oldJobId = task.jobId;
+  // Story analysis: carry the resume checkpoint into the retried task so it
+  // continues from the last completed chapter instead of restarting.
+  const resumeState = task.analysisCheckpoint;
 
   // Drop old entry first so the UI doesn't show two rows for the same chapter.
   tasks.delete(id);
@@ -2384,6 +2294,9 @@ export async function retryTask(id: string): Promise<string> {
     characterDedup: spec.characterDedup,
     styleComplianceAgent: spec.styleComplianceAgent,
     extraPass: spec.extraPass,
+    units: spec.units,
+    correctionsDigest: spec.correctionsDigest,
+    resumeState,
   });
   return newTaskId;
 }
@@ -2484,9 +2397,16 @@ export function removeJob(jobId: string): number {
 export function getTasksSnapshot(): Record<string, Omit<TaskState, "retrySpec">> {
   // Strip retrySpec — it embeds full chapter text per task. The frontend
   // only reads retrySpec via REST when the user clicks "retry".
-  const snapshot: Record<string, Omit<TaskState, "retrySpec">> = {};
+  const snapshot: Record<
+    string,
+    Omit<TaskState, "retrySpec" | "analysisCheckpoint">
+  > = {};
   for (const [id, task] of tasks) {
-    const { retrySpec: _retrySpec, ...rest } = task;
+    const {
+      retrySpec: _retrySpec,
+      analysisCheckpoint: _checkpoint,
+      ...rest
+    } = task;
     snapshot[id] = rest;
   }
   return snapshot;

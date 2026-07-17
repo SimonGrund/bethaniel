@@ -2333,6 +2333,38 @@ summary.review-source::before {
   margin-top: 0.1rem;
 }
 
+/* Layered story outline (synopsis / parts / chapters zoom) */
+.outline-synopsis p,
+.outline-part p {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #3d3428;
+  margin: 0.4rem 0;
+}
+
+.outline-part {
+  margin-bottom: 0.6rem;
+}
+
+/* Analysis sub-panel: how-it-works hint + local-model quality warning */
+.mode-analysis-hint {
+  font-size: 0.73rem;
+  color: #6b5d4d;
+  line-height: 1.35;
+  margin: 0.5rem 0 0;
+}
+
+.mode-analysis-warning {
+  font-size: 0.73rem;
+  color: #c86432;
+  background: #fff3ec;
+  border: 1px solid #e8b090;
+  border-radius: 5px;
+  padding: 0.4rem 0.6rem;
+  line-height: 1.35;
+  margin: 0.5rem 0 0;
+}
+
 /* ── Sub-panel (expands below cards) ── */
 .mode-sub-panel {
   position: relative;

@@ -179,9 +179,9 @@ interface AppState {
   setShowAdvancedSettings: (b: boolean) => void;
   showEngineStatus: boolean;
   setShowEngineStatus: (b: boolean) => void;
-  editSubOptionsOpen: "editing" | "analysis" | "translation" | null;
+  editSubOptionsOpen: "editing" | "analysis" | "translation" | "feedback" | null;
   setEditSubOptionsOpen: (
-    cat: "editing" | "analysis" | "translation" | null,
+    cat: "editing" | "analysis" | "translation" | "feedback" | null,
   ) => void;
 
   // Reset

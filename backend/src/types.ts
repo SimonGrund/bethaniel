@@ -10,7 +10,8 @@ export type TaskMode =
   | "combined_analysis"
   | "combined_edit"
   | "analysis_summary"
-  | "blurb";
+  | "blurb"
+  | "text_evaluator";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
@@ -129,6 +130,11 @@ export interface TaskState {
   // going back to the upload screen. Includes the original chapter text,
   // model, prompt, chunking params, etc.
   retrySpec?: TaskRetrySpec;
+  // Story-analysis resume checkpoint (registry + events + summaries +
+  // next chapter index), updated after every chapter pass so a cancelled or
+  // crashed 30-minute analysis resumes instead of restarting. Stripped from
+  // Socket.IO snapshots (like retrySpec).
+  analysisCheckpoint?: unknown;
 }
 
 export interface TaskRetrySpec {
@@ -153,6 +159,20 @@ export interface TaskRetrySpec {
   characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
+  /** Story analysis: all manuscript chapters (the task spans the whole book). */
+  units?: EditUnit[];
+  /** Text evaluator: recurring-habit digest from a finished edit job. */
+  correctionsDigest?: CorrectionsDigest;
+}
+
+/** Aggregated correction patterns fed to the writing-report synthesis. */
+export interface CorrectionsDigest {
+  total: number;
+  patterns: {
+    label: string;
+    count: number;
+    examples: { original: string; corrected: string }[];
+  }[];
 }
 
 export interface EditUnit {

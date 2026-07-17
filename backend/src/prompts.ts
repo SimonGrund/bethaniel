@@ -3,6 +3,7 @@
 import type {
   CopyEditOptions,
   LineEditOptions,
+  TaskMode,
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
 } from "./types.js";
@@ -81,7 +82,14 @@ const STYLE_SHEET_TOP_POINTER = `
 ⚠ A STYLE SHEET IS IN EFFECT (full text at the END of these instructions). It is the HIGHEST authority and OVERRIDES the generic rules here: text that VIOLATES it is an error you must flag; text that MATCHES it must never be flagged.
 `;
 
-type StyleRole = "copy" | "line" | "combined" | "translate" | "reviewer" | "analysis";
+type StyleRole =
+  | "copy"
+  | "line"
+  | "combined"
+  | "translate"
+  | "reviewer"
+  | "analysis"
+  | "evaluator";
 
 /** Render the trailing style-sheet block, tailored to the consuming role. */
 function buildStyleSheetBlock(styleGuide: string, role: StyleRole): string {
@@ -109,6 +117,17 @@ Use the style sheet as ground truth when scoring (you have the full chapter text
 - A correction that brings the text INTO LINE with the style sheet is correct — score it 4–5.
 - A correction that CONTRADICTS the style sheet is a MISTAKE — score it 1–2.
 - If a correction changed something the style sheet shows should have gone the OTHER way (e.g. "re-corrected" a spelling/punctuation the sheet endorses), score it 1–2.`;
+  }
+
+  if (role === "evaluator") {
+    return `
+
+═══ AUTHOR'S STYLE SHEET — DELIBERATE CHOICES ═══
+The style sheet below states the author's deliberate choices (spellings, punctuation preferences, voice rules, banned or protected constructions). NEVER critique a choice the sheet endorses — it is intentional, not a weakness. You MAY note where the text violates the author's own stated rules.
+
+STYLE SHEET:
+${sheet}
+`;
   }
 
   if (role === "analysis") {
@@ -490,217 +509,6 @@ Output ONLY the reformatted Markdown — the complete text, nothing else.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CHARACTER CATALOG
-// ═══════════════════════════════════════════════════════════════════
-
-export const CHARACTER_CATALOG_PROMPT = `You are a literary analyst. Read the text carefully and extract a comprehensive catalog of ALL characters mentioned.
-
-For each character, provide:
-- **name**: The character's primary name as used most often in the text
-- **aliases**: Any other names, nicknames, titles, or references used for this character (e.g. "the old man", "Captain", "Mom")
-- **chapters**: Which chapters or sections the character appears in or is mentioned
-- **physicalDescription**: Any physical traits described (hair, eyes, build, age, clothing, distinguishing marks). Use "not described" if none.
-- **personalityTraits**: Key personality characteristics shown through action or description
-- **role**: Their role in the story (protagonist, antagonist, mentor, love interest, minor, mentioned-only, etc.)
-
-Include ALL characters — even minor ones mentioned only once. For minor characters with little information, fill in what you can and mark unknowns.
-
-OUTPUT FORMAT — STRICT JSON ONLY:
-{
-  "characters": [
-    {
-      "name": "string",
-      "aliases": ["string"],
-      "chapters": ["string"],
-      "physicalDescription": "string",
-      "personalityTraits": ["string"],
-      "role": "string"
-    }
-  ]
-}
-
-Sort characters by importance (most appearances first).
-
-CHARACTER DEDUPLICATION — critical:
-- The same person is often referred to by MULTIPLE names: formal name ("Kathrine"), relational names ("Aaron's mom", "Bria's mother"), titles ("Lady Evermore"), and simple forms ("Mom", "the lady"). MERGE all of these into ONE catalog entry.
-- Choose the most FORMAL / PROPER name as the primary "name" field.
-- List EVERY other variant as an alias (even single words like "Mom").
-- "X's mom" + "X's mother" + the character's own name are ALWAYS the same person. NEVER create separate entries for them.
-- Infer family relationships from context. If you see "Bria's brother" and you've already catalogued a male character who interacts with Bria as her brother, merge them.
-- When unsure, MERGE rather than split. The alias field exists to capture variant names. A merged entry with comprehensive aliases is ALWAYS better than duplicate entries of the same person.
-
-Output ONLY the JSON. No commentary.`;
-
-/** Character catalog prompt, optionally anchored to the author's style sheet. */
-export function buildCharacterCatalogPrompt(styleGuide?: string): string {
-  return CHARACTER_CATALOG_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// LOCATION CATALOG
-// ═══════════════════════════════════════════════════════════════════
-
-export const LOCATION_CATALOG_PROMPT = `You are a literary analyst. Read the text carefully and extract a comprehensive catalog of ALL locations, settings, and places mentioned.
-
-For each location, provide:
-- **name**: The location's primary name
-- **aliases**: Other names or descriptions used for this place (e.g. "the house", "home", "the old Victorian")
-- **chapters**: Which chapters or sections this location appears in
-- **description**: Physical description of the place as given in the text. Use "not described" if none.
-- **significance**: Why this location matters to the story (where key events happen, symbolic meaning, etc.)
-
-Include ALL locations — from major settings to briefly mentioned places.
-
-OUTPUT FORMAT — STRICT JSON ONLY:
-{
-  "locations": [
-    {
-      "name": "string",
-      "aliases": ["string"],
-      "chapters": ["string"],
-      "description": "string",
-      "significance": "string"
-    }
-  ]
-}
-
-Sort locations by importance (most appearances first).
-
-LOCATION DEDUPLICATION — critical:
-- The same place is often referred to by MULTIPLE names: a proper name ("Thornfield Hall"), generic descriptions ("the house", "home", "the old Victorian"), and relational forms ("the manor"). MERGE all of these into ONE catalog entry.
-- Choose the most PROPER / SPECIFIC name as the primary "name" field; list every other variant as an alias.
-- A generic reference ("the house") that clearly points to an already-named place is the SAME location — never create a separate entry for it.
-- When unsure, MERGE rather than split. A merged entry with comprehensive aliases is ALWAYS better than duplicates of the same place.
-
-Output ONLY the JSON. No commentary.`;
-
-/** Location catalog prompt, optionally anchored to the author's style sheet. */
-export function buildLocationCatalogPrompt(styleGuide?: string): string {
-  return LOCATION_CATALOG_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// TIMELINE
-// ═══════════════════════════════════════════════════════════════════
-
-export const TIMELINE_PROMPT = `You are a literary analyst. Read the text carefully and extract a chronological timeline of significant events.
-
-For each event, provide:
-- **chapter**: Which chapter or section this event occurs in
-- **description**: A concise description of what happens (1-2 sentences)
-- **characters**: Which characters are involved in or affected by this event
-- **timeReference**: Any time markers mentioned (dates, seasons, "three days later", "that morning", etc.). Use "unspecified" if the text gives no time reference.
-
-Include:
-- Major plot events (arrivals, departures, confrontations, revelations, deaths, etc.)
-- Significant character decisions or turning points
-- Important discoveries or changes in relationships
-
-Do NOT include minor scene-setting details or routine actions unless they are plot-relevant.
-
-OUTPUT FORMAT — STRICT JSON ONLY:
-{
-  "events": [
-    {
-      "chapter": "string",
-      "description": "string",
-      "characters": ["string"],
-      "timeReference": "string"
-    }
-  ]
-}
-
-Events should be in STORY-CHRONOLOGICAL order (which may differ from chapter order if the story uses flashbacks). Output ONLY the JSON. No commentary.`;
-
-/** Timeline prompt, optionally anchored to the author's style sheet. */
-export function buildTimelinePrompt(styleGuide?: string): string {
-  return TIMELINE_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// COMBINED ANALYSIS (characters + locations + timeline in one pass)
-// ═══════════════════════════════════════════════════════════════════
-
-import type { TaskMode } from "./types.js";
-
-const ANALYSIS_SECTIONS: Record<
-  string,
-  { key: string; instruction: string; schema: string }
-> = {
-  character_catalog: {
-    key: "characters",
-    instruction: `CHARACTER CATALOG — extract ALL characters mentioned.
-For each character provide:
-- name: primary name used most often
-- aliases: other names, nicknames, titles, references (e.g. "the old man", "Captain", "Mom")
-- chapters: which chapters/sections the character appears in
-- physicalDescription: physical traits described. "not described" if none
-- personalityTraits: key personality characteristics
-- role: protagonist, antagonist, mentor, love interest, minor, mentioned-only, etc.
-Include ALL characters, even minor ones mentioned once.
-
-CHARACTER DEDUPLICATION — the same person may appear under multiple names: formal name, relational names ("X's mom"), titles, or simple forms. MERGE all of these into ONE entry. Choose the most formal name as primary. List all variants as aliases. "X's mom" + "X's mother" + the character's actual name are ALWAYS the same person — never split them. When unsure, MERGE.`,
-    schema: `"characters": [{"name":"string","aliases":["string"],"chapters":["string"],"physicalDescription":"string","personalityTraits":["string"],"role":"string"}]`,
-  },
-  location_catalog: {
-    key: "locations",
-    instruction: `LOCATION CATALOG — extract ALL locations, settings, and places mentioned.
-For each location provide:
-- name: primary name
-- aliases: other names/descriptions for this place
-- chapters: which chapters/sections it appears in
-- description: physical description as given in text. "not described" if none
-- significance: why this location matters to the story
-Include ALL locations, from major settings to briefly mentioned places.
-
-LOCATION DEDUPLICATION — the same place may appear under multiple names: a proper name, generic descriptions ("the house", "home"), or relational forms. MERGE all of these into ONE entry. Choose the most proper/specific name as primary; list variants as aliases. A generic reference that clearly points to a named place is the SAME location — never split them. When unsure, MERGE.`,
-    schema: `"locations": [{"name":"string","aliases":["string"],"chapters":["string"],"description":"string","significance":"string"}]`,
-  },
-  timeline: {
-    key: "events",
-    instruction: `TIMELINE — extract a chronological timeline of significant events.
-For each event provide:
-- chapter: which chapter/section
-- description: concise description (1-2 sentences)
-- characters: who is involved
-- timeReference: time markers mentioned ("three days later", "that morning", etc.). "unspecified" if none
-Include major plot events, significant decisions, discoveries, relationship changes. Skip routine/minor scene-setting.
-Events should be in STORY-CHRONOLOGICAL order.`,
-    schema: `"events": [{"chapter":"string","description":"string","characters":["string"],"timeReference":"string"}]`,
-  },
-};
-
-export function buildCombinedAnalysisPrompt(
-  analysisModes: TaskMode[],
-  styleGuide?: string,
-): string {
-  const sections = analysisModes
-    .filter((m) => m in ANALYSIS_SECTIONS)
-    .map((m) => ANALYSIS_SECTIONS[m]);
-
-  if (sections.length === 0) return buildCharacterCatalogPrompt(styleGuide); // fallback
-
-  const instructions = sections
-    .map((s, i) => `${i + 1}. ${s.instruction}`)
-    .join("\n\n");
-
-  const schemaFields = sections.map((s) => `  ${s.schema}`).join(",\n");
-
-  return `You are a literary analyst. Read the text carefully and perform ALL of the following analyses in a single pass:
-
-${instructions}
-
-Sort characters and locations by importance (most appearances first).
-
-OUTPUT FORMAT — STRICT JSON ONLY:
-{
-${schemaFields}
-}
-
-Output ONLY the JSON object. No commentary, no markdown fences, no preamble.${buildStyleSheetBlock(styleGuide ?? "", "analysis")}`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // ANALYSIS SUMMARY (prose synthesis from merged per-chapter results)
 // ═══════════════════════════════════════════════════════════════════
 
@@ -759,6 +567,175 @@ Rules:
 STRICT OUTPUT RULES:
 - Output ONLY the blurb paragraph. No preamble, no heading, no "Here is the blurb", no commentary.
 - The response must START with the first word of the blurb and END with the final period.`;
+
+// ═══════════════════════════════════════════════════════════════════
+// STORY READ — sequential whole-story analysis (chapter → part → story)
+// ═══════════════════════════════════════════════════════════════════
+//
+// The story-analysis orchestrator (storyAnalysis.ts) reads the manuscript ONE
+// chapter at a time, in order, carrying forward an entity registry and a
+// story-so-far outline. Identity ("Kate" = "Katherine" = "the queen") is
+// resolved at read time against the registry instead of reconstructed from
+// context-blind per-chunk extractions afterwards.
+
+export const STORY_READ_PROMPT = `You are a literary analyst reading a manuscript ONE CHAPTER AT A TIME, in order, building a cumulative understanding of the story.
+
+The user message contains three sections:
+1. ENTITY REGISTRY — every character (id "C…") and location (id "L…") discovered so far, with canonical names and known aliases.
+2. STORY SO FAR — brief summaries of what has already happened.
+3. CHAPTER TEXT — the new chapter to read.
+
+Report what THIS chapter adds.
+
+IDENTITY RULES — the most important part of your job:
+- BEFORE creating a new entity, check the ENTITY REGISTRY. If a person or place in this chapter is plausibly one already in the registry — a nickname ("Kate" for "Katherine"), a title ("the queen"), a relational reference ("Aaron's mom"), a generic reference ("the manor", "home") — report it as a mention of that EXISTING id and record the surface form as a new alias.
+- Only use "new" when the chapter clearly introduces a person or place that is NOT in the registry.
+- When unsure whether a reference is an existing entity, prefer resolving to the existing id over creating a duplicate.
+
+OUTPUT — STRICT JSON ONLY:
+{
+  "mentions": [
+    { "id": "C1", "aliases": ["new surface forms seen this chapter"], "traits": ["newly revealed personality traits"], "descriptionUpdate": "new physical/place details revealed this chapter (omit if none)" },
+    { "new": { "kind": "character", "name": "most formal/proper name", "aliases": ["other forms used in the text"], "oneLiner": "who this is, one short line", "physicalDescription": "physical traits, or 'not described'", "personalityTraits": ["traits shown"] } },
+    { "new": { "kind": "location", "name": "most proper/specific name", "aliases": ["other forms used"], "oneLiner": "what this place is, one short line", "description": "physical description, or 'not described'" } }
+  ],
+  "events": [
+    { "description": "what happens, 1-2 sentences", "characters": ["registry ids or canonical names"], "timeReference": "time marker from the text ('three days later', 'flashback — ten years earlier'), else 'unspecified'" }
+  ],
+  "chapterSummary": "2-3 sentences: what happens in this chapter and why it matters to the story."
+}
+
+EVENT RULES:
+- List events in READING ORDER (the order they appear in the chapter).
+- Include plot events, turning points, revelations, arrivals/departures, deaths, decisions, and relationship changes. Skip routine scene-setting.
+- If the chapter is a flashback or set at another time, say so in each event's timeReference.
+- Only report entities that actually appear or are referenced in THIS chapter.`;
+
+export function buildStoryReadPrompt(styleGuide?: string): string {
+  return STORY_READ_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+}
+
+export const PART_SYNTHESIS_PROMPT = `You are a literary analyst. You receive JSON containing the chapter summaries of ONE part of a manuscript, plus the numbered events recorded while reading it.
+
+Respond with STRICT JSON ONLY:
+{
+  "partSummary": "One paragraph (3-6 sentences) telling what happens across this part — the arc of the part, not chapter-by-chapter trivia.",
+  "eventTiers": [ { "seq": 1, "tier": 1 } ]
+}
+
+TIER RULES:
+- tier 1 = MAJOR: story-defining turning points. A reader skimming ONLY tier-1 events should still follow the plot. Be selective — typically 1-3 per part.
+- tier 2 = MEDIUM: significant developments worth a medium-zoom timeline.
+- Do NOT list minor events: any event you leave out of "eventTiers" stays tier 3 (minor). Reference events by their "seq" number.`;
+
+export const STORY_SYNTHESIS_PROMPT = `You are a literary analyst. You receive JSON describing an entire manuscript that was read chapter by chapter: part summaries, chapter summaries, and the full entity registry of characters (ids "C…") and locations (ids "L…").
+
+Respond with STRICT JSON ONLY:
+{
+  "synopsis": "A whole-story synopsis in 2-4 paragraphs of flowing prose: the setup, the central conflict and its turns, and how it resolves. No headings, no lists.",
+  "characterRoles": [ { "id": "C1", "role": "protagonist" } ],
+  "locationSignificance": [ { "id": "L1", "significance": "why this place matters to the story, one line" } ]
+}
+
+RULES:
+- Roles: use one of protagonist / antagonist / mentor / love interest / supporting / minor. Assign a role to every character that matters; characters you omit default to "minor".
+- Only include locationSignificance entries for places with real story weight.
+- Base everything ONLY on the provided material — never invent plot that is not supported by it.`;
+
+export function buildStorySynthesisPrompt(styleGuide?: string): string {
+  return STORY_SYNTHESIS_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEXT EVALUATOR — writing-quality feedback (passage critique → report)
+// ═══════════════════════════════════════════════════════════════════
+//
+// The text-evaluator orchestrator (textEvaluator.ts) samples passages spread
+// across the manuscript, critiques each one into structured observations,
+// then synthesizes a single narrative writing report for the author.
+
+const PASSAGE_CRITIQUE_PROMPT = `You are a literary craft critic evaluating ONE passage sampled from a longer manuscript. Your observations will later be merged into a constructive writing report for the author.
+
+The user message contains the passage, labeled with the chapter it came from.
+
+Look ONLY for sentence- and scene-level craft — never plot or structure (you cannot see the whole book). Use exactly these themes:
+- "repetition": the same word, image, or sentence opener recurring noticeably
+- "adverb_overuse": leaning on -ly adverbs where a stronger verb would do
+- "show_dont_tell": emotions or traits stated flatly instead of dramatized
+- "sentence_rhythm": monotonous sentence lengths or structures
+- "filter_words": perception filters ("she saw", "he felt", "she noticed") that distance the reader
+- "weak_verbs": vague verbs ("was", "went", "got") carrying scenes that want precise ones
+- "dialogue": stilted exchanges, on-the-nose lines, tag or beat problems
+- "pacing": scenes that drag or rush at the sentence level
+- "description_balance": too much or too little sensory grounding
+- "pov_consistency": slips out of the established point of view
+- "strength": something this passage genuinely does WELL
+
+OUTPUT — STRICT JSON ONLY:
+{
+  "observations": [
+    { "theme": "repetition", "quote": "exact excerpt copied verbatim from the passage, at most 25 words", "note": "what the excerpt shows and, briefly, how to improve it" }
+  ]
+}
+
+RULES:
+- 0-4 observations for this passage. Report only what is clearly present — an empty list is a valid answer for clean prose.
+- Include a "strength" observation when the passage genuinely earns one; authors need to know what to keep.
+- "quote" must be copied VERBATIM from the passage — never paraphrase, never invent, never quote from memory of other books.
+- Judge fiction craft, not grammar. Ignore typos and punctuation (a copy editor handles those).
+- Respect the author's voice: dialect, fragments, and stylistic quirks used consistently are choices, not flaws.
+- Write every "note" in the same language as the passage.`;
+
+export function buildPassageCritiquePrompt(styleGuide?: string): string {
+  return (
+    PASSAGE_CRITIQUE_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "evaluator")
+  );
+}
+
+const WRITING_REPORT_PROMPT = `You are an experienced developmental editor writing a constructive craft report for an author.
+
+You will receive a JSON object with:
+- "manuscriptStats": total word count, how many passages were sampled, and how many words they cover
+- "themes": craft observations gathered from the sampled passages, grouped by theme — each with the chapter it came from, a verbatim quote, and a critic's note
+- "correctionsDigest" (optional): the most frequent correction patterns from a completed copy/line edit of this manuscript, with counts and examples
+
+Write a READABLE Markdown report (no code fences) with these sections:
+
+## Overview
+3-5 encouraging sentences: what the writing does well overall, and the two or three growth areas the rest of the report covers. Never condescending, never gushing.
+
+Then ONE "## " section per theme that has at least 2 supporting observations (SKIP themes with fewer — do not mention them). Use a plain-language heading (e.g. "Repetition", "Show, Don't Tell", "Filter Words"). In each section:
+- Explain the habit and why it weakens the prose, in 2-4 sentences.
+- Quote 2-3 of the strongest evidence excerpts as Markdown blockquotes, each attributed like "> "…" — Chapter 3".
+- Give concrete, actionable revision advice — show how one quoted example could be reworked.
+
+## Recurring Patterns from the Edit
+ONLY if "correctionsDigest" is present: describe the 3-5 most frequent correction patterns as habits to unlearn ("Commas around dialogue tags were corrected 41 times — …"), with one or two of the digest's examples each. If there is no digest, OMIT this section entirely.
+
+## Where the Writing Shines
+The "strength" observations: quote 1-3 of them and say precisely why they work, so the author knows what to keep doing.
+
+## Suggested Next Steps
+3-5 bullet points: the highest-leverage habits to practice, in priority order, phrased as things to DO.
+
+RULES:
+- Base everything ONLY on the provided observations and digest — never invent quotes or issues.
+- Address the author directly as "you", with a warm, professional tone.
+- The report covers SAMPLED passages: present habits as patterns worth checking across the whole manuscript, and never claim to have read the entire book.
+- Never comment on plot, characters, or story structure.
+- Write the entire report in the same language as the quoted passages.
+
+STRICT OUTPUT RULES — violating these makes the output unusable:
+- Output Markdown only. No JSON, no code fences, no XML/HTML.
+- The response must START directly with the first heading ("## Overview"). No preamble such as "Here is the report", "Sure", or any greeting.
+- The response must END with the final bullet of the last section. No closing remarks, no offers of further help, no "Let me know if…", no "I hope this helps".
+- Do not refer to yourself, the model, or the analysis process.`;
+
+export function buildWritingReportPrompt(styleGuide?: string): string {
+  return (
+    WRITING_REPORT_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "evaluator")
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // REVIEWER — second-pass critical review of editor corrections
@@ -842,26 +819,6 @@ Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 
   return p;
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// CHARACTER IDENTITY RESOLUTION — LLM-powered dedup
-// ═══════════════════════════════════════════════════════════════════
-
-export const CHARACTER_IDENTITY_PROMPT = `You are resolving character identity in a manuscript. You receive two character entries. Determine if they are the SAME person referred to by different names.
-
-Entry A: name + aliases + chapters
-Entry B: name + aliases + chapters
-
-Signals of SAME person:
-- One name is a variant of the other (e.g. "Kaijin" vs "Kaijin Kairobi")
-- They share aliases or one's aliases overlap with another's name
-- They share family references (e.g. "Bria's mom" + "Kathrine" where Kathrine is in Bria's family chapters)
-- One's name contains a possessive ("Aaron's mom") and the other has "mother" or related terms as aliases
-- They appear in the same chapters and have thin/placeholder descriptions
-- One is a role/title and the other is a proper name used in the same context
-
-Reply with EXACTLY one word: "same" or "different".
-No commentary, no punctuation, no markdown.`;
 
 // ═══════════════════════════════════════════════════════════════════
 // TRANSLATION REVIEWER — evaluates translated paragraph quality

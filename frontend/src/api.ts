@@ -148,6 +148,15 @@ export async function deleteJob(jobId: string) {
   await apiFetch(`/queue/job/${jobId}`, { method: "DELETE" });
 }
 
+export async function spawnWritingReport(jobId: string): Promise<string> {
+  const res = await apiFetch(`/queue/job/${jobId}/writing-report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  return data.taskId as string;
+}
+
 export async function spawnJobSummary(
   jobId: string,
   type: "summary" | "blurb" = "summary",

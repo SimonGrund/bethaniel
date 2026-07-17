@@ -10,7 +10,8 @@ export type TaskMode =
   | "combined_analysis"
   | "combined_edit"
   | "analysis_summary"
-  | "blurb";
+  | "blurb"
+  | "text_evaluator";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",

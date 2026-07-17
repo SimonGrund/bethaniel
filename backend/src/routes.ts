@@ -33,10 +33,6 @@ import {
   buildCopyEditCorrectionsPrompt,
   buildLineEditCorrectionsPrompt,
   buildTranslationPrompt,
-  buildCharacterCatalogPrompt,
-  buildLocationCatalogPrompt,
-  buildTimelinePrompt,
-  buildCombinedAnalysisPrompt,
   buildCombinedEditPrompt,
   ANALYSIS_SUMMARY_PROMPT,
   BLURB_PROMPT,
@@ -100,6 +96,7 @@ import {
   getConcurrency,
 } from "./queue.js";
 import type { DocumentMeta } from "./types.js";
+import { digestCorrections } from "./textEvaluator.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -389,15 +386,93 @@ router.post("/queue/add", async (req: Request, res: Response) => {
         !(mergeEdits && (m === "copy_edit" || m === "line_edit")),
     );
 
+    // All analysis selections collapse into ONE combined_analysis task: the
+    // sequential story read always builds the full artifact set (registry,
+    // events, outline), so separate per-mode tasks would just repeat the work.
     const effectiveModes: TaskMode[] = [
       ...otherModes,
       ...(mergeEdits ? (["combined_edit"] as TaskMode[]) : []),
-      ...(analysisModes.length > 1
+      ...(analysisModes.length > 0
         ? (["combined_analysis"] as TaskMode[])
-        : analysisModes),
+        : []),
     ];
 
+    const stripPagebreaks = (text: string): string =>
+      text
+        .replace(
+          new RegExp(
+            PAGEBREAK_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            "g",
+          ),
+          "",
+        )
+        .trim();
+
     for (const currentMode of effectiveModes) {
+      // ── Story analysis: one task spanning the whole manuscript ──
+      // Chapters are read sequentially by the orchestrator (storyAnalysis.ts),
+      // so they travel together on a single task instead of fanning out.
+      if (currentMode === "combined_analysis") {
+        const cleanedUnits = (units as EditUnit[]).map((u) => ({
+          name: u.name,
+          original: stripPagebreaks(u.original),
+        }));
+        const totalWords = cleanedUnits.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        );
+        console.log(
+          `[API]   task: "Story analysis" [${analysisModes.join("+")}] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+        );
+        const taskId = await submitTask({
+          jobId,
+          name: "Story analysis",
+          source: doc.name,
+          original: "",
+          wordCount: totalWords,
+          model: model || DEFAULT_MODEL_FILENAME,
+          mode: "combined_analysis",
+          prompt: "", // the orchestrator builds its own pass prompts
+          wpc: wordsPerChunk ?? 2500,
+          overlap: 0,
+          styleGuide,
+          units: cleanedUnits,
+        });
+        taskIds.push(taskId);
+        continue;
+      }
+      // ── Text evaluator: one task spanning the whole manuscript ──
+      // Passages are sampled across the selected chapters by the orchestrator
+      // (textEvaluator.ts), so they travel together on a single task.
+      if (currentMode === "text_evaluator") {
+        const cleanedUnits = (units as EditUnit[]).map((u) => ({
+          name: u.name,
+          original: stripPagebreaks(u.original),
+        }));
+        const totalWords = cleanedUnits.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        );
+        console.log(
+          `[API]   task: "Writing report" [text_evaluator] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+        );
+        const taskId = await submitTask({
+          jobId,
+          name: "Writing report",
+          source: doc.name,
+          original: "",
+          wordCount: totalWords,
+          model: model || DEFAULT_MODEL_FILENAME,
+          mode: "text_evaluator",
+          prompt: "", // the orchestrator builds its own pass prompts
+          wpc: wordsPerChunk ?? 2500,
+          overlap: 0,
+          styleGuide,
+          units: cleanedUnits,
+        });
+        taskIds.push(taskId);
+        continue;
+      }
       // Build system prompt based on mode
       let systemPrompt: string;
       let taskEditOptions: Record<string, boolean | string> | undefined;
@@ -444,39 +519,17 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             styleGuide,
           );
           break;
-        case "character_catalog":
-          systemPrompt = buildCharacterCatalogPrompt(styleGuide);
-          break;
-        case "location_catalog":
-          systemPrompt = buildLocationCatalogPrompt(styleGuide);
-          break;
-        case "timeline":
-          systemPrompt = buildTimelinePrompt(styleGuide);
-          break;
-        case "combined_analysis":
-          systemPrompt = buildCombinedAnalysisPrompt(analysisModes, styleGuide);
-          break;
         default:
           res.status(400).json({ error: `Unknown mode: ${currentMode}` });
           return;
       }
 
       for (const unit of units as EditUnit[]) {
-        const text = unit.original
-          .replace(
-            new RegExp(
-              PAGEBREAK_MARKER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-              "g",
-            ),
-            "",
-          )
-          .trim();
+        const text = stripPagebreaks(unit.original);
         const modeLabel =
-          currentMode === "combined_analysis"
-            ? analysisModes.join("+")
-            : currentMode === "combined_edit"
-              ? "copy_edit+line_edit"
-              : currentMode;
+          currentMode === "combined_edit"
+            ? "copy_edit+line_edit"
+            : currentMode;
         console.log(
           `[API]   task: "${unit.name}" [${modeLabel}] (${text.split(/\s+/).length} words)`,
         );
@@ -515,6 +568,29 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // warn the client. Inference under macOS swap is ~100× slower (paging
     // to SSD per token) and visually appears as a stuck task.
     const warnings: string[] = [];
+
+    // Story analysis follows a strict JSON + entity-registry contract that
+    // small local models handle much less reliably than API models.
+    if (
+      analysisModes.length > 0 &&
+      !isApiModel(model || DEFAULT_MODEL_FILENAME)
+    ) {
+      warnings.push(
+        "Story analysis works best with External Betty (API model). Local models often struggle to follow the analysis contract — expect lower-quality catalogs, timelines and summaries.",
+      );
+    }
+
+    // The writing report shares that strict-JSON concern, and its literary
+    // judgment is only as good as the model behind it.
+    if (
+      modeList.includes("text_evaluator") &&
+      !isApiModel(model || DEFAULT_MODEL_FILENAME)
+    ) {
+      warnings.push(
+        "Writing feedback works best with External Betty (API model). Local models often struggle to quote accurately and judge prose craft — expect a lower-quality report.",
+      );
+    }
+
     try {
       const os = await import("os");
       const totalRamGb = os.totalmem() / 1024 ** 3;
@@ -659,6 +735,83 @@ router.post(
       res.status(500).json({
         error:
           err instanceof Error ? err.message : "Failed to spawn summary task",
+      });
+    }
+  },
+);
+
+// ── Manually spawn a writing report for a completed edit job ──
+// Rebuilds the manuscript units from the finished edit tasks' original text
+// and digests their corrections so the report can call out recurring habits.
+router.post(
+  "/queue/job/:jobId/writing-report",
+  async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const snapshot = getTasksSnapshot();
+
+      // Regenerate semantics: drop any existing report task for this job.
+      for (const [tid, t] of Object.entries(snapshot)) {
+        if (t.jobId === jobId && t.mode === "text_evaluator") {
+          removeTask(tid);
+        }
+      }
+
+      const editModes: TaskMode[] = ["copy_edit", "line_edit", "combined_edit"];
+      const siblings = Object.values(snapshot)
+        .filter(
+          (t) =>
+            t.jobId === jobId &&
+            editModes.includes(t.mode) &&
+            t.status === "done" &&
+            t.result?.originalText,
+        )
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true }),
+        );
+      if (siblings.length === 0) {
+        res
+          .status(400)
+          .json({ error: "No completed edit tasks found for this job" });
+        return;
+      }
+
+      const units: EditUnit[] = siblings.map((t) => ({
+        name: t.name,
+        original: t.result!.originalText,
+      }));
+      const correctionsDigest = digestCorrections(
+        siblings.flatMap((t) => t.result!.corrections),
+      );
+      const ref = siblings[0];
+      // The snapshot strips retrySpec; fetch one full task for the style guide.
+      const styleGuide = getTask(ref.id)?.retrySpec?.styleGuide;
+
+      const taskId = await submitTask({
+        jobId,
+        name: "Writing report",
+        source: ref.source,
+        original: "",
+        wordCount: units.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        ),
+        model: ref.model ?? "",
+        mode: "text_evaluator",
+        prompt: "", // the orchestrator builds its own pass prompts
+        wpc: 2500,
+        overlap: 0,
+        styleGuide,
+        units,
+        correctionsDigest,
+      });
+      res.json({ taskId });
+    } catch (err) {
+      res.status(500).json({
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to spawn writing report task",
       });
     }
   },

@@ -41,6 +41,7 @@ const MODE_ICONS: Record<string, string> = {
   timeline: "📅",
   combined_analysis: "🔍",
   combined_edit: "📝✒️",
+  text_evaluator: "🎓",
 };
 
 function WorkflowDetail({

@@ -1055,6 +1055,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Übersetzung",
     es: "Traducción",
   },
+  group_feedback: {
+    en: "Writing feedback",
+    da: "Skrivefeedback",
+    de: "Schreib-Feedback",
+    es: "Comentarios de escritura",
+  },
   workflow_label: {
     en: "Workflow",
     da: "Arbejdsgang",
@@ -1103,6 +1109,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Kombinierte Analyse",
     es: "Análisis combinado",
   },
+  mode_outline: {
+    en: "Story outline",
+    da: "Synopsis",
+    de: "Handlungsübersicht",
+    es: "Esquema de la historia",
+  },
   mode_combined_edit: {
     en: "Combined edit",
     da: "Kombineret redigering",
@@ -1114,6 +1126,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Analyseopsummering",
     de: "Analysezusammenfassung",
     es: "Resumen del análisis",
+  },
+  mode_text_evaluator: {
+    en: "Writing feedback",
+    da: "Skrivefeedback",
+    de: "Schreib-Feedback",
+    es: "Comentarios de escritura",
   },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
@@ -1132,6 +1150,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Oversæt teksten til et målsprog.",
     de: "Den Text in eine Zielsprache übersetzen.",
     es: "Traduce el texto a un idioma de destino.",
+  },
+  mode_desc_text_evaluator: {
+    en: "Get constructive feedback on your writing craft.",
+    da: "Få konstruktiv feedback på dit skrivehåndværk.",
+    de: "Konstruktives Feedback zum Schreibhandwerk erhalten.",
+    es: "Recibe comentarios constructivos sobre tu oficio de escritura.",
   },
   mode_desc_character_catalog: {
     en: "Extract a catalog of all characters, locations, and important events.",
@@ -1156,6 +1180,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Målsprog",
     de: "Zielsprache",
     es: "Idioma de destino",
+  },
+  analysis_local_warning: {
+    en: "Analysis works best with External Betty (API model). Local models often struggle to follow the analysis contract — expect lower-quality catalogs, timelines and summaries.",
+    da: "Analyse fungerer bedst med Eksterne Betty (API-model). Lokale modeller har ofte svært ved at følge analysekontrakten — forvent lavere kvalitet af kataloger, tidslinjer og resuméer.",
+    de: "Die Analyse funktioniert am besten mit External Betty (API-Modell). Lokale Modelle haben oft Schwierigkeiten, dem Analyseformat zu folgen — Kataloge, Zeitleisten und Zusammenfassungen fallen dann schwächer aus.",
+    es: "El análisis funciona mejor con External Betty (modelo API). Los modelos locales suelen tener dificultades para seguir el contrato de análisis: espere catálogos, líneas temporales y resúmenes de menor calidad.",
+  },
+  mode_desc_analysis_hint: {
+    en: "Betty reads the whole story in order — characters, places, timeline and outline are built as she goes.",
+    da: "Betty læser hele historien i rækkefølge — personer, steder, tidslinje og synopsis opbygges undervejs.",
+    de: "Betty liest die ganze Geschichte der Reihe nach — Figuren, Orte, Zeitleiste und Gliederung entstehen dabei.",
+    es: "Betty lee toda la historia en orden: personajes, lugares, línea temporal y esquema se construyen sobre la marcha.",
+  },
+  mode_desc_feedback_hint: {
+    en: "Betty samples passages across your manuscript and writes a constructive craft report — recurring habits, quoted examples, and concrete advice on how to improve.",
+    da: "Betty udtager passager fra hele dit manuskript og skriver en konstruktiv håndværksrapport — tilbagevendende vaner, citerede eksempler og konkrete råd til forbedring.",
+    de: "Betty zieht Stichproben aus dem gesamten Manuskript und schreibt einen konstruktiven Handwerksbericht — wiederkehrende Gewohnheiten, zitierte Beispiele und konkrete Verbesserungsvorschläge.",
+    es: "Betty toma pasajes de muestra de todo el manuscrito y escribe un informe constructivo sobre el oficio: hábitos recurrentes, ejemplos citados y consejos concretos para mejorar.",
+  },
+  feedback_local_warning: {
+    en: "Writing feedback works best with External Betty (API model). Local models often struggle to quote accurately and judge prose craft — expect a lower-quality report.",
+    da: "Skrivefeedback fungerer bedst med Eksterne Betty (API-model). Lokale modeller har ofte svært ved at citere præcist og bedømme prosahåndværk — forvent en rapport af lavere kvalitet.",
+    de: "Schreib-Feedback funktioniert am besten mit External Betty (API-Modell). Lokale Modelle zitieren oft ungenau und beurteilen Prosa schwächer — der Bericht fällt dann schwächer aus.",
+    es: "Los comentarios de escritura funcionan mejor con External Betty (modelo API). Los modelos locales suelen citar con imprecisión y juzgar peor la prosa: espere un informe de menor calidad.",
   },
   // Copy edit options
   opt_spelling: {
@@ -1363,6 +1411,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Regenerér markedsføringstekst",
     de: "Marketing-Text neu generieren",
     es: "Regenerar texto de marketing",
+  },
+  writing_report: {
+    en: "Writing Report",
+    da: "Skriverapport",
+    de: "Schreibbericht",
+    es: "Informe de escritura",
+  },
+  generate_writing_report: {
+    en: "Generate Writing Report",
+    da: "Generér skriverapport",
+    de: "Schreibbericht generieren",
+    es: "Generar informe de escritura",
+  },
+  regenerate_writing_report: {
+    en: "Regenerate Writing Report",
+    da: "Regenerér skriverapport",
+    de: "Schreibbericht neu generieren",
+    es: "Regenerar informe de escritura",
   },
   detailed_analysis_data: {
     en: "Detailed analysis data",
