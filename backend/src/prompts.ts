@@ -875,6 +875,82 @@ Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// TRANSLATION UPGRADE — monolingual target-language polish pass
+// ═══════════════════════════════════════════════════════════════════
+
+export function buildTranslationUpgradePrompt(
+  targetLang: string,
+  styleGuide?: string,
+): string {
+  let p = `You are a native ${targetLang} line editor. The text below was translated into ${targetLang}. Your job is to make it read as if it had been originally written in ${targetLang} — remove every trace of "translationese".`;
+  if (styleGuide)
+    p += `\n⚠ A BINDING GLOSSARY / TRANSLATION NOTES SECTION IS PROVIDED AT THE END — listed terms and names MUST remain exactly as rendered.`;
+  p += `
+
+WHAT TO FIX:
+- Calqued idioms — replace literal renderings with natural ${targetLang} expressions
+- Source-language sentence rhythm and word order — restructure into natural ${targetLang} syntax
+- Register mismatches — informal dialogue must sound informal in ${targetLang}, formal narration formal
+- Unnatural collocations and word choices a native writer would never use
+
+WHAT YOU MUST NOT DO:
+- Do NOT add, drop, or alter any meaning, fact, event, or detail
+- Do NOT change any proper noun, name, or glossary-bound term
+- Do NOT merge, split, add, or remove paragraphs — the output must have exactly the same paragraphs as the input
+- Do NOT change Markdown formatting (headings, bold, italic, lists stay exactly as they are)
+
+Output ONLY the edited ${targetLang} Markdown. No preamble, no commentary.`;
+  p += buildStyleSheetBlock(styleGuide ?? "", "translate");
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FLUENCY REVIEWER — scores polished translation naturalness & drift
+// ═══════════════════════════════════════════════════════════════════
+
+export function buildFluencyReviewerPrompt(
+  targetLang: string,
+  styleGuide?: string,
+): string {
+  let p = `You are a native ${targetLang} literary editor assessing prose quality. Under ORIGINAL TEXT you will receive a draft ${targetLang} translation for context. Under PROPOSED CORRECTIONS you will receive pairs formatted as [index] "draft paragraph" → "polished paragraph". Both sides are ${targetLang}. For each pair, score the POLISHED paragraph.
+
+Score each on a 1-5 confidence scale:
+- 5: Reads as if originally written in ${targetLang} — natural rhythm, idiomatic, meaning identical to the draft
+- 4: Good — minor awkwardness only (one word choice or a slightly stiff phrase)
+- 3: Acceptable — understandable but noticeably stilted or translation-flavored
+- 2: Problematic — unnatural phrasing throughout, OR the polish changed the draft's meaning
+- 1: Broken — garbled text, or content dropped/invented relative to the draft
+
+Specifically flag (score <= 2):
+- Meaning added, dropped, or altered relative to the DRAFT paragraph
+- Calqued idioms or word-for-word constructions no native writer would use
+- Grammatically broken or garbled sentences`;
+
+  if (styleGuide && styleGuide.trim()) {
+    p += `
+- A name or term rendered in VIOLATION of the binding glossary below
+
+═══ BINDING GLOSSARY / TRANSLATION NOTES ═══
+The polished text must conform to the notes below. A rendering that contradicts a listed term, name, or rule is a defect — score it <= 2 and name the violated term in the reason.
+
+${styleGuide.trim()}`;
+  }
+
+  p += `
+
+OUTPUT FORMAT — STRICT JSONL (one JSON object per line):
+{"index": 0, "confidence": 5, "reason": "Natural, idiomatic — meaning preserved"}
+{"index": 1, "confidence": 2, "reason": "Polish dropped the second sentence of the draft"}
+
+Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the pair number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
+
+Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
+Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
+
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // STYLE-SHEET COMPLIANCE AGENT — dedicated style-sheet enforcement pass
 // ═══════════════════════════════════════════════════════════════════
 

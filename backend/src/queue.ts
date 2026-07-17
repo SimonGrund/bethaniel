@@ -49,7 +49,10 @@ import {
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
   buildCopyEditCorrectionsPrompt,
+  buildTranslationUpgradePrompt,
+  buildFluencyReviewerPrompt,
 } from "./prompts.js";
+import { runTranslationUpgrade } from "./translationUpgrade.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
@@ -1752,6 +1755,57 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
             }
+
+            // UPGRADE PASS — monolingual target-language polish + fluency
+            // review. Falls back to the accuracy-validated draft on any
+            // failure, so this can never regress the plain translation.
+            const targetLang = job.targetLang ?? "the target language";
+            const upgraded = await runTranslationUpgrade(
+              {
+                draft: translatedText,
+                upgradePrompt: buildTranslationUpgradePrompt(
+                  targetLang,
+                  job.styleGuide,
+                ),
+                reviewMode: !!job.reviewMode,
+                reviewerCount: job.reviewerCount ?? 1,
+                reviewerThreshold: job.reviewerThreshold ?? 3,
+                chunkLabel,
+                signal: ac.signal,
+              },
+              {
+                editStream: async (text, systemPrompt) => {
+                  let out = "";
+                  for await (const tok of editChunkStream(
+                    model,
+                    text,
+                    systemPrompt,
+                    ac.signal,
+                  ))
+                    out += tok;
+                  return out;
+                },
+                runReviewer: (draftChunk, pairs) =>
+                  runReviewerAgentWithRetry({
+                    model,
+                    chunkText: draftChunk,
+                    cs: pairs,
+                    reviewerPrompt: buildFluencyReviewerPrompt(
+                      targetLang,
+                      job.styleGuide,
+                    ),
+                    signal: ac.signal,
+                    taskId,
+                    chunkLabel,
+                    agentLabel: "Fluency-reviewer agent",
+                  }),
+                parseScores: parseReviewScores,
+                log: (level, message) =>
+                  appendLog({ level, source: "engine", taskId, message, model }),
+                setPhase: (phase) => updateTask(taskId, { phase }),
+              },
+            );
+            translatedText = restoreTypography(translatedText, upgraded);
 
             const core = stripOverlapFromResponse(
               translatedText,

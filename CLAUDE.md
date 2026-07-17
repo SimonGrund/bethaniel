@@ -82,6 +82,7 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `db.ts` | better-sqlite3 — documents, style guides, completed task states |
 | `prompts.ts` | All LLM system prompts (copy-edit, line-edit, analysis, review, translation) |
 | `chunking.ts` | Split manuscript into word-count chunks with paragraph overlap |
+| `translationUpgrade.ts` | Post-translation target-language polish pass + fluency review loop (stages 3–4 of translate mode) |
 | `analysisMerge.ts` | Merge per-chapter analysis results (characters, locations, timeline) across chunks |
 | `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]` |
 | `conversion.ts` | DOCX ↔ Markdown (mammoth for import, html-to-docx for export) |
