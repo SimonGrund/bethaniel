@@ -201,6 +201,87 @@ export function collapseIntroducedQuotePairs(
   return { text: out, fixes };
 }
 
+// ── Introduced doubled punctuation ──
+
+const SEAM_PUNCT_RE = /[.,;:!?]/;
+const SEAM_PUNCT_ALL_RE = /[.,;:!?]/g;
+
+/**
+ * Like pairContextKey, but blind to other seam punctuation in the context:
+ * an introduced ",," must not shift a nearby author pair ("Run!!") out of
+ * its fingerprint and get it "repaired" along with the real artifact.
+ */
+function punctPairContextKey(text: string, idx: number): string {
+  const pre = text
+    .slice(Math.max(0, idx - 16), idx)
+    .replace(SEAM_PUNCT_ALL_RE, "")
+    .slice(-12);
+  const post = text
+    .slice(idx + 2, idx + 18)
+    .replace(SEAM_PUNCT_ALL_RE, "")
+    .slice(0, 12);
+  return `${pre}|${post}`;
+}
+
+export interface PunctuationPairFixResult {
+  text: string;
+  /** The doubled pairs that were collapsed, e.g. ['..', ',,']. */
+  fixes: string[];
+}
+
+/**
+ * Collapse same-character punctuation pairs ("..", ",,", "!!", …) that
+ * `after` has but `before` doesn't — splice artifacts of corrections whose
+ * `original` snippet stops just short of a sentence-final mark the manuscript
+ * already has. Pairs at the same context in `before` are the author's and are
+ * kept; runs of three or more (ellipses, "?!?!" flourishes) are never touched.
+ */
+export function collapseIntroducedPunctuationPairs(
+  before: string,
+  after: string,
+): PunctuationPairFixResult {
+  const runLength = (text: string, idx: number): number => {
+    let n = 1;
+    while (idx - n >= 0 && text[idx - n] === text[idx]) n++;
+    const back = n - 1;
+    n = 1;
+    while (idx + n < text.length && text[idx + n] === text[idx]) n++;
+    return back + n;
+  };
+
+  const preexisting = new Set<string>();
+  for (let i = 0; i + 1 < before.length; i++) {
+    if (
+      SEAM_PUNCT_RE.test(before[i]) &&
+      before[i] === before[i + 1] &&
+      runLength(before, i) === 2
+    ) {
+      preexisting.add(before[i] + punctPairContextKey(before, i));
+    }
+  }
+
+  const fixes: string[] = [];
+  let out = "";
+  let i = 0;
+  while (i < after.length) {
+    const ch = after[i];
+    if (
+      SEAM_PUNCT_RE.test(ch) &&
+      after[i + 1] === ch &&
+      runLength(after, i) === 2 &&
+      !preexisting.has(ch + punctPairContextKey(after, i))
+    ) {
+      out += ch;
+      fixes.push(ch + ch);
+      i += 2;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return { text: out, fixes };
+}
+
 // ── Contained-correction folding ──
 //
 // combined_edit regularly produces a sentence-level rewrite AND a smaller

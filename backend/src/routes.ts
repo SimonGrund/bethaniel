@@ -27,6 +27,7 @@ import { listModels, getModelSizeBytes, attributeSuspects } from "./llm.js";
 import { findNewSuspectWords } from "./spellcheck.js";
 import {
   collapseIntroducedQuotePairs,
+  collapseIntroducedPunctuationPairs,
   revertSuspectRuns,
 } from "./correctionHygiene.js";
 import {
@@ -853,7 +854,7 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
   const results: {
     suspects: string[];
     offenders: { id: string; word: string }[];
-    autoFixes: { kind: "spelling" | "quotes"; detail: string }[];
+    autoFixes: { kind: "spelling" | "quotes" | "punctuation"; detail: string }[];
     fixedAfter?: string;
   }[] = [];
   for (const ch of chapters) {
@@ -888,7 +889,10 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     // style. The repaired text is returned as `fixedAfter` for the export
     // to use. When offenders exist the client un-accepts and re-verifies,
     // so `fixedAfter` is only consumed on a clean pass.
-    const autoFixes: { kind: "spelling" | "quotes"; detail: string }[] = [];
+    const autoFixes: {
+      kind: "spelling" | "quotes" | "punctuation";
+      detail: string;
+    }[] = [];
     let fixedAfter = after;
     let remaining = unattributed;
     if (unattributed.length > 0) {
@@ -901,6 +905,10 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     const quoteFix = collapseIntroducedQuotePairs(before, fixedAfter);
     fixedAfter = quoteFix.text;
     for (const p of quoteFix.fixes) autoFixes.push({ kind: "quotes", detail: p });
+    const punctFix = collapseIntroducedPunctuationPairs(before, fixedAfter);
+    fixedAfter = punctFix.text;
+    for (const p of punctFix.fixes)
+      autoFixes.push({ kind: "punctuation", detail: p });
 
     results.push({
       // Only suspects that could neither be pinned on a correction nor

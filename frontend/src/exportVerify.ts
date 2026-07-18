@@ -48,6 +48,48 @@ export function findAllOccurrences(text: string, search: string): number[] {
   return indices;
 }
 
+// Seam-punctuation rules mirroring the backend's applyCorrections:
+//  - a correction whose `corrected` ends with a mark the text already has
+//    right after the match must not splice a duplicate ("shoulder..");
+//  - a correction that strips a paragraph-final terminal mark gets it back
+//    ("…a forced smile." → "…a forced smile" would end the paragraph on a
+//    bare word). Rewrites ending in other punctuation ("and—.") pass.
+const SEAM_PUNCT_RE = /[.,;:!?]/;
+const TERMINAL_END_RE = /[.!?…]$/;
+const BARE_WORD_END_RE = /[\p{L}\p{N}]$/u;
+
+function adjustSeamPunctuation(
+  text: string,
+  index: number,
+  original: string,
+  corrected: string,
+): string {
+  const last = corrected[corrected.length - 1] ?? "";
+  if (
+    SEAM_PUNCT_RE.test(last) &&
+    !original.endsWith(last) &&
+    text[index + original.length] === last
+  ) {
+    corrected = corrected.slice(0, -1);
+  }
+  const first = corrected[0] ?? "";
+  if (
+    SEAM_PUNCT_RE.test(first) &&
+    !original.startsWith(first) &&
+    index > 0 &&
+    text[index - 1] === first
+  ) {
+    corrected = corrected.slice(1);
+  }
+  if (TERMINAL_END_RE.test(original) && BARE_WORD_END_RE.test(corrected)) {
+    const after = text[index + original.length];
+    if (after === undefined || after === "\n" || after === "\r") {
+      corrected += original[original.length - 1];
+    }
+  }
+  return corrected;
+}
+
 /** Apply only accepted corrections to the original text. */
 export function applyAccepted(
   originalText: string,
@@ -107,9 +149,15 @@ export function applyAccepted(
 
   let result = originalText;
   for (const { correction, index } of chosen) {
+    const corrected = adjustSeamPunctuation(
+      result,
+      index,
+      correction.original,
+      correction.corrected,
+    );
     result =
       result.slice(0, index) +
-      correction.corrected +
+      corrected +
       result.slice(index + correction.original.length);
   }
   return result;
@@ -238,7 +286,11 @@ export async function verifyAcceptedCorrections(
           for (const w of ch.suspects) unattributed.add(w);
           for (const f of ch.autoFixes ?? []) {
             autoFixed.add(
-              f.kind === "quotes" ? `${f.detail} → quote` : f.detail,
+              f.kind === "quotes"
+                ? `${f.detail} → quote`
+                : f.kind === "punctuation"
+                  ? `${f.detail} → ${f.detail[0]}`
+                  : f.detail,
             );
           }
           if (typeof ch.fixedAfter === "string") {

@@ -338,15 +338,31 @@ export function mdToHtml(
     lastWasPagebreak = false;
   };
 
+  // Consecutive blank lines beyond the first are empty source paragraphs —
+  // the author's soft section breaks, which the DOCX importer preserved as
+  // extra blank lines. Round-trip each back to a real empty line (same nbsp
+  // paragraph as the lone-"#" minor break). Emitted lazily on the next
+  // content line so leading/trailing blanks add nothing.
+  let pendingBlankLines = 0;
+  const emitSectionBlanks = () => {
+    if (pendingBlankLines >= 2 && htmlLines.length > 0) {
+      for (let i = 1; i < pendingBlankLines; i++) {
+        htmlLines.push(`<p style="${lineHeight}">&#160;</p>`);
+      }
+    }
+    pendingBlankLines = 0;
+  };
+
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Blank line: pure paragraph separator — no extra empty paragraph (which is
-    // what doubled the spacing in the old renderer).
+    // Blank line: paragraph separator — runs of them become section breaks.
     if (trimmed === "") {
       flushParagraph();
+      pendingBlankLines += 1;
       continue;
     }
+    emitSectionBlanks();
 
     if (trimmed === PAGEBREAK_MARKER) {
       flushParagraph();

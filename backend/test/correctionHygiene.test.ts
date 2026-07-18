@@ -12,6 +12,7 @@ import {
   dominantQuoteStyle,
   sanitizeQuoteCorrections,
   collapseIntroducedQuotePairs,
+  collapseIntroducedPunctuationPairs,
   foldContainedCorrections,
   revertSuspectRuns,
 } from "../src/correctionHygiene.ts";
@@ -248,6 +249,90 @@ test("apply: rival rewrites of the same sentence — one applies, honest reason"
 });
 
 // ── applyCorrections edge boundaries (root cause of the splice) ──
+
+// ── applyCorrections seam punctuation (the ".." splice) ──
+// Real case: the model emitted original '…from his shoulder' → corrected
+// '…from his shoulder.' — the snippet omits the sentence-final period the
+// manuscript already has, so the splice doubled it: "shoulder..".
+
+test("apply: period-appending correction does not double an existing period", () => {
+  const text =
+    "Aaron dropped the satchel from his shoulder. “Yes, he mentioned it might be possible.”";
+  const [out] = applyCorrections(text, [
+    {
+      original: "Aaron dropped the satchel from his shoulder",
+      corrected: "Aaron dropped the satchel from his shoulder.",
+    },
+  ]);
+  assert.equal(out, text);
+  assert.ok(!out.includes(".."));
+});
+
+test("apply: real edit with trailing period keeps a single period", () => {
+  const text =
+    "He waved with his staff, accompanying the motion with a rapid exhale. Aaron copied.";
+  const [out, applied] = applyCorrections(text, [
+    {
+      original: "accompanying the motion with a rapid exhale",
+      corrected: "matching the motion with a rapid exhale.",
+    },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.ok(out.includes("matching the motion with a rapid exhale. Aaron"));
+  assert.ok(!out.includes(".."));
+});
+
+test("apply: leading seam punctuation is not doubled either", () => {
+  const text = "one, two, three";
+  const [out] = applyCorrections(text, [
+    { original: " two", corrected: ", two" },
+  ]);
+  assert.equal(out, text);
+  assert.ok(!out.includes(",,"));
+});
+
+test("apply: trailing period next to an author ellipsis leaves the ellipsis intact", () => {
+  const text = "He paused... then left the room.";
+  const [out] = applyCorrections(text, [
+    { original: "He paused", corrected: "He paused." },
+  ]);
+  assert.equal(out, text);
+  assert.ok(!out.includes("...."));
+});
+
+// ── collapseIntroducedPunctuationPairs (assembly/export safety net) ──
+
+test("punct: collapses an introduced doubled period", () => {
+  const before = "He gestured with a rapid exhale. Aaron copied.";
+  const after = "He gestured with a rapid exhale.. Aaron copied.";
+  const { text, fixes } = collapseIntroducedPunctuationPairs(before, after);
+  assert.equal(text, before);
+  assert.deepEqual(fixes, [".."]);
+});
+
+test("punct: collapses introduced doubled exclamation and comma", () => {
+  const before = "Run!! he cried, again and again.";
+  const after = "Run!! he cried,, again!! and again.";
+  const { text, fixes } = collapseIntroducedPunctuationPairs(before, after);
+  // The pre-existing "Run!!" survives; the introduced ",," and "!!" collapse.
+  assert.equal(text, "Run!! he cried, again! and again.");
+  assert.deepEqual(fixes.sort(), ["!!", ",,"]);
+});
+
+test("punct: pre-existing doubled marks are left alone", () => {
+  const before = "Wait.. what?? He typed on.";
+  const { text, fixes } = collapseIntroducedPunctuationPairs(before, before);
+  assert.equal(text, before);
+  assert.equal(fixes.length, 0);
+});
+
+test("punct: ellipsis runs are never touched", () => {
+  const before = "He paused, then left.";
+  const after = "He paused... then left....";
+  const { text, fixes } = collapseIntroducedPunctuationPairs(before, after);
+  assert.equal(text, after);
+  assert.equal(fixes.length, 0);
+});
 
 test("multi-word original cannot match the prefix of a longer word", () => {
   const text =

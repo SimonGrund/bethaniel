@@ -41,6 +41,7 @@ import { mergeAnalysisParts } from "./analysisMerge.js";
 import {
   sanitizeQuoteCorrections,
   foldContainedCorrections,
+  collapseIntroducedPunctuationPairs,
 } from "./correctionHygiene.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
@@ -2019,6 +2020,21 @@ async function processJob(job: JobData): Promise<void> {
 
     corrections.length = 0;
     corrections.push(...subsumeFree);
+  }
+
+  // Chapter-level punctuation net: doubled marks the original didn't have
+  // are splice artifacts (correction snippets stopping short of a
+  // sentence-final period) — collapse them and say so.
+  const punctFix = collapseIntroducedPunctuationPairs(original, editedText);
+  if (punctFix.fixes.length > 0) {
+    editedText = punctFix.text;
+    appendLog({
+      level: "warn",
+      source: "engine",
+      taskId,
+      message: `Chapter check: collapsed ${punctFix.fixes.length} doubled punctuation mark(s) introduced by editing (${[...new Set(punctFix.fixes)].join(" ")}).`,
+      model,
+    });
   }
 
   // Chapter-level spell net: anything reported here survived the per-chunk

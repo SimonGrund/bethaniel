@@ -59,3 +59,35 @@ test('"#" inside paragraph text is untouched', () => {
   const html = render("She was #1 in her class.");
   assert.ok(html.includes("She was #1 in her class."));
 });
+
+// ── blank-line section breaks ──
+// The DOCX importer preserves an empty Word paragraph as an extra blank line
+// ("\n\n\n"), the author's soft section break. The exporter must round-trip
+// it back to an empty paragraph instead of collapsing it into an ordinary
+// paragraph boundary.
+
+test("a double blank line exports as an empty paragraph", () => {
+  const html = render("He flashed a forced smile.\n\n\nAaron blinked.");
+  const lines = html.split("\n");
+  assert.equal(lines.length, 3, html);
+  assert.ok(lines[0].includes("forced smile."));
+  assert.ok(lines[1].includes("&#160;"));
+  assert.ok(lines[2].includes("Aaron blinked."));
+});
+
+test("each extra blank line beyond the first adds one empty paragraph", () => {
+  const html = render("One.\n\n\n\nTwo.");
+  const empty = html.split("\n").filter((ln) => ln.includes("&#160;"));
+  assert.equal(empty.length, 2, html);
+});
+
+test("a single blank line stays a plain paragraph separator", () => {
+  const html = render("One.\n\nTwo.");
+  assert.ok(!html.includes("&#160;"), html);
+});
+
+test("leading and trailing blank lines produce no empty paragraphs", () => {
+  const html = render("\n\n\nOnly paragraph.\n\n\n");
+  assert.ok(!html.includes("&#160;"), html);
+  assert.equal(html.split("\n").length, 1);
+});

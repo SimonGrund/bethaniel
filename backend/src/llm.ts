@@ -934,6 +934,67 @@ function hasDoublePunctuation(original: string, corrected: string): boolean {
 }
 
 /**
+ * Trim edge punctuation from `corrected` that duplicates the mark already
+ * adjacent to the located span in `text`. The model regularly emits an
+ * `original` snippet that stops just short of the sentence-final mark while
+ * `corrected` includes it ("…from his shoulder" → "…from his shoulder.");
+ * splicing that before the manuscript's own period yields "shoulder..".
+ * The manuscript's mark stays, so an adjacent ellipsis is never extended.
+ */
+const SEAM_PUNCT_RE = /[.,;:!?]/;
+function absorbSeamPunctuation(
+  text: string,
+  pos: number,
+  original: string,
+  corrected: string,
+): string {
+  const last = corrected[corrected.length - 1] ?? "";
+  if (
+    SEAM_PUNCT_RE.test(last) &&
+    !original.endsWith(last) &&
+    text[pos + original.length] === last
+  ) {
+    corrected = corrected.slice(0, -1);
+  }
+  const first = corrected[0] ?? "";
+  if (
+    SEAM_PUNCT_RE.test(first) &&
+    !original.startsWith(first) &&
+    pos > 0 &&
+    text[pos - 1] === first
+  ) {
+    corrected = corrected.slice(1);
+  }
+  return corrected;
+}
+
+/**
+ * Re-attach terminal punctuation a correction strips from a paragraph-final
+ * sentence. The model occasionally decides a paragraph's closing period is
+ * "unnecessary" ("…a forced smile." → "…a forced smile") and reviewers wave
+ * it through — but a prose paragraph never ends on a bare word. Rewrites that
+ * end in other punctuation ("and—." → "and—", "home." → "home:") pass
+ * untouched, as do mid-paragraph edits.
+ */
+const TERMINAL_END_RE = /[.!?…]$/;
+const WORD_END_RE = /[\p{L}\p{N}]$/u;
+function restoreParagraphEndPunctuation(
+  text: string,
+  pos: number,
+  original: string,
+  corrected: string,
+): string {
+  if (!TERMINAL_END_RE.test(original) || !WORD_END_RE.test(corrected)) {
+    return corrected;
+  }
+  const after = text[pos + original.length];
+  if (after === undefined || after === "\n" || after === "\r") {
+    return corrected + original[original.length - 1];
+  }
+  return corrected;
+}
+
+/**
  * Detect if a correction only changes dialogue tag punctuation/casing.
  * Patterns: period→comma before tag, capital→lowercase on tag verb, etc.
  * e.g. `"Hello." She said` → `"Hello," she said`
@@ -1267,7 +1328,12 @@ export function applyCorrections(
         located.push({
           pos,
           original: c.original,
-          corrected: c.corrected,
+          corrected: restoreParagraphEndPunctuation(
+            text,
+            pos,
+            c.original,
+            absorbSeamPunctuation(text, pos, c.original, c.corrected),
+          ),
           correction: c,
         });
       }
@@ -1278,7 +1344,12 @@ export function applyCorrections(
         located.push({
           pos: fuzzy.pos,
           original: fuzzy.match,
-          corrected: c.corrected,
+          corrected: restoreParagraphEndPunctuation(
+            text,
+            fuzzy.pos,
+            fuzzy.match,
+            absorbSeamPunctuation(text, fuzzy.pos, fuzzy.match, c.corrected),
+          ),
           correction: c,
         });
       } else {

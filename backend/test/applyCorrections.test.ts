@@ -86,3 +86,51 @@ test("isRealWordSwap detects valid→valid single-word swaps only", () => {
 test("getWordValidator returns null for an unsupported language", () => {
   assert.equal(getWordValidator("xx"), null);
 });
+
+// ── paragraph-final punctuation restoration ──
+// Real case: the model rewrote a paragraph-final sentence and dropped its
+// period ("…flashed Tobias a forced smile." → "…forced smile"), the reviewer
+// endorsed it, and the exported paragraph ended on a bare word.
+
+test("restores a stripped paragraph-final period while keeping the real fix", () => {
+  const text =
+    "“Okay… Just for a little while, though.” His heart beat fast as he flashed Tobias a forced smile.\n\n\nAaron blinked in the warm light.";
+  const [out, applied] = applyCorrections(text, [
+    {
+      original:
+        "“Okay… Just for a little while, though.” His heart beat fast as he flashed Tobias a forced smile.",
+      corrected:
+        "“Okay… just for a little while, though.” His heart beat fast as he flashed Tobias a forced smile",
+    },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.ok(out.includes("“Okay… just for")); // the legitimate fix survives
+  assert.ok(out.includes("a forced smile.\n\n\nAaron")); // the period is back
+});
+
+test("restores a stripped period at the very end of the text", () => {
+  const text = "The sound of Tabahi sleeping filled the air.";
+  const [out] = applyCorrections(text, [
+    {
+      original: "The sound of Tabahi sleeping filled the air.",
+      corrected: "The sound of Tabahi filled the air",
+    },
+  ]);
+  assert.equal(out, "The sound of Tabahi filled the air.");
+});
+
+test("an em-dash rewrite may still drop a paragraph-final period", () => {
+  const text = "Bria readied to block—.\n\nToo late.";
+  const [out] = applyCorrections(text, [
+    { original: "Bria readied to block—.", corrected: "Bria readied to block—" },
+  ]);
+  assert.equal(out, "Bria readied to block—\n\nToo late.");
+});
+
+test("mid-paragraph punctuation changes are untouched by the restore", () => {
+  const text = "He waved. Then he left.\n";
+  const [out] = applyCorrections(text, [
+    { original: "He waved.", corrected: "He waved," },
+  ]);
+  assert.equal(out, "He waved, Then he left.\n");
+});
