@@ -207,7 +207,11 @@ export async function verifyAcceptedCorrections(
   entries: { taskId: string; result: TaskResult }[],
   acceptedCorrections: Record<string, Set<string> | undefined>,
   unaccept: (taskId: string, ids: string[]) => void,
-  opts: { englishDialect?: string; styleGuide?: string },
+  opts: {
+    englishDialect?: string;
+    styleGuide?: string;
+    manuscriptLang?: string;
+  },
 ): Promise<VerifyOutcome> {
   const excluded: ExcludedCorrection[] = [];
   const autoFixed = new Set<string>();

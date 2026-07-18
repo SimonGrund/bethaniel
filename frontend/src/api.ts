@@ -95,6 +95,7 @@ export async function addToQueue(params: {
   styleGuide?: string;
   editOptions?: Record<string, boolean> | object;
   targetLang?: string;
+  manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
   reviewerCount?: number;
@@ -209,7 +210,11 @@ export interface VerifyChapterResult {
  */
 export async function verifyCorrections(
   chapters: VerifyChapterPayload[],
-  opts?: { englishDialect?: string; styleGuide?: string },
+  opts?: {
+    englishDialect?: string;
+    styleGuide?: string;
+    manuscriptLang?: string;
+  },
 ): Promise<{ checked: boolean; chapters: VerifyChapterResult[] }> {
   const res = await apiFetch("/verify-corrections", {
     method: "POST",

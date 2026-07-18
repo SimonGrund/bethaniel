@@ -124,6 +124,7 @@ export interface TaskState {
   result: TaskResult | null;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  manuscriptLang?: string;
   model?: string;
   tokPerSec?: string;
   // Stored re-submission spec so a failed task can be re-run without
@@ -149,6 +150,7 @@ export interface TaskRetrySpec {
   overlap: number;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
   reviewerCount?: number;
@@ -191,6 +193,7 @@ export interface QueueAddRequest {
   styleGuide?: string;
   editOptions?: CopyEditOptions | LineEditOptions;
   targetLang?: string;
+  manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
   reviewerCount?: number;

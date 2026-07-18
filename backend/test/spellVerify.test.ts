@@ -166,6 +166,44 @@ test("curly vs straight apostrophe swap is not reported as introduced", () => {
   assert.deepEqual(suspects, []);
 });
 
+// ── Manuscript language: non-English dictionaries ──
+// The Danish (da_DK) dictionary ships with the app; the manuscript-language
+// setting routes spell-check through it instead of the English ones, which
+// used to flood Danish text with false positives and English suggestions.
+
+test("Danish: validator accepts real Danish words, rejects corruptions", () => {
+  const validate = getWordValidator("da");
+  assert.ok(validate, "da_DK dictionary should be available");
+  assert.equal(validate!("kærlighed"), true);
+  assert.equal(validate!("hest"), true);
+  assert.equal(validate!("kærlighedd"), false);
+});
+
+test("Danish: getSpellCorrections has no false positives where en_US floods", () => {
+  const text = "Hesten løb over marken, og kærlighed fyldte hans hjerte.";
+  assert.deepEqual(getSpellCorrections(text, "da", {}), []);
+  // The old hardcoded-English path treats most Danish words as misspelled —
+  // this is the bug the manuscript-language setting fixes.
+  assert.ok(getSpellCorrections(text, "en_US", {}).length > 0);
+});
+
+test("Danish: findNewSuspectWords flags an introduced non-word, accepts real Danish", () => {
+  const before = "Han gik hjem til sin hest.";
+  const goodAfter = "Han gik hjem til sin smukke hest.";
+  const badAfter = "Han gik hjem til sin hesst.";
+  assert.deepEqual(findNewSuspectWords(before, goodAfter, "da"), []);
+  const suspects = findNewSuspectWords(before, badAfter, "da");
+  assert.ok(suspects);
+  assert.deepEqual(suspects, ["hesst"]);
+});
+
+test("unsupported free-text language: spell-check is skipped, not English-checked", () => {
+  const text = "Le cheval courait dans le pré.";
+  assert.deepEqual(getSpellCorrections(text, "French", {}), []);
+  assert.equal(getWordValidator("French"), null);
+  assert.equal(findNewSuspectWords("a", "a b", "French"), null);
+});
+
 // ── attributeSuspects (shared by applyCorrectionsVerified and the
 //    /verify-corrections export check) ──
 

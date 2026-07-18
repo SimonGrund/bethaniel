@@ -328,6 +328,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       styleGuide,
       editOptions,
       targetLang,
+      manuscriptLang,
       reviewMode,
       reviewerThreshold,
       reviewerCount,
@@ -484,7 +485,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_COPY_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = buildCopyEditCorrectionsPrompt(opts, styleGuide);
+          systemPrompt = buildCopyEditCorrectionsPrompt(
+            opts,
+            styleGuide,
+            undefined,
+            manuscriptLang,
+          );
           taskEditOptions = { ...opts };
           break;
         }
@@ -493,7 +499,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ...DEFAULT_LINE_EDIT_OPTIONS,
             ...editOptions,
           };
-          systemPrompt = buildLineEditCorrectionsPrompt(opts, styleGuide);
+          systemPrompt = buildLineEditCorrectionsPrompt(
+            opts,
+            styleGuide,
+            undefined,
+            manuscriptLang,
+          );
           taskEditOptions = { ...opts };
           break;
         }
@@ -510,6 +521,8 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             copyOpts,
             lineOpts,
             styleGuide,
+            undefined,
+            manuscriptLang,
           );
           taskEditOptions = { ...copyOpts, ...lineOpts };
           break;
@@ -547,6 +560,8 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           overlap: overlapParagraphs ?? 1,
           editOptions: taskEditOptions,
           targetLang: currentMode === "translate" ? targetLang : undefined,
+          manuscriptLang:
+            currentMode === "translate" ? undefined : manuscriptLang,
           reviewMode: reviewMode ?? true,
           reviewerThreshold: reviewerThreshold ?? 3,
           reviewerCount: reviewerCount ?? 1,
@@ -835,7 +850,8 @@ router.get("/results/:taskId", (req: Request, res: Response) => {
 // introduced misspellings and names the accepted corrections responsible, so
 // the UI can un-accept them before exporting.
 router.post("/verify-corrections", (req: Request, res: Response) => {
-  const { chapters, englishDialect, styleGuide } = req.body ?? {};
+  const { chapters, englishDialect, styleGuide, manuscriptLang } =
+    req.body ?? {};
   if (!Array.isArray(chapters)) {
     res.status(400).json({ error: "chapters must be an array" });
     return;
@@ -870,7 +886,16 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
         )
       : [];
 
-    const suspects = findNewSuspectWords(before, after, "en", spellOpts);
+    // Unsupported languages (no dictionary) return null → checked=false, the
+    // export proceeds unverified instead of being English-spell-checked.
+    const suspects = findNewSuspectWords(
+      before,
+      after,
+      typeof manuscriptLang === "string" && manuscriptLang
+        ? manuscriptLang
+        : "en",
+      spellOpts,
+    );
     if (suspects === null) {
       checked = false;
       results.push({ suspects: [], offenders: [], autoFixes: [] });

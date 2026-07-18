@@ -18,6 +18,7 @@ export default function EditTrigger() {
     copyEditOptions,
     lineEditOptions,
     targetLang,
+    manuscriptLang,
     reviewMode,
     reviewerThreshold,
     reviewerCount,
@@ -84,6 +85,11 @@ export default function EditTrigger() {
         editOptions: buildEditOptions(),
         targetLang: selectedModes.includes("translate")
           ? targetLang
+          : undefined,
+        manuscriptLang: selectedModes.some(
+          (m) => m === "copy_edit" || m === "line_edit",
+        )
+          ? manuscriptLang
           : undefined,
         reviewMode,
         reviewerThreshold,

@@ -1296,6 +1296,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   ? state.copyEditOptions.englishDialect
                   : undefined,
               styleGuide: state.styleGuide || undefined,
+              manuscriptLang: state.manuscriptLang || undefined,
             },
           );
           fixedTexts = outcome.fixedTexts;

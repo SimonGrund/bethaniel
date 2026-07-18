@@ -33,6 +33,10 @@ const LINE_EDIT_KEYS: (keyof LineEditOptions)[] = [
   "tightenProse",
 ];
 
+// Languages with a bundled spell-check dictionary; anything else is passed
+// to the LLM as free text (spell-check is skipped server-side).
+const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
+
 const CATEGORY_COLOR: Record<Category, string> = {
   editing: "mode-cat-amber",
   analysis: "mode-cat-amber",
@@ -52,6 +56,8 @@ export default function ModeSelector() {
     setLineEditOption,
     targetLang,
     setTargetLang,
+    manuscriptLang,
+    setManuscriptLang,
     wizardStep,
     advanceWizard,
     markStepComplete,
@@ -113,6 +119,9 @@ export default function ModeSelector() {
   }
 
   const isSelected = (m: TaskMode) => selectedModes.includes(m);
+
+  const isKnownManuscriptLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
+  const isEnglishManuscript = manuscriptLang === "en";
 
   return (
     <section className="mode-selector">
@@ -244,6 +253,37 @@ export default function ModeSelector() {
             ))}
           </div>
 
+          <div className="translate-lang">
+            <label title={t("manuscript_language_hint")}>
+              {t("manuscript_language")}:{" "}
+              <select
+                value={isKnownManuscriptLang ? manuscriptLang : "other"}
+                onChange={(e) =>
+                  setManuscriptLang(
+                    e.target.value === "other" ? "" : e.target.value,
+                  )
+                }
+                className="lang-input"
+              >
+                {KNOWN_MANUSCRIPT_LANGS.map((l) => (
+                  <option key={l} value={l}>
+                    {t(`lang_${l}`)}
+                  </option>
+                ))}
+                <option value="other">{t("lang_other")}</option>
+              </select>
+            </label>
+            {!isKnownManuscriptLang && (
+              <input
+                type="text"
+                value={manuscriptLang}
+                onChange={(e) => setManuscriptLang(e.target.value)}
+                placeholder={t("lang_other_placeholder")}
+                className="lang-input"
+              />
+            )}
+          </div>
+
           {isSelected("copy_edit") && (
             <div className="option-panel">
               <span className="option-panel-label">{t("mode_copy_edit")}</span>
@@ -258,42 +298,46 @@ export default function ModeSelector() {
                     {t(`opt_${key}`)}
                   </label>
                 ))}
-                <label className="option-check">
-                  <input
-                    type="checkbox"
-                    checked={copyEditOptions.oxfordComma}
-                    onChange={(e) =>
-                      setCopyEditOption("oxfordComma", e.target.checked)
-                    }
-                  />
-                  {t("opt_oxfordComma")}
-                </label>
+                {isEnglishManuscript && (
+                  <label className="option-check">
+                    <input
+                      type="checkbox"
+                      checked={copyEditOptions.oxfordComma}
+                      onChange={(e) =>
+                        setCopyEditOption("oxfordComma", e.target.checked)
+                      }
+                    />
+                    {t("opt_oxfordComma")}
+                  </label>
+                )}
               </div>
-              <div className="option-toggle-row">
-                <span className="option-toggle-label">
-                  {t("opt_englishDialect")}
-                </span>
-                <div className="option-toggle-group">
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
-                    onClick={() =>
-                      setCopyEditOption("englishDialect", "american")
-                    }
-                  >
-                    {t("opt_american")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
-                    onClick={() =>
-                      setCopyEditOption("englishDialect", "british")
-                    }
-                  >
-                    {t("opt_british")}
-                  </button>
+              {isEnglishManuscript && (
+                <div className="option-toggle-row">
+                  <span className="option-toggle-label">
+                    {t("opt_englishDialect")}
+                  </span>
+                  <div className="option-toggle-group">
+                    <button
+                      type="button"
+                      className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
+                      onClick={() =>
+                        setCopyEditOption("englishDialect", "american")
+                      }
+                    >
+                      {t("opt_american")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
+                      onClick={() =>
+                        setCopyEditOption("englishDialect", "british")
+                      }
+                    >
+                      {t("opt_british")}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

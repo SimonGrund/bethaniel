@@ -37,6 +37,7 @@ const DEFAULT_REVIEWER_COUNT = 1;
 const DEFAULT_DUAL_COUNT = 2;
 const DEFAULT_FIRST_N_WORDS = 5000;
 const DEFAULT_TARGET_LANG = "English";
+const DEFAULT_MANUSCRIPT_LANG = "en";
 
 interface AppState {
   // Language
@@ -85,6 +86,10 @@ interface AppState {
   setLineEditOption: (key: keyof LineEditOptions, val: boolean) => void;
   targetLang: string;
   setTargetLang: (l: string) => void;
+  // Language the manuscript is written in ("en" | "da" | "de" | "es" or
+  // free text from the "Other…" option). "en" = legacy default behavior.
+  manuscriptLang: string;
+  setManuscriptLang: (l: string) => void;
 
   // Document
   document: DocumentMeta | null;
@@ -251,6 +256,8 @@ export const useStore = create<AppState>()(
         })),
       targetLang: DEFAULT_TARGET_LANG,
       setTargetLang: (targetLang) => set({ targetLang }),
+      manuscriptLang: DEFAULT_MANUSCRIPT_LANG,
+      setManuscriptLang: (manuscriptLang) => set({ manuscriptLang }),
 
       document: null,
       setDocument: (document) => set({ document }),
@@ -552,6 +559,7 @@ export const useStore = create<AppState>()(
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
           lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
           targetLang: DEFAULT_TARGET_LANG,
+          manuscriptLang: DEFAULT_MANUSCRIPT_LANG,
           scopeMode: DEFAULT_SCOPE_MODE,
           selectedChapters: [0],
           firstNWords: DEFAULT_FIRST_N_WORDS,
@@ -597,6 +605,7 @@ export const useStore = create<AppState>()(
         copyEditOptions: state.copyEditOptions,
         lineEditOptions: state.lineEditOptions,
         targetLang: state.targetLang,
+        manuscriptLang: state.manuscriptLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,
         reviewMode: state.reviewMode,

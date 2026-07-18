@@ -207,6 +207,7 @@ interface JobData {
   overlap: number;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
+  manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
   reviewerCount?: number;
@@ -926,9 +927,10 @@ async function processJob(job: JobData): Promise<void> {
   const isCorrectionsMode = mode !== "translate";
 
   // Spell-safety validator — blocks any correction that would inject a new
-  // non-word (e.g. "Apparently" → "Appwrently"). English-only, mirroring the
-  // dialect-driven dictionary the spell-checker uses; undefined when the
-  // dictionary can't be loaded or the mode never applies corrections.
+  // non-word (e.g. "Apparently" → "Appwrently"). Uses the manuscript's
+  // language dictionary (English + dialect by default); undefined when the
+  // dictionary can't be loaded (e.g. unsupported language) or the mode never
+  // applies corrections.
   let isAcceptableWord: ((word: string) => boolean) | undefined;
   // Post-apply safety net: reports dictionary-rejected words that applying
   // corrections *introduced* into a chunk, so the offending corrections can
@@ -947,9 +949,10 @@ async function processJob(job: JobData): Promise<void> {
       englishDialect: editDialect,
       styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
     };
-    isAcceptableWord = getWordValidator("en", spellOpts) ?? undefined;
+    const spellGateLang = job.manuscriptLang ?? "en";
+    isAcceptableWord = getWordValidator(spellGateLang, spellOpts) ?? undefined;
     findNewSuspects = (before: string, after: string) =>
-      findNewSuspectWords(before, after, "en", spellOpts);
+      findNewSuspectWords(before, after, spellGateLang, spellOpts);
   }
 
   const jobStart = performance.now();
@@ -1191,7 +1194,15 @@ async function processJob(job: JobData): Promise<void> {
               if (job.spellCheck) {
                 const { getSpellCorrections } = await import("./spellcheck.js");
                 const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
-                const spellLang = dialect === "british" ? "en_GB" : "en_US";
+                const chunkLang = job.manuscriptLang ?? "en";
+                // Unsupported languages (no dictionary) yield [] — spell-check
+                // is silently skipped rather than run against English.
+                const spellLang =
+                  chunkLang === "en"
+                    ? dialect === "british"
+                      ? "en_GB"
+                      : "en_US"
+                    : chunkLang;
                 spellCorrections = getSpellCorrections(chunk.body, spellLang, {
                   maxHints: 30,
                 });
@@ -1222,7 +1233,13 @@ async function processJob(job: JobData): Promise<void> {
                 () => prompt,
               );
               if (styleAgentActive) {
-                editorPrompts.push(buildStyleCompliancePrompt(job.styleGuide!, mode));
+                editorPrompts.push(
+                  buildStyleCompliancePrompt(
+                    job.styleGuide!,
+                    mode,
+                    job.manuscriptLang,
+                  ),
+                );
               }
               const editorCount = editorPrompts.length;
               if (editorCount > 1) {
@@ -1507,7 +1524,11 @@ async function processJob(job: JobData): Promise<void> {
           // reviewer result" at the top of the loop). For the last chunk, the
           // reviewer is collected after the loop.
           if (job.reviewMode && cs.length > 0) {
-            const reviewerPrompt = buildReviewerPrompt(job.styleGuide, mode);
+            const reviewerPrompt = buildReviewerPrompt(
+              job.styleGuide,
+              mode,
+              job.manuscriptLang,
+            );
             const rCount = job.reviewerCount ?? 1;
 
             const reviewPromise = (async () => {
@@ -1947,6 +1968,8 @@ async function processJob(job: JobData): Promise<void> {
                 ...editOptions,
               } as CopyEditOptions,
               job.styleGuide,
+              undefined,
+              job.manuscriptLang,
             ),
     });
     if (pass2) {
@@ -2211,6 +2234,7 @@ export async function submitTask(
     result: null,
     editOptions: data.editOptions,
     targetLang: data.targetLang,
+    manuscriptLang: data.manuscriptLang,
     model: data.model,
     retrySpec: {
       name: data.name,
@@ -2224,6 +2248,7 @@ export async function submitTask(
       overlap: data.overlap,
       editOptions: data.editOptions,
       targetLang: data.targetLang,
+      manuscriptLang: data.manuscriptLang,
       reviewMode: data.reviewMode,
       reviewerThreshold: data.reviewerThreshold,
       reviewerCount: data.reviewerCount,
@@ -2354,6 +2379,7 @@ export async function retryTask(id: string): Promise<string> {
     overlap: spec.overlap,
     editOptions: spec.editOptions,
     targetLang: spec.targetLang,
+    manuscriptLang: spec.manuscriptLang,
     reviewMode: spec.reviewMode,
     reviewerThreshold: spec.reviewerThreshold,
     reviewerCount: spec.reviewerCount,

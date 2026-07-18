@@ -68,6 +68,33 @@ OUTPUT RULES — ABSOLUTE:
 4. Preserve single line breaks within paragraphs.`;
 
 // ═══════════════════════════════════════════════════════════════════
+// MANUSCRIPT LANGUAGE — shared, injected into all edit-pipeline prompts
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Human-readable name for a manuscript-language code; null for English/unset.
+ * English is the implicit default — emitting nothing keeps prompts
+ * byte-identical to the pre-language-setting behavior.
+ */
+export function manuscriptLangName(lang?: string): string | null {
+  if (!lang || lang === "en") return null;
+  const NAMES: Record<string, string> = { da: "Danish", de: "German", es: "Spanish" };
+  return NAMES[lang] ?? lang; // free-text "Other" values pass through verbatim
+}
+
+/** Hard never-translate block placed near the top of editor prompts. */
+function buildManuscriptLanguageBlock(langName: string): string {
+  return `
+═══ MANUSCRIPT LANGUAGE: ${langName} ═══
+The manuscript is written in ${langName}. ALL corrections must stay in ${langName}:
+- Every "corrected" value MUST be ${langName} text. NEVER translate any word, phrase, or sentence into English or any other language — a translation is the worst possible error you can make.
+- Judge spelling, grammar, punctuation, and word choice by the rules and conventions of ${langName}, NOT by English rules.
+- A well-formed ${langName} word is NEVER a spelling error merely because it is not an English word.
+- If you cannot express a fix in ${langName}, do not flag the passage at all.
+`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // STYLE SHEET (style guide) — shared, role-aware rendering
 // ═══════════════════════════════════════════════════════════════════
 //
@@ -239,8 +266,11 @@ export function buildCopyEditCorrectionsPrompt(
   opts: CopyEditOptions,
   styleGuide?: string,
   suspectWords?: string[],
+  manuscriptLang?: string,
 ): string {
+  const langName = manuscriptLangName(manuscriptLang);
   let p = `You are a copy editor performing the FINAL pre-print pass on a manuscript written in MARKDOWN.\n`;
+  if (langName) p += buildManuscriptLanguageBlock(langName);
   if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
   p += `\nYOUR JOB: find OBJECTIVE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
   p += "WHAT COUNTS AS AN ERROR:\n";
@@ -254,13 +284,15 @@ export function buildCopyEditCorrectionsPrompt(
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (opts.capitalization)
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
-  if (opts.englishDialect === "american")
+  // Dialect and Oxford-comma rules are English-specific — skip them entirely
+  // for non-English manuscripts even when the toggles are on.
+  if (!langName && opts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.). Only change known pairs — never invent spellings.\n";
-  if (opts.englishDialect === "british")
+  if (!langName && opts.englishDialect === "british")
     p +=
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
-  if (opts.oxfordComma)
+  if (!langName && opts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (opts.dialogueTags)
     p +=
@@ -356,8 +388,11 @@ export function buildLineEditCorrectionsPrompt(
   opts: LineEditOptions,
   styleGuide?: string,
   suspectWords?: string[],
+  manuscriptLang?: string,
 ): string {
+  const langName = manuscriptLangName(manuscriptLang);
   let p = `You are a developmental line editor improving the quality of a manuscript written in MARKDOWN. Your goal is to suggest changes that make the prose stronger while PRESERVING the author's unique voice.\n`;
+  if (langName) p += buildManuscriptLanguageBlock(langName);
   if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
   p += "\n";
   p +=
@@ -391,10 +426,13 @@ export function buildCombinedEditPrompt(
   lineOpts: LineEditOptions,
   styleGuide?: string,
   suspectWords?: string[],
+  manuscriptLang?: string,
 ): string {
+  const langName = manuscriptLangName(manuscriptLang);
   let p = `You are an editor performing TWO passes on a manuscript written in MARKDOWN, in a single combined review:\n`;
   p += `  1. COPY EDIT — find OBJECTIVE ERRORS (spelling, punctuation, grammar)\n`;
   p += `  2. LINE EDIT — suggest PROSE IMPROVEMENTS (clarity, rhythm, voice)\n`;
+  if (langName) p += buildManuscriptLanguageBlock(langName);
   if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
   p += `\nReturn ALL findings — both kinds — as a single JSON list of corrections.\n\n`;
 
@@ -409,13 +447,13 @@ export function buildCombinedEditPrompt(
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (copyOpts.capitalization)
     p += "- Capitalization errors at sentence starts and on proper nouns\n";
-  if (copyOpts.englishDialect === "american")
+  if (!langName && copyOpts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.). Only change known pairs — never invent spellings.\n";
-  if (copyOpts.englishDialect === "british")
+  if (!langName && copyOpts.englishDialect === "british")
     p +=
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
-  if (copyOpts.oxfordComma)
+  if (!langName && copyOpts.oxfordComma)
     p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
   if (copyOpts.dialogueTags)
     p +=
@@ -744,6 +782,7 @@ export function buildWritingReportPrompt(styleGuide?: string): string {
 export function buildReviewerPrompt(
   styleGuide?: string,
   mode: TaskMode = "copy_edit",
+  manuscriptLang?: string,
 ): string {
   // The reviewer scores findings of different KINDS depending on the task:
   // copy edits are objective (right/wrong), line edits are subjective
@@ -805,6 +844,11 @@ IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-b
   }
 
   p += `\n\nBe SKEPTICAL. When in doubt, score LOWER. It's better to let a real ${isLine ? "passage stand" : "error through"} than to ${isLine ? "impose a pointless rewrite" : "introduce a fake correction"}.`;
+
+  const reviewerLangName = manuscriptLangName(manuscriptLang);
+  if (reviewerLangName) {
+    p += `\n\nMANUSCRIPT LANGUAGE: ${reviewerLangName}. The chapter text and every correction are in ${reviewerLangName}. Any proposed change that translates text into another language (including English), or replaces a correct ${reviewerLangName} word with a foreign word, is ALWAYS a mistake — score it 1.`;
+  }
 
   p += buildStyleSheetBlock(styleGuide ?? "", "reviewer");
 
@@ -964,9 +1008,11 @@ Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 export function buildStyleCompliancePrompt(
   styleGuide: string,
   mode: TaskMode = "copy_edit",
+  manuscriptLang?: string,
 ): string {
   const sheet = styleGuide.trim();
   const allowPreferences = mode === "line_edit" || mode === "combined_edit";
+  const langName = manuscriptLangName(manuscriptLang);
 
   let p = `You are a STYLE-SHEET COMPLIANCE EDITOR on a manuscript written in MARKDOWN. You have exactly ONE job: scan the text for places that VIOLATE the author's style sheet (reproduced below) and return them as corrections. Ignore everything the style sheet does not speak to — other editors handle general errors.
 
@@ -982,6 +1028,7 @@ WHAT TO FLAG — only deviations from the STYLE SHEET, e.g.:
 
 For each violation, output a correction whose "corrected" value brings the text INTO LINE with the sheet. Do NOT flag anything that already conforms. If the text fully complies, output nothing.`;
 
+  if (langName) p += "\n" + buildManuscriptLanguageBlock(langName);
   p += MARKDOWN_PRESERVATION_RULES;
   p += CORRECTIONS_JSON_FORMAT;
 
