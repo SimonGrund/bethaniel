@@ -152,6 +152,14 @@ export async function docxToMarkdown(
       "p[style-name='Heading 1'] => h1:fresh",
       "p[style-name='Heading 2'] => h2:fresh",
       "p[style-name='Heading 3'] => h3:fresh",
+      // Word CHARACTER styles carry no direct <w:i/> on the run, and mammoth's
+      // default map only knows 'Strong' — without these, style-based italics
+      // silently import as plain text.
+      "r[style-name='Emphasis'] => em",
+      "r.Emphasis => em", // styleId form — survives localized Word UIs
+      "r[style-name='Subtle Emphasis'] => em",
+      "r[style-name='Intense Emphasis'] => em",
+      "r[style-name='Book Title'] => em",
     ],
   };
   if (docId) {
@@ -373,7 +381,7 @@ export function mdToHtml(
       continue;
     }
 
-    if (trimmed === SCENE_BREAK_MARKER || /^(\*\s*){3}$/.test(trimmed)) {
+    if (trimmed === SCENE_BREAK_MARKER || /^(\*\s*){3,}$/.test(trimmed)) {
       flushParagraph();
       htmlLines.push(renderSceneBreak(opts.sectionBreak, lineHeight));
       lastWasPagebreak = false;
@@ -471,11 +479,25 @@ function inlineFormat(text: string, imageResolver: ImageResolver): string {
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_m, alt: string, src: string) => imageResolver(alt, src),
   );
-  // Bold
-  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
-  // Italic
-  text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  text = text.replace(/_(.+?)_/g, "<em>$1</em>");
+  // Emphasis. Two hard constraints from html-to-docx@1.8:
+  //   - Italic MUST be <i>, never <em> — the bundle it loads styles <i> but
+  //     emits <em> content as a plain unstyled run (all italics silently lost).
+  //   - Nested tags keep only the INNERMOST format (<b><i>x</i></b> → italic
+  //     only), so ***bold italic*** degrades to italic — the reader-critical
+  //     channel for fiction. A library upgrade is the real fix for bold+italic.
+  // Span edges require a non-space character so inline asterisks ("5 * 3")
+  // and 4+-star divider lines are never eaten; the underscore variants also
+  // require a non-word boundary so intra-word underscores survive.
+  text = text.replace(/\*\*\*([^\s*](?:[^*]*[^\s*])?)\*\*\*/g, "<b><i>$1</i></b>");
+  text = text.replace(/\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(
+    /(?<![\p{L}\p{N}_])__([^\s_](?:[^_]*[^\s_])?)__(?![\p{L}\p{N}_])/gu,
+    "<strong>$1</strong>",
+  );
+  text = text.replace(/\*([^\s*](?:[^*]*[^\s*])?)\*/g, "<i>$1</i>");
+  text = text.replace(
+    /(?<![\p{L}\p{N}_])_([^\s_](?:[^_]*[^\s_])?)_(?![\p{L}\p{N}_])/gu,
+    "<i>$1</i>",
+  );
   return text;
 }

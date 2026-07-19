@@ -134,3 +134,55 @@ test("mid-paragraph punctuation changes are untouched by the restore", () => {
   ]);
   assert.equal(out, "He waved, Then he left.\n");
 });
+
+// ── italic / emphasis marker preservation ──
+// A correction whose text sits inside *italics* must never splice the markers
+// away. The fuzzy locator replaces fuzzy.match (not c.original), so the marker
+// guard is checked against the actual replaced span too; today fuzzyFind's
+// equivalence classes (whitespace/quotes/dashes) cannot swallow markers, so
+// these tests lock in the invariant rather than exercise a live bug.
+
+const countEmphasisMarkers = (s: string): number =>
+  (s.match(/[*_]/g) ?? []).length;
+
+test("fix inside an italic span keeps the markers (exact match)", () => {
+  const text = "He said, *She wisphered softly*, then left.";
+  const [out, applied] = applyCorrections(text, [
+    { original: "She wisphered softly", corrected: "She whispered softly" },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.equal(out, "He said, *She whispered softly*, then left.");
+  assert.equal(countEmphasisMarkers(out), countEmphasisMarkers(text));
+});
+
+test("fix inside an italic span keeps the markers (fuzzy match)", () => {
+  // The double space forces the fuzzy whitespace-flexible locator.
+  const text = "He said, *She wisphered  softly*, then left.";
+  const [out, applied] = applyCorrections(text, [
+    { original: "She wisphered softly", corrected: "She whispered softly" },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.match(out, /\*She whispered\s+softly\*/);
+  assert.equal(countEmphasisMarkers(out), countEmphasisMarkers(text));
+});
+
+test("a correction that strips italic markers is rejected", () => {
+  const text = "The word *softly* was emphasized.";
+  const [out, applied, skipped] = applyCorrections(text, [
+    { original: "*softly*", corrected: "softly" },
+  ]);
+  assert.equal(out, text);
+  assert.equal(applied.length, 0);
+  assert.match(skipped[0].reason ?? "", /would alter markdown/);
+});
+
+test("underscore emphasis (docx import style) survives a fix inside it", () => {
+  // DOCX import (mammoth + turndown) emits _underscore_ emphasis.
+  const text = "Hun skrev _Kniven lå på bordet_ i margenen.";
+  const [out, applied] = applyCorrections(text, [
+    { original: "Kniven lå på bordet", corrected: "Kniven lå på bordet." },
+  ]);
+  assert.equal(applied.length, 1);
+  assert.equal(countEmphasisMarkers(out), countEmphasisMarkers(text));
+  assert.match(out, /_Kniven lå på bordet\.?_/);
+});

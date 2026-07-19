@@ -91,3 +91,56 @@ test("leading and trailing blank lines produce no empty paragraphs", () => {
   assert.ok(!html.includes("&#160;"), html);
   assert.equal(html.split("\n").length, 1);
 });
+
+// ── emphasis rendering ──
+// html-to-docx (1.8) styles <i>/<b>/<strong> but silently drops <em> — every
+// italic exported as <em> becomes a plain unstyled run in the .docx. The
+// renderer must therefore never emit <em>.
+
+test("italics render as <i>, never <em>", () => {
+  for (const md of ["He said *hello* there.", "He said _hello_ there."]) {
+    const html = render(md);
+    assert.ok(html.includes("<i>hello</i>"), html);
+    assert.ok(!html.includes("<em>"), `<em> is dropped by html-to-docx: ${html}`);
+  }
+});
+
+test("bold renders as <strong>", () => {
+  assert.ok(render("A **bold** word.").includes("<strong>bold</strong>"));
+  assert.ok(render("A __bold__ word.").includes("<strong>bold</strong>"));
+});
+
+test("bold-italic renders well-nested (<b><i>…</i></b>)", () => {
+  const html = render("A ***warning*** here.");
+  assert.ok(html.includes("<b><i>warning</i></b>"), html);
+});
+
+test("italic span with adjacent punctuation and curly quotes", () => {
+  const html = render("he said *“hi”*, then *left*.");
+  assert.ok(html.includes("<i>“hi”</i>"), html);
+  assert.ok(html.includes("<i>left</i>."), html);
+});
+
+test("intra-word underscores are not emphasis", () => {
+  const html = render("the file_name_here variable");
+  assert.ok(!html.includes("<i>"), html);
+  assert.ok(html.includes("file_name_here"), html);
+});
+
+test("spaced asterisks are not emphasis", () => {
+  const html = render("5 * 3 * 2 equals 30");
+  assert.ok(!html.includes("<i>"), html);
+  assert.ok(html.includes("5 * 3 * 2 equals 30"), html);
+});
+
+test("unbalanced asterisk stays literal", () => {
+  const html = render("an unbalanced * asterisk");
+  assert.ok(!html.includes("<i>"), html);
+  assert.ok(html.includes("an unbalanced * asterisk"), html);
+});
+
+test("a 4+-star divider line renders as a divider, not italics", () => {
+  const html = render("Before.\n\n* * * *\n\nAfter.");
+  assert.ok(!html.includes("<i>"), html);
+  assert.ok(html.includes("* * *"), html);
+});

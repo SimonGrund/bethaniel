@@ -1341,6 +1341,15 @@ export function applyCorrections(
       // Approach 3: fuzzy whitespace-flexible fallback
       const fuzzy = fuzzyFind(text, c.original);
       if (fuzzy && hasCleanWordEdges(text, fuzzy.pos, fuzzy.match)) {
+        // The replaced span is fuzzy.match, not c.original — re-check the
+        // marker guard against what is actually spliced out, so a match that
+        // swallowed surrounding *italic*/_underscore_ markers is rejected
+        // instead of silently deleting them.
+        const fuzzyIssue = markdownMarkerViolation(fuzzy.match, c.corrected);
+        if (fuzzyIssue) {
+          skipped.push({ ...c, reason: `would alter markdown: ${fuzzyIssue}` });
+          continue;
+        }
         located.push({
           pos: fuzzy.pos,
           original: fuzzy.match,
