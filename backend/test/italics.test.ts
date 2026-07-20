@@ -55,7 +55,8 @@ test("italics after a scene break survive; the break itself is kept", async () =
   const back = await roundTrip(
     "The night ended.\n\n* * *\n\n*Morning came slowly* over the hills.",
   );
-  assert.ok(back.includes("* * *"), back);
+  // Export emits "***" (Atticus's form); the importer normalizes it back.
+  assert.ok(back.includes("***"), back);
   assert.match(back, /[_*]Morning came slowly[_*]/, back);
 });
 
@@ -140,6 +141,36 @@ test("Emphasis character style imports as italics (not plain text)", async () =>
 // ── import: adjacent italic runs coalesce without broken seams ──
 // Word splits runs arbitrarily; adjacent same-format runs must not import as
 // corrupt seams like "_He__ ran_".
+
+// ── markdown-escape hygiene ──
+// Turndown escapes literal `_`/`*` found as text in the docx (`\_s\_`) — an
+// artifact of earlier exports that leaked markers as literal characters.
+// Import strips these escapes; the corrections parser strips model-added
+// escapes; export never emits literal backslash-marker sequences.
+
+test("literal _s_ text in a docx imports without backslash escapes", async () => {
+  const { createRequire } = await import("module");
+  const req = createRequire(import.meta.url);
+  const HTMLtoDOCX = req("html-to-docx");
+  const fn = HTMLtoDOCX.default ?? HTMLtoDOCX;
+  const buf = Buffer.from(
+    (await fn("<p>Bethaniel_s_ hus og _“Goddag,”_ sagde han.</p>", undefined, {
+      font: "Times New Roman",
+    })) as ArrayBuffer,
+  );
+  const md = await docxToMarkdown(buf);
+  assert.ok(!md.includes("\\_"), md);
+  assert.ok(!md.includes("\\*"), md);
+});
+
+test("corrections parser strips model-added markdown escapes", async () => {
+  const { parseCorrectionsJson } = await import("../src/llm.ts");
+  const raw =
+    '{"original": "_word_ here", "corrected": "\\\\_word\\\\_ there"}';
+  const cs = parseCorrectionsJson(raw);
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].corrected, "_word_ there");
+});
 
 test("adjacent italic runs import without __ seams", async () => {
   const { createRequire } = await import("module");

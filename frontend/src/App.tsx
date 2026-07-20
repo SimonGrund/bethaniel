@@ -6,7 +6,6 @@ import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
 import { getDocument } from "./api";
 import Sidebar from "./components/Sidebar";
-import StepBar from "./components/StepBar";
 import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
@@ -29,7 +28,6 @@ export default function App() {
     wizardStep,
     setWizardStep,
     model,
-    resetAll,
     completedSteps,
     sessionStartedAt,
   } = useStore();
@@ -182,33 +180,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* Wizard setup phase */}
+        {/* Wizard setup phase — step navigation lives in the sidebar rail */}
         {isSetupPhase && (
           <div className="wizard-layout">
-            <div className="wizard-header-row">
-              <StepBar />
-              {completedSteps.length > 0 && (
-                <button
-                  type="button"
-                  className="btn-run-reset-mode"
-                  onClick={() => {
-                    resetAll();
-                    fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
-                  }}
-                  title={t("reset_all")}
-                >
-                  {t("reset_all")}
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn-former-runs"
-                onClick={() => setWizardStep("done")}
-              >
-                {t("former_runs")}
-              </button>
-            </div>
-
             <div className={`wizard-content${isFolded ? " wizard-content-collapsed" : ""}`}>
               <button
                 type="button"

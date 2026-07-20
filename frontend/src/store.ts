@@ -7,6 +7,7 @@ import { persist } from "zustand/middleware";
 import type {
   DocumentMeta,
   TaskState,
+  TaskResult,
   EditUnit,
   Lang,
   Chapter,
@@ -112,6 +113,8 @@ interface AppState {
   // Queue
   tasks: Record<string, TaskState>;
   setTasks: (t: Record<string, TaskState>) => void;
+  // Merge lazily-fetched full results into their tasks (snapshots carry none).
+  setTaskResults: (results: Record<string, TaskResult>) => void;
 
   // Review
   acceptedCorrections: Record<string, Set<string>>;
@@ -184,6 +187,12 @@ interface AppState {
   setShowAdvancedSettings: (b: boolean) => void;
   showEngineStatus: boolean;
   setShowEngineStatus: (b: boolean) => void;
+  // Sidebar queue panel expansion (mini-bar when false)
+  queueExpanded: boolean;
+  setQueueExpanded: (b: boolean) => void;
+  // DOCX export: how minor section breaks render ("hash" = Atticus-safe "#")
+  minorBreakStyle: "blank" | "hash";
+  setMinorBreakStyle: (s: "blank" | "hash") => void;
   editSubOptionsOpen: "editing" | "analysis" | "translation" | "feedback" | null;
   setEditSubOptionsOpen: (
     cat: "editing" | "analysis" | "translation" | "feedback" | null,
@@ -275,29 +284,43 @@ export const useStore = create<AppState>()(
       setStyleGuide: (styleGuide) => set({ styleGuide }),
 
       tasks: {},
-      setTasks: (tasks) => {
+      setTasks: (incoming) => {
         const pending = get().pendingTaskIds;
-        if (pending.length > 0 && pending.every((id) => id in tasks)) {
-          set({ tasks, submitting: false, pendingTaskIds: [] });
+        if (pending.length > 0 && pending.every((id) => id in incoming)) {
+          set({ submitting: false, pendingTaskIds: [] });
         }
-        const state = get();
-        for (const [tid, task] of Object.entries(tasks)) {
-          if (
-            task.status === "done" &&
-            !state.acceptedCorrections[tid] &&
-            task.result
-          ) {
-            const nonFlaggedIds = new Set(
-              task.result.corrections
-                .filter((c) => !c.flagged)
-                .map((c) => c.id ?? "")
-                .filter(Boolean),
-            );
-            state.acceptedCorrections[tid] = nonFlaggedIds;
-          }
+        // Task-set membership follows the server (deletes/retries propagate),
+        // but snapshots never carry `result` — keep any locally-hydrated one.
+        const prev = get().tasks;
+        const tasks: Record<string, TaskState> = {};
+        for (const [tid, t] of Object.entries(incoming)) {
+          const old = prev[tid];
+          tasks[tid] = !t.result && old?.result ? { ...t, result: old.result } : t;
         }
         set({ tasks });
       },
+
+      setTaskResults: (results) =>
+        set((state) => {
+          const tasks = { ...state.tasks };
+          const acceptedCorrections = { ...state.acceptedCorrections };
+          for (const [tid, result] of Object.entries(results)) {
+            const task = tasks[tid];
+            if (!task) continue;
+            tasks[tid] = { ...task, result };
+            // Auto-accept non-flagged corrections on first hydration (results
+            // only enter the store through this setter now).
+            if (task.status === "done" && !acceptedCorrections[tid]) {
+              acceptedCorrections[tid] = new Set(
+                result.corrections
+                  .filter((c) => !c.flagged)
+                  .map((c) => c.id ?? "")
+                  .filter(Boolean),
+              );
+            }
+          }
+          return { tasks, acceptedCorrections };
+        }),
 
       warmingModel: null,
       warmingStatus: null,
@@ -535,6 +558,10 @@ export const useStore = create<AppState>()(
         set({ showAdvancedSettings }),
       showEngineStatus: true,
       setShowEngineStatus: (showEngineStatus) => set({ showEngineStatus }),
+      queueExpanded: false,
+      setQueueExpanded: (queueExpanded) => set({ queueExpanded }),
+      minorBreakStyle: "blank",
+      setMinorBreakStyle: (minorBreakStyle) => set({ minorBreakStyle }),
       editSubOptionsOpen: null,
       setEditSubOptionsOpen: (editSubOptionsOpen) =>
         set({ editSubOptionsOpen }),
@@ -630,6 +657,8 @@ export const useStore = create<AppState>()(
         highlightedModel: state.highlightedModel,
         editSubOptionsOpen: state.editSubOptionsOpen,
         showEngineStatus: state.showEngineStatus,
+        queueExpanded: state.queueExpanded,
+        minorBreakStyle: state.minorBreakStyle,
       }),
     },
   ),

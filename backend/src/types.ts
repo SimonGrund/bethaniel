@@ -122,6 +122,15 @@ export interface TaskState {
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
+  // Lightweight result summary — populated only in client-facing snapshots
+  // (see snapshot.ts); never set on the stored task.
+  resultMeta?: {
+    corrections: number;
+    skipped: number;
+    errors: number;
+    hasStructured: boolean;
+    hasText: boolean;
+  } | null;
   editOptions?: Record<string, boolean | string>;
   targetLang?: string;
   manuscriptLang?: string;

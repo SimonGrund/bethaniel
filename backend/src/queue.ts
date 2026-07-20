@@ -55,6 +55,7 @@ import {
 } from "./prompts.js";
 import { runTranslationUpgrade } from "./translationUpgrade.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
+import { buildClientSnapshot, type ClientTaskState } from "./snapshot.js";
 import { ensureModelLoaded } from "./llamaServer.js";
 import {
   runStoryAnalysis,
@@ -251,27 +252,14 @@ let broadcastScheduled = false;
 function flushBroadcast(): void {
   broadcastScheduled = false;
   if (!io) return;
-  // Strip heavy fields the frontend doesn't consume from the live queue
-  // snapshot. `retrySpec` in particular embeds the full original chapter
-  // text per task — with hundreds of tasks this serialized into hundreds
-  // of MB on every progress tick and crashed Node with OOM. The frontend
-  // only reads retrySpec via REST when the user clicks "retry".
-  const snapshot: Record<
-    string,
-    Omit<TaskState, "retrySpec" | "analysisCheckpoint">
-  > = {};
-  for (const [id, task] of tasks) {
-    const {
-      retrySpec: _retrySpec,
-      analysisCheckpoint: _checkpoint,
-      ...rest
-    } = task;
-    snapshot[id] = rest;
-  }
+  // Client snapshots strip ALL heavy fields (retrySpec embeds the chapter
+  // text; result embeds original/edited text + every correction — hundreds
+  // of KB per task). The frontend hydrates results lazily via REST
+  // (/queue/job/:id/results); snapshots carry only a resultMeta summary.
   console.log(
     `[Queue] broadcast ${tasks.size} tasks to ${io.engine?.clientsCount ?? "?"} clients`,
   );
-  io.emit("queue:update", snapshot);
+  io.emit("queue:update", buildClientSnapshot(tasks.values()));
 }
 
 function updateTask(id: string, update: Partial<TaskState>): void {
@@ -1217,6 +1205,47 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── Dialect: deterministic British↔American normalization ──
+              // The prompt's "convert known pairs" instruction is unreliable
+              // (LLMs miss occurrences); this pass catches every curated pair
+              // mechanically. English manuscripts with a dialect setting only.
+              {
+                const dialectOpt = (job.editOptions as Record<string, unknown>)
+                  ?.englishDialect as "american" | "british" | undefined;
+                if (
+                  (job.manuscriptLang ?? "en") === "en" &&
+                  (dialectOpt === "american" || dialectOpt === "british") &&
+                  (mode === "copy_edit" || mode === "combined_edit")
+                ) {
+                  const { getDialectCorrections } = await import(
+                    "./dialect.js"
+                  );
+                  const dialectCorrections = getDialectCorrections(
+                    chunk.body,
+                    dialectOpt,
+                    {
+                      styleGuideNames: job.styleGuide
+                        ? [job.styleGuide]
+                        : undefined,
+                    },
+                  );
+                  for (const dc of dialectCorrections) dc.reason = "dialect";
+                  if (dialectCorrections.length > 0) {
+                    appendLog({
+                      level: "info",
+                      source: "engine",
+                      taskId,
+                      message: `Dialect pass (${dialectOpt}) produced ${dialectCorrections.length} corrections in chunk ${chunkLabel}`,
+                      model,
+                    });
+                    spellCorrections = [
+                      ...dialectCorrections,
+                      ...spellCorrections,
+                    ];
+                  }
+                }
+              }
+
               // ── Run editor(s) — single or multi ──
               // The normal editor prompt runs `baseEditorCount` times; when a
               // style sheet is present and the toggle is on, one extra agent runs
@@ -1475,11 +1504,10 @@ async function processJob(job: JobData): Promise<void> {
             });
           }
 
-          // Merge spell-check corrections (generated deterministically) with
-          // editor corrections.  Mark spell-check ones so applyCorrections can
-          // handle them with global replacement.
+          // Merge deterministic corrections (spell-check + dialect, the
+          // latter pre-tagged "dialect") with editor corrections.
           for (const sc of spellCorrections) {
-            sc.reason = "spell-check";
+            sc.reason ??= "spell-check";
           }
           const cs: Correction[] = [...spellCorrections, ...editorCs];
 
@@ -2280,6 +2308,34 @@ export function cancelAll(): void {
 }
 
 /**
+ * Cancel every non-terminal task of one job: queued tasks leave the pending
+ * queue, the running task's stream is aborted, and all are marked cancelled.
+ * Other jobs are untouched. Returns the number of tasks cancelled.
+ */
+export function cancelJob(jobId: string): number {
+  let cancelled = 0;
+  for (const task of tasks.values()) {
+    if (task.jobId !== jobId) continue;
+    if (["done", "error", "cancelled"].includes(task.status)) continue;
+    const idx = pending.findIndex((j) => j.taskId === task.id);
+    if (idx !== -1) pending.splice(idx, 1);
+    const ac = abortControllers.get(task.id);
+    if (ac) ac.abort();
+    updateTask(task.id, { status: "cancelled", finishedAt: Date.now() });
+    cancelled++;
+  }
+  if (cancelled > 0) {
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Job ${jobId.slice(0, 8)} stopped by user — ${cancelled} task(s) cancelled.`,
+    });
+    broadcast();
+  }
+  return cancelled;
+}
+
+/**
  * Mark every non-terminal task as errored with the given reason. Called by the
  * process-level error handlers so a crash surfaces in the UI instead of tasks
  * appearing to hang or silently completing. Returns the number of tasks failed.
@@ -2506,6 +2562,26 @@ export function getTasksSnapshot(): Record<string, Omit<TaskState, "retrySpec">>
     snapshot[id] = rest;
   }
   return snapshot;
+}
+
+/**
+ * Client-facing snapshot: like getTasksSnapshot but also strips `result`
+ * (replaced by a resultMeta summary). Used for socket broadcasts and
+ * /queue/status; the frontend hydrates full results lazily via REST.
+ * getTasksSnapshot stays result-inclusive for internal consumers (writing
+ * report, CLI).
+ */
+export function getClientSnapshot(): Record<string, ClientTaskState> {
+  return buildClientSnapshot(tasks.values());
+}
+
+/** Full results for every task of one job (empty for unknown jobs). */
+export function getJobResults(jobId: string): Record<string, TaskResult> {
+  const out: Record<string, TaskResult> = {};
+  for (const [id, t] of tasks) {
+    if (t.jobId === jobId && t.result) out[id] = t.result;
+  }
+  return out;
 }
 
 export function getTask(id: string): TaskState | undefined {

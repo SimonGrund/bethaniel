@@ -68,6 +68,11 @@ h4 {
   margin-top: 1rem;
 }
 
+/* Inside the wizard flex column the 1rem layout gap already spaces it. */
+.wizard-layout .bottom-row {
+  margin-top: 0;
+}
+
 .queue-col {
   flex: 1;
   min-width: 260px;
@@ -90,6 +95,8 @@ h4 {
   height: 100vh;
   position: sticky;
   top: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-section {
@@ -977,6 +984,11 @@ h4 {
   color: #8b7355;
   user-select: none;
   list-style: none;
+  /* also used as a <button> (queue mini-bar) */
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
 }
 
 .collapsible-header::-webkit-details-marker {
@@ -988,8 +1000,16 @@ h4 {
   transition: transform 0.15s;
 }
 
-.collapsible-panel[open] > .collapsible-header::before {
+.collapsible-panel[open] > .collapsible-header::before,
+.collapsible-header-open::before {
   transform: rotate(90deg);
+}
+
+/* Muted count badges in the collapsed queue mini-bar */
+.badge-subtle {
+  background: transparent;
+  border: 1px solid #c9b896;
+  color: #8b7355;
 }
 
 .collapsible-title {
@@ -1575,10 +1595,37 @@ summary.review-source::before {
   font-weight: 500;
 }
 
+/* Chapter card: parchment panel with a status-colored left edge (sand while
+   queued, gold while editing, green when done, wine on error). */
 .review-task {
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e8d9b8;
+  background: #faf8f4;
+  border: 1px solid #e3d7bd;
+  border-left: 3px solid #c9b896;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem 0.6rem;
+  margin: 0 0.1rem 0.55rem;
+}
+
+.review-task.rt-editing {
+  border-left-color: #d4a843;
+}
+
+.review-task.rt-done {
+  border-left-color: #3d6b3d;
+}
+
+.review-task.rt-error {
+  border-left-color: #9b2335;
+}
+
+.review-task.rt-cancelled {
+  border-left-color: #c9b896;
+  opacity: 0.75;
+}
+
+/* Nested breakdown cards inside summary cards keep a flatter look. */
+.review-summary-card .review-task {
+  border-left-width: 1px;
 }
 
 .review-task-summary {
@@ -2206,6 +2253,37 @@ summary.review-source::before {
 
   .queue-col {
     min-width: 100%;
+  }
+
+  /* Stacked sidebar: steps as a 2×2 grid, session buttons in a row,
+     engine log hidden (the floating LogPanel still covers diagnostics). */
+  .step-rail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+  }
+
+  .step-rail .btn-run-inline {
+    grid-column: 1 / -1;
+  }
+
+  .sidebar-session {
+    flex-direction: row;
+    margin-top: 0.75rem;
+  }
+
+  .sidebar-session .btn-start-over,
+  .sidebar-session .btn-former-runs {
+    width: auto;
+    flex: 1;
+  }
+
+  .sidebar-engine {
+    display: none;
+  }
+
+  .sidebar .q-items {
+    max-height: 40vh;
   }
 }
 
@@ -3452,10 +3530,10 @@ summary.review-source::before {
   padding: 1.25rem 1.5rem;
 }
 
+/* Folded wizard leaves the flow entirely — no orphaned flex gaps above the
+   run/results area. (The visible open animation is wizard-page-in on mount.) */
 .wizard-content-collapsed {
-  max-height: 0;
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .btn-minimize-step {
@@ -3485,22 +3563,59 @@ summary.review-source::before {
   animation: wizard-page-in 0.3s ease-out;
 }
 
-/* StepBar */
-.step-bar {
+/* Step rail — vertical setup steps in the sidebar */
+.step-rail {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.15rem 0 0.75rem;
 }
 
-.step-bar-arrow {
-  color: #c9b896;
-  font-size: 1.1rem;
-  line-height: 1;
-  padding: 0 0.1rem;
-  pointer-events: none;
-  user-select: none;
+.step-rail .step-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.45rem;
+  row-gap: 0.05rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.step-rail .step-card-num {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.step-rail .step-card-name {
+  grid-column: 2;
+}
+
+.step-rail .step-card-check {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.step-rail .step-card-label {
+  grid-column: 2 / span 2;
+  grid-row: 2;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.step-rail .step-card-label::before {
+  content: none;
+}
+
+.step-rail .btn-run-inline {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.35rem;
 }
 
 .step-card {
@@ -3752,22 +3867,28 @@ summary.review-source::before {
   font-size: 0.95rem;
 }
 
-.btn-run-reset-mode {
+/* "Start over" — quiet danger-outline; fills wine red only once armed. */
+.btn-start-over {
   padding: 0.35rem 0.65rem;
   font-size: 0.8rem;
-  border: 2px solid #7f1d1d;
+  border: 1.5px solid #9b2335;
   border-radius: 10px;
-  background: #7f1d1d;
-  color: #faf8f4;
+  background: transparent;
+  color: #9b2335;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 
-.btn-run-reset-mode:hover {
-  background: #991b1b;
-  border-color: #991b1b;
+.btn-start-over:hover {
+  background: rgba(155, 35, 53, 0.08);
+}
+
+.btn-start-over-armed,
+.btn-start-over-armed:hover {
+  background: #9b2335;
+  color: #faf8f4;
 }
 
 .btn-former-runs {
@@ -3786,16 +3907,6 @@ summary.review-source::before {
 .btn-former-runs:hover {
   border-color: #9b8b6e;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
-}
-
-.wizard-header-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.wizard-header-row .step-bar {
-  flex: 1;
 }
 
 /* Wizard run (step 5) */
@@ -3865,7 +3976,8 @@ summary.review-source::before {
 
 /* ── Sidebar queue ── */
 .sidebar-queue {
-  flex: 1;
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 0;
 }
@@ -3874,6 +3986,42 @@ summary.review-source::before {
   border: none;
   background: transparent;
   box-shadow: none;
+}
+
+/* The expanded queue scrolls internally so the session footer stays reachable. */
+.sidebar .q-items {
+  max-height: 34vh;
+}
+
+/* ── Sidebar engine log dock ── */
+.sidebar-engine {
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-engine .engine-status,
+.sidebar-engine .engine-stream-list {
+  max-height: 140px;
+  font-size: 0.68rem;
+}
+
+.sidebar-engine .engine-status-grid {
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+
+/* ── Sidebar session footer ── */
+.sidebar-session {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid #c9b896;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sidebar-session .btn-start-over,
+.sidebar-session .btn-former-runs {
+  width: 100%;
 }
 
 .review-empty-state {
@@ -4346,4 +4494,206 @@ summary.review-source::before {
   font-size: 0.7rem;
   font-weight: 400;
   opacity: 0.75;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Current run overhaul — clickable working badge, run header card,
+   meta chips, larger progress bars
+   ══════════════════════════════════════════════════════════════════ */
+
+/* The working badge is a button now: same look, plus hover affordance. */
+.betty-working-btn {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.betty-working-btn:hover {
+  transform: translateY(-1px);
+  border-color: #8b7355;
+  box-shadow: 0 2px 8px rgba(139, 115, 85, 0.25);
+}
+
+.betty-working-btn:active {
+  transform: translateY(0);
+}
+
+/* The StepBar run button stays interactive while a run is live. */
+.btn-run-launching {
+  cursor: pointer;
+  opacity: 1;
+}
+
+/* ── Current-run header card — the colophon of the active job ── */
+.current-run-header {
+  background: #faf8f4;
+  border: 1px solid #d9c9a8;
+  border-left: 4px solid #8b7355;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 0.9rem;
+  scroll-margin-top: 1rem;
+  /* Pinned while scrolling long chapter/correction lists (window scrolls;
+     no ancestor overflow to break sticky). Below all modal z-indexes. */
+  position: sticky;
+  top: 0.75rem;
+  z-index: 5;
+  box-shadow: 0 3px 12px rgba(42, 36, 25, 0.14);
+}
+
+.crh-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.crh-title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2a2419;
+}
+
+.crh-mode-pill {
+  font-family: "Inter", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(201, 184, 150, 0.35);
+  border: 1px solid #c9b896;
+  color: #6b5c44;
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+}
+
+.crh-stop {
+  margin-left: auto;
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1.5px solid #9b2335;
+  background: transparent;
+  color: #9b2335;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.crh-stop:hover {
+  background: rgba(155, 35, 53, 0.08);
+}
+
+.crh-stop-armed,
+.crh-stop-armed:hover {
+  background: #9b2335;
+  color: #faf8f4;
+}
+
+.crh-bar {
+  height: 8px;
+  background: #e8d9b8;
+  border-radius: 4px;
+  margin: 0.6rem 0 0.45rem;
+  overflow: hidden;
+}
+
+.crh-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #8b7355, #a08663);
+  transition: width 0.4s ease;
+}
+
+.crh-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  color: #6b5c44;
+}
+
+.crh-stat:first-child {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #2a2419;
+}
+
+.crh-tok {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── Job-header meta chips ── */
+.meta-chip {
+  display: inline-block;
+  font-family: "Inter", sans-serif;
+  font-size: 0.7rem;
+  background: rgba(107, 92, 68, 0.08);
+  border: 1px solid rgba(107, 92, 68, 0.18);
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+  margin-right: 0.35rem;
+  color: #6b5c44;
+  font-weight: 500;
+}
+
+.meta-chip-running {
+  background: rgba(212, 168, 67, 0.18);
+  border-color: #d4a843;
+  color: #7a5c1e;
+}
+
+.meta-chip-failed {
+  background: rgba(155, 35, 53, 0.08);
+  border-color: #9b2335;
+  color: #9b2335;
+}
+
+/* Larger progress bar variant for chapter cards. */
+.q-bar-lg {
+  height: 7px;
+  border-radius: 4px;
+  margin-top: 0.4rem;
+}
+
+/* DOCX export: minor-break style toggle above the full-manuscript buttons. */
+.export-minor-break-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.6rem 0.1rem 0.2rem;
+  font-size: 0.8rem;
+}
+
+/* Lazy result hydration spinner row (job body / live view). */
+.results-hydrating-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  color: #8b7355;
+  font-size: 0.9rem;
+}
+
+.results-hydrating-row .step-card-spinner {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Corrections area breathing room. */
+.review-actions {
+  padding: 0.35rem 0 0.5rem;
+}
+
+.corrections-scroll {
+  padding-right: 0.25rem;
 }

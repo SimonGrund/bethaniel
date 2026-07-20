@@ -202,11 +202,13 @@ export async function docxToMarkdown(
   const paragraphInfo = await getDocxParagraphInfo(docxBuffer);
 
   if (htmlBlocks.length === 0) {
-    return turndown
-      .turndown(result.value)
-      .split("\n")
-      .map(normalizeDividerLine)
-      .join("\n");
+    return stripMarkdownEscapes(
+      turndown
+        .turndown(result.value)
+        .split("\n")
+        .map(normalizeDividerLine)
+        .join("\n"),
+    );
   }
 
   let text = "";
@@ -274,19 +276,39 @@ export async function docxToMarkdown(
     appendBlock(mdBlock);
   }
 
-  return text;
+  return stripMarkdownEscapes(text);
+}
+
+/**
+ * Turndown backslash-escapes markdown-special characters it finds as literal
+ * TEXT in the docx (`_` → `\_`, `*` → `\*`). Fiction manuscripts never
+ * intentionally contain escaped markdown — such text is an artifact of an
+ * earlier export/import (e.g. emphasis markers leaked as literal characters),
+ * and the escapes surface as junk like `\_s\_` in edited output. Unescaping
+ * restores the intended emphasis or leaves a harmless bare marker.
+ */
+function stripMarkdownEscapes(md: string): string {
+  return md.replace(/\\([_*`])/g, "$1");
 }
 
 /** Options for DOCX export formatting. */
 export interface DocxExportOptions {
-  /** How to render section/scene breaks. Default: "asterisks" (centered * * *). */
+  /** How to render scene breaks. Default: "asterisks" (centered ***). */
   sectionBreak: "asterisks" | "dash" | "blank";
+  /**
+   * How to render minor section breaks (blank-line runs and lone "#").
+   * "blank" — an empty (nbsp) paragraph, faithful to the manuscript.
+   * "hash"  — a centered "#": Atticus strips empty paragraphs when pasting,
+   *           so a visible marker is the only thing that survives the trip.
+   */
+  minorBreak: "blank" | "hash";
   /** Line spacing multiplier. Default: 1.3 */
   lineSpacing: number;
 }
 
 export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
   sectionBreak: "asterisks",
+  minorBreak: "blank",
   lineSpacing: 1.3,
 };
 
@@ -355,7 +377,7 @@ export function mdToHtml(
   const emitSectionBlanks = () => {
     if (pendingBlankLines >= 2 && htmlLines.length > 0) {
       for (let i = 1; i < pendingBlankLines; i++) {
-        htmlLines.push(`<p style="${lineHeight}">&#160;</p>`);
+        htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
       }
     }
     pendingBlankLines = 0;
@@ -388,12 +410,10 @@ export function mdToHtml(
       continue;
     }
 
-    // Lone "#": minor section break (smaller than a scene break) — render as
-    // a real empty line. The &#160; keeps html-to-docx from dropping the
-    // paragraph; numeric (not &nbsp;) so the EPUB XHTML parses it too.
+    // Lone "#": minor section break (smaller than a scene break).
     if (trimmed === "#") {
       flushParagraph();
-      htmlLines.push(`<p style="${lineHeight}">&#160;</p>`);
+      htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
       lastWasPagebreak = false;
       continue;
     }
@@ -450,7 +470,21 @@ function renderSceneBreak(
   if (style === "blank") {
     return `<p style="${lineHeight};margin-top:12pt;margin-bottom:12pt">&nbsp;</p>`;
   }
-  return `<p style="text-align:center;${lineHeight};margin-top:12pt;margin-bottom:12pt">* * *</p>`;
+  // "***" (no spaces): the form Atticus recognizes as a scene break.
+  return `<p style="text-align:center;${lineHeight};margin-top:12pt;margin-bottom:12pt">***</p>`;
+}
+
+/** Minor section break (blank-line run / lone "#") — see DocxExportOptions. */
+function renderMinorBreak(
+  style: DocxExportOptions["minorBreak"],
+  lineHeight: string,
+): string {
+  if (style === "hash") {
+    return `<p style="text-align:center;${lineHeight}">#</p>`;
+  }
+  // The &#160; keeps html-to-docx from dropping the paragraph; numeric
+  // (not &nbsp;) so the EPUB XHTML parses it too.
+  return `<p style="${lineHeight}">&#160;</p>`;
 }
 
 /** Turns a markdown image (alt, src) into an <img> tag (or "" if unresolvable). */
@@ -479,6 +513,10 @@ function inlineFormat(text: string, imageResolver: ImageResolver): string {
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_m, alt: string, src: string) => imageResolver(alt, src),
   );
+  // Defense in depth: strip stray backslash-escaped markers BEFORE the
+  // emphasis regexes (see stripMarkdownEscapes) — otherwise `\_s\_` pairs as
+  // emphasis with the backslashes left orphaned as literal text.
+  text = text.replace(/\\([_*`])/g, "$1");
   // Emphasis. Two hard constraints from html-to-docx@1.8:
   //   - Italic MUST be <i>, never <em> — the bundle it loads styles <i> but
   //     emits <em> content as a plain unstyled run (all italics silently lost).

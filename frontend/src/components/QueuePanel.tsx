@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { cancelTask, flushQueue } from "../api";
+import { cancelJob, cancelTask, flushQueue } from "../api";
 import type { TaskState } from "../types";
 
 function formatDuration(ms: number): string {
@@ -184,13 +184,15 @@ function renderTaskRow(
 }
 
 export default function QueuePanel() {
-  const { lang, tasks } = useStore();
+  const { lang, tasks, queueExpanded, setQueueExpanded } = useStore();
   const t = useTranslation(lang);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showQueued, setShowQueued] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [confirmFlush, setConfirmFlush] = useState(false);
   const [flushing, setFlushing] = useState(false);
+  const [confirmStopJob, setConfirmStopJob] = useState<string | null>(null);
+  const [stoppingJob, setStoppingJob] = useState<string | null>(null);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -207,6 +209,24 @@ export default function QueuePanel() {
     } catch (err) {
       console.error("Failed to cancel task:", err);
     }
+  };
+
+  const handleStopJob = async (jobId: string) => {
+    if (confirmStopJob !== jobId) {
+      setConfirmStopJob(jobId);
+      return;
+    }
+    setStoppingJob(jobId);
+    try {
+      await cancelJob(jobId);
+    } catch (err) {
+      console.error("Failed to stop job:", err);
+      alert(
+        `Failed to stop job: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    setStoppingJob(null);
+    setConfirmStopJob(null);
   };
 
   const handleFlush = async () => {
@@ -252,18 +272,43 @@ export default function QueuePanel() {
 
   const hasActive = nr > 0 || nq > 0;
 
+  // Distinct jobs with work still queued/running — one stop button per job.
+  const activeJobIds = [...new Set(entries.map(([, s]) => s.jobId))];
+
   return (
     <div className="collapsible-panel">
-      <div className="collapsible-header">
+      <button
+        type="button"
+        className={`collapsible-header${queueExpanded ? " collapsible-header-open" : ""}`}
+        aria-expanded={queueExpanded}
+        onClick={() => setQueueExpanded(!queueExpanded)}
+      >
         <span className="collapsible-title">{t("queue_panel")}</span>
         <span className="collapsible-badge">
-          {nr > 0 && <span className="badge badge-active">{nr} running</span>}
-          {nq > 0 && <span className="badge badge-pending">{nq} pending</span>}
-          {nd > 0 && <span className="badge badge-done">{nd} done</span>}
-          {ne > 0 && <span className="badge badge-error">{ne} failed</span>}
+          {nr > 0 && (
+            <span className="badge badge-active">
+              {nr} {t("queue_running_short")}
+            </span>
+          )}
+          {nq > 0 && (
+            <span className="badge badge-pending">
+              {nq} {t("queue_queued_short")}
+            </span>
+          )}
+          {nd > 0 && (
+            <span className="badge badge-done badge-subtle">
+              {nd} {t("queue_done_short")}
+            </span>
+          )}
+          {ne > 0 && (
+            <span className="badge badge-error badge-subtle">
+              {ne} {t("queue_failed_short")}
+            </span>
+          )}
         </span>
-      </div>
+      </button>
 
+      {queueExpanded && (
       <div className="q-panel">
         {allEntries.length === 0 ? (
           <p
@@ -336,7 +381,28 @@ export default function QueuePanel() {
         )}
 
         {entries.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.4rem",
+              flexWrap: "wrap",
+              marginTop: "0.5rem",
+            }}
+          >
+            {activeJobIds.map((jobId) => (
+              <button
+                key={jobId}
+                className={`q-flush-btn${confirmStopJob === jobId ? " q-flush-confirm" : ""}`}
+                onClick={() => handleStopJob(jobId)}
+                disabled={stoppingJob === jobId}
+                title={t("stop_job_help")}
+              >
+                {stoppingJob === jobId
+                  ? "…"
+                  : `⊘ ${t("stop_job")}${activeJobIds.length > 1 ? ` #${jobId.slice(0, 8)}` : ""}${confirmStopJob === jobId ? "?" : ""}`}
+              </button>
+            ))}
             <button
               className={`q-flush-btn${confirmFlush ? " q-flush-confirm" : ""}`}
               onClick={handleFlush}
@@ -348,6 +414,7 @@ export default function QueuePanel() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

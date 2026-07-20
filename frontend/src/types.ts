@@ -128,6 +128,15 @@ export interface TaskResult {
 
 export type TaskStatus = "queued" | "editing" | "done" | "error" | "cancelled";
 
+/** Lightweight result summary carried by snapshots instead of the full result. */
+export interface ResultMeta {
+  corrections: number;
+  skipped: number;
+  errors: number;
+  hasStructured: boolean;
+  hasText: boolean;
+}
+
 export interface TaskState {
   id: string;
   jobId: string;
@@ -142,6 +151,8 @@ export interface TaskState {
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
+  // Present in server snapshots (result itself arrives via lazy hydration).
+  resultMeta?: ResultMeta | null;
   editOptions?: Record<string, boolean>;
   targetLang?: string;
   model?: string;

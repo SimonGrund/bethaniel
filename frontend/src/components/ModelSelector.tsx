@@ -57,6 +57,10 @@ interface DownloadProgress {
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+// Slider ceiling for External Betty (API) models. Local models stay capped by
+// the hardware recommendation (≤3 — single-GPU decode is bandwidth-bound).
+const API_MAX_PARALLEL = 24;
+
 const TIER_COLORS: Record<string, string> = {
   small: "model-tier-green",
   normal: "model-tier-blue",
@@ -363,7 +367,15 @@ export default function ModelSelector({
   // Auto-tune parallel jobs when model changes
   useEffect(() => {
     const activeModel = wizardStep === "model" ? highlightedModel : model;
-    if (!activeModel || activeModel.startsWith("custom:")) return;
+    if (!activeModel) return;
+    // External Betty (API): concurrency is bounded by provider rate limits,
+    // not local hardware — allow a much higher ceiling but keep the current
+    // parallel value as the default (no auto-bump).
+    if (activeModel.startsWith("custom:") && !activeModel.startsWith("custom:gguf")) {
+      setMaxParallel(API_MAX_PARALLEL);
+      return;
+    }
+    if (activeModel.startsWith("custom:")) return;
     fetchSystemRecommendation(activeModel)
       .then((r) => {
         setParallel(r.recommendedParallel);

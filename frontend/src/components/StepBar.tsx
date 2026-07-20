@@ -1,4 +1,4 @@
-// ── StepBar — compact floating step cards in the wizard header ──
+// ── StepBar — vertical setup rail in the sidebar (4 steps + run button) ──
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
@@ -79,29 +79,26 @@ export default function StepBar() {
   }
 
   return (
-    <div className="step-bar">
-      {STEP_ORDER.map((step, i) => {
+    <div className="step-rail">
+      {STEP_ORDER.map((step) => {
         const meta = STEP_META[step];
         const isCurrent = wizardStep === step;
         const isCompleted = completedSteps.includes(step);
         const label = getLabel(step);
 
         return (
-          <>
-            {i > 0 && <span key={`arrow-${step}`} className="step-bar-arrow">›</span>}
-            <button
-              key={step}
-              type="button"
-              className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${!isCompleted ? " step-card-pending" : ""}`}
-              onClick={() => setWizardStep(isCurrent ? "folded" : step)}
-              title={t(meta?.brief ?? "")}
-            >
-              <span className="step-card-num">{meta?.num}</span>
-              <span className="step-card-name">{t(meta?.nameKey ?? "")}</span>
-              {label && <span className="step-card-label">{label}</span>}
-              {isCompleted && <span className="step-card-check">✓</span>}
-            </button>
-          </>
+          <button
+            key={step}
+            type="button"
+            className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${!isCompleted ? " step-card-pending" : ""}`}
+            onClick={() => setWizardStep(isCurrent ? "folded" : step)}
+            title={t(meta?.brief ?? "")}
+          >
+            <span className="step-card-num">{meta?.num}</span>
+            <span className="step-card-name">{t(meta?.nameKey ?? "")}</span>
+            {label && <span className="step-card-label">{label}</span>}
+            {isCompleted && <span className="step-card-check">✓</span>}
+          </button>
         );
       })}
 
@@ -110,8 +107,19 @@ export default function StepBar() {
         <button
           type="button"
           className={`btn-run-inline${hasActiveTasks ? " btn-run-launching" : ""}`}
-          disabled={hasActiveTasks}
-          onClick={() => setWizardStep(wizardStep === "run" ? "folded" : "run")}
+          onClick={() => {
+            if (hasActiveTasks) {
+              // While a run is live this button is the route back to it.
+              setWizardStep("folded");
+              setTimeout(() => {
+                window.document
+                  .getElementById("current-run-header")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 80);
+              return;
+            }
+            setWizardStep(wizardStep === "run" ? "folded" : "run");
+          }}
         >
           {hasActiveTasks ? (
             <span className="btn-run-inline-spinner" />
@@ -119,7 +127,7 @@ export default function StepBar() {
             <img src="/logo-icon.svg" alt="" className="btn-run-inline-icon" />
           )}
           <span className="btn-run-inline-label">
-            {hasActiveTasks ? t("working") : t("run_again")}
+            {hasActiveTasks ? t("view_current_run") : t("run_again")}
           </span>
         </button>
       )}

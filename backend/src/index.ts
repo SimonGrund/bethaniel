@@ -12,7 +12,7 @@ import routes from "./routes.js";
 import {
   initQueue,
   closeQueue,
-  getTasksSnapshot,
+  getClientSnapshot,
   failActiveTasks,
 } from "./queue.js";
 import { closeDb } from "./db.js";
@@ -42,7 +42,7 @@ const io = new SocketServer(httpServer, {
 });
 
 io.on("connection", (socket) => {
-  socket.emit("queue:update", getTasksSnapshot());
+  socket.emit("queue:update", getClientSnapshot());
   socket.emit("log:snapshot", getLogSnapshot());
 });
 

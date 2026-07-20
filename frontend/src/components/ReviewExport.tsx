@@ -1,6 +1,6 @@
 // ── Review & Export — Stage IV ──
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import {
@@ -23,6 +23,8 @@ import {
   verifyAcceptedCorrections,
   type VerifyOutcome,
 } from "../exportVerify";
+import CurrentRunHeader from "./CurrentRunHeader";
+import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1168,6 +1170,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     acceptCorrection,
     dismissCorrection,
     toggleOccurrence,
+    minorBreakStyle,
+    setMinorBreakStyle,
   } = useStore();
   const tasks = isOldResults
     ? allTasks
@@ -1206,7 +1210,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   const handleDownloadDocx = useCallback(
     async (markdown: string, filename: string, opts?: DocxExportOptions) => {
       try {
-        const blob = await exportDocx(markdown, opts);
+        // Merge the persisted minor-break preference into every DOCX export.
+        const blob = await exportDocx(markdown, {
+          minorBreak: useStore.getState().minorBreakStyle,
+          ...opts,
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -1417,10 +1425,46 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     }
   }, []);
 
+  // Newest job (includes queued tasks) — used by the current-run header and
+  // as the auto-hydrated job in the Former Runs view.
+  const headerByJob: Record<string, TaskState[]> = {};
+  for (const task of Object.values(tasks)) {
+    (headerByJob[task.jobId ?? "legacy"] ??= []).push(task);
+  }
+  const newestJobId = Object.entries(headerByJob).sort(
+    ([, a], [, b]) =>
+      Math.max(...b.map((task) => task.submittedAt ?? 0)) -
+      Math.max(...a.map((task) => task.submittedAt ?? 0)),
+  )[0]?.[0];
+
+  // ── Lazy result hydration ──
+  // Old-results view: only opened jobs hydrate (newest pre-opened); a job's
+  // body isn't even rendered until opened. Live view: everything in the
+  // session-filtered task set hydrates as chapters reach a terminal state.
+  const [openJobs, setOpenJobs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (isOldResults && newestJobId) {
+      setOpenJobs((p) =>
+        p.has(newestJobId) ? p : new Set(p).add(newestJobId),
+      );
+    }
+  }, [isOldResults, newestJobId]);
+  const eligibleJobIds = useMemo<"all" | Set<string>>(
+    () => (isOldResults ? openJobs : "all"),
+    [isOldResults, openJobs],
+  );
+  const hydrating = useResultHydration(tasks, eligibleJobIds);
+
   const visibleTasks = Object.entries(tasks).filter(
     ([, s]) => s.status !== "queued",
   );
-  if (visibleTasks.length === 0) return null;
+  // The current-session view stays mounted while everything is still queued so
+  // the run header can show from the first second of a job.
+  if (
+    visibleTasks.length === 0 &&
+    (isOldResults || Object.keys(tasks).length === 0)
+  )
+    return null;
 
   // Group by job (one per "Start job" click), then sort newest first by submittedAt
   const byJob: Record<string, [string, TaskState][]> = {};
@@ -1528,9 +1572,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         </div>
       )}
 
+      {!isOldResults && newestJobId && (
+        <CurrentRunHeader
+          jobId={newestJobId}
+          jobTasks={headerByJob[newestJobId]}
+          modelNames={modelNames}
+          lang={lang}
+        />
+      )}
+      {!isOldResults && newestJobId && hydrating.has(newestJobId) && (
+        <div className="results-hydrating-row">
+          <span className="step-card-spinner" />
+          {t("loading_results")}
+        </div>
+      )}
 
-
-      {jobEntries.length === 0 && (
+      {jobEntries.length === 0 && !(!isOldResults && newestJobId) && (
         <p className="review-empty-state">{t("review_empty")}</p>
       )}
       {(() => {
@@ -1541,7 +1598,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
           );
           const totalCorrections = entries.reduce(
-            (n, [, task]) => n + (task.result?.corrections.length ?? 0),
+            (n, [, task]) =>
+              n +
+              (task.result?.corrections.length ??
+                task.resultMeta?.corrections ??
+                0),
             0,
           );
           const runningCount = entries.filter(
@@ -1585,6 +1646,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const allEditDone = editTasks.every(
             ([, task]) => task.status === "done",
           );
+          // Guard the full-manuscript exports against the brief window where a
+          // task is done but its result hasn't hydrated yet.
+          const editResultsReady = editTasks.every(([, task]) => task.result);
           const allEditCorrections = editTasks.flatMap(([tid, task]) =>
             (task.result?.corrections ?? [])
               .filter((c) => c.id)
@@ -1604,7 +1668,18 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             <details
               key={jid}
               className="review-group"
-              open={isOldResults ? undefined : true}
+              open={isOldResults ? openJobs.has(jid) : true}
+              onToggle={(e) => {
+                if (!isOldResults) return;
+                const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                setOpenJobs((p) => {
+                  if (p.has(jid) === isOpen) return p;
+                  const n = new Set(p);
+                  if (isOpen) n.add(jid);
+                  else n.delete(jid);
+                  return n;
+                });
+              }}
             >
               <summary className="review-source">
                 {t("results_for")} {src}{" "}
@@ -1612,20 +1687,28 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   #{jid.slice(0, 8)}
                 </code>{" "}
                 <span className="review-source-meta">
-                  {submittedDate} · {entries.length}{" "}
-                  {entries.length === 1 ? "task" : "tasks"}
-                  {jobModels.length > 0 ? ` · ${jobModels.join(", ")}` : ""}
-                  {runningCount > 0 ? ` · ${runningCount} running` : ""}
-                  {failedChapters.length > 0 ? (
-                    <span className="review-failed-meta">
-                      {" "}
-                      · ⚠ {failedChapters.length}{" "}
-                      {failedChapters.length === 1 ? "failed" : "failed"}
+                  <span className="meta-chip">{submittedDate}</span>
+                  <span className="meta-chip">
+                    {entries.length} {entries.length === 1 ? "task" : "tasks"}
+                  </span>
+                  {jobModels.length > 0 && (
+                    <span className="meta-chip">{jobModels.join(", ")}</span>
+                  )}
+                  {runningCount > 0 && (
+                    <span className="meta-chip meta-chip-running">
+                      {runningCount} running
                     </span>
-                  ) : null}
-                  {totalCorrections > 0
-                    ? ` · ${totalCorrections} corrections`
-                    : ""}
+                  )}
+                  {failedChapters.length > 0 && (
+                    <span className="meta-chip meta-chip-failed">
+                      ⚠ {failedChapters.length} failed
+                    </span>
+                  )}
+                  {totalCorrections > 0 && (
+                    <span className="meta-chip">
+                      {totalCorrections} corrections
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"
@@ -1642,6 +1725,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 </button>
               </summary>
 
+              {/* The body is expensive (every correction card). Old-results
+                  jobs render it only once opened; while the job's results are
+                  being fetched, show a spinner instead of empty placeholders. */}
+              {isOldResults && !openJobs.has(jid) ? null : hydrating.has(jid) ? (
+                <div className="results-hydrating-row">
+                  <span className="step-card-spinner" />
+                  {t("loading_results")}
+                </div>
+              ) : (
+                <>
               <div className="review-group-body">
 
               {failedChapters.length > 0 && (
@@ -1674,7 +1767,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const hasAnalysisData = entries.some(
                   ([, t]) =>
                     ANALYSIS_MODES.includes(t.mode) &&
-                    t.result?.structuredData,
+                    (t.result?.structuredData || t.resultMeta?.hasStructured),
                 );
                 if (!hasAnalysisData) return null;
 
@@ -1722,7 +1815,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   ([, t]) =>
                     reportSourceModes.includes(t.mode) &&
                     t.status === "done" &&
-                    t.result?.originalText,
+                    (t.result?.originalText || t.resultMeta?.hasText),
                 );
                 if (!hasEditResults) return null;
 
@@ -1769,7 +1862,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       <div className="task-placeholder">
                         {reportTask.status === "editing" && (
                           <>
-                            <div className="q-bar">
+                            <div className="q-bar q-bar-lg">
                               <div
                                 className={`q-fill qs-${reportTask.status}`}
                                 style={{ width: `${pct}%` }}
@@ -1867,7 +1960,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       <div className="task-placeholder">
                         {summaryTask.status === "editing" && (
                           <>
-                            <div className="q-bar">
+                            <div className="q-bar q-bar-lg">
                               <div
                                 className={`q-fill qs-${summaryTask.status}`}
                                 style={{ width: `${pct}%` }}
@@ -1953,7 +2046,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       <div className="task-placeholder">
                         {blurbTask.status === "editing" && (
                           <>
-                            <div className="q-bar">
+                            <div className="q-bar q-bar-lg">
                               <div
                                 className={`q-fill qs-${blurbTask.status}`}
                                 style={{ width: `${pct}%` }}
@@ -2304,7 +2397,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 if (!result) {
                   const pct = Math.round((task.progress ?? 0) * 100);
                   return (
-                    <details key={tid} className="review-task">
+                    <details key={tid} className={`review-task rt-${task.status}`}>
                       <summary className="review-task-summary">
                         <span className={`task-status-pill qs-${task.status}`}>
                           {t(`status_${task.status}`)}
@@ -2333,7 +2426,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       <div className="task-placeholder">
                         {task.status === "editing" && (
                           <>
-                            <div className="q-bar">
+                            <div className="q-bar q-bar-lg">
                               <div
                                 className={`q-fill qs-${task.status}`}
                                 style={{ width: `${pct}%` }}
@@ -2390,7 +2483,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const dur = formatDuration(task);
 
                 return (
-                  <details key={tid} className="review-task">
+                  <details key={tid} className={`review-task rt-${task.status}`}>
                     <summary className="review-task-summary">
                       {task.status === "error" && (
                         <span className="task-status-pill qs-error">
@@ -2713,10 +2806,33 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               {/* ── Full manuscript downloads: below the bright card, but still
                    collapsing with this <details> container ── */}
               {editTasks.length > 0 && (
+                <div className="export-minor-break-row" title={t("minor_break_hint")}>
+                  <span className="option-toggle-label">
+                    {t("export_minor_break")}
+                  </span>
+                  <div className="option-toggle-group">
+                    <button
+                      type="button"
+                      className={`toggle-btn${minorBreakStyle === "blank" ? " active" : ""}`}
+                      onClick={() => setMinorBreakStyle("blank")}
+                    >
+                      {t("minor_break_blank")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn${minorBreakStyle === "hash" ? " active" : ""}`}
+                      onClick={() => setMinorBreakStyle("hash")}
+                    >
+                      {t("minor_break_hash")}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {editTasks.length > 0 && (
                 <div className="export-buttons full-manuscript-export">
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone || verifying}
+                    disabled={!allEditDone || !editResultsReady || verifying}
                     title={allEditDone ? undefined : t("full_manuscript_wait")}
                     onClick={() =>
                       verifyThenExport(
@@ -2730,7 +2846,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   </button>
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone || verifying}
+                    disabled={!allEditDone || !editResultsReady || verifying}
                     title={allEditDone ? undefined : t("full_manuscript_wait")}
                     onClick={() =>
                       verifyThenExport(
@@ -2744,7 +2860,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   </button>
                   <button
                     className="btn-primary"
-                    disabled={!allEditDone || formattingEbook || verifying}
+                    disabled={
+                      !allEditDone ||
+                      !editResultsReady ||
+                      formattingEbook ||
+                      verifying
+                    }
                     title={
                       allEditDone
                         ? t("auto_format_ebook_tip")
@@ -2763,6 +2884,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       : t("auto_format_ebook")}
                   </button>
                 </div>
+              )}
+                </>
               )}
             </details>
           );

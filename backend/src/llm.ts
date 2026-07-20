@@ -549,6 +549,14 @@ function normalizeMarkdownMarkers(
   const markers = ["*", "_", "`"] as const;
   let out = corrected;
 
+  // Models sometimes markdown-escape markers in their output (`\_s\_`). When
+  // the original contains no backslashes, those escapes are model noise —
+  // strip them, or the literal backslashes splice into the manuscript (the
+  // marker counts below treat `\_` and `_` identically, so they'd pass).
+  if (!original.includes("\\") && /\\[_*`]/.test(out)) {
+    out = out.replace(/\\([_*`])/g, "$1");
+  }
+
   // Iteratively peel off wrappers that add markers not present in the original.
   // Order matters: strip `**…**` before `*…*` so we don't half-strip bold.
   const peelers: { re: RegExp; ch: string }[] = [

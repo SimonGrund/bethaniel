@@ -85,6 +85,7 @@ import {
 import {
   submitTask,
   cancelAll,
+  cancelJob,
   cancelTask,
   retryTask,
   removeCompleted,
@@ -92,6 +93,8 @@ import {
   removeJob,
   flushAll,
   getTasksSnapshot,
+  getClientSnapshot,
+  getJobResults,
   getTask,
   setConcurrency,
   getConcurrency,
@@ -650,9 +653,9 @@ router.post("/queue/add", async (req: Request, res: Response) => {
   }
 });
 
-// ── Queue: status ──
+// ── Queue: status (client snapshot — results stripped, hydrated via REST) ──
 router.get("/queue/status", (_req: Request, res: Response) => {
-  res.json(getTasksSnapshot());
+  res.json(getClientSnapshot());
 });
 
 // ── Queue: cancel all ──
@@ -689,6 +692,15 @@ router.delete("/queue/task/:taskId/remove", (req: Request, res: Response) => {
 router.delete("/queue/job/:jobId", (req: Request, res: Response) => {
   const removed = removeJob(req.params.jobId);
   res.json({ ok: true, removed });
+});
+
+// ── Queue: stop one job — abort its running task, clear its queued tasks ──
+router.delete("/queue/job/:jobId/cancel", (req: Request, res: Response) => {
+  const cancelled = cancelJob(req.params.jobId);
+  console.log(
+    `[API] DELETE /queue/job/${req.params.jobId}/cancel — ${cancelled} task(s) cancelled`,
+  );
+  res.json({ ok: true, cancelled });
 });
 
 // ── Queue: retry a failed/cancelled task ──
@@ -841,6 +853,20 @@ router.get("/results/:taskId", (req: Request, res: Response) => {
     return;
   }
   res.json(task);
+});
+
+// ── Lazy result hydration (client snapshots carry only resultMeta) ──
+router.get("/queue/job/:jobId/results", (req: Request, res: Response) => {
+  res.json({ results: getJobResults(req.params.jobId) });
+});
+
+router.get("/queue/task/:taskId/result", (req: Request, res: Response) => {
+  const task = getTask(req.params.taskId);
+  if (!task) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+  res.json({ result: task.result ?? null });
 });
 
 // ── Export check: spell-verify accepted corrections ──

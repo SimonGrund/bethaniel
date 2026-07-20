@@ -45,13 +45,14 @@ test('"# Title" still renders as an h1 heading', () => {
   assert.ok(html.includes("Chapter One"));
 });
 
-test("scene break markers still render as centered dividers", () => {
+test("scene break markers render as centered *** (the form Atticus recognizes)", () => {
   for (const marker of [SCENE_BREAK_MARKER, "***", "* * *"]) {
     const html = render(`Before.\n\n${marker}\n\nAfter.`);
     assert.ok(
-      html.includes("* * *"),
+      html.includes(">***<"),
       `scene break lost for marker ${JSON.stringify(marker)}: ${html}`,
     );
+    assert.ok(!html.includes("* * *"), `spaced form leaked: ${html}`);
   }
 });
 
@@ -139,8 +140,42 @@ test("unbalanced asterisk stays literal", () => {
   assert.ok(html.includes("an unbalanced * asterisk"), html);
 });
 
+test("stray backslash-escaped markers never reach the export HTML", () => {
+  const html = render("a \\_s\\_ b and \\*x\\* c");
+  assert.ok(!html.includes("\\"), html);
+});
+
 test("a 4+-star divider line renders as a divider, not italics", () => {
   const html = render("Before.\n\n* * * *\n\nAfter.");
   assert.ok(!html.includes("<i>"), html);
-  assert.ok(html.includes("* * *"), html);
+  assert.ok(html.includes(">***<"), html);
+});
+
+// ── minor section breaks: blank (default) vs # marker (Atticus) ──
+// Atticus strips empty paragraphs on paste, so the "hash" option exports a
+// visible centered "#" that survives the copy-paste into layout tools.
+
+test('minorBreak "hash": lone "#" renders a centered # paragraph', () => {
+  const html = mdToHtml("First scene.\n\n#\n\nSecond scene.", {
+    ...DEFAULT_DOCX_EXPORT_OPTIONS,
+    minorBreak: "hash",
+  });
+  assert.ok(html.includes("text-align:center"), html);
+  assert.ok(html.includes(">#</p>"), html);
+  assert.ok(!html.includes("&#160;"), html);
+});
+
+test('minorBreak "hash": blank-line section breaks render # paragraphs', () => {
+  const html = mdToHtml("One.\n\n\nTwo.", {
+    ...DEFAULT_DOCX_EXPORT_OPTIONS,
+    minorBreak: "hash",
+  });
+  assert.ok(html.includes(">#</p>"), html);
+  assert.ok(!html.includes("&#160;"), html);
+});
+
+test('minorBreak default "blank" keeps the nbsp paragraph (regression)', () => {
+  const html = render("One.\n\n\nTwo.");
+  assert.ok(html.includes("&#160;"), html);
+  assert.ok(!html.includes(">#</p>"), html);
 });

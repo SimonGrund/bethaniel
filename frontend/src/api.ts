@@ -127,6 +127,11 @@ export async function cancelTask(taskId: string) {
   await apiFetch(`/queue/task/${taskId}`, { method: "DELETE" });
 }
 
+/** Stop one job: aborts its running task and clears its queued tasks. */
+export async function cancelJob(jobId: string) {
+  await apiFetch(`/queue/job/${jobId}/cancel`, { method: "DELETE" });
+}
+
 export async function retryTask(taskId: string): Promise<string> {
   const res = await apiFetch(`/queue/retry/${taskId}`, { method: "POST" });
   const data = await res.json();
@@ -181,8 +186,29 @@ export async function getTaskResult(taskId: string) {
   return res.json();
 }
 
+// ── Lazy result hydration (snapshots carry only resultMeta counts) ──
+
+export async function fetchJobResults(
+  jobId: string,
+): Promise<Record<string, import("./types").TaskResult>> {
+  const res = await apiFetch(`/queue/job/${jobId}/results`);
+  const data = await res.json();
+  return data.results ?? {};
+}
+
+export async function fetchTaskResult(
+  taskId: string,
+): Promise<import("./types").TaskResult | null> {
+  const res = await apiFetch(`/queue/task/${taskId}/result`);
+  const data = await res.json();
+  return data.result ?? null;
+}
+
 export interface DocxExportOptions {
   sectionBreak?: "asterisks" | "dash" | "blank";
+  /** Minor section breaks: empty line (default) or a centered "#" that
+   *  survives Atticus's paste cleanup. */
+  minorBreak?: "blank" | "hash";
   lineSpacing?: number;
 }
 
