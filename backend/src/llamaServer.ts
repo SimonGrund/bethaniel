@@ -355,10 +355,12 @@ export function detectParallelSlots(
   // Don't outrun CPU cores (leave 2 for OS)
   const cpuCount = os.cpus().length;
   const cpuSlots = Math.max(1, cpuCount - 2);
-  // Cap at 3 — on a single GPU (Apple Silicon unified memory), decode is
-  // bandwidth-bound so more slots just add KV cache pressure. 2–3 slots
-  // still help because prefill can be batched efficiently.
-  const hardwareCap = Math.max(1, Math.min(3, ramSlots, cpuSlots));
+  // On a discrete GPU, one slot avoids GPU context-switching overhead —
+  // multiple slots share the same GPU and hurt both latency and throughput.
+  // Apple Silicon (unified memory) and CPU-only benefit from 2–3 slots
+  // because prefill can be batched efficiently.
+  const gpuCap = process.platform === "linux" && hasNvidiaGpu() ? 1 : 3;
+  const hardwareCap = Math.max(1, Math.min(gpuCap, ramSlots, cpuSlots));
   // If the caller knows how many concurrent jobs are queued, don't allocate
   // KV cache for slots that won't be used. Always allow at least 1.
   const slots = desiredSlots
