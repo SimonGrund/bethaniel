@@ -239,6 +239,29 @@ export function getCurrentModel(): string | null {
 
 // ── GPU layer detection ──
 
+let _cachedFreeVramMib: number | null | undefined;
+
+/** Free VRAM in MiB, or null if no NVIDIA GPU / nvidia-smi unavailable. */
+function getFreeVramMib(): number | null {
+  if (_cachedFreeVramMib !== undefined) return _cachedFreeVramMib;
+  try {
+    const bin =
+      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
+    const { execFileSync } =
+      require("child_process") as typeof import("child_process");
+    const out = execFileSync(
+      bin,
+      ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+      { timeout: 3000, stdio: "pipe" },
+    ).toString();
+    const mib = parseInt(out.split(/\r?\n/)[0].trim(), 10);
+    _cachedFreeVramMib = Number.isFinite(mib) && mib > 0 ? mib : null;
+  } catch {
+    _cachedFreeVramMib = null;
+  }
+  return _cachedFreeVramMib;
+}
+
 /**
  * Whether a model's weights plus its estimated KV cache fit in the given free
  * VRAM (MiB), with headroom for CUDA buffers. Shared by the offload decision
@@ -278,27 +301,9 @@ function detectNGL(modelSizeBytes = 0, numCtx = 0, slots = 1): number {
   }
   // NVIDIA: full offload only if the model + KV cache fits in free VRAM,
   // otherwise stay on CPU to avoid an out-of-memory crash at load time.
-  try {
-    const nvidiaSmi =
-      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
-    const { execFileSync } =
-      require("child_process") as typeof import("child_process");
-    const out = execFileSync(
-      nvidiaSmi,
-      ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
-      { timeout: 3000, stdio: "pipe" },
-    ).toString();
-    const freeMib = parseInt(out.split(/\r?\n/)[0].trim(), 10);
-    if (Number.isFinite(freeMib) && freeMib > 0) {
-      const modelMib = modelSizeBytes / 1024 ** 2;
-      const modelGb = modelSizeBytes / 1024 ** 3;
-      const kvPerSlotGb = Math.max(0.3, modelGb * 0.1 * (numCtx / 6144));
-      const kvMib = kvPerSlotGb * Math.max(1, slots) * 1024;
-      const headroomMib = Math.max(2048, kvMib + 1024);
-      return modelMib + headroomMib < freeMib ? 999 : 0;
-    }
-  } catch {
-    // No NVIDIA GPU or nvidia-smi not found
+  const freeMib = getFreeVramMib();
+  if (freeMib !== null) {
+    return fitsInVram(modelSizeBytes, numCtx, slots, freeMib) ? 999 : 0;
   }
   // CPU-only
   return 0;
@@ -355,10 +360,25 @@ export function detectParallelSlots(
   // Don't outrun CPU cores (leave 2 for OS)
   const cpuCount = os.cpus().length;
   const cpuSlots = Math.max(1, cpuCount - 2);
+  // How many KV caches fit in GPU VRAM after the model weights.
+  const freeVramMib = getFreeVramMib();
+  const vramSlots =
+    freeVramMib !== null
+      ? Math.max(
+          1,
+          Math.floor(
+            Math.max(0, freeVramMib - modelSizeBytes / 1024 ** 2 - 2048) /
+              (kvPerSlotGb * 1024),
+          ),
+        )
+      : Infinity;
   // Cap at 3 — on a single GPU (Apple Silicon unified memory), decode is
   // bandwidth-bound so more slots just add KV cache pressure. 2–3 slots
   // still help because prefill can be batched efficiently.
-  const hardwareCap = Math.max(1, Math.min(3, ramSlots, cpuSlots));
+  const hardwareCap = Math.max(
+    1,
+    Math.min(3, ramSlots, cpuSlots, vramSlots),
+  );
   // If the caller knows how many concurrent jobs are queued, don't allocate
   // KV cache for slots that won't be used. Always allow at least 1.
   const slots = desiredSlots
