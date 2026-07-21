@@ -678,6 +678,27 @@ async function doLoad(
   // GGML_METAL_PATH_RESOURCES tells llama.cpp where to find ggml-metal.metal
   const llamaDir = path.dirname(LLAMA_BIN);
 
+  // llama.cpp binaries use $ORIGIN as RUNPATH — they look for libraries in
+  // the same directory. The build pipeline copies base .so files but may
+  // miss the soname symlinks (e.g. libllama-common.so.0 → libllama-common.so).
+  // Create them on the fly so the dynamic linker can resolve NEEDED entries.
+  try {
+    for (const entry of fs.readdirSync(llamaDir)) {
+      if (!entry.endsWith(".so")) continue;
+      const soname = entry + ".0";
+      const sonamePath = path.join(llamaDir, soname);
+      if (fs.existsSync(sonamePath)) continue;
+      const baseEntry = path.join(llamaDir, entry);
+      try {
+        fs.symlinkSync(entry, sonamePath);
+      } catch {
+        // best-effort — may fail on permission-restricted filesystems
+      }
+    }
+  } catch {
+    // best-effort
+  }
+
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
     env: {

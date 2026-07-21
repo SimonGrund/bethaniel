@@ -383,7 +383,7 @@ if (!skipLlama) {
               // Match "lib*.0.dylib" pattern (the soname variant the binary links to)
               /\.0\.dylib$/.test(entry) &&
               !/\.\d+\.\d+\.\d+\.dylib$/.test(entry);
-            const isSo = entry.endsWith(".so");
+            const isSo = entry.endsWith(".so") || /\.so\.\d+$/.test(entry);
             const isMetal = entry.endsWith(".metal");
             if (isDylib || isSo || isMetal) {
               const src = join(binarySourceDir, entry);
