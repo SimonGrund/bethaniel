@@ -387,7 +387,7 @@ const SERVER_READY_RE =
   /server is listening|HTTP server listening|all slots are idle/i;
 
 function pollHealth(
-  idleTimeoutMs = 45_000,
+  idleTimeoutMs = 90_000,
   absoluteTimeoutMs = 900_000,
 ): Promise<void> {
   const start = Date.now();

@@ -4,7 +4,7 @@
 // backend's built-in frontend.
 
 import { app, BrowserWindow, shell, dialog, ipcMain } from "electron";
-import { ChildProcess, fork } from "child_process";
+import { ChildProcess, fork, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as http from "http";
@@ -119,6 +119,22 @@ function waitForHealth(port: number, timeoutMs = 15000): Promise<void> {
   });
 }
 
+// ── GPU detection ──
+
+function hasNvidiaGpu(): boolean {
+  try {
+    const bin =
+      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
+    execFileSync(bin, ["--query-gpu=name", "--format=csv,noheader"], {
+      timeout: 3000,
+      stdio: "pipe",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Resolve the llama-server binary path ──
 
 function findLlamaBin(): string {
@@ -126,26 +142,35 @@ function findLlamaBin(): string {
   const binaryName =
     process.platform === "win32" ? "llama-server.exe" : "llama-server";
 
-  // In packaged builds: resources/llama/<platform-arch>/llama-server
-  const packaged = path.join(
-    process.resourcesPath,
-    "llama",
-    platformArch,
-    binaryName,
-  );
-  if (fs.existsSync(packaged)) return packaged;
+  // On Linux with an NVIDIA GPU, prefer the Vulkan build so models offload
+  // to VRAM by default. Falls back gracefully to the CPU build otherwise.
+  const archDirs =
+    process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
+      ? ["linux-x64-vulkan", platformArch]
+      : [platformArch];
 
-  // In dev: electron/resources/llama/<platform-arch>/llama-server
-  const dev = path.resolve(
-    __dirname,
-    "..",
-    "electron",
-    "resources",
-    "llama",
-    platformArch,
-    binaryName,
-  );
-  if (fs.existsSync(dev)) return dev;
+  for (const arch of archDirs) {
+    // In packaged builds: resources/llama/<arch>/llama-server
+    const packaged = path.join(
+      process.resourcesPath,
+      "llama",
+      arch,
+      binaryName,
+    );
+    if (fs.existsSync(packaged)) return packaged;
+
+    // In dev: electron/resources/llama/<arch>/llama-server
+    const dev = path.resolve(
+      __dirname,
+      "..",
+      "electron",
+      "resources",
+      "llama",
+      arch,
+      binaryName,
+    );
+    if (fs.existsSync(dev)) return dev;
+  }
 
   // Fallback: system PATH
   return binaryName;

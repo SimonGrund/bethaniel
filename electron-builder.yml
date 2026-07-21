@@ -18,8 +18,8 @@ files:
 extraResources:
   - from: build/icon.png
     to: icon.png
-  - from: electron/resources/llama/${platform}-${arch}/
-    to: llama/${platform}-${arch}/
+  - from: electron/resources/llama/
+    to: llama/
     filter:
       - "**/*"
       - "!build"
