@@ -10,7 +10,6 @@ import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
 import ModeSelector from "./components/ModeSelector";
-import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
@@ -28,7 +27,6 @@ export default function App() {
     wizardStep,
     setWizardStep,
     model,
-    completedSteps,
     sessionStartedAt,
   } = useStore();
   const setLogs = useStore((s) => s.setLogs);
@@ -147,11 +145,6 @@ export default function App() {
 
   const isSetupPhase = wizardStep !== "done";
   const isFolded = wizardStep === "folded";
-  const allSetupStepsDone = completedSteps.includes("model")
-    && completedSteps.includes("edits")
-    && completedSteps.includes("upload")
-    && completedSteps.includes("style");
-  const hasRun = completedSteps.includes("run");
   const hasActiveTasks = Object.values(tasks).some(
     (t) => (t.status === "queued" || t.status === "editing") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
@@ -210,10 +203,7 @@ export default function App() {
                 </div>
               )}
 
-              {wizardStep === "run" && <EditTrigger />}
             </div>
-
-            {isFolded && allSetupStepsDone && !hasActiveTasks && !hasCompletedTasks && <EditTrigger />}
 
             {/* ── Task progress / results (below wizard content) ── */}
             {(hasActiveTasks || hasCompletedTasks) && (

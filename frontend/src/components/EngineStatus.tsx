@@ -1,7 +1,7 @@
 // ── Engine status feed ──
-// Streams the last few diagnostics log entries next to the "Start Job"
-// button. When multiple tasks run in parallel, displays a grid of
-// per-runner streams, each with an amber border and task ID header.
+// Streams the last few diagnostics log entries as a single amber column in the
+// sidebar. All parallel-task lines flow into one deduplicated stream (newest at
+// the bottom) so the feed stays inside the narrow rail — no multi-column grid.
 //
 // Visibility is user-controlled via the "Show engine diagnostics" toggle in
 // advanced settings (persisted as `showEngineStatus`), defaulting on.
@@ -10,42 +10,6 @@ import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
 
 const MAX_LINES_PER_STREAM = 6;
-
-/** Truncate a task ID for display: first 8 chars. */
-function shortId(id: string): string {
-  return id.slice(0, 8);
-}
-
-function StreamCell({
-  taskId,
-  lines,
-}: {
-  taskId: string;
-  lines: { id: string; message: string; level: string }[];
-}) {
-  const listRef = useRef<HTMLUListElement>(null);
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines.length]);
-
-  return (
-    <div className="engine-stream-cell">
-      <div className="engine-stream-header">{shortId(taskId)}</div>
-      <ul ref={listRef} className="engine-stream-list">
-        {lines.map((e) => (
-          <li
-            key={e.id}
-            className={`engine-status-line engine-status-${e.level}`}
-            title={e.message}
-          >
-            {e.message}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 export default function EngineStatus() {
   const showEngineStatus = useStore((s) => s.showEngineStatus);
@@ -72,44 +36,11 @@ export default function EngineStatus() {
     return logs.filter((e) => e.ts >= cutoff);
   }, [logs, latestTaskTs]);
 
-  // Group by taskId. Entries without a taskId go into a "general" bucket.
-  const streams = useMemo(() => {
-    const map = new Map<string, typeof jobLogs>();
-    for (const entry of jobLogs) {
-      const key = entry.taskId ?? "__general__";
-      const arr = map.get(key);
-      if (arr) {
-        arr.push(entry);
-      } else {
-        map.set(key, [entry]);
-      }
-    }
-    // Trim each stream to MAX_LINES_PER_STREAM
-    for (const [k, arr] of map) {
-      if (arr.length > MAX_LINES_PER_STREAM) {
-        map.set(k, arr.slice(-MAX_LINES_PER_STREAM));
-      }
-    }
-    return map;
-  }, [jobLogs]);
-
-  // Determine if we need multi-stream grid view
-  const taskStreams = useMemo(() => {
-    const entries: [string, typeof jobLogs][] = [];
-    for (const [k, v] of streams) {
-      if (k !== "__general__") entries.push([k, v]);
-    }
-    return entries;
-  }, [streams]);
-
-  const generalLines = streams.get("__general__") ?? [];
-
-  // Single-stream fallback (legacy view): only general lines or 1 task
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [generalLines.length, jobLogs.length]);
+  }, [jobLogs.length]);
 
   // Guard placed after all hooks so hook order stays stable when the user
   // toggles this on/off at runtime.
@@ -130,19 +61,9 @@ export default function EngineStatus() {
     return null;
   }
 
-  // Multi-stream grid view when 2+ tasks are running in parallel
-  if (taskStreams.length >= 2) {
-    return (
-      <div className="engine-status-grid">
-        {taskStreams.map(([tid, lines]) => (
-          <StreamCell key={tid} taskId={tid} lines={lines} />
-        ))}
-      </div>
-    );
-  }
-
-  // Single-stream view (1 task or only general logs) — deduplicate
-  // consecutive identical messages (e.g. repeated model launch lines).
+  // Single amber column: all task lines merged, newest at the bottom —
+  // deduplicate consecutive identical messages (e.g. repeated model launch
+  // lines).
   const allLines: typeof jobLogs = [];
   for (const entry of jobLogs.slice(-MAX_LINES_PER_STREAM * 2)) {
     if (

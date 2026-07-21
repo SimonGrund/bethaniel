@@ -3975,38 +3975,26 @@ summary.review-source::before {
 }
 
 /* ── Sidebar queue ── */
-.sidebar-queue {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0;
-}
-
-.sidebar-queue .collapsible-panel {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-/* The expanded queue scrolls internally so the session footer stays reachable. */
-.sidebar .q-items {
-  max-height: 34vh;
-}
-
-/* ── Sidebar engine log dock ── */
+/* ── Sidebar engine log dock — single amber column, constrained to the rail ── */
 .sidebar-engine {
   margin-bottom: 0.75rem;
 }
 
-.sidebar-engine .engine-status,
-.sidebar-engine .engine-stream-list {
+.sidebar-engine .engine-status {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
   max-height: 140px;
   font-size: 0.68rem;
 }
 
-.sidebar-engine .engine-status-grid {
-  grid-template-columns: 1fr;
-  gap: 0.4rem;
+/* Big Start Run button, sized to fit under the four step cards in the rail. */
+.sidebar .btn-run {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  margin-top: 0.15rem;
 }
 
 /* ── Sidebar session footer ── */

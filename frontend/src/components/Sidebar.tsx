@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import StepBar from "./StepBar";
-import QueuePanel from "./QueuePanel";
+import EditTrigger from "./EditTrigger";
 import EngineStatus from "./EngineStatus";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -31,10 +31,7 @@ export default function Sidebar() {
       <div className="sidebar-section">
         <span className="sidebar-label">{t("sidebar_setup")}</span>
         <StepBar />
-      </div>
-
-      <div className="sidebar-section sidebar-queue">
-        <QueuePanel />
+        <EditTrigger />
       </div>
 
       {showEngineStatus && (

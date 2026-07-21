@@ -83,7 +83,15 @@ async function getDocxParagraphInfo(
     const docXml = await zip.file("word/document.xml")?.async("string");
     if (!docXml) return [];
 
-    const paragraphs = docXml.match(/<w:p\b[\s\S]*?(?:<\/w:p>|\/>)/g) ?? [];
+    // Match a paragraph as either a genuinely self-closing empty paragraph
+    // (`<w:p .../>`, its OWN `/>`) or an open/close pair up to its own `</w:p>`.
+    // The `[^>]` guard stops the self-close alternative from firing on a child
+    // element's `/>` (e.g. `<w:jc/>`, `<w:spacing/>`, `<w:pStyle/>` inside
+    // `<w:pPr>`), which previously truncated formatted paragraphs mid-way — the
+    // truncated fragment lost its `<w:t>` and was misread as an empty paragraph,
+    // collapsing real section breaks. See test/docxImport.test.ts.
+    const paragraphs =
+      docXml.match(/<w:p\b(?:[^>]*?\/>|[^>]*?>[\s\S]*?<\/w:p>)/g) ?? [];
 
     return paragraphs.map((p) => {
       let isPageBreak = false;
@@ -152,6 +160,16 @@ export async function docxToMarkdown(
       "p[style-name='Heading 1'] => h1:fresh",
       "p[style-name='Heading 2'] => h2:fresh",
       "p[style-name='Heading 3'] => h3:fresh",
+      // Title/Subtitle styles (authors often use "Title" for chapter/part
+      // headings). Mammoth's built-in map already handles the Heading1..6
+      // styleIds — which is why localized docs ("Overskrift 1"/"Überschrift 1")
+      // still import as headings — but it has no Title/Subtitle mapping. Map
+      // both the English style-name and the language-neutral styleId so a real
+      // markdown heading (the most reliable chapter signal) is emitted.
+      "p[style-name='Title'] => h1:fresh",
+      "p.Title => h1:fresh",
+      "p[style-name='Subtitle'] => h2:fresh",
+      "p.Subtitle => h2:fresh",
       // Word CHARACTER styles carry no direct <w:i/> on the run, and mammoth's
       // default map only knows 'Strong' — without these, style-based italics
       // silently import as plain text.

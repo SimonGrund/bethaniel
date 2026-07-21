@@ -35,10 +35,9 @@ export default function EditTrigger() {
     submitting,
     setSubmitting,
     tasks,
-    wizardStep,
     setWizardStep,
     markStepComplete,
-    apiModel,
+    completedSteps,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -123,67 +122,44 @@ export default function EditTrigger() {
     }
   };
 
-  if (wizardStep !== "run" && wizardStep !== "done" && wizardStep !== "folded") return null;
+  // While a run is live this button is the route back to the current-run view.
+  const viewCurrentRun = () => {
+    setWizardStep("folded");
+    setTimeout(() => {
+      window.document
+        .getElementById("current-run-header")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
 
-  function modelLabel(): string {
-    if (!model) return "?";
-    if (model.startsWith("custom:")) return `External: ${apiModel || "DeepSeek"}`;
-    if (model.includes("Qwen3.5-4B")) return "Baby Betty";
-    if (model.includes("Qwen3.5-9B")) return "Basic Betty";
-    if (model.includes("Mistral")) return "Big Bad Betty";
-    return model.replace(".gguf", "");
-  }
-
-  const editLabel = selectedModes.map((m) => t(`mode_${m}`)).join(" + ");
-  const chapterLabel = units.length > 0
-    ? `${units.length} ${units.length === 1 ? "chapter" : "chapters"}`
-    : "";
+  const hasRun = completedSteps.includes("run");
+  const runLabel = submitting
+    ? "Launching…"
+    : isWorking
+      ? t("view_current_run")
+      : hasRun
+        ? t("run_again")
+        : t("btn_add_to_queue");
 
   return (
-    <section className="wizard-run-section">
-      {/* Summary */}
-      <div className="wizard-run-summary">
-        <span className="run-summary-line">
-          {modelLabel()} · {editLabel}
+    <button
+      className={`btn-run${submitting || isWorking ? " btn-run-launching" : ""}`}
+      disabled={submitting || (!isWorking && disabled)}
+      onClick={isWorking ? viewCurrentRun : handleClick}
+    >
+      {submitting || isWorking ? (
+        <div className="btn-run-spinner" />
+      ) : (
+        <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+      )}
+      <span className="btn-run-label">{runLabel}</span>
+      {units.length > 0 && !submitting && !isWorking && (
+        <span className="btn-run-meta">
+          {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+          {selectedModes.length}{" "}
+          {selectedModes.length === 1 ? "mode" : "modes"}
         </span>
-        {doc && (
-          <span className="run-summary-line">
-            {doc.name} · {chapterLabel} · {doc.wordCount.toLocaleString()} words
-          </span>
-        )}
-        {styleGuide && (
-          <span className="run-summary-line">
-            {t("style_guide")}: {t("provided")}
-          </span>
-        )}
-      </div>
-
-      {/* Run button */}
-      <button
-        className={`btn-run${submitting ? " btn-run-launching" : ""}`}
-        disabled={disabled || isWorking}
-        onClick={handleClick}
-      >
-        {submitting ? (
-          <div className="btn-run-spinner" />
-        ) : (
-          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-        )}
-        <span className="btn-run-label">
-          {submitting
-            ? "Launching…"
-            : isWorking
-              ? t("btn_add_to_queue_busy")
-              : t("btn_add_to_queue")}
-        </span>
-        {units.length > 0 && !submitting && !isWorking && (
-          <span className="btn-run-meta">
-            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
-            {selectedModes.length}{" "}
-            {selectedModes.length === 1 ? "mode" : "modes"}
-          </span>
-        )}
-      </button>
-    </section>
+      )}
+    </button>
   );
 }

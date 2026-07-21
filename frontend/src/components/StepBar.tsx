@@ -32,7 +32,6 @@ export default function StepBar() {
   } = useStore();
   const t = useTranslation(lang);
 
-  const hasRun = completedSteps.includes("run");
   const hasActiveTasks = Object.values(tasks).some(
     (t) => t.status === "queued" || t.status === "editing",
   );
@@ -101,36 +100,6 @@ export default function StepBar() {
           </button>
         );
       })}
-
-      {/* ── Run button — appears after first run ── */}
-      {hasRun && (
-        <button
-          type="button"
-          className={`btn-run-inline${hasActiveTasks ? " btn-run-launching" : ""}`}
-          onClick={() => {
-            if (hasActiveTasks) {
-              // While a run is live this button is the route back to it.
-              setWizardStep("folded");
-              setTimeout(() => {
-                window.document
-                  .getElementById("current-run-header")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }, 80);
-              return;
-            }
-            setWizardStep(wizardStep === "run" ? "folded" : "run");
-          }}
-        >
-          {hasActiveTasks ? (
-            <span className="btn-run-inline-spinner" />
-          ) : (
-            <img src="/logo-icon.svg" alt="" className="btn-run-inline-icon" />
-          )}
-          <span className="btn-run-inline-label">
-            {hasActiveTasks ? t("view_current_run") : t("run_again")}
-          </span>
-        </button>
-      )}
     </div>
   );
 }
