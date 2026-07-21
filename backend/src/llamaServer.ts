@@ -615,9 +615,14 @@ async function doLoad(
   }
 
   const modelSize = fs.statSync(resolvedPath).size;
-  const threads = detectThreads();
   const parallelSlots = detectParallelSlots(modelSize, numCtx, desiredSlots);
   const ngl = detectNGL(modelSize, numCtx, parallelSlots);
+  // With full GPU offload the CPU only tokenizes, samples, and evaluates
+  // grammars — 2–4 threads is plenty. More threads cause contention in
+  // GGML's thread barrier (it syncs on the slowest active core). CPU-only
+  // systems need every core for the compute-heavy math.
+  const rawThreads = detectThreads();
+  const threads = ngl > 0 ? Math.min(4, rawThreads) : rawThreads;
   const cfg = readModelConfig(MODELS_DIR, file);
 
   // llama-server divides -c evenly across parallel slots, so we multiply
