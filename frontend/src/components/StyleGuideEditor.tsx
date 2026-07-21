@@ -26,6 +26,9 @@ export default function StyleGuideEditor() {
       getStyleGuide()
         .then((content) => {
           setStyleGuide(content);
+          // Auto-open the editor when a style guide already exists, so the user
+          // lands straight in edit mode instead of the read-only preview.
+          if (content.trim()) setExpanded(true);
           setLoaded(true);
         })
         .catch(() => setLoaded(true));
@@ -68,12 +71,6 @@ export default function StyleGuideEditor() {
 
   return (
     <section>
-      <div className="section-label">
-        {t("style_guide")}
-        <span className="info-tooltip" data-tip={t("style_guide_tooltip")}>
-          ⓘ
-        </span>
-      </div>
 
       {/* Empty: big textarea + drop zone */}
       {!styleGuide && !expanded ? (
@@ -171,7 +168,7 @@ export default function StyleGuideEditor() {
               className="btn-secondary btn-small"
               onClick={() => fileRef.current?.click()}
             >
-              Upload
+              Replace
             </button>
             <button
               className="btn-secondary btn-small"

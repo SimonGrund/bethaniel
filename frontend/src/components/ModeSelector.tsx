@@ -125,13 +125,6 @@ export default function ModeSelector() {
 
   return (
     <section className="mode-selector">
-      <div className="section-label">
-        <span className="num">II.</span>
-        {t("sec_mode")}
-        <span className="info-tooltip" data-tip={t("tooltip_mode")}>
-          ⓘ
-        </span>
-      </div>
 
       <div className="mode-cat-cards">
         {/* Editing */}
@@ -246,7 +239,6 @@ export default function ModeSelector() {
                 key={m}
                 className={`mode-tab${isSelected(m) ? " active" : ""}`}
                 onClick={() => toggleMode(m)}
-                title={t(`mode_desc_${m}`)}
               >
                 {t(`mode_${m}`)}
               </button>
@@ -254,7 +246,7 @@ export default function ModeSelector() {
           </div>
 
           <div className="translate-lang">
-            <label title={t("manuscript_language_hint")}>
+            <label>
               {t("manuscript_language")}:{" "}
               <select
                 value={isKnownManuscriptLang ? manuscriptLang : "other"}
@@ -377,7 +369,6 @@ export default function ModeSelector() {
                 key={m}
                 className={`mode-tab${isSelected(m) ? " active" : ""}`}
                 onClick={() => toggleMode(m)}
-                title={t(`mode_desc_${m}`)}
               >
                 {t(`mode_${m}`)}
               </button>

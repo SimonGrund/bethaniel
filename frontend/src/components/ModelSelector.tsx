@@ -534,9 +534,6 @@ export default function ModelSelector({
 
   return (
     <div className="model-selector">
-      <div className="section-label">
-        <span className="num">I.</span> {t("sec_model")}
-      </div>
       {modelLocked && (
         <div className="model-lock-notice"> {t("model_locked_while_busy")}</div>
       )}
@@ -587,6 +584,7 @@ export default function ModelSelector({
                     "model-card",
                     tierClass,
                     isSelected && isInstalled ? "model-card-selected" : "",
+                    isRecommended ? "model-card-recommended" : "",
                     isInstalled ? "model-card-ready" : "",
                     isOverSpec ? "model-card-overspec" : "",
                     isDownloading ? "model-card-downloading" : "",
@@ -997,15 +995,7 @@ export default function ModelSelector({
               </div>
 
               <div className="field">
-                <label>
-                  {t("api_model_label")}{" "}
-                  <span
-                    className="info-tooltip"
-                    data-tip={t("api_model_tooltip")}
-                  >
-                    ⓘ
-                  </span>
-                </label>
+                <label>{t("api_model_label")}</label>
                 <select
                   className="api-config-select"
                   value={apiModelName}
@@ -1181,15 +1171,7 @@ export default function ModelSelector({
               highlightedModel === "custom:deepseek-chat") && (
               <div className="api-config-inline">
                 <div className="api-config-row">
-                  <label>
-                    {t("api_model_label")}{" "}
-                    <span
-                      className="info-tooltip"
-                      data-tip={t("api_model_tooltip")}
-                    >
-                      ⓘ
-                    </span>
-                  </label>
+                  <label>{t("api_model_label")}</label>
                   <select
                     className="api-config-select"
                     value={apiModelName}

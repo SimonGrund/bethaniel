@@ -699,19 +699,73 @@ h4 {
 .upload-zone {
   background: #fdfaf0;
   border: 2px dashed #c9b896;
-  border-radius: 4px;
-  padding: 2rem;
+  border-radius: 12px;
+  /* Big, inviting drop target. */
+  min-height: 240px;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+  font-size: 1.05rem;
 }
 
+/* The style-guide sub-upload stays modest so it doesn't dwarf the textarea. */
 .upload-zone.compact {
-  padding: 1rem;
+  min-height: 120px;
+  padding: 1.5rem;
+  font-size: 0.95rem;
 }
 
 .upload-zone:hover {
   border-color: #8b7355;
+  background: #fdf6e6;
+  box-shadow: inset 0 0 0 2px rgba(139, 115, 85, 0.08);
+}
+
+.upload-zone-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+  color: #b8a279;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.upload-zone:hover .upload-zone-icon {
+  transform: translateY(-3px);
+  color: #8b7355;
+}
+
+/* The compact variant (style-guide sub-upload) keeps a smaller glyph. */
+.upload-zone.compact .upload-zone-icon {
+  font-size: 1.6rem;
+}
+
+/* Faded Bethaniel mark watermarked behind the (large) manuscript drop zone. */
+.wizard-upload-only .upload-zone {
+  position: relative;
+  overflow: hidden;
+}
+
+.wizard-upload-only .upload-zone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/logo-full.svg") center center / min(440px, 52%) no-repeat;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wizard-upload-only .upload-zone > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Cards (manuscript + style guide) ── */
@@ -788,7 +842,7 @@ h4 {
 }
 
 .styleguide-expanded .style-textarea {
-  min-height: 100px;
+  min-height: 360px;
 }
 
 /* Empty state: textarea + drop zone */
@@ -799,7 +853,7 @@ h4 {
 }
 
 .style-textarea-empty {
-  min-height: 200px;
+  min-height: 320px;
 }
 
 /* Preview: first 10 lines */
@@ -820,7 +874,7 @@ h4 {
   line-height: 1.5;
   white-space: pre-wrap;
   margin: 0;
-  min-height: 120px;
+  min-height: 200px;
 }
 
 .styleguide-preview-more {
@@ -1242,7 +1296,7 @@ h4 {
 
 .style-textarea {
   flex: 1;
-  min-height: 320px;
+  min-height: 440px;
   padding: 0.5rem;
   border: 1px solid #d9c9a8;
   border-radius: 4px;
@@ -2297,6 +2351,10 @@ summary.review-source::before {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  perspective: 1500px;
+  padding: 0.4rem 0;
 }
 
 .mode-cat-card {
@@ -2313,17 +2371,25 @@ summary.review-source::before {
   transition:
     border-color 0.2s,
     box-shadow 0.25s,
-    transform 0.15s,
-    flex 0.25s,
-    opacity 0.2s,
-    filter 0.2s;
+    transform 0.34s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.25s,
+    filter 0.25s;
   text-align: center;
   font-family: inherit;
   color: inherit;
+  transform-style: preserve-3d;
+  /* Gentle resting state — the row reads clearly until a card is hovered or
+     opened (there is no default "recommended" foreground here, unlike models). */
+  transform: scale(0.95);
+  opacity: 0.94;
+  filter: grayscale(0.08);
 }
 
 .mode-cat-card:hover {
-  transform: translateY(-2px);
+  transform: scale(1.06);
+  opacity: 1;
+  filter: none;
+  z-index: 4;
 }
 
 /* Category colors */
@@ -2345,31 +2411,44 @@ summary.review-source::before {
   --cat-glow: rgba(176, 80, 112, 0.3);
 }
 
-/* Open (expanded) */
+/* Open (expanded) — foreground of the fan */
 .mode-cat-open {
-  flex: 2;
+  transform: scale(1.08) rotateY(0deg);
+  opacity: 1;
+  filter: none;
   border: 3px solid var(--cat-color);
   background: var(--cat-bg);
   box-shadow:
     0 0 20px var(--cat-glow),
     0 0 6px var(--cat-glow),
     inset 0 0 8px var(--cat-glow);
-  z-index: 1;
+  z-index: 3;
 }
 
 .mode-cat-open .mode-cat-name {
   font-size: 1.2rem;
 }
 
-/* Fade siblings when one is open */
-.mode-cat-cards:has(.mode-cat-open) .mode-cat-card:not(.mode-cat-open) {
-  opacity: 0.8;
-  filter: grayscale(0.4);
+/* Fan tilt: cards on either side of the open category angle back in 3D.
+   Hovered cards are excluded so hover always pops flat to the front. */
+.mode-cat-cards:has(.mode-cat-open)
+  .mode-cat-open
+  ~ .mode-cat-card:not(:hover) {
+  transform: scale(0.82) rotateY(-16deg);
 }
 
-.mode-cat-cards:has(.mode-cat-open) .mode-cat-card:not(.mode-cat-open):hover {
-  opacity: 0.65;
-  filter: grayscale(0);
+.mode-cat-cards:has(.mode-cat-open)
+  .mode-cat-card:has(~ .mode-cat-open):not(:hover) {
+  transform: scale(0.82) rotateY(16deg);
+}
+
+@media (max-width: 900px) {
+  .mode-cat-cards .mode-cat-card:not(:hover) {
+    transform: scale(0.95) !important;
+  }
+  .mode-cat-open {
+    transform: scale(1) !important;
+  }
 }
 
 /* Has active selections */
@@ -2718,12 +2797,18 @@ summary.review-source::before {
 .model-selector-cards {
   display: flex;
   gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  /* 3D stage for the fanned carousel (see .model-card transforms below). */
+  perspective: 1500px;
+  padding: 0.5rem 0;
 }
 
 .model-card-wrap {
   flex: 1;
   position: relative;
   display: flex;
+  transform-style: preserve-3d;
 }
 
 .model-card-wrap > .model-card {
@@ -2772,15 +2857,24 @@ summary.review-source::before {
   transition:
     border-color 0.2s,
     box-shadow 0.25s,
-    transform 0.15s,
-    opacity 0.2s;
+    transform 0.34s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.25s,
+    filter 0.25s;
   text-align: center;
   font-family: inherit;
   color: inherit;
+  /* Carousel default: cards sit "back" — scaled down and muted. The
+     foreground (selected / recommended / hovered) card pops forward below. */
+  transform: scale(0.86);
+  opacity: 0.72;
+  filter: grayscale(0.32);
 }
 
 .model-card:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: scale(1.06);
+  opacity: 1;
+  filter: none;
+  z-index: 4;
 }
 
 /* ── Tier colors ── */
@@ -2904,33 +2998,62 @@ summary.review-source::before {
   filter: grayscale(0.4);
 }
 
-/* ── Selected (installed + active) ── */
-.model-card-selected.model-card-ready {
-  flex: 2;
+/* ── Foreground card: the selected one, or the recommended one when nothing is
+   selected yet. Pops to the front of the fan (flat, full-size, glowing). ── */
+.model-card-selected.model-card-ready,
+.model-selector-cards:not(:has(.model-card-selected)) .model-card-recommended {
+  transform: scale(1.08) rotateY(0deg);
+  opacity: 1;
+  filter: none;
   border: 3px solid var(--tier-color);
   background: var(--tier-bg);
   box-shadow:
-    0 0 20px var(--tier-glow),
+    0 0 22px var(--tier-glow),
     0 0 6px var(--tier-glow),
     inset 0 0 8px var(--tier-glow);
-  z-index: 1;
+  z-index: 3;
 }
 
-.model-card-selected.model-card-ready .model-card-name {
+.model-card-selected.model-card-ready .model-card-name,
+.model-selector-cards:not(:has(.model-card-selected))
+  .model-card-recommended
+  .model-card-name {
   font-size: 1.2rem;
 }
 
-/* ── Fade siblings when one is selected ── */
+/* ── Fan tilt: cards on either side of the foreground angle away in 3D. The
+   foreground anchor is the selected card, or the recommended card when none is
+   selected. Hovered cards are excluded so hover always pops flat to the front. */
 .model-selector-cards:has(.model-card-selected)
-  .model-card:not(.model-card-selected) {
-  opacity: 0.8;
-  filter: grayscale(0.4);
+  .model-card-wrap:has(.model-card-selected)
+  ~ .model-card-wrap
+  .model-card:not(:hover),
+.model-selector-cards:not(:has(.model-card-selected))
+  .model-card-wrap:has(.model-card-recommended)
+  ~ .model-card-wrap
+  .model-card:not(:hover) {
+  transform: scale(0.82) rotateY(-16deg);
 }
 
 .model-selector-cards:has(.model-card-selected)
-  .model-card:not(.model-card-selected):hover {
-  opacity: 0.65;
-  filter: grayscale(0);
+  .model-card-wrap:has(~ .model-card-wrap:has(.model-card-selected))
+  .model-card:not(:hover),
+.model-selector-cards:not(:has(.model-card-selected))
+  .model-card-wrap:has(~ .model-card-wrap:has(.model-card-recommended))
+  .model-card:not(:hover) {
+  transform: scale(0.82) rotateY(16deg);
+}
+
+/* Narrow widths: keep the depth but drop the rotation so cards don't clip. */
+@media (max-width: 900px) {
+  .model-selector-cards .model-card:not(:hover) {
+    transform: scale(0.9) !important;
+  }
+  .model-card-selected.model-card-ready,
+  .model-selector-cards:not(:has(.model-card-selected))
+    .model-card-recommended {
+    transform: scale(1) !important;
+  }
 }
 
 /* ── Installed but not selected ── */
@@ -3515,19 +3638,68 @@ summary.review-source::before {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  /* Fill the space between header and footer so the idle-dashboard logo can
+     center vertically (and the footer stays at the bottom). */
+  flex: 1;
 }
 
 .wizard-content {
   flex: 1;
   position: relative;
-  max-height: 4000px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height 0.35s ease, opacity 0.25s ease;
   background: #fdfaf0;
   border: 1px solid #d9c9a8;
   border-radius: 8px;
   padding: 1.25rem 1.5rem;
+  /* Flex column so the Upload / Style menus can fill the open dashboard. */
+  display: flex;
+  flex-direction: column;
+  /* Animate the panel in when a menu opens. */
+  animation: menu-panel-in 0.3s ease-out;
+}
+
+/* ── Upload & Style menus fill the available height (not just the top) ── */
+.wizard-upload-only,
+.wizard-style-only {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.wizard-upload-only > section,
+.wizard-style-only > section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Manuscript drop zone grows to fill the space. */
+.wizard-upload-only .upload-zone {
+  flex: 1;
+}
+
+/* Style guide: whichever state is shown fills, with its textarea/preview
+   expanding into the space. */
+.wizard-style-only .styleguide-empty,
+.wizard-style-only .styleguide-preview,
+.wizard-style-only .styleguide-expanded {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.wizard-style-only .style-textarea,
+.wizard-style-only .styleguide-preview-text {
+  flex: 1;
+}
+
+@keyframes menu-panel-in {
+  from { opacity: 0; transform: scale(0.985) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* Folded wizard leaves the flow entirely — no orphaned flex gaps above the
@@ -3536,31 +3708,77 @@ summary.review-source::before {
   display: none;
 }
 
-.btn-minimize-step {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.75rem;
-  width: 1.5rem;
-  height: 1.5rem;
+/* Idle dashboard: centered Bethaniel mark filling the empty content area when
+   no menu is open and nothing is running. */
+.dashboard-hero {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: none;
-  color: #8a7e6a;
-  font-size: 1rem;
-  font-weight: bold;
-  line-height: 1;
-  cursor: pointer;
-  transition: color 0.15s;
+  min-height: 40vh;
+  padding: 2rem 1rem;
 }
 
-.btn-minimize-step:hover {
-  color: #9b2335;
+.dashboard-hero-logo {
+  width: min(340px, 60%);
+  max-width: 340px;
+  height: auto;
+  opacity: 0.9;
+  animation: wizard-page-in 0.4s ease;
+}
+
+.btn-close-step {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0d5c0;
+  border-radius: 50%;
+  background: #faf6ec;
+  color: #8a7e6a;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.btn-close-step:hover {
+  color: #fff;
+  background: #9b2335;
+  border-color: #9b2335;
+  transform: rotate(90deg);
 }
 
 .wizard-content > * {
   animation: wizard-page-in 0.3s ease-out;
+}
+
+/* ── Open-menu header: friendly title + one-line intro ── */
+.wizard-menu-header {
+  margin: 0 2rem 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #ece0c8;
+}
+
+.wizard-menu-title {
+  margin: 0 0 0.2rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #4a3a24;
+  letter-spacing: 0.01em;
+}
+
+.wizard-menu-brief {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #7a6a52;
 }
 
 /* Step rail — vertical setup steps in the sidebar */
@@ -3579,6 +3797,10 @@ summary.review-source::before {
   row-gap: 0.05rem;
   align-items: center;
   width: 100%;
+  /* Fixed height so every step card is the same size whether or not it has a
+     second-row label (model name / doc / "Skipped" etc.). */
+  min-height: 3rem;
+  box-sizing: border-box;
   text-align: left;
   padding: 0.35rem 0.55rem;
   font-size: 0.78rem;
@@ -3643,12 +3865,29 @@ summary.review-source::before {
   box-shadow: 0 0 0 2px rgba(155, 35, 53, 0.15);
 }
 
-.step-card-pending {
-  opacity: 0.5;
+/* Next step to do — highlighted (amber glow + gentle pulse) so the user knows
+   where to go next, instead of fading the not-yet-done steps. */
+.step-card-next {
+  border-color: #c8912e;
+  background: #fdf7e8;
+  animation: step-next-pulse 2s ease-in-out infinite;
 }
 
-.step-card-pending:hover {
-  opacity: 0.75;
+.step-card-next .step-card-num {
+  background: #f3e2b8;
+  color: #8a6410;
+}
+
+@keyframes step-next-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(200, 145, 46, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(200, 145, 46, 0.28),
+      0 2px 10px rgba(200, 145, 46, 0.25);
+  }
 }
 
 .step-card-num {

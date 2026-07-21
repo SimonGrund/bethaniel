@@ -542,7 +542,7 @@ export const useStore = create<AppState>()(
       showExternalBetty: true,
       setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
-      wizardStep: "model",
+      wizardStep: "upload",
       setWizardStep: (wizardStep) => set({ wizardStep }),
       completedSteps: [],
       markStepComplete: (step) =>
@@ -591,7 +591,7 @@ export const useStore = create<AppState>()(
           selectedChapters: [0],
           firstNWords: DEFAULT_FIRST_N_WORDS,
           styleGuide: "",
-          wizardStep: "model",
+          wizardStep: "upload",
           completedSteps: [],
           editSubOptionsOpen: null,
           showAdvancedSettings: false,
@@ -605,9 +605,9 @@ export const useStore = create<AppState>()(
       advanceWizard: (fromStep) => {
         const state = get();
         const STEP_ORDER: WizardStep[] = [
-          "model",
-          "edits",
           "upload",
+          "edits",
+          "model",
           "style",
           "run",
         ];

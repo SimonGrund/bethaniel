@@ -121,12 +121,7 @@ export default function ScopeSelection() {
 
   return (
     <section className="stage">
-      <div className="section-label">
-        {t("sec_scope")}
-        <span className="info-tooltip" data-tip={t("tooltip_scope")}>
-          ⓘ
-        </span>
-      </div>
+      <div className="section-label">{t("sec_scope")}</div>
 
       <div className="scope-options">
         {scopeOptions.map((opt) => (

@@ -59,17 +59,11 @@ export default function ManuscriptUpload() {
 
   return (
     <section>
-      <div className="section-label">
-        {t("sec_manuscript")}
-        <span className="info-tooltip" data-tip={t("tooltip_manuscript")}>
-          ⓘ
-        </span>
-      </div>
 
       {!doc ? (
         <>
           <div
-            className="upload-zone compact"
+            className="upload-zone"
             onDrop={onDrop}
             onDragOver={onDragOver}
             onClick={() => fileRef.current?.click()}
@@ -84,6 +78,9 @@ export default function ManuscriptUpload() {
                 if (file) handleUpload(file);
               }}
             />
+            <span className="upload-zone-icon" aria-hidden="true">
+              ⬆
+            </span>
             {uploading ? (
               <p className="small-note">{t("converting")}</p>
             ) : (

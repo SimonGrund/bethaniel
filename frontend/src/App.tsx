@@ -18,6 +18,14 @@ import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+// Friendly title + one-line intro shown at the top of each open setup menu.
+const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
+  upload: { nameKey: "step_name_upload", briefKey: "upload_step_brief" },
+  edits: { nameKey: "step_name_edits", briefKey: "edits_step_brief" },
+  model: { nameKey: "step_name_model", briefKey: "model_step_brief" },
+  style: { nameKey: "step_name_style", briefKey: "style_step_brief" },
+};
+
 export default function App() {
   const {
     lang,
@@ -144,7 +152,13 @@ export default function App() {
   }
 
   const isSetupPhase = wizardStep !== "done";
-  const isFolded = wizardStep === "folded";
+  // A step menu is open only for the four setup steps; every other state
+  // (folded, or a stray "run") means no menu is open.
+  const menuOpen =
+    wizardStep === "model" ||
+    wizardStep === "edits" ||
+    wizardStep === "upload" ||
+    wizardStep === "style";
   const hasActiveTasks = Object.values(tasks).some(
     (t) => (t.status === "queued" || t.status === "editing") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
@@ -176,34 +190,59 @@ export default function App() {
         {/* Wizard setup phase — step navigation lives in the sidebar rail */}
         {isSetupPhase && (
           <div className="wizard-layout">
-            <div className={`wizard-content${isFolded ? " wizard-content-collapsed" : ""}`}>
-              <button
-                type="button"
-                className="btn-minimize-step"
-                onClick={() => setWizardStep("folded")}
-                title={t("minimize")}
-              >
-                −
-              </button>
-              {wizardStep === "model" && (
-                <ModelSelector onModelInstalled={() => setModelReady(true)} />
-              )}
+            {/* The collapsible step menu is only mounted while a step is open,
+                so no empty box lingers on the idle dashboard. */}
+            {menuOpen && (
+              <div className="wizard-content">
+                <button
+                  type="button"
+                  className="btn-close-step"
+                  onClick={() => setWizardStep("folded")}
+                  title={t("close_menu")}
+                  aria-label={t("close_menu")}
+                >
+                  ×
+                </button>
+                {MENU_INTRO[wizardStep] && (
+                  <div className="wizard-menu-header">
+                    <h2 className="wizard-menu-title">
+                      {t(MENU_INTRO[wizardStep].nameKey)}
+                    </h2>
+                    <p className="wizard-menu-brief">
+                      {t(MENU_INTRO[wizardStep].briefKey)}
+                    </p>
+                  </div>
+                )}
+                {wizardStep === "model" && (
+                  <ModelSelector onModelInstalled={() => setModelReady(true)} />
+                )}
 
-              {wizardStep === "edits" && <ModeSelector />}
+                {wizardStep === "edits" && <ModeSelector />}
 
-              {wizardStep === "upload" && (
-                <div className="top-row">
-                  <ManuscriptUpload />
-                </div>
-              )}
+                {wizardStep === "upload" && (
+                  <div className="wizard-upload-only">
+                    <ManuscriptUpload />
+                  </div>
+                )}
 
-              {wizardStep === "style" && (
-                <div className="wizard-style-only">
-                  <StyleGuideEditor />
-                </div>
-              )}
+                {wizardStep === "style" && (
+                  <div className="wizard-style-only">
+                    <StyleGuideEditor />
+                  </div>
+                )}
+              </div>
+            )}
 
-            </div>
+            {/* Idle dashboard — no menu open, nothing running: just the mark. */}
+            {!menuOpen && !hasActiveTasks && !hasCompletedTasks && (
+              <div className="dashboard-hero">
+                <img
+                  src="/logo-full.svg"
+                  alt="Bethaniel"
+                  className="dashboard-hero-logo"
+                />
+              </div>
+            )}
 
             {/* ── Task progress / results (below wizard content) ── */}
             {(hasActiveTasks || hasCompletedTasks) && (
