@@ -2,6 +2,28 @@
 // Serves API at /api, Socket.IO at /socket.io, and the built React
 // frontend as static files at /. One process, one port.
 
+import { homedir } from "os";
+
+// ── Data directory defaults (only when not set by Electron or caller) ──
+// Mimics electron's app.getPath("userData") layout so the same models,
+// database, and results are shared between the packaged app and dev mode.
+(function applyDataDefaults() {
+  const home = homedir();
+  const userData =
+    process.platform === "darwin"
+      ? `${home}/Library/Application Support/Bethaniel`
+      : process.platform === "win32"
+        ? `${home}/AppData/Roaming/Bethaniel`
+        : `${home}/.config/Bethaniel`; // Linux / other
+
+  if (!process.env.MODELS_DIR)
+    process.env.MODELS_DIR = `${userData}/models`;
+  if (!process.env.DATA_DIR)
+    process.env.DATA_DIR = `${userData}/data`;
+  if (!process.env.RESULTS_DIR)
+    process.env.RESULTS_DIR = `${userData}/results`;
+})();
+
 import express from "express";
 import { createServer } from "http";
 import { Server as SocketServer } from "socket.io";

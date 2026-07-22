@@ -10,7 +10,7 @@
     "build": "tsc",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "start": "node --max-old-space-size=8192 dist/index.js",
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 MODELS_DIR=\"$HOME/Library/Application Support/Bethaniel/models\" tsx src/index.ts",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsx src/index.ts",
     "cli": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsx src/cli.ts",
     "install:betty": "npm link",
     "uninstall:betty": "npm unlink -g bethaniel-backend"
