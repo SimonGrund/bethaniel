@@ -290,7 +290,10 @@ export function fitsInVram(
   const kvPerSlotGb = Math.max(0.3, modelGb * 0.1 * (numCtx / 6144));
   const kvMib = kvPerSlotGb * Math.max(1, slots) * 1024;
   const headroomMib = Math.max(2048, kvMib + 1024);
-  return modelMib + headroomMib < freeVramMib;
+  // Vulkan driver, prompt cache, staging buffers, and command queues
+  // consume overhead beyond the model + KV cache. Reserve 20% of free
+  // VRAM as a safety margin to avoid OOM crashes at load time.
+  return modelMib + headroomMib < freeVramMib * 0.8;
 }
 
 /**
@@ -373,13 +376,14 @@ export function detectParallelSlots(
   const cpuCount = os.cpus().length;
   const cpuSlots = Math.max(1, cpuCount - 2);
   // How many KV caches fit in GPU VRAM after the model weights.
+  // Match the 80% safety margin used in fitsInVram().
   const freeVramMib = getFreeVramMib();
   const vramSlots =
     freeVramMib !== null
       ? Math.max(
           1,
           Math.floor(
-            Math.max(0, freeVramMib - modelSizeBytes / 1024 ** 2 - 2048) /
+            Math.max(0, freeVramMib * 0.8 - modelSizeBytes / 1024 ** 2 - 2048) /
               (kvPerSlotGb * 1024),
           ),
         )
