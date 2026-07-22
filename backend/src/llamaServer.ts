@@ -257,8 +257,6 @@ function getFreeVramMib(): number | null {
     : ["/usr/bin/nvidia-smi", "nvidia-smi"];
   for (const bin of candidates) {
     try {
-      const { execFileSync } =
-        require("child_process") as typeof import("child_process");
       const out = execFileSync(
         bin,
         ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
