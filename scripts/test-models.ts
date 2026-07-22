@@ -52,6 +52,14 @@ const SELECTED_LANGS = Object.entries(LANG_FLAGS)
   .map(([, lang]) => lang);
 // Empty means all languages
 
+/** Map sample-text language name to ISO code for the manuscriptLang API param. */
+const LANG_CODE: Record<string, string> = {
+  english: "en",
+  danish: "da",
+  german: "de",
+  spanish: "es",
+};
+
 function parseMaxSize(): number | null {
   const idx = process.argv.indexOf("--max-size");
   if (idx === -1 || idx + 1 >= process.argv.length) return null;
@@ -435,6 +443,7 @@ async function main() {
             overlapParagraphs: 1,
             parallel: recommendedParallel,
             editOptions,
+            manuscriptLang: LANG_CODE[task.file.language] ?? undefined,
           })) as { jobId: string; taskIds: string[] };
 
           return {
