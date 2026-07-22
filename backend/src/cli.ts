@@ -580,11 +580,15 @@ async function main(): Promise<void> {
   const dataDir = resolveDataDir(args, isApi);
   if (args.apiKey) await saveApiKey(dataDir, args.apiKey);
   process.env.DATA_DIR = dataDir;
-  if (!process.env.MODELS_DIR && process.platform === "darwin") {
-    process.env.MODELS_DIR = path.join(
-      homedir(),
-      "Library/Application Support/Bethaniel/models",
-    );
+  if (!process.env.MODELS_DIR) {
+    const home = homedir();
+    const userData =
+      process.platform === "darwin"
+        ? `${home}/Library/Application Support/Bethaniel`
+        : process.platform === "win32"
+          ? `${home}/AppData/Roaming/Bethaniel`
+          : `${home}/.config/Bethaniel`;
+    process.env.MODELS_DIR = `${userData}/models`;
   }
 
   if (isApi && !apiKeyIn(dataDir)) {
