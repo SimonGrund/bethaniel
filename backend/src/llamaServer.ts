@@ -631,6 +631,9 @@ async function doLoad(
   }
 
   const modelSize = fs.statSync(resolvedPath).size;
+  // Always get a fresh VRAM reading — the cache may be stale from a
+  // prior load or crash, and VRAM must be probed at scheduling time.
+  _cachedFreeVramMib = undefined;
   const parallelSlots = detectParallelSlots(modelSize, numCtx, desiredSlots);
   const ngl = detectNGL(modelSize, numCtx, parallelSlots);
   // With full GPU offload the CPU only tokenizes, samples, and evaluates
