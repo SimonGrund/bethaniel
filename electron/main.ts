@@ -123,16 +123,24 @@ function waitForHealth(port: number, timeoutMs = 15000): Promise<void> {
 
 function hasNvidiaGpu(): boolean {
   try {
-    const bin =
-      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
-    execFileSync(bin, ["--query-gpu=name", "--format=csv,noheader"], {
-      timeout: 3000,
-      stdio: "pipe",
-    });
-    return true;
+    const candidates = process.platform === "win32"
+      ? ["nvidia-smi.exe"]
+      : ["/usr/bin/nvidia-smi", "nvidia-smi"];
+    for (const bin of candidates) {
+      try {
+        execFileSync(bin, ["--query-gpu=name", "--format=csv,noheader"], {
+          timeout: 3000,
+          stdio: "pipe",
+        });
+        return true;
+      } catch {
+        continue;
+      }
+    }
   } catch {
-    return false;
+    // ignore
   }
+  return false;
 }
 
 // ── Resolve the llama-server binary path ──

@@ -23,16 +23,24 @@ function modelDisplayName(file: string): string {
 /** Whether an NVIDIA GPU is present (used to pick a GPU-enabled binary). */
 function hasNvidiaGpu(): boolean {
   try {
-    const nvidiaSmi =
-      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
-    execFileSync(nvidiaSmi, ["--query-gpu=name", "--format=csv,noheader"], {
-      timeout: 3000,
-      stdio: "pipe",
-    });
-    return true;
+    const candidates = process.platform === "win32"
+      ? ["nvidia-smi.exe"]
+      : ["/usr/bin/nvidia-smi", "nvidia-smi"];
+    for (const nvidiaSmi of candidates) {
+      try {
+        execFileSync(nvidiaSmi, ["--query-gpu=name", "--format=csv,noheader"], {
+          timeout: 3000,
+          stdio: "pipe",
+        });
+        return true;
+      } catch {
+        continue
+      }
+    }
   } catch {
-    return false;
+    // ignore
   }
+  return false;
 }
 
 /** Try to locate the bundled llama-server binary when LLAMA_BIN isn't set. */
@@ -244,21 +252,25 @@ let _cachedFreeVramMib: number | null | undefined;
 /** Free VRAM in MiB, or null if no NVIDIA GPU / nvidia-smi unavailable. */
 function getFreeVramMib(): number | null {
   if (_cachedFreeVramMib !== undefined) return _cachedFreeVramMib;
-  try {
-    const bin =
-      process.platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
-    const { execFileSync } =
-      require("child_process") as typeof import("child_process");
-    const out = execFileSync(
-      bin,
-      ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
-      { timeout: 3000, stdio: "pipe" },
-    ).toString();
-    const mib = parseInt(out.split(/\r?\n/)[0].trim(), 10);
-    _cachedFreeVramMib = Number.isFinite(mib) && mib > 0 ? mib : null;
-  } catch {
-    _cachedFreeVramMib = null;
+  const candidates = process.platform === "win32"
+    ? ["nvidia-smi.exe"]
+    : ["/usr/bin/nvidia-smi", "nvidia-smi"];
+  for (const bin of candidates) {
+    try {
+      const { execFileSync } =
+        require("child_process") as typeof import("child_process");
+      const out = execFileSync(
+        bin,
+        ["--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+        { timeout: 3000, stdio: "pipe" },
+      ).toString();
+      const mib = parseInt(out.split(/\r?\n/)[0].trim(), 10);
+      _cachedFreeVramMib = Number.isFinite(mib) && mib > 0 ? mib : null;
+    } catch {
+      continue;
+    }
   }
+  if (_cachedFreeVramMib === undefined) _cachedFreeVramMib = null;
   return _cachedFreeVramMib;
 }
 
