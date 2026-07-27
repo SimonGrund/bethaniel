@@ -42,6 +42,7 @@ import {
   sanitizeQuoteCorrections,
   foldContainedCorrections,
   collapseIntroducedPunctuationPairs,
+  reconcileSpellWithEditor,
 } from "./correctionHygiene.js";
 import {
   ANALYSIS_SUMMARY_PROMPT,
@@ -52,6 +53,7 @@ import {
   buildCopyEditCorrectionsPrompt,
   buildTranslationUpgradePrompt,
   buildFluencyReviewerPrompt,
+  buildSpellHintBlock,
 } from "./prompts.js";
 import { runTranslationUpgrade } from "./translationUpgrade.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
@@ -214,6 +216,8 @@ interface JobData {
   reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
+  retextCheck?: boolean;
+  grammarCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
@@ -1156,6 +1160,10 @@ async function processJob(job: JobData): Promise<void> {
       const chunkStart = performance.now();
       let firstTokenAt = 0;
       let spellCorrections: Correction[] = [];
+      // Editor system prompt for THIS chunk: the job-level prompt plus any
+      // per-chunk spell-check hints (see the spell block below). Deterministic
+      // detection (Hunspell) feeds the LLM the words to fix in context.
+      let chunkPrompt = prompt;
 
       // ── Collect previous chunk's reviewer result ──
       // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
@@ -1170,6 +1178,7 @@ async function processJob(job: JobData): Promise<void> {
           tokCount = 0;
           firstTokenAt = 0;
           _dualMergedCorrections = null;
+          chunkPrompt = prompt;
           const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
           try {
             updateTask(taskId, {
@@ -1191,8 +1200,10 @@ async function processJob(job: JobData): Promise<void> {
                       ? "en_GB"
                       : "en_US"
                     : chunkLang;
+                // No cap: surface every misspelling in the chunk. Pass the
+                // style sheet so listed character/place names aren't flagged.
                 spellCorrections = getSpellCorrections(chunk.body, spellLang, {
-                  maxHints: 30,
+                  styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
                 });
                 if (spellCorrections.length > 0) {
                   appendLog({
@@ -1200,6 +1211,76 @@ async function processJob(job: JobData): Promise<void> {
                     source: "engine",
                     taskId,
                     message: `Spell-check produced ${spellCorrections.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+
+                // Also feed the detected suspects to the LLM editor as hints:
+                // Hunspell's own top suggestion is unreliable ("teh"→"ten"),
+                // but the LLM fixes the same words correctly in context. This
+                // pairs deterministic detection with in-context correction.
+                const { findSuspectWords } = await import("./spellcheck.js");
+                const { suspectWords } = findSuspectWords(chunk.body, spellLang, {
+                  styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
+                });
+                if (suspectWords.length > 0) {
+                  chunkPrompt = prompt + buildSpellHintBlock(suspectWords);
+                }
+              }
+
+              // ── retext: deterministic prose checks (a/an, contractions,
+              // doubled words, redundant acronyms, sentence spacing). English
+              // only; merges into the deterministic bucket alongside spelling.
+              if (job.retextCheck) {
+                const { getRetextCorrections } = await import(
+                  "./retextChecks.js"
+                );
+                const retextCs = await getRetextCorrections(
+                  chunk.body,
+                  job.manuscriptLang ?? "en",
+                );
+                if (retextCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...retextCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `retext produced ${retextCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
+              // ── LanguageTool: grammar/punctuation via a local server. Runs
+              // only when available (jar + Java bundled); degrades to a no-op
+              // otherwise. A failure here must never break the chunk.
+              if (job.grammarCheck) {
+                try {
+                  const { checkText } = await import("./languageTool.js");
+                  const dialect = (job.editOptions as Record<string, unknown>)
+                    ?.englishDialect as string | undefined;
+                  const grammarCs = await checkText(chunk.body, {
+                    lang: job.manuscriptLang ?? "en",
+                    dialect,
+                    signal: ac.signal,
+                  });
+                  if (grammarCs.length > 0) {
+                    spellCorrections = [...spellCorrections, ...grammarCs];
+                    appendLog({
+                      level: "info",
+                      source: "engine",
+                      taskId,
+                      message: `LanguageTool produced ${grammarCs.length} corrections in chunk ${chunkLabel}`,
+                      model,
+                    });
+                  }
+                } catch (err) {
+                  if (ac.signal.aborted) throw err;
+                  appendLog({
+                    level: "warn",
+                    source: "engine",
+                    taskId,
+                    message: `LanguageTool check failed for chunk ${chunkLabel}: ${err instanceof Error ? err.message : String(err)}. Grammar suggestions skipped for this chunk.`,
                     model,
                   });
                 }
@@ -1259,7 +1340,7 @@ async function processJob(job: JobData): Promise<void> {
               );
               const editorPrompts: string[] = Array.from(
                 { length: baseEditorCount },
-                () => prompt,
+                () => chunkPrompt,
               );
               if (styleAgentActive) {
                 editorPrompts.push(
@@ -1388,7 +1469,7 @@ async function processJob(job: JobData): Promise<void> {
                 for await (const tok of findCorrectionsStream(
                   model,
                   chunk.body,
-                  prompt,
+                  chunkPrompt,
                   ac.signal,
                 )) {
                 acc += tok;
@@ -1505,11 +1586,17 @@ async function processJob(job: JobData): Promise<void> {
           }
 
           // Merge deterministic corrections (spell-check + dialect, the
-          // latter pre-tagged "dialect") with editor corrections.
+          // latter pre-tagged "dialect") with editor corrections. Spell fixes
+          // an editor independently confirmed are pre-approved (bypass the
+          // reviewer) and their editor duplicate is dropped.
+          const dedupedEditorCs = reconcileSpellWithEditor(
+            spellCorrections,
+            editorCs,
+          );
           for (const sc of spellCorrections) {
             sc.reason ??= "spell-check";
           }
-          const cs: Correction[] = [...spellCorrections, ...editorCs];
+          const cs: Correction[] = [...spellCorrections, ...dedupedEditorCs];
 
           // Corrections are emitted as JSONL (one JSON object per line), so
           // truncation only ever drops the final partial line. No retry needed.
@@ -2282,6 +2369,8 @@ export async function submitTask(
       reviewerCount: data.reviewerCount,
       styleGuide: data.styleGuide,
       spellCheck: data.spellCheck,
+      retextCheck: data.retextCheck,
+      grammarCheck: data.grammarCheck,
       dualEditor: data.dualEditor,
       dualCount: data.dualCount,
       characterDedup: data.characterDedup,
@@ -2441,6 +2530,8 @@ export async function retryTask(id: string): Promise<string> {
     reviewerCount: spec.reviewerCount,
     styleGuide: spec.styleGuide,
     spellCheck: spec.spellCheck,
+    retextCheck: spec.retextCheck,
+    grammarCheck: spec.grammarCheck,
     dualEditor: spec.dualEditor,
     dualCount: spec.dualCount,
     characterDedup: spec.characterDedup,

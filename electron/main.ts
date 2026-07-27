@@ -184,6 +184,25 @@ function findLlamaBin(): string {
   return binaryName;
 }
 
+/**
+ * Locate the bundled LanguageTool distribution directory (packaged first, then
+ * dev). Returns null when none is present — grammar checking then degrades to a
+ * no-op in the backend.
+ */
+function findLanguageToolDir(): string | null {
+  const packaged = path.join(process.resourcesPath, "languagetool");
+  if (fs.existsSync(packaged)) return packaged;
+  const dev = path.resolve(
+    __dirname,
+    "..",
+    "electron",
+    "resources",
+    "languagetool",
+  );
+  if (fs.existsSync(dev)) return dev;
+  return null;
+}
+
 // ── Globals ──
 
 let backendProcess: ChildProcess | null = null;
@@ -225,6 +244,18 @@ app.whenReady().then(async () => {
     LLAMA_BASE_URL: `http://127.0.0.1:${llamaPort}`,
     NODE_ENV: IS_DEV ? "development" : "production",
   };
+
+  // LanguageTool (optional grammar server). Point the backend at the bundled
+  // jar + JRE if present; otherwise the backend degrades to no grammar checks.
+  const ltDir = findLanguageToolDir();
+  backendEnv.LANGUAGETOOL_PORT = String(await getFreePort());
+  if (ltDir) {
+    const jar = path.join(ltDir, "languagetool-server.jar");
+    if (fs.existsSync(jar)) backendEnv.LANGUAGETOOL_JAR = jar;
+    const javaName = process.platform === "win32" ? "java.exe" : "java";
+    const bundledJava = path.join(ltDir, "jre", "bin", javaName);
+    if (fs.existsSync(bundledJava)) backendEnv.JAVA_BIN = bundledJava;
+  }
 
   if (!IS_DEV) {
     // Spawn the compiled backend as a child process

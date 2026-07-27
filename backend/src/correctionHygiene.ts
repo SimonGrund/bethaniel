@@ -493,3 +493,39 @@ export function revertSuspectRuns(
   }
   return { text: out, reverted };
 }
+
+/**
+ * Pre-approve deterministic spell fixes that an LLM editor independently
+ * confirmed, so they bypass the skeptical reviewer that otherwise withholds
+ * obvious spelling corrections.
+ *
+ * The Hunspell spell-checker reliably DETECTS misspellings but its top
+ * suggestion is often wrong ("teh"→"ten", "Alot"→"Allot"), so a deterministic
+ * fix is trusted only when an editor produced the IDENTICAL original→corrected
+ * pair. Agreement is a strong signal the change is both needed and right.
+ *
+ * Mutates the matching `spellCorrections` in place (sets `preApproved`) and
+ * returns the editor corrections with the now-redundant duplicates removed, so
+ * each agreed fix is listed and applied exactly once.
+ */
+export function reconcileSpellWithEditor(
+  spellCorrections: Correction[],
+  editorCorrections: Correction[],
+): Correction[] {
+  if (spellCorrections.length === 0) return editorCorrections;
+
+  const key = (c: Correction) => JSON.stringify([c.original, c.corrected]);
+  const editorKeys = new Set(editorCorrections.map(key));
+
+  const agreedKeys = new Set<string>();
+  for (const sc of spellCorrections) {
+    const k = key(sc);
+    if (editorKeys.has(k)) {
+      sc.preApproved = true;
+      agreedKeys.add(k);
+    }
+  }
+
+  if (agreedKeys.size === 0) return editorCorrections;
+  return editorCorrections.filter((c) => !agreedKeys.has(key(c)));
+}

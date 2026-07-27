@@ -155,3 +155,20 @@ test("aggregateReviewScores: empty score maps flag everything", () => {
   assert.equal(cs.filter((c) => c.flagged).length, 3);
   assert.deepEqual(verdict, { flaggedCount: 3, unscoredCount: 3 });
 });
+
+test("aggregateReviewScores: a preApproved correction is not flagged even when unscored", () => {
+  const cs = mkCorrections(2);
+  cs[0].preApproved = true; // deterministic + LLM agreed — bypass the reviewer
+  const verdict = aggregateReviewScores(cs, [new Map()], 3);
+  assert.equal(cs[0].flagged, undefined, "preApproved must never be flagged");
+  assert.equal(cs[1].flagged, true, "ordinary unscored correction is still flagged");
+  assert.deepEqual(verdict, { flaggedCount: 1, unscoredCount: 1 });
+});
+
+test("aggregateReviewScores: a preApproved correction is not flagged below threshold", () => {
+  const cs = mkCorrections(1);
+  cs[0].preApproved = true;
+  const verdict = aggregateReviewScores(cs, [scores([[0, 1, "reviewer disliked it"]])], 3);
+  assert.equal(cs[0].flagged, undefined);
+  assert.deepEqual(verdict, { flaggedCount: 0, unscoredCount: 0 });
+});

@@ -15,3 +15,7 @@ Data/
 Backup/
 .DS_Store
 .opencode/
+
+# LanguageTool distribution is dropped in locally / bundled at build time — never commit the jars.
+electron/resources/languagetool/*
+!electron/resources/languagetool/HOWTO.md

@@ -93,6 +93,14 @@ export interface Correction {
   confidence?: number;
   reviewReason?: string;
   flagged?: boolean;
+  /**
+   * Skip the skeptical reviewer for this correction: it is a high-confidence
+   * deterministic fix (e.g. the Hunspell spell-checker and an LLM editor
+   * independently produced the identical original→corrected pair). The
+   * reviewer's over-caution otherwise withholds obvious spelling fixes, so
+   * these are applied without being flagged. See aggregateReviewScores.
+   */
+  preApproved?: boolean;
   /** Which thorough-mode pass produced this correction (absent = first). */
   pass?: number;
 }
@@ -165,6 +173,10 @@ export interface TaskRetrySpec {
   reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
+  /** Deterministic retext prose checks (a/an, contractions, doubled words…). */
+  retextCheck?: boolean;
+  /** LanguageTool grammar/punctuation checks (local server; degrades if absent). */
+  grammarCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;
@@ -207,6 +219,8 @@ export interface QueueAddRequest {
   reviewerThreshold?: number;
   reviewerCount?: number;
   spellCheck?: boolean;
+  retextCheck?: boolean;
+  grammarCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;

@@ -115,6 +115,17 @@ export function aggregateReviewScores(
 
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
+
+    // preApproved corrections bypass the reviewer entirely: they are
+    // deterministic, high-confidence fixes (e.g. the Hunspell spell-checker and
+    // an LLM editor independently produced the same change). The skeptical
+    // reviewer otherwise withholds obvious spelling fixes, so never flag them —
+    // and don't count them as unscored even when no reviewer scored them.
+    if (c.preApproved) {
+      if (c.confidence === undefined) c.confidence = 5;
+      continue;
+    }
+
     let minConfidence = Infinity;
     let minReason = "";
     for (const scores of scoreMaps) {
