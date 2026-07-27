@@ -33,6 +33,7 @@ export interface CopyEditOptions {
   duplicateWords: boolean;
   englishDialect: "american" | "british";
   oxfordComma: boolean;
+  introductoryComma: boolean;
   dialogueTags: boolean;
 }
 
@@ -43,6 +44,7 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   duplicateWords: true,
   englishDialect: "american",
   oxfordComma: true,
+  introductoryComma: false,
   dialogueTags: false,
 };
 

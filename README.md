@@ -47,6 +47,15 @@ The Electron app bundles `llama-server` for local GGUF model inference.
 
 - **Translation review-and-revise** — After translating a chunk, the text is split into paragraphs. Each source→translated paragraph pair is scored by a translation-quality reviewer. Any paragraph flagged as garbled or nonsensical is re-translated with added context about the issue.
 
+### Deterministic Copy-Edit Checks
+
+Alongside the LLM editors, several deterministic passes run per chunk and merge into the same correction set. Each still goes through the reviewer, and a fix that both a deterministic checker and an LLM editor produce identically is auto-applied (cross-source pre-approval):
+
+- **Exhaustive spell-check** — a Hunspell dictionary flags every out-of-dictionary word — including capitalized typos at the start of a sentence — with no per-chunk cap, while protecting proper nouns and style-sheet names. Detected words are also fed to the LLM editor as hints, so it corrects them in context (more reliable than Hunspell's own top suggestion).
+- **retext prose checks** — deterministic English rules for `a`/`an`, missing contraction apostrophes, doubled words, redundant acronyms ("PIN number" → "PIN"), and sentence spacing.
+- **LanguageTool grammar & punctuation** — an optional local [LanguageTool](https://languagetool.org) server catches deeper grammar and punctuation issues. Runs fully offline and degrades to a no-op when it isn't installed (see [`electron/resources/languagetool/HOWTO.md`](electron/resources/languagetool/HOWTO.md) to enable it).
+- **Comma-style toggles** — Oxford comma (on by default) and introductory comma (off by default — "Finally she turned" is left as the author wrote it). Both govern the LLM editor and LanguageTool together.
+
 ### Analysis Features
 
 - **Timeline zoom** — Three-level toggle (Major / Medium / All) filters timeline events by significance based on description length and time references. Major events appear by default; click to expand.
@@ -265,6 +274,11 @@ Bethaniel is provided "AS IS", without warranty of any kind, express or implied.
 ### AI Model Licenses
 
 The AI models used by Bethaniel (Qwen3.5 4B, Qwen3.5 9B, and Mistral Small 3.2 24B) are open-weight models distributed under the **Apache License 2.0** by their respective authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
+
+### Third-Party Components
+
+- **LanguageTool** (optional grammar/punctuation server) is open source under the **LGPL 2.1**. It is free to bundle and run locally — including in a commercial distribution — at no cost; the paid LanguageTool **Premium/API** service is separate and is **not** used. If you ship LanguageTool with Bethaniel, comply with the LGPL: include its license text and copyright notices, link to the LanguageTool source, and allow users to replace the library. Some bundled language dictionaries carry their own licenses — see the distribution's `third-party-licenses/` folder. (This is a summary, not legal advice.)
+- **retext** and **Hunspell dictionaries** are used for the deterministic prose/spell checks. retext and its plugins are MIT-licensed; Hunspell dictionaries retain their upstream licenses (typically LGPL/MPL/BSD per language).
 
 ---
 

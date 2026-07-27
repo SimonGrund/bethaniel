@@ -88,3 +88,32 @@ test(
     }
   },
 );
+
+import { INTRODUCTORY_COMMA_RULES } from "../src/languageTool.ts";
+
+test(
+  "LanguageTool live: disabling intro-comma rules suppresses the introductory comma",
+  { skip: enabled ? false : "set LT_LIVE_TEST=1 with a bundled LanguageTool to run" },
+  async () => {
+    await ensureLanguageToolRunning();
+    try {
+      const text = "Finally Bria remembered the way home.";
+      const withRule = await checkText(text, { lang: "en", dialect: "american" });
+      const suppressed = await checkText(text, {
+        lang: "en",
+        dialect: "american",
+        disabledRules: INTRODUCTORY_COMMA_RULES,
+      });
+      assert.ok(
+        withRule.some((c) => /Finally,/.test(c.corrected)),
+        `baseline should propose the comma, got ${JSON.stringify(withRule)}`,
+      );
+      assert.ok(
+        !suppressed.some((c) => /Finally,/.test(c.corrected)),
+        `disabled rules must suppress the comma, got ${JSON.stringify(suppressed)}`,
+      );
+    } finally {
+      await shutdownLanguageTool();
+    }
+  },
+);

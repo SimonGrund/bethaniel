@@ -302,6 +302,18 @@ export default function ModeSelector() {
                     {t("opt_oxfordComma")}
                   </label>
                 )}
+                {isEnglishManuscript && (
+                  <label className="option-check">
+                    <input
+                      type="checkbox"
+                      checked={copyEditOptions.introductoryComma}
+                      onChange={(e) =>
+                        setCopyEditOption("introductoryComma", e.target.checked)
+                      }
+                    />
+                    {t("opt_introductoryComma")}
+                  </label>
+                )}
               </div>
               {isEnglishManuscript && (
                 <div className="option-toggle-row">
