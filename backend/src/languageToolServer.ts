@@ -9,9 +9,10 @@
 //   languagetool-server.jar         ← from a LanguageTool desktop/server zip
 //   jre/bin/java[.exe]              ← optional bundled JRE (else system `java`)
 
-import { ChildProcess, spawn, execFileSync } from "child_process";
+import { ChildProcess, spawn, execFileSync, execSync } from "child_process";
 import * as path from "path";
 import * as http from "http";
+import * as net from "net";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { appendLog } from "./logBus.js";
@@ -76,6 +77,72 @@ export function isLanguageToolAvailable(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Kill any process currently listening on `port`. LanguageTool runs on a fixed
+ * port, and an ungraceful backend exit (SIGKILL, crash, debugger detach) leaves
+ * the Java child orphaned and still bound — the next spawn then dies with
+ * "Address already in use" (exit 1). Reclaiming the port first recovers from
+ * that. Mirrors the same recovery in llamaServer.ts. Never kills our own pid.
+ */
+function freePort(port: number): void {
+  const self = String(process.pid);
+  try {
+    if (process.platform === "win32") {
+      const out = execSync(`netstat -ano -p tcp | findstr :${port}`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      }).toString();
+      const pids = new Set<string>();
+      for (const line of out.split(/\r?\n/)) {
+        const m = line.trim().match(/\s(\d+)$/);
+        if (m && m[1] !== self) pids.add(m[1]);
+      }
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
+        } catch {}
+      }
+    } else {
+      const out = execSync(`lsof -ti tcp:${port}`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      })
+        .toString()
+        .trim();
+      for (const pid of out.split(/\s+/).filter(Boolean)) {
+        if (pid === self) continue;
+        try {
+          process.kill(Number(pid), "SIGKILL");
+        } catch {}
+      }
+    }
+  } catch {
+    // lsof/netstat exit non-zero when nothing matches — that's the good case.
+  }
+}
+
+/** Resolve once the kernel will actually let us bind host:port. */
+async function waitForPortFree(
+  host: string,
+  port: number,
+  timeoutMs = 5000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const free = await new Promise<boolean>((resolve) => {
+      const probe = net.createServer();
+      probe.once("error", () => probe.close(() => resolve(false)));
+      probe.once("listening", () => probe.close(() => resolve(true)));
+      try {
+        probe.listen(port, host);
+      } catch {
+        resolve(false);
+      }
+    });
+    if (free) return true;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return false;
 }
 
 let childProcess: ChildProcess | null = null;
@@ -146,6 +213,12 @@ async function doStart(): Promise<void> {
     source: "engine",
     message: `Starting LanguageTool grammar server on port ${LT_PORT}…`,
   });
+
+  // Reclaim the port from any orphaned LanguageTool left by a previous
+  // ungraceful backend exit, then wait for the kernel to release it — else
+  // the spawn dies with "Address already in use" (exit 1).
+  freePort(LT_PORT);
+  await waitForPortFree(LT_HOST, LT_PORT, 5000);
 
   childProcess = spawn(java, args, { stdio: "pipe" });
 
