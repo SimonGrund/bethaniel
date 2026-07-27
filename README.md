@@ -53,7 +53,7 @@ Alongside the LLM editors, several deterministic passes run per chunk and merge 
 
 - **Exhaustive spell-check** — a Hunspell dictionary flags every out-of-dictionary word — including capitalized typos at the start of a sentence — with no per-chunk cap, while protecting proper nouns and style-sheet names. Detected words are also fed to the LLM editor as hints, so it corrects them in context (more reliable than Hunspell's own top suggestion).
 - **retext prose checks** — deterministic English rules for `a`/`an`, missing contraction apostrophes, doubled words, redundant acronyms ("PIN number" → "PIN"), and sentence spacing.
-- **LanguageTool grammar & punctuation** — an optional local [LanguageTool](https://languagetool.org) server catches deeper grammar and punctuation issues. Runs fully offline and degrades to a no-op when it isn't installed (see [`electron/resources/languagetool/HOWTO.md`](electron/resources/languagetool/HOWTO.md) to enable it).
+- **LanguageTool grammar & punctuation** — a local [LanguageTool](https://languagetool.org) server catches deeper grammar and punctuation issues, running fully offline. Released installers bundle it (a pinned LanguageTool + a matching Temurin JRE, fetched at build time by `scripts/build.mjs`), so no system Java is required; it degrades to a no-op if absent. Pass `--skip-languagetool` for a lean dev build. See [`electron/resources/languagetool/HOWTO.md`](electron/resources/languagetool/HOWTO.md).
 - **Comma-style toggles** — Oxford comma (on by default) and introductory comma (off by default — "Finally she turned" is left as the author wrote it). Both govern the LLM editor and LanguageTool together.
 
 ### Analysis Features

@@ -16,6 +16,7 @@ import { fileURLToPath } from "url";
 import { execSync, execFileSync } from "child_process";
 import { createWriteStream } from "fs";
 import { createHash } from "crypto";
+import { fetchLanguageTool } from "./fetch-languagetool.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -25,6 +26,7 @@ const ROOT = join(__dirname, "..");
 const args = process.argv.slice(2);
 let targetPlatform = null;
 let skipLlama = false;
+let skipLanguageTool = false;
 let publish = null;
 
 for (let i = 0; i < args.length; i++) {
@@ -32,6 +34,8 @@ for (let i = 0; i < args.length; i++) {
     targetPlatform = args[++i];
   } else if (args[i] === "--skip-llama") {
     skipLlama = true;
+  } else if (args[i] === "--skip-languagetool") {
+    skipLanguageTool = true;
   } else if (args[i] === "--publish" && args[i + 1]) {
     publish = args[++i];
   } else if (args[i] === "--help" || args[i] === "-h") {
@@ -45,6 +49,7 @@ Options:
   --platform <mac|win|linux|all>  Target platform (default: current host)
   --publish <always|never|onTag>  Publish to GitHub (default: never)
   --skip-llama                     Skip downloading llama-server binaries
+  --skip-languagetool              Skip bundling LanguageTool + JRE (lean build)
   -h, --help                       Show this help
 
 Notes:
@@ -431,6 +436,19 @@ for (const p of platforms) {
       );
       continue;
     }
+  }
+
+  // Bundle a self-contained LanguageTool (jars + a matching JRE) for this
+  // platform so grammar checks work without system Java. Per-platform JRE, so
+  // clear any previous platform's JRE first (matters for --platform all). The
+  // jars are arch-independent and reused. Fetch failures fail the build.
+  if (!skipLanguageTool) {
+    console.log(`\n  Bundling LanguageTool + JRE for ${p}…`);
+    await fs.rm(join(ROOT, "electron", "resources", "languagetool", "jre"), {
+      recursive: true,
+      force: true,
+    });
+    await fetchLanguageTool(p);
   }
 
   const flag = electronBuilderFlag(p);
