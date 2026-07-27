@@ -8,6 +8,12 @@ toggle becomes a no-op) and nothing else is affected.
 **Only this `HOWTO.md` is committed** — the LanguageTool distribution itself is
 git-ignored (it's ~500 MB) and dropped in per machine / bundled at build time.
 
+**Automated in builds:** `scripts/build.mjs` (used by `npm run dist` and the CI
+release workflow) downloads a pinned LanguageTool + a matching Temurin JRE into
+this directory before packaging, so released installers are self-contained (no
+system Java needed). Pass `--skip-languagetool` for a lean dev build. The manual
+steps below are only needed if you want to place a specific distribution by hand.
+
 ## Enabling it
 
 Unzip a LanguageTool **stand-alone / server** distribution into this directory
