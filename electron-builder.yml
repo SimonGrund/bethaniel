@@ -77,6 +77,11 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: true
+  # Custom entitlements so the bundled JVM (LanguageTool) can run under the
+  # hardened runtime; entitlementsInherit is applied to nested binaries
+  # (the JRE's `java` + dylibs), which electron-builder deep-signs.
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
 
 win:
   target:

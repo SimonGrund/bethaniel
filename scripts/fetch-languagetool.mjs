@@ -88,11 +88,30 @@ async function soleDir(dir) {
   return join(dir, dirs[0].name);
 }
 
-/** Move the CONTENTS of srcDir into destDir (destDir kept if it exists). */
+/** Move the CONTENTS of srcDir into destDir (destDir kept if it exists).
+ *  rename() fails with EXDEV when src (temp) and dest are on different drives
+ *  (e.g. C: temp vs D: workspace on Windows runners), so fall back to copy. */
 async function mergeInto(srcDir, destDir) {
   await ensureDir(destDir);
   for (const name of await fs.readdir(srcDir)) {
-    await fs.rename(join(srcDir, name), join(destDir, name));
+    const from = join(srcDir, name);
+    const to = join(destDir, name);
+    try {
+      await fs.rename(from, to);
+    } catch (err) {
+      if (err?.code !== "EXDEV") throw err;
+      await fs.cp(from, to, { recursive: true });
+      await fs.rm(from, { recursive: true, force: true });
+    }
+  }
+}
+
+/** Recursively delete files with the given extension. */
+async function removeByExt(dir, ext) {
+  for (const e of await fs.readdir(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) await removeByExt(p, ext);
+    else if (e.name.endsWith(ext)) await fs.rm(p, { force: true });
   }
 }
 
@@ -133,7 +152,14 @@ async function fetchJre(platform) {
     : home;
   await mergeInto(jreRoot, jreDir);
   await fs.rm(tmp, { recursive: true, force: true });
+  // Class-Data-Sharing archives aren't code-signable and are regenerated at
+  // runtime — removing them fixes macOS codesign ("classes.jsa: Permission
+  // denied") and trims the bundle.
+  await removeByExt(jreDir, ".jsa");
   if (process.platform !== "win32") {
+    // Make the tree writable so macOS codesign can embed signatures, and keep
+    // the launcher executable.
+    execSync(`chmod -R u+w "${jreDir}"`, { stdio: "pipe" });
     try {
       await fs.chmod(join(jreDir, "bin", javaExe), 0o755);
     } catch {}
