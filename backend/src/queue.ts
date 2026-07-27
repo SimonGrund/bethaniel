@@ -1256,12 +1256,21 @@ async function processJob(job: JobData): Promise<void> {
               // otherwise. A failure here must never break the chunk.
               if (job.grammarCheck) {
                 try {
-                  const { checkText } = await import("./languageTool.js");
-                  const dialect = (job.editOptions as Record<string, unknown>)
-                    ?.englishDialect as string | undefined;
+                  const { checkText, INTRODUCTORY_COMMA_RULES } = await import(
+                    "./languageTool.js"
+                  );
+                  const eo = job.editOptions as Record<string, unknown>;
+                  const dialect = eo?.englishDialect as string | undefined;
+                  // Match the LLM: when the introductory-comma option is off,
+                  // silence LanguageTool's intro-comma rules too.
+                  const disabledRules =
+                    eo?.introductoryComma === true
+                      ? []
+                      : INTRODUCTORY_COMMA_RULES;
                   const grammarCs = await checkText(chunk.body, {
                     lang: job.manuscriptLang ?? "en",
                     dialect,
+                    disabledRules,
                     signal: ac.signal,
                   });
                   if (grammarCs.length > 0) {

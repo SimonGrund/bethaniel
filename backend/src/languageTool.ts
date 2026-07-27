@@ -31,6 +31,29 @@ export interface LanguageToolMatch {
 const DEFAULT_SKIP_CATEGORIES = new Set(["TYPOGRAPHY"]);
 
 /**
+ * LanguageTool rule ids that insert a comma after an introductory word/phrase
+ * ("Finally she…" → "Finally, she…"). Disabled when the introductory-comma
+ * option is off, so LanguageTool matches the LLM's behavior.
+ */
+export const INTRODUCTORY_COMMA_RULES = [
+  "MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE",
+  "SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
+];
+
+/** Build the /v2/check request body. Extracted so it's unit-testable. */
+export function buildCheckParams(
+  text: string,
+  language: string,
+  opts?: { disabledRules?: string[] },
+): URLSearchParams {
+  const params = new URLSearchParams({ text, language, enabledOnly: "false" });
+  if (opts?.disabledRules && opts.disabledRules.length > 0) {
+    params.set("disabledRules", opts.disabledRules.join(","));
+  }
+  return params;
+}
+
+/**
  * Convert LanguageTool `matches` into context-anchored Corrections. Each match
  * gives an offset+length and ranked replacements; we take the top replacement
  * and widen the span by a word on each side so the resulting `original` is
@@ -105,7 +128,12 @@ export function mapLangToLanguageTool(
  */
 export async function checkText(
   text: string,
-  opts: { lang?: string; dialect?: string; signal?: AbortSignal },
+  opts: {
+    lang?: string;
+    dialect?: string;
+    disabledRules?: string[];
+    signal?: AbortSignal;
+  },
 ): Promise<Correction[]> {
   const ltLang = mapLangToLanguageTool(opts.lang, opts.dialect);
   if (!ltLang || !text.trim()) return [];
@@ -119,10 +147,8 @@ export async function checkText(
   if (!isLanguageToolAvailable()) return [];
   await ensureLanguageToolRunning();
 
-  const body = new URLSearchParams({
-    text,
-    language: ltLang,
-    enabledOnly: "false",
+  const body = buildCheckParams(text, ltLang, {
+    disabledRules: opts.disabledRules,
   });
   const res = await fetch(`${getLanguageToolBaseUrl()}/v2/check`, {
     method: "POST",

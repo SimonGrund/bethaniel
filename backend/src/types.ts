@@ -32,6 +32,9 @@ export interface CopyEditOptions {
   duplicateWords: boolean;
   englishDialect: "american" | "british";
   oxfordComma: boolean;
+  /** Insert a comma after an introductory word/adverb/phrase ("Finally, she…").
+   *  Off by default — many fiction authors omit it for flow. */
+  introductoryComma: boolean;
   dialogueTags: boolean;
 }
 
@@ -53,6 +56,7 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   duplicateWords: true,
   englishDialect: "american",
   oxfordComma: true,
+  introductoryComma: false,
   dialogueTags: false,
 };
 

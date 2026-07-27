@@ -280,6 +280,18 @@ YOU MUST NOT:
 - Translate anything
 - Alter any proper noun — even if it looks like a typo, leave names alone unless the style guide says otherwise`;
 
+/**
+ * Introductory-comma directive — the two-way rule for the `introductoryComma`
+ * option (mirrors the Oxford-comma toggle). OFF (default): leave the author's
+ * punctuation after introductory words alone. ON: enforce the missing comma.
+ * Governs the LLM; LanguageTool's own intro-comma rules are gated separately.
+ */
+function introductoryCommaRule(opts: CopyEditOptions): string {
+  return opts.introductoryComma
+    ? `\n\nINTRODUCTORY COMMAS — ENFORCE: Missing comma after an introductory word, adverb, or phrase ("Finally, she turned"; "After the storm, they left") is an error — add it.`
+    : `\n\nINTRODUCTORY COMMAS — LEAVE ALONE: do NOT add a comma after an introductory word, adverb, or short phrase ("Finally she turned"; "For once she smiled"). Placing it is the author's stylistic choice — never insert one and never flag its absence.`;
+}
+
 export function buildCopyEditRewritePrompt(
   opts: CopyEditOptions,
   styleGuide?: string,
@@ -292,6 +304,7 @@ export function buildCopyEditRewritePrompt(
   p += "\n" + REWRITE_OUTPUT_RULES;
   p += `\n5. If a sentence has no objective error, output it BYTE-FOR-BYTE identically.\n6. When in doubt, change NOTHING.`;
   if (opts.spelling) p += SPELLING_RECALL_DIRECTIVE_REWRITE;
+  p += introductoryCommaRule(opts);
   p += `\n\nRemember: this is the final pass before print. The author has already done the stylistic editing. You are only catching errors they missed.`;
   p += buildStyleSheetBlock(styleGuide ?? "", "copy");
   return p;
@@ -347,6 +360,7 @@ export function buildCopyEditCorrectionsPrompt(
 When in doubt, do NOT flag it.`;
 
   if (opts.spelling) p += SPELLING_RECALL_DIRECTIVE;
+  p += introductoryCommaRule(opts);
 
   p += buildSpellHintBlock(suspectWords ?? []);
 
@@ -500,6 +514,7 @@ export function buildCombinedEditPrompt(
 
   p += MARKDOWN_PRESERVATION_RULES;
   if (copyOpts.spelling) p += SPELLING_RECALL_DIRECTIVE;
+  p += introductoryCommaRule(copyOpts);
   p += buildSpellHintBlock(suspectWords ?? []);
   p += CORRECTIONS_JSON_FORMAT;
   p += buildStyleSheetBlock(styleGuide ?? "", "combined");

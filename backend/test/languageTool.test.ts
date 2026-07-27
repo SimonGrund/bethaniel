@@ -64,3 +64,32 @@ test("mapLangToLanguageTool maps manuscript codes to LT language codes", () => {
 test("mapLangToLanguageTool returns null for unsupported free-text languages", () => {
   assert.equal(mapLangToLanguageTool("Klingon"), null);
 });
+
+// ── disabledRules / introductory-comma gating ──
+
+import { buildCheckParams, INTRODUCTORY_COMMA_RULES } from "../src/languageTool.ts";
+
+test("INTRODUCTORY_COMMA_RULES lists the LanguageTool intro-comma rule ids", () => {
+  assert.ok(INTRODUCTORY_COMMA_RULES.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));
+  assert.ok(INTRODUCTORY_COMMA_RULES.includes("SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA"));
+});
+
+test("buildCheckParams sets text, language, and enabledOnly=false", () => {
+  const p = buildCheckParams("Hello there.", "en-US");
+  assert.equal(p.get("text"), "Hello there.");
+  assert.equal(p.get("language"), "en-US");
+  assert.equal(p.get("enabledOnly"), "false");
+  assert.equal(p.get("disabledRules"), null);
+});
+
+test("buildCheckParams passes disabledRules as a comma-joined list", () => {
+  const p = buildCheckParams("x", "en-US", { disabledRules: INTRODUCTORY_COMMA_RULES });
+  assert.equal(
+    p.get("disabledRules"),
+    "MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE,SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
+  );
+});
+
+test("buildCheckParams omits disabledRules when the list is empty", () => {
+  assert.equal(buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules"), null);
+});

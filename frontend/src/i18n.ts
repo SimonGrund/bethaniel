@@ -1313,6 +1313,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Oxford-Komma",
     es: "Coma de Oxford",
   },
+  opt_introductoryComma: {
+    en: "Introductory comma",
+    da: "Indledende komma",
+    de: "Einleitungskomma",
+    es: "Coma introductoria",
+  },
   opt_dialogueTags: {
     en: "Dialogue tags",
     da: "Dialogmarkører",
