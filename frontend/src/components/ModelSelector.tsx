@@ -93,6 +93,10 @@ export default function ModelSelector({
     setReviewerCount,
     spellCheck,
     setSpellCheck,
+    retextCheck,
+    setRetextCheck,
+    grammarCheck,
+    setGrammarCheck,
     dualEditor,
     setDualEditor,
     dualCount,
@@ -885,6 +889,30 @@ export default function ModelSelector({
                   {t("spell_check")}
                 </label>
                 <span className="help-text">{t("spell_check_help")}</span>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={retextCheck}
+                    onChange={(e) => setRetextCheck(e.target.checked)}
+                  />{" "}
+                  {t("retext_check")}
+                </label>
+                <span className="help-text">{t("retext_check_help")}</span>
+              </div>
+
+              <div className="field">
+                <label className="option-check">
+                  <input
+                    type="checkbox"
+                    checked={grammarCheck}
+                    onChange={(e) => setGrammarCheck(e.target.checked)}
+                  />{" "}
+                  {t("grammar_check")}
+                </label>
+                <span className="help-text">{t("grammar_check_help")}</span>
               </div>
 
               <div className="field">

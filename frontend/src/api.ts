@@ -100,6 +100,8 @@ export async function addToQueue(params: {
   reviewerThreshold?: number;
   reviewerCount?: number;
   spellCheck?: boolean;
+  retextCheck?: boolean;
+  grammarCheck?: boolean;
   dualEditor?: boolean;
   dualCount?: number;
   characterDedup?: boolean;

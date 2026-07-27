@@ -88,7 +88,10 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `conversion.ts` | DOCX ↔ Markdown (mammoth for import, html-to-docx for export) |
 | `diff.ts` | Word-level diff → inline HTML; extract corrections from rewrites |
 | `consistency.ts` | Heuristic name/hyphen consistency checks (no LLM) |
-| `spellcheck.ts` | nspell wrapper for pre-LLM spell check |
+| `spellcheck.ts` | nspell wrapper — exhaustive spell detection + suspect hints for the editor |
+| `retextChecks.ts` | Deterministic retext prose checks (a/an, contractions, doubled words, redundant acronyms, sentence spacing); English-only |
+| `languageTool.ts` | LanguageTool client — POST `/v2/check`, map matches → corrections (pure parser + network call) |
+| `languageToolServer.ts` | LanguageTool Java server supervisor (spawn/health/shutdown); degrades to no-op when the jar/Java is absent |
 | `logBus.ts` | Ring-buffer log bus — broadcasts engine messages to Socket.IO |
 | `sceneBreaks.ts` | Detect and normalize scene-break markers on upload |
 
@@ -144,6 +147,11 @@ Models are identified by `source` in `modelCatalog.ts`:
 | `MODELS_DIR` | `./models` | GGUF model storage |
 | `DATA_DIR` | `./data` | SQLite DB + uploaded manuscripts |
 | `RESULTS_DIR` | `./results` | Edit results on disk |
+| `LANGUAGETOOL_JAR` | _(empty)_ | Path to `languagetool-server.jar`; set by Electron main when bundled. Absent → grammar checks skipped |
+| `JAVA_BIN` | `java` | Path to a Java runtime (bundled JRE preferred) |
+| `LANGUAGETOOL_PORT` | `8081` | Local LanguageTool server port |
+| `LANGUAGETOOL_BASE_URL` | _(empty)_ | Point at an external LanguageTool server and skip spawning one |
+| `LANGUAGETOOL_DISABLED` | _(empty)_ | Set to `1` to force grammar checks off globally, even if a distribution is bundled |
 | `BETHANIEL_FAKE_RAM_GB` | — | Dev override for hardware tier detection |
 
 ### Adding or changing models

@@ -28,6 +28,14 @@ extraResources:
       - "!llama-b*/**"
       - "!*.tar.gz"
       - "!*.zip"
+  # Optional LanguageTool grammar server (jar + optional bundled JRE). The
+  # backend degrades gracefully when this directory is empty, so shipping
+  # without it is fine; drop the distribution in to enable grammar checks.
+  - from: electron/resources/languagetool/
+    to: languagetool/
+    filter:
+      - "**/*"
+      - "!HOWTO.md"
   - from: backend/dist/
     to: backend/dist/
     filter:

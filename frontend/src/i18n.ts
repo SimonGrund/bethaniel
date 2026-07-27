@@ -639,6 +639,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Hunspell-markierte verdächtige Wörter als Hinweise an den Editor. Erkennt Tippfehler, die das LLM zufällig übersieht.",
     es: "Pasa palabras sospechosas detectadas por Hunspell al editor como pistas. Detecta errores que el LLM omite aleatoriamente.",
   },
+  retext_check: {
+    en: "Prose checks (retext)",
+    da: "Prosakontrol (retext)",
+    de: "Prosaprüfung (retext)",
+    es: "Comprobaciones de prosa (retext)",
+  },
+  retext_check_help: {
+    en: "Deterministic English checks: a/an, missing contraction apostrophes, doubled words, redundant acronyms, sentence spacing.",
+    da: "Deterministiske engelske tjek: a/an, manglende apostroffer i sammentrækninger, dublerede ord, overflødige akronymer, mellemrum mellem sætninger.",
+    de: "Deterministische englische Prüfungen: a/an, fehlende Apostrophe in Kontraktionen, doppelte Wörter, redundante Akronyme, Satzabstände.",
+    es: "Comprobaciones deterministas en inglés: a/an, apóstrofos de contracción faltantes, palabras duplicadas, acrónimos redundantes, espaciado de oraciones.",
+  },
+  grammar_check: {
+    en: "Grammar & punctuation (LanguageTool)",
+    da: "Grammatik & tegnsætning (LanguageTool)",
+    de: "Grammatik & Zeichensetzung (LanguageTool)",
+    es: "Gramática y puntuación (LanguageTool)",
+  },
+  grammar_check_help: {
+    en: "Deep grammar/punctuation via a local LanguageTool server. Silently skipped if LanguageTool isn't installed.",
+    da: "Dyb grammatik/tegnsætning via en lokal LanguageTool-server. Springes stille over, hvis LanguageTool ikke er installeret.",
+    de: "Tiefe Grammatik-/Zeichensetzungsprüfung über einen lokalen LanguageTool-Server. Wird stillschweigend übersprungen, wenn LanguageTool nicht installiert ist.",
+    es: "Gramática/puntuación profunda mediante un servidor LanguageTool local. Se omite silenciosamente si LanguageTool no está instalado.",
+  },
   dual_editor: {
     en: "Dual editor",
     da: "Dobbelt editor",

@@ -15,8 +15,10 @@ import {
   collapseIntroducedPunctuationPairs,
   foldContainedCorrections,
   revertSuspectRuns,
+  reconcileSpellWithEditor,
 } from "../src/correctionHygiene.ts";
 import { applyCorrections } from "../src/llm.ts";
+import type { Correction } from "../src/types.ts";
 
 // ── dominantQuoteStyle ──
 
@@ -344,4 +346,38 @@ test("multi-word original cannot match the prefix of a longer word", () => {
   assert.ok(out.includes("most of the students, soldiers")); // untouched
   assert.ok(out.includes("asked the students to take off")); // fixed
   assert.ok(!out.includes("studentss"));
+});
+
+// ── reconcileSpellWithEditor: cross-source agreement pre-approval ──
+// The Hunspell spell-checker's top suggestion is often wrong ("teh"→"ten"),
+// so a deterministic fix is only trusted enough to bypass the skeptical
+// reviewer when an LLM editor independently produced the IDENTICAL change.
+
+test("reconcileSpellWithEditor: pre-approves a fix both sources agree on and drops the editor duplicate", () => {
+  const spell: Correction[] = [{ original: "recieve", corrected: "receive" }];
+  const editor: Correction[] = [
+    { original: "recieve", corrected: "receive" },
+    { original: "she ran quick", corrected: "she ran quickly" },
+  ];
+  const editorKept = reconcileSpellWithEditor(spell, editor);
+  assert.equal(spell[0].preApproved, true, "agreed spell fix is pre-approved");
+  assert.equal(editorKept.length, 1, "duplicate editor copy is removed");
+  assert.equal(editorKept[0].original, "she ran quick");
+});
+
+test("reconcileSpellWithEditor: disagreement leaves both under review", () => {
+  const spell: Correction[] = [{ original: "teh", corrected: "ten" }]; // bad Hunspell guess
+  const editor: Correction[] = [{ original: "teh", corrected: "the" }]; // correct in-context
+  const editorKept = reconcileSpellWithEditor(spell, editor);
+  assert.notEqual(spell[0].preApproved, true, "disagreed spell fix is NOT pre-approved");
+  assert.equal(editorKept.length, 1, "differing editor fix is kept for the reviewer");
+  assert.equal(editorKept[0].corrected, "the");
+});
+
+test("reconcileSpellWithEditor: a spell fix with no editor match is left for the reviewer", () => {
+  const spell: Correction[] = [{ original: "definately", corrected: "definitely" }];
+  const editor: Correction[] = [];
+  const editorKept = reconcileSpellWithEditor(spell, editor);
+  assert.notEqual(spell[0].preApproved, true);
+  assert.equal(editorKept.length, 0);
 });

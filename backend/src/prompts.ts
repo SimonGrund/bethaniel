@@ -54,6 +54,40 @@ QUOTATION MARKS: Before suggesting that dialogue is missing quotation marks, che
 If there are NO issues to flag, output nothing (an empty response is valid).
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences, no closing summary.`;
 
+// Spelling is objective, so it wants high RECALL: the generic "when in doubt,
+// change nothing" caution is correct for judgment calls but was also causing
+// the editor to leave plain misspellings unflagged (the user then had to
+// re-run several times). This directive carves spelling out of that caution.
+const SPELLING_RECALL_DIRECTIVE = `
+
+SPELLING — CATCH EVERY ONE (high recall required):
+Report EVERY spelling error and obvious typo you find, from the first word to the last. Never stop early and never leave a clearly misspelled word unflagged. A misspelling is an OBJECTIVE, unambiguous error: the "when in doubt, leave it alone" caution elsewhere in these rules governs JUDGMENT CALLS (punctuation, word choice, style) — it does NOT license skipping a word that is genuinely misspelled. When a word is truly misspelled, always flag it.`;
+
+// Rewrite-mode counterpart of SPELLING_RECALL_DIRECTIVE: the whole-chunk
+// rewrite path fixes text in place rather than emitting correction pairs, so
+// it says "correct every one" instead of "report every one".
+const SPELLING_RECALL_DIRECTIVE_REWRITE = `
+
+SPELLING — CORRECT EVERY ONE (high recall required):
+Correct EVERY spelling error and obvious typo in the text, from the first word to the last. Never leave a clearly misspelled word uncorrected. A misspelling is an OBJECTIVE, unambiguous error: the "when in doubt, change nothing" rule governs JUDGMENT CALLS (punctuation, word choice, style) — it does NOT license leaving a genuinely misspelled word as-is.`;
+
+/**
+ * Spell-check hint block appended to a corrections-mode editor prompt. The
+ * words come from the Hunspell checker's per-chunk scan (see findSuspectWords),
+ * which already filters proper nouns and style-sheet names. Hunspell DETECTS
+ * misspellings reliably but its own top suggestion is often wrong, so instead
+ * of applying its guess we hand the suspects to the LLM to fix in context.
+ * Wording leans toward recall (fix genuine misspellings) with a proper-noun
+ * caveat. Returns "" for an empty list so callers can append unconditionally.
+ */
+export function buildSpellHintBlock(suspectWords: string[]): string {
+  if (!suspectWords || suspectWords.length === 0) return "";
+  return (
+    "\n\nSPELL-CHECK HINTS — an automated spell-checker flagged these words as likely misspellings. Check EACH one: if it is genuinely misspelled, CORRECT it (do not skip it); only leave it if it is a correct proper noun, character name, or intentional dialect. Words:\n" +
+    suspectWords.join(", ")
+  );
+}
+
 const REWRITE_OUTPUT_RULES = `
 OUTPUT RULES — ABSOLUTE:
 1. Output ONLY the corrected Markdown. No preamble, no commentary, no "Here is...".
@@ -257,6 +291,7 @@ export function buildCopyEditRewritePrompt(
   p += "\n" + COPY_EDIT_DONTS;
   p += "\n" + REWRITE_OUTPUT_RULES;
   p += `\n5. If a sentence has no objective error, output it BYTE-FOR-BYTE identically.\n6. When in doubt, change NOTHING.`;
+  if (opts.spelling) p += SPELLING_RECALL_DIRECTIVE_REWRITE;
   p += `\n\nRemember: this is the final pass before print. The author has already done the stylistic editing. You are only catching errors they missed.`;
   p += buildStyleSheetBlock(styleGuide ?? "", "copy");
   return p;
@@ -311,12 +346,9 @@ export function buildCopyEditCorrectionsPrompt(
 
 When in doubt, do NOT flag it.`;
 
-  if (suspectWords && suspectWords.length > 0) {
-    p +=
-      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
-      suspectWords.join(", ") +
-      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
-  }
+  if (opts.spelling) p += SPELLING_RECALL_DIRECTIVE;
+
+  p += buildSpellHintBlock(suspectWords ?? []);
 
   p += CORRECTIONS_JSON_FORMAT;
   p += buildStyleSheetBlock(styleGuide ?? "", "copy");
@@ -406,12 +438,7 @@ export function buildLineEditCorrectionsPrompt(
 - Preserve all proper nouns exactly (unless the style sheet specifies a spelling)
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
-  if (suspectWords && suspectWords.length > 0) {
-    p +=
-      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
-      suspectWords.join(", ") +
-      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
-  }
+  p += buildSpellHintBlock(suspectWords ?? []);
   p += CORRECTIONS_JSON_FORMAT;
   p += buildStyleSheetBlock(styleGuide ?? "", "line");
   return p;
@@ -472,12 +499,8 @@ export function buildCombinedEditPrompt(
 - For line edits: only flag passages that genuinely benefit from change`;
 
   p += MARKDOWN_PRESERVATION_RULES;
-  if (suspectWords && suspectWords.length > 0) {
-    p +=
-      "\n\nSPELL-CHECK HINTS: An automated spell-checker flagged these words. Only correct them if you CONFIRM they are actually misspelled — proper nouns, dialect, and character names may be flagged falsely:\n" +
-      suspectWords.join(", ") +
-      "\nDo NOT flag any of these words unless you are certain they are misspelled.";
-  }
+  if (copyOpts.spelling) p += SPELLING_RECALL_DIRECTIVE;
+  p += buildSpellHintBlock(suspectWords ?? []);
   p += CORRECTIONS_JSON_FORMAT;
   p += buildStyleSheetBlock(styleGuide ?? "", "combined");
   return p;

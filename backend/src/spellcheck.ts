@@ -107,6 +107,68 @@ function isLikelyProperNoun(word: string): boolean {
   return /^[A-Z][a-z]+$/.test(word);
 }
 
+/** First alphabetic character is an uppercase letter. */
+function isCapitalized(word: string): boolean {
+  const first = word[0];
+  return (
+    first !== undefined &&
+    first === first.toUpperCase() &&
+    first !== first.toLowerCase()
+  );
+}
+
+// Characters that end a sentence — a capitalized word right after one of these
+// is a normal sentence start (a candidate typo), not necessarily a proper noun.
+const SENTENCE_TERMINATORS = new Set([".", "!", "?", "…", "\n", "\r"]);
+// Characters skipped when scanning left for the previous meaningful char:
+// whitespace, quotation marks, and Markdown structure/emphasis markers.
+const PRE_WORD_SKIP = new Set([
+  " ", "\t", "\v", "\f",
+  '"', "'", "“", "”", "‘", "’",
+  "*", "_", "(", "[", ">", "#", "-",
+]);
+
+/**
+ * True when the word starting at `index` opens a sentence — i.e. the nearest
+ * non-whitespace, non-quote, non-Markdown character before it is a sentence
+ * terminator, or the word is at the very start of the text. Used to tell a
+ * capitalized typo at a sentence start ("Teh cat…") from a mid-sentence proper
+ * noun ("…saw Karim").
+ */
+function isSentenceInitial(text: string, index: number): boolean {
+  let i = index - 1;
+  while (i >= 0) {
+    const ch = text[i];
+    if (PRE_WORD_SKIP.has(ch) || /\s/.test(ch)) {
+      i--;
+      continue;
+    }
+    break;
+  }
+  if (i < 0) return true;
+  return SENTENCE_TERMINATORS.has(text[i]);
+}
+
+/**
+ * Words that appear capitalized somewhere OTHER than a sentence start are
+ * treated as proper nouns everywhere (returned lowercased). This lets a
+ * character name that also happens to open a sentence stay protected, while a
+ * capitalized misspelling that only ever appears at a sentence start remains a
+ * correction candidate.
+ */
+function collectMidSentenceCapitals(text: string): Set<string> {
+  const names = new Set<string>();
+  WORD_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = WORD_RE.exec(text)) !== null) {
+    const w = m[0];
+    if (!isCapitalized(w)) continue;
+    if (isSentenceInitial(text, m.index)) continue;
+    names.add(normalizeApostrophes(w).toLowerCase());
+  }
+  return names;
+}
+
 function isSkipWord(word: string): boolean {
   if (word.length < 3) return true;
   if (/^\d+/.test(word)) return true;
@@ -313,7 +375,9 @@ export function getSpellCorrections(
   const dict = loadDict(dictName);
   if (!dict) return [];
 
-  const maxHints = opts?.maxHints ?? 30;
+  // Default is unbounded: a single run should surface EVERY misspelling in the
+  // chunk, not silently stop at an arbitrary cap. Callers may still pass a cap.
+  const maxHints = opts?.maxHints ?? Infinity;
   const styleNames = new Set(
     (opts?.styleGuideNames ?? []).flatMap((n) =>
       n
@@ -322,6 +386,9 @@ export function getSpellCorrections(
         .filter(Boolean),
     ),
   );
+
+  // Proper nouns to protect everywhere (see collectMidSentenceCapitals).
+  const nameSet = collectMidSentenceCapitals(text);
 
   const corrections: Correction[] = [];
   const seen = new Set<string>();
@@ -336,7 +403,14 @@ export function getSpellCorrections(
     if (isSkipWord(word)) continue;
     if (seen.has(lower)) continue;
     if (styleNames.has(lower)) continue;
-    if (isLikelyProperNoun(word)) continue;
+
+    // Capitalized words are usually proper nouns. A capital MID-sentence is
+    // protected outright; a capital at a SENTENCE START is a candidate typo
+    // ("Teh cat…") unless the same word is used as a name elsewhere.
+    if (isCapitalized(word)) {
+      if (!isSentenceInitial(text, match.index)) continue;
+      if (nameSet.has(lower)) continue;
+    }
 
     seen.add(lower);
 

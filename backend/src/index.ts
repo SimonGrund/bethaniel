@@ -17,6 +17,7 @@ import {
 } from "./queue.js";
 import { closeDb } from "./db.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
+import { shutdownLanguageTool } from "./languageToolServer.js";
 import { setLogIo, getLogSnapshot, appendLog } from "./logBus.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -104,6 +105,9 @@ async function shutdown() {
   } catch {}
   try {
     await shutdownLlamaServer();
+  } catch {}
+  try {
+    await shutdownLanguageTool();
   } catch {}
   try {
     closeDb();

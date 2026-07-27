@@ -62,6 +62,10 @@ interface AppState {
   setReviewerCount: (n: number) => void;
   spellCheck: boolean;
   setSpellCheck: (b: boolean) => void;
+  retextCheck: boolean;
+  setRetextCheck: (b: boolean) => void;
+  grammarCheck: boolean;
+  setGrammarCheck: (b: boolean) => void;
   dualEditor: boolean;
   setDualEditor: (b: boolean) => void;
   dualCount: number;
@@ -227,6 +231,10 @@ export const useStore = create<AppState>()(
       setReviewerCount: (reviewerCount) => set({ reviewerCount }),
       spellCheck: true,
       setSpellCheck: (spellCheck) => set({ spellCheck }),
+      retextCheck: true,
+      setRetextCheck: (retextCheck) => set({ retextCheck }),
+      grammarCheck: true,
+      setGrammarCheck: (grammarCheck) => set({ grammarCheck }),
       dualEditor: true,
       setDualEditor: (dualEditor) => set({ dualEditor }),
       dualCount: DEFAULT_DUAL_COUNT,
@@ -576,6 +584,8 @@ export const useStore = create<AppState>()(
           reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
           reviewerCount: DEFAULT_REVIEWER_COUNT,
           spellCheck: true,
+          retextCheck: true,
+          grammarCheck: true,
           dualEditor: true,
           dualCount: DEFAULT_DUAL_COUNT,
           characterDedup: false,
@@ -639,6 +649,8 @@ export const useStore = create<AppState>()(
         reviewerThreshold: state.reviewerThreshold,
         reviewerCount: state.reviewerCount,
         spellCheck: state.spellCheck,
+        retextCheck: state.retextCheck,
+        grammarCheck: state.grammarCheck,
         dualEditor: state.dualEditor,
         dualCount: state.dualCount,
         characterDedup: state.characterDedup,
