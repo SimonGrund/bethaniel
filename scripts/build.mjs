@@ -416,35 +416,6 @@ if (!skipLlama) {
   );
 }
 
-// Move everything in the LanguageTool resource dir EXCEPT HOWTO.md into a
-// temporary holding dir; return an async fn that restores it. Used so the
-// macOS build doesn't bundle LanguageTool (its dependency JARs contain
-// unsigned native libs that Apple notarization rejects) without destroying a
-// locally dropped-in distribution. No-op in CI, where only HOWTO.md is present.
-async function stashLanguageToolAside(dir) {
-  let entries;
-  try {
-    entries = await fs.readdir(dir);
-  } catch {
-    return async () => {};
-  }
-  const toStash = entries.filter((n) => n !== "HOWTO.md");
-  if (toStash.length === 0) return async () => {};
-  const hold = join(ROOT, ".lt-held");
-  await fs.rm(hold, { recursive: true, force: true });
-  await fs.mkdir(hold, { recursive: true });
-  for (const n of toStash) await fs.rename(join(dir, n), join(hold, n));
-  console.log(
-    `  (macOS) set ${toStash.length} LanguageTool item(s) aside — not bundled on mac.`,
-  );
-  return async () => {
-    for (const n of await fs.readdir(hold)) {
-      await fs.rename(join(hold, n), join(dir, n));
-    }
-    await fs.rm(hold, { recursive: true, force: true });
-  };
-}
-
 // ── Step 6: Run electron-builder ──
 
 console.log("\n━━━ Step 6: Package with electron-builder ━━━");
@@ -470,30 +441,23 @@ for (const p of platforms) {
   const ltResourceDir = join(ROOT, "electron", "resources", "languagetool");
 
   // Bundle a self-contained LanguageTool (jars + a matching JRE) so grammar
-  // checks work without system Java — on Windows and Linux. NOT on macOS:
-  // LanguageTool's dependency JARs (hunspell, jna, grpc) ship unsigned native
-  // libraries that Apple notarization rejects, so the mac app ships without it
-  // (grammar degrades to a no-op there). Per-platform JRE — clear the previous
-  // platform's first (matters for --platform all). Fetch failures fail build.
-  if (!skipLanguageTool && p !== "mac") {
+  // checks work without system Java — on all platforms. On macOS the native
+  // libs inside LanguageTool's JARs are signed by the afterPack hook so the
+  // notarized app passes (see scripts/sign-jar-libs.cjs). Per-platform JRE —
+  // clear the previous platform's first (matters for --platform all). Fetch
+  // failures fail the build.
+  if (!skipLanguageTool) {
     console.log(`\n  Bundling LanguageTool + JRE for ${p}…`);
     await fs.rm(join(ltResourceDir, "jre"), { recursive: true, force: true });
     await fetchLanguageTool(p);
   }
 
-  // macOS: keep any locally-present distribution out of the notarized bundle.
-  const restoreLt = p === "mac" ? await stashLanguageToolAside(ltResourceDir) : null;
-
   const flag = electronBuilderFlag(p);
   const publishFlag = publish ? ` --publish ${publish}` : "";
   console.log(`\n  Building for ${p}...`);
-  try {
-    run(
-      `npx electron-builder ${flag} --config electron-builder.yml${publishFlag}`,
-    );
-  } finally {
-    if (restoreLt) await restoreLt();
-  }
+  run(
+    `npx electron-builder ${flag} --config electron-builder.yml${publishFlag}`,
+  );
 }
 
 // ── Restore dev backend node_modules ──

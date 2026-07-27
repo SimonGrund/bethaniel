@@ -45,6 +45,41 @@ exports.default = async function afterPack(context) {
     console.warn(`[afterPack] xattr cleanup failed: ${err.message}`);
   }
 
+  // ── 1b. Sign native libs inside LanguageTool's JARs ──
+  //   Apple notarization unzips JARs and requires every Mach-O inside to be
+  //   signed (Developer ID + secure timestamp). electron-builder's signApp
+  //   can't reach inside JARs, so sign them here (afterPack runs before
+  //   signApp + notarize). No-op when LanguageTool isn't bundled.
+  const ltLibsDir = path.join(
+    appPath,
+    "Contents",
+    "Resources",
+    "languagetool",
+    "libs",
+  );
+  if (fs.existsSync(ltLibsDir)) {
+    try {
+      const { signLanguageToolJars } = require("./sign-jar-libs.cjs");
+      const cfgIdentity = context.packager.platformSpecificBuildOptions.identity;
+      const preferred =
+        cfgIdentity && cfgIdentity !== "-" ? cfgIdentity : undefined;
+      const { identity, signed } = signLanguageToolJars(ltLibsDir, preferred);
+      if (!identity) {
+        const msg =
+          "no Developer ID identity / CSC_LINK — LanguageTool JAR native libs left unsigned (notarization would fail)";
+        if (process.env.CSC_LINK) throw new Error(msg);
+        console.warn(`[afterPack] ${msg}`);
+      } else {
+        console.log(
+          `[afterPack] signed ${signed.length} LanguageTool JAR native lib(s) with ${identity}`,
+        );
+      }
+    } catch (err) {
+      if (process.env.CSC_LINK) throw err; // fail signed builds fast
+      console.warn(`[afterPack] LanguageTool JAR lib signing skipped: ${err.message}`);
+    }
+  }
+
   // ── 2. Sign llama binaries ──
   const llamaDir = path.join(
     appPath,
