@@ -186,3 +186,46 @@ test("underscore emphasis (docx import style) survives a fix inside it", () => {
   assert.equal(countEmphasisMarkers(out), countEmphasisMarkers(text));
   assert.match(out, /_Kniven lå på bordet\.?_/);
 });
+
+// ── Introduced dot-adjacent punctuation guards (".," and "..") ──
+// A correction must never inject a period jammed against other punctuation:
+// ","→".," or "sentence."→"sentence.." are corruption, not corrections.
+
+test("skips a correction that turns a comma into '.,'", () => {
+  const text = "He waited, then left.";
+  const [out, , skipped] = applyCorrections(text, [
+    { original: "waited,", corrected: "waited.," },
+  ]);
+  assert.equal(out, text, "must not inject '.,'");
+  assert.ok(!out.includes(".,"));
+  assert.ok(skipped.length >= 1, "the bad correction is skipped");
+});
+
+test("skips a correction that doubles a sentence-final period", () => {
+  const text = "She left. He stayed.";
+  const [out, , skipped] = applyCorrections(text, [
+    { original: "left.", corrected: "left.." },
+  ]);
+  assert.equal(out, text);
+  assert.ok(!out.includes(".."));
+  assert.ok(skipped.length >= 1);
+});
+
+test("absorbs an introduced period spliced against an adjacent comma", () => {
+  // original span stops short of the manuscript's comma; corrected adds a '.'
+  const text = "He went home, then slept.";
+  const [out] = applyCorrections(text, [
+    { original: "home", corrected: "home." },
+  ]);
+  assert.ok(!out.includes("home.,"), "the seam '.,' must not appear");
+  assert.ok(!out.includes(".,"));
+});
+
+test("a legitimate fix inside text that already contains '.,' is not blocked", () => {
+  // "etc.," is the author's — a correction that keeps it must still apply.
+  const text = "He packed socks, etc., and left in haste.";
+  const [out] = applyCorrections(text, [
+    { original: "in haste", corrected: "in a hurry" },
+  ]);
+  assert.equal(out, "He packed socks, etc., and left in a hurry.");
+});
