@@ -938,7 +938,15 @@ function isQuoteStyleChange(original: string, corrected: string): boolean {
  */
 function hasDoublePunctuation(original: string, corrected: string): boolean {
   const dupRe = /([.!?,;:'")\]}])\1/;
-  return !dupRe.test(original) && dupRe.test(corrected);
+  // A period jammed against another sentence-punctuation mark (".,", ",.",
+  // "..", ".;", ".?", …) is a splice/duplication artifact, never a valid edit.
+  // Only flag when `corrected` introduces it and `original` didn't (so the
+  // author's own "etc.," stays untouched).
+  const dotAdjRe = /\.[.,;:!?]|[.,;:!?]\./;
+  return (
+    (!dupRe.test(original) && dupRe.test(corrected)) ||
+    (!dotAdjRe.test(original) && dotAdjRe.test(corrected))
+  );
 }
 
 /**
@@ -956,20 +964,27 @@ function absorbSeamPunctuation(
   original: string,
   corrected: string,
 ): string {
+  // Strip an introduced edge mark that duplicates the adjacent manuscript mark
+  // ("shoulder"→"shoulder." before an existing "." → ".."). Also strip an
+  // introduced trailing/leading PERIOD jammed against any adjacent sentence
+  // punctuation ("home"→"home." before an existing "," → ".,"), which is never
+  // valid.
   const last = corrected[corrected.length - 1] ?? "";
+  const nextCh = text[pos + original.length] ?? "";
   if (
     SEAM_PUNCT_RE.test(last) &&
     !original.endsWith(last) &&
-    text[pos + original.length] === last
+    (nextCh === last || (last === "." && SEAM_PUNCT_RE.test(nextCh)))
   ) {
     corrected = corrected.slice(0, -1);
   }
   const first = corrected[0] ?? "";
+  const prevCh = pos > 0 ? text[pos - 1] : "";
   if (
     SEAM_PUNCT_RE.test(first) &&
     !original.startsWith(first) &&
     pos > 0 &&
-    text[pos - 1] === first
+    (prevCh === first || (first === "." && SEAM_PUNCT_RE.test(prevCh)))
   ) {
     corrected = corrected.slice(1);
   }
@@ -1282,7 +1297,7 @@ export function applyCorrections(
     if (hasDoublePunctuation(c.original, c.corrected)) {
       skipped.push({
         ...c,
-        reason: "introduces doubled punctuation",
+        reason: "introduces doubled or misplaced punctuation (e.g. '..' or '.,')",
       });
       continue;
     }
