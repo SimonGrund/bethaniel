@@ -294,7 +294,9 @@ export async function verifyAcceptedCorrections(
                 ? `${f.detail} → quote`
                 : f.kind === "punctuation"
                   ? `${f.detail} → ${f.detail[0]}`
-                  : f.detail,
+                  : // spelling reverts and formatting fixes (already "x → y")
+                    // render their detail verbatim.
+                    f.detail,
             );
           }
           if (typeof ch.fixedAfter === "string") {

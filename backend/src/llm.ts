@@ -877,18 +877,23 @@ function smartenSingleQuotes(s: string): string {
   });
 }
 
-// Markdown markers we never let the model strip via a correction.
-const MARKDOWN_MARKER_PATTERNS: [string, RegExp][] = [
-  ["triple-asterisk", /\*\*\*/g],
-  ["double-asterisk (bold)", /\*\*/g],
-  ["single-asterisk (italic)", /(?<!\*)\*(?!\*)/g],
-  ["double-underscore (bold)", /__/g],
-  ["single-underscore (italic)", /(?<!_)_(?!_)/g],
-  ["backtick (code)", /`/g],
-  ["heading marker (#)", /(?:^|\n)\s*#{1,6}\s/g],
-  ["blockquote (>)", /(?:^|\n)\s*>/g],
-  ["list marker", /(?:^|\n)\s*(?:[-*+]|\d+\.)\s/g],
-  ["link/image bracket", /[\[\]]/g],
+// Markdown markers a correction must not alter. The `locked` flag marks the
+// inline emphasis/code markers whose count is fixed BOTH ways — a correction
+// may neither strip nor add them (the prompt contract: their count in
+// "corrected" must equal "original"). Adding them is how stray `okay_?_` /
+// `him_._` artifacts sneak in. The structural markers (heading/list/blockquote/
+// bracket) are removal-only, so a rewrite may legitimately introduce one.
+const MARKDOWN_MARKER_PATTERNS: [string, RegExp, boolean][] = [
+  ["triple-asterisk", /\*\*\*/g, true],
+  ["double-asterisk (bold)", /\*\*/g, true],
+  ["single-asterisk (italic)", /(?<!\*)\*(?!\*)/g, true],
+  ["double-underscore (bold)", /__/g, true],
+  ["single-underscore (italic)", /(?<!_)_(?!_)/g, true],
+  ["backtick (code)", /`/g, true],
+  ["heading marker (#)", /(?:^|\n)\s*#{1,6}\s/g, false],
+  ["blockquote (>)", /(?:^|\n)\s*>/g, false],
+  ["list marker", /(?:^|\n)\s*(?:[-*+]|\d+\.)\s/g, false],
+  ["link/image bracket", /[\[\]]/g, false],
 ];
 
 function countMatches(text: string, pattern: RegExp): number {
@@ -1037,11 +1042,16 @@ function markdownMarkerViolation(
   original: string,
   corrected: string,
 ): string | null {
-  for (const [label, pattern] of MARKDOWN_MARKER_PATTERNS) {
+  for (const [label, pattern, locked] of MARKDOWN_MARKER_PATTERNS) {
     const beforeCount = countMatches(original, pattern);
     const afterCount = countMatches(corrected, pattern);
     if (afterCount < beforeCount) {
       return `removed ${beforeCount - afterCount}× ${label}`;
+    }
+    // Inline emphasis/code markers are count-locked both ways: a correction
+    // that injects them (e.g. "okay?" → "okay_?_") is an artifact, not an edit.
+    if (locked && afterCount > beforeCount) {
+      return `added ${afterCount - beforeCount}× ${label}`;
     }
   }
   return null;

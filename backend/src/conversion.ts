@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
+import { cleanPublishArtifacts } from "./publishReview.js";
 
 // Where uploaded-document media (images extracted from .docx) live on disk.
 // Markdown image refs are stored as `media/<docId>/<file>` relative to DATA_DIR,
@@ -526,6 +527,11 @@ export const embedImageDataUri: ImageResolver = (alt, src) => {
 };
 
 function inlineFormat(text: string, imageResolver: ImageResolver): string {
+  // Last-gate defense: strip stray emphasis markers wrapping only punctuation
+  // (`okay_?_` → `okay?`). Such artifacts sit next to a word char, so the
+  // emphasis regexes below (which need a non-word boundary) skip them and they
+  // would otherwise reach the DOCX as literal underscores.
+  text = cleanPublishArtifacts(text).cleaned;
   // Images first (before emphasis), so their URLs aren't mangled.
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,

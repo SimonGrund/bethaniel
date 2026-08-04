@@ -176,6 +176,29 @@ test("a correction that strips italic markers is rejected", () => {
   assert.match(skipped[0].reason ?? "", /would alter markdown/);
 });
 
+test("rejects a correction that wraps punctuation in underscores", () => {
+  const text = "Are you okay? He left.";
+  const [out, applied, skipped] = applyCorrections(text, [
+    { original: "okay?", corrected: "okay_?_" },
+    { original: "left.", corrected: "left_._" },
+  ]);
+  assert.equal(out, text, "no stray underscores may be injected");
+  assert.ok(!out.includes("_"));
+  assert.equal(applied.length, 0);
+  assert.equal(skipped.length, 2);
+  for (const s of skipped) assert.match(s.reason ?? "", /would alter markdown/);
+});
+
+test("rejects a correction that adds italic asterisks the original lacked", () => {
+  const text = "She whispered softly.";
+  const [out, applied, skipped] = applyCorrections(text, [
+    { original: "whispered softly", corrected: "*whispered softly*" },
+  ]);
+  assert.equal(out, text);
+  assert.equal(applied.length, 0);
+  assert.match(skipped[0].reason ?? "", /would alter markdown/);
+});
+
 test("underscore emphasis (docx import style) survives a fix inside it", () => {
   // DOCX import (mammoth + turndown) emits _underscore_ emphasis.
   const text = "Hun skrev _Kniven lå på bordet_ i margenen.";

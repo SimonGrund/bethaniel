@@ -7,7 +7,7 @@ import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
 type Category = "editing" | "analysis" | "translation" | "feedback";
 
-const EDITING_MODES: TaskMode[] = ["copy_edit", "line_edit"];
+const EDITING_MODES: TaskMode[] = ["copy_edit", "line_edit", "publication_scan"];
 const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
@@ -360,6 +360,17 @@ export default function ModeSelector() {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isSelected("publication_scan") && (
+            <div className="option-panel">
+              <span className="option-panel-label">
+                {t("mode_publication_scan")}
+              </span>
+              <p className="option-panel-desc">
+                {t("mode_desc_publication_scan")}
+              </p>
             </div>
           )}
         </div>

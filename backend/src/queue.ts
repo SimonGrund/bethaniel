@@ -14,6 +14,7 @@ import type {
 } from "./types.js";
 import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
+import { buildPublicationScan } from "./publicationScan.js";
 import {
   editChunkStream,
   findCorrectionsStream,
@@ -887,6 +888,63 @@ async function processTextEvaluatorJob(
   }
 }
 
+// Publication readiness scan: a deterministic, whole-manuscript structural
+// check (no LLM). Runs instantly over all chapters and stores a findings report
+// in structuredData, exactly like the analysis path.
+async function processPublicationScanJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "scanning structure",
+  });
+
+  try {
+    const report = buildPublicationScan(
+      units.map((u) => ({ name: u.name, original: u.original })),
+    );
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData: report,
+      },
+    });
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
 async function processJob(job: JobData): Promise<void> {
   const {
     taskId,
@@ -911,6 +969,9 @@ async function processJob(job: JobData): Promise<void> {
   }
   if (mode === "text_evaluator") {
     return processTextEvaluatorJob(job, ac);
+  }
+  if (mode === "publication_scan") {
+    return processPublicationScanJob(job, ac);
   }
 
   // Edits always run corrections-mode (discrete {original,corrected} pairs).

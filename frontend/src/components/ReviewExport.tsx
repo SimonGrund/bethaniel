@@ -870,6 +870,74 @@ function isAnalysisMode(mode?: string): boolean {
   return ANALYSIS_MODES.includes(mode as never);
 }
 
+// ── Publication-readiness scan report ──
+interface StructuralFinding {
+  check: string;
+  severity: "error" | "warning" | "info";
+  location: string;
+  message: string;
+  detail?: string;
+}
+interface StructuralScanReport {
+  chaptersScanned: number;
+  summary: { error: number; warning: number; info: number };
+  findings: StructuralFinding[];
+}
+
+const SEVERITY_ICON: Record<string, string> = {
+  error: "⛔",
+  warning: "⚠️",
+  info: "ℹ️",
+};
+
+function StructuralFindingsPanel({
+  data,
+  t,
+}: {
+  data: unknown;
+  t: (key: string) => string;
+}) {
+  const report = data as StructuralScanReport | null;
+  if (!report || report.findings.length === 0) {
+    return (
+      <p className="scan-clean">
+        ✅ {t("scan_no_issues")}
+        {report ? ` (${report.chaptersScanned} ${t("scan_chapters")})` : ""}
+      </p>
+    );
+  }
+  const findings = report.findings;
+  const order = { error: 0, warning: 1, info: 2 } as const;
+  const sorted = [...findings].sort(
+    (a, b) => order[a.severity] - order[b.severity],
+  );
+  return (
+    <div className="scan-findings">
+      <p className="scan-summary small-note">
+        {report.summary.error} {t("scan_errors")} · {report.summary.warning}{" "}
+        {t("scan_warnings")} · {report.summary.info} {t("scan_info")}
+      </p>
+      <ul className="scan-finding-list">
+        {sorted.map((f, i) => (
+          <li key={i} className={`scan-finding scan-sev-${f.severity}`}>
+            <span className="scan-finding-icon">
+              {SEVERITY_ICON[f.severity] ?? ""}
+            </span>
+            <span className="scan-finding-body">
+              <span className="scan-finding-loc">{f.location}</span>
+              <span className="scan-finding-check">
+                {t(`scan_check_${f.check}`)}
+              </span>
+              <span className="scan-finding-msg">{f.message}</span>
+              {f.detail && <span className="scan-finding-detail">{f.detail}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
  * Minimal Markdown renderer — handles `##`/`###` headings, `- ` bullets,
  * blank-line paragraphs, and inline `**bold**` / `*italic*` / `` `code` ``.
@@ -1935,6 +2003,60 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })()}
 
+              {/* ── Publication readiness scan ── */}
+              {(() => {
+                const scanTask = entries
+                  .map(([, t]) => t)
+                  .find((t) => t.mode === "publication_scan");
+                if (!scanTask) return null;
+
+                if (scanTask.status !== "done") {
+                  const pct = Math.round((scanTask.progress ?? 0) * 100);
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span
+                          className={`task-status-pill qs-${scanTask.status}`}
+                        >
+                          {t(`status_${scanTask.status}`)}
+                        </span>{" "}
+                        {t("mode_publication_scan")}
+                      </summary>
+                      <div className="task-placeholder">
+                        {scanTask.status === "editing" && (
+                          <p className="small-note">
+                            {pct}%
+                            {scanTask.phase ? ` — ${scanTask.phase}` : ""}
+                          </p>
+                        )}
+                        {(scanTask.status === "error" ||
+                          scanTask.status === "cancelled") && (
+                          <button
+                            type="button"
+                            className="btn-retry"
+                            onClick={() => void handleRetry(scanTask.id)}
+                          >
+                            ↻ {t("retry")}
+                          </button>
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("mode_publication_scan")}</strong>
+                    </summary>
+                    <StructuralFindingsPanel
+                      data={scanTask.result?.structuredData}
+                      t={t}
+                    />
+                  </details>
+                );
+              })()}
+
               {/* ── Prose synthesis (primary output for analysis jobs) ── */}
               {(() => {
                 const summaryTask = entries
@@ -2388,7 +2510,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 // primary cards above.
                 if (
                   task.mode === "analysis_summary" ||
-                  task.mode === "text_evaluator"
+                  task.mode === "text_evaluator" ||
+                  task.mode === "publication_scan"
                 ) {
                   return null;
                 }

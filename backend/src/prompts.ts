@@ -238,7 +238,7 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
     items.push("- Missing or extra punctuation that is grammatically wrong");
   if (opts.capitalization)
     items.push(
-      "- Capitalization errors at sentence starts and on proper nouns",
+      '- Capitalization errors at sentence starts and on proper nouns — including names and nicknames: a word used as a name should keep the same capitalization everywhere it appears (a lowercase "scarface" used as a name → "Scarface")',
     );
   if (opts.dialogueTags)
     items.push(
@@ -331,7 +331,8 @@ export function buildCopyEditCorrectionsPrompt(
   if (opts.punctuation)
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (opts.capitalization)
-    p += "- Capitalization errors at sentence starts and on proper nouns\n";
+    p +=
+      '- Capitalization errors at sentence starts and on proper nouns — including names and nicknames: a word used as a name should keep the same capitalization everywhere it appears (a lowercase "scarface" used as a name → "Scarface")\n';
   // Dialect and Oxford-comma rules are English-specific — skip them entirely
   // for non-English manuscripts even when the toggles are on.
   if (!langName && opts.englishDialect === "american")
@@ -381,7 +382,8 @@ function buildLineEditScope(opts: LineEditOptions): string {
     );
   if (opts.redundancy)
     items.push(
-      "- Redundant words, filler, and unnecessary qualifiers (very, really, quite, somewhat, etc.)",
+      '- Redundant words, filler, and unnecessary qualifiers (very, really, quite, somewhat, etc.), and filler phrases that add nothing ("a brief moment" → "a moment", "in order to" → "to")',
+      '- A distinctive word or phrase repeated close together — e.g. "really" appearing twice in one sentence or line of dialogue — vary or cut one, UNLESS the repetition is clearly deliberate for emphasis',
     );
   if (opts.weakVerbs)
     items.push(
@@ -405,7 +407,7 @@ function buildLineEditScope(opts: LineEditOptions): string {
     );
   if (opts.tightenProse)
     items.push(
-      "- Tighten prose — suggest cuts to reduce word count without losing meaning",
+      '- Tighten prose — suggest cuts to reduce word count without losing meaning, and prefer one strong word over a weak phrase where it fits the voice ("have to" → "must", "a large number of" → "many")',
     );
   return items.join("\n");
 }
@@ -423,7 +425,7 @@ export function buildLineEditRewritePrompt(
 - Keep the same meaning, plot, and character actions
 - Do not add new content or remove plot-relevant details
 - Preserve intentional dialect, slang, and character voice in dialogue
-- Preserve all proper nouns exactly (unless the style sheet specifies a spelling)
+- Preserve all proper nouns exactly (unless the style sheet specifies a spelling) — but a name or nickname should carry the same capitalization everywhere it is used
 - If a passage is already strong, leave it BYTE-FOR-BYTE identical`;
   p += "\n" + REWRITE_OUTPUT_RULES;
   p += buildStyleSheetBlock(styleGuide ?? "", "line");
@@ -449,7 +451,7 @@ export function buildLineEditCorrectionsPrompt(
 - Keep the same meaning, plot, and character actions
 - Do not add or remove plot-relevant content
 - Preserve intentional dialect/slang in dialogue
-- Preserve all proper nouns exactly (unless the style sheet specifies a spelling)
+- Preserve all proper nouns exactly (unless the style sheet specifies a spelling) — but a name or nickname should carry the same capitalization everywhere it is used
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
   p += buildSpellHintBlock(suspectWords ?? []);
@@ -487,7 +489,8 @@ export function buildCombinedEditPrompt(
   if (copyOpts.punctuation)
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (copyOpts.capitalization)
-    p += "- Capitalization errors at sentence starts and on proper nouns\n";
+    p +=
+      '- Capitalization errors at sentence starts and on proper nouns — including names and nicknames: a word used as a name should keep the same capitalization everywhere it appears (a lowercase "scarface" used as a name → "Scarface")\n';
   if (!langName && copyOpts.englishDialect === "american")
     p +=
       "- British spellings — convert to AMERICAN ENGLISH (color, honor, center, gray, etc.). Only change known pairs — never invent spellings.\n";
@@ -508,7 +511,7 @@ export function buildCombinedEditPrompt(
 - Keep the same meaning, plot, and character actions
 - Do not add or remove plot-relevant content
 - Preserve intentional dialect, slang, and character voice in dialogue
-- Preserve all proper nouns exactly (unless the style guide says otherwise)
+- Preserve all proper nouns exactly (unless the style guide says otherwise) — but a name or nickname should carry the same capitalization everywhere it is used
 - For copy edits: when in doubt, do NOT flag it
 - For line edits: only flag passages that genuinely benefit from change`;
 

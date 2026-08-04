@@ -11,7 +11,8 @@ export type TaskMode =
   | "combined_edit"
   | "analysis_summary"
   | "blurb"
-  | "text_evaluator";
+  | "text_evaluator"
+  | "publication_scan";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
@@ -267,4 +268,24 @@ export interface ConsistencyReport {
   title: string;
   totalIssues: number;
   sections: { title: string; items: string[] }[];
+}
+
+// ── Publication-readiness structural scan ──
+export type FindingSeverity = "error" | "warning" | "info";
+
+export interface StructuralFinding {
+  check: "duplicate" | "empty_chapter" | "numbering" | "truncation";
+  severity: FindingSeverity;
+  /** Chapter name, or "Chapter 3 ↔ Chapter 9" for cross-chapter findings. */
+  location: string;
+  message: string;
+  /** Optional supporting snippet (e.g. the start of a duplicated block). */
+  detail?: string;
+}
+
+export interface StructuralScanReport {
+  title: string;
+  chaptersScanned: number;
+  summary: { error: number; warning: number; info: number };
+  findings: StructuralFinding[];
 }

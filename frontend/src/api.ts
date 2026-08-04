@@ -224,8 +224,12 @@ export interface VerifyChapterResult {
   suspects: string[];
   offenders: { id: string; word: string }[];
   /** Errors the server repaired in place (reverted misspellings, collapsed
-   *  doubled quote pairs and doubled punctuation). */
-  autoFixes?: { kind: "spelling" | "quotes" | "punctuation"; detail: string }[];
+   *  doubled quote pairs and doubled punctuation, stripped stray emphasis
+   *  markers). */
+  autoFixes?: {
+    kind: "spelling" | "quotes" | "punctuation" | "formatting";
+    detail: string;
+  }[];
   /** The chapter's `after` text with those repairs applied — present only
    *  when it differs from what was sent. */
   fixedAfter?: string;

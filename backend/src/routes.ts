@@ -31,6 +31,11 @@ import {
   revertSuspectRuns,
 } from "./correctionHygiene.js";
 import {
+  cleanPublishArtifacts,
+  curlifyStrayQuotes,
+  detectQuoteStyle,
+} from "./publishReview.js";
+import {
   buildCopyEditCorrectionsPrompt,
   buildLineEditCorrectionsPrompt,
   buildTranslationPrompt,
@@ -416,6 +421,38 @@ router.post("/queue/add", async (req: Request, res: Response) => {
         .trim();
 
     for (const currentMode of effectiveModes) {
+      // ── Publication readiness scan: one deterministic task over the whole
+      // manuscript (no LLM). Chapters travel together so cross-chapter checks
+      // (duplicate chapters, numbering gaps) can see the full document. ──
+      if (currentMode === "publication_scan") {
+        const cleanedUnits = (units as EditUnit[]).map((u) => ({
+          name: u.name,
+          original: stripPagebreaks(u.original),
+        }));
+        const totalWords = cleanedUnits.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        );
+        console.log(
+          `[API]   task: "Publication scan" [publication_scan] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+        );
+        const taskId = await submitTask({
+          jobId,
+          name: "Publication scan",
+          source: doc.name,
+          original: "",
+          wordCount: totalWords,
+          model: model || DEFAULT_MODEL_FILENAME,
+          mode: "publication_scan",
+          prompt: "", // deterministic — no LLM prompt
+          wpc: wordsPerChunk ?? 2500,
+          overlap: 0,
+          styleGuide,
+          units: cleanedUnits,
+        });
+        taskIds.push(taskId);
+        continue;
+      }
       // ── Story analysis: one task spanning the whole manuscript ──
       // Chapters are read sequentially by the orchestrator (storyAnalysis.ts),
       // so they travel together on a single task instead of fanning out.
@@ -896,11 +933,34 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
         : undefined,
   };
 
+  // ── Dominant typographic style (whole document) ──
+  // Betty preserves untouched prose verbatim, so a few straight quotes among
+  // many curly ones survive into the export. Normalize stray straights toward
+  // the document's style, but only when it is OVERWHELMINGLY (≥90%) curly — an
+  // intentionally straight-quote manuscript is left alone.
+  const totalStyle = { sc: 0, ss: 0, dc: 0, ds: 0 };
+  for (const ch of chapters) {
+    const s = detectQuoteStyle(typeof ch?.after === "string" ? ch.after : "");
+    totalStyle.sc += s.singleCurly;
+    totalStyle.ss += s.singleStraight;
+    totalStyle.dc += s.doubleCurly;
+    totalStyle.ds += s.doubleStraight;
+  }
+  const mostlyCurly = (curly: number, straight: number) =>
+    straight > 0 && curly / (curly + straight) >= 0.9;
+  const curlifyOpts = {
+    singles: mostlyCurly(totalStyle.sc, totalStyle.ss),
+    doubles: mostlyCurly(totalStyle.dc, totalStyle.ds),
+  };
+
   let checked = true;
   const results: {
     suspects: string[];
     offenders: { id: string; word: string }[];
-    autoFixes: { kind: "spelling" | "quotes" | "punctuation"; detail: string }[];
+    autoFixes: {
+      kind: "spelling" | "quotes" | "punctuation" | "formatting";
+      detail: string;
+    }[];
     fixedAfter?: string;
   }[] = [];
   for (const ch of chapters) {
@@ -945,7 +1005,7 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     // to use. When offenders exist the client un-accepts and re-verifies,
     // so `fixedAfter` is only consumed on a clean pass.
     const autoFixes: {
-      kind: "spelling" | "quotes" | "punctuation";
+      kind: "spelling" | "quotes" | "punctuation" | "formatting";
       detail: string;
     }[] = [];
     let fixedAfter = after;
@@ -964,6 +1024,26 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     fixedAfter = punctFix.text;
     for (const p of punctFix.fixes)
       autoFixes.push({ kind: "punctuation", detail: p });
+
+    // Publish-ready final scan: strip stray emphasis markers wrapping
+    // punctuation (`okay_?_` → `okay?`) and collapse doubled/misplaced
+    // sentence punctuation the earlier passes didn't reach.
+    const publishFix = cleanPublishArtifacts(fixedAfter);
+    fixedAfter = publishFix.cleaned;
+    for (const f of publishFix.fixes)
+      autoFixes.push({ kind: "formatting", detail: `${f.before} → ${f.after}` });
+
+    // Normalize stray straight quotes toward the document's dominant style.
+    // Many conversions collapse to one banner line via the client-side Set.
+    if (curlifyOpts.singles || curlifyOpts.doubles) {
+      const quoteNorm = curlifyStrayQuotes(fixedAfter, curlifyOpts);
+      fixedAfter = quoteNorm.cleaned;
+      if (quoteNorm.fixes.length > 0)
+        autoFixes.push({
+          kind: "formatting",
+          detail: "straight quotes → curly",
+        });
+    }
 
     results.push({
       // Only suspects that could neither be pinned on a correction nor
