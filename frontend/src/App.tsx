@@ -13,6 +13,7 @@ import ModeSelector from "./components/ModeSelector";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
+import OnboardingGuide from "./components/OnboardingGuide";
 import type { TaskState, Lang } from "./types";
 import "./styles/global.css";
 
@@ -41,8 +42,14 @@ export default function App() {
   const appendLog = useStore((s) => s.appendLog);
   const clearLogsLocal = useStore((s) => s.clearLogs);
   const setWarming = useStore((s) => s.setWarming);
+  const setIntroOpen = useStore((s) => s.setIntroOpen);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
+
+  // First-run: open the intro guide once, keyed off the persisted flag.
+  useEffect(() => {
+    if (!useStore.getState().hasSeenIntro) setIntroOpen(true);
+  }, [setIntroOpen]);
 
   // Check if a model is installed
   useEffect(() => {
@@ -168,6 +175,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      <OnboardingGuide />
       <Sidebar />
       <main className="main-content">
         {/* Header */}
@@ -175,6 +183,13 @@ export default function App() {
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
           <BettyWorking />
           <div className="lang-toggle" style={{ marginLeft: "auto" }}>
+            <button
+              type="button"
+              className="btn-rerun-intro"
+              onClick={() => setIntroOpen(true)}
+            >
+              {t("rerun_introguide")}
+            </button>
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value as Lang)}
@@ -233,15 +248,10 @@ export default function App() {
               </div>
             )}
 
-            {/* Idle dashboard — no menu open, nothing running: just the mark. */}
+            {/* Idle dashboard — no menu open, nothing running: the app-wide
+                logo watermark (`.main-content::before`) is the only mark. */}
             {!menuOpen && !hasActiveTasks && !hasCompletedTasks && (
-              <div className="dashboard-hero">
-                <img
-                  src="/logo-full.svg"
-                  alt="Bethaniel"
-                  className="dashboard-hero-logo"
-                />
-              </div>
+              <div className="dashboard-hero" aria-hidden="true" />
             )}
 
             {/* ── Task progress / results (below wizard content) ──

@@ -45,8 +45,27 @@ h4 {
   display: flex;
   flex-direction: column;
   padding: 1.25rem 2rem 2.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  min-width: 0;
+  position: relative;
+}
+
+/* Large faded Bethaniel mark watermarked behind the whole dashboard.
+   Confined to (and centered within) the main content column — the sidebar
+   keeps its own background — so it reads as the app's canvas on every step. */
+.main-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/logo-full.svg") center center / min(520px, 46%) no-repeat;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Keep all real content above the watermark. */
+.main-content > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Top row: Manuscript + Style Guide side by side ── */
@@ -116,6 +135,28 @@ h4 {
 
 .lang-toggle {
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-rerun-intro {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  border: 1px solid #d9c9a8;
+  background: #fdfaf0;
+  border-radius: 4px;
+  color: #8b7355;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.btn-rerun-intro:hover {
+  border-color: #1a140a;
+  color: #1a140a;
 }
 
 .lang-toggle select {
@@ -253,8 +294,8 @@ h4 {
 }
 
 .sidebar-logo img {
-  height: 48px;
-  width: 48px;
+  height: 76px;
+  width: 76px;
 }
 
 /* ── Title header (centre of main content) ── */
@@ -515,6 +556,10 @@ h4 {
   overflow: hidden;
   text-overflow: ellipsis;
   animation: engine-status-in 0.3s ease-out;
+  /* Never let a short rail vertically compress the lines — each keeps its
+     natural height and the container simply shows fewer rows (oldest scroll
+     out of view at the top, faded by the mask). */
+  flex-shrink: 0;
 }
 
 .engine-status-line.engine-status-warn {
@@ -745,27 +790,6 @@ h4 {
 /* The compact variant (style-guide sub-upload) keeps a smaller glyph. */
 .upload-zone.compact .upload-zone-icon {
   font-size: 1.6rem;
-}
-
-/* Faded Bethaniel mark watermarked behind the (large) manuscript drop zone. */
-.wizard-upload-only .upload-zone {
-  position: relative;
-  overflow: hidden;
-}
-
-.wizard-upload-only .upload-zone::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("/logo-full.svg") center center / min(440px, 52%) no-repeat;
-  opacity: 0.07;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.wizard-upload-only .upload-zone > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* ── Cards (manuscript + style guide) ── */
@@ -2428,19 +2452,23 @@ summary.review-source::before {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
-  align-items: center;
+  /* Stretch so every card matches the tallest — uniform size regardless of
+     how many description lines each one carries. */
+  align-items: stretch;
   justify-content: center;
   perspective: 1500px;
   padding: 0.4rem 0;
 }
 
 .mode-cat-card {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.9rem 0.75rem;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 170px;
+  padding: 1.4rem 1.1rem;
   border: 2px solid #d4c9b0;
   border-radius: 12px;
   background: #faf8f4;
@@ -2552,9 +2580,10 @@ summary.review-source::before {
 }
 
 .mode-cat-desc {
-  font-size: 0.73rem;
+  font-size: 0.82rem;
   color: #6b5d4d;
-  line-height: 1.3;
+  line-height: 1.45;
+  max-width: 26ch;
 }
 
 .mode-cat-badge {
@@ -2668,6 +2697,21 @@ summary.review-source::before {
   background: #5a4d3a;
   color: #f7f1e3;
   border-color: #5a4d3a;
+}
+
+/* Info ℹ on each editing sub-tab — inherits the tab's text color so it reads
+   on both the inactive (brown) and active (cream) states. */
+.mode-tab-info {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+  color: inherit;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.mode-tab-info:hover {
+  color: inherit;
+  opacity: 1;
 }
 
 .option-panel {
@@ -2836,6 +2880,12 @@ summary.review-source::before {
   margin-top: 0.25rem;
 }
 
+/* Breathing room around the manuscript-language line in the Editing panel. */
+.manuscript-lang-row {
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
 .lang-input {
   padding: 0.3rem 0.5rem;
   border: 1px solid #c9b896;
@@ -2955,10 +3005,8 @@ summary.review-source::before {
 .model-selector-cards {
   display: flex;
   gap: 0.75rem;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  /* 3D stage for the fanned carousel (see .model-card transforms below). */
-  perspective: 1500px;
   padding: 0.5rem 0;
 }
 
@@ -2966,7 +3014,6 @@ summary.review-source::before {
   flex: 1;
   position: relative;
   display: flex;
-  transform-style: preserve-3d;
 }
 
 .model-card-wrap > .model-card {
@@ -3015,24 +3062,23 @@ summary.review-source::before {
   transition:
     border-color 0.2s,
     box-shadow 0.25s,
-    transform 0.34s cubic-bezier(0.2, 0.7, 0.2, 1),
-    opacity 0.25s,
-    filter 0.25s;
+    transform 0.2s ease,
+    opacity 0.25s;
   text-align: center;
   font-family: inherit;
   color: inherit;
-  /* Carousel default: cards sit "back" — scaled down and muted. The
-     foreground (selected / recommended / hovered) card pops forward below. */
-  transform: scale(0.86);
-  opacity: 0.72;
-  filter: grayscale(0.32);
 }
 
 .model-card:hover:not(:disabled) {
-  transform: scale(1.06);
-  opacity: 1;
-  filter: none;
+  transform: translateY(-3px);
+  box-shadow: 0 4px 14px rgba(30, 20, 10, 0.12);
   z-index: 4;
+}
+
+.model-card-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+  margin-bottom: 0.1rem;
 }
 
 /* ── Tier colors ── */
@@ -3160,14 +3206,12 @@ summary.review-source::before {
    selected yet. Pops to the front of the fan (flat, full-size, glowing). ── */
 .model-card-selected.model-card-ready,
 .model-selector-cards:not(:has(.model-card-selected)) .model-card-recommended {
-  transform: scale(1.08) rotateY(0deg);
   opacity: 1;
-  filter: none;
   border: 3px solid var(--tier-color);
   background: var(--tier-bg);
   box-shadow:
-    0 0 22px var(--tier-glow),
-    0 0 6px var(--tier-glow),
+    0 0 18px var(--tier-glow),
+    0 0 5px var(--tier-glow),
     inset 0 0 8px var(--tier-glow);
   z-index: 3;
 }
@@ -3177,41 +3221,6 @@ summary.review-source::before {
   .model-card-recommended
   .model-card-name {
   font-size: 1.2rem;
-}
-
-/* ── Fan tilt: cards on either side of the foreground angle away in 3D. The
-   foreground anchor is the selected card, or the recommended card when none is
-   selected. Hovered cards are excluded so hover always pops flat to the front. */
-.model-selector-cards:has(.model-card-selected)
-  .model-card-wrap:has(.model-card-selected)
-  ~ .model-card-wrap
-  .model-card:not(:hover),
-.model-selector-cards:not(:has(.model-card-selected))
-  .model-card-wrap:has(.model-card-recommended)
-  ~ .model-card-wrap
-  .model-card:not(:hover) {
-  transform: scale(0.82) rotateY(-16deg);
-}
-
-.model-selector-cards:has(.model-card-selected)
-  .model-card-wrap:has(~ .model-card-wrap:has(.model-card-selected))
-  .model-card:not(:hover),
-.model-selector-cards:not(:has(.model-card-selected))
-  .model-card-wrap:has(~ .model-card-wrap:has(.model-card-recommended))
-  .model-card:not(:hover) {
-  transform: scale(0.82) rotateY(16deg);
-}
-
-/* Narrow widths: keep the depth but drop the rotation so cards don't clip. */
-@media (max-width: 900px) {
-  .model-selector-cards .model-card:not(:hover) {
-    transform: scale(0.9) !important;
-  }
-  .model-card-selected.model-card-ready,
-  .model-selector-cards:not(:has(.model-card-selected))
-    .model-card-recommended {
-    transform: scale(1) !important;
-  }
 }
 
 /* ── Installed but not selected ── */
@@ -3866,23 +3875,12 @@ summary.review-source::before {
   display: none;
 }
 
-/* Idle dashboard: centered Bethaniel mark filling the empty content area when
-   no menu is open and nothing is running. */
+/* Idle dashboard: an empty flex spacer that keeps the footer anchored to the
+   bottom so the app-wide logo watermark (`.main-content::before`) has room to
+   breathe when no menu is open and nothing is running. */
 .dashboard-hero {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 40vh;
-  padding: 2rem 1rem;
-}
-
-.dashboard-hero-logo {
-  width: min(340px, 60%);
-  max-width: 340px;
-  height: auto;
-  opacity: 0.9;
-  animation: wizard-page-in 0.4s ease;
 }
 
 .btn-close-step {
@@ -5091,4 +5089,146 @@ summary.review-source::before {
 
 .corrections-scroll {
   padding-right: 0.25rem;
+}
+
+/* ── Onboarding intro (first-run coachmark tour) ── */
+.intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  cursor: pointer;
+}
+
+/* Welcome / unanchored stops have no spotlight, so dim here instead. */
+.intro-backdrop.dim {
+  background: rgba(30, 20, 10, 0.55);
+}
+
+.intro-spotlight {
+  position: fixed;
+  z-index: 9991;
+  pointer-events: none;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 9999px rgba(30, 20, 10, 0.55),
+    0 0 0 2px rgba(184, 145, 90, 0.8);
+  transition:
+    top 0.25s ease,
+    left 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease;
+}
+
+.intro-bubble {
+  position: fixed;
+  z-index: 9992;
+  box-sizing: border-box;
+  max-width: 300px;
+  padding: 1rem 1.1rem;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  animation: dialog-pop-in 0.2s ease-out;
+}
+
+.intro-bubble.centered {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 340px;
+  text-align: center;
+}
+
+/* Arrow pointing left at the anchored card (hidden when centered). */
+.intro-bubble::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  left: -9px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 9px solid #fdfaf0;
+  filter: drop-shadow(-1px 0 0 #d9c9a8);
+}
+
+.intro-bubble.centered::before {
+  display: none;
+}
+
+.intro-bubble-title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a140a;
+  margin-bottom: 0.35rem;
+}
+
+.intro-bubble-body {
+  font-family: "Inter", -apple-system, system-ui, sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #2a2419;
+  margin: 0 0 0.9rem;
+}
+
+.intro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.intro-bubble.centered .intro-actions {
+  justify-content: center;
+}
+
+.intro-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.intro-next {
+  padding: 0.4rem 0.9rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #1a140a 0%, #3d2f1a 100%);
+  color: #f7f1e3;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.intro-next:hover {
+  filter: brightness(1.15);
+}
+
+.intro-back,
+.intro-skip {
+  padding: 0.4rem 0.5rem;
+  border: none;
+  background: none;
+  color: #8b7355;
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.intro-back:hover,
+.intro-skip:hover {
+  color: #1a140a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-bubble {
+    animation: none;
+  }
+  .intro-spotlight {
+    transition: none;
+  }
 }

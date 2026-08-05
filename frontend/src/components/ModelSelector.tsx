@@ -68,6 +68,25 @@ const TIER_COLORS: Record<string, string> = {
   custom: "model-tier-custom",
 };
 
+// A style-appropriate icon per model. The local Bettys follow a size
+// progression (hatchling → bird → owl) echoing the quill/feather logo;
+// the two custom Bettys get their own marks (cloud for the API, tools for
+// a user-supplied GGUF).
+function modelIcon(fileName: string, tier: string): string {
+  if (fileName === "custom:deepseek-chat") return "☁️";
+  if (fileName === "custom:gguf") return "🛠️";
+  switch (tier) {
+    case "small":
+      return "🐣";
+    case "normal":
+      return "🐦";
+    case "big":
+      return "🦉";
+    default:
+      return "✒️";
+  }
+}
+
 export default function ModelSelector({
   onModelInstalled,
 }: {
@@ -632,6 +651,9 @@ export default function ModelSelector({
                     }
                   }}
                 >
+                  <span className="model-card-icon" aria-hidden="true">
+                    {modelIcon(entry.fileName, entry.tier)}
+                  </span>
                   <span className="model-card-name">{entry.name}</span>
                   <span className="model-card-desc">
                     {t(

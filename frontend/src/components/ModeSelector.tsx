@@ -7,10 +7,13 @@ import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
 type Category = "editing" | "analysis" | "translation" | "feedback";
 
+// Ordered as a full-manuscript development workflow would run: big-picture
+// developmental pass first, tightening down to the final publication scan.
 const EDITING_MODES: TaskMode[] = [
-  "proofread",
-  "copy_edit",
+  "developmental_edit",
   "line_edit",
+  "copy_edit",
+  "proofread",
   "publication_scan",
 ];
 const ANALYSIS_MODES: TaskMode[] = [
@@ -18,7 +21,7 @@ const ANALYSIS_MODES: TaskMode[] = [
   "location_catalog",
   "timeline",
 ];
-const FEEDBACK_MODES: TaskMode[] = ["text_evaluator", "developmental_edit"];
+const FEEDBACK_MODES: TaskMode[] = ["text_evaluator"];
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "spelling",
@@ -161,33 +164,6 @@ export default function ModeSelector() {
           )}
         </button>
 
-        {/* Analysis */}
-        <button
-          type="button"
-          className={[
-            "mode-cat-card",
-            CATEGORY_COLOR.analysis,
-            openCat === "analysis" ? "mode-cat-open" : "",
-            hasAnalysis ? "mode-cat-active" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          onClick={() => selectCategory("analysis")}
-        >
-          <span className="mode-cat-name">{t("group_analysis")}</span>
-          <span className="mode-cat-desc">
-            {t("mode_desc_character_catalog")}
-          </span>
-          {hasAnalysis && (
-            <span className="mode-cat-badge">
-              {selectedModes
-                .filter((m) => ANALYSIS_MODES.includes(m))
-                .map((m) => t(`mode_${m}`))
-                .join(", ")}
-            </span>
-          )}
-        </button>
-
         {/* Translation */}
         <button
           type="button"
@@ -231,6 +207,33 @@ export default function ModeSelector() {
             </span>
           )}
         </button>
+
+        {/* Story Elements (analysis) */}
+        <button
+          type="button"
+          className={[
+            "mode-cat-card",
+            CATEGORY_COLOR.analysis,
+            openCat === "analysis" ? "mode-cat-open" : "",
+            hasAnalysis ? "mode-cat-active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() => selectCategory("analysis")}
+        >
+          <span className="mode-cat-name">{t("group_analysis")}</span>
+          <span className="mode-cat-desc">
+            {t("mode_desc_character_catalog")}
+          </span>
+          {hasAnalysis && (
+            <span className="mode-cat-badge">
+              {selectedModes
+                .filter((m) => ANALYSIS_MODES.includes(m))
+                .map((m) => t(`mode_${m}`))
+                .join(", ")}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ── Expanded sub-options ── */}
@@ -252,11 +255,20 @@ export default function ModeSelector() {
                 onClick={() => toggleMode(m)}
               >
                 {t(`mode_${m}`)}
+                <span
+                  className="mode-tab-info info-tooltip"
+                  data-tip={t(`mode_tip_${m}`)}
+                  onClick={(e) => e.stopPropagation()}
+                  role="img"
+                  aria-label={t(`mode_tip_${m}`)}
+                >
+                  ⓘ
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="translate-lang">
+          <div className="translate-lang manuscript-lang-row">
             <label>
               {t("manuscript_language")}:{" "}
               <select
@@ -406,6 +418,17 @@ export default function ModeSelector() {
               </p>
             </div>
           )}
+
+          {isSelected("developmental_edit") && (
+            <div className="option-panel">
+              <span className="option-panel-label">
+                {t("mode_developmental_edit")}
+              </span>
+              <p className="option-panel-desc">
+                {t("mode_desc_developmental_hint")}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -462,11 +485,6 @@ export default function ModeSelector() {
           </div>
           {isSelected("text_evaluator") && (
             <p className="mode-analysis-hint">{t("mode_desc_feedback_hint")}</p>
-          )}
-          {isSelected("developmental_edit") && (
-            <p className="mode-analysis-hint">
-              {t("mode_desc_developmental_hint")}
-            </p>
           )}
           {!isApiModelSelected && (
             <p className="mode-analysis-warning">

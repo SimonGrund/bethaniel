@@ -181,6 +181,12 @@ interface AppState {
   showExternalBetty: boolean;
   setShowExternalBetty: (b: boolean) => void;
 
+  // First-run intro guide
+  hasSeenIntro: boolean;
+  setHasSeenIntro: (b: boolean) => void;
+  introOpen: boolean;
+  setIntroOpen: (b: boolean) => void;
+
   // Wizard flow
   wizardStep: WizardStep;
   setWizardStep: (step: WizardStep) => void;
@@ -552,6 +558,11 @@ export const useStore = create<AppState>()(
       showExternalBetty: true,
       setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
+      hasSeenIntro: false,
+      setHasSeenIntro: (hasSeenIntro) => set({ hasSeenIntro }),
+      introOpen: false,
+      setIntroOpen: (introOpen) => set({ introOpen }),
+
       wizardStep: "upload",
       setWizardStep: (wizardStep) => set({ wizardStep }),
       completedSteps: [],
@@ -666,6 +677,7 @@ export const useStore = create<AppState>()(
         document: state.document,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,
+        hasSeenIntro: state.hasSeenIntro,
         wizardStep: state.wizardStep,
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,

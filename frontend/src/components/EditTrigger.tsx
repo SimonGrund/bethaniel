@@ -189,7 +189,7 @@ export default function EditTrigger() {
 
   // No run in this session yet — the normal launch button.
   return (
-    <button className="btn-run" disabled={disabled} onClick={handleClick}>
+    <button className="btn-run" data-tour="run" disabled={disabled} onClick={handleClick}>
       <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
       <span className="btn-run-label">
         {hasRun ? t("run_again") : t("btn_add_to_queue")}
