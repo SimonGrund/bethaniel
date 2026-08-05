@@ -184,6 +184,18 @@ export interface ConsistencyReport {
   sections: { title: string; items: string[] }[];
 }
 
+export interface DownloadProgress {
+  modelId: string;
+  /** Friendly model name, seeded at download start so surfaces without the
+   *  catalog (e.g. LogPanel) can label rows/badges. */
+  name?: string;
+  bytesDownloaded: number;
+  totalBytes: number;
+  percent: number;
+  status?: string; // "starting" | "progress" | "done" | "error" | "cancelled"
+  error?: string;
+}
+
 export type LogLevel = "info" | "warn" | "error";
 
 export interface LogEntry {

@@ -1777,6 +1777,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Diagnose",
     es: "Diagnóstico",
   },
+  logs_downloads_title: {
+    en: "Downloads",
+    da: "Downloads",
+    de: "Downloads",
+    es: "Descargas",
+  },
   logs_empty: {
     en: "No diagnostic events yet. If a model crashes or a task fails, details will appear here.",
     da: "Ingen diagnostiske hændelser endnu. Hvis en model crasher eller en opgave fejler, vises detaljerne her.",

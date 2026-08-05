@@ -28,10 +28,25 @@ export default function LogPanel() {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const logs = useStore((s) => s.logs);
+  // The Diagnostics panel shows errors only — the full engine flow is rendered
+  // in the sidebar's Engine section. Errors accumulate and persist here until
+  // the user clears the log.
+  const errorLogs = useStore((s) => s.errorLogs);
   const open = useStore((s) => s.logPanelOpen);
   const setOpen = useStore((s) => s.setLogPanelOpen);
   const unread = useStore((s) => s.unreadLogCount);
   const clearLocal = useStore((s) => s.clearLogs);
+  const downloads = useStore((s) => s.downloads);
+
+  const activeDownloads = useMemo(() => Object.values(downloads), [downloads]);
+  // Representative figure for the collapsed FAB: the least-complete download.
+  const minPercent = useMemo(
+    () =>
+      activeDownloads.length === 0
+        ? 0
+        : Math.min(...activeDownloads.map((d) => d.percent)),
+    [activeDownloads],
+  );
 
   // Initial hydrate via REST (covers cases where socket connected before
   // the snapshot handler was attached).
@@ -55,12 +70,9 @@ export default function LogPanel() {
     if (open && listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [open, logs.length]);
+  }, [open, errorLogs.length]);
 
-  const hasErrors = useMemo(
-    () => logs.some((e) => e.level === "error"),
-    [logs],
-  );
+  const hasErrors = errorLogs.length > 0;
 
   const clearAll = async () => {
     try {
@@ -89,6 +101,13 @@ export default function LogPanel() {
         {unread > 0 && !open && (
           <span className="log-fab-badge">{unread > 99 ? "99+" : unread}</span>
         )}
+        {activeDownloads.length > 0 && (
+          <span className="log-fab-download-badge">
+            {activeDownloads.length > 1
+              ? `⬇${activeDownloads.length}`
+              : `${minPercent}%`}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -100,7 +119,7 @@ export default function LogPanel() {
                 type="button"
                 className="log-panel-btn"
                 onClick={clearAll}
-                disabled={logs.length === 0}
+                disabled={errorLogs.length === 0}
               >
                 {t("logs_clear")}
               </button>
@@ -116,10 +135,33 @@ export default function LogPanel() {
           </div>
 
           <div className="log-panel-body" ref={listRef}>
-            {logs.length === 0 ? (
-              <div className="log-empty">{t("logs_empty")}</div>
+            {activeDownloads.length > 0 && (
+              <div className="log-downloads">
+                <div className="log-downloads-title">
+                  {t("logs_downloads_title")}
+                </div>
+                {activeDownloads.map((d) => (
+                  <div key={d.modelId} className="log-download-row">
+                    <span className="log-download-name" title={d.name ?? d.modelId}>
+                      {d.name ?? d.modelId}
+                    </span>
+                    <span className="model-progress-bar">
+                      <span
+                        className="model-progress-fill"
+                        style={{ width: `${d.percent}%` }}
+                      />
+                    </span>
+                    <span className="log-download-percent">{d.percent}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {errorLogs.length === 0 ? (
+              activeDownloads.length === 0 && (
+                <div className="log-empty">{t("logs_empty")}</div>
+              )
             ) : (
-              logs.map((e) => {
+              errorLogs.map((e) => {
                 const hintKey = e.hintKey;
                 const hint = hintKey ? t(hintKey) : e.hint;
                 return (

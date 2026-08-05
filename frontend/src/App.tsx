@@ -14,7 +14,7 @@ import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
 import OnboardingGuide from "./components/OnboardingGuide";
-import type { TaskState, Lang } from "./types";
+import type { TaskState, Lang, DownloadProgress } from "./types";
 import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -42,6 +42,10 @@ export default function App() {
   const appendLog = useStore((s) => s.appendLog);
   const clearLogsLocal = useStore((s) => s.clearLogs);
   const setWarming = useStore((s) => s.setWarming);
+  const setDownloadProgress = useStore((s) => s.setDownloadProgress);
+  const clearDownload = useStore((s) => s.clearDownload);
+  const bumpDownloadDone = useStore((s) => s.bumpDownloadDone);
+  const setDownloadError = useStore((s) => s.setDownloadError);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
@@ -113,6 +117,32 @@ export default function App() {
         setWarming(evt.model, evt.status);
       },
     );
+    // Model-download progress. Lives here (always-mounted App) rather than in
+    // ModelSelector so downloads keep updating the store while the user is on
+    // any other setup menu. LogPanel renders the persistent readout.
+    socket.on("model:download", (data: DownloadProgress) => {
+      if (data.status === "done") {
+        clearDownload(data.modelId);
+        bumpDownloadDone();
+      } else if (data.status === "error") {
+        clearDownload(data.modelId);
+        setDownloadError(data.error ?? "Download failed");
+      } else if (data.status === "cancelled") {
+        clearDownload(data.modelId);
+      } else {
+        setDownloadProgress(data);
+      }
+    });
+
+    // Re-sync any in-flight downloads (covers a full page reload — the backend
+    // keeps downloading regardless).
+    fetch(`${BASE}/api/models/download/status`)
+      .then((r) => r.json())
+      .then((d: { downloads?: DownloadProgress[] }) => {
+        for (const dl of d.downloads ?? []) setDownloadProgress(dl);
+      })
+      .catch(() => {});
+
     return () => {
       socket.off("connect");
       socket.off("disconnect");
@@ -122,8 +152,19 @@ export default function App() {
       socket.off("log:append");
       socket.off("log:clear");
       socket.off("model:warming");
+      socket.off("model:download");
     };
-  }, [setTasks, setLogs, appendLog, clearLogsLocal, setWarming]);
+  }, [
+    setTasks,
+    setLogs,
+    appendLog,
+    clearLogsLocal,
+    setWarming,
+    setDownloadProgress,
+    clearDownload,
+    bumpDownloadDone,
+    setDownloadError,
+  ]);
 
   // Warn before unload if tasks are active
   useEffect(() => {

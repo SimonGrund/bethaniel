@@ -15,6 +15,7 @@ import type {
   CopyEditOptions,
   LineEditOptions,
   LogEntry,
+  DownloadProgress,
 } from "./types";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
@@ -155,8 +156,23 @@ interface AppState {
     status: "warming" | "ready" | "error" | null,
   ) => void;
 
+  // Model downloads — transient (NOT persisted). Lifted out of ModelSelector so
+  // progress keeps accruing while the user navigates between setup menus.
+  downloads: Record<string, DownloadProgress>;
+  setDownloadProgress: (p: DownloadProgress) => void;
+  clearDownload: (modelId: string) => void;
+  /** Bumped only on a completed download so ModelSelector can re-refresh its
+   *  installed list + auto-select, regardless of which step is mounted. */
+  downloadDoneTick: number;
+  bumpDownloadDone: () => void;
+  downloadError: string | null;
+  setDownloadError: (msg: string | null) => void;
+
   // Diagnostic log
   logs: LogEntry[];
+  /** Error-level entries only, for the Diagnostics panel. Persist until the
+   *  user clears the log — survives ring rotation & snapshot replacement. */
+  errorLogs: LogEntry[];
   setLogs: (logs: LogEntry[]) => void;
   appendLog: (entry: LogEntry) => void;
   clearLogs: () => void;
@@ -214,6 +230,19 @@ interface AppState {
 
   // Wizard navigation: advance past already-completed steps
   advanceWizard: (fromStep: WizardStep) => void;
+}
+
+// Accumulate error-level entries for the Diagnostics panel. Deduped by id and
+// capped generously — errors are rare, so this is effectively "persist until
+// cleared" while still bounding worst-case growth.
+const MAX_ERROR_LOGS = 500;
+function mergeErrorLogs(existing: LogEntry[], incoming: LogEntry[]): LogEntry[] {
+  const errors = incoming.filter((e) => e.level === "error");
+  if (errors.length === 0) return existing;
+  const seen = new Set(existing.map((e) => e.id));
+  const fresh = errors.filter((e) => !seen.has(e.id));
+  if (fresh.length === 0) return existing;
+  return [...existing, ...fresh].slice(-MAX_ERROR_LOGS);
 }
 
 export const useStore = create<AppState>()(
@@ -341,6 +370,28 @@ export const useStore = create<AppState>()(
       warmingStatus: null,
       setWarming: (warmingModel, warmingStatus) =>
         set({ warmingModel, warmingStatus }),
+
+      downloads: {},
+      setDownloadProgress: (p) =>
+        set((state) => ({
+          downloads: {
+            ...state.downloads,
+            // Merge so a name seeded at start survives modelId-only progress events.
+            [p.modelId]: { ...state.downloads[p.modelId], ...p },
+          },
+        })),
+      clearDownload: (modelId) =>
+        set((state) => {
+          if (!(modelId in state.downloads)) return {};
+          const next = { ...state.downloads };
+          delete next[modelId];
+          return { downloads: next };
+        }),
+      downloadDoneTick: 0,
+      bumpDownloadDone: () =>
+        set((state) => ({ downloadDoneTick: state.downloadDoneTick + 1 })),
+      downloadError: null,
+      setDownloadError: (downloadError) => set({ downloadError }),
 
       acceptedCorrections: {},
       showFlagged: {},
@@ -524,19 +575,34 @@ export const useStore = create<AppState>()(
       setPendingTaskIds: (pendingTaskIds) => set({ pendingTaskIds }),
 
       logs: [],
-      setLogs: (logs) => set({ logs, unreadLogCount: 0 }),
+      errorLogs: [],
+      // Snapshot replaces the rolling log but only *adds* to the persistent
+      // error list, so past errors survive reconnect/snapshot replacement.
+      setLogs: (logs) =>
+        set((state) => ({
+          logs,
+          errorLogs: mergeErrorLogs(state.errorLogs, logs),
+          unreadLogCount: 0,
+        })),
       appendLog: (entry) =>
         set((state) => {
           if (state.logs.some((e) => e.id === entry.id)) return state;
           const next = [...state.logs, entry].slice(-500);
+          const isError = entry.level === "error";
           return {
             logs: next,
-            unreadLogCount: state.logPanelOpen
-              ? 0
-              : state.unreadLogCount + (entry.level === "info" ? 0 : 1),
+            errorLogs: isError
+              ? mergeErrorLogs(state.errorLogs, [entry])
+              : state.errorLogs,
+            // The Diagnostics panel shows errors only, so the unread badge
+            // tracks unseen errors only (info/warn flow lives in the sidebar).
+            unreadLogCount:
+              state.logPanelOpen || !isError
+                ? state.unreadLogCount
+                : state.unreadLogCount + 1,
           };
         }),
-      clearLogs: () => set({ logs: [], unreadLogCount: 0 }),
+      clearLogs: () => set({ logs: [], errorLogs: [], unreadLogCount: 0 }),
       logPanelOpen: false,
       setLogPanelOpen: (b) =>
         set((state) => ({

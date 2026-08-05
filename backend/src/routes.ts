@@ -1748,6 +1748,27 @@ router.post("/models/download/cancel", async (req: Request, res: Response) => {
   res.json({ ok: true, status: "cancelled" });
 });
 
+// ── GET /api/models/download/status ──
+// Snapshot of in-flight downloads so a freshly-loaded frontend can re-sync
+// progress (downloads run detached server-side and survive UI reloads).
+// Registered before /models/:fileName to avoid path capture.
+router.get("/models/download/status", (_req: Request, res: Response) => {
+  const downloads = Array.from(activeDownloads.entries()).map(
+    ([modelId, dl]) => ({
+      modelId,
+      name: MODEL_CATALOG.find((e) => e.id === modelId)?.name,
+      bytesDownloaded: dl.bytesDownloaded,
+      totalBytes: dl.totalBytes,
+      percent:
+        dl.totalBytes > 0
+          ? Math.round((dl.bytesDownloaded / dl.totalBytes) * 100)
+          : 0,
+      status: dl.status,
+    }),
+  );
+  res.json({ downloads });
+});
+
 // ── Custom Betty (custom GGUF) configuration ──
 // Must be registered BEFORE /models/:fileName to avoid path capture
 

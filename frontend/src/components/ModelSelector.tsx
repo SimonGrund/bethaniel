@@ -1,9 +1,8 @@
 // ── Model selector — three colored Betty cards ──
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { getSocket } from "../socket";
 import {
   fetchSystemRecommendation,
   fetchCustomModelConfig,
@@ -44,15 +43,6 @@ interface InstalledModel {
   tier: string;
   name: string;
   fileName: string;
-}
-
-interface DownloadProgress {
-  modelId: string;
-  bytesDownloaded: number;
-  totalBytes: number;
-  percent: number;
-  status?: string;
-  error?: string;
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -141,6 +131,12 @@ export default function ModelSelector({
     setShowExternalBetty,
     showEngineStatus,
     setShowEngineStatus,
+    downloads,
+    setDownloadProgress,
+    clearDownload,
+    downloadDoneTick,
+    downloadError,
+    setDownloadError,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -154,9 +150,15 @@ export default function ModelSelector({
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [installed, setInstalled] = useState<InstalledModel[]>([]);
-  const [downloading, setDownloading] = useState<Set<string>>(new Set());
-  const [progressMap, setProgressMap] = useState<Map<string, DownloadProgress>>(
-    new Map(),
+  // Download progress is owned by the store (updated by the App-level socket
+  // listener) so it survives this component unmounting between setup menus.
+  const downloading = useMemo(
+    () => new Set(Object.keys(downloads)),
+    [downloads],
+  );
+  const progressMap = useMemo(
+    () => new Map(Object.entries(downloads)),
+    [downloads],
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
@@ -318,57 +320,22 @@ export default function ModelSelector({
     refresh();
   }, []);
 
+  // A download completed (tracked by the App-level socket listener). Refresh the
+  // installed list + auto-select — even if it finished while this component was
+  // unmounted on another setup menu. Skips the initial mount (tick 0).
   useEffect(() => {
-    const socket = getSocket();
-    const handler = (data: DownloadProgress) => {
-      if (data.status === "done") {
-        setDownloading((prev) => {
-          const next = new Set(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-        setProgressMap((prev) => {
-          const next = new Map(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-        refresh().then(() => onModelInstalled?.());
-      } else if (data.status === "error") {
-        setDownloading((prev) => {
-          const next = new Set(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-        setProgressMap((prev) => {
-          const next = new Map(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-        setError(data.error ?? "Download failed");
-      } else if (data.status === "cancelled") {
-        setDownloading((prev) => {
-          const next = new Set(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-        setProgressMap((prev) => {
-          const next = new Map(prev);
-          next.delete(data.modelId);
-          return next;
-        });
-      } else {
-        setProgressMap((prev) => {
-          const next = new Map(prev);
-          next.set(data.modelId, data);
-          return next;
-        });
-      }
-    };
-    socket.on("model:download", handler);
-    return () => {
-      socket.off("model:download", handler);
-    };
-  }, []);
+    if (downloadDoneTick === 0) return;
+    refresh().then(() => onModelInstalled?.());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [downloadDoneTick]);
+
+  // Surface a download error reported by the App-level listener, then clear it.
+  useEffect(() => {
+    if (downloadError) {
+      setError(downloadError);
+      setDownloadError(null);
+    }
+  }, [downloadError, setDownloadError]);
 
   // Auto-select the best installed model only on first use. Once the user has
   // any selection (persisted), keep it — including custom/External Betty models
@@ -475,9 +442,19 @@ export default function ModelSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, catalog]);
 
-  async function startDownload(modelId: string) {
+  async function startDownload(modelId: string, name?: string) {
     setError(null);
-    setDownloading((prev) => new Set(prev).add(modelId));
+    // Seed an optimistic store entry so the progress bar (and the LogPanel
+    // readout) shows immediately, before the first socket event. The name is
+    // carried so surfaces without the catalog can label the download.
+    setDownloadProgress({
+      modelId,
+      name,
+      bytesDownloaded: 0,
+      totalBytes: 0,
+      percent: 0,
+      status: "starting",
+    });
     try {
       const res = await fetch(`${BASE}/api/models/download`, {
         method: "POST",
@@ -487,28 +464,16 @@ export default function ModelSelector({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Download failed");
-        setDownloading((prev) => {
-          const next = new Set(prev);
-          next.delete(modelId);
-          return next;
-        });
+        clearDownload(modelId);
         return;
       }
       if (data.status === "already_installed") {
-        setDownloading((prev) => {
-          const next = new Set(prev);
-          next.delete(modelId);
-          return next;
-        });
+        clearDownload(modelId);
         refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
-      setDownloading((prev) => {
-        const next = new Set(prev);
-        next.delete(modelId);
-        return next;
-      });
+      clearDownload(modelId);
     }
   }
 
@@ -522,16 +487,7 @@ export default function ModelSelector({
     } catch {
       // ignore
     }
-    setDownloading((prev) => {
-      const next = new Set(prev);
-      next.delete(modelId);
-      return next;
-    });
-    setProgressMap((prev) => {
-      const next = new Map(prev);
-      next.delete(modelId);
-      return next;
-    });
+    clearDownload(modelId);
   }
 
   async function deleteModel(fileName: string) {
@@ -1286,8 +1242,9 @@ export default function ModelSelector({
                 className="btn-primary"
                 onClick={() => {
                   const id = confirmEntry.id;
+                  const name = confirmEntry.name;
                   setConfirmEntry(null);
-                  startDownload(id);
+                  startDownload(id, name);
                 }}
               >
                 {t("model_download")}
