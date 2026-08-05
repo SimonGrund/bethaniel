@@ -54,6 +54,27 @@ QUOTATION MARKS: Before suggesting that dialogue is missing quotation marks, che
 If there are NO issues to flag, output nothing (an empty response is valid).
 Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences, no closing summary.`;
 
+// Combined edit only: the model produces both objective copy fixes and
+// subjective line-edit suggestions in one pass, so it must label each so the UI
+// can separate them. Reuses the base format and swaps the "exactly two keys"
+// clause to admit a third key, then documents "kind".
+const CORRECTION_KIND_RULE = `
+
+CORRECTION TYPE — add a "kind" field to EVERY object:
+- "kind": "copy" — an objective copy-edit fix: spelling, punctuation, grammar, capitalization, duplicated words, or dialect spelling.
+- "kind": "line" — a subjective line-edit improvement: rephrasing for clarity, cutting redundancy/filler, stronger verbs, fresher wording, rhythm, show-don't-tell, dialogue naturalness.
+Example: {"original": "she ran quick", "corrected": "she ran quickly", "kind": "copy"}
+Example: {"original": "at this moment in time", "corrected": "now", "kind": "line"}`;
+
+function correctionsJsonFormatCombined(): string {
+  return (
+    CORRECTIONS_JSON_FORMAT.replace(
+      'with exactly the two keys "original" and "corrected"',
+      'with the keys "original", "corrected", and "kind"',
+    ) + CORRECTION_KIND_RULE
+  );
+}
+
 // Spelling is objective, so it wants high RECALL: the generic "when in doubt,
 // change nothing" caution is correct for judgment calls but was also causing
 // the editor to leave plain misspellings unflagged (the user then had to
@@ -229,6 +250,23 @@ ${sheet}
 // COPY EDIT
 // ═══════════════════════════════════════════════════════════════════
 
+// Shared spelling-dialect directive. Keeps copy, line, and combined prompts
+// aligned so line-edit rephrasings never Americanize/anglicize against the
+// chosen dialect (the spell gate would otherwise drop them as "misspelled").
+export function dialectSpellingDirective(
+  dialect: "american" | "british",
+): string {
+  return dialect === "british"
+    ? "SPELLING DIALECT: This manuscript uses BRITISH English. EVERY word in EVERY correction you output — copy OR line — must use British spelling (colour, honour, realise, fervour, fulfilment). Convert American spellings to British; NEVER introduce an American spelling, even inside a line-edit rephrasing."
+    : "SPELLING DIALECT: This manuscript uses AMERICAN English. EVERY word in EVERY correction you output — copy OR line — must use American spelling (color, honor, realize, fervor, fulfillment). Convert British spellings to American; NEVER introduce a British spelling, even inside a line-edit rephrasing.";
+}
+
+// A line editor must never touch spelling — that is the copy editor's job.
+// This dialect-agnostic constraint stops the model from "improving" prose by
+// swapping British spellings for American ones (or vice versa).
+const LINE_EDIT_SPELLING_CONSTRAINT =
+  '- Do NOT change spelling — including British vs. American variants (never change e.g. "fervour"→"fervor", "realise"→"realize"). Keep every word\'s original spelling; correcting spelling is the copy editor\'s job, not a line edit';
+
 function buildCopyEditScope(opts: CopyEditOptions): string {
   const items: string[] = [];
   if (opts.spelling) items.push("- Spelling errors and typos");
@@ -371,6 +409,60 @@ When in doubt, do NOT flag it.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PROOFREAD (light, surface-only final pass)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Proofreading is the lightest corrections pass: catch only surface errors —
+ * typos, spelling, clearly-wrong punctuation, doubled words, and clear grammar
+ * slips — and change as little as possible. Unlike copy edit it does NOT enforce
+ * dialect, the Oxford/introductory comma, dialogue-tag punctuation, or any
+ * stylistic/word-choice preference. Zero-config (no per-run options); "light
+ * grammar" leans on the deterministic LanguageTool layer plus the directives
+ * below.
+ */
+export function buildProofreadCorrectionsPrompt(
+  styleGuide?: string,
+  suspectWords?: string[],
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  let p = `You are a proofreader performing the FINAL surface pass on a manuscript written in MARKDOWN. Change as little as possible — flag ONLY unambiguous surface errors, never style or wording.\n`;
+  if (langName) p += buildManuscriptLanguageBlock(langName);
+  if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  p += `\nYOUR JOB: find SURFACE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
+  p += "WHAT COUNTS AS A SURFACE ERROR:\n";
+  p += "- Spelling errors and obvious typos\n";
+  p += '- Duplicated words ("the the", "and and")\n';
+  p +=
+    '- Clearly incorrect word usage in unambiguous context (e.g. "their" vs "there", "its" vs "it\'s")\n';
+  p += "- Missing or extra punctuation that is grammatically wrong\n";
+  p +=
+    "- Clear grammatical slips: subject–verb agreement, a/an, an obviously wrong verb tense\n";
+  p += "- Capitalization errors at sentence starts\n";
+
+  p += MARKDOWN_PRESERVATION_RULES;
+
+  p += `\n\nDO NOT FLAG (these are NOT proofreading errors — leave them EXACTLY as the author wrote them):
+- ANY markdown formatting character
+- British vs American spelling — leave the author's dialect alone (do NOT change colour↔color, realise↔realize, etc.)
+- The Oxford/serial comma, and commas after introductory words — never add or remove them
+- Dialogue tag punctuation restyling, quote style (straight vs curly), dash style, ellipsis style
+- Word choice when the original word is correct; any rephrasing, tightening, or "improvement"
+- Sentence fragments, comma splices in dialogue, and other stylistic choices
+- Proper nouns (character/place names) — unless the style guide says otherwise
+- Anything subjective ("flow", "clarity", "voice")
+
+When in doubt, do NOT flag it.`;
+
+  p += SPELLING_RECALL_DIRECTIVE;
+  p += buildSpellHintBlock(suspectWords ?? []);
+  p += CORRECTIONS_JSON_FORMAT;
+  p += buildStyleSheetBlock(styleGuide ?? "", "copy");
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // LINE EDIT
 // ═══════════════════════════════════════════════════════════════════
 
@@ -426,6 +518,7 @@ export function buildLineEditRewritePrompt(
 - Do not add new content or remove plot-relevant details
 - Preserve intentional dialect, slang, and character voice in dialogue
 - Preserve all proper nouns exactly (unless the style sheet specifies a spelling) — but a name or nickname should carry the same capitalization everywhere it is used
+${LINE_EDIT_SPELLING_CONSTRAINT}
 - If a passage is already strong, leave it BYTE-FOR-BYTE identical`;
   p += "\n" + REWRITE_OUTPUT_RULES;
   p += buildStyleSheetBlock(styleGuide ?? "", "line");
@@ -452,6 +545,7 @@ export function buildLineEditCorrectionsPrompt(
 - Do not add or remove plot-relevant content
 - Preserve intentional dialect/slang in dialogue
 - Preserve all proper nouns exactly (unless the style sheet specifies a spelling) — but a name or nickname should carry the same capitalization everywhere it is used
+${LINE_EDIT_SPELLING_CONSTRAINT}
 - Only flag passages that genuinely benefit from change — if it reads well, leave it`;
   p += MARKDOWN_PRESERVATION_RULES;
   p += buildSpellHintBlock(suspectWords ?? []);
@@ -477,6 +571,14 @@ export function buildCombinedEditPrompt(
   p += `  2. LINE EDIT — suggest PROSE IMPROVEMENTS (clarity, rhythm, voice)\n`;
   if (langName) p += buildManuscriptLanguageBlock(langName);
   if (styleGuide) p += STYLE_SHEET_TOP_POINTER;
+  // Governs BOTH passes: without this the line-edit pass Americanizes British
+  // spellings (or vice versa), which the spell gate then drops as misspelled.
+  if (
+    !langName &&
+    (copyOpts.englishDialect === "british" ||
+      copyOpts.englishDialect === "american")
+  )
+    p += "\n" + dialectSpellingDirective(copyOpts.englishDialect) + "\n";
   p += `\nReturn ALL findings — both kinds — as a single JSON list of corrections.\n\n`;
 
   p += "═══ COPY EDIT — WHAT COUNTS AS AN ERROR ═══\n";
@@ -505,6 +607,13 @@ export function buildCombinedEditPrompt(
 
   p += "\n═══ LINE EDIT — WHAT TO SUGGEST IMPROVING ═══\n";
   p += buildLineEditScope(lineOpts);
+  if (
+    !langName &&
+    (copyOpts.englishDialect === "british" ||
+      copyOpts.englishDialect === "american")
+  )
+    p +=
+      "\n- Never change spelling while rephrasing (including British/American variants) — keep the manuscript's dialect; the copy pass handles any dialect conversion.";
 
   p += `\n\n═══ IMPORTANT CONSTRAINTS ═══
 - Preserve the author's voice — do not flatten distinctive style
@@ -519,7 +628,7 @@ export function buildCombinedEditPrompt(
   if (copyOpts.spelling) p += SPELLING_RECALL_DIRECTIVE;
   p += introductoryCommaRule(copyOpts);
   p += buildSpellHintBlock(suspectWords ?? []);
-  p += CORRECTIONS_JSON_FORMAT;
+  p += correctionsJsonFormatCombined();
   p += buildStyleSheetBlock(styleGuide ?? "", "combined");
   return p;
 }

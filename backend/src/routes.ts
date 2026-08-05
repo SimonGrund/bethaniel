@@ -38,6 +38,7 @@ import {
 import {
   buildCopyEditCorrectionsPrompt,
   buildLineEditCorrectionsPrompt,
+  buildProofreadCorrectionsPrompt,
   buildTranslationPrompt,
   buildCombinedEditPrompt,
   ANALYSIS_SUMMARY_PROMPT,
@@ -548,6 +549,16 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             manuscriptLang,
           );
           taskEditOptions = { ...opts };
+          break;
+        }
+        case "proofread": {
+          // Zero-config surface pass — no editOptions; dialect/style rules are
+          // deliberately omitted (see buildProofreadCorrectionsPrompt).
+          systemPrompt = buildProofreadCorrectionsPrompt(
+            styleGuide,
+            undefined,
+            manuscriptLang,
+          );
           break;
         }
         case "combined_edit": {

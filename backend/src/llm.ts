@@ -459,7 +459,15 @@ export function parseCorrectionsJson(raw: string): Correction[] {
       const normalized = normalizeMarkdownMarkers(original, corrected);
       if (normalized === null) continue; // unrecoverable marker mismatch
       if (normalized === original) continue; // no-op after stripping spurious markup
-      cleaned.push({ original, corrected: normalized });
+      // Combined-edit prompts label each correction "copy" | "line" via a
+      // "kind" field; single-mode prompts omit it. Preserve it as editType.
+      const editType =
+        rec.kind === "line" ? "line" : rec.kind === "copy" ? "copy" : undefined;
+      cleaned.push(
+        editType
+          ? { original, corrected: normalized, editType }
+          : { original, corrected: normalized },
+      );
     }
   }
 

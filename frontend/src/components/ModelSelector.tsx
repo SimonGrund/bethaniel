@@ -351,14 +351,17 @@ export default function ModelSelector({
     };
   }, []);
 
-  // Auto-select best installed model
+  // Auto-select the best installed model only on first use. Once the user has
+  // any selection (persisted), keep it — including custom/External Betty models
+  // that aren't in the installed-GGUF list. Empty string only occurs on a fresh
+  // profile or after "Start over", where auto-picking the optimal model is desired.
   useEffect(() => {
-    if (models.length > 0 && !models.includes(model)) {
+    if (models.length > 0 && model === "") {
       const best =
         models.find((m) => preferredOrder.includes(m)) ?? models[0] ?? "";
       setModel(best);
     }
-  }, [models]);
+  }, [models, model]);
 
   // Close External Betty config panel when user selects a local model
   useEffect(() => {

@@ -1665,12 +1665,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const entries = [...rawEntries].sort(
             ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
           );
+          // Count only corrections scored for acceptance (exclude flagged),
+          // consistent with the per-chapter header. Before a result is
+          // hydrated we fall back to the lightweight resultMeta, which the
+          // backend also computes flagged-exclusive.
           const totalCorrections = entries.reduce(
             (n, [, task]) =>
               n +
-              (task.result?.corrections.length ??
-                task.resultMeta?.corrections ??
-                0),
+              (task.result
+                ? task.result.corrections.filter((c) => !c.flagged).length
+                : (task.resultMeta?.corrections ?? 0)),
             0,
           );
           const runningCount = entries.filter(
@@ -2594,14 +2598,35 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 // ── Edit / translate mode: show corrections ──
                 const accepted = acceptedCorrections[tid] ?? new Set<string>();
                 const corrections = result.corrections;
+                // Combined (copy + line) runs tag each correction; treat any
+                // untagged one as a copy edit. Single-mode tasks stay a flat list.
+                const isCombined = task.mode === "combined_edit";
+                const editTypeOf = (c: (typeof corrections)[number]) =>
+                  c.editType ?? "copy";
+                // The header count reflects only corrections scored for
+                // acceptance — flagged suggestions (below the reviewer
+                // threshold / unscored) are excluded, matching the default
+                // visible list.
+                const scoredCount = corrections.filter(
+                  (c) => !c.flagged,
+                ).length;
+                const copyScored = corrections.filter(
+                  (c) => !c.flagged && editTypeOf(c) === "copy",
+                ).length;
+                const lineScored = corrections.filter(
+                  (c) => !c.flagged && editTypeOf(c) === "line",
+                ).length;
                 const isTranslation = task.mode === "translate";
                 const hasChanges = isTranslation
                   ? result.editedText !== result.originalText
                   : corrections.length > 0;
+                const countLabel = isCombined
+                  ? `${t("copy_label")}: ${copyScored} · ${t("line_label")}: ${lineScored}`
+                  : `${scoredCount} correction(s)`;
                 const summary = isTranslation
                   ? `${task.name} — ${t("mode_translate")}`
                   : hasChanges
-                    ? `${task.name} — ${corrections.length} correction(s)`
+                    ? `${task.name} — ${countLabel}`
                     : `${task.name} — ${t("no_changes")}`;
                 const dur = formatDuration(task);
 
@@ -2693,6 +2718,65 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               acceptedCount++;
                             }
                           }
+                          const renderCard = (
+                            c: (typeof visible)[number],
+                            i: number,
+                          ) => {
+                            const totalOcc = findAllOccurrences(
+                              result.originalText,
+                              c.original,
+                            ).length;
+                            return (
+                              <CorrectionCard
+                                key={c.id ?? i}
+                                correction={c}
+                                taskId={tid}
+                                acceptedIds={accepted}
+                                onToggleOccurrence={(occIdx: number) =>
+                                  toggleOccurrence(
+                                    tid,
+                                    c.id ?? "",
+                                    occIdx,
+                                    totalOcc,
+                                  )
+                                }
+                                onAcceptAllOccurrences={() => {
+                                  if (c.id) acceptCorrection(tid, c.id);
+                                }}
+                                onDismissAllOccurrences={() => {
+                                  if (c.id) dismissCorrection(tid, c.id);
+                                }}
+                                originalText={result.originalText}
+                              />
+                            );
+                          };
+                          // Combined runs get one collapsible dropdown per edit
+                          // type; each shows its scored count and hides flagged
+                          // suggestions unless "show all" is on (same as the flat
+                          // list). Empty groups are omitted.
+                          const renderGroup = (
+                            kind: "copy" | "line",
+                            label: string,
+                          ) => {
+                            const groupAll = corrections.filter(
+                              (c) => editTypeOf(c) === kind,
+                            );
+                            const groupVisible = showAll
+                              ? groupAll
+                              : groupAll.filter((c) => !c.flagged);
+                            if (groupVisible.length === 0) return null;
+                            const groupScored = groupAll.filter(
+                              (c) => !c.flagged,
+                            ).length;
+                            return (
+                              <details className="correction-group" open>
+                                <summary className="correction-group-summary">
+                                  {label} ({groupScored})
+                                </summary>
+                                {groupVisible.map((c, i) => renderCard(c, i))}
+                              </details>
+                            );
+                          };
                           return (
                             <>
                               <div className="review-actions">
@@ -2746,35 +2830,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   el.classList.toggle("corrections-scroll-at-bottom", atBottom);
                                 }}
                               >
-                              {visible.map((c, i) => {
-                                const totalOcc = findAllOccurrences(
-                                  result.originalText,
-                                  c.original,
-                                ).length;
-                                return (
-                                  <CorrectionCard
-                                    key={c.id ?? i}
-                                    correction={c}
-                                    taskId={tid}
-                                    acceptedIds={accepted}
-                                    onToggleOccurrence={(occIdx: number) =>
-                                      toggleOccurrence(
-                                        tid,
-                                        c.id ?? "",
-                                        occIdx,
-                                        totalOcc,
-                                      )
-                                    }
-                                    onAcceptAllOccurrences={() => {
-                                      if (c.id) acceptCorrection(tid, c.id);
-                                    }}
-                                    onDismissAllOccurrences={() => {
-                                      if (c.id) dismissCorrection(tid, c.id);
-                                    }}
-                                    originalText={result.originalText}
-                                  />
-                                );
-                              })}
+                              {isCombined ? (
+                                <>
+                                  {renderGroup("copy", t("copy_edits"))}
+                                  {renderGroup("line", t("line_edits"))}
+                                </>
+                              ) : (
+                                visible.map((c, i) => renderCard(c, i))
+                              )}
 
                               </div>
 

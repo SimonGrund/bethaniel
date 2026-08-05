@@ -9,7 +9,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
 
-const MAX_LINES_PER_STREAM = 6;
+// The feed fills the full rail height now, so keep a generous history; the
+// flex container + overflow/fade mask gate how many lines are actually visible.
+const MAX_LINES_PER_STREAM = 30;
 
 export default function EngineStatus() {
   const showEngineStatus = useStore((s) => s.showEngineStatus);

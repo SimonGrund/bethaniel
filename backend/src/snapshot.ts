@@ -31,7 +31,10 @@ export function makeResultMeta(
 ): ResultMeta | null {
   if (!result) return null;
   return {
-    corrections: result.corrections?.length ?? 0,
+    // Count only corrections scored for acceptance; flagged suggestions
+    // (below the reviewer threshold / unscored) are excluded so the summary
+    // matches the per-chapter header shown in the UI.
+    corrections: result.corrections?.filter((c) => !c.flagged).length ?? 0,
     skipped: result.skipped?.length ?? 0,
     errors: result.errors?.length ?? 0,
     hasStructured: result.structuredData != null,

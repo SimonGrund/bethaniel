@@ -7,7 +7,12 @@ import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
 type Category = "editing" | "analysis" | "translation" | "feedback";
 
-const EDITING_MODES: TaskMode[] = ["copy_edit", "line_edit", "publication_scan"];
+const EDITING_MODES: TaskMode[] = [
+  "proofread",
+  "copy_edit",
+  "line_edit",
+  "publication_scan",
+];
 const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
@@ -302,18 +307,6 @@ export default function ModeSelector() {
                     {t("opt_oxfordComma")}
                   </label>
                 )}
-                {isEnglishManuscript && (
-                  <label className="option-check">
-                    <input
-                      type="checkbox"
-                      checked={copyEditOptions.introductoryComma}
-                      onChange={(e) =>
-                        setCopyEditOption("introductoryComma", e.target.checked)
-                      }
-                    />
-                    {t("opt_introductoryComma")}
-                  </label>
-                )}
               </div>
               {isEnglishManuscript && (
                 <div className="option-toggle-row">
@@ -342,6 +335,33 @@ export default function ModeSelector() {
                   </div>
                 </div>
               )}
+              {isEnglishManuscript && (
+                <div className="option-toggle-row">
+                  <span className="option-toggle-label">
+                    {t("opt_introductoryComma")}
+                  </span>
+                  <div className="option-toggle-group">
+                    <button
+                      type="button"
+                      className={`toggle-btn${copyEditOptions.introductoryComma ? " active" : ""}`}
+                      onClick={() =>
+                        setCopyEditOption("introductoryComma", true)
+                      }
+                    >
+                      {t("opt_yes")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn${!copyEditOptions.introductoryComma ? " active" : ""}`}
+                      onClick={() =>
+                        setCopyEditOption("introductoryComma", false)
+                      }
+                    >
+                      {t("opt_no")}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -360,6 +380,13 @@ export default function ModeSelector() {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isSelected("proofread") && (
+            <div className="option-panel">
+              <span className="option-panel-label">{t("mode_proofread")}</span>
+              <p className="option-panel-desc">{t("mode_desc_proofread")}</p>
             </div>
           )}
 

@@ -244,8 +244,9 @@ export default function App() {
               </div>
             )}
 
-            {/* ── Task progress / results (below wizard content) ── */}
-            {(hasActiveTasks || hasCompletedTasks) && (
+            {/* ── Task progress / results (below wizard content) ──
+                Hidden while a setup menu is open; "See latest run" reopens it. */}
+            {!menuOpen && (hasActiveTasks || hasCompletedTasks) && (
               <div className="bottom-row">
                 <div className="results-col">
                   <ReviewExport />

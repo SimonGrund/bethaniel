@@ -167,6 +167,7 @@ interface AppState {
 
   // Session boundary — tasks submitted before this timestamp belong to a previous session
   sessionStartedAt: number;
+  setSessionStartedAt: (ts: number) => void;
 
   // External Betty (API)
   apiKeyConfigured: boolean;
@@ -540,6 +541,7 @@ export const useStore = create<AppState>()(
       resetUnreadLogs: () => set({ unreadLogCount: 0 }),
 
       sessionStartedAt: Date.now(),
+      setSessionStartedAt: (sessionStartedAt) => set({ sessionStartedAt }),
 
       apiKeyConfigured: false,
       setApiKeyConfigured: (apiKeyConfigured) => set({ apiKeyConfigured }),

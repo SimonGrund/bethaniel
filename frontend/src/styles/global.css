@@ -979,6 +979,43 @@ h4 {
   font-weight: 400;
 }
 
+/* ── See-latest-run + New-run pair (shown once a run exists) ── */
+.run-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 200px;
+}
+
+.run-actions .btn-run {
+  min-width: 0;
+}
+
+/* Secondary "New run" — quieter than the primary run button, parchment theme. */
+.btn-new-run {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #5a4d3a;
+  border: 1.5px solid #c9b896;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-new-run:hover {
+  background: #f3ead6;
+  border-color: #8b7355;
+  color: #3d2f1a;
+}
+
 /* ── Rent-A-Betty button (golden, coming soon / greyed out) ── */
 .btn-rent-betty {
   display: flex;
@@ -1714,6 +1751,46 @@ summary.review-source::before {
   color: #8b5e3c;
 }
 
+/* Copy/line sub-groups inside a chapter (combined edits): a lighter, indented
+   disclosure nested under the chapter dropdown. */
+.correction-group {
+  margin: 0.25rem 0 0.4rem;
+  border-left: 2px solid #e6dabf;
+  padding-left: 0.6rem;
+}
+
+.correction-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0;
+  color: #6b5a44;
+  user-select: none;
+  list-style: none;
+}
+
+.correction-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.correction-group-summary::before {
+  content: "▸";
+  flex-shrink: 0;
+  color: #a89370;
+  transition: transform 0.15s ease;
+}
+
+.correction-group[open] > .correction-group-summary::before {
+  transform: rotate(90deg);
+}
+
+.correction-group-summary:hover {
+  color: #8b5e3c;
+}
+
 /* Per-chapter "Accept all changes" button, right-aligned in the dropdown header */
 .summary-accept-btn {
   margin-left: auto;
@@ -2332,7 +2409,7 @@ summary.review-source::before {
     flex: 1;
   }
 
-  .sidebar-engine {
+  .sidebar .sidebar-engine {
     display: none;
   }
 
@@ -2429,17 +2506,14 @@ summary.review-source::before {
   font-size: 1.2rem;
 }
 
-/* Fan tilt: cards on either side of the open category angle back in 3D.
+/* Cards on either side of the open category recede in size (no tilt).
    Hovered cards are excluded so hover always pops flat to the front. */
 .mode-cat-cards:has(.mode-cat-open)
   .mode-cat-open
-  ~ .mode-cat-card:not(:hover) {
-  transform: scale(0.82) rotateY(-16deg);
-}
-
+  ~ .mode-cat-card:not(:hover),
 .mode-cat-cards:has(.mode-cat-open)
   .mode-cat-card:has(~ .mode-cat-open):not(:hover) {
-  transform: scale(0.82) rotateY(16deg);
+  transform: scale(0.82);
 }
 
 @media (max-width: 900px) {
@@ -4299,16 +4373,26 @@ summary.review-source::before {
 
 /* ── Sidebar queue ── */
 /* ── Sidebar engine log dock — single amber column, constrained to the rail ── */
+/* Grow to fill the rail between the ENGINE label and the session divider. */
 .sidebar-engine {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin-bottom: 0.75rem;
 }
 
 .sidebar-engine .engine-status {
   display: flex;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   max-width: 100%;
   margin-left: 0;
-  max-height: 140px;
+  max-height: none;
+  /* Pin the newest lines to the bottom, next to the divider; older lines fill
+     upward toward the label and fade out via the mask. */
+  justify-content: flex-end;
   font-size: 0.68rem;
 }
 

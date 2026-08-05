@@ -1080,10 +1080,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Edición",
   },
   group_analysis: {
-    en: "Analysis",
-    da: "Analyse",
-    de: "Analyse",
-    es: "Análisis",
+    en: "Story bible",
+    da: "Historiebibel",
+    de: "Story-Bibel",
+    es: "Biblia de la historia",
   },
   group_translate: {
     en: "Translation",
@@ -1114,6 +1114,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Stilredigering",
     de: "Stilbearbeitung",
     es: "Edición de estilo",
+  },
+  mode_proofread: {
+    en: "Proofread",
+    da: "Korrekturlæsning",
+    de: "Korrekturlesen",
+    es: "Corrección de pruebas",
+  },
+  copy_label: {
+    en: "Copy",
+    da: "Korrektur",
+    de: "Korrektur",
+    es: "Corrección",
+  },
+  line_label: {
+    en: "Line",
+    da: "Stil",
+    de: "Stil",
+    es: "Estilo",
+  },
+  copy_edits: {
+    en: "Copy edits",
+    da: "Korrekturrettelser",
+    de: "Korrekturänderungen",
+    es: "Correcciones de texto",
+  },
+  line_edits: {
+    en: "Line edits",
+    da: "Stilrettelser",
+    de: "Stiländerungen",
+    es: "Ediciones de estilo",
   },
   mode_translate: {
     en: "Translation",
@@ -1247,6 +1277,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Prosaqualität, Formulierung und Rhythmus verbessern.",
     es: "Mejora la calidad de la prosa, el fraseo y el ritmo.",
   },
+  mode_desc_proofread: {
+    en: "A light final pass: catch typos, spelling, punctuation, and clear grammar slips only — no style or dialect changes.",
+    da: "En let sidste gennemgang: fang kun slåfejl, stavning, tegnsætning og klare grammatiske fejl — ingen stil- eller dialektændringer.",
+    de: "Ein leichter letzter Durchgang: nur Tippfehler, Rechtschreibung, Zeichensetzung und klare Grammatikfehler — keine Stil- oder Dialektänderungen.",
+    es: "Una última pasada ligera: solo erratas, ortografía, puntuación y errores gramaticales claros, sin cambios de estilo ni dialecto.",
+  },
   mode_desc_translate: {
     en: "Translate the text to a target language.",
     da: "Oversæt teksten til et målsprog.",
@@ -1313,10 +1349,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "El análisis funciona mejor con External Betty (modelo API). Los modelos locales suelen tener dificultades para seguir el contrato de análisis: espere catálogos, líneas temporales y resúmenes de menor calidad.",
   },
   mode_desc_analysis_hint: {
-    en: "Betty reads the whole story in order — characters, places, timeline and outline are built as she goes.",
-    da: "Betty læser hele historien i rækkefølge — personer, steder, tidslinje og synopsis opbygges undervejs.",
-    de: "Betty liest die ganze Geschichte der Reihe nach — Figuren, Orte, Zeitleiste und Gliederung entstehen dabei.",
-    es: "Betty lee toda la historia en orden: personajes, lugares, línea temporal y esquema se construyen sobre la marcha.",
+    en: "Betty reads the whole story in order and builds a reference story bible — characters, places, timeline and outline. (Reference material, not editing.)",
+    da: "Betty læser hele historien i rækkefølge og opbygger en historiebibel til opslag — personer, steder, tidslinje og synopsis. (Opslagsmateriale, ikke redigering.)",
+    de: "Betty liest die ganze Geschichte der Reihe nach und erstellt eine Story-Bibel zum Nachschlagen — Figuren, Orte, Zeitleiste und Gliederung. (Referenzmaterial, keine Bearbeitung.)",
+    es: "Betty lee toda la historia en orden y crea una biblia de la historia de referencia: personajes, lugares, línea temporal y esquema. (Material de referencia, no edición.)",
   },
   mode_desc_feedback_hint: {
     en: "Betty samples passages across your manuscript and writes a constructive craft report — recurring habits, quoted examples, and concrete advice on how to improve.",
@@ -1384,6 +1420,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Indledende komma",
     de: "Einleitungskomma",
     es: "Coma introductoria",
+  },
+  opt_yes: {
+    en: "Yes",
+    da: "Ja",
+    de: "Ja",
+    es: "Sí",
+  },
+  opt_no: {
+    en: "No",
+    da: "Nej",
+    de: "Nein",
+    es: "No",
   },
   opt_dialogueTags: {
     en: "Dialogue tags",
@@ -2117,6 +2165,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Se kørslen",
     de: "Aktuellen Lauf ansehen",
     es: "Ver ejecución actual",
+  },
+  see_latest_run: {
+    en: "See latest run",
+    da: "Se seneste kørsel",
+    de: "Letzten Lauf ansehen",
+    es: "Ver última ejecución",
   },
   current_run: {
     en: "Current run",

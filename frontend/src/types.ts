@@ -3,6 +3,7 @@
 export type TaskMode =
   | "copy_edit"
   | "line_edit"
+  | "proofread"
   | "translate"
   | "character_catalog"
   | "location_catalog"
@@ -17,6 +18,7 @@ export type TaskMode =
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
   "line_edit",
+  "proofread",
   "translate",
   "combined_edit",
 ];
@@ -118,6 +120,12 @@ export interface Correction {
   confidence?: number;
   reviewReason?: string;
   flagged?: boolean;
+  /**
+   * Combined (copy + line) edits: "copy" = objective fix, "line" = prose
+   * improvement. Set by the LLM's "kind" label; absent on single-mode tasks and
+   * treated as "copy" when unlabeled.
+   */
+  editType?: "copy" | "line";
 }
 
 export interface TaskResult {

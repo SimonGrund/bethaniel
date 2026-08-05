@@ -3,6 +3,7 @@
 export type TaskMode =
   | "copy_edit"
   | "line_edit"
+  | "proofread"
   | "translate"
   | "character_catalog"
   | "location_catalog"
@@ -17,6 +18,7 @@ export type TaskMode =
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
   "line_edit",
+  "proofread",
   "combined_edit",
 ];
 export const ANALYSIS_MODES: TaskMode[] = [
@@ -108,6 +110,14 @@ export interface Correction {
   preApproved?: boolean;
   /** Which thorough-mode pass produced this correction (absent = first). */
   pass?: number;
+  /**
+   * For combined (copy + line) edits: which pass produced this suggestion.
+   * "copy" = objective fix (spelling/punctuation/grammar/dialect — all
+   * deterministic corrections are copy); "line" = prose improvement. Set by the
+   * LLM via the "kind" output field; absent for single-mode tasks (the task's
+   * mode already tells you) and defaulted to "copy" when unlabeled.
+   */
+  editType?: "copy" | "line";
 }
 
 export interface TaskResult {

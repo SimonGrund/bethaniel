@@ -40,11 +40,20 @@ export default function EditTrigger() {
     setWizardStep,
     markStepComplete,
     completedSteps,
+    sessionStartedAt,
+    setSessionStartedAt,
   } = useStore();
   const t = useTranslation(lang);
 
   const isWorking = Object.values(tasks).some(
     (task) => task.status === "queued" || task.status === "editing",
+  );
+
+  // A run belongs to the current session once at least one of its tasks was
+  // submitted after the session boundary. "New run" bumps that boundary so the
+  // prior run drops into Former Runs.
+  const hasCurrentRun = Object.values(tasks).some(
+    (task) => (task.submittedAt ?? 0) >= sessionStartedAt,
   );
 
   const units = doc
@@ -126,8 +135,9 @@ export default function EditTrigger() {
     }
   };
 
-  // While a run is live this button is the route back to the current-run view.
-  const viewCurrentRun = () => {
+  // Reveal the latest-run results (hidden while a setup menu is open) and jump
+  // to the run header.
+  const viewLatestRun = () => {
     setWizardStep("folded");
     setTimeout(() => {
       window.document
@@ -136,28 +146,55 @@ export default function EditTrigger() {
     }, 80);
   };
 
-  const hasRun = completedSteps.includes("run");
-  const runLabel = submitting
-    ? "Launching…"
-    : isWorking
-      ? t("view_current_run")
-      : hasRun
-        ? t("run_again")
-        : t("btn_add_to_queue");
+  // Archive the current run into Former Runs and return to setup so the user
+  // can reconfigure before launching the next run.
+  const newRun = () => {
+    setSessionStartedAt(Date.now());
+    setWizardStep("folded");
+  };
 
-  return (
-    <button
-      className={`btn-run${submitting || isWorking ? " btn-run-launching" : ""}`}
-      disabled={submitting || (!isWorking && disabled)}
-      onClick={isWorking ? viewCurrentRun : handleClick}
-    >
-      {submitting || isWorking ? (
+  const hasRun = completedSteps.includes("run");
+
+  if (submitting) {
+    return (
+      <button className="btn-run btn-run-launching" disabled>
         <div className="btn-run-spinner" />
-      ) : (
-        <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-      )}
-      <span className="btn-run-label">{runLabel}</span>
-      {units.length > 0 && !submitting && !isWorking && (
+        <span className="btn-run-label">Launching…</span>
+      </button>
+    );
+  }
+
+  // A run exists in this session: offer "See latest run" (reopen results) and a
+  // separate "New run" (archive + back to setup).
+  if (hasCurrentRun) {
+    return (
+      <div className="run-actions">
+        <button
+          className={`btn-run${isWorking ? " btn-run-launching" : ""}`}
+          onClick={viewLatestRun}
+        >
+          {isWorking ? (
+            <div className="btn-run-spinner" />
+          ) : (
+            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+          )}
+          <span className="btn-run-label">{t("see_latest_run")}</span>
+        </button>
+        <button className="btn-new-run" onClick={newRun}>
+          {t("new_run")}
+        </button>
+      </div>
+    );
+  }
+
+  // No run in this session yet — the normal launch button.
+  return (
+    <button className="btn-run" disabled={disabled} onClick={handleClick}>
+      <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+      <span className="btn-run-label">
+        {hasRun ? t("run_again") : t("btn_add_to_queue")}
+      </span>
+      {units.length > 0 && (
         <span className="btn-run-meta">
           {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
           {selectedModes.length}{" "}

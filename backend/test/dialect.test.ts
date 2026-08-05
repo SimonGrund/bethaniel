@@ -113,6 +113,28 @@ test("maxHints caps the output", () => {
   assert.equal(cs.length, 5);
 });
 
+test("british: newly-added families convert (fervour / -ise / -ment / -yse / -ae)", () => {
+  const cs = getDialectCorrections(
+    "He realized his fervor, materialized a plan, analyzed the fulfillment, and took an anesthetic.",
+    "british",
+  );
+  assert.deepEqual(pairs(cs), [
+    "analyzed→analysed",
+    "anesthetic→anaesthetic",
+    "fervor→fervour",
+    "fulfillment→fulfilment",
+    "materialized→materialised",
+    "realized→realised",
+  ]);
+});
+
+test("always -ise words are never touched (either direction)", () => {
+  const text =
+    "They advertise a surprise that will comprise and compromise the exercise.";
+  assert.deepEqual(getDialectCorrections(text, "american"), []);
+  assert.deepEqual(getDialectCorrections(text, "british"), []);
+});
+
 test("no false positives in neutral text", () => {
   assert.deepEqual(
     getDialectCorrections(
