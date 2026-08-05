@@ -1689,7 +1689,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               t.status === "error" &&
               t.mode !== "analysis_summary" &&
               t.mode !== "blurb" &&
-              t.mode !== "text_evaluator",
+              t.mode !== "text_evaluator" &&
+              t.mode !== "developmental_edit",
           );
           const failedChapters = failedTasks.map(([, t]) => t.name);
           const src = entries[0]?.[1].source ?? "manuscript";
@@ -1997,6 +1998,97 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           handleDownloadDocx(
                             reportTask.result!.editedText,
                             `${src}.writing-report.docx`,
+                          )
+                        }
+                      >
+                        Download DOCX
+                      </button>
+                    </div>
+                  </details>
+                );
+              })()}
+
+              {/* ── Developmental report (developmental edit) ── */}
+              {(() => {
+                const devTask = entries
+                  .map(([, t]) => t)
+                  .find((t) => t.mode === "developmental_edit");
+                if (!devTask) return null;
+
+                if (devTask.status !== "done" || !devTask.result?.editedText) {
+                  const pct = Math.round((devTask.progress ?? 0) * 100);
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span className={`task-status-pill qs-${devTask.status}`}>
+                          {t(`status_${devTask.status}`)}
+                        </span>{" "}
+                        {t("developmental_report")}
+                      </summary>
+                      <div className="task-placeholder">
+                        {devTask.status === "editing" && (
+                          <>
+                            <div className="q-bar q-bar-lg">
+                              <div
+                                className={`q-fill qs-${devTask.status}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="small-note">
+                              {pct}%
+                              {devTask.phase ? ` — ${devTask.phase}` : ""}
+                            </p>
+                          </>
+                        )}
+                        {(devTask.status === "error" ||
+                          devTask.status === "cancelled") && (
+                          <>
+                            {devTask.status === "error" && (
+                              <p className="error-item">
+                                ⚠️{" "}
+                                {devTask.result?.errors?.join("; ") ??
+                                  t("status_error")}
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              className="btn-retry"
+                              onClick={() => void handleRetry(devTask.id)}
+                            >
+                              ↻ {t("retry")}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </details>
+                  );
+                }
+
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("developmental_report")}</strong>
+                    </summary>
+                    <MarkdownView text={devTask.result.editedText} />
+                    <div className="export-buttons">
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          downloadFile(
+                            devTask.result!.editedText,
+                            `${src}.developmental-edit.md`,
+                            "text/markdown",
+                          )
+                        }
+                      >
+                        Download Markdown
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          handleDownloadDocx(
+                            devTask.result!.editedText,
+                            `${src}.developmental-edit.docx`,
                           )
                         }
                       >
@@ -2515,6 +2607,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 if (
                   task.mode === "analysis_summary" ||
                   task.mode === "text_evaluator" ||
+                  task.mode === "developmental_edit" ||
                   task.mode === "publication_scan"
                 ) {
                   return null;

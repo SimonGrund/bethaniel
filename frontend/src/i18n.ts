@@ -1199,6 +1199,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Schreib-Feedback",
     es: "Comentarios de escritura",
   },
+  mode_developmental_edit: {
+    en: "Developmental edit",
+    da: "Udviklingsredigering",
+    de: "Entwicklungslektorat",
+    es: "Edición de desarrollo",
+  },
   mode_publication_scan: {
     en: "Publication scan",
     da: "Udgivelsestjek",
@@ -1295,6 +1301,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Konstruktives Feedback zum Schreibhandwerk erhalten.",
     es: "Recibe comentarios constructivos sobre tu oficio de escritura.",
   },
+  mode_desc_feedback_group: {
+    en: "Big-picture editorial reports: writing craft and developmental structure.",
+    da: "Overordnede redaktionelle rapporter: skrivehåndværk og udviklingsstruktur.",
+    de: "Übergreifende redaktionelle Berichte: Schreibhandwerk und Entwicklungsstruktur.",
+    es: "Informes editoriales de conjunto: oficio de escritura y estructura de desarrollo.",
+  },
   mode_desc_character_catalog: {
     en: "Extract a catalog of all characters, locations, and important events.",
     da: "Udtræk et katalog over alle personer, steder og vigtige begivenheder.",
@@ -1359,6 +1371,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Betty udtager passager fra hele dit manuskript og skriver en konstruktiv håndværksrapport — tilbagevendende vaner, citerede eksempler og konkrete råd til forbedring.",
     de: "Betty zieht Stichproben aus dem gesamten Manuskript und schreibt einen konstruktiven Handwerksbericht — wiederkehrende Gewohnheiten, zitierte Beispiele und konkrete Verbesserungsvorschläge.",
     es: "Betty toma pasajes de muestra de todo el manuscrito y escribe un informe constructivo sobre el oficio: hábitos recurrentes, ejemplos citados y consejos concretos para mejorar.",
+  },
+  mode_desc_developmental_hint: {
+    en: "Betty reads the whole story in order, then writes a big-picture developmental report — structure, pacing, character arcs, plot holes, POV and priority revisions.",
+    da: "Betty læser hele historien i rækkefølge og skriver derefter en overordnet udviklingsrapport — struktur, tempo, karakterbuer, plothuller, synsvinkel og prioriterede rettelser.",
+    de: "Betty liest die ganze Geschichte der Reihe nach und schreibt dann einen übergreifenden Entwicklungsbericht — Struktur, Tempo, Figurenbögen, Logiklücken, Perspektive und vorrangige Überarbeitungen.",
+    es: "Betty lee toda la historia en orden y luego escribe un informe de desarrollo de conjunto: estructura, ritmo, arcos de personajes, huecos de trama, punto de vista y revisiones prioritarias.",
+  },
+  developmental_report: {
+    en: "Developmental Report",
+    da: "Udviklingsrapport",
+    de: "Entwicklungsbericht",
+    es: "Informe de desarrollo",
   },
   feedback_local_warning: {
     en: "Writing feedback works best with External Betty (API model). Local models often struggle to quote accurately and judge prose craft — expect a lower-quality report.",

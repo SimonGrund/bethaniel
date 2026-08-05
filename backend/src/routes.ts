@@ -518,6 +518,39 @@ router.post("/queue/add", async (req: Request, res: Response) => {
         taskIds.push(taskId);
         continue;
       }
+      // ── Developmental edit: one task spanning the whole manuscript ──
+      // The orchestrator (developmentalEdit.ts) runs the sequential story read
+      // then synthesizes a manuscript-level critique, so chapters travel
+      // together on a single task.
+      if (currentMode === "developmental_edit") {
+        const cleanedUnits = (units as EditUnit[]).map((u) => ({
+          name: u.name,
+          original: stripPagebreaks(u.original),
+        }));
+        const totalWords = cleanedUnits.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        );
+        console.log(
+          `[API]   task: "Developmental edit" [developmental_edit] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+        );
+        const taskId = await submitTask({
+          jobId,
+          name: "Developmental edit",
+          source: doc.name,
+          original: "",
+          wordCount: totalWords,
+          model: model || DEFAULT_MODEL_FILENAME,
+          mode: "developmental_edit",
+          prompt: "", // the orchestrator builds its own pass prompts
+          wpc: wordsPerChunk ?? 2500,
+          overlap: 0,
+          styleGuide,
+          units: cleanedUnits,
+        });
+        taskIds.push(taskId);
+        continue;
+      }
       // Build system prompt based on mode
       let systemPrompt: string;
       let taskEditOptions: Record<string, boolean | string> | undefined;

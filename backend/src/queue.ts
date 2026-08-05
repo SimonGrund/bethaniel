@@ -69,6 +69,7 @@ import {
   runTextEvaluation,
   type TextEvaluatorState,
 } from "./textEvaluator.js";
+import { runDevelopmentalEdit } from "./developmentalEdit.js";
 import {
   saveTaskState,
   loadTaskStates,
@@ -769,6 +770,110 @@ async function processStoryAnalysisJob(
   }
 }
 
+/**
+ * Developmental edit: ONE task spans the whole manuscript. Runs the sequential
+ * story read (reusing its checkpoint so cancel/crash + retry resumes mid-read),
+ * then a single developmental synthesis pass. The Markdown report is stored as
+ * editedText and the structured read as structuredData.
+ */
+async function processDevelopmentalEditJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId, model } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "reading manuscript",
+  });
+
+  try {
+    await ensureModelLoaded(model, undefined, 1);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
+
+  const resume = isUsableCheckpoint(job.resumeState, units.length)
+    ? job.resumeState
+    : undefined;
+  if (resume) {
+    appendLog({
+      level: "info",
+      source: "task",
+      taskId,
+      message: `Developmental edit: resuming at chapter ${resume.nextChapterIndex + 1}/${units.length}.`,
+      model,
+    });
+  }
+
+  try {
+    const { report, structuredData } = await runDevelopmentalEdit(units, {
+      llm: makeStoryLlm(job, ac),
+      styleGuide: job.styleGuide,
+      signal: ac.signal,
+      resumeFrom: resume,
+      onProgress: (done, total, label) => {
+        updateTask(taskId, {
+          phase:
+            done >= total
+              ? "writing developmental report"
+              : `reading chapter ${done + 1}/${total} — ${label}`,
+        });
+        updateProgress(taskId, Math.min(0.97, done / (total + 1)));
+      },
+      onCheckpoint: (state) => {
+        const t = tasks.get(taskId);
+        if (!t) return;
+        t.analysisCheckpoint = structuredClone(state);
+        try {
+          saveTaskState(t); // survive a process crash mid-run
+        } catch {
+          /* checkpoint persistence is best-effort */
+        }
+      },
+    });
+
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: stripAiSignoff(report),
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData,
+      },
+    });
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    // The read checkpoint stays on the task, so retrying resumes the read.
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
 /** Minimal shape check before trusting a persisted evaluator checkpoint. */
 function isUsableTextEvalCheckpoint(v: unknown): v is TextEvaluatorState {
   if (!v || typeof v !== "object") return false;
@@ -969,6 +1074,9 @@ async function processJob(job: JobData): Promise<void> {
   }
   if (mode === "text_evaluator") {
     return processTextEvaluatorJob(job, ac);
+  }
+  if (mode === "developmental_edit") {
+    return processDevelopmentalEditJob(job, ac);
   }
   if (mode === "publication_scan") {
     return processPublicationScanJob(job, ac);

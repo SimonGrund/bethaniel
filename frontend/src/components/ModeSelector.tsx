@@ -18,6 +18,7 @@ const ANALYSIS_MODES: TaskMode[] = [
   "location_catalog",
   "timeline",
 ];
+const FEEDBACK_MODES: TaskMode[] = ["text_evaluator", "developmental_edit"];
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "spelling",
@@ -79,7 +80,7 @@ export default function ModeSelector() {
   const hasEditing = selectedModes.some((m) => EDITING_MODES.includes(m));
   const hasAnalysis = selectedModes.some((m) => ANALYSIS_MODES.includes(m));
   const hasTranslation = selectedModes.includes("translate");
-  const hasFeedback = selectedModes.includes("text_evaluator");
+  const hasFeedback = selectedModes.some((m) => FEEDBACK_MODES.includes(m));
 
   function selectCategory(cat: Category) {
     if (openCat === cat || editSubOptionsOpen) {
@@ -93,15 +94,17 @@ export default function ModeSelector() {
           if (m !== "translate") toggleMode(m);
         }
       } else if (cat === "feedback") {
-        if (!selectedModes.includes("text_evaluator"))
+        if (selectedModes.includes("translate")) toggleMode("translate");
+        if (!FEEDBACK_MODES.some((m) => selectedModes.includes(m)))
           toggleMode("text_evaluator");
         for (const m of selectedModes) {
-          if (m !== "text_evaluator") toggleMode(m);
+          if (!FEEDBACK_MODES.includes(m)) toggleMode(m);
         }
       } else if (cat === "analysis") {
         if (selectedModes.includes("translate")) toggleMode("translate");
-        if (selectedModes.includes("text_evaluator"))
-          toggleMode("text_evaluator");
+        for (const m of FEEDBACK_MODES) {
+          if (selectedModes.includes(m)) toggleMode(m);
+        }
         if (!ANALYSIS_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("character_catalog");
         }
@@ -110,8 +113,9 @@ export default function ModeSelector() {
         }
       } else {
         if (selectedModes.includes("translate")) toggleMode("translate");
-        if (selectedModes.includes("text_evaluator"))
-          toggleMode("text_evaluator");
+        for (const m of FEEDBACK_MODES) {
+          if (selectedModes.includes(m)) toggleMode(m);
+        }
         if (!EDITING_MODES.some((m) => selectedModes.includes(m))) {
           toggleMode("copy_edit");
         }
@@ -218,11 +222,13 @@ export default function ModeSelector() {
           onClick={() => selectCategory("feedback")}
         >
           <span className="mode-cat-name">{t("group_feedback")}</span>
-          <span className="mode-cat-desc">
-            {t("mode_desc_text_evaluator")}
-          </span>
+          <span className="mode-cat-desc">{t("mode_desc_feedback_group")}</span>
           {hasFeedback && (
-            <span className="mode-cat-badge">{t("mode_text_evaluator")}</span>
+            <span className="mode-cat-badge">
+              {FEEDBACK_MODES.filter((m) => selectedModes.includes(m))
+                .map((m) => t(`mode_${m}`))
+                .join(", ")}
+            </span>
           )}
         </button>
       </div>
@@ -443,7 +449,25 @@ export default function ModeSelector() {
           >
             −
           </button>
-          <p className="mode-analysis-hint">{t("mode_desc_feedback_hint")}</p>
+          <div className="mode-sub-modes">
+            {FEEDBACK_MODES.map((m) => (
+              <button
+                key={m}
+                className={`mode-tab${isSelected(m) ? " active" : ""}`}
+                onClick={() => toggleMode(m)}
+              >
+                {t(`mode_${m}`)}
+              </button>
+            ))}
+          </div>
+          {isSelected("text_evaluator") && (
+            <p className="mode-analysis-hint">{t("mode_desc_feedback_hint")}</p>
+          )}
+          {isSelected("developmental_edit") && (
+            <p className="mode-analysis-hint">
+              {t("mode_desc_developmental_hint")}
+            </p>
+          )}
           {!isApiModelSelected && (
             <p className="mode-analysis-warning">
               ⚠ {t("feedback_local_warning")}
