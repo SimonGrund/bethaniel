@@ -69,6 +69,60 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Erweiterte Einstellungen",
     es: "Ajustes avanzados",
   },
+  run_mode: {
+    en: "Run mode",
+    da: "Kørselstilstand",
+    de: "Ausführungsmodus",
+    es: "Modo de ejecución",
+  },
+  run_mode_speed: {
+    en: "Speed",
+    da: "Hurtig",
+    de: "Schnell",
+    es: "Rápido",
+  },
+  run_mode_balanced: {
+    en: "Balanced",
+    da: "Balanceret",
+    de: "Ausgewogen",
+    es: "Equilibrado",
+  },
+  run_mode_max: {
+    en: "Max",
+    da: "Maks",
+    de: "Max",
+    es: "Máx",
+  },
+  run_mode_custom: {
+    en: "Custom",
+    da: "Tilpasset",
+    de: "Benutzerdefiniert",
+    es: "Personalizado",
+  },
+  run_mode_speed_help: {
+    en: "Fastest. One editor + style check + one reviewer, plus all built-in checks. Best for local models.",
+    da: "Hurtigst. Én redaktør + stiltjek + én bedømmer, plus alle indbyggede tjek. Bedst til lokale modeller.",
+    de: "Am schnellsten. Ein Lektor + Stilprüfung + ein Prüfer, plus alle integrierten Prüfungen. Ideal für lokale Modelle.",
+    es: "El más rápido. Un editor + revisión de estilo + un revisor, más todas las comprobaciones integradas. Ideal para modelos locales.",
+  },
+  run_mode_balanced_help: {
+    en: "Two editors + style check + one reviewer. Broader recall, no second pass.",
+    da: "To redaktører + stiltjek + én bedømmer. Bredere dækning, ingen ekstra gennemgang.",
+    de: "Zwei Lektoren + Stilprüfung + ein Prüfer. Größere Abdeckung, kein zweiter Durchgang.",
+    es: "Dos editores + revisión de estilo + un revisor. Mayor cobertura, sin segunda pasada.",
+  },
+  run_mode_max_help: {
+    en: "Highest quality. Three editors + style check + two reviewers + a thorough second pass. Best for External Betty.",
+    da: "Højeste kvalitet. Tre redaktører + stiltjek + to bedømmere + en grundig ekstra gennemgang. Bedst til Ekstern Betty.",
+    de: "Höchste Qualität. Drei Lektoren + Stilprüfung + zwei Prüfer + ein gründlicher zweiter Durchgang. Ideal für Externe Betty.",
+    es: "Máxima calidad. Tres editores + revisión de estilo + dos revisores + una segunda pasada minuciosa. Ideal para Betty Externa.",
+  },
+  run_mode_custom_help: {
+    en: "Hand-tuned settings. Adjust the options below, or pick a preset above.",
+    da: "Manuelt justerede indstillinger. Justér mulighederne nedenfor, eller vælg en forudindstilling ovenfor.",
+    de: "Manuell angepasste Einstellungen. Passe die Optionen unten an oder wähle oben eine Voreinstellung.",
+    es: "Ajustes manuales. Modifica las opciones de abajo o elige un preajuste arriba.",
+  },
   model_tuning: {
     en: "Model tuning",
     da: "Modeltuning",
@@ -1073,29 +1127,46 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ausgabe",
     es: "Salida",
   },
+  // ── Category cards. The names read as continuations of `betty_help_intro`
+  // ("I need Betty's help to… Develop manuscript"), so keep them verb-first. ──
+  betty_help_intro: {
+    en: "I need Betty's help to…",
+    da: "Jeg har brug for Bettys hjælp til at…",
+    // German card names are bare infinitive phrases ("Manuskript entwickeln"),
+    // which can't hang off a "zu"-clause — so the lead-in ends in a colon.
+    de: "Ich brauche Bettys Hilfe:",
+    es: "Necesito que Betty me ayude a…",
+  },
   group_editing: {
-    en: "Editing",
-    da: "Redigering",
-    de: "Bearbeitung",
-    es: "Edición",
+    en: "Develop manuscript",
+    // Danish names are infinitives so they chain off "…hjælp til at…".
+    da: "Udvikle manuskript",
+    de: "Manuskript entwickeln",
+    es: "Desarrollar el manuscrito",
+  },
+  group_desc_editing: {
+    en: "From big-picture structure down to a final polish.",
+    da: "Fra overordnet struktur ned til den sidste finpudsning.",
+    de: "Vom großen Ganzen bis zum letzten Feinschliff.",
+    es: "Desde la estructura general hasta el pulido final.",
   },
   group_analysis: {
-    en: "Story Elements",
-    da: "Historieelementer",
-    de: "Story-Elemente",
-    es: "Elementos de la historia",
+    en: "Build a story overview",
+    da: "Bygge et overblik over historien",
+    de: "Einen Story-Überblick erstellen",
+    es: "Crear un resumen de la historia",
   },
   group_translate: {
-    en: "Translation",
-    da: "Oversættelse",
-    de: "Übersetzung",
-    es: "Traducción",
+    en: "Translate manuscript",
+    da: "Oversætte manuskript",
+    de: "Manuskript übersetzen",
+    es: "Traducir el manuscrito",
   },
   group_feedback: {
-    en: "Get tips to improve your writing",
-    da: "Få tips til at forbedre din skrivning",
-    de: "Tipps, um dein Schreiben zu verbessern",
-    es: "Consejos para mejorar tu escritura",
+    en: "Improve my writing",
+    da: "Forbedre min skrivning",
+    de: "Mein Schreiben verbessern",
+    es: "Mejorar mi escritura",
   },
   workflow_label: {
     en: "Workflow",
@@ -1242,6 +1313,27 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Udgivelsestjek",
     de: "Veröffentlichungs-Scan",
     es: "Escaneo de publicación",
+  },
+  // ── "Final readthrough" is the UI name for proofread + publication_scan
+  // selected together. The two mode_/mode_desc_ keys above stay in use for
+  // the individual tasks in the queue and the results view. ──
+  mode_final_readthrough: {
+    en: "Final readthrough",
+    da: "Sidste gennemlæsning",
+    de: "Letzter Durchgang",
+    es: "Lectura final",
+  },
+  mode_tip_final_readthrough: {
+    en: "The last pass before publishing: a light sweep for typos, plus a structural check for duplicated text, missing chapters, numbering gaps, and text cut off mid-sentence.",
+    da: "Den sidste gennemgang før udgivelse: en let gennemgang for slåfejl plus et strukturtjek for dubleret tekst, manglende kapitler, huller i nummereringen og tekst afbrudt midt i en sætning.",
+    de: "Der letzte Durchgang vor der Veröffentlichung: ein leichter Durchgang für Tippfehler plus eine Strukturprüfung auf doppelten Text, fehlende Kapitel, Nummerierungslücken und mitten im Satz abgeschnittenen Text.",
+    es: "La última revisión antes de publicar: un repaso ligero de erratas, más una comprobación estructural de texto duplicado, capítulos faltantes, saltos de numeración y texto cortado a media frase.",
+  },
+  mode_desc_final_readthrough: {
+    en: "Two passes in one. A final surface sweep flags typos and slips without touching your style. Alongside it, a deterministic structural check looks for duplicated text or chapters, empty or dropped chapters, chapter-numbering gaps, and content cut off mid-sentence.",
+    da: "To gennemgange i én. En sidste overfladisk gennemgang markerer slåfejl og småfejl uden at røre din stil. Ved siden af kører et deterministisk strukturtjek, der leder efter dubleret tekst eller kapitler, tomme eller manglende kapitler, huller i kapitelnummereringen og indhold afskåret midt i en sætning.",
+    de: "Zwei Durchgänge in einem. Ein letzter Oberflächendurchgang markiert Tippfehler und Flüchtigkeitsfehler, ohne deinen Stil anzutasten. Parallel dazu sucht eine deterministische Strukturprüfung nach doppeltem Text oder Kapiteln, leeren oder fehlenden Kapiteln, Lücken in der Kapitelnummerierung und mitten im Satz abgeschnittenem Inhalt.",
+    es: "Dos revisiones en una. Un último repaso de superficie señala erratas y descuidos sin tocar tu estilo. Junto a él, una comprobación estructural determinista busca texto o capítulos duplicados, capítulos vacíos o perdidos, saltos en la numeración de capítulos y contenido cortado a media frase.",
   },
   mode_desc_publication_scan: {
     en: "Deterministic structural check for publication-readiness: duplicate chapters or sections, empty or dropped chapters, chapter-numbering gaps, and content cut off mid-sentence. Note: true missing pages can't be detected directly — these are the proxies that catch the common cases.",

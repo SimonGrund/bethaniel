@@ -68,6 +68,8 @@ export interface TextEvaluatorResultData {
 export interface TextEvaluatorDeps {
   llm: LlmCall;
   styleGuide?: string;
+  /** Language the manuscript is written in — the report is written in it. */
+  manuscriptLang?: string;
   correctionsDigest?: CorrectionsDigest;
   onProgress?: (completed: number, total: number, label: string) => void;
   onCheckpoint?: (state: TextEvaluatorState) => void;
@@ -371,8 +373,14 @@ export async function runTextEvaluation(
         nextPassageIndex: 0,
       };
   const total = state.passages.length;
-  const critiquePrompt = buildPassageCritiquePrompt(deps.styleGuide);
-  const reportPrompt = buildWritingReportPrompt(deps.styleGuide);
+  const critiquePrompt = buildPassageCritiquePrompt(
+    deps.styleGuide,
+    deps.manuscriptLang,
+  );
+  const reportPrompt = buildWritingReportPrompt(
+    deps.styleGuide,
+    deps.manuscriptLang,
+  );
 
   for (let i = state.nextPassageIndex; i < total; i++) {
     const passage = state.passages[i];

@@ -30,6 +30,32 @@ export const ANALYSIS_MODES: TaskMode[] = [
   "combined_analysis",
 ];
 
+// The UI presents these two as a single "Final readthrough" choice: a surface
+// proofread pass plus the deterministic structural scan. They stay separate
+// backend modes (different task granularity and result shapes) — only the
+// selection and the labels are merged.
+export const FINAL_READTHROUGH_MODES: TaskMode[] = [
+  "proofread",
+  "publication_scan",
+];
+
+// Collapse a selection into i18n label keys, so a Final-readthrough selection
+// reads as one name instead of "Proofread + Publication scan".
+export function modeLabelKeys(modes: TaskMode[]): string[] {
+  const keys: string[] = [];
+  let finalAdded = false;
+  for (const m of modes) {
+    if (FINAL_READTHROUGH_MODES.includes(m)) {
+      if (finalAdded) continue;
+      finalAdded = true;
+      keys.push("mode_final_readthrough");
+    } else {
+      keys.push(`mode_${m}`);
+    }
+  }
+  return keys;
+}
+
 export interface CopyEditOptions {
   spelling: boolean;
   punctuation: boolean;

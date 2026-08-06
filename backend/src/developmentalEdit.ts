@@ -10,7 +10,7 @@
 // run resume mid-read. The LLM caller is injected so tests can drive it with
 // scripted responses.
 
-import { DEVELOPMENTAL_REVIEW_PROMPT } from "./prompts.js";
+import { buildDevelopmentalReviewPrompt } from "./prompts.js";
 import {
   runStoryAnalysis,
   type StoryAnalysisDeps,
@@ -61,7 +61,7 @@ export async function runDevelopmentalEdit(
   // Phase 2 — one developmental synthesis pass over the structured read.
   const report = (
     await deps.llm(
-      DEVELOPMENTAL_REVIEW_PROMPT,
+      buildDevelopmentalReviewPrompt(deps.manuscriptLang),
       buildDevelopmentalPayload(units, structuredData),
       { maxTokens: 3500 },
     )

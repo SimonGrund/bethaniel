@@ -19,7 +19,7 @@ import { parseJsonResponse } from "./llm.js";
 import {
   buildStoryReadPrompt,
   buildStorySynthesisPrompt,
-  PART_SYNTHESIS_PROMPT,
+  buildPartSynthesisPrompt,
 } from "./prompts.js";
 import type { EditUnit } from "./types.js";
 
@@ -93,6 +93,8 @@ export interface StoryAnalysisResult {
 export interface StoryAnalysisDeps {
   llm: LlmCall;
   styleGuide?: string;
+  /** Language the manuscript is written in — the read is reported in it. */
+  manuscriptLang?: string;
   onProgress?: (completed: number, total: number, label: string) => void;
   onCheckpoint?: (state: StoryAnalysisState) => void;
   resumeFrom?: StoryAnalysisState | null;
@@ -553,8 +555,15 @@ export async function runStoryAnalysis(
     : initialState();
   const parts = groupIntoParts(units.map((u) => u.name));
   const total = units.length;
-  const chapterPrompt = buildStoryReadPrompt(deps.styleGuide);
-  const storyPrompt = buildStorySynthesisPrompt(deps.styleGuide);
+  const chapterPrompt = buildStoryReadPrompt(
+    deps.styleGuide,
+    deps.manuscriptLang,
+  );
+  const storyPrompt = buildStorySynthesisPrompt(
+    deps.styleGuide,
+    deps.manuscriptLang,
+  );
+  const partPrompt = buildPartSynthesisPrompt(deps.manuscriptLang);
 
   for (let pi = 0; pi < parts.length; pi++) {
     const part = parts[pi];
@@ -577,7 +586,7 @@ export async function runStoryAnalysis(
     if (pi < state.nextPartIndex) continue; // resumed past this part pass
     const parsed = await callJson(
       deps,
-      PART_SYNTHESIS_PROMPT,
+      partPrompt,
       buildPartPayload(state, part, units),
       validatePart,
       1200,

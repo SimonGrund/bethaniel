@@ -2,6 +2,7 @@
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
+import { modeLabelKeys } from "../types";
 import type { WizardStep } from "../store";
 
 const STEP_ORDER: WizardStep[] = ["upload", "edits", "model", "style"];
@@ -48,8 +49,8 @@ export default function StepBar() {
   function editsLabel(): string {
     if (selectedModes.length === 0) return "";
     if (selectedModes.includes("translate")) return `${t("mode_translate")} → ${targetLang || "?"}`;
-    return selectedModes
-      .map((m) => t("mode_" + m))
+    return modeLabelKeys(selectedModes)
+      .map((k) => t(k))
       .join(" + ");
   }
 

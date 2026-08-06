@@ -107,6 +107,7 @@ export async function addToQueue(params: {
   characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
+  runMode?: string;
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",

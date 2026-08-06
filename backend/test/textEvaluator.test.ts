@@ -302,3 +302,28 @@ test("an aborted signal stops the run", async () => {
     /cancel/i,
   );
 });
+
+test("manuscriptLang reaches BOTH the critique and the report prompt", async () => {
+  const { llm, calls } = scriptedLlm([
+    critiqueResponse(0),
+    critiqueResponse(1),
+    reportMd,
+  ]);
+  await runTextEvaluation(twoPassageUnits, { llm, manuscriptLang: "da" });
+
+  // Every LLM call in the run — the two passage critiques and the final
+  // report — must carry the output-language directive, or the report comes
+  // back in English for a Danish manuscript.
+  assert.equal(calls.length, 3);
+  for (const c of calls) assert.match(c.system, /OUTPUT LANGUAGE: Danish/);
+});
+
+test("no manuscriptLang leaves the evaluator prompts untouched", async () => {
+  const { llm, calls } = scriptedLlm([
+    critiqueResponse(0),
+    critiqueResponse(1),
+    reportMd,
+  ]);
+  await runTextEvaluation(twoPassageUnits, { llm });
+  for (const c of calls) assert.doesNotMatch(c.system, /OUTPUT LANGUAGE/);
+});

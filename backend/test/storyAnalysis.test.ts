@@ -329,3 +329,28 @@ test("structuredData is backward-compatible for the existing frontend views", as
   }
   assert.equal(typeof sd.outline.synopsis, "string");
 });
+
+test("manuscriptLang reaches every pass of the story read", async () => {
+  const { llm, calls } = scriptedLlm([
+    ch1Response,
+    ch2Response,
+    partResponse,
+    storyResponse,
+  ]);
+  await runStoryAnalysis(twoChapterUnits, { llm, manuscriptLang: "da" });
+
+  // Chapter reads, the part synthesis, and the story synthesis all feed the
+  // developmental report — if any pass answers in English the report inherits
+  // English summaries.
+  assert.equal(calls.length, 4);
+  for (const c of calls) {
+    assert.match(c.system, /OUTPUT LANGUAGE: Danish/);
+    // JSON passes must keep their keys parseable.
+    assert.match(c.system, /JSON keys.*English/is);
+  }
+});
+
+test("no manuscriptLang leaves the story-read prompts untouched", async () => {
+  const { calls } = await runTwoChapterStory();
+  for (const c of calls) assert.doesNotMatch(c.system, /OUTPUT LANGUAGE/);
+});

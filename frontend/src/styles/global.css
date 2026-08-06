@@ -2448,6 +2448,15 @@ summary.review-source::before {
   margin-bottom: 1rem;
 }
 
+/* Lead-in line above the card row — the card names read as continuations
+   of it ("I need Betty's help to… Develop manuscript"). */
+.mode-cat-intro {
+  font-size: 0.85rem;
+  color: #8a7f70;
+  margin: 0 0 0.1rem;
+  padding-left: 0.15rem;
+}
+
 .mode-cat-cards {
   display: flex;
   gap: 0.75rem;
@@ -3650,6 +3659,54 @@ summary.review-source::before {
   opacity: 0.6;
   margin-top: 0.15rem;
   display: block;
+}
+
+/* ── Run-mode preset toggle (Speed / Balanced / Max) ── */
+.run-mode-toggle {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.1rem;
+}
+
+.run-mode-pill {
+  flex: 1 1 0;
+  min-width: 4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  background: #fdfaf0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: #6b5d45;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.run-mode-pill:hover {
+  border-color: #8b7355;
+  color: #2a2419;
+}
+
+.run-mode-pill.active {
+  background: #8b7355;
+  border-color: #8b7355;
+  color: #fdfaf0;
+  font-weight: 600;
+}
+
+/* "Custom" indicator — shown (not clickable) when knobs are hand-tuned. */
+.run-mode-pill.custom-active {
+  flex: 0 0 auto;
+  background: transparent;
+  border-style: dashed;
+  border-color: #b8a888;
+  color: #8b7355;
+  font-style: italic;
+  cursor: default;
 }
 
 .model-tuning {

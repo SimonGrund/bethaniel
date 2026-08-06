@@ -3,19 +3,46 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
+import { FINAL_READTHROUGH_MODES, modeLabelKeys } from "../types";
 import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
 type Category = "editing" | "analysis" | "translation" | "feedback";
 
+// What the editing panel offers. "final_readthrough" is a UI-only pairing of
+// the proofread and publication_scan backend modes — the last pass before you
+// publish, so the user picks one thing rather than two.
+type EditingChoice =
+  | "developmental_edit"
+  | "line_edit"
+  | "copy_edit"
+  | "final_readthrough";
+
+const EDITING_CHOICE_MODES: Record<EditingChoice, TaskMode[]> = {
+  developmental_edit: ["developmental_edit"],
+  line_edit: ["line_edit"],
+  copy_edit: ["copy_edit"],
+  final_readthrough: FINAL_READTHROUGH_MODES,
+};
+
 // Ordered as a full-manuscript development workflow would run: big-picture
-// developmental pass first, tightening down to the final publication scan.
-const EDITING_MODES: TaskMode[] = [
+// developmental pass first, tightening down to the final readthrough.
+const EDITING_CHOICES: EditingChoice[] = [
   "developmental_edit",
   "line_edit",
   "copy_edit",
-  "proofread",
-  "publication_scan",
+  "final_readthrough",
 ];
+
+// A whole-manuscript pass of its own — it makes no sense to pair either of
+// these with anything else in the panel. Copy and line edits stay combinable.
+const EXCLUSIVE_CHOICES: EditingChoice[] = [
+  "developmental_edit",
+  "final_readthrough",
+];
+
+const EDITING_MODES: TaskMode[] = EDITING_CHOICES.flatMap(
+  (c) => EDITING_CHOICE_MODES[c],
+);
 const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
@@ -59,6 +86,7 @@ export default function ModeSelector() {
     model,
     selectedModes,
     toggleMode,
+    setSelectedModes,
     copyEditOptions,
     setCopyEditOption,
     lineEditOptions,
@@ -85,58 +113,101 @@ export default function ModeSelector() {
   const hasTranslation = selectedModes.includes("translate");
   const hasFeedback = selectedModes.some((m) => FEEDBACK_MODES.includes(m));
 
+  // Categories are mutually exclusive: opening one replaces the whole
+  // selection with whatever of its own modes was already picked, or its
+  // default if none was.
   function selectCategory(cat: Category) {
     if (openCat === cat || editSubOptionsOpen) {
       setOpenCat(null);
       setEditSubOptionsOpen(null);
-    } else {
-      setOpenCat(cat);
-      if (cat === "translation") {
-        if (!selectedModes.includes("translate")) toggleMode("translate");
-        for (const m of selectedModes) {
-          if (m !== "translate") toggleMode(m);
-        }
-      } else if (cat === "feedback") {
-        if (selectedModes.includes("translate")) toggleMode("translate");
-        if (!FEEDBACK_MODES.some((m) => selectedModes.includes(m)))
-          toggleMode("text_evaluator");
-        for (const m of selectedModes) {
-          if (!FEEDBACK_MODES.includes(m)) toggleMode(m);
-        }
-      } else if (cat === "analysis") {
-        if (selectedModes.includes("translate")) toggleMode("translate");
-        for (const m of FEEDBACK_MODES) {
-          if (selectedModes.includes(m)) toggleMode(m);
-        }
-        if (!ANALYSIS_MODES.some((m) => selectedModes.includes(m))) {
-          toggleMode("character_catalog");
-        }
-        for (const m of EDITING_MODES) {
-          if (selectedModes.includes(m)) toggleMode(m);
-        }
-      } else {
-        if (selectedModes.includes("translate")) toggleMode("translate");
-        for (const m of FEEDBACK_MODES) {
-          if (selectedModes.includes(m)) toggleMode(m);
-        }
-        if (!EDITING_MODES.some((m) => selectedModes.includes(m))) {
-          toggleMode("copy_edit");
-        }
-        for (const m of ANALYSIS_MODES) {
-          if (selectedModes.includes(m)) toggleMode(m);
-        }
-      }
-      markStepComplete("edits");
+      return;
     }
+    setOpenCat(cat);
+    const [catModes, fallback]: [TaskMode[], TaskMode] =
+      cat === "translation"
+        ? [["translate"], "translate"]
+        : cat === "feedback"
+          ? [FEEDBACK_MODES, "text_evaluator"]
+          : cat === "analysis"
+            ? [ANALYSIS_MODES, "character_catalog"]
+            : [EDITING_MODES, "copy_edit"];
+    const kept = selectedModes.filter((m) => catModes.includes(m));
+    setSelectedModes(kept.length > 0 ? kept : [fallback]);
+    markStepComplete("edits");
   }
 
   const isSelected = (m: TaskMode) => selectedModes.includes(m);
 
+  // "Any", not "all": a selection persisted before the two modes were paired
+  // (proofread alone) still lights the chip up, and the first click on it
+  // normalizes the selection to both modes.
+  const isChoiceSelected = (c: EditingChoice) =>
+    EDITING_CHOICE_MODES[c].some((m) => selectedModes.includes(m));
+
+  function toggleEditingChoice(choice: EditingChoice) {
+    const others = selectedModes.filter((m) => !EDITING_MODES.includes(m));
+    const active = EDITING_CHOICES.filter(isChoiceSelected);
+
+    let next: EditingChoice[];
+    if (isChoiceSelected(choice)) {
+      // Never leave the panel with nothing selected — mirrors toggleMode.
+      if (active.length <= 1) return;
+      next = active.filter((c) => c !== choice);
+    } else if (EXCLUSIVE_CHOICES.includes(choice)) {
+      next = [choice];
+    } else {
+      // Copy and line edits combine with each other, but not with an
+      // exclusive choice — adding one drops whatever exclusive pass was on.
+      next = [...active.filter((c) => !EXCLUSIVE_CHOICES.includes(c)), choice];
+    }
+    // Keep workflow order regardless of the order they were clicked in.
+    const ordered = EDITING_CHOICES.filter((c) => next.includes(c));
+    setSelectedModes([
+      ...others,
+      ...ordered.flatMap((c) => EDITING_CHOICE_MODES[c]),
+    ]);
+  }
+
   const isKnownManuscriptLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
   const isEnglishManuscript = manuscriptLang === "en";
 
+  // Shared by every panel whose output depends on the manuscript's language:
+  // edits stay in it, and the reports (developmental, writing, story overview)
+  // are written in it.
+  const manuscriptLangRow = (
+    <div className="translate-lang manuscript-lang-row">
+      <label>
+        {t("manuscript_language")}:{" "}
+        <select
+          value={isKnownManuscriptLang ? manuscriptLang : "other"}
+          onChange={(e) =>
+            setManuscriptLang(e.target.value === "other" ? "" : e.target.value)
+          }
+          className="lang-input"
+        >
+          {KNOWN_MANUSCRIPT_LANGS.map((l) => (
+            <option key={l} value={l}>
+              {t(`lang_${l}`)}
+            </option>
+          ))}
+          <option value="other">{t("lang_other")}</option>
+        </select>
+      </label>
+      {!isKnownManuscriptLang && (
+        <input
+          type="text"
+          value={manuscriptLang}
+          onChange={(e) => setManuscriptLang(e.target.value)}
+          placeholder={t("lang_other_placeholder")}
+          className="lang-input"
+        />
+      )}
+    </div>
+  );
+
   return (
     <section className="mode-selector">
+      <p className="mode-cat-intro">{t("betty_help_intro")}</p>
 
       <div className="mode-cat-cards">
         {/* Editing */}
@@ -153,12 +224,13 @@ export default function ModeSelector() {
           onClick={() => selectCategory("editing")}
         >
           <span className="mode-cat-name">{t("group_editing")}</span>
-          <span className="mode-cat-desc">{t("mode_desc_copy_edit")}</span>
+          <span className="mode-cat-desc">{t("group_desc_editing")}</span>
           {hasEditing && (
             <span className="mode-cat-badge">
-              {selectedModes
-                .filter((m) => EDITING_MODES.includes(m))
-                .map((m) => t(`mode_${m}`))
+              {modeLabelKeys(
+                selectedModes.filter((m) => EDITING_MODES.includes(m)),
+              )
+                .map((k) => t(k))
                 .join(", ")}
             </span>
           )}
@@ -248,19 +320,19 @@ export default function ModeSelector() {
             −
           </button>
           <div className="mode-sub-modes">
-            {EDITING_MODES.map((m) => (
+            {EDITING_CHOICES.map((c) => (
               <button
-                key={m}
-                className={`mode-tab${isSelected(m) ? " active" : ""}`}
-                onClick={() => toggleMode(m)}
+                key={c}
+                className={`mode-tab${isChoiceSelected(c) ? " active" : ""}`}
+                onClick={() => toggleEditingChoice(c)}
               >
-                {t(`mode_${m}`)}
+                {t(`mode_${c}`)}
                 <span
                   className="mode-tab-info info-tooltip"
-                  data-tip={t(`mode_tip_${m}`)}
+                  data-tip={t(`mode_tip_${c}`)}
                   onClick={(e) => e.stopPropagation()}
                   role="img"
-                  aria-label={t(`mode_tip_${m}`)}
+                  aria-label={t(`mode_tip_${c}`)}
                 >
                   ⓘ
                 </span>
@@ -268,36 +340,7 @@ export default function ModeSelector() {
             ))}
           </div>
 
-          <div className="translate-lang manuscript-lang-row">
-            <label>
-              {t("manuscript_language")}:{" "}
-              <select
-                value={isKnownManuscriptLang ? manuscriptLang : "other"}
-                onChange={(e) =>
-                  setManuscriptLang(
-                    e.target.value === "other" ? "" : e.target.value,
-                  )
-                }
-                className="lang-input"
-              >
-                {KNOWN_MANUSCRIPT_LANGS.map((l) => (
-                  <option key={l} value={l}>
-                    {t(`lang_${l}`)}
-                  </option>
-                ))}
-                <option value="other">{t("lang_other")}</option>
-              </select>
-            </label>
-            {!isKnownManuscriptLang && (
-              <input
-                type="text"
-                value={manuscriptLang}
-                onChange={(e) => setManuscriptLang(e.target.value)}
-                placeholder={t("lang_other_placeholder")}
-                className="lang-input"
-              />
-            )}
-          </div>
+          {manuscriptLangRow}
 
           {isSelected("copy_edit") && (
             <div className="option-panel">
@@ -401,20 +444,13 @@ export default function ModeSelector() {
             </div>
           )}
 
-          {isSelected("proofread") && (
-            <div className="option-panel">
-              <span className="option-panel-label">{t("mode_proofread")}</span>
-              <p className="option-panel-desc">{t("mode_desc_proofread")}</p>
-            </div>
-          )}
-
-          {isSelected("publication_scan") && (
+          {isChoiceSelected("final_readthrough") && (
             <div className="option-panel">
               <span className="option-panel-label">
-                {t("mode_publication_scan")}
+                {t("mode_final_readthrough")}
               </span>
               <p className="option-panel-desc">
-                {t("mode_desc_publication_scan")}
+                {t("mode_desc_final_readthrough")}
               </p>
             </div>
           )}
@@ -453,6 +489,7 @@ export default function ModeSelector() {
               </button>
             ))}
           </div>
+          {manuscriptLangRow}
           <p className="mode-analysis-hint">{t("mode_desc_analysis_hint")}</p>
           {!isApiModelSelected && (
             <p className="mode-analysis-warning">
@@ -483,6 +520,7 @@ export default function ModeSelector() {
               </button>
             ))}
           </div>
+          {manuscriptLangRow}
           {isSelected("text_evaluator") && (
             <p className="mode-analysis-hint">{t("mode_desc_feedback_hint")}</p>
           )}

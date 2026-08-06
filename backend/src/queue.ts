@@ -46,8 +46,8 @@ import {
   reconcileSpellWithEditor,
 } from "./correctionHygiene.js";
 import {
-  ANALYSIS_SUMMARY_PROMPT,
-  BLURB_PROMPT,
+  buildAnalysisSummaryPrompt,
+  buildBlurbPrompt,
   buildReviewerPrompt,
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
@@ -226,6 +226,8 @@ interface JobData {
   styleComplianceAgent?: boolean;
   /** Thorough mode: run a second copy-edit pass over the edited text. */
   extraPass?: boolean;
+  /** Run-mode preset the concrete knobs above were resolved from (logging only). */
+  runMode?: string;
   /** Story analysis: all manuscript chapters (one task spans the whole book). */
   units?: EditUnit[];
   /** Story analysis: resume checkpoint from a cancelled/failed prior run. */
@@ -418,7 +420,8 @@ function maybeSpawnAnalysisSummary(finishedJob: JobData): void {
     wordCount: 0,
     model: finishedJob.model,
     mode: "analysis_summary",
-    prompt: ANALYSIS_SUMMARY_PROMPT,
+    prompt: buildAnalysisSummaryPrompt(finishedJob.manuscriptLang),
+    manuscriptLang: finishedJob.manuscriptLang,
     wpc: finishedJob.wpc,
     overlap: 0,
   }).catch((err) => {
@@ -455,7 +458,8 @@ function maybeSpawnBlurb(summaryJob: JobData): void {
     wordCount: 0,
     model: summaryJob.model,
     mode: "blurb",
-    prompt: BLURB_PROMPT,
+    prompt: buildBlurbPrompt(summaryJob.manuscriptLang),
+    manuscriptLang: summaryJob.manuscriptLang,
     wpc: summaryJob.wpc,
     overlap: 0,
   }).catch((err) => {
@@ -710,6 +714,7 @@ async function processStoryAnalysisJob(
     const { structuredData } = await runStoryAnalysis(units, {
       llm: makeStoryLlm(job, ac),
       styleGuide: job.styleGuide,
+      manuscriptLang: job.manuscriptLang,
       signal: ac.signal,
       resumeFrom: resume,
       onProgress: (done, total, label) => {
@@ -816,6 +821,7 @@ async function processDevelopmentalEditJob(
     const { report, structuredData } = await runDevelopmentalEdit(units, {
       llm: makeStoryLlm(job, ac),
       styleGuide: job.styleGuide,
+      manuscriptLang: job.manuscriptLang,
       signal: ac.signal,
       resumeFrom: resume,
       onProgress: (done, total, label) => {
@@ -933,6 +939,7 @@ async function processTextEvaluatorJob(
     const { report, structuredData } = await runTextEvaluation(units, {
       llm: makeStoryLlm(job, ac),
       styleGuide: job.styleGuide,
+      manuscriptLang: job.manuscriptLang,
       correctionsDigest: job.correctionsDigest,
       signal: ac.signal,
       resumeFrom: resume,
@@ -2554,6 +2561,7 @@ export async function submitTask(
       characterDedup: data.characterDedup,
       styleComplianceAgent: data.styleComplianceAgent,
       extraPass: data.extraPass,
+      runMode: data.runMode,
       units: data.units,
       correctionsDigest: data.correctionsDigest,
     },

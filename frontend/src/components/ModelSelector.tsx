@@ -116,6 +116,8 @@ export default function ModelSelector({
     setStyleComplianceAgent,
     extraPass,
     setExtraPass,
+    runMode,
+    setRunMode,
     styleGuide,
     tasks,
     wizardStep,
@@ -357,18 +359,39 @@ export default function ModelSelector({
     }
   }, [model]);
 
-  // Auto-tune parallel jobs when model changes
+  // The last model we auto-tuned for. Starts null so the FIRST run (mount)
+  // sets slider ceilings/parallel but does NOT apply the default preset — that
+  // would clobber a persisted "Custom" run-mode on every app reopen. The
+  // default preset is applied only on a genuine model *switch* (prev non-null
+  // and different), matching "Speed for local / Max for External Betty".
+  const lastAutoTuned = useRef<string | null>(null);
+
+  // Auto-tune parallel jobs + run-mode preset when the model changes.
   useEffect(() => {
     const activeModel = wizardStep === "model" ? highlightedModel : model;
     if (!activeModel) return;
+    const prev = lastAutoTuned.current;
+    if (prev === activeModel) return; // same model, nothing to do
+    lastAutoTuned.current = activeModel;
+    const modelSwitched = prev !== null; // false on the initial mount
+    const isApi =
+      activeModel.startsWith("custom:") &&
+      !activeModel.startsWith("custom:gguf");
     // External Betty (API): concurrency is bounded by provider rate limits,
-    // not local hardware — allow a much higher ceiling but keep the current
-    // parallel value as the default (no auto-bump).
-    if (activeModel.startsWith("custom:") && !activeModel.startsWith("custom:gguf")) {
+    // not local hardware — allow a much higher ceiling. On an actual switch,
+    // Max mode wants maximum throughput, so bump parallel toward the ceiling
+    // (user can dial back if the provider rate-limits).
+    if (isApi) {
       setMaxParallel(API_MAX_PARALLEL);
+      if (modelSwitched) {
+        setRunMode("max");
+        setParallel(API_MAX_PARALLEL);
+      }
       return;
     }
-    if (activeModel.startsWith("custom:")) return;
+    // Local models (bundled or custom GGUF) → Speed by default on a switch.
+    if (modelSwitched) setRunMode("speed");
+    if (activeModel.startsWith("custom:")) return; // custom GGUF: no HW rec
     fetchSystemRecommendation(activeModel)
       .then((r) => {
         setParallel(r.recommendedParallel);
@@ -768,6 +791,33 @@ export default function ModelSelector({
 
           {showAdvanced && (
             <div className="advanced-panel">
+              {/* ── Run-mode preset: Speed / Balanced / Max ──
+                  Bundles the LLM-work knobs below. Auto-selected by model
+                  (local → Speed, External Betty → Max); hand-tuning any knob
+                  below flips this to "Custom". */}
+              <div className="field">
+                <label>{t("run_mode")}</label>
+                <div className="run-mode-toggle" role="group">
+                  {(["speed", "balanced", "max"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`run-mode-pill${runMode === m ? " active" : ""}`}
+                      aria-pressed={runMode === m}
+                      onClick={() => setRunMode(m)}
+                    >
+                      {t(`run_mode_${m}`)}
+                    </button>
+                  ))}
+                  {runMode === "custom" && (
+                    <span className="run-mode-pill custom-active" aria-hidden>
+                      {t("run_mode_custom")}
+                    </span>
+                  )}
+                </div>
+                <span className="help-text">{t(`run_mode_${runMode}_help`)}</span>
+              </div>
+
               <div className="field">
                 <label>
                   {t("words_per_chunk")}: {wordsPerChunk}

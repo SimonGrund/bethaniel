@@ -198,6 +198,8 @@ export interface TaskRetrySpec {
   characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
+  /** Run-mode preset the concrete knobs were resolved from (logging only). */
+  runMode?: string;
   /** Story analysis: all manuscript chapters (the task spans the whole book). */
   units?: EditUnit[];
   /** Text evaluator: recurring-habit digest from a finished edit job. */

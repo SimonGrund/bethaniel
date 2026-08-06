@@ -13,6 +13,14 @@ import {
   buildCombinedEditPrompt,
   buildReviewerPrompt,
   buildStyleCompliancePrompt,
+  buildDevelopmentalReviewPrompt,
+  buildWritingReportPrompt,
+  buildPassageCritiquePrompt,
+  buildStoryReadPrompt,
+  buildPartSynthesisPrompt,
+  buildStorySynthesisPrompt,
+  buildAnalysisSummaryPrompt,
+  buildBlurbPrompt,
 } from "../src/prompts.ts";
 import {
   DEFAULT_COPY_EDIT_OPTIONS,
@@ -122,4 +130,68 @@ test("non-English suppresses English-only rules even when the options are on", (
   );
   assert.doesNotMatch(combined, /AMERICAN ENGLISH/);
   assert.doesNotMatch(combined, /OXFORD COMMA/);
+});
+
+// ── Report/analysis output language ──
+// The whole-manuscript modes produce prose ABOUT the book rather than edits to
+// it, so they take the opposite directive from the editor prompts: write the
+// output in the manuscript's language, but never translate quoted text.
+
+const REPORT_BUILDERS: [string, (lang?: string) => string][] = [
+  ["developmental review", (l) => buildDevelopmentalReviewPrompt(l)],
+  ["writing report", (l) => buildWritingReportPrompt(undefined, l)],
+  ["passage critique", (l) => buildPassageCritiquePrompt(undefined, l)],
+  ["story read", (l) => buildStoryReadPrompt(undefined, l)],
+  ["part synthesis", (l) => buildPartSynthesisPrompt(l)],
+  ["story synthesis", (l) => buildStorySynthesisPrompt(undefined, l)],
+  ["analysis summary", (l) => buildAnalysisSummaryPrompt(l)],
+  ["blurb", (l) => buildBlurbPrompt(l)],
+];
+
+for (const [name, build] of REPORT_BUILDERS) {
+  test(`${name} prompt: Danish output-language directive present`, () => {
+    const p = build("da");
+    assert.match(p, /OUTPUT LANGUAGE: Danish/);
+    assert.match(p, /entire response in Danish/i);
+  });
+
+  test(`${name} prompt: English/unset carries no output-language block`, () => {
+    const unset = build(undefined);
+    assert.equal(
+      unset,
+      build("en"),
+      "explicit 'en' must be byte-identical to unset",
+    );
+    assert.doesNotMatch(unset, /OUTPUT LANGUAGE/);
+  });
+
+  test(`${name} prompt: free-text language passes through verbatim`, () => {
+    assert.match(build("Icelandic"), /OUTPUT LANGUAGE: Icelandic/);
+  });
+}
+
+test("report prompts protect verbatim quotes from being translated", () => {
+  // The writing report and developmental report both quote the manuscript;
+  // translating a quote would misrepresent the author's own words.
+  for (const build of [
+    (l: string) => buildWritingReportPrompt(undefined, l),
+    (l: string) => buildDevelopmentalReviewPrompt(l),
+    (l: string) => buildPassageCritiquePrompt(undefined, l),
+  ]) {
+    assert.match(build("da"), /never translate a quote/i);
+  }
+});
+
+test("JSON analysis prompts keep keys and role values in English", () => {
+  // Story-read output is parsed by field name and `role` is a controlled
+  // vocabulary the merge logic compares — only free-text values are localized.
+  for (const build of [
+    (l: string) => buildStoryReadPrompt(undefined, l),
+    (l: string) => buildPartSynthesisPrompt(l),
+    (l: string) => buildStorySynthesisPrompt(undefined, l),
+  ]) {
+    const p = build("da");
+    assert.match(p, /JSON keys.*English/is);
+  }
+  assert.match(buildStorySynthesisPrompt(undefined, "da"), /role.*English/is);
 });

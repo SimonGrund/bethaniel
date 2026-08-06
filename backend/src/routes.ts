@@ -41,8 +41,8 @@ import {
   buildProofreadCorrectionsPrompt,
   buildTranslationPrompt,
   buildCombinedEditPrompt,
-  ANALYSIS_SUMMARY_PROMPT,
-  BLURB_PROMPT,
+  buildAnalysisSummaryPrompt,
+  buildBlurbPrompt,
 } from "./prompts.js";
 import type {
   TaskMode,
@@ -105,6 +105,7 @@ import {
   setConcurrency,
   getConcurrency,
 } from "./queue.js";
+import { resolveRunMode } from "./runModePresets.js";
 import type { DocumentMeta } from "./types.js";
 import { digestCorrections } from "./textEvaluator.js";
 
@@ -349,14 +350,21 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       characterDedup,
       styleComplianceAgent,
       extraPass,
+      runMode,
     } = req.body;
+
+    // Run-mode preset (speed / balanced / max). Fills any knob the caller
+    // omitted; explicitly-sent knobs still win (see the `?? preset ?? default`
+    // chain below). The UI resolves presets client-side and sends concrete
+    // knobs, so this mainly serves CLI/headless/benchmark callers.
+    const preset = resolveRunMode(runMode);
 
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} runMode=${runMode ?? "custom"} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -481,6 +489,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           wpc: wordsPerChunk ?? 2500,
           overlap: 0,
           styleGuide,
+          manuscriptLang,
           units: cleanedUnits,
         });
         taskIds.push(taskId);
@@ -513,6 +522,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           wpc: wordsPerChunk ?? 2500,
           overlap: 0,
           styleGuide,
+          manuscriptLang,
           units: cleanedUnits,
         });
         taskIds.push(taskId);
@@ -546,6 +556,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           wpc: wordsPerChunk ?? 2500,
           overlap: 0,
           styleGuide,
+          manuscriptLang,
           units: cleanedUnits,
         });
         taskIds.push(taskId);
@@ -648,19 +659,23 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           manuscriptLang:
             currentMode === "translate" ? undefined : manuscriptLang,
-          reviewMode: reviewMode ?? true,
-          reviewerThreshold: reviewerThreshold ?? 3,
-          reviewerCount: reviewerCount ?? 1,
-          spellCheck: spellCheck ?? true,
-          retextCheck: retextCheck ?? true,
-          grammarCheck: grammarCheck ?? true,
-          dualEditor: dualEditor ?? true,
-          dualCount: dualCount ?? 2,
+          reviewMode: reviewMode ?? preset?.reviewMode ?? true,
+          reviewerThreshold:
+            reviewerThreshold ?? preset?.reviewerThreshold ?? 3,
+          reviewerCount: reviewerCount ?? preset?.reviewerCount ?? 1,
+          spellCheck: spellCheck ?? preset?.spellCheck ?? true,
+          retextCheck: retextCheck ?? preset?.retextCheck ?? true,
+          grammarCheck: grammarCheck ?? preset?.grammarCheck ?? true,
+          dualEditor: dualEditor ?? preset?.dualEditor ?? true,
+          dualCount: dualCount ?? preset?.dualCount ?? 2,
           characterDedup: characterDedup ?? false,
-          styleComplianceAgent: styleComplianceAgent ?? true,
-          // Off unless the client asks: the UI always sends it explicitly;
-          // headless/API callers that omit it shouldn't get surprise 2× runs.
-          extraPass: extraPass === true,
+          styleComplianceAgent:
+            styleComplianceAgent ?? preset?.styleComplianceAgent ?? true,
+          // Off unless the client asks or a preset opts in (max): the UI always
+          // sends it explicitly; headless/API callers that omit both shouldn't
+          // get surprise 2× runs.
+          extraPass: extraPass === true || preset?.extraPass === true,
+          runMode,
           styleGuide,
         });
         taskIds.push(taskId);
@@ -808,7 +823,6 @@ router.post(
       const { jobId } = req.params;
       const { type } = req.body as { type?: string };
       const mode: TaskMode = type === "blurb" ? "blurb" : "analysis_summary";
-      const prompt = mode === "blurb" ? BLURB_PROMPT : ANALYSIS_SUMMARY_PROMPT;
       const name = mode === "blurb" ? "Blurb" : "Summary";
 
       // Find any existing summary/blurb task for this job and remove it
@@ -830,6 +844,12 @@ router.post(
         return;
       }
       const ref = siblings[0];
+      // Inherit the manuscript language from the analysis run this summarizes,
+      // so a re-spawned summary reads in the same language as the report.
+      const prompt =
+        mode === "blurb"
+          ? buildBlurbPrompt(ref.manuscriptLang)
+          : buildAnalysisSummaryPrompt(ref.manuscriptLang);
 
       const taskId = await submitTask({
         jobId,
@@ -840,6 +860,7 @@ router.post(
         model: ref.model ?? "",
         mode,
         prompt,
+        manuscriptLang: ref.manuscriptLang,
         wpc: 2500,
         overlap: 0,
       });
@@ -915,6 +936,9 @@ router.post(
         wpc: 2500,
         overlap: 0,
         styleGuide,
+        // Inherit from the edit run this report is generated from, so the
+        // report comes out in the same language as the manuscript.
+        manuscriptLang: ref.manuscriptLang,
         units,
         correctionsDigest,
       });

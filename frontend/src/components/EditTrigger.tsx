@@ -30,6 +30,7 @@ export default function EditTrigger() {
     characterDedup,
     styleComplianceAgent,
     extraPass,
+    runMode,
     wordsPerChunk,
     overlapParagraphs,
     parallel,
@@ -96,11 +97,11 @@ export default function EditTrigger() {
         targetLang: selectedModes.includes("translate")
           ? targetLang
           : undefined,
-        manuscriptLang: selectedModes.some(
-          (m) => m === "copy_edit" || m === "line_edit",
-        )
-          ? manuscriptLang
-          : undefined,
+        // Always sent — every corrections mode's prompt is built around it
+        // (copy, line, combined, and the proofread half of a final
+        // readthrough). The server drops it for translate tasks, where the
+        // target language is what matters.
+        manuscriptLang,
         reviewMode,
         reviewerThreshold,
         reviewerCount,
@@ -112,6 +113,7 @@ export default function EditTrigger() {
         characterDedup,
         styleComplianceAgent,
         extraPass,
+        runMode,
       });
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);

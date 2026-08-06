@@ -149,6 +149,33 @@ The manuscript is written in ${langName}. ALL corrections must stay in ${langNam
 `;
 }
 
+/**
+ * Output-language block for the whole-manuscript REPORT prompts (developmental
+ * report, writing report, story analysis, summary, blurb).
+ *
+ * These produce prose ABOUT the book rather than edits to it, so the directive
+ * is the mirror image of buildManuscriptLanguageBlock: the commentary must be
+ * written in the manuscript's language, while anything quoted from the
+ * manuscript stays exactly as the author wrote it.
+ *
+ * `json: true` adds the carve-out for machine-read output — keys and the
+ * controlled `role` vocabulary stay English so parsing and merging still work.
+ */
+function buildReportLanguageBlock(langName: string, json = false): string {
+  const base = `
+═══ OUTPUT LANGUAGE: ${langName} ═══
+The manuscript is written in ${langName}, so the author reads ${langName}. Write your entire response in ${langName} — every heading, sentence, bullet, and label.
+- This holds even if the material you are given is in another language: translate your own commentary into ${langName}. Do not answer in English out of habit.
+- Text quoted verbatim from the manuscript stays exactly as the author wrote it — never translate a quote.
+`;
+  if (!json) return base;
+  return (
+    base +
+    `- JSON keys, the JSON structure, and any fixed values enumerated in these instructions (such as "role" values and "kind" values) stay in English exactly as specified. Only the free-text values you write yourself — summaries, descriptions, one-liners, notes — are in ${langName}.
+`
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // STYLE SHEET (style guide) — shared, role-aware rendering
 // ═══════════════════════════════════════════════════════════════════
@@ -730,6 +757,13 @@ STRICT OUTPUT RULES — violating these makes the output unusable:
 - Do not address the reader. Do not refer to yourself, the model, the analysis process, or the input data. Write as if this were a back-cover synopsis.
 - Do not mention that sections were omitted, or that data was missing.`;
 
+export function buildAnalysisSummaryPrompt(manuscriptLang?: string): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    ANALYSIS_SUMMARY_PROMPT + (langName ? buildReportLanguageBlock(langName) : "")
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // DEVELOPMENTAL EDIT (manuscript-level critique from the story read)
 // ═══════════════════════════════════════════════════════════════════
@@ -772,6 +806,16 @@ STRICT OUTPUT RULES — violating these makes the output unusable:
 - END with the final bullet of the last section. No closing remarks, no "Let me know if…", no "I hope this helps", no notes about what you did.
 - Do not refer to yourself, the model, or the input JSON. Write directly to the author.`;
 
+export function buildDevelopmentalReviewPrompt(
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    DEVELOPMENTAL_REVIEW_PROMPT +
+    (langName ? buildReportLanguageBlock(langName) : "")
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // BLURB — marketing synopsis from analysis data
 // ═══════════════════════════════════════════════════════════════════
@@ -797,6 +841,11 @@ Rules:
 STRICT OUTPUT RULES:
 - Output ONLY the blurb paragraph. No preamble, no heading, no "Here is the blurb", no commentary.
 - The response must START with the first word of the blurb and END with the final period.`;
+
+export function buildBlurbPrompt(manuscriptLang?: string): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return BLURB_PROMPT + (langName ? buildReportLanguageBlock(langName) : "");
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // STORY READ — sequential whole-story analysis (chapter → part → story)
@@ -841,8 +890,16 @@ EVENT RULES:
 - If the chapter is a flashback or set at another time, say so in each event's timeReference.
 - Only report entities that actually appear or are referenced in THIS chapter.`;
 
-export function buildStoryReadPrompt(styleGuide?: string): string {
-  return STORY_READ_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+export function buildStoryReadPrompt(
+  styleGuide?: string,
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    STORY_READ_PROMPT +
+    buildStyleSheetBlock(styleGuide ?? "", "analysis") +
+    (langName ? buildReportLanguageBlock(langName, true) : "")
+  );
 }
 
 export const PART_SYNTHESIS_PROMPT = `You are a literary analyst. You receive JSON containing the chapter summaries of ONE part of a manuscript, plus the numbered events recorded while reading it.
@@ -858,6 +915,14 @@ TIER RULES:
 - tier 2 = MEDIUM: significant developments worth a medium-zoom timeline.
 - Do NOT list minor events: any event you leave out of "eventTiers" stays tier 3 (minor). Reference events by their "seq" number.`;
 
+export function buildPartSynthesisPrompt(manuscriptLang?: string): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    PART_SYNTHESIS_PROMPT +
+    (langName ? buildReportLanguageBlock(langName, true) : "")
+  );
+}
+
 export const STORY_SYNTHESIS_PROMPT = `You are a literary analyst. You receive JSON describing an entire manuscript that was read chapter by chapter: part summaries, chapter summaries, and the full entity registry of characters (ids "C…") and locations (ids "L…").
 
 Respond with STRICT JSON ONLY:
@@ -872,8 +937,16 @@ RULES:
 - Only include locationSignificance entries for places with real story weight.
 - Base everything ONLY on the provided material — never invent plot that is not supported by it.`;
 
-export function buildStorySynthesisPrompt(styleGuide?: string): string {
-  return STORY_SYNTHESIS_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "analysis");
+export function buildStorySynthesisPrompt(
+  styleGuide?: string,
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    STORY_SYNTHESIS_PROMPT +
+    buildStyleSheetBlock(styleGuide ?? "", "analysis") +
+    (langName ? buildReportLanguageBlock(langName, true) : "")
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -916,9 +989,15 @@ RULES:
 - Respect the author's voice: dialect, fragments, and stylistic quirks used consistently are choices, not flaws.
 - Write every "note" in the same language as the passage.`;
 
-export function buildPassageCritiquePrompt(styleGuide?: string): string {
+export function buildPassageCritiquePrompt(
+  styleGuide?: string,
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
   return (
-    PASSAGE_CRITIQUE_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "evaluator")
+    PASSAGE_CRITIQUE_PROMPT +
+    buildStyleSheetBlock(styleGuide ?? "", "evaluator") +
+    (langName ? buildReportLanguageBlock(langName) : "")
   );
 }
 
@@ -961,9 +1040,15 @@ STRICT OUTPUT RULES — violating these makes the output unusable:
 - The response must END with the final bullet of the last section. No closing remarks, no offers of further help, no "Let me know if…", no "I hope this helps".
 - Do not refer to yourself, the model, or the analysis process.`;
 
-export function buildWritingReportPrompt(styleGuide?: string): string {
+export function buildWritingReportPrompt(
+  styleGuide?: string,
+  manuscriptLang?: string,
+): string {
+  const langName = manuscriptLangName(manuscriptLang);
   return (
-    WRITING_REPORT_PROMPT + buildStyleSheetBlock(styleGuide ?? "", "evaluator")
+    WRITING_REPORT_PROMPT +
+    buildStyleSheetBlock(styleGuide ?? "", "evaluator") +
+    (langName ? buildReportLanguageBlock(langName) : "")
   );
 }
 

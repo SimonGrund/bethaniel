@@ -41,6 +41,73 @@ const DEFAULT_FIRST_N_WORDS = 5000;
 const DEFAULT_TARGET_LANG = "English";
 const DEFAULT_MANUSCRIPT_LANG = "en";
 
+// ── Run-mode presets ─────────────────────────────────────────────────────
+// A run mode bundles the advanced LLM-work knobs into one choice. It sets only
+// values the pipeline already reads — no new orchestration. Deterministic
+// checks (spell/retext/grammar) stay ON in every preset because they are cheap,
+// local, and catch most mechanical errors. `parallel` is handled separately by
+// the model-change auto-tune (hardware recommendation / API ceiling), not here.
+// Mirrors backend/src/runModePresets.ts — keep the two tables in sync.
+export type RunMode = "speed" | "balanced" | "max" | "custom";
+const DEFAULT_RUN_MODE: RunMode = "speed";
+
+interface RunModeKnobs {
+  reviewMode: boolean;
+  reviewerCount: number;
+  reviewerThreshold: number;
+  spellCheck: boolean;
+  retextCheck: boolean;
+  grammarCheck: boolean;
+  dualEditor: boolean;
+  dualCount: number;
+  styleComplianceAgent: boolean;
+  extraPass: boolean;
+}
+
+const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
+  // Local default: 1 editor + style agent + 1 reviewer. No thorough 2nd pass.
+  speed: {
+    reviewMode: true,
+    reviewerCount: 1,
+    reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
+    spellCheck: true,
+    retextCheck: true,
+    grammarCheck: true,
+    dualEditor: false,
+    dualCount: DEFAULT_DUAL_COUNT,
+    styleComplianceAgent: true,
+    extraPass: false,
+  },
+  // 2 editors + style agent + 1 reviewer. No thorough 2nd pass.
+  balanced: {
+    reviewMode: true,
+    reviewerCount: 1,
+    reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
+    spellCheck: true,
+    retextCheck: true,
+    grammarCheck: true,
+    dualEditor: true,
+    dualCount: 2,
+    styleComplianceAgent: true,
+    extraPass: false,
+  },
+  // External Betty default: 3 editors + style agent + 2 reviewers + 2nd pass.
+  max: {
+    reviewMode: true,
+    reviewerCount: 2,
+    reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
+    spellCheck: true,
+    retextCheck: true,
+    grammarCheck: true,
+    dualEditor: true,
+    dualCount: 3,
+    styleComplianceAgent: true,
+    extraPass: true,
+  },
+};
+
+const DEFAULT_KNOBS = RUN_MODE_PRESETS[DEFAULT_RUN_MODE];
+
 interface AppState {
   // Language
   lang: Lang;
@@ -79,10 +146,14 @@ interface AppState {
   setExtraPass: (b: boolean) => void;
   parallel: number;
   setParallel: (n: number) => void;
+  // Run-mode preset bundling the knobs above. "custom" = hand-tuned.
+  runMode: RunMode;
+  setRunMode: (m: RunMode) => void;
 
   // Task mode
   selectedModes: TaskMode[];
   toggleMode: (m: TaskMode) => void;
+  setSelectedModes: (modes: TaskMode[]) => void;
   copyEditOptions: CopyEditOptions;
   setCopyEditOption: <K extends keyof CopyEditOptions>(
     key: K,
@@ -259,31 +330,44 @@ export const useStore = create<AppState>()(
       setWordsPerChunk: (wordsPerChunk) => set({ wordsPerChunk }),
       overlapParagraphs: DEFAULT_OVERLAP,
       setOverlapParagraphs: (overlapParagraphs) => set({ overlapParagraphs }),
-      reviewMode: true,
-      setReviewMode: (reviewMode) => set({ reviewMode }),
-      reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
-      setReviewerThreshold: (reviewerThreshold) => set({ reviewerThreshold }),
-      reviewerCount: DEFAULT_REVIEWER_COUNT,
-      setReviewerCount: (reviewerCount) => set({ reviewerCount }),
-      spellCheck: true,
-      setSpellCheck: (spellCheck) => set({ spellCheck }),
-      retextCheck: true,
-      setRetextCheck: (retextCheck) => set({ retextCheck }),
-      grammarCheck: true,
-      setGrammarCheck: (grammarCheck) => set({ grammarCheck }),
-      dualEditor: true,
-      setDualEditor: (dualEditor) => set({ dualEditor }),
-      dualCount: DEFAULT_DUAL_COUNT,
-      setDualCount: (dualCount) => set({ dualCount }),
+      reviewMode: DEFAULT_KNOBS.reviewMode,
+      setReviewMode: (reviewMode) => set({ reviewMode, runMode: "custom" }),
+      reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
+      setReviewerThreshold: (reviewerThreshold) =>
+        set({ reviewerThreshold, runMode: "custom" }),
+      reviewerCount: DEFAULT_KNOBS.reviewerCount,
+      setReviewerCount: (reviewerCount) =>
+        set({ reviewerCount, runMode: "custom" }),
+      spellCheck: DEFAULT_KNOBS.spellCheck,
+      setSpellCheck: (spellCheck) => set({ spellCheck, runMode: "custom" }),
+      retextCheck: DEFAULT_KNOBS.retextCheck,
+      setRetextCheck: (retextCheck) => set({ retextCheck, runMode: "custom" }),
+      grammarCheck: DEFAULT_KNOBS.grammarCheck,
+      setGrammarCheck: (grammarCheck) =>
+        set({ grammarCheck, runMode: "custom" }),
+      dualEditor: DEFAULT_KNOBS.dualEditor,
+      setDualEditor: (dualEditor) => set({ dualEditor, runMode: "custom" }),
+      dualCount: DEFAULT_KNOBS.dualCount,
+      setDualCount: (dualCount) => set({ dualCount, runMode: "custom" }),
       characterDedup: false,
       setCharacterDedup: (characterDedup) => set({ characterDedup }),
-      styleComplianceAgent: true,
+      styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
       setStyleComplianceAgent: (styleComplianceAgent) =>
-        set({ styleComplianceAgent }),
-      extraPass: true,
-      setExtraPass: (extraPass) => set({ extraPass }),
+        set({ styleComplianceAgent, runMode: "custom" }),
+      extraPass: DEFAULT_KNOBS.extraPass,
+      setExtraPass: (extraPass) => set({ extraPass, runMode: "custom" }),
       parallel: DEFAULT_PARALLEL,
       setParallel: (parallel) => set({ parallel }),
+      runMode: DEFAULT_RUN_MODE,
+      setRunMode: (runMode) => {
+        if (runMode === "custom") {
+          set({ runMode });
+          return;
+        }
+        // Apply the preset's knobs in one update; `parallel` is left to the
+        // model-change auto-tune in ModelSelector.
+        set({ runMode, ...RUN_MODE_PRESETS[runMode] });
+      },
 
       selectedModes: ["copy_edit"],
       toggleMode: (m) =>
@@ -297,6 +381,13 @@ export const useStore = create<AppState>()(
           }
           return { selectedModes: [...state.selectedModes, m] };
         }),
+      // Atomic replacement — used wherever a whole selection is swapped at once
+      // (category switches, the editing panel's exclusivity rules). Same
+      // invariant as toggleMode: never leave the selection empty.
+      setSelectedModes: (modes) =>
+        set((state) =>
+          modes.length === 0 ? state : { selectedModes: [...modes] },
+        ),
       copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
       setCopyEditOption: (key, val) =>
         set((state) => ({
@@ -659,17 +750,18 @@ export const useStore = create<AppState>()(
           highlightedModel: "",
           wordsPerChunk: DEFAULT_WORDS_PER_CHUNK,
           overlapParagraphs: DEFAULT_OVERLAP,
-          reviewMode: true,
-          reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
-          reviewerCount: DEFAULT_REVIEWER_COUNT,
-          spellCheck: true,
-          retextCheck: true,
-          grammarCheck: true,
-          dualEditor: true,
-          dualCount: DEFAULT_DUAL_COUNT,
+          runMode: DEFAULT_RUN_MODE,
+          reviewMode: DEFAULT_KNOBS.reviewMode,
+          reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
+          reviewerCount: DEFAULT_KNOBS.reviewerCount,
+          spellCheck: DEFAULT_KNOBS.spellCheck,
+          retextCheck: DEFAULT_KNOBS.retextCheck,
+          grammarCheck: DEFAULT_KNOBS.grammarCheck,
+          dualEditor: DEFAULT_KNOBS.dualEditor,
+          dualCount: DEFAULT_KNOBS.dualCount,
           characterDedup: false,
-          styleComplianceAgent: true,
-          extraPass: true,
+          styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
+          extraPass: DEFAULT_KNOBS.extraPass,
           parallel: DEFAULT_PARALLEL,
           selectedModes: ["copy_edit"],
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -724,6 +816,7 @@ export const useStore = create<AppState>()(
         manuscriptLang: state.manuscriptLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,
+        runMode: state.runMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
         reviewerCount: state.reviewerCount,
