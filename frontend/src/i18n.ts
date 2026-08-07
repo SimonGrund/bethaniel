@@ -1243,16 +1243,9 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ausgabe",
     es: "Salida",
   },
-  // ── Category cards. The names read as continuations of `betty_help_intro`
-  // ("I need Betty's help to… Develop manuscript"), so keep them verb-first. ──
-  betty_help_intro: {
-    en: "I need Betty's help to…",
-    da: "Jeg har brug for Bettys hjælp til at…",
-    // German card names are bare infinitive phrases ("Manuskript entwickeln"),
-    // which can't hang off a "zu"-clause — so the lead-in ends in a colon.
-    de: "Ich brauche Bettys Hilfe:",
-    es: "Necesito que Betty me ayude a…",
-  },
+  // ── Category cards. These once hung off a "I need Betty's help to…" lead-in,
+  // which was dropped as redundant above the section's own heading. They now
+  // stand alone, so keep them as self-contained imperatives. ──
   group_editing: {
     en: "Develop manuscript",
     // Danish names are infinitives so they chain off "…hjælp til at…".
