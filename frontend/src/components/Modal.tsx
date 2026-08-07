@@ -6,6 +6,7 @@
 // that were missing.
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -69,7 +70,14 @@ export default function Modal({
 
   if (!open) return null;
 
-  return (
+  // Rendered into document.body rather than in place. `position: fixed` and a
+  // high z-index are not enough on their own: an ancestor that forms a stacking
+  // context traps the overlay inside it. The sidebar is `position: sticky`,
+  // which always creates one, so a modal opened from there painted *underneath*
+  // .main-content — the page content covered the dialog, which made it look
+  // half-transparent and left its buttons unclickable (clicks landed on the
+  // content in front). The portal escapes every such context.
+  return createPortal(
     <div
       className="model-confirm-overlay"
       onClick={onClose}
@@ -85,6 +93,7 @@ export default function Modal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

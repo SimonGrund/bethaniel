@@ -3471,7 +3471,11 @@ summary.review-source::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  /* Above every piece of page chrome (log FAB and the sticky bars all sit at
+     1000 or below), but still under transient toasts (9999) and the first-run
+     coachmark tour (9990-9992). Modal now portals into <body>, so this value is
+     compared against the page directly rather than inside a stacking context. */
+  z-index: 5000;
 }
 
 .model-confirm-dialog {
@@ -3503,9 +3507,21 @@ summary.review-source::before {
 }
 
 /* ── Storage & data ── */
+/* Fully opaque on purpose: this panel lists byte counts and destructive
+   buttons, and the app's logo watermark showing through made the numbers hard
+   to read. The scrim behind it is darkened past the shared default for the
+   same reason. */
 .storage-dialog {
   max-width: 560px;
   width: 100%;
+  background: #faf8f4;
+  opacity: 1;
+  backdrop-filter: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+}
+
+.model-confirm-overlay:has(> .storage-dialog) {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .storage-settings h3 {
