@@ -145,6 +145,37 @@ jobs:
           }
           Write-Host "OK: --delete-app-data reclaimed the app data dir"
 
+  # macOS and Linux uninstall through the in-app menu item, which no CI runner
+  # can click. This guards the part that actually regressed: removeUserData()
+  # once deleted only data/ and models/, leaving the Chromium profile — so the
+  # settings and the seen-the-intro flag survived a "delete everything" and a
+  # reinstall came up non-blank. Windows was unaffected and its job stayed
+  # green throughout, which is exactly why this needs its own check.
+  menu-uninstall-scope:
+    name: macOS/Linux — uninstall clears all of userData
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: removeUserData must target the userData root
+        run: |
+          body=$(awk '/^function removeUserData/,/^}/' electron/main.ts)
+          echo "$body"
+          echo "$body" | grep -q 'app.getPath("userData")' \
+            || { echo "FAIL: removeUserData no longer targets the userData root"; exit 1; }
+          if echo "$body" | grep -qE '\["data", *"models"\]'; then
+            echo "FAIL: removeUserData is back to deleting only data/ and models/ —"
+            echo "      that leaves Local Storage (settings, hasSeenIntro) behind."
+            exit 1
+          fi
+          echo "OK: uninstall removes the whole userData directory"
+
+      - name: In-app "delete everything" must clear renderer storage too
+        run: |
+          f=frontend/src/components/StorageSettings.tsx
+          grep -q "clearStorage" "$f" \
+            || { echo "FAIL: full purge no longer clears the persisted store"; exit 1; }
+          echo "OK: in-app purge clears localStorage as well as disk"
+
   linux:
     name: Linux — deb postrm
     runs-on: ubuntu-latest
