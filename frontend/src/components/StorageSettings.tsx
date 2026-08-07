@@ -74,6 +74,18 @@ export default function StorageSettings() {
     setPending(null);
     try {
       const result = await purgeStorage(selectionFor(cat));
+
+      // The backend deletes files; it cannot reach the renderer's
+      // localStorage. Without this, "delete everything" left the language,
+      // model choice, wizard progress and the seen-the-intro flag behind — the
+      // app looked freshly installed to the disk and not at all fresh to the
+      // user. Reload so the next paint is a genuine first run.
+      if (cat === "all") {
+        useStore.persist?.clearStorage?.();
+        window.location.reload();
+        return;
+      }
+
       setFreed(result.bytesFreed);
       await refresh();
     } catch (err) {

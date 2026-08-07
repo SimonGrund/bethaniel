@@ -333,14 +333,24 @@ function formatBytes(bytes: number): string {
   return `${Math.round(bytes / 1e3)} KB`;
 }
 
-/** Delete the runtime dirs directly — the backend is being torn down. */
+/**
+ * Delete everything under userData — the backend is already torn down.
+ *
+ * This used to remove only `data` and `models`, which quietly broke the
+ * promise on the checkbox: the renderer's Chromium profile stayed behind, so
+ * `Local Storage` kept the language, model choice and the "seen the intro"
+ * flag, and several hundred MB of `Cache` survived a "delete everything".
+ * A reinstall then looked blank but wasn't — no first-run tour, old settings.
+ *
+ * Windows already did the right thing (`RMDir /r "$APPDATA\Bethaniel"` in
+ * build/installer.nsh); this brings macOS and Linux in line.
+ */
 function removeUserData(): void {
-  for (const sub of ["data", "models"]) {
-    try {
-      fs.rmSync(userDataPath(sub), { recursive: true, force: true });
-    } catch (err) {
-      console.error(`[uninstall] could not remove ${sub}:`, err);
-    }
+  const root = app.getPath("userData");
+  try {
+    fs.rmSync(root, { recursive: true, force: true });
+  } catch (err) {
+    console.error("[uninstall] could not remove user data:", err);
   }
 }
 
