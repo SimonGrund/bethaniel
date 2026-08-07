@@ -75,9 +75,7 @@ async function setupStaticFrontend() {
 
 async function ensureDirs() {
   const dataDir = process.env.DATA_DIR ?? "./data";
-  const resultsDir = process.env.RESULTS_DIR ?? "./results";
   await fs.mkdir(dataDir, { recursive: true });
-  await fs.mkdir(resultsDir, { recursive: true });
 }
 
 async function start() {

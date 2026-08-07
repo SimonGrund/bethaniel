@@ -104,6 +104,12 @@ export function deleteDocument(id: string): void {
   d.prepare("DELETE FROM documents WHERE id = ?").run(id);
 }
 
+/** Drop every stored document — used by the "Storage & data" purge. */
+export function deleteAllDocuments(): void {
+  const d = getDb();
+  d.prepare("DELETE FROM documents").run();
+}
+
 export function saveStyleGuide(content: string): void {
   const d = getDb();
   d.prepare(

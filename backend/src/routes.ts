@@ -107,6 +107,12 @@ import {
   getConcurrency,
 } from "./queue.js";
 import { resolveRunMode } from "./runModePresets.js";
+import {
+  getStorageUsage,
+  purge,
+  deleteModelFiles,
+  deleteDocumentMedia,
+} from "./storage.js";
 import type { DocumentMeta } from "./types.js";
 import { digestCorrections } from "./textEvaluator.js";
 
@@ -196,8 +202,10 @@ router.get("/documents", (_req: Request, res: Response) => {
 });
 
 // ── Delete document ──
-router.delete("/documents/:id", (req: Request, res: Response) => {
+router.delete("/documents/:id", async (req: Request, res: Response) => {
   deleteDocument(req.params.id);
+  // Extracted .docx images live outside the DB and would otherwise be orphaned.
+  await deleteDocumentMedia(req.params.id);
   res.json({ ok: true });
 });
 
@@ -1843,13 +1851,10 @@ router.delete("/models/:fileName", async (req: Request, res: Response) => {
     return;
   }
 
-  const filePath = join(MODELS_DIR_PATH, fileName);
-  try {
-    await fs.unlink(filePath);
-    res.json({ ok: true });
-  } catch {
-    res.json({ ok: true }); // already gone
-  }
+  // Removes the .gguf plus its config sidecar and any interrupted-download
+  // .partial — all three were previously orphaned on disk.
+  const { bytesFreed } = await deleteModelFiles(MODELS_DIR_PATH, fileName);
+  res.json({ ok: true, bytesFreed });
 });
 
 // ── GET /api/models/:fileName/config ──
@@ -1931,9 +1936,55 @@ router.delete("/models/:fileName/config", (req: Request, res: Response) => {
   res.json({ ...defaults, defaults });
 });
 
+// ── Storage accounting & purge ──
+// Backs the in-app "Storage & data" screen and the Electron uninstall dialog.
+
+router.get("/storage/usage", async (_req: Request, res: Response) => {
+  res.json(await getStorageUsage());
+});
+
+router.post("/storage/purge", async (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as {
+    models?: boolean;
+    documents?: boolean;
+    settings?: boolean;
+  };
+  const opts = {
+    models: body.models === true,
+    documents: body.documents === true,
+    settings: body.settings === true,
+  };
+  if (!opts.models && !opts.documents && !opts.settings) {
+    res.status(400).json({ error: "Nothing selected to delete" });
+    return;
+  }
+
+  // llama-server holds an open handle on the loaded GGUF; on Windows the bytes
+  // stay allocated until it lets go, so stop it before unlinking.
+  if (opts.models) unloadCurrentModel();
+
+  try {
+    const result = await purge(opts);
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Storage purge freed ${(result.bytesFreed / 1e9).toFixed(2)} GB (${result.removed.length} items)`,
+    });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ── Diagnostic logs ──
 import { getLogSnapshot, clearLogs, appendLog } from "./logBus.js";
-import { ensureModelLoaded, fitsInVram } from "./llamaServer.js";
+import {
+  ensureModelLoaded,
+  fitsInVram,
+  unloadCurrentModel,
+} from "./llamaServer.js";
 
 router.get("/logs", (_req: Request, res: Response) => {
   res.json({ logs: getLogSnapshot() });

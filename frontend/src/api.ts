@@ -5,6 +5,8 @@ import type {
   HardwareInfo,
   InstalledModel,
   ModelRecommendation,
+  PurgeSelection,
+  StorageUsage,
 } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -398,4 +400,22 @@ export async function saveCustomGgufConfig(ggufPath: string) {
 
 export async function deleteCustomGgufConfig() {
   await apiFetch("/models/custom-gguf/config", { method: "DELETE" });
+}
+
+// ── Storage & data ──
+
+export async function fetchStorageUsage(): Promise<StorageUsage> {
+  const res = await apiFetch("/storage/usage");
+  return res.json();
+}
+
+export async function purgeStorage(
+  selection: PurgeSelection,
+): Promise<{ bytesFreed: number; removed: string[] }> {
+  const res = await apiFetch("/storage/purge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(selection),
+  });
+  return res.json();
 }

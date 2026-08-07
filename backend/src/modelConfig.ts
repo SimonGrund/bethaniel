@@ -77,7 +77,10 @@ export function getDefaultsForFile(ggufFileName: string): ModelSettings {
  * Config JSON path for a given GGUF file.
  * E.g. "Qwen3.5-4B-Q4_K_M.gguf" → "Qwen3.5-4B-Q4_K_M.json"
  */
-function configPathForModel(modelsDir: string, ggufFileName: string): string {
+export function configPathForModel(
+  modelsDir: string,
+  ggufFileName: string,
+): string {
   const base = ggufFileName.replace(/\.gguf$/i, "");
   return path.join(modelsDir, `${base}.json`);
 }

@@ -8,10 +8,17 @@ import type { ModelRecommendation, PerfAdvice } from "./types";
 
 type Translate = (key: string) => string;
 
-/** "2.8 GB" / "640 MB". */
+/** "2.8 GB" / "640 MB" / "12 KB" / "218 B". */
 export function formatBytes(bytes: number): string {
   const gb = bytes / 1024 ** 3;
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1024 ** 2).toFixed(0)} MB`;
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  if (mb >= 1) return `${mb.toFixed(0)} MB`;
+  // Storage & data lists config sidecars and API-key files, which are bytes —
+  // without these branches they all rendered as a confusing "0 MB".
+  const kb = bytes / 1024;
+  if (kb >= 1) return `${kb.toFixed(0)} KB`;
+  return `${bytes} B`;
 }
 
 /** "1 hour 20 minutes" / "45 minutes", from a duration in seconds. */

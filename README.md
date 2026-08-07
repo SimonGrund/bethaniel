@@ -214,7 +214,6 @@ You can also call the launcher directly without installing:
 | `LLAMA_BIN`      | `llama-server` | Path to llama-server binary   |
 | `MODELS_DIR`     | `./models`     | GGUF model storage            |
 | `DATA_DIR`       | `./data`       | SQLite + uploaded manuscripts |
-| `RESULTS_DIR`    | `./results`    | Edit results on disk          |
 
 ## Distributing to Customers
 

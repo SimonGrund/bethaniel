@@ -3,7 +3,7 @@
 // via the backend's supervisor, and opens a BrowserWindow pointed at the
 // backend's built-in frontend.
 
-import { app, BrowserWindow, shell, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, shell, dialog, ipcMain, Menu } from "electron";
 import { ChildProcess, fork, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -69,7 +69,7 @@ function userDataPath(...segments: string[]): string {
 
 // Ensure user-data sub-dirs exist
 function ensureUserDirs(): void {
-  for (const sub of ["data", "results", "models"]) {
+  for (const sub of ["data", "models"]) {
     const dir = userDataPath(sub);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }
@@ -210,6 +210,184 @@ let mainWindow: BrowserWindow | null = null;
 let backendPort = 4000;
 let isQuitting = false;
 
+// ── Uninstall ──
+//
+// Only Windows has a real uninstaller hook (build/installer.nsh prompts there).
+// macOS has none at all — drag-to-Trash would silently strand >20 GB of models
+// in ~/Library/Application Support — and apt's postrm runs as root and
+// non-interactively, so it can't safely touch a user's home dir. This menu item
+// is the cross-platform answer: it always offers to reclaim the data, and on
+// macOS it also trashes the app bundle.
+
+/** GET the backend's storage breakdown so the dialog can show a real number. */
+function fetchStorageUsage(port: number): Promise<{ total: number } | null> {
+  return new Promise((resolve) => {
+    const req = http.get(
+      `http://127.0.0.1:${port}/api/storage/usage`,
+      (res) => {
+        let raw = "";
+        res.on("data", (d) => (raw += d));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(raw) as { total: number });
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on("error", () => resolve(null));
+    req.setTimeout(4000, () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
+  return `${Math.round(bytes / 1e3)} KB`;
+}
+
+/** Delete the runtime dirs directly — the backend is being torn down. */
+function removeUserData(): void {
+  for (const sub of ["data", "models"]) {
+    try {
+      fs.rmSync(userDataPath(sub), { recursive: true, force: true });
+    } catch (err) {
+      console.error(`[uninstall] could not remove ${sub}:`, err);
+    }
+  }
+}
+
+async function runUninstall(): Promise<void> {
+  const usage = await fetchStorageUsage(backendPort);
+  const sizeLabel = usage ? ` (${formatBytes(usage.total)})` : "";
+
+  const isMac = process.platform === "darwin";
+  const detail = isMac
+    ? "Bethaniel will be moved to the Trash."
+    : "This will close Bethaniel and open the system uninstaller.";
+
+  const { response, checkboxChecked } = await dialog.showMessageBox({
+    type: "warning",
+    title: "Uninstall Bethaniel",
+    message: "Uninstall Bethaniel?",
+    detail,
+    checkboxLabel: `Also delete my downloaded models, manuscripts and settings${sizeLabel}`,
+    checkboxChecked: false,
+    buttons: ["Cancel", "Uninstall"],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (response !== 1) return;
+
+  if (checkboxChecked) {
+    const confirm = await dialog.showMessageBox({
+      type: "warning",
+      title: "Delete all data?",
+      message: `Permanently delete ${usage ? formatBytes(usage.total) : "all"} of local data?`,
+      detail:
+        "Your downloaded models, uploaded manuscripts, edit history and saved API key will be removed. This cannot be undone.",
+      buttons: ["Cancel", "Delete everything"],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    if (confirm.response !== 1) return;
+  }
+
+  // Stop the backend (and, through it, llama-server + LanguageTool) so no
+  // process is holding a handle on the model files we are about to unlink.
+  isQuitting = true;
+  if (backendProcess && !backendProcess.killed) {
+    backendProcess.kill("SIGTERM");
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  if (checkboxChecked) removeUserData();
+
+  if (isMac) {
+    try {
+      // .../Bethaniel.app/Contents/MacOS/Bethaniel → .../Bethaniel.app
+      const appBundle = path.resolve(app.getPath("exe"), "..", "..", "..");
+      if (appBundle.endsWith(".app")) await shell.trashItem(appBundle);
+    } catch (err) {
+      console.error("[uninstall] could not trash the app bundle:", err);
+      dialog.showMessageBox({
+        type: "info",
+        title: "Almost done",
+        message: "Your data has been removed.",
+        detail:
+          "Bethaniel could not move itself to the Trash — please drag it there from your Applications folder.",
+      });
+    }
+  } else if (process.platform === "win32") {
+    // electron-builder's oneClick NSIS installer puts the uninstaller beside
+    // the app. Launching it hands over to build/installer.nsh.
+    const uninstaller = path.resolve(
+      app.getPath("exe"),
+      "..",
+      "Uninstall Bethaniel.exe",
+    );
+    if (fs.existsSync(uninstaller)) shell.openPath(uninstaller);
+    else shell.openPath("appwiz.cpl");
+  } else {
+    dialog.showMessageBox({
+      type: "info",
+      title: "Finish in your package manager",
+      message: checkboxChecked
+        ? "Your data has been removed."
+        : "Your data has been kept.",
+      detail:
+        "Remove the application itself with:  sudo apt remove bethaniel\n(or delete the AppImage file).",
+    });
+  }
+
+  app.quit();
+}
+
+/** Application menu — the app ran on Electron's default menu before this. */
+function buildAppMenu(): void {
+  const isMac = process.platform === "darwin";
+  const uninstallItem: Electron.MenuItemConstructorOptions = {
+    label: "Uninstall Bethaniel…",
+    click: () => void runUninstall(),
+  };
+
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? ([
+          {
+            label: "Bethaniel",
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              uninstallItem,
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ] as Electron.MenuItemConstructorOptions[])
+      : []),
+    {
+      label: "File",
+      submenu: isMac
+        ? [{ role: "close" }]
+        : [uninstallItem, { type: "separator" }, { role: "quit" }],
+    },
+    { label: "Edit", role: "editMenu" },
+    { label: "View", role: "viewMenu" },
+    { label: "Window", role: "windowMenu" },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 // ── IPC: Native file picker for GGUF models ──
 ipcMain.handle("dialog:openGguf", async () => {
   const result = await dialog.showOpenDialog({
@@ -225,6 +403,7 @@ ipcMain.handle("dialog:openGguf", async () => {
 
 app.whenReady().then(async () => {
   ensureUserDirs();
+  buildAppMenu();
 
   backendPort = IS_DEV ? 4000 : await getFreePort();
 
@@ -237,7 +416,6 @@ app.whenReady().then(async () => {
     PORT: String(backendPort),
     HOST: "127.0.0.1",
     DATA_DIR: userDataPath("data"),
-    RESULTS_DIR: userDataPath("results"),
     MODELS_DIR: userDataPath("models"),
     LLAMA_BIN: llamaBin,
     LLAMA_PORT: String(llamaPort),
