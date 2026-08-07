@@ -9,6 +9,8 @@ import EditTrigger from "./EditTrigger";
 import EngineStatus from "./EngineStatus";
 import RunModeSlider from "./RunModeSlider";
 import ModelDownloadStrip from "./ModelDownloadStrip";
+import StorageSettings from "./StorageSettings";
+import Modal from "./Modal";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -18,6 +20,7 @@ export default function Sidebar() {
   const t = useTranslation(lang);
   const [confirm, setConfirm] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [storageOpen, setStorageOpen] = useState(false);
 
   // Distinct jobs with work still queued/running. While any exist the footer
   // button becomes "Stop job" instead of "Start over".
@@ -122,7 +125,32 @@ export default function Sidebar() {
         >
           {t("former_runs")}
         </button>
+        <button
+          type="button"
+          className="btn-former-runs"
+          onClick={() => setStorageOpen(true)}
+        >
+          {t("storage_title")}
+        </button>
       </div>
+
+      <Modal
+        open={storageOpen}
+        onClose={() => setStorageOpen(false)}
+        labelledBy="storage-title"
+        className="storage-dialog"
+      >
+        <StorageSettings />
+        <div className="model-confirm-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setStorageOpen(false)}
+          >
+            {t("btn_close")}
+          </button>
+        </div>
+      </Modal>
     </aside>
   );
 }

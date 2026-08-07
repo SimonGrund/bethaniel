@@ -94,6 +94,7 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `languageToolServer.ts` | LanguageTool Java server supervisor (spawn/health/shutdown); degrades to no-op when the jar/Java is absent |
 | `logBus.ts` | Ring-buffer log bus — broadcasts engine messages to Socket.IO |
 | `sceneBreaks.ts` | Detect and normalize scene-break markers on upload |
+| `storage.ts` | Disk usage accounting + purge (models / documents / settings); backs `/api/storage/*`, the "Storage & data" panel and the uninstall flow |
 
 ### Frontend (`frontend/src/`)
 
@@ -137,6 +138,17 @@ Models are identified by `source` in `modelCatalog.ts`:
 
 `electron/main.ts` forks the compiled backend at a random free port, sets `LLAMA_BASE_URL` so the backend knows how to reach llama-server (managed by the backend's own supervisor), and opens a BrowserWindow at the backend URL. `electron-builder.yml` configures platform targets. The bundled `llama-server` binary lives under `electron/resources/llama/<platform-arch>/`.
 
+### Uninstall & user data
+
+All runtime data lives under `app.getPath("userData")` — `~/Library/Application Support/Bethaniel` (macOS), `%APPDATA%\Bethaniel` (Windows), `~/.config/Bethaniel` (Linux) — with `data/` and `models/` subdirs. Downloaded GGUFs make this large: a full catalog exceeds 20 GB.
+
+Uninstalling never removes it silently. Each platform asks first:
+
+- **Windows** — `build/installer.nsh` defines `customUnInstall`, which prompts and then `RMDir /r`s the app-data dir. `deleteAppDataOnUninstall` stays `false` so this macro owns the decision. **The `${isUpdated}` / `${Silent}` guard is load-bearing**: with `oneClick: true` the auto-updater runs this same uninstaller silently on every update, so without it a routine version bump would wipe the user's models.
+- **macOS / Linux** — the OS gives no usable hook (drag-to-Trash has none; deb `postrm` runs as root and non-interactively). The **Uninstall Bethaniel…** menu item in `electron/main.ts` covers both: it prompts with a checkbox, deletes the userData dirs, and on macOS trashes the app bundle. `build/deb-postrm.sh` only prints where the data lives.
+
+`StorageSettings.tsx` (opened from the sidebar) is the in-app equivalent, available on every platform.
+
 ### Environment variables
 
 | Variable | Default | Notes |
@@ -146,7 +158,6 @@ Models are identified by `source` in `modelCatalog.ts`:
 | `LLAMA_BIN` | `llama-server` | Path override for the llama-server binary |
 | `MODELS_DIR` | `./models` | GGUF model storage |
 | `DATA_DIR` | `./data` | SQLite DB + uploaded manuscripts |
-| `RESULTS_DIR` | `./results` | Edit results on disk |
 | `LANGUAGETOOL_JAR` | _(empty)_ | Path to `languagetool-server.jar`; set by Electron main when bundled. Absent → grammar checks skipped |
 | `JAVA_BIN` | `java` | Path to a Java runtime (bundled JRE preferred) |
 | `LANGUAGETOOL_PORT` | `8081` | Local LanguageTool server port |

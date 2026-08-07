@@ -525,6 +525,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Abbrechen",
     es: "Cancelar",
   },
+  btn_close: {
+    en: "Close",
+    da: "Luk",
+    de: "Schließen",
+    es: "Cerrar",
+  },
   n_pending: {
     en: "pending",
     da: "afventer",
@@ -1042,6 +1048,104 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Utilstrækkelig RAM",
     de: "Nicht genügend RAM",
     es: "RAM insuficiente",
+  },
+
+  // ── Storage & data ──
+  storage_title: {
+    en: "Storage & data",
+    da: "Lagring & data",
+    de: "Speicher & Daten",
+    es: "Almacenamiento y datos",
+  },
+  storage_intro: {
+    en: "Everything Betty stores stays on this computer. Delete what you no longer need — especially before uninstalling.",
+    da: "Alt hvad Betty gemmer, bliver på denne computer. Slet det, du ikke længere har brug for — især inden du afinstallerer.",
+    de: "Alles, was Betty speichert, bleibt auf diesem Computer. Lösche, was du nicht mehr brauchst — besonders vor der Deinstallation.",
+    es: "Todo lo que Betty guarda permanece en este ordenador. Elimina lo que ya no necesites, sobre todo antes de desinstalar.",
+  },
+  storage_total: {
+    en: "Total on disk",
+    da: "I alt på disken",
+    de: "Gesamt auf der Festplatte",
+    es: "Total en disco",
+  },
+  storage_models: {
+    en: "Downloaded models",
+    da: "Downloadede modeller",
+    de: "Heruntergeladene Modelle",
+    es: "Modelos descargados",
+  },
+  storage_documents: {
+    en: "Manuscripts & images",
+    da: "Manuskripter & billeder",
+    de: "Manuskripte & Bilder",
+    es: "Manuscritos e imágenes",
+  },
+  storage_database: {
+    en: "Edit history",
+    da: "Redigeringshistorik",
+    de: "Bearbeitungsverlauf",
+    es: "Historial de ediciones",
+  },
+  storage_settings: {
+    en: "Saved API key & settings",
+    da: "Gemt API-nøgle & indstillinger",
+    de: "Gespeicherter API-Schlüssel & Einstellungen",
+    es: "Clave API guardada y ajustes",
+  },
+  storage_documents_count: {
+    en: "{count} document(s)",
+    da: "{count} dokument(er)",
+    de: "{count} Dokument(e)",
+    es: "{count} documento(s)",
+  },
+  storage_delete_all: {
+    en: "Delete everything",
+    da: "Slet alt",
+    de: "Alles löschen",
+    es: "Eliminar todo",
+  },
+  storage_delete: {
+    en: "Delete",
+    da: "Slet",
+    de: "Löschen",
+    es: "Eliminar",
+  },
+  storage_empty: {
+    en: "Nothing stored",
+    da: "Intet gemt",
+    de: "Nichts gespeichert",
+    es: "Nada guardado",
+  },
+  storage_freed: {
+    en: "Freed {size}.",
+    da: "Frigjorde {size}.",
+    de: "{size} freigegeben.",
+    es: "Se liberaron {size}.",
+  },
+  storage_confirm_models: {
+    en: "Delete all downloaded models ({size})? You will need to download them again before Betty can edit offline.",
+    da: "Slet alle downloadede modeller ({size})? Du skal downloade dem igen, før Betty kan redigere offline.",
+    de: "Alle heruntergeladenen Modelle löschen ({size})? Du musst sie erneut herunterladen, bevor Betty offline arbeiten kann.",
+    es: "¿Eliminar todos los modelos descargados ({size})? Tendrás que descargarlos de nuevo para que Betty edite sin conexión.",
+  },
+  storage_confirm_documents: {
+    en: "Delete all uploaded manuscripts and their images ({size})? This cannot be undone.",
+    da: "Slet alle uploadede manuskripter og deres billeder ({size})? Dette kan ikke fortrydes.",
+    de: "Alle hochgeladenen Manuskripte und ihre Bilder löschen ({size})? Das kann nicht rückgängig gemacht werden.",
+    es: "¿Eliminar todos los manuscritos subidos y sus imágenes ({size})? Esto no se puede deshacer.",
+  },
+  storage_confirm_settings: {
+    en: "Remove your saved API key and model settings?",
+    da: "Fjern din gemte API-nøgle og modelindstillinger?",
+    de: "Gespeicherten API-Schlüssel und Modelleinstellungen entfernen?",
+    es: "¿Eliminar tu clave API guardada y los ajustes del modelo?",
+  },
+  storage_confirm_all: {
+    en: "Delete everything Betty has stored ({size})? Models, manuscripts, edit history and your saved API key will all be removed. This cannot be undone.",
+    da: "Slet alt hvad Betty har gemt ({size})? Modeller, manuskripter, redigeringshistorik og din gemte API-nøgle fjernes alle. Dette kan ikke fortrydes.",
+    de: "Alles löschen, was Betty gespeichert hat ({size})? Modelle, Manuskripte, Bearbeitungsverlauf und dein gespeicherter API-Schlüssel werden entfernt. Das kann nicht rückgängig gemacht werden.",
+    es: "¿Eliminar todo lo que Betty ha guardado ({size})? Se eliminarán los modelos, manuscritos, el historial de ediciones y tu clave API guardada. Esto no se puede deshacer.",
   },
   model_recommended: {
     en: "Recommended",

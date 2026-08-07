@@ -3502,6 +3502,128 @@ summary.review-source::before {
   width: 100%;
 }
 
+/* ── Storage & data ── */
+.storage-dialog {
+  max-width: 560px;
+  width: 100%;
+}
+
+.storage-settings h3 {
+  font-size: 1.15rem;
+  color: #1a140a;
+  margin: 0 0 0.35rem;
+}
+
+.storage-intro {
+  font-size: 0.88rem;
+  color: #6b5d47;
+  line-height: 1.5;
+  margin: 0 0 1.1rem;
+}
+
+.storage-error {
+  font-size: 0.85rem;
+  color: #a33;
+  margin: 0 0 0.75rem;
+}
+
+.storage-freed {
+  font-size: 0.85rem;
+  color: #4a6b3f;
+  margin: 0 0 0.75rem;
+}
+
+.storage-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.6rem 0.75rem;
+  background: #f2ecdd;
+  border: 1px solid #ddd0b6;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #4a3f2f;
+  margin-bottom: 1rem;
+}
+.storage-total strong {
+  font-size: 1.05rem;
+  color: #1a140a;
+}
+
+.storage-rows {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #e6dcc6;
+}
+
+.storage-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.storage-row-label {
+  font-size: 0.9rem;
+  color: #2a2419;
+}
+
+/* Model filenames are long — clip rather than wrap the row to two lines. */
+.storage-row-sub {
+  font-size: 0.76rem;
+  color: #8a7c64;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storage-row-size {
+  font-size: 0.85rem;
+  color: #6b5d47;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.storage-row-db {
+  justify-content: space-between;
+  border-bottom: none;
+  color: #8a7c64;
+}
+.storage-row-db .storage-row-label {
+  flex: 1;
+}
+
+/* Overrides the link-style .btn-danger base — at this weight the action needs
+   to look like a button, not a footnote. */
+.storage-delete-all {
+  margin-top: 1rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid #d3a9a9;
+  border-radius: 6px;
+  background: #f8efef;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.storage-delete-all:hover:not(:disabled) {
+  background: #f2e2e2;
+  border-color: #c49494;
+}
+.storage-delete-all:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .custom-gguf-title {
   font-size: 1.15rem;
   color: #1a140a;

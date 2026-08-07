@@ -94,7 +94,10 @@ nsis:
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
+  # Left false on purpose — build/installer.nsh owns this decision so it can ask
+  # the user first, and so the updater's silent uninstall never wipes models.
   deleteAppDataOnUninstall: false
+  include: build/installer.nsh
 
 linux:
   artifactName: Bethaniel-linux.${ext}
@@ -107,3 +110,8 @@ linux:
       arch:
         - x64
   category: Office
+
+deb:
+  # Prints where the user data lives after removal; deletes nothing (postrm runs
+  # as root and non-interactively — see the script for why).
+  afterRemove: build/deb-postrm.sh

@@ -315,3 +315,19 @@ export interface LogEntry {
   model?: string;
   taskId?: string;
 }
+
+// ── Local storage accounting ("Storage & data") ──
+
+export interface StorageUsage {
+  models: { bytes: number; files: { name: string; bytes: number }[] };
+  documents: { bytes: number; count: number };
+  database: { bytes: number };
+  settings: { bytes: number; hasApiKey: boolean };
+  total: number;
+}
+
+export interface PurgeSelection {
+  models?: boolean;
+  documents?: boolean;
+  settings?: boolean;
+}

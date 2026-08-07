@@ -1,0 +1,188 @@
+name: Uninstall test
+
+# Verifies that uninstalling reclaims (or deliberately keeps) the user's data.
+# Bethaniel stores >20 GB of GGUF models under the per-user app-data dir, so the
+# uninstall path is both high-value and easy to get catastrophically wrong.
+#
+# The Windows job exists because build/installer.nsh cannot be tested anywhere
+# else: NSIS installers only run on Windows, and the most important case — the
+# auto-updater's SILENT uninstall must NOT delete the user's models — is
+# invisible until you actually run it.
+#
+# Run with:  gh workflow run uninstall-test.yml --ref <branch>
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "build/installer.nsh"
+      - "build/deb-postrm.sh"
+      - "electron-builder.yml"
+      - "electron/main.ts"
+      - ".github/workflows/uninstall-test.yml"
+
+jobs:
+  windows:
+    name: Windows — NSIS uninstall
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build installer
+        run: node scripts/build.mjs --platform win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Note on why this does NOT grep the .exe: NSIS compresses its string
+      # table with solid LZMA, so the prompt text is not plaintext in the
+      # binary. Inclusion is instead guaranteed by the build step above —
+      # app-builder-lib resolves `nsis.include` via getResource(), which THROWS
+      # InvalidConfigurationError ("cannot find specified resource") when the
+      # path is wrong. A green "Build installer" step is therefore already proof
+      # the macro was compiled in. What remains worth asserting is that the file
+      # exists and still defines the macro under the name NSIS expects.
+      - name: Assert the macro exists and is wired up
+        shell: pwsh
+        run: |
+          $nsh = "build/installer.nsh"
+          if (-not (Test-Path $nsh)) { throw "$nsh is missing" }
+          $body = Get-Content $nsh -Raw
+
+          if ($body -notmatch '!macro\s+customUnInstall') {
+            throw "installer.nsh no longer defines customUnInstall — NSIS only calls that exact name"
+          }
+          # The guard that stops the auto-updater wiping the user's models.
+          if ($body -notmatch '\$\{isUpdated\}' -or $body -notmatch '\$\{Silent\}') {
+            throw "the isUpdated/Silent guard is gone — a routine update would delete user data"
+          }
+
+          $cfg = Get-Content "electron-builder.yml" -Raw
+          if ($cfg -notmatch 'include:\s*build/installer\.nsh') {
+            throw "nsis.include no longer points at build/installer.nsh"
+          }
+          if ($cfg -notmatch 'deleteAppDataOnUninstall:\s*false') {
+            throw "deleteAppDataOnUninstall must stay false — installer.nsh owns that decision"
+          }
+          Write-Host "OK: customUnInstall present, guard intact, config wired"
+
+      - name: Install silently
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "dist\Bethaniel-win.exe" -ArgumentList "/S" -Wait
+          $appData = Join-Path $env:APPDATA "Bethaniel"
+          New-Item -ItemType Directory -Force -Path (Join-Path $appData "models") | Out-Null
+          # Stand in for a downloaded GGUF — this is what must survive an update.
+          Set-Content -Path (Join-Path $appData "models\pretend.gguf") -Value "x"
+          if (-not (Test-Path $appData)) { throw "app data dir missing" }
+          Write-Host "Seeded $appData"
+
+      - name: Locate uninstaller
+        id: unins
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\Bethaniel"
+          $u = Get-ChildItem -Path $dir -Filter "Uninstall*.exe" -ErrorAction SilentlyContinue |
+               Select-Object -First 1
+          if (-not $u) { throw "uninstaller not found under $dir" }
+          "path=$($u.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Uninstaller: $($u.FullName)"
+
+      # THE regression this guards against. electron-builder's updater runs the
+      # old uninstaller with /S --updated on every version bump; if the
+      # ${isUpdated}/${Silent} guard in installer.nsh ever breaks, a routine
+      # update would wipe the user's models. It must exit without prompting and
+      # leave app data alone.
+      - name: Update path — silent uninstall must KEEP user data
+        shell: pwsh
+        run: |
+          $appData = Join-Path $env:APPDATA "Bethaniel"
+          $proc = Start-Process -FilePath "${{ steps.unins.outputs.path }}" `
+                    -ArgumentList "/S","--updated" -Wait -PassThru
+          Write-Host "uninstaller exit code: $($proc.ExitCode)"
+          $model = Join-Path $appData "models\pretend.gguf"
+          if (-not (Test-Path $model)) {
+            throw "REGRESSION: silent/updated uninstall deleted the user's models"
+          }
+          Write-Host "OK: models survived the update-path uninstall"
+
+      # A plain silent uninstall (no --updated) must also keep data: there is no
+      # one to answer the prompt, and /SD IDNO makes 'keep' the default.
+      - name: Unattended uninstall defaults to KEEPING data
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "dist\Bethaniel-win.exe" -ArgumentList "/S" -Wait
+          $appData = Join-Path $env:APPDATA "Bethaniel"
+          New-Item -ItemType Directory -Force -Path (Join-Path $appData "models") | Out-Null
+          Set-Content -Path (Join-Path $appData "models\pretend.gguf") -Value "x"
+
+          $u = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs\Bethaniel") `
+                 -Filter "Uninstall*.exe" | Select-Object -First 1
+          Start-Process -FilePath $u.FullName -ArgumentList "/S" -Wait
+
+          if (-not (Test-Path (Join-Path $appData "models\pretend.gguf"))) {
+            throw "unattended uninstall destroyed user data (expected /SD IDNO to keep it)"
+          }
+          Write-Host "OK: unattended uninstall kept user data"
+
+      # The explicit opt-in path electron-builder supports.
+      - name: --delete-app-data removes everything
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "dist\Bethaniel-win.exe" -ArgumentList "/S" -Wait
+          $appData = Join-Path $env:APPDATA "Bethaniel"
+          New-Item -ItemType Directory -Force -Path (Join-Path $appData "models") | Out-Null
+          Set-Content -Path (Join-Path $appData "models\pretend.gguf") -Value "x"
+
+          $u = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs\Bethaniel") `
+                 -Filter "Uninstall*.exe" | Select-Object -First 1
+          Start-Process -FilePath $u.FullName -ArgumentList "/S","--delete-app-data" -Wait
+
+          if (Test-Path $appData) {
+            throw "--delete-app-data left $appData behind"
+          }
+          Write-Host "OK: --delete-app-data reclaimed the app data dir"
+
+  linux:
+    name: Linux — deb postrm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install packaging deps
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools rpm
+
+      - name: Build deb
+        run: node scripts/build.mjs --platform linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: postrm is embedded
+        run: |
+          dpkg-deb --control dist/Bethaniel-linux.deb /tmp/ctl
+          test -f /tmp/ctl/postrm || { echo "no postrm in package"; exit 1; }
+          echo "--- postrm ---"; cat /tmp/ctl/postrm
+
+      - name: apt remove runs it unattended and keeps user data
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          mkdir -p "$HOME/.config/Bethaniel/models"
+          echo pretend-gguf > "$HOME/.config/Bethaniel/models/model.gguf"
+
+          sudo -E apt-get install -y ./dist/Bethaniel-linux.deb
+          test -d /opt/Bethaniel || { echo "app not installed"; exit 1; }
+
+          # No tty on stdin — exactly how an unattended removal behaves.
+          sudo -E apt-get remove -y bethaniel < /dev/null
+          echo "apt exit: $?"
+
+          test ! -d /opt/Bethaniel || { echo "app dir not removed"; exit 1; }
+          test -f "$HOME/.config/Bethaniel/models/model.gguf" \
+            || { echo "postrm destroyed user data — it must not"; exit 1; }
+          echo "OK: app removed, user data kept"
