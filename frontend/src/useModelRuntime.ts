@@ -162,6 +162,29 @@ export function useModelRuntime(): void {
     refreshModelEnvironment().catch(() => {});
   }, [downloadDoneTick]);
 
+  // ── Drop a selection whose file is gone ──
+  // Settings survive restarts now, so `model` can outlive the file it names:
+  // delete a model from "Storage & data", or uninstall with "delete everything"
+  // and reinstall, and the persisted choice still points at a .gguf that is no
+  // longer on disk. Nothing noticed until the job died on its first chunk with
+  // "Model file not found". Clearing it hands over to the auto-select below,
+  // which picks something actually installed.
+  //
+  // Guarded on modelEnvLoaded: `models` is [] until the fetch lands, and
+  // clearing against an empty list would wipe a perfectly good selection on
+  // every launch. Only file-backed selections are checked — "custom:gguf" and
+  // "custom:deepseek-chat" are legitimately absent from the installed list.
+  const modelEnvLoaded = useStore((s) => s.modelEnvLoaded);
+  useEffect(() => {
+    if (!modelEnvLoaded) return;
+    if (!model.endsWith(".gguf")) return;
+    if (models.includes(model)) return;
+    console.warn(
+      `[models] selected model "${model}" is not installed — clearing it`,
+    );
+    setModel("");
+  }, [modelEnvLoaded, model, models, setModel]);
+
   // ── Auto-select ──
   // Only on first use. Once the user has any selection (persisted) keep it,
   // including custom/External Betty models absent from the installed-GGUF list.
