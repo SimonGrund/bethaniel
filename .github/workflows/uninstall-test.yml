@@ -36,21 +36,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # The macro must actually be compiled into the uninstaller. If `include:`
-      # were dropped from electron-builder.yml the build would still succeed and
-      # silently lose the prompt, so assert on the binary itself.
-      - name: Assert the custom macro is embedded
+      # Note on why this does NOT grep the .exe: NSIS compresses its string
+      # table with solid LZMA, so the prompt text is not plaintext in the
+      # binary. Inclusion is instead guaranteed by the build step above —
+      # app-builder-lib resolves `nsis.include` via getResource(), which THROWS
+      # InvalidConfigurationError ("cannot find specified resource") when the
+      # path is wrong. A green "Build installer" step is therefore already proof
+      # the macro was compiled in. What remains worth asserting is that the file
+      # exists and still defines the macro under the name NSIS expects.
+      - name: Assert the macro exists and is wired up
         shell: pwsh
         run: |
-          $exe = "dist\Bethaniel-win.exe"
-          if (-not (Test-Path $exe)) { throw "installer not built" }
-          $bytes = [IO.File]::ReadAllBytes($exe)
-          $text  = [Text.Encoding]::Unicode.GetString($bytes) +
-                   [Text.Encoding]::ASCII.GetString($bytes)
-          if ($text -notmatch "Also delete your downloaded AI models") {
-            throw "customUnInstall prompt string not found in installer — is `include:` still set in electron-builder.yml?"
+          $nsh = "build/installer.nsh"
+          if (-not (Test-Path $nsh)) { throw "$nsh is missing" }
+          $body = Get-Content $nsh -Raw
+
+          if ($body -notmatch '!macro\s+customUnInstall') {
+            throw "installer.nsh no longer defines customUnInstall — NSIS only calls that exact name"
           }
-          Write-Host "OK: uninstall prompt string is present in the installer"
+          # The guard that stops the auto-updater wiping the user's models.
+          if ($body -notmatch '\$\{isUpdated\}' -or $body -notmatch '\$\{Silent\}') {
+            throw "the isUpdated/Silent guard is gone — a routine update would delete user data"
+          }
+
+          $cfg = Get-Content "electron-builder.yml" -Raw
+          if ($cfg -notmatch 'include:\s*build/installer\.nsh') {
+            throw "nsis.include no longer points at build/installer.nsh"
+          }
+          if ($cfg -notmatch 'deleteAppDataOnUninstall:\s*false') {
+            throw "deleteAppDataOnUninstall must stay false — installer.nsh owns that decision"
+          }
+          Write-Host "OK: customUnInstall present, guard intact, config wired"
 
       - name: Install silently
         shell: pwsh
