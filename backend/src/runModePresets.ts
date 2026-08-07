@@ -1,5 +1,5 @@
 /**
- * Run-mode presets — Speed / Balanced / Max.
+ * Run-mode presets — Speed / Max.
  *
  * A run mode is a named bundle of the existing per-run pipeline knobs
  * (editor count, reviewer count, style agent, thorough pass). It changes
@@ -7,10 +7,15 @@
  * already reads. Deterministic checks (spell/retext/grammar/dialect) stay ON in
  * every preset because they are cheap, local, and catch most mechanical errors.
  *
- *   Speed    — local default. 1 editor + style agent + 1 reviewer. No 2nd pass.
- *   Balanced — 2 editors + style agent + 1 reviewer. No 2nd pass.
- *   Max      — External Betty default. 3 editors + style agent + 2 reviewers +
- *              thorough 2nd pass.
+ *   Speed — local default. 1 editor + style agent + 1 reviewer. No 2nd pass.
+ *   Max   — External Betty default. 3 editors + style agent + 2 reviewers +
+ *           thorough 2nd pass.
+ *
+ * A "Balanced" middle preset was benchmarked and dropped: on a weak local model
+ * it applied no more than Speed, and on a strong API model it captured only a
+ * quarter of Max's gain (the 2nd pass, not the extra editors, drives Max's
+ * recall). See docs/run-modes.md. The advanced sliders still reconstruct any
+ * in-between as "custom".
  *
  * The frontend store carries the canonical copy of this table and resolves a
  * preset into concrete knobs before every /queue/add. This module exists so
@@ -19,7 +24,7 @@
  * defaults store-vs-routes, so this matches house style).
  */
 
-export type RunMode = "speed" | "balanced" | "max" | "custom";
+export type RunMode = "speed" | "max" | "custom";
 
 /** The pipeline knobs a preset controls. Deterministic checks are always on. */
 export interface RunModeKnobs {
@@ -51,18 +56,6 @@ export const RUN_MODE_PRESETS: Record<
     styleComplianceAgent: true,
     extraPass: false,
   },
-  balanced: {
-    reviewMode: true,
-    reviewerCount: 1,
-    reviewerThreshold: 3,
-    spellCheck: true,
-    retextCheck: true,
-    grammarCheck: true,
-    dualEditor: true,
-    dualCount: 2,
-    styleComplianceAgent: true,
-    extraPass: false,
-  },
   max: {
     reviewMode: true,
     reviewerCount: 2,
@@ -85,7 +78,7 @@ export const RUN_MODE_PRESETS: Record<
 export function resolveRunMode(
   mode: RunMode | string | undefined,
 ): RunModeKnobs | null {
-  if (mode === "speed" || mode === "balanced" || mode === "max") {
+  if (mode === "speed" || mode === "max") {
     return RUN_MODE_PRESETS[mode];
   }
   return null;

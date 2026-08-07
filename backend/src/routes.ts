@@ -354,7 +354,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       runMode,
     } = req.body;
 
-    // Run-mode preset (speed / balanced / max). Fills any knob the caller
+    // Run-mode preset (speed / max). Fills any knob the caller
     // omitted; explicitly-sent knobs still win (see the `?? preset ?? default`
     // chain below). The UI resolves presets client-side and sends concrete
     // knobs, so this mainly serves CLI/headless/benchmark callers.

@@ -81,12 +81,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Schnell",
     es: "Rápido",
   },
-  run_mode_balanced: {
-    en: "Balanced",
-    da: "Balanceret",
-    de: "Ausgewogen",
-    es: "Equilibrado",
-  },
   run_mode_max: {
     en: "Max",
     da: "Maks",
@@ -105,17 +99,35 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Am schnellsten. Ein Lektor + Stilprüfung + ein Prüfer, plus alle integrierten Prüfungen. Ideal für lokale Modelle.",
     es: "El más rápido. Un editor + revisión de estilo + un revisor, más todas las comprobaciones integradas. Ideal para modelos locales.",
   },
-  run_mode_balanced_help: {
-    en: "Two editors + style check + one reviewer. Broader recall, no second pass.",
-    da: "To redaktører + stiltjek + én bedømmer. Bredere dækning, ingen ekstra gennemgang.",
-    de: "Zwei Lektoren + Stilprüfung + ein Prüfer. Größere Abdeckung, kein zweiter Durchgang.",
-    es: "Dos editores + revisión de estilo + un revisor. Mayor cobertura, sin segunda pasada.",
-  },
   run_mode_max_help: {
     en: "Highest quality. Three editors + style check + two reviewers + a thorough second pass. Best for External Betty.",
     da: "Højeste kvalitet. Tre redaktører + stiltjek + to bedømmere + en grundig ekstra gennemgang. Bedst til Ekstern Betty.",
     de: "Höchste Qualität. Drei Lektoren + Stilprüfung + zwei Prüfer + ein gründlicher zweiter Durchgang. Ideal für Externe Betty.",
     es: "Máxima calidad. Tres editores + revisión de estilo + dos revisores + una segunda pasada minuciosa. Ideal para Betty Externa.",
+  },
+  run_mode_max_warn: {
+    en: "Max mode on this hardware may be very slow.",
+    da: "Maks-tilstand kan være meget langsom på denne hardware.",
+    de: "Max-Modus kann auf dieser Hardware sehr langsam sein.",
+    es: "El modo Máx puede ser muy lento en este hardware.",
+  },
+  run_mode_max_warn_detail: {
+    en: "Max runs three editors and a thorough second pass — roughly five times the work of Speed. On this machine a full book can take hours. Speed is recommended for local models.",
+    da: "Maks kører tre redaktører og en grundig ekstra gennemgang — cirka fem gange så meget arbejde som Hurtig. På denne maskine kan en hel bog tage timer. Hurtig anbefales til lokale modeller.",
+    de: "Max führt drei Lektoren und einen gründlichen zweiten Durchgang aus — etwa das Fünffache von Schnell. Auf diesem Rechner kann ein ganzes Buch Stunden dauern. Für lokale Modelle wird Schnell empfohlen.",
+    es: "Máx ejecuta tres editores y una segunda pasada minuciosa: unas cinco veces el trabajo de Rápido. En este equipo un libro entero puede tardar horas. Se recomienda Rápido para modelos locales.",
+  },
+  run_mode_max_warn_proceed: {
+    en: "Use Max anyway",
+    da: "Brug Maks alligevel",
+    de: "Trotzdem Max verwenden",
+    es: "Usar Máx de todos modos",
+  },
+  run_mode_max_warn_cancel: {
+    en: "Keep Speed",
+    da: "Behold Hurtig",
+    de: "Bei Schnell bleiben",
+    es: "Mantener Rápido",
   },
   run_mode_custom_help: {
     en: "Hand-tuned settings. Adjust the options below, or pick a preset above.",

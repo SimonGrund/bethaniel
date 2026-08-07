@@ -70,7 +70,7 @@ const DEFAULT_MANUSCRIPT_LANG = "en";
 // local, and catch most mechanical errors. `parallel` is handled separately by
 // the model-change auto-tune (hardware recommendation / API ceiling), not here.
 // Mirrors backend/src/runModePresets.ts — keep the two tables in sync.
-export type RunMode = "speed" | "balanced" | "max" | "custom";
+export type RunMode = "speed" | "max" | "custom";
 const DEFAULT_RUN_MODE: RunMode = "speed";
 
 interface RunModeKnobs {
@@ -97,19 +97,6 @@ const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
     grammarCheck: true,
     dualEditor: false,
     dualCount: DEFAULT_DUAL_COUNT,
-    styleComplianceAgent: true,
-    extraPass: false,
-  },
-  // 2 editors + style agent + 1 reviewer. No thorough 2nd pass.
-  balanced: {
-    reviewMode: true,
-    reviewerCount: 1,
-    reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
-    spellCheck: true,
-    retextCheck: true,
-    grammarCheck: true,
-    dualEditor: true,
-    dualCount: 2,
     styleComplianceAgent: true,
     extraPass: false,
   },
