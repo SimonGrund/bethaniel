@@ -207,8 +207,6 @@ export default function ModeSelector() {
 
   return (
     <section className="mode-selector">
-      <p className="mode-cat-intro">{t("betty_help_intro")}</p>
-
       <div className="mode-cat-cards">
         {/* Editing */}
         <button
