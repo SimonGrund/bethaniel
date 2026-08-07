@@ -93,6 +93,89 @@ function getFreePort(): Promise<number> {
   });
 }
 
+// ── Stable window origin ──
+//
+// localStorage is partitioned by ORIGIN, and the origin includes the port. The
+// app used to take a fresh random port on every launch, so the renderer got an
+// empty store each time: the first-run tour replayed forever and not one
+// setting — model, language, edit options, wizard progress — ever survived a
+// restart. (One real profile had accumulated 31 dead origins.) Dev never showed
+// it because :4000 is fixed.
+//
+// So: remember the port we settled on and reuse it, keeping the origin stable.
+
+const PORT_FILE = "backend-port.json";
+
+/** True if we can bind this exact port on the loopback interface right now. */
+function isPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once("error", () => resolve(false));
+    srv.listen(port, "127.0.0.1", () => srv.close(() => resolve(true)));
+  });
+}
+
+function readRememberedPort(): number | null {
+  try {
+    const raw = fs.readFileSync(userDataPath(PORT_FILE), "utf-8");
+    const port = (JSON.parse(raw) as { port?: unknown }).port;
+    // Anything privileged or out of range is not something we chose.
+    return typeof port === "number" && port > 1024 && port < 65536 ? port : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPort(port: number): void {
+  try {
+    fs.writeFileSync(
+      userDataPath(PORT_FILE),
+      JSON.stringify({ port }, null, 2) + "\n",
+    );
+  } catch (err) {
+    // Not fatal — the app still runs, it just forgets settings again next time.
+    console.error("[port] could not persist the backend port:", err);
+  }
+}
+
+/** The remembered port when it is still available, otherwise a fresh one. */
+async function resolveBackendPort(): Promise<number> {
+  const remembered = readRememberedPort();
+  if (remembered != null && (await isPortFree(remembered))) return remembered;
+
+  const port = await getFreePort();
+  rememberPort(port);
+  return port;
+}
+
+// One-time cleanup of the origins the old random-port behaviour left behind.
+// Runs at module load, before Chromium touches its storage directories, and is
+// guarded by a marker file — without the guard this would wipe settings on
+// every launch, which is precisely the bug being fixed.
+function purgeLegacyOriginStorage(): void {
+  if (IS_DEV) return;
+  const marker = userDataPath(".origin-reset-done");
+  if (fs.existsSync(marker)) return;
+
+  // Claim the marker BEFORE deleting anything. If it cannot be written we skip
+  // the purge entirely: repeating it every launch would wipe settings each
+  // time, which is the very failure this cleanup exists to end.
+  try {
+    fs.writeFileSync(marker, `${new Date().toISOString()}\n`);
+  } catch (err) {
+    console.error("[storage] skipping stale-origin cleanup:", err);
+    return;
+  }
+
+  try {
+    fs.rmSync(userDataPath("Local Storage"), { recursive: true, force: true });
+  } catch (err) {
+    console.error("[storage] could not clear stale origins:", err);
+  }
+}
+
+purgeLegacyOriginStorage();
+
 // ── Wait for backend /health ──
 
 function waitForHealth(port: number, timeoutMs = 15000): Promise<void> {
@@ -405,7 +488,8 @@ app.whenReady().then(async () => {
   ensureUserDirs();
   buildAppMenu();
 
-  backendPort = IS_DEV ? 4000 : await getFreePort();
+  // Stable across launches so the renderer's localStorage origin stays put.
+  backendPort = IS_DEV ? 4000 : await resolveBackendPort();
 
   const llamaBin = findLlamaBin();
   const llamaPort = await getFreePort();
