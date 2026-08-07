@@ -5,6 +5,7 @@ import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
 import { getDocument } from "./api";
+import { useModelRuntime } from "./useModelRuntime";
 import Sidebar from "./components/Sidebar";
 import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
@@ -14,7 +15,10 @@ import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
 import OnboardingGuide from "./components/OnboardingGuide";
-import type { TaskState, Lang, DownloadProgress } from "./types";
+import ModelIntroModal from "./components/ModelIntroModal";
+import ModelReadyModal from "./components/ModelReadyModal";
+import PerfAdviceModal from "./components/PerfAdviceModal";
+import type { TaskState, Lang, DownloadProgress, PerfAdvice } from "./types";
 import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -47,8 +51,17 @@ export default function App() {
   const bumpDownloadDone = useStore((s) => s.bumpDownloadDone);
   const setDownloadError = useStore((s) => s.setDownloadError);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
+  const advancedMode = useStore((s) => s.advancedMode);
+  const setAdvancedMode = useStore((s) => s.setAdvancedMode);
+  const setPerfAdvice = useStore((s) => s.setPerfAdvice);
+  const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
+
+  // Model catalog, auto-selection, pre-warm and tuning. Lives here rather than
+  // in ModelSelector because the model step is hidden for most users and a
+  // component that never mounts cannot run any of it.
+  useModelRuntime();
 
   // First-run: open the intro guide once, keyed off the persisted flag.
   useEffect(() => {
@@ -124,6 +137,12 @@ export default function App() {
       if (data.status === "done") {
         clearDownload(data.modelId);
         bumpDownloadDone();
+        // Only announce the download the first-run popup started. A power user
+        // pulling a second model in the selector already knows it finished.
+        if (useStore.getState().awaitingFirstModel) {
+          useStore.getState().setAwaitingFirstModel(false);
+          setModelReadyOpen(true);
+        }
       } else if (data.status === "error") {
         clearDownload(data.modelId);
         setDownloadError(data.error ?? "Download failed");
@@ -132,6 +151,15 @@ export default function App() {
       } else {
         setDownloadProgress(data);
       }
+    });
+
+    // Measured throughput disagreeing with the model in use — either "a smaller
+    // Betty would serve you better" or "this will be slow, here's how slow".
+    // Advice the user already waved away never comes back.
+    socket.on("model:perf-advice", (advice: PerfAdvice) => {
+      const key = `${advice.from}:${advice.kind}`;
+      if (useStore.getState().dismissedAdvice.includes(key)) return;
+      setPerfAdvice(advice);
     });
 
     // Re-sync any in-flight downloads (covers a full page reload — the backend
@@ -153,6 +181,7 @@ export default function App() {
       socket.off("log:clear");
       socket.off("model:warming");
       socket.off("model:download");
+      socket.off("model:perf-advice");
     };
   }, [
     setTasks,
@@ -164,6 +193,8 @@ export default function App() {
     clearDownload,
     bumpDownloadDone,
     setDownloadError,
+    setPerfAdvice,
+    setModelReadyOpen,
   ]);
 
   // Warn before unload if tasks are active
@@ -200,10 +231,12 @@ export default function App() {
   }
 
   const isSetupPhase = wizardStep !== "done";
-  // A step menu is open only for the four setup steps; every other state
-  // (folded, or a stray "run") means no menu is open.
+  // A step menu is open only for the setup steps; every other state (folded, or
+  // a stray "run") means no menu is open. The model step exists only in
+  // advanced mode, so leaving that mode while sitting on it must not strand the
+  // user on an empty panel.
   const menuOpen =
-    wizardStep === "model" ||
+    (wizardStep === "model" && advancedMode) ||
     wizardStep === "edits" ||
     wizardStep === "upload" ||
     wizardStep === "style";
@@ -217,6 +250,9 @@ export default function App() {
   return (
     <div className="app-layout">
       <OnboardingGuide />
+      <ModelIntroModal />
+      <ModelReadyModal />
+      <PerfAdviceModal />
       <Sidebar />
       <main className="main-content">
         {/* Header */}
@@ -224,6 +260,26 @@ export default function App() {
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
           <BettyWorking />
           <div className="lang-toggle" style={{ marginLeft: "auto" }}>
+            {/* Reveals the model step and its advanced settings. Most users
+                never touch it — they get a recommendation instead of a
+                decision — but nothing is hidden from anyone who wants it. */}
+            <button
+              type="button"
+              className={`btn-model-settings${advancedMode ? " btn-model-settings-on" : ""}`}
+              aria-pressed={advancedMode}
+              onClick={() => {
+                const next = !advancedMode;
+                setAdvancedMode(next);
+                // Leaving advanced mode while the model step is open would
+                // otherwise leave an empty panel behind.
+                if (!next && wizardStep === "model") setWizardStep("folded");
+                if (next) setWizardStep("model");
+              }}
+            >
+              {advancedMode
+                ? t("hide_model_selector")
+                : t("activate_model_selector")}
+            </button>
             <button
               type="button"
               className="btn-rerun-intro"
@@ -269,9 +325,7 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {wizardStep === "model" && (
-                  <ModelSelector onModelInstalled={() => setModelReady(true)} />
-                )}
+                {wizardStep === "model" && advancedMode && <ModelSelector />}
 
                 {wizardStep === "edits" && <ModeSelector />}
 

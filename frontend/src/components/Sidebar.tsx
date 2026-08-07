@@ -7,6 +7,8 @@ import { cancelJob } from "../api";
 import StepBar from "./StepBar";
 import EditTrigger from "./EditTrigger";
 import EngineStatus from "./EngineStatus";
+import RunModeSlider from "./RunModeSlider";
+import ModelDownloadStrip from "./ModelDownloadStrip";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -76,6 +78,10 @@ export default function Sidebar() {
       <div className="sidebar-section">
         <span className="sidebar-label">{t("sidebar_setup")}</span>
         <StepBar />
+        {/* Quality vs. time — the one advanced knob every user has a view on,
+            so it sits next to the button that starts the wait. */}
+        <RunModeSlider />
+        <ModelDownloadStrip />
         <EditTrigger />
       </div>
 

@@ -1,18 +1,19 @@
-// ── StepBar — vertical setup rail in the sidebar (4 steps + run button) ──
+// ── StepBar — vertical setup rail in the sidebar (setup steps + run button) ──
 
-import { useStore } from "../store";
+import { useStore, stepOrder } from "../store";
 import { useTranslation } from "../i18n";
 import { modeLabelKeys } from "../types";
 import type { WizardStep } from "../store";
 
-const STEP_ORDER: WizardStep[] = ["upload", "edits", "model", "style"];
-
-const STEP_META: Record<WizardStep, { num: number; nameKey: string; brief: string } | null> = {
-  upload: { num: 1, nameKey: "step_name_upload", brief: "upload_step_brief" },
-  edits: { num: 2, nameKey: "step_name_edits", brief: "edits_step_brief" },
-  model: { num: 3, nameKey: "step_name_model", brief: "model_step_brief" },
-  style: { num: 4, nameKey: "step_name_style", brief: "style_step_brief" },
-  run: { num: 5, nameKey: "", brief: "run_step_brief" },
+// Step numbers are derived from the rail's position, not stored here: the
+// model step only exists in advanced mode, and hiding it must renumber Style
+// from 4 to 3 rather than leave a gap.
+const STEP_META: Record<WizardStep, { nameKey: string; brief: string } | null> = {
+  upload: { nameKey: "step_name_upload", brief: "upload_step_brief" },
+  edits: { nameKey: "step_name_edits", brief: "edits_step_brief" },
+  model: { nameKey: "step_name_model", brief: "model_step_brief" },
+  style: { nameKey: "step_name_style", brief: "style_step_brief" },
+  run: { nameKey: "", brief: "run_step_brief" },
   done: null,
   folded: null,
 };
@@ -30,8 +31,12 @@ export default function StepBar() {
     targetLang,
     apiModel,
     tasks,
+    advancedMode,
   } = useStore();
   const t = useTranslation(lang);
+
+  // "run" is the launch button in EditTrigger, not a card on the rail.
+  const STEP_ORDER = stepOrder(advancedMode).filter((s) => s !== "run");
 
   const hasActiveTasks = Object.values(tasks).some(
     (t) => t.status === "queued" || t.status === "editing",
@@ -83,7 +88,7 @@ export default function StepBar() {
 
   return (
     <div className="step-rail">
-      {STEP_ORDER.map((step) => {
+      {STEP_ORDER.map((step, idx) => {
         const meta = STEP_META[step];
         const isCurrent = wizardStep === step;
         const isCompleted = completedSteps.includes(step);
@@ -98,7 +103,7 @@ export default function StepBar() {
             className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${isNext ? " step-card-next" : ""}`}
             onClick={() => setWizardStep(isCurrent ? "folded" : step)}
           >
-            <span className="step-card-num">{meta?.num}</span>
+            <span className="step-card-num">{idx + 1}</span>
             <span className="step-card-name">{t(meta?.nameKey ?? "")}</span>
             {label && <span className="step-card-label">{label}</span>}
             {isCompleted && <span className="step-card-check">✓</span>}

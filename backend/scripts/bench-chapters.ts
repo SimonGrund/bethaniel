@@ -15,14 +15,14 @@
 
 import { readFile } from "fs/promises";
 import { basename, extname } from "path";
-import { DEFAULT_MODEL_FILENAME } from "../src/modelCatalog.js";
+import { FALLBACK_MODEL_FILENAME } from "../src/modelCatalog.js";
 import type { Correction, TaskState, DocumentMeta } from "../src/types.js";
 
 type RunMode = "speed" | "balanced" | "max";
 function parseArgs(argv: string[]) {
   const modes: RunMode[] = [];
   let doc = "";
-  let model = DEFAULT_MODEL_FILENAME;
+  let model = FALLBACK_MODEL_FILENAME;
   let base =
     process.env.BENCH_BASE ??
     `http://localhost:${process.env.BETHANIEL_PORT ?? 4000}`;

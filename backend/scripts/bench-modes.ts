@@ -24,7 +24,7 @@
 import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { DEFAULT_MODEL_FILENAME } from "../src/modelCatalog.js";
+import { FALLBACK_MODEL_FILENAME } from "../src/modelCatalog.js";
 import type { Correction, TaskState } from "../src/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,7 +34,7 @@ type RunMode = "speed" | "balanced" | "max";
 function parseArgs(argv: string[]) {
   const modes: RunMode[] = [];
   let doc = join(__dirname, "..", "test", "fixtures", "bench-chapter.md");
-  let model = DEFAULT_MODEL_FILENAME;
+  let model = FALLBACK_MODEL_FILENAME;
   let base =
     process.env.BENCH_BASE ??
     `http://localhost:${process.env.BETHANIEL_PORT ?? 4000}`;

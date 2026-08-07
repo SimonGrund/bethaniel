@@ -222,6 +222,86 @@ export interface DownloadProgress {
   error?: string;
 }
 
+// ── Models & hardware ──
+// Shared by the model-runtime hook, the selector, and the first-run popups.
+// Previously these lived as private interfaces inside ModelSelector, which is
+// why nothing outside that component could see which models were installed.
+
+export interface CatalogEntry {
+  id: string;
+  tier: string;
+  name: string;
+  description: string;
+  fileName: string;
+  sizeBytes: number;
+  minRamGb: number;
+  minRamAppleSiliconGb: number;
+  allowed: boolean;
+  fitsGpu: boolean | null;
+}
+
+export interface HardwareInfo {
+  totalRamGb: number;
+  freeRamGb: number;
+  platform: string;
+  arch: string;
+  appleSilicon: boolean;
+  cpuCount: number;
+  gpu: { vendor: string; vramGb: number | null; name: string | null };
+  allowedTiers: string[];
+}
+
+export interface InstalledModel {
+  id: string;
+  tier: string;
+  name: string;
+  fileName: string;
+}
+
+/** What the backend knows about the machine, in a form the UI can phrase. */
+export interface HardwareSummary {
+  kind: "apple" | "nvidia" | "cpu";
+  gpuName: string | null;
+  appleVariant: "base" | "pro" | "max" | "ultra" | null;
+  vramGb: number | null;
+  totalRamGb: number;
+}
+
+/** Measured throughput disagreeing with the model in use. */
+export interface PerfAdvice {
+  /** "downgrade" — a smaller Betty would be better. "slow" — nothing smaller exists. */
+  kind: "downgrade" | "slow";
+  from: string;
+  to: string;
+  medianTps: number;
+  wordsPerSec?: number;
+  recommendedModelId: string;
+  recommendedFileName: string;
+  recommendedName: string;
+  recommendedSizeBytes: number;
+}
+
+/** GET /api/models/recommendation — the one Betty this machine should run. */
+export interface ModelRecommendation {
+  modelId: string;
+  fileName: string;
+  name: string;
+  description: string;
+  sizeBytes: number;
+  tier: string;
+  /** "measured" once real throughput on this machine informed the answer. */
+  basis: "estimated" | "measured";
+  advice: Omit<
+    PerfAdvice,
+    | "recommendedModelId"
+    | "recommendedFileName"
+    | "recommendedName"
+    | "recommendedSizeBytes"
+  > | null;
+  hardware: HardwareSummary;
+  installed: boolean;
+}
+
 export type LogLevel = "info" | "warn" | "error";
 
 export interface LogEntry {

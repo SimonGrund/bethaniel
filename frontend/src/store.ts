@@ -16,6 +16,11 @@ import type {
   LineEditOptions,
   LogEntry,
   DownloadProgress,
+  CatalogEntry,
+  HardwareInfo,
+  InstalledModel,
+  ModelRecommendation,
+  PerfAdvice,
 } from "./types";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
@@ -29,9 +34,26 @@ export type WizardStep =
   | "done"
   | "folded";
 
+/**
+ * The wizard rail, in order.
+ *
+ * "model" only appears in advanced mode — non-technical users are given a
+ * recommendation instead of a choice, so the step would be an obstacle. The
+ * numbering in StepBar is derived from this array, so hiding the step
+ * renumbers Style from 4 to 3 automatically.
+ */
+export function stepOrder(advancedMode: boolean): WizardStep[] {
+  return advancedMode
+    ? ["upload", "edits", "model", "style", "run"]
+    : ["upload", "edits", "style", "run"];
+}
+
 // Defaults — extracted so resetAll can reference them
 const DEFAULT_SCOPE_MODE: ScopeMode = "whole_book";
 const DEFAULT_PARALLEL = 3;
+// Ceiling for the parallel-jobs slider before hardware detection reports back.
+// Single-GPU decode is bandwidth-bound, so local models rarely exceed this.
+const DEFAULT_MAX_PARALLEL = 3;
 const DEFAULT_WORDS_PER_CHUNK = 2500;
 const DEFAULT_OVERLAP = 1;
 const DEFAULT_REVIEWER_THRESHOLD = 3;
@@ -268,11 +290,58 @@ interface AppState {
   showExternalBetty: boolean;
   setShowExternalBetty: (b: boolean) => void;
 
+  // ── Model runtime ──
+  // Machine-derived data, fetched by useModelRuntime and never persisted: it
+  // describes this computer right now, so a stale copy from localStorage would
+  // be worse than no copy at all.
+  hardware: HardwareInfo | null;
+  setHardware: (hw: HardwareInfo | null) => void;
+  catalog: CatalogEntry[];
+  setCatalog: (c: CatalogEntry[]) => void;
+  installed: InstalledModel[];
+  setInstalled: (m: InstalledModel[]) => void;
+  preferredOrder: string[];
+  setPreferredOrder: (o: string[]) => void;
+  recommendation: ModelRecommendation | null;
+  setRecommendation: (r: ModelRecommendation | null) => void;
+  /** False until the first environment fetch lands. Anything that reasons about
+   *  what is installed must wait for it, or an empty list reads as "nothing
+   *  installed" and the UI briefly lies. */
+  modelEnvLoaded: boolean;
+  setModelEnvLoaded: (b: boolean) => void;
+  /** Ceiling for the parallel-jobs slider — hardware- or provider-derived. */
+  maxParallel: number;
+  setMaxParallel: (n: number) => void;
+
   // First-run intro guide
   hasSeenIntro: boolean;
   setHasSeenIntro: (b: boolean) => void;
   introOpen: boolean;
   setIntroOpen: (b: boolean) => void;
+
+  // ── First-run model flow ──
+  // The model step is hidden by default, so the app has to volunteer a model
+  // instead of waiting to be asked. These drive that conversation.
+  hasSeenModelIntro: boolean;
+  setHasSeenModelIntro: (b: boolean) => void;
+  modelIntroOpen: boolean;
+  setModelIntroOpen: (b: boolean) => void;
+  /** True between accepting the recommended download and its completion popup. */
+  awaitingFirstModel: boolean;
+  setAwaitingFirstModel: (b: boolean) => void;
+  modelReadyOpen: boolean;
+  setModelReadyOpen: (b: boolean) => void;
+  /** Live throughput advice from the backend, or null when dismissed. */
+  perfAdvice: PerfAdvice | null;
+  setPerfAdvice: (a: PerfAdvice | null) => void;
+  /** Advice the user has waved away, keyed "<tier>:<kind>". Persisted — a
+   *  "keep going" answer should survive a restart. */
+  dismissedAdvice: string[];
+  dismissAdvice: (key: string) => void;
+
+  /** Reveals the model step and its advanced settings. Off for new users. */
+  advancedMode: boolean;
+  setAdvancedMode: (b: boolean) => void;
 
   // Wizard flow
   wizardStep: WizardStep;
@@ -281,8 +350,6 @@ interface AppState {
   markStepComplete: (step: WizardStep) => void;
   highlightedModel: string;
   setHighlightedModel: (m: string) => void;
-  showAdvancedSettings: boolean;
-  setShowAdvancedSettings: (b: boolean) => void;
   showEngineStatus: boolean;
   setShowEngineStatus: (b: boolean) => void;
   // Sidebar queue panel expansion (mini-bar when false)
@@ -715,10 +782,47 @@ export const useStore = create<AppState>()(
       showExternalBetty: true,
       setShowExternalBetty: (showExternalBetty) => set({ showExternalBetty }),
 
+      hardware: null,
+      setHardware: (hardware) => set({ hardware }),
+      catalog: [],
+      setCatalog: (catalog) => set({ catalog }),
+      installed: [],
+      setInstalled: (installed) => set({ installed }),
+      preferredOrder: [],
+      setPreferredOrder: (preferredOrder) => set({ preferredOrder }),
+      recommendation: null,
+      setRecommendation: (recommendation) => set({ recommendation }),
+      modelEnvLoaded: false,
+      setModelEnvLoaded: (modelEnvLoaded) => set({ modelEnvLoaded }),
+      maxParallel: DEFAULT_MAX_PARALLEL,
+      setMaxParallel: (maxParallel) => set({ maxParallel }),
+
       hasSeenIntro: false,
       setHasSeenIntro: (hasSeenIntro) => set({ hasSeenIntro }),
       introOpen: false,
       setIntroOpen: (introOpen) => set({ introOpen }),
+
+      hasSeenModelIntro: false,
+      setHasSeenModelIntro: (hasSeenModelIntro) => set({ hasSeenModelIntro }),
+      modelIntroOpen: false,
+      setModelIntroOpen: (modelIntroOpen) => set({ modelIntroOpen }),
+      awaitingFirstModel: false,
+      setAwaitingFirstModel: (awaitingFirstModel) => set({ awaitingFirstModel }),
+      modelReadyOpen: false,
+      setModelReadyOpen: (modelReadyOpen) => set({ modelReadyOpen }),
+      perfAdvice: null,
+      setPerfAdvice: (perfAdvice) => set({ perfAdvice }),
+      dismissedAdvice: [],
+      dismissAdvice: (key) =>
+        set((state) => ({
+          perfAdvice: null,
+          dismissedAdvice: state.dismissedAdvice.includes(key)
+            ? state.dismissedAdvice
+            : [...state.dismissedAdvice, key],
+        })),
+
+      advancedMode: false,
+      setAdvancedMode: (advancedMode) => set({ advancedMode }),
 
       wizardStep: "upload",
       setWizardStep: (wizardStep) => set({ wizardStep }),
@@ -731,9 +835,6 @@ export const useStore = create<AppState>()(
         })),
       highlightedModel: "",
       setHighlightedModel: (highlightedModel) => set({ highlightedModel }),
-      showAdvancedSettings: false,
-      setShowAdvancedSettings: (showAdvancedSettings) =>
-        set({ showAdvancedSettings }),
       showEngineStatus: true,
       setShowEngineStatus: (showEngineStatus) => set({ showEngineStatus }),
       queueExpanded: false,
@@ -775,23 +876,27 @@ export const useStore = create<AppState>()(
           wizardStep: "upload",
           completedSteps: [],
           editSubOptionsOpen: null,
-          showAdvancedSettings: false,
           document: null,
           documentMd: "",
           tasks: {},
           pendingTaskIds: [],
           submitting: false,
+          // Offer the model recommendation again on the next upload. Harmless
+          // when a model is already installed — the popup checks for that.
+          // advancedMode is deliberately kept: it is a user preference, like
+          // the interface language, not part of the run being reset.
+          hasSeenModelIntro: false,
+          awaitingFirstModel: false,
+          modelIntroOpen: false,
+          modelReadyOpen: false,
         }),
 
       advanceWizard: (fromStep) => {
         const state = get();
-        const STEP_ORDER: WizardStep[] = [
-          "upload",
-          "edits",
-          "model",
-          "style",
-          "run",
-        ];
+        // Must match StepBar's rail: with the model step hidden, advancing off
+        // "upload" has to skip straight past it or the wizard lands on a step
+        // that renders nothing.
+        const STEP_ORDER = stepOrder(state.advancedMode);
         const fromIdx = STEP_ORDER.indexOf(fromStep);
         for (let i = fromIdx + 1; i < STEP_ORDER.length; i++) {
           if (!state.completedSteps.includes(STEP_ORDER[i])) {
@@ -837,6 +942,9 @@ export const useStore = create<AppState>()(
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,
         hasSeenIntro: state.hasSeenIntro,
+        hasSeenModelIntro: state.hasSeenModelIntro,
+        dismissedAdvice: state.dismissedAdvice,
+        advancedMode: state.advancedMode,
         wizardStep: state.wizardStep,
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,

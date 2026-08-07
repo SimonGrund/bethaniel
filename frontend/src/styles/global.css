@@ -3661,23 +3661,149 @@ summary.review-source::before {
   display: block;
 }
 
-/* ── Run-mode preset toggle (Speed / Balanced / Max) ── */
-.run-mode-toggle {
+/* ── Run-mode slider (Speed / Balanced / Max) ──
+   Lives in the sidebar above the Run button. One thumb sliding along a track,
+   rather than three separate pills: the point is that these are stops on a
+   scale from "fast" to "thorough", not unrelated choices. */
+.run-mode-slider {
   display: flex;
+  flex-direction: column;
   gap: 0.3rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.1rem;
+  margin: 0.5rem 0 0.6rem;
 }
 
-.run-mode-pill {
+.run-mode-slider-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b7355;
+}
+
+.run-mode-track {
+  position: relative;
+  display: flex;
+  padding: 3px;
+  border: 1px solid #d9c9a8;
+  border-radius: 999px;
+  background: #fdfaf0;
+  box-shadow: inset 0 1px 2px rgba(90, 74, 48, 0.08);
+}
+
+.run-mode-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  bottom: 3px;
+  /* Absolute percentages resolve against the padding box, but the stops divide
+     the content box — 6px narrower. Subtract the padding first or the thumb
+     drifts a little further right at every stop. */
+  width: calc((100% - 6px) / var(--stops, 3));
+  border-radius: 999px;
+  background: #8b7355;
+  box-shadow: 0 1px 3px rgba(90, 74, 48, 0.3);
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.run-mode-stop {
+  position: relative;
+  z-index: 1;
   flex: 1 1 0;
-  min-width: 4rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.3rem 0.35rem;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  color: #6b5d45;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.run-mode-stop:hover {
+  color: #2a2419;
+}
+
+.run-mode-stop-active,
+.run-mode-stop-active:hover {
+  color: #fdfaf0;
+  font-weight: 600;
+}
+
+.run-mode-stop:focus-visible {
+  outline: 2px solid #8b7355;
+  outline-offset: 2px;
+}
+
+/* Hand-tuned in advanced settings: the thumb stays where it was, dimmed, so
+   the slider doesn't claim a preset the knobs no longer match. */
+.run-mode-track-custom .run-mode-thumb {
+  background: #c3b394;
+}
+.run-mode-track-custom .run-mode-stop-active {
+  color: #fdfaf0;
+}
+
+.run-mode-help {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #8b7355;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-mode-thumb {
+    transition: none;
+  }
+}
+
+/* ── Model download strip (sidebar, above Run) ── */
+.model-download-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.model-download-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.model-download-label {
+  font-size: 0.72rem;
+  color: #8b7355;
+}
+
+.model-download-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: #e8dcc4;
+  overflow: hidden;
+}
+
+.model-download-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #8b7355;
+  transition: width 0.3s ease;
+}
+
+/* Run button waiting on a model — reads as "not yet", not "broken". */
+.btn-run-waiting {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* ── Model settings toggle (header) ── */
+.btn-model-settings {
+  padding: 0.25rem 0.6rem;
   border: 1px solid #d9c9a8;
   border-radius: 6px;
   background: #fdfaf0;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #6b5d45;
   cursor: pointer;
   transition:
@@ -3686,27 +3812,50 @@ summary.review-source::before {
     border-color 0.15s ease;
 }
 
-.run-mode-pill:hover {
+.btn-model-settings:hover {
   border-color: #8b7355;
   color: #2a2419;
 }
 
-.run-mode-pill.active {
+.btn-model-settings-on {
   background: #8b7355;
   border-color: #8b7355;
   color: #fdfaf0;
-  font-weight: 600;
 }
 
-/* "Custom" indicator — shown (not clickable) when knobs are hand-tuned. */
-.run-mode-pill.custom-active {
-  flex: 0 0 auto;
-  background: transparent;
-  border-style: dashed;
-  border-color: #b8a888;
+/* ── First-run model dialogs ── */
+.model-intro-dialog {
+  max-width: 460px;
+}
+
+.model-intro-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  color: #2a2419;
+}
+
+.model-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.model-intro-error {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  background: #fbeeee;
+  border: 1px solid #e0b4b4;
+  font-size: 0.82rem;
+  color: #8a3a3a;
+}
+
+.model-intro-footnote {
+  margin: 0.9rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
   color: #8b7355;
-  font-style: italic;
-  cursor: default;
 }
 
 .model-tuning {

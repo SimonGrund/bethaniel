@@ -2508,6 +2508,242 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Intro erneut",
     es: "Repetir intro",
   },
+  intro_runmode: {
+    en: "Slide this to trade speed for thoroughness. Speed is a good place to start.",
+    da: "Træk her for at bytte hastighed mod grundighed. Hurtig er et godt sted at starte.",
+    de: "Schiebe hier, um Tempo gegen Gründlichkeit zu tauschen. Schnell ist ein guter Anfang.",
+    es: "Desliza para cambiar velocidad por minuciosidad. Rápido es un buen punto de partida.",
+  },
+
+  // ── Model selector visibility ──
+  activate_model_selector: {
+    en: "Model settings",
+    da: "Modelindstillinger",
+    de: "Modelleinstellungen",
+    es: "Ajustes del modelo",
+  },
+  hide_model_selector: {
+    en: "Hide model settings",
+    da: "Skjul modelindstillinger",
+    de: "Modelleinstellungen ausblenden",
+    es: "Ocultar ajustes del modelo",
+  },
+
+  // ── First-run model offer ──
+  model_intro_title: {
+    en: "Betty needs a brain",
+    da: "Betty mangler en hjerne",
+    de: "Betty braucht ein Gehirn",
+    es: "Betty necesita un cerebro",
+  },
+  model_intro_download: {
+    en: "Download {name} · {size}",
+    da: "Hent {name} · {size}",
+    de: "{name} herunterladen · {size}",
+    es: "Descargar {name} · {size}",
+  },
+  model_intro_starting: {
+    en: "Starting…",
+    da: "Starter…",
+    de: "Wird gestartet…",
+    es: "Iniciando…",
+  },
+  model_intro_choose: {
+    en: "Choose a different Betty",
+    da: "Vælg en anden Betty",
+    de: "Eine andere Betty wählen",
+    es: "Elegir otra Betty",
+  },
+  model_intro_footnote: {
+    en: 'You can change this any time under "Model settings" at the top of the window.',
+    da: 'Du kan altid ændre det under "Modelindstillinger" øverst i vinduet.',
+    de: 'Du kannst das jederzeit unter "Modelleinstellungen" oben im Fenster ändern.',
+    es: 'Puedes cambiarlo cuando quieras en "Ajustes del modelo", arriba en la ventana.',
+  },
+
+  // Why this Betty — one sentence per kind of machine.
+  model_reason_apple: {
+    en: "Your machine has {machine}, so {name} is the right fit — quick, and steady on your hardware.",
+    da: "Din maskine har {machine}, så {name} passer bedst — hurtig og stabil på din hardware.",
+    de: "Dein Rechner hat {machine}, daher passt {name} am besten — schnell und stabil auf deiner Hardware.",
+    es: "Tu equipo tiene {machine}, así que {name} es la mejor opción: rápida y estable en tu hardware.",
+  },
+  model_reason_nvidia: {
+    en: "Your graphics card ({machine}) can drive {name} at a comfortable speed.",
+    da: "Dit grafikkort ({machine}) kan køre {name} i et behageligt tempo.",
+    de: "Deine Grafikkarte ({machine}) kann {name} in angenehmem Tempo betreiben.",
+    es: "Tu tarjeta gráfica ({machine}) puede ejecutar {name} a una velocidad cómoda.",
+  },
+  model_reason_cpu: {
+    en: "Your machine ({machine}) has no graphics card Betty can use, so {name} is the sensible choice — the bigger ones would crawl.",
+    da: "Din maskine ({machine}) har ikke et grafikkort, Betty kan bruge, så {name} er det fornuftige valg — de større ville sneglesig af sted.",
+    de: "Dein Rechner ({machine}) hat keine Grafikkarte, die Betty nutzen kann, daher ist {name} die vernünftige Wahl — die größeren würden kriechen.",
+    es: "Tu equipo ({machine}) no tiene una tarjeta gráfica que Betty pueda usar, así que {name} es la opción sensata: las mayores irían lentísimas.",
+  },
+  model_reason_measured: {
+    en: "Based on how fast Betty actually runs here ({machine}), {name} is the best fit.",
+    da: "Ud fra hvor hurtigt Betty faktisk kører her ({machine}), passer {name} bedst.",
+    de: "Gemessen daran, wie schnell Betty hier tatsächlich läuft ({machine}), passt {name} am besten.",
+    es: "Según la velocidad real de Betty aquí ({machine}), {name} es la mejor opción.",
+  },
+
+  hw_apple_silicon: {
+    en: "Apple Silicon",
+    da: "Apple Silicon",
+    de: "Apple Silicon",
+    es: "Apple Silicon",
+  },
+  hw_nvidia: { en: "an NVIDIA card", da: "et NVIDIA-kort", de: "eine NVIDIA-Karte", es: "una tarjeta NVIDIA" },
+  hw_vram: { en: "video memory", da: "videohukommelse", de: "Grafikspeicher", es: "memoria de vídeo" },
+  hw_cpu_only: {
+    en: "processor only",
+    da: "kun processor",
+    de: "nur Prozessor",
+    es: "solo procesador",
+  },
+
+  unit_minutes: { en: "minutes", da: "minutter", de: "Minuten", es: "minutos" },
+  unit_hour: { en: "hour", da: "time", de: "Stunde", es: "hora" },
+  unit_hours: { en: "hours", da: "timer", de: "Stunden", es: "horas" },
+
+  // ── Download progress + ready ──
+  downloading_model: {
+    en: "Downloading {name}",
+    da: "Henter {name}",
+    de: "{name} wird geladen",
+    es: "Descargando {name}",
+  },
+  model_ready_title: {
+    en: "{name} is ready",
+    da: "{name} er klar",
+    de: "{name} ist bereit",
+    es: "{name} está lista",
+  },
+  model_ready_body: {
+    en: "You can start editing whenever you like.",
+    da: "Du kan gå i gang med at redigere, når du vil.",
+    de: "Du kannst jederzeit mit dem Lektorat beginnen.",
+    es: "Puedes empezar a editar cuando quieras.",
+  },
+  model_ready_ok: {
+    en: "Let's go",
+    da: "Kom i gang",
+    de: "Los geht's",
+    es: "Vamos",
+  },
+
+  // ── Run button, waiting on a model ──
+  run_blocked_no_model: {
+    en: "No Betty selected yet",
+    da: "Ingen Betty valgt endnu",
+    de: "Noch keine Betty gewählt",
+    es: "Aún no has elegido una Betty",
+  },
+  run_blocked_downloading: {
+    en: "Downloading {name} — {percent}%",
+    da: "Henter {name} — {percent}%",
+    de: "{name} wird geladen — {percent}%",
+    es: "Descargando {name} — {percent}%",
+  },
+  run_blocked_preparing: {
+    en: "Betty is still getting ready",
+    da: "Betty er ved at gøre sig klar",
+    de: "Betty macht sich noch bereit",
+    es: "Betty todavía se está preparando",
+  },
+  run_blocked_no_api_key: {
+    en: "External Betty needs an API key",
+    da: "Ekstern Betty mangler en API-nøgle",
+    de: "Externe Betty braucht einen API-Schlüssel",
+    es: "Betty Externa necesita una clave API",
+  },
+
+  // ── Throughput advice ──
+  perf_advice_slow_title: {
+    en: "Betty is thinking slowly",
+    da: "Betty tænker langsomt",
+    de: "Betty denkt langsam",
+    es: "Betty piensa despacio",
+  },
+  perf_advice_downgrade_body: {
+    en: "On your machine this Betty manages about {rate}, which will make long books a chore. {name} is smaller and will run far more briskly here.",
+    da: "På din maskine når denne Betty omkring {rate}, hvilket gør lange bøger til en prøvelse. {name} er mindre og kører langt kvikkere her.",
+    de: "Auf deinem Rechner schafft diese Betty etwa {rate} — bei langen Büchern eine Geduldsprobe. {name} ist kleiner und läuft hier deutlich flotter.",
+    es: "En tu equipo esta Betty alcanza unas {rate}, lo que hace pesados los libros largos. {name} es más pequeña y aquí irá mucho más ágil.",
+  },
+  perf_advice_downgrade_body_norate: {
+    en: "This Betty is running slowly on your machine, which will make long books a chore. {name} is smaller and will run far more briskly here.",
+    da: "Denne Betty kører langsomt på din maskine, hvilket gør lange bøger til en prøvelse. {name} er mindre og kører langt kvikkere her.",
+    de: "Diese Betty läuft auf deinem Rechner langsam — bei langen Büchern eine Geduldsprobe. {name} ist kleiner und läuft hier deutlich flotter.",
+    es: "Esta Betty va lenta en tu equipo, lo que hace pesados los libros largos. {name} es más pequeña y aquí irá mucho más ágil.",
+  },
+  perf_advice_switch: {
+    en: "Switch to {name}",
+    da: "Skift til {name}",
+    de: "Zu {name} wechseln",
+    es: "Cambiar a {name}",
+  },
+  perf_advice_download: {
+    en: "Get {name} · {size}",
+    da: "Hent {name} · {size}",
+    de: "{name} holen · {size}",
+    es: "Obtener {name} · {size}",
+  },
+  perf_advice_keep_going: {
+    en: "Keep going anyway",
+    da: "Fortsæt alligevel",
+    de: "Trotzdem weitermachen",
+    es: "Seguir de todos modos",
+  },
+  perf_advice_slow_body: {
+    en: "Betty manages about {rate} on this machine.",
+    da: "Betty når omkring {rate} på denne maskine.",
+    de: "Betty schafft auf diesem Rechner etwa {rate}.",
+    es: "Betty alcanza unas {rate} en este equipo.",
+  },
+  perf_advice_slow_body_norate: {
+    en: "Betty is running slowly on this machine.",
+    da: "Betty kører langsomt på denne maskine.",
+    de: "Betty läuft auf diesem Rechner langsam.",
+    es: "Betty va lenta en este equipo.",
+  },
+  unit_words_per_second: {
+    en: "words a second",
+    da: "ord i sekundet",
+    de: "Wörter pro Sekunde",
+    es: "palabras por segundo",
+  },
+  unit_words_per_minute: {
+    en: "words a minute",
+    da: "ord i minuttet",
+    de: "Wörter pro Minute",
+    es: "palabras por minuto",
+  },
+  perf_advice_slow_eta: {
+    en: "At that rate your {words}-word manuscript will take roughly {duration}.",
+    da: "I det tempo tager dit manuskript på {words} ord omkring {duration}.",
+    de: "In diesem Tempo braucht dein Manuskript mit {words} Wörtern etwa {duration}.",
+    es: "A ese ritmo, tu manuscrito de {words} palabras tardará unas {duration}.",
+  },
+  perf_advice_slow_tip: {
+    en: "This is already the smallest Betty, so there is nothing lighter to switch to. Try running a couple of chapters first to see how you like the results — or set the whole book going and leave it overnight.",
+    da: "Dette er allerede den mindste Betty, så der er ikke noget lettere at skifte til. Prøv at køre et par kapitler først for at se, hvordan du kan lide resultatet — eller sæt hele bogen i gang og lad den køre natten over.",
+    de: "Das ist bereits die kleinste Betty, es gibt also nichts Leichteres. Lass zuerst ein paar Kapitel laufen, um die Ergebnisse zu beurteilen — oder starte das ganze Buch und lass es über Nacht laufen.",
+    es: "Esta ya es la Betty más pequeña, así que no hay nada más ligero. Prueba primero con un par de capítulos para ver qué tal el resultado, o pon el libro entero en marcha y déjalo toda la noche.",
+  },
+  perf_advice_got_it: {
+    en: "Got it",
+    da: "Forstået",
+    de: "Verstanden",
+    es: "Entendido",
+  },
+
+  run_mode_custom_sidebar_help: {
+    en: "Hand-tuned in model settings. Pick a preset to go back to a standard mode.",
+    da: "Manuelt justeret i modelindstillinger. Vælg en forudindstilling for at vende tilbage til en standardtilstand.",
+    de: "Manuell in den Modelleinstellungen angepasst. Wähle eine Voreinstellung, um zu einem Standardmodus zurückzukehren.",
+    es: "Ajustada a mano en los ajustes del modelo. Elige un preajuste para volver a un modo estándar.",
+  },
 };
 
 export function useTranslation(lang: Lang) {

@@ -43,6 +43,10 @@ export default function EditTrigger() {
     completedSteps,
     sessionStartedAt,
     setSessionStartedAt,
+    installed,
+    downloads,
+    apiKeyConfigured,
+    modelEnvLoaded,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -66,8 +70,46 @@ export default function EditTrigger() {
         firstNWords,
       )
     : [];
+  // ── Is Betty actually available to run? ──
+  // With the model step hidden, the selected model may be one the app picked
+  // and started downloading a moment ago. Launching then would fail deep in the
+  // engine, so the button waits instead — and says what it is waiting for.
+  const activeDownload = Object.values(downloads)[0];
+  const isApiModel =
+    model.startsWith("custom:") && !model.startsWith("custom:gguf");
+  const isCustomGguf = model.startsWith("custom:gguf");
+  // API and custom-GGUF models are configured, not downloaded; the selector
+  // won't let you select them without a key or a path, so they are never gated.
+  // Wait for the first environment fetch: an empty `installed` list before it
+  // lands is "we don't know yet", not "nothing is installed", and gating on it
+  // would flash a false warning on every page load.
+  const modelPending =
+    modelEnvLoaded &&
+    !!model &&
+    !isApiModel &&
+    !isCustomGguf &&
+    !installed.some((m) => m.fileName === model);
+
+  const notReadyReason = !modelEnvLoaded
+    ? null
+    : !model
+    ? t("run_blocked_no_model")
+    : activeDownload
+      ? t("run_blocked_downloading")
+          .replace("{name}", activeDownload.name ?? "Betty")
+          .replace("{percent}", String(activeDownload.percent))
+      : modelPending
+        ? t("run_blocked_preparing")
+        : isApiModel && !apiKeyConfigured
+          ? t("run_blocked_no_api_key")
+          : null;
+
   const disabled =
-    !doc || units.length === 0 || selectedModes.length === 0 || submitting;
+    !doc ||
+    units.length === 0 ||
+    selectedModes.length === 0 ||
+    submitting ||
+    notReadyReason !== null;
 
   const buildEditOptions = () => {
     const opts: Record<string, boolean> = {};
@@ -191,17 +233,29 @@ export default function EditTrigger() {
 
   // No run in this session yet — the normal launch button.
   return (
-    <button className="btn-run" data-tour="run" disabled={disabled} onClick={handleClick}>
+    <button
+      className="btn-run"
+      data-tour="run"
+      disabled={disabled}
+      onClick={handleClick}
+      title={notReadyReason ?? undefined}
+    >
       <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
       <span className="btn-run-label">
         {hasRun ? t("run_again") : t("btn_add_to_queue")}
       </span>
-      {units.length > 0 && (
-        <span className="btn-run-meta">
-          {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
-          {selectedModes.length}{" "}
-          {selectedModes.length === 1 ? "mode" : "modes"}
-        </span>
+      {/* When Betty isn't ready, say so in place of the chapter count — a
+          greyed button with no explanation reads as a bug. */}
+      {notReadyReason ? (
+        <span className="btn-run-meta btn-run-waiting">{notReadyReason}</span>
+      ) : (
+        units.length > 0 && (
+          <span className="btn-run-meta">
+            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+            {selectedModes.length}{" "}
+            {selectedModes.length === 1 ? "mode" : "modes"}
+          </span>
+        )
       )}
     </button>
   );

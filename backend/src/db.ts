@@ -4,6 +4,11 @@
 import Database from "better-sqlite3";
 import { join } from "path";
 import type { DocumentMeta, TaskState } from "./types.js";
+import {
+  median,
+  pushSample,
+  type ThroughputProfile,
+} from "./modelRecommendation.js";
 
 const DB_PATH = join(process.env.DATA_DIR ?? "./data", "bethaniel.db");
 
@@ -34,6 +39,12 @@ function getDb(): Database.Database {
       );
       CREATE INDEX IF NOT EXISTS idx_tasks_finished_at
         ON tasks (finished_at DESC);
+      CREATE TABLE IF NOT EXISTS model_perf (
+        model_file TEXT PRIMARY KEY,
+        samples TEXT NOT NULL,
+        words_per_sec REAL,
+        updated_at INTEGER NOT NULL
+      );
     `);
   }
   return db;
@@ -109,6 +120,87 @@ export function getStyleGuide(): string | null {
     .prepare("SELECT content FROM style_guides WHERE id = 'default'")
     .get() as Record<string, unknown> | undefined;
   return row ? (row.content as string) : null;
+}
+
+// ── Model throughput profiles ──
+// What each local model actually achieves on *this* machine. The recommendation
+// table is a guess; these are measurements, and they outrank it once there are
+// enough of them. Persisted so the profile survives a restart — otherwise every
+// launch would have to re-learn that the big model is unusable here.
+
+/** Append one decode tok/s sample for a model, keeping a rolling window. */
+export function recordThroughputSample(modelFile: string, tps: number): void {
+  if (!Number.isFinite(tps) || tps <= 0) return;
+  const d = getDb();
+  const row = d
+    .prepare("SELECT samples FROM model_perf WHERE model_file = ?")
+    .get(modelFile) as { samples: string } | undefined;
+  const existing: number[] = row ? safeParseSamples(row.samples) : [];
+  const samples = pushSample(existing, tps);
+  d.prepare(
+    `INSERT INTO model_perf (model_file, samples, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(model_file) DO UPDATE SET samples = excluded.samples,
+                                           updated_at = excluded.updated_at`,
+  ).run(modelFile, JSON.stringify(samples), Date.now());
+}
+
+/**
+ * Record the words/second a completed job achieved end to end.
+ *
+ * Unlike the per-chunk tok/s samples this accounts for parallel slots, so it is
+ * the honest number to build a "this will take about N hours" estimate from.
+ */
+export function recordJobThroughput(
+  modelFile: string,
+  wordsPerSec: number,
+): void {
+  if (!Number.isFinite(wordsPerSec) || wordsPerSec <= 0) return;
+  const d = getDb();
+  d.prepare(
+    `INSERT INTO model_perf (model_file, samples, words_per_sec, updated_at)
+     VALUES (?, '[]', ?, ?)
+     ON CONFLICT(model_file) DO UPDATE SET words_per_sec = excluded.words_per_sec,
+                                           updated_at = excluded.updated_at`,
+  ).run(modelFile, wordsPerSec, Date.now());
+}
+
+/** Every model's measured profile, keyed by GGUF file name. */
+export function getThroughputProfiles(): Record<string, ThroughputProfile> {
+  const d = getDb();
+  const rows = d
+    .prepare("SELECT model_file, samples, words_per_sec FROM model_perf")
+    .all() as {
+    model_file: string;
+    samples: string;
+    words_per_sec: number | null;
+  }[];
+  const out: Record<string, ThroughputProfile> = {};
+  for (const row of rows) {
+    const samples = safeParseSamples(row.samples);
+    out[row.model_file] = {
+      medianTps: median(samples),
+      samples: samples.length,
+      wordsPerSec: row.words_per_sec ?? undefined,
+    };
+  }
+  return out;
+}
+
+export function clearThroughputProfile(modelFile: string): void {
+  getDb().prepare("DELETE FROM model_perf WHERE model_file = ?").run(modelFile);
+}
+
+/** A corrupted or hand-edited row must not take the backend down on boot. */
+function safeParseSamples(raw: string): number[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((n): n is number => typeof n === "number" && n > 0)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 // ── Task persistence ──

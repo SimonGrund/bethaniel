@@ -3,7 +3,7 @@
 // a welcome bubble, then an arrow + speech bubble hopping between each
 // sidebar step card (Upload → Edits → Model → Style) and the Run button.
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 
@@ -11,14 +11,27 @@ type TourStop =
   | { kind: "welcome" }
   | { kind: "anchor"; target: string; textKey: string };
 
-const STOPS: TourStop[] = [
-  { kind: "welcome" },
-  { kind: "anchor", target: "upload", textKey: "intro_upload" },
-  { kind: "anchor", target: "edits", textKey: "intro_edits" },
-  { kind: "anchor", target: "model", textKey: "intro_model" },
-  { kind: "anchor", target: "style", textKey: "intro_style" },
-  { kind: "anchor", target: "run", textKey: "intro_run" },
-];
+/**
+ * Tour stops in rail order.
+ *
+ * The model stop only exists in advanced mode: outside it there is no
+ * `data-tour="model"` card to spotlight, and the tour would point an arrow at
+ * nothing. Everyone else gets the run-mode slider instead, which is the choice
+ * they actually have.
+ */
+function buildStops(advancedMode: boolean): TourStop[] {
+  return [
+    { kind: "welcome" },
+    { kind: "anchor", target: "upload", textKey: "intro_upload" },
+    { kind: "anchor", target: "edits", textKey: "intro_edits" },
+    ...(advancedMode
+      ? ([{ kind: "anchor", target: "model", textKey: "intro_model" }] as TourStop[])
+      : []),
+    { kind: "anchor", target: "style", textKey: "intro_style" },
+    { kind: "anchor", target: "runmode", textKey: "intro_runmode" },
+    { kind: "anchor", target: "run", textKey: "intro_run" },
+  ];
+}
 
 interface Rect {
   top: number;
@@ -36,10 +49,12 @@ export default function OnboardingGuide() {
   const introOpen = useStore((s) => s.introOpen);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const setHasSeenIntro = useStore((s) => s.setHasSeenIntro);
+  const advancedMode = useStore((s) => s.advancedMode);
   const t = useTranslation(lang);
 
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  const STOPS = useMemo(() => buildStops(advancedMode), [advancedMode]);
 
   // Reset to the first stop each time the tour opens.
   useEffect(() => {

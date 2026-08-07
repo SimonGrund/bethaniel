@@ -143,10 +143,16 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  Default model — used when no model is explicitly selected
+//  Fallback model — last-resort identifier when nothing has been selected and
+//  no recommendation is available. The real default comes from
+//  `defaultModelFileName()` in routes.ts, which asks modelRecommendation.ts.
+//  Deliberately the smallest local model: it is the only one every supported
+//  machine can actually run, and it never sends text off the device.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const DEFAULT_MODEL_FILENAME = MODEL_CATALOG.at(-1)!.fileName;
+export const FALLBACK_MODEL_FILENAME = MODEL_CATALOG.find(
+  (e) => e.tier === "small",
+)!.fileName;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  Helpers

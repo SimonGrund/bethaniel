@@ -73,13 +73,14 @@ import {
 } from "./modelConfig.js";
 import {
   MODEL_CATALOG,
-  DEFAULT_MODEL_FILENAME,
   isOllamaModel,
   isApiModel,
   isCustomGgufModel,
   getPreferredOrder,
 } from "./modelCatalog.js";
 import type { ModelCatalogEntry } from "./modelCatalog.js";
+import { getAllowedTiers } from "./modelRecommendation.js";
+import { detectHardware, resolveRecommendation } from "./hardware.js";
 import {
   saveDocument,
   getDocument,
@@ -451,7 +452,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: "",
           wordCount: totalWords,
-          model: model || DEFAULT_MODEL_FILENAME,
+          model: model || defaultModelFileName(),
           mode: "publication_scan",
           prompt: "", // deterministic — no LLM prompt
           wpc: wordsPerChunk ?? 2500,
@@ -483,7 +484,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: "",
           wordCount: totalWords,
-          model: model || DEFAULT_MODEL_FILENAME,
+          model: model || defaultModelFileName(),
           mode: "combined_analysis",
           prompt: "", // the orchestrator builds its own pass prompts
           wpc: wordsPerChunk ?? 2500,
@@ -516,7 +517,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: "",
           wordCount: totalWords,
-          model: model || DEFAULT_MODEL_FILENAME,
+          model: model || defaultModelFileName(),
           mode: "text_evaluator",
           prompt: "", // the orchestrator builds its own pass prompts
           wpc: wordsPerChunk ?? 2500,
@@ -550,7 +551,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: "",
           wordCount: totalWords,
-          model: model || DEFAULT_MODEL_FILENAME,
+          model: model || defaultModelFileName(),
           mode: "developmental_edit",
           prompt: "", // the orchestrator builds its own pass prompts
           wpc: wordsPerChunk ?? 2500,
@@ -650,7 +651,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           source: doc.name,
           original: text,
           wordCount: text.split(/\s+/).filter(Boolean).length,
-          model: model || DEFAULT_MODEL_FILENAME,
+          model: model || defaultModelFileName(),
           mode: currentMode,
           prompt: systemPrompt,
           wpc: wordsPerChunk ?? 2500,
@@ -692,7 +693,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // small local models handle much less reliably than API models.
     if (
       analysisModes.length > 0 &&
-      !isApiModel(model || DEFAULT_MODEL_FILENAME)
+      !isApiModel(model || defaultModelFileName())
     ) {
       warnings.push(
         "Story analysis works best with External Betty (API model). Local models often struggle to follow the analysis contract — expect lower-quality catalogs, timelines and summaries.",
@@ -703,7 +704,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // judgment is only as good as the model behind it.
     if (
       modeList.includes("text_evaluator") &&
-      !isApiModel(model || DEFAULT_MODEL_FILENAME)
+      !isApiModel(model || defaultModelFileName())
     ) {
       warnings.push(
         "Writing feedback works best with External Betty (API model). Local models often struggle to quote accurately and judge prose craft — expect a lower-quality report.",
@@ -1188,7 +1189,7 @@ router.post("/format-ebook", async (req: Request, res: Response) => {
       return;
     }
     const formatted = await formatEbookMarkdown(
-      model || DEFAULT_MODEL_FILENAME,
+      model || defaultModelFileName(),
       markdown,
       { signal: ac.signal },
     );
@@ -1258,77 +1259,6 @@ function getSocketIO(): SocketServer | null {
   return (router as any)._io ?? null;
 }
 
-/** Detect hardware capabilities. */
-function detectHardware(): {
-  totalRamGb: number;
-  freeRamGb: number;
-  platform: string;
-  arch: string;
-  appleSilicon: boolean;
-  cpuCount: number;
-  gpu: { vendor: string; vramGb: number | null };
-} {
-  const totalRamGb = os.totalmem() / 1024 ** 3;
-  const freeRamGb = os.freemem() / 1024 ** 3;
-  const platform = process.platform;
-  const arch = process.arch;
-  const appleSilicon = platform === "darwin" && arch === "arm64";
-
-  let gpu: { vendor: string; vramGb: number | null } = {
-    vendor: "none",
-    vramGb: null,
-  };
-
-  if (appleSilicon) {
-    // Apple Silicon — unified memory, GPU uses system RAM
-    gpu = { vendor: "apple", vramGb: totalRamGb };
-  } else {
-    // Try NVIDIA
-    try {
-      const nvidiaSmi = platform === "win32" ? "nvidia-smi.exe" : "nvidia-smi";
-      const output = execFileSync(
-        nvidiaSmi,
-        ["--query-gpu=memory.total", "--format=csv,noheader,nounits"],
-        { timeout: 3000, stdio: "pipe" },
-      )
-        .toString()
-        .trim();
-      const vramMb = parseInt(output.split("\n")[0], 10);
-      if (!isNaN(vramMb)) {
-        gpu = { vendor: "nvidia", vramGb: vramMb / 1024 };
-      }
-    } catch {
-      // no nvidia
-    }
-  }
-
-  return {
-    totalRamGb: Number(totalRamGb.toFixed(1)),
-    freeRamGb: Number(freeRamGb.toFixed(1)),
-    platform,
-    arch,
-    appleSilicon,
-    cpuCount: os.cpus().length,
-    gpu,
-  };
-}
-
-function getAllowedTiers(hw: ReturnType<typeof detectHardware>): string[] {
-  const fakeRam = process.env.BETHANIEL_FAKE_RAM_GB;
-  const totalRamGb = fakeRam ? parseFloat(fakeRam) : hw.totalRamGb;
-
-  const tiers: string[] = [];
-  for (const entry of MODEL_CATALOG) {
-    const minRam = hw.appleSilicon
-      ? entry.minRamAppleSiliconGb
-      : entry.minRamGb;
-    if (totalRamGb >= minRam) {
-      tiers.push(entry.tier);
-    }
-  }
-  return tiers;
-}
-
 // ── GET /api/hardware ──
 router.get("/hardware", (_req: Request, res: Response) => {
   const hw = detectHardware();
@@ -1355,8 +1285,39 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
           ? null
           : fitsInVram(entry.sizeBytes, entry.defaults.num_ctx, 1, vramMib),
   }));
-  res.json({ catalog, allowedTiers, preferredOrder: getPreferredOrder() });
+  res.json({
+    catalog,
+    allowedTiers,
+    preferredOrder: getPreferredOrder(),
+    recommendedFileName: resolveRecommendation().fileName,
+  });
 });
+
+// ── GET /api/models/recommendation ──
+// The single answer to "which Betty should this machine run?". The first-run
+// popup renders it verbatim; the model selector uses it for the badge.
+router.get("/models/recommendation", async (_req: Request, res: Response) => {
+  const rec = resolveRecommendation();
+  let installed = false;
+  try {
+    const entries = await fs.readdir(MODELS_DIR_PATH);
+    installed = entries.includes(rec.fileName);
+  } catch {
+    // models dir not created yet — nothing is installed
+  }
+  res.json({ ...rec, installed });
+});
+
+/**
+ * Model to use when a caller (CLI, headless API) omits one.
+ *
+ * Previously this was `MODEL_CATALOG.at(-1)`, which silently resolved to
+ * External Betty — a fresh install would have sent manuscripts to a cloud API
+ * without anyone choosing that. It now resolves to the recommended local model.
+ */
+function defaultModelFileName(): string {
+  return resolveRecommendation().fileName;
+}
 
 // ── GET /api/models/installed ──
 router.get("/models/installed", async (_req: Request, res: Response) => {

@@ -1,10 +1,10 @@
 // ── Model selector — three colored Betty cards ──
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
+import { refreshModelEnvironment, useStartDownload } from "../useModelRuntime";
 import {
-  fetchSystemRecommendation,
   fetchCustomModelConfig,
   saveCustomModelConfig,
   saveCustomModelName,
@@ -13,43 +13,9 @@ import {
   saveCustomGgufConfig,
   deleteCustomGgufConfig,
 } from "../api";
-
-interface CatalogEntry {
-  id: string;
-  tier: string;
-  name: string;
-  description: string;
-  fileName: string;
-  sizeBytes: number;
-  minRamGb: number;
-  minRamAppleSiliconGb: number;
-  allowed: boolean;
-  fitsGpu: boolean | null;
-}
-
-interface HardwareInfo {
-  totalRamGb: number;
-  freeRamGb: number;
-  platform: string;
-  arch: string;
-  appleSilicon: boolean;
-  cpuCount: number;
-  gpu: { vendor: string; vramGb: number | null };
-  allowedTiers: string[];
-}
-
-interface InstalledModel {
-  id: string;
-  tier: string;
-  name: string;
-  fileName: string;
-}
+import type { CatalogEntry } from "../types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
-
-// Slider ceiling for External Betty (API) models. Local models stay capped by
-// the hardware recommendation (≤3 — single-GPU decode is bandwidth-bound).
-const API_MAX_PARALLEL = 24;
 
 const TIER_COLORS: Record<string, string> = {
   small: "model-tier-green",
@@ -77,17 +43,11 @@ function modelIcon(fileName: string, tier: string): string {
   }
 }
 
-export default function ModelSelector({
-  onModelInstalled,
-}: {
-  onModelInstalled?: () => void;
-}) {
+export default function ModelSelector() {
   const {
     lang,
     model,
     setModel,
-    models,
-    setModels,
     wordsPerChunk,
     setWordsPerChunk,
     overlapParagraphs,
@@ -116,8 +76,6 @@ export default function ModelSelector({
     setStyleComplianceAgent,
     extraPass,
     setExtraPass,
-    runMode,
-    setRunMode,
     styleGuide,
     tasks,
     wizardStep,
@@ -136,22 +94,25 @@ export default function ModelSelector({
     downloads,
     setDownloadProgress,
     clearDownload,
-    downloadDoneTick,
     downloadError,
     setDownloadError,
+    // Model environment — fetched and kept current by useModelRuntime, which
+    // App mounts once. This component only reads it.
+    catalog,
+    hardware,
+    installed,
+    recommendation,
+    maxParallel,
   } = useStore();
   const t = useTranslation(lang);
+  const startModelDownload = useStartDownload();
 
   const modelLocked = Object.values(tasks).some(
     (task) => task.status === "queued" || task.status === "editing",
   );
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [maxParallel, setMaxParallel] = useState(3);
 
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
-  const [hardware, setHardware] = useState<HardwareInfo | null>(null);
-  const [installed, setInstalled] = useState<InstalledModel[]>([]);
   // Download progress is owned by the store (updated by the App-level socket
   // listener) so it survives this component unmounting between setup menus.
   const downloading = useMemo(
@@ -165,7 +126,6 @@ export default function ModelSelector({
   const [error, setError] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<CatalogEntry | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CatalogEntry | null>(null);
-  const [preferredOrder, setPreferredOrder] = useState<string[]>([]);
 
   // External Betty (API) config
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -188,24 +148,23 @@ export default function ModelSelector({
   const [customGgufConfigOpen, setCustomGgufConfigOpen] = useState(false);
   const [showCustomGgufModal, setShowCustomGgufModal] = useState(false);
 
-  function refresh() {
+  /**
+   * Reload everything this panel shows.
+   *
+   * The shared environment (hardware, catalog, installed list) comes from the
+   * runtime hook so it stays consistent app-wide; the two credential configs
+   * are only ever edited here, so they stay local.
+   */
+  function refreshAll() {
     return Promise.all([
-      fetch(`${BASE}/api/hardware`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/catalog`).then((r) => r.json()),
-      fetch(`${BASE}/api/models/installed`).then((r) => r.json()),
-      fetch(`${BASE}/api/models`).then((r) => r.json()),
+      refreshModelEnvironment(),
       fetchCustomModelConfig().catch(
         () => ({ configured: false, model: "" }) as const,
       ),
       fetchCustomGgufConfig().catch(
         () => ({ configured: false, path: "" }) as const,
       ),
-    ]).then(([hw, cat, inst, modelsData, customCfg, ggufCfg]) => {
-      setHardware(hw);
-      setCatalog(cat.catalog ?? []);
-      setPreferredOrder(cat.preferredOrder ?? []);
-      setInstalled(inst.installed ?? []);
-      setModels(modelsData.models ?? []);
+    ]).then(([, customCfg, ggufCfg]) => {
       setApiKeyConfigured(customCfg.configured);
       setStoreApiModel(customCfg.model ?? "");
       if (customCfg.model) setApiModelName(customCfg.model);
@@ -224,7 +183,7 @@ export default function ModelSelector({
       setApiKeyInput("");
       setApiConfigOpen(false);
       setHighlightedModel("custom:deepseek-chat");
-      await refresh();
+      await refreshAll();
       setModel("custom:deepseek-chat");
       markStepComplete("model");
     } catch (err) {
@@ -258,7 +217,7 @@ export default function ModelSelector({
       setApiConfigOpen(false);
       setHighlightedModel("");
       if (model === "custom:deepseek-chat") setModel("");
-      await refresh();
+      await refreshAll();
     } catch (err) {
       setApiError(err instanceof Error ? err.message : t("api_config_error"));
     }
@@ -293,7 +252,7 @@ export default function ModelSelector({
       setCustomGgufConfigured(true);
       setShowCustomGgufModal(false);
       setHighlightedModel("custom:gguf");
-      await refresh();
+      await refreshAll();
       setModel("custom:gguf");
       markStepComplete("model");
     } catch (err) {
@@ -312,24 +271,11 @@ export default function ModelSelector({
       setCustomGgufConfigOpen(false);
       setHighlightedModel("");
       if (model === "custom:gguf") setModel("");
-      await refresh();
+      await refreshAll();
     } catch (err) {
       setCustomGgufError(err instanceof Error ? err.message : String(err));
     }
   }
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  // A download completed (tracked by the App-level socket listener). Refresh the
-  // installed list + auto-select — even if it finished while this component was
-  // unmounted on another setup menu. Skips the initial mount (tick 0).
-  useEffect(() => {
-    if (downloadDoneTick === 0) return;
-    refresh().then(() => onModelInstalled?.());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [downloadDoneTick]);
 
   // Surface a download error reported by the App-level listener, then clear it.
   useEffect(() => {
@@ -339,19 +285,14 @@ export default function ModelSelector({
     }
   }, [downloadError, setDownloadError]);
 
-  // Auto-select the best installed model only on first use. Once the user has
-  // any selection (persisted), keep it — including custom/External Betty models
-  // that aren't in the installed-GGUF list. Empty string only occurs on a fresh
-  // profile or after "Start over", where auto-picking the optimal model is desired.
+  // Credential configs are this panel's own; the shared model environment is
+  // already loaded and kept current by useModelRuntime.
   useEffect(() => {
-    if (models.length > 0 && model === "") {
-      const best =
-        models.find((m) => preferredOrder.includes(m)) ?? models[0] ?? "";
-      setModel(best);
-    }
-  }, [models, model]);
+    refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Close External Betty config panel when user selects a local model
+  // Close the External/Custom Betty config panels when a local model is picked.
   useEffect(() => {
     if (model && !model.startsWith("custom:")) {
       setApiConfigOpen(false);
@@ -359,145 +300,10 @@ export default function ModelSelector({
     }
   }, [model]);
 
-  // The last model we auto-tuned for. Starts null so the FIRST run (mount)
-  // sets slider ceilings/parallel but does NOT apply the default preset — that
-  // would clobber a persisted "Custom" run-mode on every app reopen. The
-  // default preset is applied only on a genuine model *switch* (prev non-null
-  // and different), matching "Speed for local / Max for External Betty".
-  const lastAutoTuned = useRef<string | null>(null);
-
-  // Auto-tune parallel jobs + run-mode preset when the model changes.
-  useEffect(() => {
-    const activeModel = wizardStep === "model" ? highlightedModel : model;
-    if (!activeModel) return;
-    const prev = lastAutoTuned.current;
-    if (prev === activeModel) return; // same model, nothing to do
-    lastAutoTuned.current = activeModel;
-    const modelSwitched = prev !== null; // false on the initial mount
-    const isApi =
-      activeModel.startsWith("custom:") &&
-      !activeModel.startsWith("custom:gguf");
-    // External Betty (API): concurrency is bounded by provider rate limits,
-    // not local hardware — allow a much higher ceiling. On an actual switch,
-    // Max mode wants maximum throughput, so bump parallel toward the ceiling
-    // (user can dial back if the provider rate-limits).
-    if (isApi) {
-      setMaxParallel(API_MAX_PARALLEL);
-      if (modelSwitched) {
-        setRunMode("max");
-        setParallel(API_MAX_PARALLEL);
-      }
-      return;
-    }
-    // Local models (bundled or custom GGUF) → Speed by default on a switch.
-    if (modelSwitched) setRunMode("speed");
-    if (activeModel.startsWith("custom:")) return; // custom GGUF: no HW rec
-    fetchSystemRecommendation(activeModel)
-      .then((r) => {
-        setParallel(r.recommendedParallel);
-        setMaxParallel(r.recommendedParallel);
-      })
-      .catch(() => {});
-  }, [highlightedModel, model, wizardStep]);
-
-  // Pre-warm the selected model so the first task doesn't pay the cold-load
-  // cost (mmap + KV alloc + Metal offload). Fire-and-forget — the backend
-  // serializes loads and emits progress via the `model:warming` socket event.
-  // Also flush the UI log (server + client) when the user switches models, so
-  // the engine feed shows only events relevant to the newly chosen model.
-  const prevModelRef = useRef<string>("");
-  const bootTimeRef = useRef<number>(Date.now());
-  const clearLogsLocal = useStore((s) => s.clearLogs);
-  useEffect(() => {
-    const activeModel = wizardStep === "model" ? highlightedModel : model;
-    if (!activeModel) return;
-    const prev = prevModelRef.current;
-    prevModelRef.current = activeModel;
-    // Skip warm-up + log-flush for cloud/Ollama/API models — only local GGUFs
-    // need the cold-load mitigation.
-    if (
-      activeModel.startsWith("ollama:") ||
-      (activeModel.startsWith("custom:") &&
-        !activeModel.startsWith("custom:gguf"))
-    )
-      return;
-    // Only flush on a real switch, not on the initial auto-select after boot,
-    // so users keep useful startup diagnostics.
-    if (prev && prev !== activeModel) {
-      clearLogsLocal();
-      fetch(`${BASE}/api/logs`, { method: "DELETE" }).catch(() => {});
-    }
-    // Postpone the initial warm-up by 5 s so the UI finishes loading first.
-    const elapsed = Date.now() - bootTimeRef.current;
-    const delay = !prev && elapsed < 5000 ? 5000 - elapsed : 0;
-    const timer = setTimeout(() => {
-      fetch(`${BASE}/api/models/preload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: activeModel }),
-      }).catch(() => {});
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [highlightedModel, model, wizardStep, clearLogsLocal]);
-
-  // Auto-tune words-per-chunk when model tier changes.
-  // Big models are slow per token and have stricter context budgets, so we
-  // default them to small chunks (500 words). Only override when the current
-  // value matches a known tier default — never clobber a user customization.
-  const TIER_WPC_DEFAULTS: Record<string, number> = {
-    big: 1500,
-    normal: 2000,
-    small: 2000,
-  };
-  const KNOWN_TIER_DEFAULTS = new Set(Object.values(TIER_WPC_DEFAULTS));
-  useEffect(() => {
-    if (!model || catalog.length === 0) return;
-    const entry = catalog.find((e) => e.fileName === model);
-    if (!entry) return;
-    const target = TIER_WPC_DEFAULTS[entry.tier];
-    if (
-      target &&
-      target !== wordsPerChunk &&
-      KNOWN_TIER_DEFAULTS.has(wordsPerChunk)
-    ) {
-      setWordsPerChunk(target);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, catalog]);
-
   async function startDownload(modelId: string, name?: string) {
     setError(null);
-    // Seed an optimistic store entry so the progress bar (and the LogPanel
-    // readout) shows immediately, before the first socket event. The name is
-    // carried so surfaces without the catalog can label the download.
-    setDownloadProgress({
-      modelId,
-      name,
-      bytesDownloaded: 0,
-      totalBytes: 0,
-      percent: 0,
-      status: "starting",
-    });
-    try {
-      const res = await fetch(`${BASE}/api/models/download`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Download failed");
-        clearDownload(modelId);
-        return;
-      }
-      if (data.status === "already_installed") {
-        clearDownload(modelId);
-        refresh();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed");
-      clearDownload(modelId);
-    }
+    const res = await startModelDownload(modelId, name);
+    if (!res.ok) setError(res.error);
   }
 
   async function cancelDownload(modelId: string) {
@@ -517,7 +323,7 @@ export default function ModelSelector({
     await fetch(`${BASE}/api/models/${encodeURIComponent(fileName)}`, {
       method: "DELETE",
     });
-    await refresh();
+    await refreshAll();
   }
 
   function formatBytes(bytes: number): string {
@@ -528,14 +334,17 @@ export default function ModelSelector({
       : `${(bytes / 1024 ** 2).toFixed(0)} MB`;
   }
 
-  // Find recommended tier.
-  // If the machine can handle at least one model → recommend the highest allowed tier.
-  // If nothing is allowed (very low RAM) → fall back to the smallest model so users
-  // still have a clear "start here" option with a warning.
-  const anyAllowed = (hardware?.allowedTiers?.length ?? 0) > 0;
-  const recommendedTier = anyAllowed
-    ? (hardware?.allowedTiers?.slice().reverse()[0] ?? null)
-    : (catalog[0]?.tier ?? null);
+  // The recommendation is the backend's call — one source of truth, weighing
+  // GPU class and measured throughput rather than RAM alone. This used to be
+  // derived here from `allowedTiers.reverse()[0]`, which always resolved to
+  // "custom" (Custom and External Betty share that tier at minRam 0), so the
+  // badge landed on the cloud card on every machine.
+  const recommendedFileName = recommendation?.fileName ?? null;
+  // Nothing at all fits in RAM: the recommendation is still shown, but framed
+  // as "best available here" alongside the under-spec warning.
+  const anyAllowed = (hardware?.allowedTiers ?? []).some((tier) =>
+    ["small", "normal", "big"].includes(tier),
+  );
 
   return (
     <div className="model-selector">
@@ -570,7 +379,7 @@ export default function ModelSelector({
                 ? highlightedModel === entry.fileName
                 : model === entry.fileName;
             const tierClass = TIER_COLORS[entry.tier] ?? "model-tier-green";
-            const isRecommended = entry.tier === recommendedTier;
+            const isRecommended = entry.fileName === recommendedFileName;
             // show "Best for your machine" when the machine is low-spec
             const isBestForMachine = !anyAllowed && isRecommended;
             const isLockedOut = modelLocked && !isSelected && isInstalled;
@@ -726,6 +535,14 @@ export default function ModelSelector({
                     </span>
                   ) : (
                     <span className="model-card-status">
+                      {/* Badge the recommendation even before it is installed —
+                          on a fresh machine nothing is, and the whole point is
+                          to point at one card. */}
+                      {isRecommended && (
+                        <span className="model-recommended-badge">
+                          {t("model_recommended")}
+                        </span>
+                      )}
                       {t("model_download")}
                     </span>
                   )}
@@ -791,32 +608,9 @@ export default function ModelSelector({
 
           {showAdvanced && (
             <div className="advanced-panel">
-              {/* ── Run-mode preset: Speed / Balanced / Max ──
-                  Bundles the LLM-work knobs below. Auto-selected by model
-                  (local → Speed, External Betty → Max); hand-tuning any knob
-                  below flips this to "Custom". */}
-              <div className="field">
-                <label>{t("run_mode")}</label>
-                <div className="run-mode-toggle" role="group">
-                  {(["speed", "balanced", "max"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`run-mode-pill${runMode === m ? " active" : ""}`}
-                      aria-pressed={runMode === m}
-                      onClick={() => setRunMode(m)}
-                    >
-                      {t(`run_mode_${m}`)}
-                    </button>
-                  ))}
-                  {runMode === "custom" && (
-                    <span className="run-mode-pill custom-active" aria-hidden>
-                      {t("run_mode_custom")}
-                    </span>
-                  )}
-                </div>
-                <span className="help-text">{t(`run_mode_${runMode}_help`)}</span>
-              </div>
+              {/* The Speed/Balanced/Max choice now lives in the sidebar, above
+                  the Run button, where every user can see it. Hand-tuning any
+                  knob below still flips that slider to "Custom". */}
 
               <div className="field">
                 <label>

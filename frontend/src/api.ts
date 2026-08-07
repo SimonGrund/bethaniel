@@ -1,5 +1,12 @@
 // ── API helper ──
 
+import type {
+  CatalogEntry,
+  HardwareInfo,
+  InstalledModel,
+  ModelRecommendation,
+} from "./types";
+
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -52,6 +59,35 @@ export interface SystemRecommendation {
   modelSizeGb: number;
   modelSource: "measured" | "estimated";
   kvPerJobGb: number;
+}
+
+/** Hardware, catalog and installed models — everything the model runtime needs. */
+export async function fetchModelEnvironment(): Promise<{
+  hardware: HardwareInfo;
+  catalog: CatalogEntry[];
+  preferredOrder: string[];
+  installed: InstalledModel[];
+  models: string[];
+}> {
+  const [hardware, cat, inst, modelsData] = await Promise.all([
+    apiFetch("/hardware").then((r) => r.json()),
+    apiFetch("/models/catalog").then((r) => r.json()),
+    apiFetch("/models/installed").then((r) => r.json()),
+    apiFetch("/models").then((r) => r.json()),
+  ]);
+  return {
+    hardware,
+    catalog: cat.catalog ?? [],
+    preferredOrder: cat.preferredOrder ?? [],
+    installed: inst.installed ?? [],
+    models: modelsData.models ?? [],
+  };
+}
+
+/** Which Betty this machine should run, and why. */
+export async function fetchModelRecommendation(): Promise<ModelRecommendation> {
+  const res = await apiFetch("/models/recommendation");
+  return res.json();
 }
 
 export async function fetchSystemRecommendation(

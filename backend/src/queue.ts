@@ -77,7 +77,11 @@ import {
   deleteTaskStatesIn,
   deleteAllTaskStates,
   pruneOldTasks,
+  recordThroughputSample,
+  recordJobThroughput,
 } from "./db.js";
+import { isApiModel, isCustomGgufModel } from "./modelCatalog.js";
+import { resolveRecommendation } from "./hardware.js";
 
 /**
  * Strip common AI sign-offs / preambles from a generated prose summary.
@@ -268,6 +272,41 @@ function flushBroadcast(): void {
     `[Queue] broadcast ${tasks.size} tasks to ${io.engine?.clientsCount ?? "?"} clients`,
   );
   io.emit("queue:update", buildClientSnapshot(tasks.values()));
+}
+
+// Advice already pushed to the client this process, keyed by "<tier>:<kind>".
+// The recommendation is recomputed after every job, so without this the same
+// "switch to a smaller Betty" would arrive after every single chapter.
+const advicesSent = new Set<string>();
+
+/**
+ * Tell the UI when measured throughput disagrees with the model in use.
+ *
+ * Fires at most once per distinct piece of advice per process. The client also
+ * remembers dismissals, so a user who says "keep going" is not asked again.
+ */
+function emitPerfAdvice(): void {
+  if (!io) return;
+  let rec;
+  try {
+    rec = resolveRecommendation();
+  } catch (err) {
+    console.warn("[Queue] could not resolve perf advice:", err);
+    return;
+  }
+  if (!rec.advice) return;
+  const key = `${rec.advice.from}:${rec.advice.kind}`;
+  if (advicesSent.has(key)) return;
+  advicesSent.add(key);
+  io.emit("model:perf-advice", {
+    ...rec.advice,
+    // The download endpoint keys off the catalog id; the selection state keys
+    // off the file name. Both are needed to act on this advice.
+    recommendedModelId: rec.modelId,
+    recommendedFileName: rec.fileName,
+    recommendedName: rec.name,
+    recommendedSizeBytes: rec.sizeBytes,
+  });
 }
 
 function updateTask(id: string, update: Partial<TaskState>): void {
@@ -2183,6 +2222,13 @@ async function processJob(job: JobData): Promise<void> {
         // Push live tok/s to task state for UI display
         if (tokPerSec !== "n/a") {
           updateTask(taskId, { tokPerSec });
+          // Feed the same number into the machine's throughput profile. Only
+          // local GGUFs: an API model's speed says nothing about this computer,
+          // and a custom GGUF is not something we can recommend switching away
+          // from. This is what lets a measurement overrule the GPU-class guess.
+          if (!isApiModel(model) && !isCustomGgufModel(model)) {
+            recordThroughputSample(model, Number(tokPerSec));
+          }
         }
         console.log(
           `[Queue] chunk ${chunkLabel} timing: prefill=${prefillMs.toFixed(0)}ms (~${prefillTps} tok/s in) decode=${decodeMs.toFixed(0)}ms tokens=${tokCount} tok/s=${tokPerSec}`,
@@ -2309,6 +2355,25 @@ async function processJob(job: JobData): Promise<void> {
       message: `Job done: ${(totalMs / 1000).toFixed(1)}s · ${totalOutTokens} tokens · ${overallTps} tok/s`,
       model,
     });
+  }
+
+  // Manuscript words per second of wall clock. Unlike the per-chunk decode
+  // figure this already accounts for parallel slots, review passes and
+  // deterministic checks, so it is the number to build an honest "a 90,000-word
+  // novel will take about N hours" estimate from.
+  // `totalOutTokens > 0` is the load-bearing part: a job that failed fast (a
+  // missing model file, an aborted load) still has a wall time, and dividing
+  // the manuscript by it yields thousands of words per second — a garbage
+  // sample that would make every later time estimate absurdly optimistic.
+  if (
+    totalMs > 0 &&
+    totalOutTokens > 0 &&
+    !isApiModel(model) &&
+    !isCustomGgufModel(model)
+  ) {
+    const words = original.trim().split(/\s+/).length;
+    recordJobThroughput(model, words / (totalMs / 1000));
+    emitPerfAdvice();
   }
 
   // Deduplicate corrections — overlapping chunks and chunk boundaries can
