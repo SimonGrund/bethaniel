@@ -525,6 +525,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Abbrechen",
     es: "Cancelar",
   },
+  logs_progress_title: {
+    en: "Run progress",
+    da: "Kørselsfremgang",
+    de: "Lauffortschritt",
+    es: "Progreso de la ejecución",
+  },
+  logs_progress_words: {
+    en: "{done} of {total} words",
+    da: "{done} af {total} ord",
+    de: "{done} von {total} Wörtern",
+    es: "{done} de {total} palabras",
+  },
+  run_throughput: {
+    en: "{rate} tok/s total · {streams} streams",
+    da: "{rate} tok/s i alt · {streams} strømme",
+    de: "{rate} Tok/s gesamt · {streams} Ströme",
+    es: "{rate} tok/s en total · {streams} flujos",
+  },
+  run_chapters_failed: {
+    en: "{count} failed",
+    da: "{count} mislykkedes",
+    de: "{count} fehlgeschlagen",
+    es: "{count} fallaron",
+  },
   btn_close: {
     en: "Close",
     da: "Luk",

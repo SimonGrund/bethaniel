@@ -6,6 +6,7 @@
 // working badge and the StepBar "View current run" button.
 
 import { useEffect, useState } from "react";
+import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { cancelJob } from "../api";
 import type { Lang, TaskState } from "../types";
@@ -62,20 +63,31 @@ export default function CurrentRunHeader({
   const chapters = jobTasks.filter((task) => !META_MODES.has(task.mode));
   const chapterTasks = chapters.length > 0 ? chapters : jobTasks;
 
+  // Only `done` counts. A failed or cancelled chapter counts zero, so the bar
+  // stays below 100% and the user can see the job did not fully succeed —
+  // a bar reading 100% over a failed chapter says the opposite of the truth.
   const frac = (task: TaskState): number =>
-    task.status === "done" ||
-    task.status === "error" ||
-    task.status === "cancelled"
+    task.status === "done"
       ? 1
       : task.status === "editing"
         ? Math.min(Math.max(task.progress ?? 0, 0), 1)
         : 0;
   const weight = (task: TaskState): number => Math.max(task.wordCount ?? 0, 1);
   const totalWeight = chapterTasks.reduce((sum, task) => sum + weight(task), 0);
-  const overall =
+  const localOverall =
     chapterTasks.reduce((sum, task) => sum + weight(task) * frac(task), 0) /
     Math.max(totalWeight, 1);
+
+  // Prefer the backend's figure while the job is live: it is the same number
+  // the diagnostics log line reports, so the two cannot disagree. Finished and
+  // former runs have no live stats, hence the local fallback.
+  const liveProgress = useStore((s) => s.runStats)?.jobProgress?.[jobId];
+  const overall = liveProgress?.fraction ?? localOverall;
   const pct = Math.round(overall * 100);
+
+  const failedCount =
+    liveProgress?.failed ??
+    chapterTasks.filter((task) => task.status === "error").length;
 
   const doneCount = chapterTasks.filter(
     (task) => task.status === "done",
@@ -98,9 +110,16 @@ export default function CurrentRunHeader({
   ]
     .map((m) => modelNames[m] ?? m)
     .join(", ");
-  const tokPerSec = jobTasks.find(
-    (task) => task.status === "editing" && task.tokPerSec,
-  )?.tokPerSec;
+  // Aggregate, not the first stream's share. Several chapters decode at once
+  // and each sees a fraction of the machine's bandwidth, so showing one
+  // stream's rate made a healthy 3-slot run look ~3x slower than it was.
+  const runtime = useStore((s) => s.runStats)?.runtime;
+  const throughput =
+    runtime && runtime.activeStreams > 0
+      ? t("run_throughput")
+          .replace("{rate}", String(runtime.aggregateTokPerSec))
+          .replace("{streams}", String(runtime.activeStreams))
+      : null;
 
   const start = Math.min(
     ...jobTasks.map((task) => task.startedAt ?? task.submittedAt ?? Date.now()),
@@ -159,7 +178,12 @@ export default function CurrentRunHeader({
           {t("elapsed")}: {elapsedText}
         </span>
         {modelText && <span className="crh-stat">{modelText}</span>}
-        {tokPerSec && <span className="crh-stat crh-tok">{tokPerSec} tok/s</span>}
+        {throughput && <span className="crh-stat crh-tok">{throughput}</span>}
+        {failedCount > 0 && (
+          <span className="crh-stat crh-failed">
+            {t("run_chapters_failed").replace("{count}", String(failedCount))}
+          </span>
+        )}
       </div>
     </div>
   );

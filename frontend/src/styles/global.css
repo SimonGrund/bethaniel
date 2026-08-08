@@ -5622,3 +5622,17 @@ summary.review-source::before {
     transition: none;
   }
 }
+
+/* Failed-chapter count in the run header — the reason the bar stops short. */
+.crh-stat.crh-failed {
+  color: #a33;
+  font-weight: 500;
+}
+
+/* Aggregate throughput under the run-progress bar in the diagnostics panel. */
+.log-progress-sub {
+  font-size: 0.72rem;
+  color: #8a7c64;
+  margin-top: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}

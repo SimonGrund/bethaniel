@@ -59,7 +59,7 @@ import {
 import { runTranslationUpgrade } from "./translationUpgrade.js";
 import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
 import { buildClientSnapshot, type ClientTaskState } from "./snapshot.js";
-import { ensureModelLoaded } from "./llamaServer.js";
+import { ensureModelLoaded, getCurrentParallelSlots } from "./llamaServer.js";
 import {
   runStoryAnalysis,
   type StoryAnalysisState,
@@ -81,6 +81,8 @@ import {
   recordJobThroughput,
 } from "./db.js";
 import { isApiModel, isCustomGgufModel } from "./modelCatalog.js";
+import { shouldAutoRetry, MAX_AUTO_ATTEMPTS } from "./retryPolicy.js";
+import { computeJobProgress, computeRuntime } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
 
 /**
@@ -272,6 +274,61 @@ function flushBroadcast(): void {
     `[Queue] broadcast ${tasks.size} tasks to ${io.engine?.clientsCount ?? "?"} clients`,
   );
   io.emit("queue:update", buildClientSnapshot(tasks.values()));
+
+  // Separate event so the queue:update contract (Record<id, ClientTaskState>)
+  // stays untouched.
+  const all = [...tasks.values()];
+  io.emit("run:stats", {
+    jobProgress: computeJobProgress(all),
+    runtime: computeRuntime(all, getCurrentParallelSlots()),
+  });
+  maybeLogProgress(all);
+}
+
+let lastProgressLogAt = 0;
+const PROGRESS_LOG_INTERVAL_MS = 30_000;
+
+/**
+ * One progress line per 30s, globally — the Diagnostics feed is a single ring
+ * buffer that users read after the fact, and per-tick lines would push
+ * everything else out of it.
+ */
+function maybeLogProgress(all: TaskState[]): void {
+  try {
+    if (!all.some((t) => t.status === "editing")) return;
+    const now = Date.now();
+    if (now - lastProgressLogAt < PROGRESS_LOG_INTERVAL_MS) return;
+    lastProgressLogAt = now;
+
+    const progress = computeJobProgress(all);
+    const runtime = computeRuntime(all, getCurrentParallelSlots());
+
+    const entries = Object.entries(progress);
+    for (const [jobId, p] of entries) {
+      // Nothing useful to say about a job that finished cleanly.
+      if (p.fraction >= 1 && p.failed === 0) continue;
+      // LogEntry has no jobId field, so name the job inline — but only when
+      // more than one is running, where the line would otherwise be ambiguous.
+      const which = entries.length > 1 ? ` [${jobId.slice(0, 8)}]` : "";
+      const pct = Math.round(p.fraction * 100);
+      const words = p.wordsTotal
+        ? ` (${p.wordsDone.toLocaleString()} of ${p.wordsTotal.toLocaleString()} words)`
+        : "";
+      const rate = runtime.activeStreams
+        ? ` · ${runtime.aggregateTokPerSec} tok/s across ${runtime.activeStreams} stream${runtime.activeStreams === 1 ? "" : "s"}`
+        : "";
+      const failed = p.failed
+        ? ` · ${p.failed} chapter${p.failed === 1 ? "" : "s"} failed`
+        : "";
+      appendLog({
+        level: "info",
+        source: "engine",
+        message: `Job progress${which}: ${pct}%${words}${rate}${failed}`,
+      });
+    }
+  } catch {
+    // Best effort — a stats failure must never interrupt a run.
+  }
 }
 
 // Advice already pushed to the client this process, keyed by "<tier>:<kind>".
@@ -2469,6 +2526,35 @@ function pump(): void {
     );
     processJob(job)
       .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+
+        // A chapter that died for a transient reason gets another go. The job
+        // descriptor is still in hand, so the retry re-dispatches *this* task
+        // rather than calling retryTask(), which mints a new id — a new task
+        // would leave the job holding both the failed original and its
+        // replacement, double-counting that chapter's words in the progress
+        // denominator. Cancellation still wins: every cancel path clears or
+        // splices `pending`, so a cancelled job cannot resurrect itself.
+        const hintKey = diagnoseTaskError(message)?.hintKey;
+        const attempts = tasks.get(job.taskId)?.attempts ?? 0;
+        if (shouldAutoRetry({ hintKey, attempts })) {
+          const next = attempts + 1;
+          updateTask(job.taskId, {
+            status: "queued",
+            progress: 0,
+            attempts: next,
+            phase: `retry ${next}/${MAX_AUTO_ATTEMPTS}`,
+          });
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId: job.taskId,
+            message: `${job.name} failed (${hintKey}) — retrying, attempt ${next} of ${MAX_AUTO_ATTEMPTS}`,
+          });
+          pending.push(job);
+          return;
+        }
+
         updateTask(job.taskId, {
           status: "error",
           finishedAt: Date.now(),

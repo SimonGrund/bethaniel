@@ -18,7 +18,13 @@ import OnboardingGuide from "./components/OnboardingGuide";
 import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
-import type { TaskState, Lang, DownloadProgress, PerfAdvice } from "./types";
+import type {
+  TaskState,
+  Lang,
+  DownloadProgress,
+  PerfAdvice,
+  RunStats,
+} from "./types";
 import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -115,6 +121,10 @@ export default function App() {
     socket.on("queue:update", (data: Record<string, TaskState>) => {
       setTasks(data);
     });
+    // Separate from queue:update so that event's shape stays untouched.
+    socket.on("run:stats", (data: RunStats) => {
+      useStore.getState().setRunStats(data);
+    });
     socket.on("log:snapshot", (entries) => {
       setLogs(entries ?? []);
     });
@@ -176,6 +186,7 @@ export default function App() {
       socket.off("disconnect");
       socket.off("connect_error");
       socket.off("queue:update");
+      socket.off("run:stats");
       socket.off("log:snapshot");
       socket.off("log:append");
       socket.off("log:clear");

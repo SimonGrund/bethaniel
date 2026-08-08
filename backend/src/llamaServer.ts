@@ -241,6 +241,11 @@ let currentParallelSlots: number | null = null;
 let loadPromise: Promise<void> | null = null;
 
 /** Return the currently loaded model file name (or null). */
+/** Slots the running engine was launched with; 0 when nothing is loaded. */
+export function getCurrentParallelSlots(): number {
+  return currentParallelSlots ?? 0;
+}
+
 export function getCurrentModel(): string | null {
   return currentModel;
 }
@@ -353,6 +358,21 @@ function detectThreads(): number {
 // ── Parallel slot detection ──
 
 /**
+ * Ceiling on concurrent slots for this machine.
+ *
+ * On unified memory (Apple Silicon) decode is bandwidth-bound, so a third slot
+ * subtracts from every other stream instead of adding capacity — measured at
+ * ~17.4 tok/s aggregate across 3 slots against 20.9 single-stream on an M1 Pro.
+ * The second slot still pays for itself by overlapping prefill.
+ *
+ * Uses the same platform test as detectNGL above, so the two cannot disagree
+ * about what machine they are on.
+ */
+export function slotCapFor(platform: string, arch: string): number {
+  return platform === "darwin" && arch === "arm64" ? 2 : 3;
+}
+
+/**
  * Determine how many parallel inference slots to allocate in llama-server.
  * Each slot gets its own KV cache. We balance available RAM (after model
  * weights) against CPU cores so the server can handle concurrent requests.
@@ -391,7 +411,12 @@ export function detectParallelSlots(
   // still help because prefill can be batched efficiently.
   const hardwareCap = Math.max(
     1,
-    Math.min(3, ramSlots, cpuSlots, vramSlots),
+    Math.min(
+      slotCapFor(process.platform, process.arch),
+      ramSlots,
+      cpuSlots,
+      vramSlots,
+    ),
   );
   // If the caller knows how many concurrent jobs are queued, don't allocate
   // KV cache for slots that won't be used. Always allow at least 1.

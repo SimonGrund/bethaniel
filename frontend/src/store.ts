@@ -21,6 +21,7 @@ import type {
   InstalledModel,
   ModelRecommendation,
   PerfAdvice,
+  RunStats,
 } from "./types";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
@@ -296,6 +297,11 @@ interface AppState {
    *  installed" and the UI briefly lies. */
   modelEnvLoaded: boolean;
   setModelEnvLoaded: (b: boolean) => void;
+  /** Live run statistics from the `run:stats` socket event. Transient — this
+   *  is what the engine is doing right now, not a setting, so it is never
+   *  persisted. */
+  runStats: RunStats | null;
+  setRunStats: (s: RunStats | null) => void;
   /** Ceiling for the parallel-jobs slider — hardware- or provider-derived. */
   maxParallel: number;
   setMaxParallel: (n: number) => void;
@@ -780,6 +786,8 @@ export const useStore = create<AppState>()(
       recommendation: null,
       setRecommendation: (recommendation) => set({ recommendation }),
       modelEnvLoaded: false,
+      runStats: null,
+      setRunStats: (runStats) => set({ runStats }),
       setModelEnvLoaded: (modelEnvLoaded) => set({ modelEnvLoaded }),
       maxParallel: DEFAULT_MAX_PARALLEL,
       setMaxParallel: (maxParallel) => set({ maxParallel }),
