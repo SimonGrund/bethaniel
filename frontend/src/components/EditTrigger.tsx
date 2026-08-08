@@ -90,8 +90,15 @@ export default function EditTrigger() {
     !isCustomGguf &&
     !installed.some((m) => m.fileName === model);
 
+  // Until the first environment fetch lands we do not know what is installed,
+  // so hold the button rather than let it through. Returning null here left a
+  // window on startup where nothing gated the run at all: clicking inside it
+  // submitted a job against a model that was still downloading, which failed
+  // deep in the engine with "Model file not found". "Preparing" is honest about
+  // the state and avoids the false "not installed" warning that gating on an
+  // empty `installed` list would flash.
   const notReadyReason = !modelEnvLoaded
-    ? null
+    ? t("run_blocked_preparing")
     : !model
     ? t("run_blocked_no_model")
     : activeDownload
