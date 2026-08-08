@@ -2032,6 +2032,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty hat das Modell zwischen Aufträgen aus dem Speicher entfernt. Alles in Ordnung — es wird beim nächsten Lauf neu geladen.",
     es: "Betty liberó el modelo de la memoria entre trabajos. No pasa nada: se recarga en la próxima ejecución.",
   },
+  log_hint_reclaimed_orphan: {
+    en: "A previous engine was still running and holding memory. Betty stopped it and reclaimed the RAM.",
+    da: "En tidligere motor kørte stadig og optog hukommelse. Betty stoppede den og frigav RAM'en.",
+    de: "Eine frühere Engine lief noch und belegte Speicher. Betty hat sie gestoppt und den RAM freigegeben.",
+    es: "Un motor anterior seguía en marcha ocupando memoria. Betty lo detuvo y liberó la RAM.",
+  },
   log_hint_oom: {
     en: "Out of memory. Pick a smaller model (e.g. Tiny Betty), close other apps to free RAM, or reduce the context window in advanced settings.",
     da: "Hukommelsen er opbrugt. Vælg en mindre model (fx Tiny Betty), luk andre programmer for at frigøre RAM, eller reducér kontekstvinduet i avancerede indstillinger.",

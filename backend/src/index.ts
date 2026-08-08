@@ -13,6 +13,7 @@ import {
   initQueue,
   closeQueue,
   getClientSnapshot,
+  getRunStats,
   failActiveTasks,
 } from "./queue.js";
 import { closeDb } from "./db.js";
@@ -45,6 +46,9 @@ const io = new SocketServer(httpServer, {
 io.on("connection", (socket) => {
   socket.emit("queue:update", getClientSnapshot());
   socket.emit("log:snapshot", getLogSnapshot());
+  // Without this a reloaded page shows no run progress until the next queue
+  // broadcast — which never comes once a job has finished.
+  socket.emit("run:stats", getRunStats());
 });
 
 // API

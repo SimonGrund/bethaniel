@@ -101,6 +101,39 @@ function prepareBinary(binPath: string): void {
  * cleaned up (parent backend killed with SIGKILL, debugger detach, crash,
  * etc.) and the port is still bound when we try to spawn a new one.
  */
+/**
+ * Announce an orphaned process we are about to reclaim, with its resident size
+ * where the platform will tell us. Best-effort: never let reporting stop the
+ * reclaim itself.
+ */
+function reportReclaim(pid: string, port: number): void {
+  let detail = `pid ${pid}`;
+  try {
+    const ps = execSync(`ps -o rss=,comm= -p ${pid}`, {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    const m = ps.match(/^(\d+)\s+(.*)$/);
+    if (m) {
+      const gb = Number(m[1]) / 1024 / 1024;
+      const name = m[2].split("/").pop() ?? m[2];
+      detail =
+        gb >= 0.1
+          ? `${name} (pid ${pid}) holding ${gb.toFixed(1)} GB`
+          : `${name} (pid ${pid})`;
+    }
+  } catch {
+    // ps is unavailable or the process just went away — the pid alone will do.
+  }
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: `Reclaiming an orphaned engine on port ${port}: ${detail}.`,
+    hintKey: "log_hint_reclaimed_orphan",
+  });
+}
+
 function freePort(port: number): void {
   try {
     if (process.platform === "win32") {
@@ -131,6 +164,12 @@ function freePort(port: number): void {
       const self = String(process.pid);
       for (const pid of pids) {
         if (pid === self) continue;
+        // Say what is being reclaimed and from whom. An orphaned engine holds
+        // the whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
+        // this is often the real answer to "where did my memory go". It also
+        // matters that we name the process: freePort kills whatever holds the
+        // port, identified only by port number.
+        reportReclaim(pid, port);
         try {
           process.kill(Number(pid), "SIGTERM");
         } catch {}

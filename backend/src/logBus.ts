@@ -41,6 +41,31 @@ export function clearLogs(): void {
   io?.emit("log:clear");
 }
 
+/**
+ * Drop the problems a task left behind once it has come good.
+ *
+ * A chapter that failed and then succeeded on retry leaves error entries that
+ * describe a state no longer true, and the panel would keep flagging them.
+ * Removing them keeps the feed to problems that still need attention.
+ *
+ * The trade-off is deliberate and worth knowing: this discards the record of a
+ * transient failure, so a run that recovered leaves no trace of *why* it was
+ * slow. Only entries tagged with the task are touched — engine-wide errors
+ * carry no taskId and survive.
+ */
+export function resolveLogsForTask(taskId: string): number {
+  if (!taskId) return 0;
+  const keep = buffer.filter(
+    (e) => e.taskId !== taskId || e.level === "info",
+  );
+  const removed = buffer.length - keep.length;
+  if (removed === 0) return 0;
+  buffer.length = 0;
+  buffer.push(...keep);
+  io?.emit("log:resolve", { taskId });
+  return removed;
+}
+
 export function appendLog(entry: Omit<LogEntry, "id" | "ts">): LogEntry {
   const full: LogEntry = {
     id: String(nextId++),

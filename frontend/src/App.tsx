@@ -134,6 +134,10 @@ export default function App() {
     socket.on("log:clear", () => {
       clearLogsLocal();
     });
+    // A task came good — drop the problems it reported on the way.
+    socket.on("log:resolve", (d: { taskId: string }) => {
+      useStore.getState().resolveLogsForTask(d.taskId);
+    });
     socket.on(
       "model:warming",
       (evt: { model: string; status: "warming" | "ready" | "error" }) => {
@@ -190,6 +194,7 @@ export default function App() {
       socket.off("log:snapshot");
       socket.off("log:append");
       socket.off("log:clear");
+      socket.off("log:resolve");
       socket.off("model:warming");
       socket.off("model:download");
       socket.off("model:perf-advice");
