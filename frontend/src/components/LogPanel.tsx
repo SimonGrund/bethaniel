@@ -39,6 +39,30 @@ export default function LogPanel() {
   const downloads = useStore((s) => s.downloads);
 
   const activeDownloads = useMemo(() => Object.values(downloads), [downloads]);
+
+  // Live run progress, shown the same way a download is: a labelled bar in the
+  // diagnostics panel. Only jobs still in flight — a finished run belongs in
+  // the results list, not the live readout.
+  const runStats = useStore((s) => s.runStats);
+  const tasks = useStore((s) => s.tasks);
+  const activeRuns = useMemo(() => {
+    const live = new Set(
+      Object.values(tasks)
+        .filter((t) => t.status === "queued" || t.status === "editing")
+        .map((t) => t.jobId),
+    );
+    return Object.entries(runStats?.jobProgress ?? {}).filter(([jobId]) =>
+      live.has(jobId),
+    );
+  }, [runStats, tasks]);
+
+  const rt = runStats?.runtime;
+  const throughput =
+    rt && rt.activeStreams > 0
+      ? t("run_throughput")
+          .replace("{rate}", String(rt.aggregateTokPerSec))
+          .replace("{streams}", String(rt.activeStreams))
+      : null;
   // Representative figure for the collapsed FAB: the least-complete download.
   const minPercent = useMemo(
     () =>
@@ -135,6 +159,43 @@ export default function LogPanel() {
           </div>
 
           <div className="log-panel-body" ref={listRef}>
+            {activeRuns.length > 0 && (
+              <div className="log-downloads">
+                <div className="log-downloads-title">
+                  {t("logs_progress_title")}
+                </div>
+                {activeRuns.map(([jobId, p]) => {
+                  const pct = Math.round(p.fraction * 100);
+                  return (
+                    <div key={jobId} className="log-download-row">
+                      <span className="log-download-name" title={jobId}>
+                        {p.wordsTotal
+                          ? t("logs_progress_words")
+                              .replace("{done}", p.wordsDone.toLocaleString())
+                              .replace("{total}", p.wordsTotal.toLocaleString())
+                          : t("logs_progress_title")}
+                      </span>
+                      <span
+                        className="model-progress-bar"
+                        role="progressbar"
+                        aria-valuenow={pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <span
+                          className="model-progress-fill"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </span>
+                      <span className="log-download-percent">{pct}%</span>
+                    </div>
+                  );
+                })}
+                {throughput && (
+                  <div className="log-progress-sub">{throughput}</div>
+                )}
+              </div>
+            )}
             {activeDownloads.length > 0 && (
               <div className="log-downloads">
                 <div className="log-downloads-title">
