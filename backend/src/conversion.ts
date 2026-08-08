@@ -81,7 +81,9 @@ async function getTurndown(): Promise<TurndownService> {
  */
 async function getDocxParagraphInfo(
   docxBuffer: Buffer,
-): Promise<Array<{ isPageBreak: boolean; isEmpty: boolean }>> {
+): Promise<
+  Array<{ isPageBreak: boolean; isEmpty: boolean; inTable: boolean }>
+> {
   try {
     const zip = await JSZip.loadAsync(docxBuffer);
     const docXml = await zip.file("word/document.xml")?.async("string");
@@ -95,6 +97,7 @@ async function getDocxParagraphInfo(
     return indexDocumentXml(docXml).paragraphs.map((p) => ({
       isPageBreak: p.isPageBreak,
       isEmpty: p.isEmpty,
+      inTable: p.inTable,
     }));
   } catch {
     return [];
@@ -119,10 +122,38 @@ export async function extractPagebreaksFromDocx(
  * `MEDIA_DIR/<docId>/imageN.<ext>` and referenced from the markdown as
  * `![](media/<docId>/imageN.ext)` so graphics survive the edit/export pipeline.
  */
+/**
+ * Where a docx paragraph's text ended up in the imported markdown.
+ *
+ * Surgical export needs this to map an edited chapter back onto the original
+ * runs. `mappable` is false where the markdown offsets bear no reliable
+ * relation to the paragraph's plain text — table cells today, list items later
+ * — in which case the paragraph keeps its original text and its formatting.
+ */
+export interface ParagraphMapEntry {
+  docxParaIndex: number;
+  mdStart: number;
+  mdEnd: number;
+  mappable: boolean;
+}
+
+export interface MappedImport {
+  md: string;
+  paragraphMap: ParagraphMapEntry[];
+}
+
+/** Import a .docx to markdown. Unchanged signature; every caller is untouched. */
 export async function docxToMarkdown(
   docxBuffer: Buffer,
   opts: { docId?: string } = {},
 ): Promise<string> {
+  return (await docxToMarkdownMapped(docxBuffer, opts)).md;
+}
+
+export async function docxToMarkdownMapped(
+  docxBuffer: Buffer,
+  opts: { docId?: string } = {},
+): Promise<MappedImport> {
   const { docId } = opts;
   const mammoth = (await import("mammoth")).default;
   const turndown = await getTurndown();
@@ -195,13 +226,16 @@ export async function docxToMarkdown(
   const paragraphInfo = await getDocxParagraphInfo(docxBuffer);
 
   if (htmlBlocks.length === 0) {
-    return stripMarkdownEscapes(
-      turndown
-        .turndown(result.value)
-        .split("\n")
-        .map(normalizeDividerLine)
-        .join("\n"),
-    );
+    return {
+      md: stripMarkdownEscapes(
+        turndown
+          .turndown(result.value)
+          .split("\n")
+          .map(normalizeDividerLine)
+          .join("\n"),
+      ),
+      paragraphMap: [],
+    };
   }
 
   let text = "";
@@ -213,7 +247,8 @@ export async function docxToMarkdown(
   // pipeline — chunking (splits on blank lines), the LLM, and the exporter —
   // agree on what a paragraph boundary is. Extra empty Word paragraphs add
   // further blank lines (collapsed harmlessly on render).
-  const appendBlock = (block: string) => {
+  const paragraphMap: ParagraphMapEntry[] = [];
+  const appendBlock = (block: string, docxParaIndex = -1, mappable = false) => {
     if (!block) {
       pendingEmptyParagraphs += 1;
       return;
@@ -221,11 +256,21 @@ export async function docxToMarkdown(
     if (text) {
       text += "\n".repeat(pendingEmptyParagraphs + 2);
     }
+    const mdStart = text.length;
     text += block;
+    if (docxParaIndex >= 0) {
+      paragraphMap.push({
+        docxParaIndex,
+        mdStart,
+        mdEnd: text.length,
+        mappable,
+      });
+    }
     pendingEmptyParagraphs = 0;
   };
 
-  for (const info of paragraphInfo) {
+  for (let docxParaIndex = 0; docxParaIndex < paragraphInfo.length; docxParaIndex++) {
+    const info = paragraphInfo[docxParaIndex];
     if (info.isPageBreak) {
       pendingPageBreak = true;
       continue;
@@ -241,7 +286,13 @@ export async function docxToMarkdown(
     blockIndex += 1;
 
     if (mdBlock) {
-      mdBlock = mdBlock.split("\n").map(normalizeDividerLine).join("\n");
+      // Stripped here rather than over the whole document at the end: the strip
+      // removes characters, so doing it afterwards would shift every offset
+      // recorded in the paragraph map. Concatenation-equivalent, since an
+      // escape sequence never spans a block boundary.
+      mdBlock = stripMarkdownEscapes(
+        mdBlock.split("\n").map(normalizeDividerLine).join("\n"),
+      );
     }
 
     if (pendingPageBreak && text && mdBlock) {
@@ -256,20 +307,22 @@ export async function docxToMarkdown(
       pendingPageBreak = false;
     }
 
-    appendBlock(mdBlock);
+    appendBlock(mdBlock, docxParaIndex, !info.inTable);
   }
 
   for (; blockIndex < htmlBlocks.length; blockIndex++) {
-    const mdBlock = turndown
-      .turndown(htmlBlocks[blockIndex])
-      .trim()
-      .split("\n")
-      .map(normalizeDividerLine)
-      .join("\n");
+    const mdBlock = stripMarkdownEscapes(
+      turndown
+        .turndown(htmlBlocks[blockIndex])
+        .trim()
+        .split("\n")
+        .map(normalizeDividerLine)
+        .join("\n"),
+    );
     appendBlock(mdBlock);
   }
 
-  return stripMarkdownEscapes(text);
+  return { md: text, paragraphMap };
 }
 
 /**

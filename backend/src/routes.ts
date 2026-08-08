@@ -16,10 +16,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 import { execFileSync } from "child_process";
 import {
   docxToMarkdown,
+  docxToMarkdownMapped,
   markdownToDocx,
   MEDIA_DIR,
   type DocxExportOptions,
 } from "./conversion.js";
+import {
+  saveOriginalDocx,
+  loadOriginalDocx,
+  hasOriginalDocx,
+} from "./docxOriginal.js";
+import { indexDocumentXml, rewriteDocxText } from "./docxSurgery.js";
+import { remapChaptersToParagraphEdits } from "./docxRemap.js";
+import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
@@ -142,7 +151,11 @@ router.post(
       let md: string;
 
       if (fileName.toLowerCase().endsWith(".docx")) {
-        md = await docxToMarkdown(req.file.buffer, { docId });
+        // Keep the original alongside its paragraph map so export can edit the
+        // user's own file rather than rebuild an approximation of it.
+        const mapped = await docxToMarkdownMapped(req.file.buffer, { docId });
+        md = mapped.md;
+        await saveOriginalDocx(docId, req.file.buffer, mapped.paragraphMap);
       } else {
         md = req.file.buffer.toString("utf-8");
       }
@@ -1155,6 +1168,84 @@ router.post("/export/docx", async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "DOCX conversion failed",
+    });
+  }
+});
+
+// ── Export: edit the user's own .docx in place ──
+//
+// Separate from /export/docx rather than an overload: that endpoint's contract
+// is {markdown} and is shared with the CLI. This one needs the document
+// identity and the original/edited pair per chapter, because the edits are
+// derived by diffing rather than carried as positions.
+router.post("/export/docx-surgical", async (req: Request, res: Response) => {
+  try {
+    const { docId, chapters } = req.body as {
+      docId?: string;
+      chapters?: Array<{ original: string; edited: string }>;
+    };
+    if (typeof docId !== "string" || !Array.isArray(chapters)) {
+      res.status(400).json({ error: "docId and chapters are required" });
+      return;
+    }
+
+    const doc = getDocument(docId);
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const original = await loadOriginalDocx(docId);
+    if (!original.ok) {
+      // 409 rather than 500: nothing is broken, this document simply cannot be
+      // edited surgically. The client falls back and says so.
+      res.status(409).json({
+        error: "No original document available for surgical export",
+        reason: original.reason,
+      });
+      return;
+    }
+
+    const zip = await JSZip.loadAsync(original.value.buffer);
+    const xml = await zip.file("word/document.xml")?.async("string");
+    if (!xml) {
+      res.status(409).json({ error: "Malformed original", reason: "no-original" });
+      return;
+    }
+
+    const { edits, unmapped } = remapChaptersToParagraphEdits(
+      doc.md,
+      original.value.paragraphMap,
+      indexDocumentXml(xml),
+      chapters,
+    );
+    const { buffer, applied, skipped } = await rewriteDocxText(
+      original.value.buffer,
+      edits,
+    );
+
+    // The guarantee is that formatting is never altered; it is only meaningful
+    // if the caller learns what was left out.
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    res.setHeader("Content-Disposition", 'attachment; filename="edited.docx"');
+    res.setHeader("X-Bethaniel-Applied", String(applied));
+    res.setHeader("X-Bethaniel-Skipped", String(skipped.length + unmapped.length));
+    res.setHeader(
+      "X-Bethaniel-Report",
+      encodeURIComponent(
+        JSON.stringify({
+          skipped: skipped.slice(0, 50),
+          unmapped: unmapped.slice(0, 50),
+        }),
+      ),
+    );
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Surgical export failed",
     });
   }
 });
