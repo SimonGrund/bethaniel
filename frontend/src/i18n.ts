@@ -2026,6 +2026,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ausblenden",
     es: "Ocultar",
   },
+  log_hint_model_unloaded: {
+    en: "Betty freed the model from memory between jobs. Nothing is wrong — it reloads on the next run.",
+    da: "Betty frigav modellen fra hukommelsen mellem opgaver. Intet er galt — den indlæses igen ved næste kørsel.",
+    de: "Betty hat das Modell zwischen Aufträgen aus dem Speicher entfernt. Alles in Ordnung — es wird beim nächsten Lauf neu geladen.",
+    es: "Betty liberó el modelo de la memoria entre trabajos. No pasa nada: se recarga en la próxima ejecución.",
+  },
   log_hint_oom: {
     en: "Out of memory. Pick a smaller model (e.g. Tiny Betty), close other apps to free RAM, or reduce the context window in advanced settings.",
     da: "Hukommelsen er opbrugt. Vælg en mindre model (fx Tiny Betty), luk andre programmer for at frigøre RAM, eller reducér kontekstvinduet i avancerede indstillinger.",

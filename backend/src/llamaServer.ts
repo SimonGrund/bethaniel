@@ -240,6 +240,15 @@ let currentCtx: number | null = null;
 let currentParallelSlots: number | null = null;
 let loadPromise: Promise<void> | null = null;
 
+/**
+ * True while a stop we initiated is in flight (idle unload, model swap, app
+ * shutdown). killChild sends SIGTERM then SIGKILL, and a bare SIGKILL is
+ * otherwise indistinguishable from the OS OOM killer — which is why every
+ * deliberate unload used to surface as an out-of-memory warning.
+ * Reset when a new engine is spawned.
+ */
+let deliberateStop = false;
+
 /** Return the currently loaded model file name (or null). */
 /** Slots the running engine was launched with; 0 when nothing is loaded. */
 export function getCurrentParallelSlots(): number {
@@ -532,6 +541,10 @@ function killChild(): Promise<void> {
       currentParallelSlots = null;
       return resolve();
     }
+    // Tell the exit handler this stop was ours. Without it, the SIGKILL below
+    // is indistinguishable from the OS OOM killer, and every idle unload was
+    // reported to the user as "Out of memory — pick a smaller model".
+    deliberateStop = true;
     const timeout = setTimeout(() => {
       childProcess?.kill("SIGKILL");
     }, 3000);
@@ -766,6 +779,8 @@ async function doLoad(
     // best-effort
   }
 
+  // Fresh engine, fresh slate — a stale flag would mask a real crash.
+  deliberateStop = false;
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
     env: {
@@ -818,6 +833,27 @@ async function doLoad(
 
   childProcess.on("exit", (code, signal) => {
     console.log(`[llama-server] exited with code ${code} signal ${signal}`);
+    const stoppedByUs = deliberateStop;
+    deliberateStop = false;
+
+    // A stop we asked for is not a crash. Say so plainly instead of dressing an
+    // idle unload up as an engine failure with memory advice attached.
+    if (stoppedByUs) {
+      appendLog({
+        level: "info",
+        source: "engine",
+        message: `Model unloaded to free memory (${file}).`,
+        hintKey: "log_hint_model_unloaded",
+        model: file,
+      });
+      if (currentModel === file) {
+        currentModel = null;
+        currentCtx = null;
+        currentParallelSlots = null;
+      }
+      return;
+    }
+
     // Abnormal exit while a model was supposed to be running → user-facing log.
     const wasRunning = currentModel === file;
     if (wasRunning && (code !== 0 || signal)) {
