@@ -171,9 +171,14 @@ retries forever on an unknown fault is worse than one that stops and says so.
 **Policy.** Up to **2** automatic attempts after the first failure (3 runs
 total), with the existing backoff style — the queue already does this at chunk
 level (`queue.ts:594`) and for reviewer calls, so this is the same idea one level
-up. Between attempts the task sits in an `awaiting-retry` state, visible in the
-queue with `retry 1/2`, and counts 0 toward progress since its words are not yet
-edited.
+up. Between attempts the task returns to `queued` with its phase showing
+`retry 1/2`, and counts 0 toward progress since its words are not yet edited.
+
+No new `TaskStatus` value is introduced. `TaskStatus` is switched on across the
+frontend, the queue's boot hydration (`queued`/`editing` → `cancelled`), and the
+`isWorking` check in `Sidebar.tsx`; reusing `queued` gets all of that behaviour
+right for free, where a new state would mean auditing every consumer. The retry
+count lives in a new `attempts?: number` field instead.
 
 **In place, not as a new task.** `retryTask` (`queue.ts:2733`) mints a *new* task
 id, which is right for the manual "retry" button but wrong here: the job would
