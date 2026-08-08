@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
 import { parseMdBlocks } from "./mdBlocks.js";
+import { indexDocumentXml } from "./docxSurgery.js";
 import { buildDocx, type ImageBytesResolver } from "./mdToDocx.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
 import { cleanPublishArtifacts } from "./publishReview.js";
@@ -86,44 +87,15 @@ async function getDocxParagraphInfo(
     const docXml = await zip.file("word/document.xml")?.async("string");
     if (!docXml) return [];
 
-    // Match a paragraph as either a genuinely self-closing empty paragraph
-    // (`<w:p .../>`, its OWN `/>`) or an open/close pair up to its own `</w:p>`.
-    // The `[^>]` guard stops the self-close alternative from firing on a child
-    // element's `/>` (e.g. `<w:jc/>`, `<w:spacing/>`, `<w:pStyle/>` inside
-    // `<w:pPr>`), which previously truncated formatted paragraphs mid-way — the
-    // truncated fragment lost its `<w:t>` and was misread as an empty paragraph,
-    // collapsing real section breaks. See test/docxImport.test.ts.
-    const paragraphs =
-      docXml.match(/<w:p\b(?:[^>]*?\/>|[^>]*?>[\s\S]*?<\/w:p>)/g) ?? [];
-
-    return paragraphs.map((p) => {
-      let isPageBreak = false;
-
-      if (/<w:br[^>]*w:type="page"/.test(p)) {
-        isPageBreak = true;
-      }
-      if (!isPageBreak && /<w:pageBreakBefore/.test(p)) {
-        const valMatch = p.match(/<w:pageBreakBefore[^>]*w:val="([^"]+)"/);
-        if (
-          !valMatch ||
-          ["true", "1", "on"].includes(valMatch[1].toLowerCase())
-        ) {
-          isPageBreak = true;
-        }
-      }
-      if (!isPageBreak && /<w:sectPr/.test(p)) {
-        const typeMatch = p.match(
-          /<w:type[^>]*w:val="(nextPage|oddPage|evenPage)"/,
-        );
-        if (typeMatch) isPageBreak = true;
-      }
-
-      const hasVisibleText = /<w:t(?:\s|>)/.test(p);
-      const hasObject = /<w:drawing|<w:pict|<w:object/.test(p);
-      const isEmpty = !isPageBreak && !hasVisibleText && !hasObject;
-
-      return { isPageBreak, isEmpty };
-    });
+    // Uses the same scanner as surgical export, so import ordinals and surgery
+    // ordinals cannot disagree. It also fixes a real defect in the regex this
+    // replaced: that pattern terminated an outer <w:p> at an INNER </w:p>, so
+    // any document containing a text box was silently misaligned — every
+    // paragraph after the box shifted by one.
+    return indexDocumentXml(docXml).paragraphs.map((p) => ({
+      isPageBreak: p.isPageBreak,
+      isEmpty: p.isEmpty,
+    }));
   } catch {
     return [];
   }

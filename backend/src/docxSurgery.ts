@@ -42,6 +42,12 @@ export interface DocxParagraph {
   depth: number;
   inTable: boolean;
   isEmpty: boolean;
+  /** A page/section break starts at this paragraph. */
+  isPageBreak: boolean;
+  /** Carries a drawing, picture or embedded object. */
+  hasObject: boolean;
+  /** Saw a <w:t> element, even an empty one — matches the old predicate. */
+  sawTextElement: boolean;
   text: string;
   nodes: TextNode[];
 }
@@ -119,6 +125,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
   let tblDepth = 0;
   let fallbackDepth = 0; // inside mc:Fallback — a duplicate of mc:Choice
   let skipTextDepth = 0; // inside w:delText / w:instrText
+  let sectPrDepth = 0;
   let runIndex = -1;
   let rPrStart = -1;
   let currentRPr = "";
@@ -152,6 +159,9 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
           depth: stack.length,
           inTable: tblDepth > 0,
           isEmpty: true,
+          isPageBreak: false,
+          hasObject: false,
+          sawTextElement: false,
           text: "",
           nodes: [],
         });
@@ -164,6 +174,9 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
           depth: stack.length,
           inTable: tblDepth > 0,
           isEmpty: true,
+          isPageBreak: false,
+          hasObject: false,
+          sawTextElement: false,
           text: "",
           nodes: [],
         };
@@ -176,6 +189,36 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
 
     const p = stack[stack.length - 1];
     if (!p) continue;
+
+    // Structural signals, gathered on the innermost open paragraph so a text
+    // box's break does not leak onto the paragraph containing it.
+    // Note the deliberate absence of `continue`: a page-break <w:br> still falls
+    // through to the virtual-node handling below, so it occupies one character
+    // exactly like any other break. Offsets must not depend on the break's kind.
+    if (name === "w:br" && /w:type\s*=\s*"page"/.test(m[3])) {
+      p.isPageBreak = true;
+    }
+    if (name === "w:pageBreakBefore" && !isClose) {
+      const val = m[3].match(/w:val\s*=\s*"([^"]+)"/);
+      if (!val || ["true", "1", "on"].includes(val[1].toLowerCase())) {
+        p.isPageBreak = true;
+      }
+      continue;
+    }
+    if (name === "w:sectPr") {
+      if (isClose) sectPrDepth = Math.max(0, sectPrDepth - 1);
+      else if (!isSelf) sectPrDepth += 1;
+      continue;
+    }
+    if (name === "w:type" && sectPrDepth > 0) {
+      const val = m[3].match(/w:val\s*=\s*"(nextPage|oddPage|evenPage)"/);
+      if (val) p.isPageBreak = true;
+      continue;
+    }
+    if (name === "w:drawing" || name === "w:pict" || name === "w:object") {
+      p.hasObject = true;
+      continue;
+    }
 
     if (name === "w:r" && !isClose && !isSelf) {
       runIndex += 1;
@@ -219,7 +262,9 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
       continue;
     }
 
-    if (name === "w:t" && !isClose && !isSelf && skipTextDepth === 0) {
+    if (name === "w:t" && !isClose && skipTextDepth === 0) {
+      p.sawTextElement = true;
+      if (isSelf) continue;
       const close = xml.indexOf("</w:t>", tagEnd);
       if (close === -1) continue;
       const raw = xml.slice(tagEnd, close);
@@ -241,7 +286,9 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
     }
   }
 
-  for (const p of paragraphs) p.isEmpty = p.text.length === 0;
+  for (const p of paragraphs) {
+    p.isEmpty = !p.isPageBreak && !p.sawTextElement && !p.hasObject;
+  }
   return { xml, paragraphs };
 }
 
