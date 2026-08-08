@@ -101,6 +101,39 @@ function prepareBinary(binPath: string): void {
  * cleaned up (parent backend killed with SIGKILL, debugger detach, crash,
  * etc.) and the port is still bound when we try to spawn a new one.
  */
+/**
+ * Announce an orphaned process we are about to reclaim, with its resident size
+ * where the platform will tell us. Best-effort: never let reporting stop the
+ * reclaim itself.
+ */
+function reportReclaim(pid: string, port: number): void {
+  let detail = `pid ${pid}`;
+  try {
+    const ps = execSync(`ps -o rss=,comm= -p ${pid}`, {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    const m = ps.match(/^(\d+)\s+(.*)$/);
+    if (m) {
+      const gb = Number(m[1]) / 1024 / 1024;
+      const name = m[2].split("/").pop() ?? m[2];
+      detail =
+        gb >= 0.1
+          ? `${name} (pid ${pid}) holding ${gb.toFixed(1)} GB`
+          : `${name} (pid ${pid})`;
+    }
+  } catch {
+    // ps is unavailable or the process just went away — the pid alone will do.
+  }
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: `Reclaiming an orphaned engine on port ${port}: ${detail}.`,
+    hintKey: "log_hint_reclaimed_orphan",
+  });
+}
+
 function freePort(port: number): void {
   try {
     if (process.platform === "win32") {
@@ -131,6 +164,12 @@ function freePort(port: number): void {
       const self = String(process.pid);
       for (const pid of pids) {
         if (pid === self) continue;
+        // Say what is being reclaimed and from whom. An orphaned engine holds
+        // the whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
+        // this is often the real answer to "where did my memory go". It also
+        // matters that we name the process: freePort kills whatever holds the
+        // port, identified only by port number.
+        reportReclaim(pid, port);
         try {
           process.kill(Number(pid), "SIGTERM");
         } catch {}
@@ -239,6 +278,15 @@ let currentCtx: number | null = null;
 // arrives with several queued tasks) and trigger a reload.
 let currentParallelSlots: number | null = null;
 let loadPromise: Promise<void> | null = null;
+
+/**
+ * True while a stop we initiated is in flight (idle unload, model swap, app
+ * shutdown). killChild sends SIGTERM then SIGKILL, and a bare SIGKILL is
+ * otherwise indistinguishable from the OS OOM killer — which is why every
+ * deliberate unload used to surface as an out-of-memory warning.
+ * Reset when a new engine is spawned.
+ */
+let deliberateStop = false;
 
 /** Return the currently loaded model file name (or null). */
 /** Slots the running engine was launched with; 0 when nothing is loaded. */
@@ -532,6 +580,10 @@ function killChild(): Promise<void> {
       currentParallelSlots = null;
       return resolve();
     }
+    // Tell the exit handler this stop was ours. Without it, the SIGKILL below
+    // is indistinguishable from the OS OOM killer, and every idle unload was
+    // reported to the user as "Out of memory — pick a smaller model".
+    deliberateStop = true;
     const timeout = setTimeout(() => {
       childProcess?.kill("SIGKILL");
     }, 3000);
@@ -766,6 +818,8 @@ async function doLoad(
     // best-effort
   }
 
+  // Fresh engine, fresh slate — a stale flag would mask a real crash.
+  deliberateStop = false;
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
     env: {
@@ -818,6 +872,27 @@ async function doLoad(
 
   childProcess.on("exit", (code, signal) => {
     console.log(`[llama-server] exited with code ${code} signal ${signal}`);
+    const stoppedByUs = deliberateStop;
+    deliberateStop = false;
+
+    // A stop we asked for is not a crash. Say so plainly instead of dressing an
+    // idle unload up as an engine failure with memory advice attached.
+    if (stoppedByUs) {
+      appendLog({
+        level: "info",
+        source: "engine",
+        message: `Model unloaded to free memory (${file}).`,
+        hintKey: "log_hint_model_unloaded",
+        model: file,
+      });
+      if (currentModel === file) {
+        currentModel = null;
+        currentCtx = null;
+        currentParallelSlots = null;
+      }
+      return;
+    }
+
     // Abnormal exit while a model was supposed to be running → user-facing log.
     const wasRunning = currentModel === file;
     if (wasRunning && (code !== 0 || signal)) {

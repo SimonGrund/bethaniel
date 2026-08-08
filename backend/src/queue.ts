@@ -57,7 +57,12 @@ import {
   buildSpellHintBlock,
 } from "./prompts.js";
 import { runTranslationUpgrade } from "./translationUpgrade.js";
-import { appendLog, clearLogs, diagnoseTaskError } from "./logBus.js";
+import {
+  appendLog,
+  clearLogs,
+  diagnoseTaskError,
+  resolveLogsForTask,
+} from "./logBus.js";
 import { buildClientSnapshot, type ClientTaskState } from "./snapshot.js";
 import { ensureModelLoaded, getCurrentParallelSlots } from "./llamaServer.js";
 import {
@@ -391,10 +396,18 @@ function updateTask(id: string, update: Partial<TaskState>): void {
       });
     }
     if (existing.status === "done" && prevStatus !== "done") {
+      // The chapter came good, so its earlier complaints describe a state that
+      // is no longer true — drop them rather than leave the panel flagging a
+      // problem that fixed itself. Hooked here, on the transition, so every
+      // completion path gets it rather than four separate call sites.
+      const cleared = resolveLogsForTask(id);
       appendLog({
         level: "info",
         source: "task",
-        message: `Done: ${existing.name} (${existing.mode})`,
+        message:
+          cleared > 0
+            ? `Done: ${existing.name} (${existing.mode}) — recovered after ${existing.attempts ?? 1} retry${(existing.attempts ?? 1) === 1 ? "" : "s"}`
+            : `Done: ${existing.name} (${existing.mode})`,
         model: existing.model,
         taskId: id,
       });
@@ -2999,6 +3012,18 @@ export function getTasksSnapshot(): Record<string, Omit<TaskState, "retrySpec">>
  * getTasksSnapshot stays result-inclusive for internal consumers (writing
  * report, CLI).
  */
+/** Current run statistics, for handing to a client that has just connected. */
+export function getRunStats(): {
+  jobProgress: ReturnType<typeof computeJobProgress>;
+  runtime: ReturnType<typeof computeRuntime>;
+} {
+  const all = [...tasks.values()];
+  return {
+    jobProgress: computeJobProgress(all),
+    runtime: computeRuntime(all, getCurrentParallelSlots()),
+  };
+}
+
 export function getClientSnapshot(): Record<string, ClientTaskState> {
   return buildClientSnapshot(tasks.values());
 }

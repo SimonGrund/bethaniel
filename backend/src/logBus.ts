@@ -41,6 +41,31 @@ export function clearLogs(): void {
   io?.emit("log:clear");
 }
 
+/**
+ * Drop the problems a task left behind once it has come good.
+ *
+ * A chapter that failed and then succeeded on retry leaves error entries that
+ * describe a state no longer true, and the panel would keep flagging them.
+ * Removing them keeps the feed to problems that still need attention.
+ *
+ * The trade-off is deliberate and worth knowing: this discards the record of a
+ * transient failure, so a run that recovered leaves no trace of *why* it was
+ * slow. Only entries tagged with the task are touched — engine-wide errors
+ * carry no taskId and survive.
+ */
+export function resolveLogsForTask(taskId: string): number {
+  if (!taskId) return 0;
+  const keep = buffer.filter(
+    (e) => e.taskId !== taskId || e.level === "info",
+  );
+  const removed = buffer.length - keep.length;
+  if (removed === 0) return 0;
+  buffer.length = 0;
+  buffer.push(...keep);
+  io?.emit("log:resolve", { taskId });
+  return removed;
+}
+
 export function appendLog(entry: Omit<LogEntry, "id" | "ts">): LogEntry {
   const full: LogEntry = {
     id: String(nextId++),
@@ -72,19 +97,35 @@ export function diagnoseEngineExit(
   recentOutput: string,
   code: number | null,
   signal: NodeJS.Signals | null,
+  opts: { deliberate?: boolean } = {},
 ): Diagnosis {
   const text = recentOutput.toLowerCase();
 
-  // OOM / killed by OS
-  if (
-    signal === "SIGKILL" ||
-    signal === "SIGBUS" ||
+  // Memory exhaustion stated outright in the engine's own output. This is the
+  // strong evidence and wins even over a shutdown we initiated — the engine may
+  // already have been dying when we stopped it.
+  const saysOom =
     text.includes("out of memory") ||
     text.includes("cannot allocate") ||
     text.includes("failed to allocate") ||
     text.includes("ggml_metal_graph_compute: command buffer") ||
-    text.includes("bad_alloc")
-  ) {
+    text.includes("bad_alloc");
+
+  if (saysOom) {
+    return { hintKey: "log_hint_oom", level: "error" };
+  }
+
+  // A stop we asked for. The idle-unloader frees RAM between jobs with SIGTERM
+  // then SIGKILL, so without this every such unload was reported as "Out of
+  // memory — pick a smaller model" on machines with gigabytes to spare. That is
+  // not just noise: it points the user at the wrong problem.
+  if (opts.deliberate) {
+    return { hintKey: "log_hint_model_unloaded", level: "info" };
+  }
+
+  // A kill we did NOT initiate. The OS OOM killer really does SIGKILL, and
+  // SIGBUS commonly means a mapped model file could not be paged in.
+  if (signal === "SIGKILL" || signal === "SIGBUS") {
     return { hintKey: "log_hint_oom", level: "error" };
   }
 

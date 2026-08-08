@@ -257,6 +257,8 @@ interface AppState {
   setLogs: (logs: LogEntry[]) => void;
   appendLog: (entry: LogEntry) => void;
   clearLogs: () => void;
+  /** Drop a task's entries once it has succeeded (see logBus.resolveLogsForTask). */
+  resolveLogsForTask: (taskId: string) => void;
   logPanelOpen: boolean;
   setLogPanelOpen: (b: boolean) => void;
   unreadLogCount: number;
@@ -727,6 +729,14 @@ export const useStore = create<AppState>()(
 
       logs: [],
       errorLogs: [],
+      resolveLogsForTask: (taskId) =>
+        set((state) => ({
+          logs: state.logs.filter(
+            (e) => e.taskId !== taskId || e.level === "info",
+          ),
+          errorLogs: state.errorLogs.filter((e) => e.taskId !== taskId),
+        })),
+
       // Snapshot replaces the rolling log but only *adds* to the persistent
       // error list, so past errors survive reconnect/snapshot replacement.
       setLogs: (logs) =>
