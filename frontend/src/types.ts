@@ -331,3 +331,25 @@ export interface PurgeSelection {
   documents?: boolean;
   settings?: boolean;
 }
+
+// ── Live run statistics (socket event `run:stats`, never persisted) ──
+
+export interface JobProgress {
+  /** 0..1, share of the job's words successfully edited. */
+  fraction: number;
+  wordsDone: number;
+  wordsTotal: number;
+  /** Permanently failed chapters — why `fraction` may never reach 1. */
+  failed: number;
+}
+
+export interface RuntimeStats {
+  activeStreams: number;
+  aggregateTokPerSec: number;
+  parallelSlots: number;
+}
+
+export interface RunStats {
+  jobProgress: Record<string, JobProgress>;
+  runtime: RuntimeStats;
+}

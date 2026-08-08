@@ -5,6 +5,14 @@
 
 import type { TaskState } from "./types.js";
 
+/**
+ * Tasks that ride along on a job but are not chapters. Excluded from progress
+ * so a pending summary cannot hold the bar below 100%. Mirrors the list
+ * CurrentRunHeader.tsx has always used — the two must agree, or the bar and the
+ * log line would report different numbers for the same job.
+ */
+const META_MODES = new Set(["analysis_summary", "blurb", "text_evaluator"]);
+
 export interface JobProgress {
   /** 0..1, share of the job's words successfully edited. */
   fraction: number;
@@ -47,7 +55,12 @@ export function computeJobProgress(
   }
 
   const out: Record<string, JobProgress> = {};
-  for (const [jobId, list] of byJob) {
+  for (const [jobId, all] of byJob) {
+    // Fall back to the full list for jobs that are *only* meta tasks, so such a
+    // job still reports rather than vanishing.
+    const chapters = all.filter((t) => !META_MODES.has(t.mode));
+    const list = chapters.length > 0 ? chapters : all;
+
     const wordsTotal = list.reduce((n, t) => n + (t.wordCount || 0), 0);
     const failed = list.filter((t) => t.status === "error").length;
 

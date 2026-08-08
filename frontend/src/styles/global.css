@@ -5622,3 +5622,9 @@ summary.review-source::before {
     transition: none;
   }
 }
+
+/* Failed-chapter count in the run header — the reason the bar stops short. */
+.crh-stat.crh-failed {
+  color: #a33;
+  font-weight: 500;
+}

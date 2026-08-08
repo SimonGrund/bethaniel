@@ -88,6 +88,30 @@ test("no tasks yields no entries", () => {
   assert.deepEqual(computeJobProgress([]), {});
 });
 
+test("a meta task carrying words does not hold the bar back", () => {
+  // The real risk: a summary/blurb task that reports a word count would
+  // otherwise sit in the denominator and keep a finished job below 100%.
+  // CurrentRunHeader has always excluded these from its own maths; the backend
+  // must agree or the bar and the log line would disagree.
+  const r = computeJobProgress([
+    task({ id: "a", wordCount: 1000, status: "done", mode: "copy_edit" }),
+    task({
+      id: "s",
+      wordCount: 500,
+      status: "queued",
+      mode: "analysis_summary",
+    }),
+  ]);
+  assert.equal(r.j.fraction, 1, "the pending summary must not count");
+});
+
+test("a job of only meta tasks still reports rather than vanishing", () => {
+  const r = computeJobProgress([
+    task({ id: "s", wordCount: 500, status: "done", mode: "analysis_summary" }),
+  ]);
+  assert.equal(r.j.fraction, 1);
+});
+
 // ── Aggregate throughput ──
 
 test("aggregate throughput sums the running streams", () => {
