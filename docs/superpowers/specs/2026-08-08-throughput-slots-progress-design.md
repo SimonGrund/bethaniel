@@ -109,18 +109,31 @@ other hardware, the follow-up is Alternative A below.
 
 Weighted by words, per job:
 
+The bar measures **words successfully edited**, not words no longer pending:
+
 ```
 progress = Σ(task.wordCount × fraction) / Σ(task.wordCount)
 
-fraction = 1                 for done / error / cancelled  (terminal)
-         = task.progress     for editing                   (existing 0..1)
-         = 0                 for queued
+fraction = 1                 for done
+         = task.progress     for editing    (existing 0..1)
+         = 0                 for queued, awaiting-retry, error, cancelled
 ```
 
-`wordCount` is already on `TaskState`. Terminal tasks count as **1 regardless of
-outcome** — a failed chapter is finished work, not pending work, and counting
-errors as incomplete would leave the bar stuck below 100% on any job with a
-failure.
+`wordCount` is already on `TaskState`. A permanently failed chapter therefore
+holds the bar **below 100%** — deliberately. The job is not finished if a chapter
+did not get edited, and a bar that reads 100% over a failed chapter tells the
+user the opposite of the truth. The shortfall is the point.
+
+Because a bar stuck at 94% is only useful if you can see why, the run view and
+the log line both name the count:
+
+```
+94% · 2 chapters failed
+```
+
+Cancelled tasks also count 0 for the same reason — the words were not edited —
+but the user cancelled deliberately, so this needs no extra signalling beyond the
+existing task status.
 
 Weighting by words rather than task count matters because chapter lengths vary
 several-fold; a task-count bar stalls on long chapters and races through short
@@ -130,6 +143,48 @@ Exposed on the snapshot as `jobProgress: Record<jobId, number>` (0..1) alongside
 `runtime`, so a snapshot covering several jobs carries a figure for each rather
 than one blended number. The run view shows the entry for the job it is
 displaying.
+
+### 4. Automatic retry of failed chapters
+
+A chapter that fails for a transient reason should try again by itself. One that
+fails for a reason which will recur identically should not — retrying a missing
+model file just burns time and fills the log.
+
+**Classification** reuses the `hintKey` taxonomy `diagnoseEngineExit` already
+produces (`backend/src/logBus.ts`). No new error model:
+
+| Retry | `hintKey` | Reasoning |
+|---|---|---|
+| yes | `log_hint_engine_crash_generic` | The engine died; a fresh load usually works. |
+| yes | `log_hint_engine_unreachable` | Supervisor restart or a lost socket. |
+| yes | `log_hint_timeout` | Slow load or a stalled request. |
+| no | `log_hint_model_missing` | Deterministic. Needs a download. |
+| no | `log_hint_binary_missing` | Deterministic. Broken install. |
+| no | `log_hint_corrupt_model` | Deterministic. Needs a re-download. |
+| no | `log_hint_context_too_large` | Recurs identically with the same settings. |
+| no | `log_hint_oom` | Retrying a machine that just ran out of memory makes it worse, not better. |
+| no | `log_hint_cancelled` | The user's decision. |
+
+Anything unrecognised is treated as **not** retryable: a chapter that quietly
+retries forever on an unknown fault is worse than one that stops and says so.
+
+**Policy.** Up to **2** automatic attempts after the first failure (3 runs
+total), with the existing backoff style — the queue already does this at chunk
+level (`queue.ts:594`) and for reviewer calls, so this is the same idea one level
+up. Between attempts the task sits in an `awaiting-retry` state, visible in the
+queue with `retry 1/2`, and counts 0 toward progress since its words are not yet
+edited.
+
+**In place, not as a new task.** `retryTask` (`queue.ts:2733`) mints a *new* task
+id, which is right for the manual "retry" button but wrong here: the job would
+then hold both the failed original and its replacement, double-counting that
+chapter's words and skewing the very progress figure this design adds. Automatic
+retry instead resets the existing task — status back to queued, attempt counter
+incremented — so a chapter stays one row with one word count however many times
+it is tried. The manual button keeps its current behaviour.
+
+Attempts are tracked with a new `attempts?: number` on `TaskState`, alongside the
+existing `retrySpec` that already carries everything needed to re-run.
 
 #### Surfaces
 
@@ -141,6 +196,7 @@ with `aria-valuenow`, width-driven fill), plus the throughput line.
 
 ```
 Job progress: 42% (31,400 of 74,900 words) · 17.2 tok/s across 3 streams
+Job progress: 94% (70,300 of 74,900 words) · 2 chapters failed
 ```
 
 Throttled globally to **at most one line per 30 s** across all jobs (not per
@@ -159,14 +215,24 @@ several jobs are active the line names the job it refers to.
   task-count progress rather than dividing by zero.
 - The progress log line is best-effort: a failure to compute it must never
   interrupt the run.
+- A task whose `retrySpec` is missing cannot be re-run; it fails permanently
+  rather than looping on a retry it has no way to perform.
+- Automatic retries do not reset the queue's own cancellation: cancelling a job
+  must stop pending retries too, or a cancelled job would resurrect itself.
 
 ## Testing
 
 Backend (`backend/test/`, node:test via tsx — the existing pattern):
 
 - `jobProgress`: word-weighted maths; a long chapter moves the bar more than a
-  short one; errored tasks count as complete; zero-word job falls back to task
-  count; empty job does not divide by zero.
+  short one; a permanently failed chapter holds the total below 100%; a chapter
+  that fails and then succeeds on retry reaches 100% and is counted once, not
+  twice; zero-word job falls back to task count; empty job does not divide by
+  zero.
+- Retry classification: each `hintKey` maps to the retry decision in the table
+  above; an unrecognised key is not retried.
+- Retry policy: stops after 2 automatic attempts; a task retried in place keeps
+  its id and word count; a non-retryable failure is not retried at all.
 - `detectParallelSlots`: unified memory caps at 2, discrete GPU at 3, queue depth
   still narrows both, existing RAM/CPU/VRAM fits still bind.
 - `runtime` aggregation: sums only `editing` tasks; ignores tasks without a
