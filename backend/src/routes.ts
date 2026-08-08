@@ -2012,6 +2012,24 @@ router.post("/models/preload", async (req: Request, res: Response) => {
     res.json({ ok: true, warming: false });
     return;
   }
+
+  // A pre-warm is speculative. On first run the UI pre-selects the recommended
+  // model *before* it has been downloaded, so this fires for a file that does
+  // not exist yet — which is expected, not a fault. Warming it anyway put a red
+  // "Model file not found" and a "Warm-up failed" into the diagnostics feed of
+  // every new user before they had done anything at all.
+  //
+  // Skip quietly. This only silences the speculative path: running a job with a
+  // missing model still reports it, which is where it actually matters.
+  if (!isCustomGgufModel(model)) {
+    try {
+      await fs.access(join(MODELS_DIR_PATH, model));
+    } catch {
+      res.json({ ok: true, warming: false, reason: "not-installed" });
+      return;
+    }
+  }
+
   // Reply immediately; the actual load runs in the background.
   res.json({ ok: true, warming: !warmingByModel.has(model) });
   if (warmingByModel.has(model)) return;
