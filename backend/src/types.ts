@@ -160,6 +160,8 @@ export interface TaskState {
   manuscriptLang?: string;
   model?: string;
   tokPerSec?: string;
+  /** Automatic retries already spent on this task (see retryPolicy.ts). */
+  attempts?: number;
   // Stored re-submission spec so a failed task can be re-run without
   // going back to the upload screen. Includes the original chapter text,
   // model, prompt, chunking params, etc.
