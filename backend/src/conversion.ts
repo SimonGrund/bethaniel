@@ -5,6 +5,8 @@ import type TurndownService from "turndown";
 import * as fs from "fs";
 import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
+import { parseMdBlocks } from "./mdBlocks.js";
+import { buildDocx, type ImageBytesResolver } from "./mdToDocx.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
 import { cleanPublishArtifacts } from "./publishReview.js";
 
@@ -340,19 +342,21 @@ export async function markdownToDocx(
     ...DEFAULT_DOCX_EXPORT_OPTIONS,
     ...opts,
   };
-  // Convert markdown to simple HTML for docx generation (images embedded as
-  // base64 data URIs, which html-to-docx inlines into the .docx).
-  const html = mdToHtml(md, options, embedImageDataUri);
-  const HTMLtoDOCX = (await import("html-to-docx")).default;
-  const docxBuffer = await HTMLtoDOCX(html, undefined, {
-    table: { row: { cantSplit: true } },
-    footer: true,
-    pageNumber: true,
-    font: "Times New Roman",
-    fontSize: 24, // 12pt in half-points
-  });
-  return Buffer.from(docxBuffer as ArrayBuffer);
+  // Built programmatically rather than via HTML. html-to-docx is gone: it was
+  // abandoned in 2023, carried two unpatched image-size advisories through an
+  // inlined bundle, and silently dropped one half of bold+italic.
+  return buildDocx(md, options, readImageBytes);
 }
+
+/** Image bytes for the DOCX builder, or null when the file is unavailable. */
+export const readImageBytes: ImageBytesResolver = (src) => {
+  try {
+    const abs = src.startsWith("media/") ? resolveMediaPath(src) : src;
+    return fs.readFileSync(abs);
+  } catch {
+    return null; // missing on disk — the builder drops the image
+  }
+};
 
 /**
  * Render markdown to HTML, faithfully reproducing the input's paragraph layout:
@@ -370,111 +374,38 @@ export function mdToHtml(
   opts: DocxExportOptions,
   imageResolver: ImageResolver = embedImageDataUri,
 ): string {
-  const lines = md.split("\n");
-  const htmlLines: string[] = [];
   const lineHeight = `line-height:${opts.lineSpacing}`;
-  let lastWasPagebreak = false;
-  let seenChapterHeading = false;
+  const htmlLines: string[] = [];
+  const pageBreak = `<div class="page-break" style="page-break-after:always"></div>`;
 
-  const paragraphLines: string[] = [];
-  const flushParagraph = () => {
-    if (paragraphLines.length === 0) return;
-    const joined = paragraphLines
-      .map((ln) => inlineFormat(ln, imageResolver))
-      .join("<br/>");
-    htmlLines.push(`<p style="${lineHeight}">${joined}</p>`);
-    paragraphLines.length = 0;
-    lastWasPagebreak = false;
-  };
-
-  // Consecutive blank lines beyond the first are empty source paragraphs —
-  // the author's soft section breaks, which the DOCX importer preserved as
-  // extra blank lines. Round-trip each back to a real empty line (same nbsp
-  // paragraph as the lone-"#" minor break). Emitted lazily on the next
-  // content line so leading/trailing blanks add nothing.
-  let pendingBlankLines = 0;
-  const emitSectionBlanks = () => {
-    if (pendingBlankLines >= 2 && htmlLines.length > 0) {
-      for (let i = 1; i < pendingBlankLines; i++) {
+  for (const block of parseMdBlocks(md)) {
+    switch (block.kind) {
+      case "paragraph": {
+        const joined = block.lines
+          .map((ln) => inlineFormat(ln, imageResolver))
+          .join("<br/>");
+        htmlLines.push(`<p style="${lineHeight}">${joined}</p>`);
+        break;
+      }
+      case "pagebreak":
+        htmlLines.push(pageBreak);
+        break;
+      case "sceneBreak":
+        htmlLines.push(renderSceneBreak(opts.sectionBreak, lineHeight));
+        break;
+      case "minorBreak":
         htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
-      }
-    }
-    pendingBlankLines = 0;
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Blank line: paragraph separator — runs of them become section breaks.
-    if (trimmed === "") {
-      flushParagraph();
-      pendingBlankLines += 1;
-      continue;
-    }
-    emitSectionBlanks();
-
-    if (trimmed === PAGEBREAK_MARKER) {
-      flushParagraph();
-      htmlLines.push(
-        `<div class="page-break" style="page-break-after:always"></div>`,
-      );
-      lastWasPagebreak = true;
-      continue;
-    }
-
-    if (trimmed === SCENE_BREAK_MARKER || /^(\*\s*){3,}$/.test(trimmed)) {
-      flushParagraph();
-      htmlLines.push(renderSceneBreak(opts.sectionBreak, lineHeight));
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    // Lone "#": minor section break (smaller than a scene break).
-    if (trimmed === "#") {
-      flushParagraph();
-      htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
-    if (headingMatch) {
-      flushParagraph();
-      const level = headingMatch[1].length;
-      const isChapter = level <= 2;
-      if (isChapter && seenChapterHeading && !lastWasPagebreak) {
+        break;
+      case "heading": {
+        if (block.needsPageBreak) htmlLines.push(pageBreak);
+        const inner = inlineFormat(block.text, imageResolver);
         htmlLines.push(
-          `<div class="page-break" style="page-break-after:always"></div>`,
+          `<h${block.level} style="${lineHeight}">${inner}</h${block.level}>`,
         );
+        break;
       }
-      htmlLines.push(
-        `<h${level} style="${lineHeight}">${inlineFormat(headingMatch[2], imageResolver)}</h${level}>`,
-      );
-      if (isChapter) seenChapterHeading = true;
-      lastWasPagebreak = false;
-      continue;
     }
-
-    if (isChapterHeadingLine(trimmed)) {
-      flushParagraph();
-      if (seenChapterHeading && !lastWasPagebreak) {
-        htmlLines.push(
-          `<div class="page-break" style="page-break-after:always"></div>`,
-        );
-      }
-      htmlLines.push(
-        `<h1 style="${lineHeight}">${inlineFormat(trimmed, imageResolver)}</h1>`,
-      );
-      seenChapterHeading = true;
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    paragraphLines.push(line.trimEnd());
-    lastWasPagebreak = false;
   }
-
-  flushParagraph();
 
   return htmlLines.join("\n");
 }
