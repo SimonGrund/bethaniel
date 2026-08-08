@@ -177,6 +177,13 @@ export function useModelRuntime(): void {
   const modelEnvLoaded = useStore((s) => s.modelEnvLoaded);
   useEffect(() => {
     if (!modelEnvLoaded) return;
+    // Nothing installed at all → nothing to reconcile against, and the
+    // auto-select below deliberately pre-selects the *recommended* model before
+    // it is downloaded so the run button and intro popup have something to name.
+    // Clearing that would fight it: it re-selects, this clears again, and the
+    // render loop never settles — which blanked the whole app on any profile
+    // with no models yet, including every fresh install.
+    if (models.length === 0) return;
     if (!model.endsWith(".gguf")) return;
     if (models.includes(model)) return;
     console.warn(
