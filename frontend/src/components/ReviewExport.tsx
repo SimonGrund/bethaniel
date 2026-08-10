@@ -5,6 +5,8 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
+  exportDocxSurgical,
+  NoOriginalDocxError,
   exportEpub,
   formatEbook,
   retryTask,
@@ -1189,6 +1191,44 @@ const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
  * Assemble the full manuscript from all edit-mode tasks in a job,
  * applying accepted corrections per chapter, joined with pagebreak markers.
  */
+/**
+ * The (original, edited) pair per chapter, for surgical export.
+ *
+ * Mirrors buildFullManuscript's per-chapter logic exactly — translate mode's
+ * wholesale text, the server's repaired text, else the accepted corrections —
+ * but keeps the chapters apart, because the server maps each one back onto the
+ * original document separately.
+ */
+export function buildChapterPairs(
+  entries: [string, TaskState][],
+  acceptedCorrections: Record<string, Set<string>>,
+  fixedTexts: Record<string, string> = {},
+): { original: string; edited: string }[] {
+  const editEntries = entries
+    .filter(([, task]) => EDIT_MODES.includes(task.mode))
+    .sort(([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name));
+
+  const pairs: { original: string; edited: string }[] = [];
+  for (const [tid, task] of editEntries) {
+    if (!task.result) continue;
+    const original = task.result.originalText;
+    let edited: string;
+    if (task.mode === "translate") {
+      edited = task.result.editedText;
+    } else if (fixedTexts[tid] !== undefined) {
+      edited = fixedTexts[tid];
+    } else {
+      edited = applyAccepted(
+        task.result.originalText,
+        task.result.corrections ?? [],
+        acceptedCorrections[tid] ?? new Set<string>(),
+      );
+    }
+    pairs.push({ original, edited });
+  }
+  return pairs;
+}
+
 function buildFullManuscript(
   entries: [string, TaskState][],
   acceptedCorrections: Record<string, Set<string>>,
@@ -1296,6 +1336,57 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     [],
   );
 
+  /**
+   * Export the full manuscript by editing the user's own .docx in place.
+   *
+   * Falls back to the generative export when there is no original — but says
+   * so. A silent fallback would hide the exact difference this feature exists
+   * for: one download is the author's document with words changed, the other is
+   * a rebuild that loses their formatting.
+   */
+  const handleDownloadDocxSurgical = useCallback(
+    async (
+      pairs: { original: string; edited: string }[],
+      markdown: string,
+      filename: string,
+    ) => {
+      const docId = useStore.getState().document?.id;
+      const name = useStore.getState().document?.name ?? "";
+      if (!docId || !name.toLowerCase().endsWith(".docx")) {
+        await handleDownloadDocx(markdown, filename);
+        return;
+      }
+      try {
+        const { blob, report } = await exportDocxSurgical(docId, pairs);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (report.skipped > 0) {
+          setToast({
+            msg: t("surgical_partial").replace(
+              "{count}",
+              String(report.skipped),
+            ),
+            kind: "error",
+          });
+        }
+      } catch (err) {
+        if (err instanceof NoOriginalDocxError) {
+          await handleDownloadDocx(markdown, filename);
+          setToast({ msg: t("surgical_unavailable"), kind: "error" });
+          return;
+        }
+        console.error("Surgical DOCX export failed:", err);
+        await handleDownloadDocx(markdown, filename);
+        setToast({ msg: t("surgical_failed"), kind: "error" });
+      }
+    },
+    [handleDownloadDocx, t],
+  );
+
   const [formattingEbook, setFormattingEbook] = useState(false);
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -1333,21 +1424,24 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // being exported, un-accept any that would introduce misspellings, then
   // build the final markdown from the (possibly cleaned) acceptance state.
   // Reads via getState so the rebuild sees the post-cleanup accepted sets.
+  // Generic over what `build` produces: most exports want a markdown string,
+  // but surgical export needs the per-chapter (original, edited) pairs too. The
+  // built value is only ever handed to exportFn, so the shape is the caller's.
   const verifyThenExport = useCallback(
-    async (
+    async <T,>(
       taskIds: string[],
       build: (
         accepted: Record<string, Set<string>>,
         fixedTexts: Record<string, string>,
-      ) => string,
-      exportFn: (markdown: string) => void | Promise<void>,
+      ) => T,
+      exportFn: (built: T) => void | Promise<void>,
     ) => {
       // `verifying` must only cover the (fast) spell check + rebuild. The
       // export step itself can be very slow (ebook formatting streams the
       // whole manuscript through the LLM) and has its own progress state —
       // holding `verifying` through it would disable every export button in
       // the app for the duration, making unrelated exports fail silently.
-      let markdown: string;
+      let built: T;
       setVerifying(true);
       try {
         const state = useStore.getState();
@@ -1385,12 +1479,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             setVerifyReport(outcome);
           }
         }
-        markdown = build(useStore.getState().acceptedCorrections, fixedTexts);
+        built = build(useStore.getState().acceptedCorrections, fixedTexts);
       } finally {
         setVerifying(false);
       }
       try {
-        await exportFn(markdown);
+        await exportFn(built);
       } catch (err) {
         console.error("Export failed:", err);
       }
@@ -3130,8 +3224,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     onClick={() =>
                       verifyThenExport(
                         editTaskIds,
-                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                        (md) => handleDownloadDocx(md, `${src}.full.docx`),
+                        (acc, fixed) => ({
+                          md: buildFullManuscript(entries, acc, fixed),
+                          pairs: buildChapterPairs(entries, acc, fixed),
+                        }),
+                        ({ md, pairs }) =>
+                          handleDownloadDocxSurgical(
+                            pairs,
+                            md,
+                            `${src}.full.docx`,
+                          ),
                       )
                     }
                   >

@@ -308,6 +308,62 @@ export async function exportDocx(
   return res.blob();
 }
 
+/** What surgical export could not apply, so the caller can say so. */
+export interface SurgicalReport {
+  applied: number;
+  skipped: number;
+  detail: {
+    skipped: { reason: string; original: string; paragraphIndex: number }[];
+    unmapped: { reason: string; detail: string; paragraphIndex?: number }[];
+  };
+}
+
+export class NoOriginalDocxError extends Error {
+  constructor(public reason: string) {
+    super(`No original document available (${reason})`);
+  }
+}
+
+/**
+ * Export by editing the user's own .docx in place, preserving all formatting.
+ *
+ * Sends (original, edited) per chapter rather than joined markdown: the server
+ * derives edit spans by diffing, because corrections carry no positions.
+ * Throws NoOriginalDocxError when the document predates this feature or its
+ * original was not kept — the caller falls back and tells the user.
+ */
+export async function exportDocxSurgical(
+  docId: string,
+  chapters: { original: string; edited: string }[],
+): Promise<{ blob: Blob; report: SurgicalReport }> {
+  const res = await fetch(`${BASE}/api/export/docx-surgical`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ docId, chapters }),
+  });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { reason?: string };
+    throw new NoOriginalDocxError(body.reason ?? "unknown");
+  }
+  if (!res.ok) throw new Error("Surgical DOCX export failed");
+
+  let detail: SurgicalReport["detail"] = { skipped: [], unmapped: [] };
+  try {
+    const raw = res.headers.get("X-Bethaniel-Report");
+    if (raw) detail = JSON.parse(decodeURIComponent(raw));
+  } catch {
+    // A malformed report must not cost the user their document.
+  }
+  return {
+    blob: await res.blob(),
+    report: {
+      applied: Number(res.headers.get("X-Bethaniel-Applied") ?? 0),
+      skipped: Number(res.headers.get("X-Bethaniel-Skipped") ?? 0),
+      detail,
+    },
+  };
+}
+
 /** Export markdown to EPUB. `docId` resolves embedded images (media/<docId>/…). */
 export async function exportEpub(
   markdown: string,

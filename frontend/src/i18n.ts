@@ -549,6 +549,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{count} fehlgeschlagen",
     es: "{count} fallaron",
   },
+  surgical_partial: {
+    en: "Exported with your original formatting. {count} change(s) could not be applied without altering it — they are not in the file.",
+    da: "Eksporteret med din oprindelige formatering. {count} ændring(er) kunne ikke anvendes uden at ændre den — de er ikke i filen.",
+    de: "Mit deiner ursprünglichen Formatierung exportiert. {count} Änderung(en) ließen sich nicht anwenden, ohne sie zu verändern — sie fehlen in der Datei.",
+    es: "Exportado con tu formato original. {count} cambio(s) no se pudieron aplicar sin alterarlo: no están en el archivo.",
+  },
+  surgical_unavailable: {
+    en: "Original formatting unavailable for this manuscript — exported with standard formatting. Re-upload the .docx to keep it next time.",
+    da: "Oprindelig formatering er ikke tilgængelig for dette manuskript — eksporteret med standardformatering. Upload .docx igen for at bevare den næste gang.",
+    de: "Ursprüngliche Formatierung für dieses Manuskript nicht verfügbar — mit Standardformatierung exportiert. Lade die .docx erneut hoch, um sie künftig zu behalten.",
+    es: "El formato original no está disponible para este manuscrito: exportado con formato estándar. Vuelve a subir el .docx para conservarlo la próxima vez.",
+  },
+  surgical_failed: {
+    en: "Could not edit your original file — exported with standard formatting instead.",
+    da: "Kunne ikke redigere din oprindelige fil — eksporterede med standardformatering i stedet.",
+    de: "Deine Originaldatei konnte nicht bearbeitet werden — stattdessen mit Standardformatierung exportiert.",
+    es: "No se pudo editar tu archivo original: se exportó con formato estándar.",
+  },
   btn_close: {
     en: "Close",
     da: "Luk",
