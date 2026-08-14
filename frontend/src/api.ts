@@ -313,8 +313,21 @@ export interface SurgicalReport {
   applied: number;
   skipped: number;
   detail: {
-    skipped: { reason: string; original: string; paragraphIndex: number }[];
+    skipped: {
+      reason: string;
+      /** The text that would have been replaced. */
+      original: string;
+      /** What it would have become. */
+      replacement: string;
+      /** The passage around it, so the user can find it in Word. */
+      context: string;
+      paragraphIndex: number;
+    }[];
     unmapped: { reason: string; detail: string; paragraphIndex?: number }[];
+    /** The detail was trimmed to fit the response header. */
+    truncated: boolean;
+    /** How many there really were, regardless of how many rows came through. */
+    totalSkipped: number;
   };
 }
 
@@ -347,7 +360,12 @@ export async function exportDocxSurgical(
   }
   if (!res.ok) throw new Error("Surgical DOCX export failed");
 
-  let detail: SurgicalReport["detail"] = { skipped: [], unmapped: [] };
+  let detail: SurgicalReport["detail"] = {
+    skipped: [],
+    unmapped: [],
+    truncated: false,
+    totalSkipped: 0,
+  };
   try {
     const raw = res.headers.get("X-Bethaniel-Report");
     if (raw) detail = JSON.parse(decodeURIComponent(raw));

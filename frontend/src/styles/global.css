@@ -5637,3 +5637,74 @@ summary.review-source::before {
   margin-top: 0.2rem;
   font-variant-numeric: tabular-nums;
 }
+
+
+/* ── Changes that could not be applied without altering formatting ──
+   Shown in the pre-export dialog so they can be worked through by hand. The
+   table scrolls inside the dialog rather than growing it off-screen. */
+.unapplied-block {
+  margin: 0.75rem 0 0.25rem;
+  text-align: left;
+}
+
+.unapplied-scroll {
+  max-height: 15rem;
+  overflow: auto;
+  border: 1px solid #e0d6c2;
+  border-radius: 6px;
+  background: #fdfbf6;
+}
+
+.unapplied-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.unapplied-table th,
+.unapplied-table td {
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #efe7d8;
+}
+
+.unapplied-table th {
+  position: sticky;
+  top: 0;
+  background: #f5efe2;
+  font-weight: 600;
+  color: #6b5d43;
+  white-space: nowrap;
+}
+
+.unapplied-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* The excerpt is the widest column and the one that locates the change. */
+.unapplied-context {
+  color: #7a6c52;
+  min-width: 14rem;
+}
+
+.unapplied-table del {
+  color: #a0341f;
+  text-decoration: line-through;
+}
+
+.unapplied-table ins {
+  color: #2f6b3a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.unapplied-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #7a6c52;
+}
+
+.unapplied-download {
+  margin-top: 0.6rem;
+}

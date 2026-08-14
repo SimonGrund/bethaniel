@@ -8,6 +8,7 @@ import {
   exportDocx,
   exportDocxSurgical,
   NoOriginalDocxError,
+  type SurgicalReport,
   exportEpub,
   formatEbook,
   retryTask,
@@ -1301,6 +1302,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     message: string;
     confirmLabel: string;
     onConfirm: () => void | Promise<void>;
+    /** Changes left out of the file, so they can be applied by hand. */
+    unapplied?: SurgicalReport["detail"]["skipped"];
+    unmappedCount?: number;
+    /** The detail was trimmed to fit the response header. */
+    truncated?: boolean;
+    totalSkipped?: number;
+    baseName?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -1362,6 +1370,33 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * The unapplied changes as a spreadsheet, so they can be worked through in
+   * Word one by one. CSV because it opens everywhere without asking anything of
+   * the user, and the columns are the three things applying a change needs:
+   * where it is, what to select, what to type.
+   */
+  const downloadUnappliedCsv = (
+    rows: SurgicalReport["detail"]["skipped"],
+    baseName: string,
+  ) => {
+    const cell = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      [t("unapplied_col_where"), t("unapplied_col_replace"), t("unapplied_col_with")]
+        .map(cell)
+        .join(","),
+      ...rows.map((r) =>
+        [r.context, r.original, r.replacement].map(cell).join(","),
+      ),
+    ].join("\r\n");
+    // The BOM is what makes Excel read this as UTF-8; without it every curly
+    // quote and dash in an author's prose arrives mangled.
+    downloadBlob(
+      new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }),
+      `${baseName}.unapplied-changes.csv`,
+    );
+  };
+
   const handleDownloadDocxSurgical = useCallback(
     async (
       pairs: { original: string; edited: string }[],
@@ -1387,6 +1422,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ),
             confirmLabel: t("surgical_download_anyway"),
             onConfirm: () => downloadBlob(blob, filename),
+            unapplied: report.detail.skipped,
+            unmappedCount: report.detail.unmapped.length,
+            truncated: report.detail.truncated,
+            totalSkipped: report.detail.totalSkipped,
+            baseName: filename.replace(/\.docx$/i, ""),
           });
           return;
         }
@@ -1712,6 +1752,63 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         <p className="model-confirm-text" id="export-warning-text">
           {exportWarning?.message}
         </p>
+
+        {exportWarning?.unapplied && exportWarning.unapplied.length > 0 && (
+          <div className="unapplied-block">
+            <div className="unapplied-scroll">
+              <table className="unapplied-table">
+                <thead>
+                  <tr>
+                    <th>{t("unapplied_col_where")}</th>
+                    <th>{t("unapplied_col_replace")}</th>
+                    <th>{t("unapplied_col_with")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportWarning.unapplied.map((row, i) => (
+                    <tr key={i}>
+                      <td className="unapplied-context">{row.context}</td>
+                      <td>
+                        <del>{row.original}</del>
+                      </td>
+                      <td>
+                        <ins>{row.replacement}</ins>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {exportWarning.truncated ? (
+              <p className="unapplied-note">
+                {t("unapplied_truncated")
+                  .replace("{shown}", String(exportWarning.unapplied.length))
+                  .replace("{total}", String(exportWarning.totalSkipped ?? 0))}
+              </p>
+            ) : null}
+            {exportWarning.unmappedCount ? (
+              <p className="unapplied-note">
+                {t("unapplied_unmapped").replace(
+                  "{count}",
+                  String(exportWarning.unmappedCount),
+                )}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="btn-secondary unapplied-download"
+              onClick={() =>
+                downloadUnappliedCsv(
+                  exportWarning.unapplied ?? [],
+                  exportWarning.baseName ?? "manuscript",
+                )
+              }
+            >
+              {t("unapplied_download")}
+            </button>
+          </div>
+        )}
+
         <div className="model-confirm-actions">
           <button
             type="button"

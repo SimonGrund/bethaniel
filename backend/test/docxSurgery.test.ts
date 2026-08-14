@@ -203,3 +203,41 @@ test("editing one paragraph leaves the others byte-identical", () => {
   assert.equal(after[1].text, "shaky");
   assert.equal(after[2].text, "third");
 });
+
+// A skipped edit is only actionable if the user can find the place it belongs.
+// "shaky" on its own is unsearchable; the sentence around it is not.
+test("a skipped edit carries enough context to locate it in Word", () => {
+  const long =
+    "The lighthouse keeper rose before dawn and walked the long path down to " +
+    "the water, where the boards were shakey underfoot and the rope had frayed " +
+    "against the post for years without anyone thinking to replace it.";
+  const at = long.indexOf("shakey");
+  const xml = doc(
+    `<w:p>${run(long.slice(0, at))}${run("shakey", "<w:i/>")}${run(long.slice(at + 6))}</w:p>`,
+  );
+  const r = edit(xml, 0, [
+    { start: at - 4, end: at + 16, replacement: "were shaky under it" },
+  ]);
+
+  assert.equal(r.skipped.length, 1);
+  const s = r.skipped[0];
+  assert.ok(s.context, "a skipped edit must say where it belongs");
+  assert.ok(
+    s.context.includes(s.original),
+    "the context must contain the text being replaced",
+  );
+  assert.ok(
+    s.context.length < long.length,
+    "context is an excerpt, not the whole paragraph",
+  );
+  assert.match(s.context, /^…/, "an excerpt from mid-paragraph is marked as one");
+  assert.match(s.context, /…$/);
+});
+
+test("a short paragraph is quoted whole, with no ellipses", () => {
+  const xml = doc(`<w:p>${run("She was ")}${run("certain", "<w:i/>")}${run(" of it.")}</w:p>`);
+  const r = edit(xml, 0, [
+    { start: 0, end: 22, replacement: "He felt sure about it." },
+  ]);
+  assert.equal(r.skipped[0].context, "She was certain of it.");
+});

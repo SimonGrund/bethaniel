@@ -555,6 +555,42 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Deine ursprüngliche Formatierung bleibt erhalten, aber {count} Änderung(en) ließen sich nicht anwenden, ohne sie zu verändern. Diese Änderungen fehlen in der Datei, die du herunterlädst.",
     es: "Se conserva tu formato original, pero {count} cambio(s) no se pudieron aplicar sin alterarlo. Esos cambios faltarán en el archivo que descargues.",
   },
+  unapplied_col_where: {
+    en: "Where in your manuscript",
+    da: "Hvor i dit manuskript",
+    de: "Wo in deinem Manuskript",
+    es: "Dónde en tu manuscrito",
+  },
+  unapplied_col_replace: {
+    en: "Replace",
+    da: "Erstat",
+    de: "Ersetzen",
+    es: "Reemplazar",
+  },
+  unapplied_col_with: {
+    en: "With",
+    da: "Med",
+    de: "Durch",
+    es: "Por",
+  },
+  unapplied_download: {
+    en: "Download this list (.csv)",
+    da: "Download denne liste (.csv)",
+    de: "Diese Liste herunterladen (.csv)",
+    es: "Descargar esta lista (.csv)",
+  },
+  unapplied_truncated: {
+    en: "Showing {shown} of {total} unapplied changes — too many to list in full.",
+    da: "Viser {shown} af {total} ikke-anvendte ændringer — for mange til at vise dem alle.",
+    de: "Zeigt {shown} von {total} nicht angewendeten Änderungen — zu viele für eine vollständige Liste.",
+    es: "Mostrando {shown} de {total} cambios sin aplicar: demasiados para listarlos todos.",
+  },
+  unapplied_unmapped: {
+    en: "{count} further paragraph(s) could not be located and were left exactly as you wrote them.",
+    da: "{count} yderligere afsnit kunne ikke findes og blev efterladt præcis som du skrev dem.",
+    de: "{count} weitere Absätze konnten nicht gefunden werden und blieben genau so, wie du sie geschrieben hast.",
+    es: "{count} párrafo(s) más no se pudieron localizar y se dejaron exactamente como los escribiste.",
+  },
   surgical_download_anyway: {
     en: "Download anyway",
     da: "Download alligevel",

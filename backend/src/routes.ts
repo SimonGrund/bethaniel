@@ -27,6 +27,7 @@ import {
   hasOriginalDocx,
 } from "./docxOriginal.js";
 import { indexDocumentXml, rewriteDocxText } from "./docxSurgery.js";
+import { buildReportHeader } from "./surgicalReport.js";
 import { remapChaptersToParagraphEdits } from "./docxRemap.js";
 import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
@@ -1233,15 +1234,8 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     res.setHeader("Content-Disposition", 'attachment; filename="edited.docx"');
     res.setHeader("X-Bethaniel-Applied", String(applied));
     res.setHeader("X-Bethaniel-Skipped", String(skipped.length + unmapped.length));
-    res.setHeader(
-      "X-Bethaniel-Report",
-      encodeURIComponent(
-        JSON.stringify({
-          skipped: skipped.slice(0, 50),
-          unmapped: unmapped.slice(0, 50),
-        }),
-      ),
-    );
+    // Sized to fit the header; see surgicalReport.ts for why that is a budget.
+    res.setHeader("X-Bethaniel-Report", buildReportHeader(skipped, unmapped));
     res.send(buffer);
   } catch (err) {
     res.status(500).json({

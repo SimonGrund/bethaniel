@@ -75,6 +75,13 @@ export interface Splice {
 export interface SkippedEdit extends ParagraphTextEdit {
   paragraphIndex: number;
   original: string;
+  /**
+   * The passage around the change, so a user can search for it in Word.
+   *
+   * A skipped edit is only actionable if its place can be found: "shaky" alone
+   * is unsearchable, the sentence holding it is not.
+   */
+  context: string;
   reason:
     | "mixed-formatting"
     | "virtual-node"
@@ -328,6 +335,34 @@ function trimEdit(original: string, e: ParagraphTextEdit): ParagraphTextEdit {
  * formatting-preserving answer — a rewrite crossing an italic boundary cannot
  * say which characters are italic — so it is skipped and reported.
  */
+/** Characters of surrounding text kept on each side of a skipped edit. */
+const CONTEXT_CHARS = 80;
+
+/**
+ * The passage around an edit, widened to whole words and marked with ellipses
+ * when it is genuinely an excerpt. A paragraph short enough to quote whole is
+ * quoted whole — ellipses on a complete sentence would only mislead.
+ */
+export function excerpt(text: string, start: number, end: number): string {
+  let from = Math.max(0, start - CONTEXT_CHARS);
+  let to = Math.min(text.length, end + CONTEXT_CHARS);
+  // Do not cut mid-word: a broken word is worse to search for than a shorter
+  // excerpt.
+  if (from > 0) {
+    const space = text.indexOf(" ", from);
+    if (space !== -1 && space < start) from = space + 1;
+  }
+  if (to < text.length) {
+    const space = text.lastIndexOf(" ", to);
+    if (space !== -1 && space > end) to = space;
+  }
+  return (
+    (from > 0 ? "…" : "") +
+    text.slice(from, to).trim() +
+    (to < text.length ? "…" : "")
+  );
+}
+
 export function planParagraphSplices(
   p: DocxParagraph,
   edits: ParagraphTextEdit[],
@@ -345,6 +380,7 @@ export function planParagraphSplices(
       ...e,
       paragraphIndex: p.index,
       original: p.text.slice(e.start, e.end),
+      context: excerpt(p.text, e.start, e.end),
       reason,
     });
 
@@ -463,6 +499,9 @@ export async function rewriteDocxText(
       skipped.push({
         ...e,
         original: "",
+        // The paragraph is not in the document at all, so there is no passage
+        // to quote. The row still carries the intended replacement.
+        context: "",
         reason: "unmappable-paragraph",
       });
       continue;
