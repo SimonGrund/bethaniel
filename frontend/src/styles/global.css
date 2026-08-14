@@ -4998,6 +4998,7 @@ summary.review-source::before {
   color: #6b5d43;
   min-width: 2.5rem;
   text-align: right;
+  white-space: nowrap;
 }
 
 .log-panel {

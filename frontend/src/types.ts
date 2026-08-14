@@ -341,6 +341,10 @@ export interface JobProgress {
   wordsTotal: number;
   /** Permanently failed chapters — why `fraction` may never reach 1. */
   failed: number;
+  /** Chapters the user stopped. Their decision, not a fault to report back. */
+  cancelled: number;
+  /** Nothing queued or in flight: the run is over, however it ended. */
+  settled: boolean;
 }
 
 export interface RuntimeStats {
