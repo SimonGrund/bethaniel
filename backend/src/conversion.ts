@@ -9,6 +9,12 @@ import { parseMdBlocks } from "./mdBlocks.js";
 import { indexDocumentXml } from "./docxSurgery.js";
 import { buildDocx, type ImageBytesResolver } from "./mdToDocx.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
+import {
+  extractDisplayExtents,
+  pairSizesByOrder,
+  saveImageSizes,
+  displaySizeFor,
+} from "./imageLayout.js";
 import { cleanPublishArtifacts } from "./publishReview.js";
 
 // Where uploaded-document media (images extracted from .docx) live on disk.
@@ -35,6 +41,16 @@ function extFromContentType(contentType: string | undefined): string {
       return "bmp";
     default:
       return "png";
+  }
+}
+
+/** `word/document.xml` as text, or "" when it cannot be read. */
+async function readDocumentXml(docxBuffer: Buffer): Promise<string> {
+  try {
+    const zip = await JSZip.loadAsync(docxBuffer);
+    return (await zip.file("word/document.xml")?.async("string")) ?? "";
+  } catch {
+    return "";
   }
 }
 
@@ -186,6 +202,7 @@ export async function docxToMarkdownMapped(
       "r[style-name='Book Title'] => em",
     ],
   };
+  const extractedImageNames: string[] = [];
   if (docId) {
     const docMediaDir = path.join(MEDIA_DIR, docId);
     await fs.promises.mkdir(docMediaDir, { recursive: true });
@@ -200,12 +217,23 @@ export async function docxToMarkdownMapped(
           path.join(docMediaDir, fileName),
           Buffer.from(b64, "base64"),
         );
+        extractedImageNames.push(fileName);
         return { src: `media/${docId}/${fileName}` };
       },
     );
   }
 
   const result = await mammoth.convertToHtml({ buffer: docxBuffer }, mammothOpts);
+
+  // The extracted files carry pixels; the document carries the size the author
+  // chose to show them at. Keep the latter, or export can only guess.
+  if (docId && extractedImageNames.length > 0) {
+    const sizes = pairSizesByOrder(
+      extractedImageNames,
+      extractDisplayExtents(await readDocumentXml(docxBuffer)),
+    );
+    if (sizes) saveImageSizes(MEDIA_DIR, docId, sizes);
+  }
 
   const normalizeDividerLine = (line: string): string => {
     const t = line.trim();
@@ -350,12 +378,19 @@ export interface DocxExportOptions {
   minorBreak: "blank" | "hash";
   /** Line spacing multiplier. Default: 1.3 */
   lineSpacing: number;
+  /**
+   * Start each chapter on a new page. Off by default: a page break the author
+   * did not write is invented structure, and page breaks that ARE in the source
+   * arrive as PAGEBREAK markers and are emitted regardless of this setting.
+   */
+  chapterPageBreaks: boolean;
 }
 
 export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
   sectionBreak: "asterisks",
   minorBreak: "blank",
   lineSpacing: 1.3,
+  chapterPageBreaks: false,
 };
 
 /** Convert Markdown to .docx, return the binary buffer. */
@@ -370,8 +405,12 @@ export async function markdownToDocx(
   // Built programmatically rather than via HTML. html-to-docx is gone: it was
   // abandoned in 2023, carried two unpatched image-size advisories through an
   // inlined bundle, and silently dropped one half of bold+italic.
-  return buildDocx(md, options, readImageBytes);
+  return buildDocx(md, options, readImageBytes, readImageDisplaySize);
 }
+
+/** The size the author displayed an image at, when the import recorded one. */
+export const readImageDisplaySize = (src: string) =>
+  displaySizeFor(MEDIA_DIR, src);
 
 /** Image bytes for the DOCX builder, or null when the file is unavailable. */
 export const readImageBytes: ImageBytesResolver = (src) => {

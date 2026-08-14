@@ -32,17 +32,31 @@ const FONT_SIZE_HALF_POINTS = 24;
 const FONT = "Times New Roman";
 /** Twips per line at single spacing — Word's unit for `w:line`. */
 const TWIPS_PER_LINE = 240;
-/** Widest an embedded image may render, in points. */
-const MAX_IMAGE_WIDTH_PT = 450;
+/**
+ * Widest an embedded image may render, in pixels at 96 dpi — the unit `docx`
+ * transformations use. 576px = 6in, the text width of a US Letter page with
+ * one-inch margins. Only a fallback: an image whose display size the document
+ * recorded is shown at that size instead.
+ */
+const MAX_IMAGE_WIDTH_PX = 576;
 
 export interface DocxBuildOptions {
   sectionBreak: "asterisks" | "dash" | "blank";
   minorBreak: "blank" | "hash";
   lineSpacing: number;
+  /** Start each chapter on a new page. See DocxExportOptions for why it is off. */
+  chapterPageBreaks?: boolean;
 }
 
 /** Resolves a markdown image reference to bytes, or null when unavailable. */
 export type ImageBytesResolver = (src: string) => Buffer | null;
+
+/**
+ * The size the author displayed an image at, in pixels at 96 dpi, or null when
+ * the document kept no such record (a .md upload, or a .docx imported before
+ * sizes were preserved).
+ */
+export type ImageSizeResolver = (src: string) => { width: number; height: number } | null;
 
 type Inline =
   | { kind: "text"; text: string; bold: boolean; italic: boolean }
@@ -53,40 +67,69 @@ type Inline =
  *
  * Images are matched before emphasis so a URL containing underscores or
  * asterisks is not mangled — the same ordering the HTML path relies on.
- * Emphasis is matched longest-marker-first (*** before ** before *) so that
- * bold+italic is recognised as one span rather than nested fragments.
+ * Emphasis is matched longest-marker-first (*** before ** before *).
+ *
+ * Emphasis content is parsed AGAIN rather than taken as flat text, because
+ * mammoth's <strong><em> and <em><strong> reach us through turndown as
+ * `**_text_**` and `_**text**_` — never as `***text***`. A flat parser kept
+ * only the outer marker, so every bold-italic phrase imported from Word lost
+ * half its emphasis on export.
  */
 export function parseInline(line: string): Inline[] {
+  return parseInlineInto(line, false, false);
+}
+
+function parseInlineInto(
+  line: string,
+  bold: boolean,
+  italic: boolean,
+): Inline[] {
   const out: Inline[] = [];
   const pattern =
     /!\[([^\]]*)\]\(([^)]+)\)|(\*\*\*|___)(.+?)\3|(\*\*|__)(.+?)\5|(\*|_)(.+?)\7/g;
 
   let last = 0;
   let m: RegExpExecArray | null;
-  const push = (text: string, bold: boolean, italic: boolean) => {
+  const push = (text: string) => {
     if (text) out.push({ kind: "text", text, bold, italic });
+  };
+  // Inherit the enclosing emphasis; a nested marker only ever adds to it.
+  const descend = (text: string, addBold: boolean, addItalic: boolean) => {
+    out.push(...parseInlineInto(text, bold || addBold, italic || addItalic));
   };
 
   while ((m = pattern.exec(line)) !== null) {
-    push(line.slice(last, m.index), false, false);
+    push(line.slice(last, m.index));
     if (m[2] !== undefined) {
       out.push({ kind: "image", src: m[2], alt: m[1] ?? "" });
     } else if (m[4] !== undefined) {
-      push(m[4], true, true);
+      descend(m[4], true, true);
     } else if (m[6] !== undefined) {
-      push(m[6], true, false);
+      descend(m[6], true, false);
     } else if (m[8] !== undefined) {
-      push(m[8], false, true);
+      descend(m[8], false, true);
     }
     last = pattern.lastIndex;
   }
-  push(line.slice(last), false, false);
+  push(line.slice(last));
   return out;
+}
+
+/** Pixel size from the file itself, capped to a sensible page width. */
+function intrinsicSize(bytes: Buffer): { width: number; height: number } | null {
+  const dim = readImageDimensions(bytes);
+  if (!dim) return null;
+  const scale = Math.min(1, MAX_IMAGE_WIDTH_PX / dim.width);
+  return {
+    width: Math.round(dim.width * scale),
+    height: Math.round(dim.height * scale),
+  };
 }
 
 function runsFor(
   line: string,
   resolveImage: ImageBytesResolver | undefined,
+  resolveSize: ImageSizeResolver | undefined,
 ): (TextRun | ImageRun)[] {
   const runs: (TextRun | ImageRun)[] = [];
   for (const node of parseInline(line)) {
@@ -109,19 +152,18 @@ function runsFor(
     // than emit an ImageRun Word will refuse to open.
     const bytes = resolveImage?.(node.src);
     if (!bytes) continue;
-    const dim = readImageDimensions(bytes);
-    if (!dim) continue;
-    const scale = Math.min(1, MAX_IMAGE_WIDTH_PT / dim.width);
+    // The size the author chose beats anything derived from the file. Only when
+    // no such record exists do we fall back to the intrinsic pixels, bounded so
+    // a large photo cannot run off the page.
+    const size = resolveSize?.(node.src) ?? intrinsicSize(bytes);
+    if (!size) continue;
     runs.push(
       new ImageRun({
         // The library infers the type from the bytes; png is a safe declared
         // default for the formats we extract.
         type: "png",
         data: bytes,
-        transformation: {
-          width: Math.round(dim.width * scale),
-          height: Math.round(dim.height * scale),
-        },
+        transformation: size,
       }),
     );
   }
@@ -183,6 +225,7 @@ function blockToParagraphs(
   block: MdBlock,
   opts: DocxBuildOptions,
   resolveImage: ImageBytesResolver | undefined,
+  resolveSize: ImageSizeResolver | undefined,
 ): Paragraph[] {
   const spacing = { line: Math.round(TWIPS_PER_LINE * opts.lineSpacing) };
 
@@ -192,7 +235,7 @@ function blockToParagraphs(
       block.lines.forEach((line, i) => {
         // A single newline inside a paragraph is a soft break, not a new one.
         if (i > 0) children.push(new TextRun({ break: 1 }));
-        children.push(...runsFor(line, resolveImage));
+        children.push(...runsFor(line, resolveImage, resolveSize));
       });
       return [new Paragraph({ spacing, children })];
     }
@@ -204,14 +247,16 @@ function blockToParagraphs(
       return [minorBreakParagraph(opts.minorBreak, spacing)];
     case "heading": {
       const out: Paragraph[] = [];
-      if (block.needsPageBreak) {
+      // `needsPageBreak` is the HTML path's chapter convention, not something
+      // the author wrote. Real breaks arrive as their own "pagebreak" block.
+      if (block.needsPageBreak && opts.chapterPageBreaks) {
         out.push(new Paragraph({ children: [new PageBreak()] }));
       }
       out.push(
         new Paragraph({
           heading: HEADING_LEVELS[Math.min(block.level, 6) - 1],
           spacing,
-          children: runsFor(block.text, resolveImage),
+          children: runsFor(block.text, resolveImage, resolveSize),
         }),
       );
       return out;
@@ -224,9 +269,10 @@ export async function buildDocx(
   md: string,
   opts: DocxBuildOptions,
   resolveImage?: ImageBytesResolver,
+  resolveSize?: ImageSizeResolver,
 ): Promise<Buffer> {
   const paragraphs = parseMdBlocks(md).flatMap((b) =>
-    blockToParagraphs(b, opts, resolveImage),
+    blockToParagraphs(b, opts, resolveImage, resolveSize),
   );
 
   const doc = new Document({
