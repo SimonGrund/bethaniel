@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import Modal from "./Modal";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
+  exportDocxSurgical,
+  NoOriginalDocxError,
+  type SurgicalReport,
   exportEpub,
   formatEbook,
   retryTask,
@@ -1189,6 +1193,44 @@ const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
  * Assemble the full manuscript from all edit-mode tasks in a job,
  * applying accepted corrections per chapter, joined with pagebreak markers.
  */
+/**
+ * The (original, edited) pair per chapter, for surgical export.
+ *
+ * Mirrors buildFullManuscript's per-chapter logic exactly — translate mode's
+ * wholesale text, the server's repaired text, else the accepted corrections —
+ * but keeps the chapters apart, because the server maps each one back onto the
+ * original document separately.
+ */
+export function buildChapterPairs(
+  entries: [string, TaskState][],
+  acceptedCorrections: Record<string, Set<string>>,
+  fixedTexts: Record<string, string> = {},
+): { original: string; edited: string }[] {
+  const editEntries = entries
+    .filter(([, task]) => EDIT_MODES.includes(task.mode))
+    .sort(([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name));
+
+  const pairs: { original: string; edited: string }[] = [];
+  for (const [tid, task] of editEntries) {
+    if (!task.result) continue;
+    const original = task.result.originalText;
+    let edited: string;
+    if (task.mode === "translate") {
+      edited = task.result.editedText;
+    } else if (fixedTexts[tid] !== undefined) {
+      edited = fixedTexts[tid];
+    } else {
+      edited = applyAccepted(
+        task.result.originalText,
+        task.result.corrections ?? [],
+        acceptedCorrections[tid] ?? new Set<string>(),
+      );
+    }
+    pairs.push({ original, edited });
+  }
+  return pairs;
+}
+
 function buildFullManuscript(
   entries: [string, TaskState][],
   acceptedCorrections: Record<string, Set<string>>,
@@ -1253,6 +1295,21 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     kind: "accept" | "dismiss" | "error";
   } | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+  // A caveat the user must see BEFORE the file is handed over. A toast raised
+  // alongside the download is hidden by the system save dialog and dismissed by
+  // the time it closes.
+  const [exportWarning, setExportWarning] = useState<{
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void | Promise<void>;
+    /** Changes left out of the file, so they can be applied by hand. */
+    unapplied?: SurgicalReport["detail"]["skipped"];
+    unmappedCount?: number;
+    /** The detail was trimmed to fit the response header. */
+    truncated?: boolean;
+    totalSkipped?: number;
+    baseName?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -1296,8 +1353,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     [],
   );
 
-  const [formattingEbook, setFormattingEbook] = useState(false);
-
+  /**
+   * Export the full manuscript by editing the user's own .docx in place.
+   *
+   * Falls back to the generative export when there is no original — but says
+   * so. A silent fallback would hide the exact difference this feature exists
+   * for: one download is the author's document with words changed, the other is
+   * a rebuild that loses their formatting.
+   */
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1306,6 +1369,88 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  /**
+   * The unapplied changes as a spreadsheet, so they can be worked through in
+   * Word one by one. CSV because it opens everywhere without asking anything of
+   * the user, and the columns are the three things applying a change needs:
+   * where it is, what to select, what to type.
+   */
+  const downloadUnappliedCsv = (
+    rows: SurgicalReport["detail"]["skipped"],
+    baseName: string,
+  ) => {
+    const cell = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      [t("unapplied_col_where"), t("unapplied_col_replace"), t("unapplied_col_with")]
+        .map(cell)
+        .join(","),
+      ...rows.map((r) =>
+        [r.context, r.original, r.replacement].map(cell).join(","),
+      ),
+    ].join("\r\n");
+    // The BOM is what makes Excel read this as UTF-8; without it every curly
+    // quote and dash in an author's prose arrives mangled.
+    downloadBlob(
+      new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }),
+      `${baseName}.unapplied-changes.csv`,
+    );
+  };
+
+  const handleDownloadDocxSurgical = useCallback(
+    async (
+      pairs: { original: string; edited: string }[],
+      markdown: string,
+      filename: string,
+    ) => {
+      const docId = useStore.getState().document?.id;
+      const name = useStore.getState().document?.name ?? "";
+      if (!docId || !name.toLowerCase().endsWith(".docx")) {
+        await handleDownloadDocx(markdown, filename);
+        return;
+      }
+      try {
+        const { blob, report } = await exportDocxSurgical(docId, pairs);
+        // Warn BEFORE handing the file over. A toast raised after the download
+        // starts is covered by the system save dialog and gone by the time it
+        // closes, so the one caveat that matters was never actually read.
+        if (report.skipped > 0) {
+          setExportWarning({
+            message: t("surgical_partial").replace(
+              "{count}",
+              String(report.skipped),
+            ),
+            confirmLabel: t("surgical_download_anyway"),
+            onConfirm: () => downloadBlob(blob, filename),
+            unapplied: report.detail.skipped,
+            unmappedCount: report.detail.unmapped.length,
+            truncated: report.detail.truncated,
+            totalSkipped: report.detail.totalSkipped,
+            baseName: filename.replace(/\.docx$/i, ""),
+          });
+          return;
+        }
+        downloadBlob(blob, filename);
+      } catch (err) {
+        if (!(err instanceof NoOriginalDocxError)) {
+          console.error("Surgical DOCX export failed:", err);
+        }
+        // The fallback loses the author's formatting, which is exactly the
+        // thing they chose this export for. Let them decide, not discover.
+        setExportWarning({
+          message:
+            err instanceof NoOriginalDocxError
+              ? t("surgical_unavailable")
+              : t("surgical_failed"),
+          confirmLabel: t("surgical_export_plain"),
+          onConfirm: () => handleDownloadDocx(markdown, filename),
+        });
+      }
+    },
+    [handleDownloadDocx, t],
+  );
+
+  const [formattingEbook, setFormattingEbook] = useState(false);
 
   // One-click AI ebook formatting: tidy structure, then export EPUB.
   const handleAutoFormatEbook = useCallback(
@@ -1333,21 +1478,24 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // being exported, un-accept any that would introduce misspellings, then
   // build the final markdown from the (possibly cleaned) acceptance state.
   // Reads via getState so the rebuild sees the post-cleanup accepted sets.
+  // Generic over what `build` produces: most exports want a markdown string,
+  // but surgical export needs the per-chapter (original, edited) pairs too. The
+  // built value is only ever handed to exportFn, so the shape is the caller's.
   const verifyThenExport = useCallback(
-    async (
+    async <T,>(
       taskIds: string[],
       build: (
         accepted: Record<string, Set<string>>,
         fixedTexts: Record<string, string>,
-      ) => string,
-      exportFn: (markdown: string) => void | Promise<void>,
+      ) => T,
+      exportFn: (built: T) => void | Promise<void>,
     ) => {
       // `verifying` must only cover the (fast) spell check + rebuild. The
       // export step itself can be very slow (ebook formatting streams the
       // whole manuscript through the LLM) and has its own progress state —
       // holding `verifying` through it would disable every export button in
       // the app for the duration, making unrelated exports fail silently.
-      let markdown: string;
+      let built: T;
       setVerifying(true);
       try {
         const state = useStore.getState();
@@ -1385,12 +1533,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             setVerifyReport(outcome);
           }
         }
-        markdown = build(useStore.getState().acceptedCorrections, fixedTexts);
+        built = build(useStore.getState().acceptedCorrections, fixedTexts);
       } finally {
         setVerifying(false);
       }
       try {
-        await exportFn(markdown);
+        await exportFn(built);
       } catch (err) {
         console.error("Export failed:", err);
       }
@@ -1595,6 +1743,93 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           {toast.msg}
         </div>
       )}
+
+      <Modal
+        open={exportWarning !== null}
+        onClose={() => setExportWarning(null)}
+        labelledBy="export-warning-text"
+      >
+        <p className="model-confirm-text" id="export-warning-text">
+          {exportWarning?.message}
+        </p>
+
+        {exportWarning?.unapplied && exportWarning.unapplied.length > 0 && (
+          <div className="unapplied-block">
+            <div className="unapplied-scroll">
+              <table className="unapplied-table">
+                <thead>
+                  <tr>
+                    <th>{t("unapplied_col_where")}</th>
+                    <th>{t("unapplied_col_replace")}</th>
+                    <th>{t("unapplied_col_with")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportWarning.unapplied.map((row, i) => (
+                    <tr key={i}>
+                      <td className="unapplied-context">{row.context}</td>
+                      <td>
+                        <del>{row.original}</del>
+                      </td>
+                      <td>
+                        <ins>{row.replacement}</ins>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {exportWarning.truncated ? (
+              <p className="unapplied-note">
+                {t("unapplied_truncated")
+                  .replace("{shown}", String(exportWarning.unapplied.length))
+                  .replace("{total}", String(exportWarning.totalSkipped ?? 0))}
+              </p>
+            ) : null}
+            {exportWarning.unmappedCount ? (
+              <p className="unapplied-note">
+                {t("unapplied_unmapped").replace(
+                  "{count}",
+                  String(exportWarning.unmappedCount),
+                )}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="btn-secondary unapplied-download"
+              onClick={() =>
+                downloadUnappliedCsv(
+                  exportWarning.unapplied ?? [],
+                  exportWarning.baseName ?? "manuscript",
+                )
+              }
+            >
+              {t("unapplied_download")}
+            </button>
+          </div>
+        )}
+
+        <div className="model-confirm-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              const pending = exportWarning;
+              setExportWarning(null);
+              void pending?.onConfirm();
+            }}
+          >
+            {exportWarning?.confirmLabel}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setExportWarning(null)}
+          >
+            {t("btn_cancel")}
+          </button>
+        </div>
+      </Modal>
 
       {verifyReport && (
         <div className="verify-report-banner">
@@ -3130,8 +3365,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     onClick={() =>
                       verifyThenExport(
                         editTaskIds,
-                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                        (md) => handleDownloadDocx(md, `${src}.full.docx`),
+                        (acc, fixed) => ({
+                          md: buildFullManuscript(entries, acc, fixed),
+                          pairs: buildChapterPairs(entries, acc, fixed),
+                        }),
+                        ({ md, pairs }) =>
+                          handleDownloadDocxSurgical(
+                            pairs,
+                            md,
+                            `${src}.full.docx`,
+                          ),
                       )
                     }
                   >

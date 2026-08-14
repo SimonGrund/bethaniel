@@ -87,7 +87,7 @@ import {
 } from "./db.js";
 import { isApiModel, isCustomGgufModel } from "./modelCatalog.js";
 import { shouldAutoRetry, MAX_AUTO_ATTEMPTS } from "./retryPolicy.js";
-import { computeJobProgress, computeRuntime } from "./runStats.js";
+import { liveJobProgress, computeRuntime } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
 
 /**
@@ -284,7 +284,7 @@ function flushBroadcast(): void {
   // stays untouched.
   const all = [...tasks.values()];
   io.emit("run:stats", {
-    jobProgress: computeJobProgress(all),
+    jobProgress: liveJobProgress(all),
     runtime: computeRuntime(all, getCurrentParallelSlots()),
   });
   maybeLogProgress(all);
@@ -305,7 +305,7 @@ function maybeLogProgress(all: TaskState[]): void {
     if (now - lastProgressLogAt < PROGRESS_LOG_INTERVAL_MS) return;
     lastProgressLogAt = now;
 
-    const progress = computeJobProgress(all);
+    const progress = liveJobProgress(all);
     const runtime = computeRuntime(all, getCurrentParallelSlots());
 
     const entries = Object.entries(progress);
@@ -3014,12 +3014,12 @@ export function getTasksSnapshot(): Record<string, Omit<TaskState, "retrySpec">>
  */
 /** Current run statistics, for handing to a client that has just connected. */
 export function getRunStats(): {
-  jobProgress: ReturnType<typeof computeJobProgress>;
+  jobProgress: ReturnType<typeof liveJobProgress>;
   runtime: ReturnType<typeof computeRuntime>;
 } {
   const all = [...tasks.values()];
   return {
-    jobProgress: computeJobProgress(all),
+    jobProgress: liveJobProgress(all),
     runtime: computeRuntime(all, getCurrentParallelSlots()),
   };
 }
