@@ -85,7 +85,10 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `translationUpgrade.ts` | Post-translation target-language polish pass + fluency review loop (stages 3–4 of translate mode) |
 | `analysisMerge.ts` | Merge per-chapter analysis results (characters, locations, timeline) across chunks |
 | `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]` |
-| `conversion.ts` | DOCX ↔ Markdown (mammoth for import, html-to-docx for export) |
+| `conversion.ts` | DOCX ↔ Markdown (mammoth for import, `mdToDocx.ts` for export) |
+| `mdBlocks.ts` | Markdown → block structure, shared by the DOCX and EPUB/HTML paths so they cannot drift |
+| `mdToDocx.ts` | Markdown → DOCX, built programmatically on the `docx` library (replaced html-to-docx) |
+| `imageDimensions.ts` | Pixel dimensions from PNG/JPEG/GIF/WEBP headers. Deliberately does **not** parse ICNS/JXL/HEIF — the two `image-size` advisories were unbounded loops in exactly those parsers |
 | `diff.ts` | Word-level diff → inline HTML; extract corrections from rewrites |
 | `consistency.ts` | Heuristic name/hyphen consistency checks (no LLM) |
 | `spellcheck.ts` | nspell wrapper — exhaustive spell detection + suspect hints for the editor |

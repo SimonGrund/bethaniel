@@ -43,22 +43,15 @@ export default function LogPanel() {
   // Run progress, shown the same way a download is: a labelled bar in the
   // diagnostics panel.
   //
-  // Every job with a figure is listed, running or not — asked for explicitly so
-  // the completion percentage is always readable here, rather than vanishing
-  // the moment a run ends and leaving nothing to look back at. In-flight jobs
-  // sort first so a live run is never buried under finished ones.
+  // A live readout, not a history. The backend sends only runs that are still
+  // going, so a row clears when its run ends and none survive a restart — a
+  // finished job's bar sitting here at 70% was indistinguishable from a stalled
+  // one.
   const runStats = useStore((s) => s.runStats);
-  const tasks = useStore((s) => s.tasks);
-  const activeRuns = useMemo(() => {
-    const live = new Set(
-      Object.values(tasks)
-        .filter((t) => t.status === "queued" || t.status === "editing")
-        .map((t) => t.jobId),
-    );
-    return Object.entries(runStats?.jobProgress ?? {}).sort(
-      ([a], [b]) => Number(live.has(b)) - Number(live.has(a)),
-    );
-  }, [runStats, tasks]);
+  const activeRuns = useMemo(
+    () => Object.entries(runStats?.jobProgress ?? {}),
+    [runStats],
+  );
 
   const rt = runStats?.runtime;
   const throughput =

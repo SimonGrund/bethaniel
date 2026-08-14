@@ -5,7 +5,16 @@ import type TurndownService from "turndown";
 import * as fs from "fs";
 import * as path from "path";
 import { PAGEBREAK_MARKER, isChapterHeadingLine } from "./chapters.js";
+import { parseMdBlocks } from "./mdBlocks.js";
+import { indexDocumentXml } from "./docxSurgery.js";
+import { buildDocx, type ImageBytesResolver } from "./mdToDocx.js";
 import { SCENE_BREAK_MARKER } from "./sceneBreaks.js";
+import {
+  extractDisplayExtents,
+  pairSizesByOrder,
+  saveImageSizes,
+  displaySizeFor,
+} from "./imageLayout.js";
 import { cleanPublishArtifacts } from "./publishReview.js";
 
 // Where uploaded-document media (images extracted from .docx) live on disk.
@@ -32,6 +41,16 @@ function extFromContentType(contentType: string | undefined): string {
       return "bmp";
     default:
       return "png";
+  }
+}
+
+/** `word/document.xml` as text, or "" when it cannot be read. */
+async function readDocumentXml(docxBuffer: Buffer): Promise<string> {
+  try {
+    const zip = await JSZip.loadAsync(docxBuffer);
+    return (await zip.file("word/document.xml")?.async("string")) ?? "";
+  } catch {
+    return "";
   }
 }
 
@@ -78,50 +97,24 @@ async function getTurndown(): Promise<TurndownService> {
  */
 async function getDocxParagraphInfo(
   docxBuffer: Buffer,
-): Promise<Array<{ isPageBreak: boolean; isEmpty: boolean }>> {
+): Promise<
+  Array<{ isPageBreak: boolean; isEmpty: boolean; inTable: boolean }>
+> {
   try {
     const zip = await JSZip.loadAsync(docxBuffer);
     const docXml = await zip.file("word/document.xml")?.async("string");
     if (!docXml) return [];
 
-    // Match a paragraph as either a genuinely self-closing empty paragraph
-    // (`<w:p .../>`, its OWN `/>`) or an open/close pair up to its own `</w:p>`.
-    // The `[^>]` guard stops the self-close alternative from firing on a child
-    // element's `/>` (e.g. `<w:jc/>`, `<w:spacing/>`, `<w:pStyle/>` inside
-    // `<w:pPr>`), which previously truncated formatted paragraphs mid-way — the
-    // truncated fragment lost its `<w:t>` and was misread as an empty paragraph,
-    // collapsing real section breaks. See test/docxImport.test.ts.
-    const paragraphs =
-      docXml.match(/<w:p\b(?:[^>]*?\/>|[^>]*?>[\s\S]*?<\/w:p>)/g) ?? [];
-
-    return paragraphs.map((p) => {
-      let isPageBreak = false;
-
-      if (/<w:br[^>]*w:type="page"/.test(p)) {
-        isPageBreak = true;
-      }
-      if (!isPageBreak && /<w:pageBreakBefore/.test(p)) {
-        const valMatch = p.match(/<w:pageBreakBefore[^>]*w:val="([^"]+)"/);
-        if (
-          !valMatch ||
-          ["true", "1", "on"].includes(valMatch[1].toLowerCase())
-        ) {
-          isPageBreak = true;
-        }
-      }
-      if (!isPageBreak && /<w:sectPr/.test(p)) {
-        const typeMatch = p.match(
-          /<w:type[^>]*w:val="(nextPage|oddPage|evenPage)"/,
-        );
-        if (typeMatch) isPageBreak = true;
-      }
-
-      const hasVisibleText = /<w:t(?:\s|>)/.test(p);
-      const hasObject = /<w:drawing|<w:pict|<w:object/.test(p);
-      const isEmpty = !isPageBreak && !hasVisibleText && !hasObject;
-
-      return { isPageBreak, isEmpty };
-    });
+    // Uses the same scanner as surgical export, so import ordinals and surgery
+    // ordinals cannot disagree. It also fixes a real defect in the regex this
+    // replaced: that pattern terminated an outer <w:p> at an INNER </w:p>, so
+    // any document containing a text box was silently misaligned — every
+    // paragraph after the box shifted by one.
+    return indexDocumentXml(docXml).paragraphs.map((p) => ({
+      isPageBreak: p.isPageBreak,
+      isEmpty: p.isEmpty,
+      inTable: p.inTable,
+    }));
   } catch {
     return [];
   }
@@ -145,10 +138,38 @@ export async function extractPagebreaksFromDocx(
  * `MEDIA_DIR/<docId>/imageN.<ext>` and referenced from the markdown as
  * `![](media/<docId>/imageN.ext)` so graphics survive the edit/export pipeline.
  */
+/**
+ * Where a docx paragraph's text ended up in the imported markdown.
+ *
+ * Surgical export needs this to map an edited chapter back onto the original
+ * runs. `mappable` is false where the markdown offsets bear no reliable
+ * relation to the paragraph's plain text — table cells today, list items later
+ * — in which case the paragraph keeps its original text and its formatting.
+ */
+export interface ParagraphMapEntry {
+  docxParaIndex: number;
+  mdStart: number;
+  mdEnd: number;
+  mappable: boolean;
+}
+
+export interface MappedImport {
+  md: string;
+  paragraphMap: ParagraphMapEntry[];
+}
+
+/** Import a .docx to markdown. Unchanged signature; every caller is untouched. */
 export async function docxToMarkdown(
   docxBuffer: Buffer,
   opts: { docId?: string } = {},
 ): Promise<string> {
+  return (await docxToMarkdownMapped(docxBuffer, opts)).md;
+}
+
+export async function docxToMarkdownMapped(
+  docxBuffer: Buffer,
+  opts: { docId?: string } = {},
+): Promise<MappedImport> {
   const { docId } = opts;
   const mammoth = (await import("mammoth")).default;
   const turndown = await getTurndown();
@@ -181,6 +202,7 @@ export async function docxToMarkdown(
       "r[style-name='Book Title'] => em",
     ],
   };
+  const extractedImageNames: string[] = [];
   if (docId) {
     const docMediaDir = path.join(MEDIA_DIR, docId);
     await fs.promises.mkdir(docMediaDir, { recursive: true });
@@ -195,12 +217,23 @@ export async function docxToMarkdown(
           path.join(docMediaDir, fileName),
           Buffer.from(b64, "base64"),
         );
+        extractedImageNames.push(fileName);
         return { src: `media/${docId}/${fileName}` };
       },
     );
   }
 
   const result = await mammoth.convertToHtml({ buffer: docxBuffer }, mammothOpts);
+
+  // The extracted files carry pixels; the document carries the size the author
+  // chose to show them at. Keep the latter, or export can only guess.
+  if (docId && extractedImageNames.length > 0) {
+    const sizes = pairSizesByOrder(
+      extractedImageNames,
+      extractDisplayExtents(await readDocumentXml(docxBuffer)),
+    );
+    if (sizes) saveImageSizes(MEDIA_DIR, docId, sizes);
+  }
 
   const normalizeDividerLine = (line: string): string => {
     const t = line.trim();
@@ -221,13 +254,16 @@ export async function docxToMarkdown(
   const paragraphInfo = await getDocxParagraphInfo(docxBuffer);
 
   if (htmlBlocks.length === 0) {
-    return stripMarkdownEscapes(
-      turndown
-        .turndown(result.value)
-        .split("\n")
-        .map(normalizeDividerLine)
-        .join("\n"),
-    );
+    return {
+      md: stripMarkdownEscapes(
+        turndown
+          .turndown(result.value)
+          .split("\n")
+          .map(normalizeDividerLine)
+          .join("\n"),
+      ),
+      paragraphMap: [],
+    };
   }
 
   let text = "";
@@ -239,7 +275,8 @@ export async function docxToMarkdown(
   // pipeline — chunking (splits on blank lines), the LLM, and the exporter —
   // agree on what a paragraph boundary is. Extra empty Word paragraphs add
   // further blank lines (collapsed harmlessly on render).
-  const appendBlock = (block: string) => {
+  const paragraphMap: ParagraphMapEntry[] = [];
+  const appendBlock = (block: string, docxParaIndex = -1, mappable = false) => {
     if (!block) {
       pendingEmptyParagraphs += 1;
       return;
@@ -247,11 +284,21 @@ export async function docxToMarkdown(
     if (text) {
       text += "\n".repeat(pendingEmptyParagraphs + 2);
     }
+    const mdStart = text.length;
     text += block;
+    if (docxParaIndex >= 0) {
+      paragraphMap.push({
+        docxParaIndex,
+        mdStart,
+        mdEnd: text.length,
+        mappable,
+      });
+    }
     pendingEmptyParagraphs = 0;
   };
 
-  for (const info of paragraphInfo) {
+  for (let docxParaIndex = 0; docxParaIndex < paragraphInfo.length; docxParaIndex++) {
+    const info = paragraphInfo[docxParaIndex];
     if (info.isPageBreak) {
       pendingPageBreak = true;
       continue;
@@ -267,7 +314,13 @@ export async function docxToMarkdown(
     blockIndex += 1;
 
     if (mdBlock) {
-      mdBlock = mdBlock.split("\n").map(normalizeDividerLine).join("\n");
+      // Stripped here rather than over the whole document at the end: the strip
+      // removes characters, so doing it afterwards would shift every offset
+      // recorded in the paragraph map. Concatenation-equivalent, since an
+      // escape sequence never spans a block boundary.
+      mdBlock = stripMarkdownEscapes(
+        mdBlock.split("\n").map(normalizeDividerLine).join("\n"),
+      );
     }
 
     if (pendingPageBreak && text && mdBlock) {
@@ -282,20 +335,22 @@ export async function docxToMarkdown(
       pendingPageBreak = false;
     }
 
-    appendBlock(mdBlock);
+    appendBlock(mdBlock, docxParaIndex, !info.inTable);
   }
 
   for (; blockIndex < htmlBlocks.length; blockIndex++) {
-    const mdBlock = turndown
-      .turndown(htmlBlocks[blockIndex])
-      .trim()
-      .split("\n")
-      .map(normalizeDividerLine)
-      .join("\n");
+    const mdBlock = stripMarkdownEscapes(
+      turndown
+        .turndown(htmlBlocks[blockIndex])
+        .trim()
+        .split("\n")
+        .map(normalizeDividerLine)
+        .join("\n"),
+    );
     appendBlock(mdBlock);
   }
 
-  return stripMarkdownEscapes(text);
+  return { md: text, paragraphMap };
 }
 
 /**
@@ -323,12 +378,19 @@ export interface DocxExportOptions {
   minorBreak: "blank" | "hash";
   /** Line spacing multiplier. Default: 1.3 */
   lineSpacing: number;
+  /**
+   * Start each chapter on a new page. Off by default: a page break the author
+   * did not write is invented structure, and page breaks that ARE in the source
+   * arrive as PAGEBREAK markers and are emitted regardless of this setting.
+   */
+  chapterPageBreaks: boolean;
 }
 
 export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
   sectionBreak: "asterisks",
   minorBreak: "blank",
   lineSpacing: 1.3,
+  chapterPageBreaks: false,
 };
 
 /** Convert Markdown to .docx, return the binary buffer. */
@@ -340,19 +402,25 @@ export async function markdownToDocx(
     ...DEFAULT_DOCX_EXPORT_OPTIONS,
     ...opts,
   };
-  // Convert markdown to simple HTML for docx generation (images embedded as
-  // base64 data URIs, which html-to-docx inlines into the .docx).
-  const html = mdToHtml(md, options, embedImageDataUri);
-  const HTMLtoDOCX = (await import("html-to-docx")).default;
-  const docxBuffer = await HTMLtoDOCX(html, undefined, {
-    table: { row: { cantSplit: true } },
-    footer: true,
-    pageNumber: true,
-    font: "Times New Roman",
-    fontSize: 24, // 12pt in half-points
-  });
-  return Buffer.from(docxBuffer as ArrayBuffer);
+  // Built programmatically rather than via HTML. html-to-docx is gone: it was
+  // abandoned in 2023, carried two unpatched image-size advisories through an
+  // inlined bundle, and silently dropped one half of bold+italic.
+  return buildDocx(md, options, readImageBytes, readImageDisplaySize);
 }
+
+/** The size the author displayed an image at, when the import recorded one. */
+export const readImageDisplaySize = (src: string) =>
+  displaySizeFor(MEDIA_DIR, src);
+
+/** Image bytes for the DOCX builder, or null when the file is unavailable. */
+export const readImageBytes: ImageBytesResolver = (src) => {
+  try {
+    const abs = src.startsWith("media/") ? resolveMediaPath(src) : src;
+    return fs.readFileSync(abs);
+  } catch {
+    return null; // missing on disk — the builder drops the image
+  }
+};
 
 /**
  * Render markdown to HTML, faithfully reproducing the input's paragraph layout:
@@ -370,111 +438,38 @@ export function mdToHtml(
   opts: DocxExportOptions,
   imageResolver: ImageResolver = embedImageDataUri,
 ): string {
-  const lines = md.split("\n");
-  const htmlLines: string[] = [];
   const lineHeight = `line-height:${opts.lineSpacing}`;
-  let lastWasPagebreak = false;
-  let seenChapterHeading = false;
+  const htmlLines: string[] = [];
+  const pageBreak = `<div class="page-break" style="page-break-after:always"></div>`;
 
-  const paragraphLines: string[] = [];
-  const flushParagraph = () => {
-    if (paragraphLines.length === 0) return;
-    const joined = paragraphLines
-      .map((ln) => inlineFormat(ln, imageResolver))
-      .join("<br/>");
-    htmlLines.push(`<p style="${lineHeight}">${joined}</p>`);
-    paragraphLines.length = 0;
-    lastWasPagebreak = false;
-  };
-
-  // Consecutive blank lines beyond the first are empty source paragraphs —
-  // the author's soft section breaks, which the DOCX importer preserved as
-  // extra blank lines. Round-trip each back to a real empty line (same nbsp
-  // paragraph as the lone-"#" minor break). Emitted lazily on the next
-  // content line so leading/trailing blanks add nothing.
-  let pendingBlankLines = 0;
-  const emitSectionBlanks = () => {
-    if (pendingBlankLines >= 2 && htmlLines.length > 0) {
-      for (let i = 1; i < pendingBlankLines; i++) {
+  for (const block of parseMdBlocks(md)) {
+    switch (block.kind) {
+      case "paragraph": {
+        const joined = block.lines
+          .map((ln) => inlineFormat(ln, imageResolver))
+          .join("<br/>");
+        htmlLines.push(`<p style="${lineHeight}">${joined}</p>`);
+        break;
+      }
+      case "pagebreak":
+        htmlLines.push(pageBreak);
+        break;
+      case "sceneBreak":
+        htmlLines.push(renderSceneBreak(opts.sectionBreak, lineHeight));
+        break;
+      case "minorBreak":
         htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
-      }
-    }
-    pendingBlankLines = 0;
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Blank line: paragraph separator — runs of them become section breaks.
-    if (trimmed === "") {
-      flushParagraph();
-      pendingBlankLines += 1;
-      continue;
-    }
-    emitSectionBlanks();
-
-    if (trimmed === PAGEBREAK_MARKER) {
-      flushParagraph();
-      htmlLines.push(
-        `<div class="page-break" style="page-break-after:always"></div>`,
-      );
-      lastWasPagebreak = true;
-      continue;
-    }
-
-    if (trimmed === SCENE_BREAK_MARKER || /^(\*\s*){3,}$/.test(trimmed)) {
-      flushParagraph();
-      htmlLines.push(renderSceneBreak(opts.sectionBreak, lineHeight));
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    // Lone "#": minor section break (smaller than a scene break).
-    if (trimmed === "#") {
-      flushParagraph();
-      htmlLines.push(renderMinorBreak(opts.minorBreak, lineHeight));
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
-    if (headingMatch) {
-      flushParagraph();
-      const level = headingMatch[1].length;
-      const isChapter = level <= 2;
-      if (isChapter && seenChapterHeading && !lastWasPagebreak) {
+        break;
+      case "heading": {
+        if (block.needsPageBreak) htmlLines.push(pageBreak);
+        const inner = inlineFormat(block.text, imageResolver);
         htmlLines.push(
-          `<div class="page-break" style="page-break-after:always"></div>`,
+          `<h${block.level} style="${lineHeight}">${inner}</h${block.level}>`,
         );
+        break;
       }
-      htmlLines.push(
-        `<h${level} style="${lineHeight}">${inlineFormat(headingMatch[2], imageResolver)}</h${level}>`,
-      );
-      if (isChapter) seenChapterHeading = true;
-      lastWasPagebreak = false;
-      continue;
     }
-
-    if (isChapterHeadingLine(trimmed)) {
-      flushParagraph();
-      if (seenChapterHeading && !lastWasPagebreak) {
-        htmlLines.push(
-          `<div class="page-break" style="page-break-after:always"></div>`,
-        );
-      }
-      htmlLines.push(
-        `<h1 style="${lineHeight}">${inlineFormat(trimmed, imageResolver)}</h1>`,
-      );
-      seenChapterHeading = true;
-      lastWasPagebreak = false;
-      continue;
-    }
-
-    paragraphLines.push(line.trimEnd());
-    lastWasPagebreak = false;
   }
-
-  flushParagraph();
 
   return htmlLines.join("\n");
 }

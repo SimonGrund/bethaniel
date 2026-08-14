@@ -1,8 +1,9 @@
 // Italics preservation across the DOCX pipeline. A real user manuscript lost
-// its italics: html-to-docx (1.8) silently drops <em> runs, so every italic
-// exported as <em> became plain text in the .docx. These tests round-trip
-// markdown → .docx → markdown through the real conversion functions and lock
-// in that emphasis survives, plus the import-side handling of Word's
+// its italics when the exporter was html-to-docx, which silently dropped <em>
+// runs and kept only the innermost tag of nested emphasis. The DOCX emit layer
+// is now programmatic (mdToDocx.ts), so both defects are gone and bold+italic
+// survives intact. These tests round-trip markdown → .docx → markdown through
+// the real conversion functions, plus the import-side handling of Word's
 // "Emphasis" character style (which mammoth's default style map ignores).
 
 import { test } from "node:test";
@@ -34,11 +35,12 @@ test("bold survives a DOCX round-trip", async () => {
   assert.match(back, /\*\*important\*\*|__important__/, back);
 });
 
-test("bold-italic keeps at least the italic through a DOCX round-trip", async () => {
-  // html-to-docx (1.8) applies only the innermost tag's format to a run, so
-  // ***both*** degrades to italic — the reader-critical channel for fiction.
+test("bold-italic keeps BOTH through a DOCX round-trip", async () => {
+  // Under html-to-docx this degraded to italic only, and the test could assert
+  // no more than "at least the italic". The programmatic builder writes both
+  // properties onto one run, so both come back.
   const back = await roundTrip("A ***warning*** appeared.");
-  assert.match(back, /[_*]warning[_*]/, back);
+  assert.match(back, /\*\*[_*]warning[_*]\*\*/, back);
 });
 
 test("italics with adjacent punctuation survive a DOCX round-trip", async () => {
@@ -71,7 +73,7 @@ test("Danish italic sentence survives a DOCX round-trip", async () => {
 // styleMap entries such text imports as plain — italics silently lost at
 // upload. Build a minimal .docx in memory to prove both paths import.
 
-async function buildStyledDocx(): Promise<Buffer> {
+async function buildStyledDocx(bodyXml?: string): Promise<Buffer> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
   zip.file(
@@ -108,12 +110,7 @@ async function buildStyledDocx(): Promise<Buffer> {
   </w:style>
 </w:styles>`,
   );
-  zip.file(
-    "word/document.xml",
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
+  const defaultBody = `    <w:p>
       <w:r><w:t xml:space="preserve">Plain then </w:t></w:r>
       <w:r>
         <w:rPr><w:rStyle w:val="Emphasis"/></w:rPr>
@@ -125,7 +122,13 @@ async function buildStyledDocx(): Promise<Buffer> {
         <w:t>direct italics</w:t>
       </w:r>
       <w:r><w:t>.</w:t></w:r>
-    </w:p>
+    </w:p>`;
+  zip.file(
+    "word/document.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+${bodyXml ?? defaultBody}
   </w:body>
 </w:document>`,
   );
@@ -149,14 +152,11 @@ test("Emphasis character style imports as italics (not plain text)", async () =>
 // escapes; export never emits literal backslash-marker sequences.
 
 test("literal _s_ text in a docx imports without backslash escapes", async () => {
-  const { createRequire } = await import("module");
-  const req = createRequire(import.meta.url);
-  const HTMLtoDOCX = req("html-to-docx");
-  const fn = HTMLtoDOCX.default ?? HTMLtoDOCX;
-  const buf = Buffer.from(
-    (await fn("<p>Bethaniel_s_ hus og _“Goddag,”_ sagde han.</p>", undefined, {
-      font: "Times New Roman",
-    })) as ArrayBuffer,
+  // Fixture built by hand rather than generated: the point is a docx whose text
+  // contains literal underscore characters, which is awkward to express through
+  // any markdown-aware builder.
+  const buf = await buildStyledDocx(
+    `    <w:p><w:r><w:t xml:space="preserve">Bethaniel_s_ hus og _“Goddag,”_ sagde han.</w:t></w:r></w:p>`,
   );
   const md = await docxToMarkdown(buf);
   assert.ok(!md.includes("\\_"), md);
@@ -173,14 +173,14 @@ test("corrections parser strips model-added markdown escapes", async () => {
 });
 
 test("adjacent italic runs import without __ seams", async () => {
-  const { createRequire } = await import("module");
-  const req = createRequire(import.meta.url);
-  const HTMLtoDOCX = req("html-to-docx");
-  const fn = HTMLtoDOCX.default ?? HTMLtoDOCX;
-  const buf = Buffer.from(
-    (await fn("<p><i>He</i><i> ran</i> home.</p>", undefined, {
-      font: "Times New Roman",
-    })) as ArrayBuffer,
+  // Two consecutive italic runs — exactly how Word splits a phrase whose
+  // formatting is uniform but whose runs are not.
+  const buf = await buildStyledDocx(
+    `    <w:p>
+      <w:r><w:rPr><w:i/></w:rPr><w:t>He</w:t></w:r>
+      <w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve"> ran</w:t></w:r>
+      <w:r><w:t xml:space="preserve"> home.</w:t></w:r>
+    </w:p>`,
   );
   const md = await docxToMarkdown(buf);
   assert.ok(!md.includes("__"), md);

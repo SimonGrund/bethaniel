@@ -20,6 +20,15 @@ export interface JobProgress {
   wordsTotal: number;
   /** Permanently failed tasks — the reason `fraction` may never reach 1. */
   failed: number;
+  /** Tasks the user stopped. Their own decision, not a fault to report back. */
+  cancelled: number;
+  /**
+   * Nothing queued and nothing in flight: the run is over, however it ended.
+   *
+   * Without this a finished job's row is indistinguishable from a live one, and
+   * a run stopped at 70% reads as a run stuck at 70%.
+   */
+  settled: boolean;
 }
 
 export interface RuntimeStats {
@@ -63,6 +72,12 @@ export function computeJobProgress(
 
     const wordsTotal = list.reduce((n, t) => n + (t.wordCount || 0), 0);
     const failed = list.filter((t) => t.status === "error").length;
+    const cancelled = list.filter((t) => t.status === "cancelled").length;
+    // Judged over ALL the job's tasks, including meta ones: a pending summary
+    // still means the run is going, even though it is excluded from the bar.
+    const settled = !all.some(
+      (t) => t.status === "queued" || t.status === "editing",
+    );
 
     if (wordsTotal === 0) {
       // Analysis-only jobs can carry no word counts. Fall back to task count
@@ -73,6 +88,8 @@ export function computeJobProgress(
         wordsDone: 0,
         wordsTotal: 0,
         failed,
+        cancelled,
+        settled,
       };
       continue;
     }
@@ -86,7 +103,28 @@ export function computeJobProgress(
       wordsDone: Math.round(wordsDone),
       wordsTotal,
       failed,
+      cancelled,
+      settled,
     };
+  }
+  return out;
+}
+
+/**
+ * Only the runs that are actually running.
+ *
+ * Diagnostics shows a live readout, not a history: a finished job's row sitting
+ * in the panel at 70% is indistinguishable from a stalled one. This resets it
+ * at the end of a run, and — because initQueue rewrites interrupted tasks to
+ * cancelled when it hydrates — on restart too, with the same rule.
+ */
+export function liveJobProgress(
+  tasks: Iterable<TaskState>,
+): Record<string, JobProgress> {
+  const all = computeJobProgress(tasks);
+  const out: Record<string, JobProgress> = {};
+  for (const [jobId, p] of Object.entries(all)) {
+    if (!p.settled) out[jobId] = p;
   }
   return out;
 }

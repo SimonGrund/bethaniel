@@ -9,7 +9,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { computeJobProgress, computeRuntime } from "../src/runStats.ts";
+import {
+  computeJobProgress,
+  computeRuntime,
+  liveJobProgress,
+} from "../src/runStats.ts";
 import type { TaskState } from "../src/types.ts";
 
 function task(p: Partial<TaskState>): TaskState {
@@ -157,4 +161,100 @@ test("unparsable tokPerSec is ignored rather than producing NaN", () => {
   );
   assert.equal(r.aggregateTokPerSec, 0);
   assert.ok(Number.isFinite(r.aggregateTokPerSec));
+});
+
+// ── Is the run over? ──
+//
+// A row reading "13,774 of 19,710 words / 70%" is identical whether the run is
+// grinding away or ended five hours ago. Reported from live use as "a remnant
+// of a former run still stuck" — it was neither stuck nor running: the user had
+// cancelled five chapters, and cancelled words correctly count zero.
+
+test("a job with work still queued or in flight is not settled", () => {
+  const running = computeJobProgress([
+    task({ jobId: "j", status: "done" }),
+    task({ jobId: "j", status: "editing", progress: 0.5 }),
+  ]);
+  assert.equal(running.j.settled, false);
+
+  const waiting = computeJobProgress([
+    task({ jobId: "j", status: "done" }),
+    task({ jobId: "j", status: "queued" }),
+  ]);
+  assert.equal(waiting.j.settled, false);
+});
+
+test("a job whose tasks have all reached a terminal state is settled", () => {
+  const p = computeJobProgress([
+    task({ jobId: "j", status: "done" }),
+    task({ jobId: "j", status: "cancelled" }),
+    task({ jobId: "j", status: "error" }),
+  ]);
+  assert.equal(p.j.settled, true);
+});
+
+test("cancelled chapters are counted, and apart from failures", () => {
+  // The user stopping a run is not the same event as a chapter failing, and
+  // telling them "5 not completed" about their own decision is wrong.
+  const p = computeJobProgress([
+    task({ jobId: "j", status: "done" }),
+    task({ jobId: "j", status: "cancelled" }),
+    task({ jobId: "j", status: "cancelled" }),
+    task({ jobId: "j", status: "error" }),
+  ]);
+  assert.equal(p.j.cancelled, 2);
+  assert.equal(p.j.failed, 1);
+});
+
+test("the live shape of the reported run", () => {
+  // 14 chapters done, 5 cancelled — 13,774 of 19,710 words, settled at 70%.
+  const done = Array.from({ length: 14 }, () =>
+    task({ jobId: "j", status: "done", wordCount: 984 }),
+  );
+  const cancelled = Array.from({ length: 5 }, () =>
+    task({ jobId: "j", status: "cancelled", wordCount: 1187 }),
+  );
+  const p = computeJobProgress([...done, ...cancelled]);
+  assert.equal(p.j.settled, true);
+  assert.equal(p.j.cancelled, 5);
+  assert.equal(p.j.failed, 0);
+  assert.ok(
+    Math.round(p.j.fraction * 100) === 70,
+    `expected 70%, got ${Math.round(p.j.fraction * 100)}%`,
+  );
+});
+
+// ── What diagnostics actually shows ──
+//
+// Run progress is a live readout, not a history. It resets when the program
+// restarts and when a run ends — asked for after a finished job's row sat in
+// the panel looking like a stalled one. Hydration on startup already marks
+// interrupted tasks cancelled, so "settled" covers both cases with one rule.
+
+test("liveJobProgress omits runs that have ended", () => {
+  const p = liveJobProgress([
+    task({ id: "a", jobId: "over", status: "done" }),
+    task({ id: "b", jobId: "over", status: "cancelled" }),
+    task({ id: "c", jobId: "going", status: "editing", progress: 0.5 }),
+  ]);
+  assert.deepEqual(Object.keys(p), ["going"]);
+});
+
+test("liveJobProgress keeps a run with work still queued", () => {
+  const p = liveJobProgress([
+    task({ id: "a", jobId: "j", status: "done" }),
+    task({ id: "b", jobId: "j", status: "queued" }),
+  ]);
+  assert.ok(p.j, "a job with queued work is still running");
+});
+
+test("after a restart nothing is live", () => {
+  // initQueue rewrites queued/editing tasks to cancelled on hydrate, so every
+  // task from a previous session is terminal by the time this runs.
+  const p = liveJobProgress([
+    task({ id: "a", jobId: "old", status: "done" }),
+    task({ id: "b", jobId: "old", status: "cancelled" }),
+    task({ id: "c", jobId: "older", status: "error" }),
+  ]);
+  assert.deepEqual(Object.keys(p), []);
 });
