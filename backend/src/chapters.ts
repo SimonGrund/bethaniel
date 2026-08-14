@@ -98,7 +98,87 @@ function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
+/**
+ * Shortest a detected section can be and still be treated as a chapter.
+ *
+ * A title page, a copyright notice, a dedication, or a chapter heading stranded
+ * on a page of its own all look exactly like chapter starts to the detector.
+ * They were queued and edited as if they were prose, and showed up in the
+ * chapter list as units of half a dozen words.
+ */
+export const MIN_CHAPTER_WORDS = 50;
+
+/**
+ * Fold sections too short to be chapters into the chapter they belong to.
+ *
+ * Forward by default — a title page introduces the chapter after it — and
+ * backward only for a trailing section, which has nothing after it to join.
+ * Merging is purely a regrouping of boundaries: no text is added, removed or
+ * reordered, and the merged section keeps the surviving chapter's title.
+ *
+ * A short section that is genuinely a chapter (some novels have one-page
+ * chapters) is absorbed too. That is the accepted cost of not treating every
+ * front-matter page as a chapter.
+ */
+function mergeShortChapters(text: string, chapters: Chapter[]): Chapter[] {
+  // Nothing to merge into. A lone short chapter is the whole document.
+  if (chapters.length < 2) return chapters;
+
+  // Where short IS the chapter length — a poetry collection, a children's book,
+  // a novel of one-page chapters — merging would collapse the whole work into
+  // one unit. The rule exists to catch a title page among real chapters, not to
+  // overrule a book's own shape.
+  const short = chapters.filter((c) => c.wordCount < MIN_CHAPTER_WORDS).length;
+  // Nothing substantial to merge into: every section is short, so short is what
+  // this book's sections are.
+  if (short === chapters.length) return chapters;
+  // A long tail of short pieces around one longer one is still a book of short
+  // pieces. Front matter is a handful of pages, not four fifths of the work.
+  if (chapters.length >= 5 && short / chapters.length >= 0.8) return chapters;
+
+  const out: Chapter[] = [];
+  /** Short sections waiting for the next substantial one to attach to. */
+  let held: Chapter | null = null;
+
+  for (const chapter of chapters) {
+    const start = held ? held.start : chapter.start;
+    const merged: Chapter = {
+      ...chapter,
+      start,
+      wordCount: wordCount(text.slice(start, chapter.end)),
+    };
+    if (merged.wordCount < MIN_CHAPTER_WORDS) {
+      // Still too short even with what is already held — keep accumulating, so
+      // a run of front-matter pages collapses into the first real chapter
+      // rather than pairing off two at a time.
+      held = merged;
+      continue;
+    }
+    held = null;
+    out.push(merged);
+  }
+
+  if (held) {
+    // A trailing run with nothing after it. Extend the previous chapter to
+    // cover it, or — if there is no previous chapter — keep it: an all-short
+    // document must still give the user something to edit.
+    const prev = out[out.length - 1];
+    if (prev) {
+      prev.end = held.end;
+      prev.wordCount = wordCount(text.slice(prev.start, prev.end));
+    } else {
+      out.push(held);
+    }
+  }
+
+  return out;
+}
+
 export function findChapters(text: string): Chapter[] {
+  return mergeShortChapters(text, detectChapters(text));
+}
+
+function detectChapters(text: string): Chapter[] {
   // ── Phase 1: targeted patterns (page-break, ATX heading, chapter-word, special section).
   // Run all of them and pick the one with the MOST matches. Otherwise a docx
   // with explicit "Chapter X" headings but only some chapters separated by
