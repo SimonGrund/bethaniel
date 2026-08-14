@@ -5,13 +5,13 @@
 import { ChildProcess, spawn, execFileSync, execSync } from "child_process";
 import * as path from "path";
 import * as http from "http";
-import * as net from "net";
 import * as os from "os";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { readModelConfig, getCustomGgufPath } from "./modelConfig.js";
 import { appendLog, diagnoseEngineExit } from "./logBus.js";
 import { getModelByFileName } from "./modelCatalog.js";
+import { resolveEnginePort } from "./enginePort.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,7 +81,18 @@ function resolveLlamaBin(): string {
 }
 
 const LLAMA_BIN = resolveLlamaBin();
+/**
+ * The port llama-server listens on.
+ *
+ * Electron passes a freshly-chosen free port in packaged builds. Dev has no
+ * such env, so it falls back to a fixed 8012 — which is the only configuration
+ * where a leftover engine from a previous session can collide. `activeLlamaPort`
+ * holds the port actually in use, so dev can move to a free one when 8012 is
+ * stuck rather than launching into a bind failure.
+ */
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
+const LLAMA_PORT_IS_FIXED = process.env.LLAMA_PORT == null;
+let activeLlamaPort = LLAMA_PORT;
 const LLAMA_HOST = "127.0.0.1";
 
 /** Remove macOS quarantine attribute and ensure the binary is executable. */
@@ -217,43 +228,7 @@ const MODELS_DIR =
 
 /** Base URL for the llama-server HTTP API. */
 export function getLlamaBaseUrl(): string {
-  return process.env.LLAMA_BASE_URL || `http://${LLAMA_HOST}:${LLAMA_PORT}`;
-}
-
-/**
- * Wait until the kernel will let *us* bind the port. `lsof` returning empty
- * is not enough on its own: after a process exits, the OS keeps the socket
- * in TIME_WAIT (or finalizes a graceful close) for a short period, during
- * which a fresh bind() still fails with EADDRINUSE. Probe by actually
- * binding a throwaway `net.Server` to the same host/port and only proceed
- * once the bind succeeds.
- */
-async function waitForPortFree(
-  host: string,
-  port: number,
-  timeoutMs = 8000,
-): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const free = await new Promise<boolean>((resolve) => {
-      const probe = net.createServer();
-      probe.once("error", () => {
-        probe.close();
-        resolve(false);
-      });
-      probe.once("listening", () => {
-        probe.close(() => resolve(true));
-      });
-      try {
-        probe.listen(port, host);
-      } catch {
-        resolve(false);
-      }
-    });
-    if (free) return true;
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  return false;
+  return process.env.LLAMA_BASE_URL || `http://${LLAMA_HOST}:${activeLlamaPort}`;
 }
 
 /** Check if the llama-server binary is available. */
@@ -511,7 +486,7 @@ function pollHealth(
     const check = () => {
       if (settled) return;
       const req = http.get(
-        `http://${LLAMA_HOST}:${LLAMA_PORT}/health`,
+        `http://${LLAMA_HOST}:${activeLlamaPort}/health`,
         (res) => {
           if (res.statusCode === 200) return finish();
           // Drain so the socket can be reused.
@@ -723,13 +698,36 @@ async function doLoad(
   // to ensure each slot gets the full requested context window.
   const totalCtx = numCtx * parallelSlots;
 
+  // Reclaim the port from any stale llama-server (orphaned by a previous
+  // backend crash or hard-kill) so the new spawn doesn't fail with
+  // "couldn't bind HTTP server socket".
+  freePort(LLAMA_PORT);
+  const choice = await resolveEnginePort({
+    host: LLAMA_HOST,
+    preferred: LLAMA_PORT,
+    // Only dev's fixed fallback may step aside; see enginePort.ts.
+    movable: LLAMA_PORT_IS_FIXED,
+    // The OS can hold the socket in TIME_WAIT briefly after the prior process
+    // exits, so give a real bind a few seconds to start succeeding.
+    waitMs: 8000,
+  });
+  if (choice.moved) {
+    appendLog({
+      level: "info",
+      source: "engine",
+      message: `Port ${LLAMA_PORT} is held by another process — using ${choice.port} instead.`,
+      model: file,
+    });
+  }
+  activeLlamaPort = choice.port;
+
   const args = [
     "-m",
     resolvedPath,
     "--host",
     LLAMA_HOST,
     "--port",
-    String(LLAMA_PORT),
+    String(activeLlamaPort),
     "-c",
     String(totalCtx),
     "-ngl",
@@ -776,23 +774,6 @@ async function doLoad(
   });
 
   prepareBinary(LLAMA_BIN);
-
-  // Reclaim the port from any stale llama-server (orphaned by a previous
-  // backend crash or hard-kill) so the new spawn doesn't fail with
-  // "couldn't bind HTTP server socket".
-  freePort(LLAMA_PORT);
-  // Even after the prior process exits, the OS may keep the socket in
-  // TIME_WAIT for a few seconds — wait for a real bind to succeed before
-  // handing the port to llama-server.
-  const portFree = await waitForPortFree(LLAMA_HOST, LLAMA_PORT, 8000);
-  if (!portFree) {
-    appendLog({
-      level: "warn",
-      source: "engine",
-      message: `Port ${LLAMA_PORT} still busy after cleanup; launching anyway — llama-server may fail to bind.`,
-      model: file,
-    });
-  }
 
   // GGML_METAL_PATH_RESOURCES tells llama.cpp where to find ggml-metal.metal
   const llamaDir = path.dirname(LLAMA_BIN);

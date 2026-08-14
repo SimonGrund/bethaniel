@@ -63,3 +63,22 @@ test("a non-retryable hint is never retried regardless of attempts", () => {
 test("a missing attempts count is treated as zero", () => {
   assert.equal(shouldAutoRetry({ hintKey: "log_hint_timeout" }), true);
 });
+
+test("a port conflict is retried — the holder may just have been slow to die", () => {
+  // This used to be classified as a generic engine crash, which retries. Giving
+  // it its own honest hint must not quietly take that away: freePort() kills
+  // the holder on every attempt, so the second try often succeeds.
+  assert.equal(isRetryableHint("log_hint_port_conflict"), true);
+  assert.equal(
+    shouldAutoRetry({ hintKey: "log_hint_port_conflict", attempts: 0 }),
+    true,
+  );
+  assert.equal(
+    shouldAutoRetry({
+      hintKey: "log_hint_port_conflict",
+      attempts: MAX_AUTO_ATTEMPTS,
+    }),
+    false,
+    "it must still give up rather than loop on a port another app owns",
+  );
+});

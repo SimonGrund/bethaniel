@@ -2092,6 +2092,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die ausgewählte Modelldatei fehlt. Lade sie erneut von der Modell-Einrichtungsseite herunter.",
     es: "Falta el archivo del modelo seleccionado en el disco. Vuelve a descargarlo desde la pantalla de configuración del modelo.",
   },
+  log_hint_port_conflict: {
+    en: "Another copy of the model engine is already running and holding its network port. Quit any other running copy of Bethaniel and try again.",
+    da: "En anden kopi af modelmotoren kører allerede og optager dens netværksport. Luk andre kørende kopier af Bethaniel, og prøv igen.",
+    de: "Eine andere Instanz der Modell-Engine läuft bereits und belegt deren Netzwerkport. Beende alle anderen laufenden Bethaniel-Instanzen und versuche es erneut.",
+    es: "Ya hay otra copia del motor del modelo en ejecución que ocupa su puerto de red. Cierra cualquier otra copia de Bethaniel en ejecución e inténtalo de nuevo.",
+  },
   log_hint_binary_missing: {
     en: "The model engine binary could not be started. Reinstall Bethaniel to restore the bundled engine.",
     da: "Modelmotor-binæren kunne ikke startes. Geninstallér Bethaniel for at gendanne den medfølgende motor.",
