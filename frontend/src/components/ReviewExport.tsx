@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import Modal from "./Modal";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
@@ -1293,6 +1294,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     kind: "accept" | "dismiss" | "error";
   } | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+  // A caveat the user must see BEFORE the file is handed over. A toast raised
+  // alongside the download is hidden by the system save dialog and dismissed by
+  // the time it closes.
+  const [exportWarning, setExportWarning] = useState<{
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -1344,6 +1353,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
    * for: one download is the author's document with words changed, the other is
    * a rebuild that loses their formatting.
    */
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadDocxSurgical = useCallback(
     async (
       pairs: { original: string; edited: string }[],
@@ -1358,45 +1376,41 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       }
       try {
         const { blob, report } = await exportDocxSurgical(docId, pairs);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
+        // Warn BEFORE handing the file over. A toast raised after the download
+        // starts is covered by the system save dialog and gone by the time it
+        // closes, so the one caveat that matters was never actually read.
         if (report.skipped > 0) {
-          setToast({
-            msg: t("surgical_partial").replace(
+          setExportWarning({
+            message: t("surgical_partial").replace(
               "{count}",
               String(report.skipped),
             ),
-            kind: "error",
+            confirmLabel: t("surgical_download_anyway"),
+            onConfirm: () => downloadBlob(blob, filename),
           });
-        }
-      } catch (err) {
-        if (err instanceof NoOriginalDocxError) {
-          await handleDownloadDocx(markdown, filename);
-          setToast({ msg: t("surgical_unavailable"), kind: "error" });
           return;
         }
-        console.error("Surgical DOCX export failed:", err);
-        await handleDownloadDocx(markdown, filename);
-        setToast({ msg: t("surgical_failed"), kind: "error" });
+        downloadBlob(blob, filename);
+      } catch (err) {
+        if (!(err instanceof NoOriginalDocxError)) {
+          console.error("Surgical DOCX export failed:", err);
+        }
+        // The fallback loses the author's formatting, which is exactly the
+        // thing they chose this export for. Let them decide, not discover.
+        setExportWarning({
+          message:
+            err instanceof NoOriginalDocxError
+              ? t("surgical_unavailable")
+              : t("surgical_failed"),
+          confirmLabel: t("surgical_export_plain"),
+          onConfirm: () => handleDownloadDocx(markdown, filename),
+        });
       }
     },
     [handleDownloadDocx, t],
   );
 
   const [formattingEbook, setFormattingEbook] = useState(false);
-
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   // One-click AI ebook formatting: tidy structure, then export EPUB.
   const handleAutoFormatEbook = useCallback(
@@ -1689,6 +1703,36 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           {toast.msg}
         </div>
       )}
+
+      <Modal
+        open={exportWarning !== null}
+        onClose={() => setExportWarning(null)}
+        labelledBy="export-warning-text"
+      >
+        <p className="model-confirm-text" id="export-warning-text">
+          {exportWarning?.message}
+        </p>
+        <div className="model-confirm-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              const pending = exportWarning;
+              setExportWarning(null);
+              void pending?.onConfirm();
+            }}
+          >
+            {exportWarning?.confirmLabel}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setExportWarning(null)}
+          >
+            {t("btn_cancel")}
+          </button>
+        </div>
+      </Modal>
 
       {verifyReport && (
         <div className="verify-report-banner">
