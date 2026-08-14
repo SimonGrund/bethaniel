@@ -123,6 +123,20 @@ export function diagnoseEngineExit(
     return { hintKey: "log_hint_model_unloaded", level: "info" };
   }
 
+  // The port was taken. llama-server also prints "exiting due to model loading
+  // error" here, so without this rule the corrupt-model branch below claims it
+  // and the user is told their model is broken when the model is fine and a
+  // leftover engine is holding the socket.
+  if (
+    text.includes("couldn't bind") ||
+    text.includes("could not bind") ||
+    text.includes("bind: address already in use") ||
+    text.includes("address already in use") ||
+    (text.includes("bind") && text.includes("server socket"))
+  ) {
+    return { hintKey: "log_hint_port_conflict", level: "error" };
+  }
+
   // A kill we did NOT initiate. The OS OOM killer really does SIGKILL, and
   // SIGBUS commonly means a mapped model file could not be paged in.
   if (signal === "SIGKILL" || signal === "SIGBUS") {
@@ -178,6 +192,9 @@ export function diagnoseTaskError(message: string): Diagnosis | null {
     // Engine likely died — defer to engine-crash hint (already emitted
     // separately) but still note network failure for context.
     return { hintKey: "log_hint_engine_unreachable", level: "error" };
+  }
+  if (text.includes("already in use") && text.includes("port")) {
+    return { hintKey: "log_hint_port_conflict", level: "error" };
   }
   if (text.includes("model file not found")) {
     return { hintKey: "log_hint_model_missing", level: "error" };

@@ -91,10 +91,63 @@ export async function unloadModel(_name: string): Promise<boolean> {
 
 // ── Common SSE parser ──
 
-async function* parseSSE(
+/**
+ * How long a request may go without producing a single byte before we give up.
+ *
+ * Not a total-duration cap: a long generation on slow local hardware is normal
+ * and must not be cut off. This fires only when the connection goes silent —
+ * the engine restarted, the socket died, or the response was abandoned.
+ *
+ * Without this a stalled response hangs the task forever. Observed in the wild:
+ * both chapters sat at "writing up corrections" for 12+ minutes at 0% CPU while
+ * the engine was healthy and answering fresh requests, because the reviewer's
+ * fetch was still waiting on a response that was never coming.
+ */
+function stallTimeoutMs(): number {
+  const raw = Number(process.env.LLM_STALL_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 120_000;
+}
+
+/**
+ * An AbortSignal that fires after STALL_TIMEOUT_MS of silence, plus a `bump()`
+ * to restart the clock whenever bytes arrive. Combined with the caller's own
+ * signal so cancellation still works.
+ */
+export function stallWatchdog(caller?: AbortSignal): {
+  signal: AbortSignal;
+  bump: () => void;
+  done: () => void;
+} {
+  const ac = new AbortController();
+  let timer: NodeJS.Timeout | null = null;
+  const arm = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      ac.abort(
+        new Error(
+          `No response from the model engine for ${Math.round(stallTimeoutMs() / 1000)}s — giving up on this request.`,
+        ),
+      );
+    }, stallTimeoutMs());
+    timer.unref?.();
+  };
+  const done = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  if (caller) {
+    if (caller.aborted) ac.abort(caller.reason);
+    else caller.addEventListener("abort", () => ac.abort(caller.reason), { once: true });
+  }
+  arm();
+  return { signal: ac.signal, bump: arm, done };
+}
+
+export async function* parseSSE(
   response: Response,
   signal?: AbortSignal,
   model?: string,
+  onData?: () => void,
 ): AsyncGenerator<string> {
   const reader = response.body?.getReader();
   if (!reader) return;
@@ -107,6 +160,8 @@ async function* parseSSE(
       if (signal?.aborted) break;
       const { done, value } = await reader.read();
       if (done) break;
+      // Bytes arrived — the connection is alive, so restart the stall clock.
+      onData?.();
       buffer += decoder.decode(value, { stream: true });
 
       const lines = buffer.split("\n");
@@ -202,22 +257,27 @@ async function* chatStream(
         (options.repeat_penalty ?? cfg.repeat_penalty) - 1.0;
     }
 
-    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiConfig.apiKey}`,
-      },
-      body: JSON.stringify(apiBody),
-      signal,
-    });
+    const watchdog = stallWatchdog(signal);
+    try {
+      const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiConfig.apiKey}`,
+        },
+        body: JSON.stringify(apiBody),
+        signal: watchdog.signal,
+      });
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`DeepSeek API error ${res.status}: ${text}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`DeepSeek API error ${res.status}: ${text}`);
+      }
+
+      yield* parseSSE(res, watchdog.signal, model, watchdog.bump);
+    } finally {
+      watchdog.done();
     }
-
-    yield* parseSSE(res, signal, model);
     return;
   }
 
@@ -241,19 +301,24 @@ async function* chatStream(
   }
 
   const baseUrl = getLlamaBaseUrl();
-  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  const watchdog = stallWatchdog(signal);
+  try {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: watchdog.signal,
+    });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`llama-server error ${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`llama-server error ${res.status}: ${text}`);
+    }
+
+    yield* parseSSE(res, watchdog.signal, model, watchdog.bump);
+  } finally {
+    watchdog.done();
   }
-
-  yield* parseSSE(res, signal, model);
 }
 
 // ── Prompt helpers (same as before) ──

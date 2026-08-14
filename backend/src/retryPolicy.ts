@@ -21,6 +21,9 @@ const RETRYABLE = new Set([
   "log_hint_engine_crash_generic",
   "log_hint_engine_unreachable",
   "log_hint_timeout",
+  // A held port is usually a previous engine that had not finished dying.
+  // freePort() kills the holder before each attempt, so the next try clears it.
+  "log_hint_port_conflict",
 ]);
 
 export function isRetryableHint(hintKey: string | undefined): boolean {
