@@ -26,6 +26,7 @@
     "mammoth": "^1.12.0",
     "multer": "^1.4.5-lts.1",
     "nspell": "^2.1.5",
+    "pdfjs-dist": "^6.2.108",
     "retext": "^9.0.0",
     "retext-contractions": "^6.0.0",
     "retext-english": "^5.0.0",

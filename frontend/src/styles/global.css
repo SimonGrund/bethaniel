@@ -5708,3 +5708,23 @@ summary.review-source::before {
 .unapplied-download {
   margin-top: 0.6rem;
 }
+
+
+/* What a PDF upload costs, said before the file is chosen rather than after. */
+.upload-pdf-note {
+  margin-top: 0.5rem;
+  max-width: 34rem;
+  color: #8a7c62;
+}
+
+/* A refusal the backend explained. Persistent — the user has to act on it. */
+.upload-error {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e0b4a6;
+  border-left: 3px solid #a0341f;
+  border-radius: 6px;
+  background: #fdf3f0;
+  color: #7d2a18;
+  font-size: 0.82rem;
+}

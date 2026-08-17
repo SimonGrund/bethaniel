@@ -1,6 +1,6 @@
 // ── Manuscript upload — Stage I ──
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { uploadFile, getDocument } from "../api";
@@ -44,9 +44,13 @@ export default function ManuscriptUpload() {
     setModelIntroOpen(true);
   }
 
+  // Refusals the backend can explain — a scanned PDF, a file that is not text.
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleUpload = useCallback(
     async (file: File) => {
       setUploading(true);
+      setUploadError(null);
       try {
         const meta = await uploadFile(file);
         setDocument(meta);
@@ -57,12 +61,18 @@ export default function ManuscriptUpload() {
         setScopeMode("whole_book");
         setSelectedChapters(meta.chapters?.length > 0 ? [0] : []);
       } catch (err) {
+        // The backend explains refusals it can explain — a scanned PDF, a file
+        // that is not text. Swallowing that left the user clicking Upload and
+        // watching nothing happen.
         console.error("Upload failed:", err);
+        setUploadError(
+          err instanceof Error && err.message ? err.message : t("upload_failed"),
+        );
       } finally {
         setUploading(false);
       }
     },
-    [],
+    [t],
   );
 
   const onDrop = useCallback(
@@ -92,7 +102,7 @@ export default function ManuscriptUpload() {
             <input
               ref={fileRef}
               type="file"
-              accept=".docx,.md,.markdown"
+              accept=".docx,.pdf,.md,.markdown"
               style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -108,6 +118,12 @@ export default function ManuscriptUpload() {
               <p className="small-note">{t("upload_prompt")}</p>
             )}
           </div>
+          <p className="small-note upload-pdf-note">{t("pdf_caveat")}</p>
+          {uploadError && (
+            <p className="upload-error" role="alert">
+              {uploadError}
+            </p>
+          )}
         </>
       ) : (
         <div className="file-summary">
@@ -135,7 +151,7 @@ export default function ManuscriptUpload() {
           <input
             ref={fileRef}
             type="file"
-            accept=".docx,.md,.markdown"
+            accept=".docx,.pdf,.md,.markdown"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];
