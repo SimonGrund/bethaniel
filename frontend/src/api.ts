@@ -11,13 +11,34 @@ import type {
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+/**
+ * The server looked at the file and said no: a scan, a cipher, a binary.
+ *
+ * Distinct from a failure, because the two deserve opposite responses. A
+ * refusal is about the file and the user must pick another; a 500 or a dropped
+ * connection says nothing about the file and must not cost them the manuscript
+ * they already had loaded.
+ */
+export class RequestRefusedError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public reason?: string,
+  ) {
+    super(message);
+    this.name = "RequestRefusedError";
+  }
+}
+
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`${BASE}/api${path}`, init);
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(
-      (body as Record<string, string>).error ?? `HTTP ${res.status}`,
-    );
+    const body = (await res.json().catch(() => ({}))) as Record<string, string>;
+    const message = body.error ?? `HTTP ${res.status}`;
+    if (res.status >= 400 && res.status < 500) {
+      throw new RequestRefusedError(message, res.status, body.reason);
+    }
+    throw new Error(message);
   }
   return res;
 }

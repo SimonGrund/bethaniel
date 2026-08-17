@@ -273,6 +273,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Manuskript",
     es: "Manuscrito",
   },
+  upload_cleared: {
+    en: "The manuscript you had loaded has been cleared, so nothing is selected for editing.",
+    da: "Det manuskript, du havde indlæst, er ryddet, så intet er valgt til redigering.",
+    de: "Das zuvor geladene Manuskript wurde entfernt, es ist also nichts zum Bearbeiten ausgewählt.",
+    es: "El manuscrito que tenías cargado se ha borrado, así que no hay nada seleccionado para editar.",
+  },
   preview_extracted: {
     en: "Check the extracted text",
     da: "Tjek den udtrukne tekst",

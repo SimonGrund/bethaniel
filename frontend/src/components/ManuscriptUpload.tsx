@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { uploadFile, getDocument } from "../api";
+import { uploadFile, getDocument, RequestRefusedError } from "../api";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
 
 /**
@@ -18,6 +18,7 @@ export default function ManuscriptUpload() {
     lang,
     document: doc,
     setDocument,
+    clearDocument,
     documentMd,
     setDocumentMd,
     uploading,
@@ -70,17 +71,28 @@ export default function ManuscriptUpload() {
         setSelectedChapters(meta.chapters?.length > 0 ? [0] : []);
       } catch (err) {
         // The backend explains refusals it can explain — a scanned PDF, a file
-        // that is not text. Swallowing that left the user clicking Upload and
-        // watching nothing happen.
+        // whose fonts carry no character map, a file that is not text.
+        // Swallowing that left the user clicking Upload and watching nothing
+        // happen.
         console.error("Upload failed:", err);
+        // Drop whatever was loaded before, but ONLY when the server refused
+        // the file. Keeping it behind an error message invites editing the
+        // previous manuscript in the belief that the new one arrived. A 500 or
+        // a dropped connection says nothing about the file, and wiping a loaded
+        // manuscript over a backend hiccup would be the worse bug.
+        const refused = err instanceof RequestRefusedError;
+        const had = useStore.getState().document !== null;
+        if (refused) clearDocument();
+        const detail =
+          err instanceof Error && err.message ? err.message : t("upload_failed");
         setUploadError(
-          err instanceof Error && err.message ? err.message : t("upload_failed"),
+          refused && had ? `${detail} ${t("upload_cleared")}` : detail,
         );
       } finally {
         setUploading(false);
       }
     },
-    [t],
+    [t, clearDocument],
   );
 
   const onDrop = useCallback(
@@ -135,6 +147,11 @@ export default function ManuscriptUpload() {
         </>
       ) : (
         <div className="file-summary">
+          {uploadError && (
+            <p className="upload-error" role="alert">
+              {uploadError}
+            </p>
+          )}
           {doc && documentMd && (
             <details
               className="import-preview"
