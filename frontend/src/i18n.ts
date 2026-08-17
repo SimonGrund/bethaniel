@@ -273,6 +273,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Manuskript",
     es: "Manuscrito",
   },
+  preview_extracted: {
+    en: "Check the extracted text",
+    da: "Tjek den udtrukne tekst",
+    de: "Extrahierten Text prüfen",
+    es: "Revisar el texto extraído",
+  },
+  preview_hint: {
+    en: "The opening of your manuscript as Betty read it. Check that paragraphs, first letters and accented characters look right before editing.",
+    da: "Begyndelsen af dit manuskript, som Betty læste det. Tjek at afsnit, forbogstaver og tegn med accent ser rigtige ud, før du redigerer.",
+    de: "Der Anfang deines Manuskripts, wie Betty ihn gelesen hat. Prüfe vor dem Bearbeiten, ob Absätze, Anfangsbuchstaben und Sonderzeichen stimmen.",
+    es: "El comienzo de tu manuscrito tal como Betty lo leyó. Comprueba que los párrafos, las letras iniciales y los caracteres acentuados sean correctos antes de editar.",
+  },
   pdf_caveat: {
     en: "PDF is read as text only. Layout, images and page design are not kept, and Betty cannot export back to PDF — you will get a Word or Markdown file. Scanned PDFs cannot be read at all.",
     da: "PDF læses kun som tekst. Layout, billeder og sidedesign bevares ikke, og Betty kan ikke eksportere tilbage til PDF — du får en Word- eller Markdown-fil. Scannede PDF'er kan slet ikke læses.",

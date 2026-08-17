@@ -5728,3 +5728,43 @@ summary.review-source::before {
   color: #7d2a18;
   font-size: 0.82rem;
 }
+
+
+/* ── Extracted-text preview ──
+   A lossy import (PDF above all) is worth showing back before any editing
+   starts: a displaced drop cap or a mangled accent is obvious on sight and
+   invisible in a word count. */
+.import-preview {
+  margin-top: 0.6rem;
+  width: 100%;
+  max-width: 42rem;
+  text-align: left;
+}
+
+.import-preview > summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #6b5d43;
+  user-select: none;
+}
+
+.import-preview > summary:hover {
+  color: #4a3f2d;
+}
+
+.import-preview-text {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid #e0d6c2;
+  border-radius: 6px;
+  background: #fdfbf6;
+  color: #4a3f2d;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  /* Prose, not code — but preserve the blank lines that mark paragraphs. */
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

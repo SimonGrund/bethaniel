@@ -6,11 +6,19 @@ import { useTranslation } from "../i18n";
 import { uploadFile, getDocument } from "../api";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
 
+/**
+ * How much of the manuscript to show back. Enough to see whether a PDF's drop
+ * caps, paragraph breaks and accents survived, without pasting a chapter into
+ * the upload panel.
+ */
+const PREVIEW_CHARS = 900;
+
 export default function ManuscriptUpload() {
   const {
     lang,
     document: doc,
     setDocument,
+    documentMd,
     setDocumentMd,
     uploading,
     setUploading,
@@ -127,6 +135,19 @@ export default function ManuscriptUpload() {
         </>
       ) : (
         <div className="file-summary">
+          {doc && documentMd && (
+            <details
+              className="import-preview"
+              open={doc.name.toLowerCase().endsWith(".pdf")}
+            >
+              <summary>{t("preview_extracted")}</summary>
+              <p className="small-note">{t("preview_hint")}</p>
+              <pre className="import-preview-text">
+                {documentMd.slice(0, PREVIEW_CHARS)}
+                {documentMd.length > PREVIEW_CHARS ? "\n…" : ""}
+              </pre>
+            </details>
+          )}
           <span className="file-name">{doc.name}</span>
           <span className="file-stats">
             {doc.wordCount.toLocaleString()} words ·{" "}
