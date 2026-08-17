@@ -33,7 +33,12 @@ import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
-import { pdfToMarkdown, ScannedPdfError, PdfReadError } from "./pdfToMarkdown.js";
+import {
+  pdfToMarkdown,
+  ScannedPdfError,
+  PdfReadError,
+  GarbledPdfError,
+} from "./pdfToMarkdown.js";
 import { listModels, getModelSizeBytes, attributeSuspects } from "./llm.js";
 import { findNewSuspectWords } from "./spellcheck.js";
 import {
@@ -211,12 +216,21 @@ router.post(
         uploadedAt: doc.uploadedAt,
       });
     } catch (err) {
-      if (err instanceof ScannedPdfError || err instanceof PdfReadError) {
+      if (
+        err instanceof ScannedPdfError ||
+        err instanceof PdfReadError ||
+        err instanceof GarbledPdfError
+      ) {
         // Not a server fault, and the user can act on it — say which it is
         // rather than hand them a blank manuscript and a 500.
         res.status(400).json({
           error: err.message,
-          reason: err instanceof ScannedPdfError ? "scanned-pdf" : "unreadable-pdf",
+          reason:
+            err instanceof ScannedPdfError
+              ? "scanned-pdf"
+              : err instanceof GarbledPdfError
+                ? "garbled-pdf"
+                : "unreadable-pdf",
         });
         return;
       }

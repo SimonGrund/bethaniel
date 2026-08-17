@@ -28,6 +28,29 @@ export class PdfReadError extends Error {
   }
 }
 
+/**
+ * A PDF whose text comes out as gibberish.
+ *
+ * Subset-embedded fonts carry no ToUnicode map when the producer omits one, and
+ * then the codes in the content stream are glyph indices with no relation to
+ * Unicode. The page looks perfect and the text is a substitution cipher:
+ * "the forces" arrives as "the Horces", "they" as "theN". Print-ready files are
+ * the common source.
+ *
+ * It cannot be undone reliably — recovering it means solving a cipher — and for
+ * a copy-editor, confidently wrong text is the worst possible outcome.
+ */
+export class GarbledPdfError extends Error {
+  constructor() {
+    super(
+      "This PDF's text cannot be read correctly — its fonts carry no character " +
+        "map, so the text extracts as gibberish. This is common in print-ready " +
+        "files. Use the Word document or the file you typeset from instead.",
+    );
+    this.name = "GarbledPdfError";
+  }
+}
+
 /** A PDF with no text layer at all — a scan or a photographed book. */
 export class ScannedPdfError extends Error {
   constructor() {
@@ -50,6 +73,8 @@ interface Fragment {
   page: number;
   /** Right edge, for deciding whether a space belongs before the next run. */
   endX: number;
+  /** Whether the font declared a ToUnicode map; without one, text is suspect. */
+  mapped: boolean;
 }
 
 interface Line {
@@ -106,10 +131,12 @@ async function readFragments(buffer: Buffer): Promise<Fragment[]> {
       if (typeof item.str !== "string" || item.str.trim() === "") continue;
       let italic = false;
       let bold = false;
+      let mapped = true;
       try {
         const font = page.commonObjs.get(item.fontName);
         italic = Boolean(font?.italic);
         bold = Boolean(font?.bold);
+        mapped = Boolean(font?.toUnicode);
       } catch {
         // A font we cannot resolve costs emphasis on that run, nothing more.
       }
@@ -123,6 +150,7 @@ async function readFragments(buffer: Buffer): Promise<Fragment[]> {
         bold,
         page: p,
         endX: item.transform[4] + width,
+        mapped,
       });
     }
     page.cleanup();
@@ -147,7 +175,7 @@ function emphasise(text: string, italic: boolean, bold: boolean): string {
 }
 
 /** Fragments sharing a baseline, joined with the spaces their gaps imply. */
-function assembleLines(fragments: Fragment[]): Line[] {
+function assembleLines(fragments: Fragment[], bodySize: number): Line[] {
   const lines: Line[] = [];
   const pages = new Map<number, Fragment[]>();
   for (const f of fragments) {
@@ -157,7 +185,11 @@ function assembleLines(fragments: Fragment[]): Line[] {
   }
 
   for (const page of [...pages.keys()].sort((a, b) => a - b)) {
-    const items = pages.get(page)!;
+    const all = pages.get(page)!;
+    // Held back from row assembly: a drop cap shares a baseline with a line it
+    // does not belong to, and merging it there is what produced "# Dof storms".
+    const caps = all.filter((f) => isDropCap(f, bodySize));
+    const items = caps.length ? all.filter((f) => !caps.includes(f)) : all;
     const rows: Fragment[][] = [];
     for (const f of items.sort((a, b) => b.y - a.y || a.x - b.x)) {
       const row = rows[rows.length - 1];
@@ -191,6 +223,23 @@ function assembleLines(fragments: Fragment[]): Line[] {
         size: Math.max(...row.map((f) => f.size)),
         page,
       });
+    }
+
+    for (const cap of caps) {
+      // The topmost line that starts to the right of the cap and no higher than
+      // its own top edge: the first line of the paragraph it opens.
+      const capTop = cap.y + cap.size;
+      const target = lines
+        .filter(
+          (l) => l.page === page && l.x > cap.x + 1 && l.y <= capTop && l.y >= cap.y,
+        )
+        .sort((a, b) => b.y - a.y)[0];
+      if (target) {
+        target.text = cap.text.trim() + target.text;
+      } else {
+        // Nothing to attach to — keep the letter rather than lose it.
+        lines.push({ text: cap.text.trim(), y: cap.y, x: cap.x, size: cap.size, page });
+      }
     }
   }
   return lines;
@@ -370,6 +419,44 @@ function render(blocks: Block[], bodySize: number): string {
 }
 
 /**
+ * Share of words carrying a capital after their first letter.
+ *
+ * Near zero in any real prose, in any language. A glyph-index cipher maps
+ * lowercase letters onto whatever character sits at that index, and capitals
+ * land mid-word constantly — "Horces", "theN", "instantlN". Measured at 6.4% on
+ * the file that prompted this, against 0.0% on every sample manuscript in the
+ * repo, English, Danish, German and Spanish alike.
+ *
+ * Deliberately not a dictionary check: the cipher only remaps a handful of
+ * glyphs, so most words survive and function-word frequency cannot tell the two
+ * apart — measured 26.5% garbled against 23.5% for real German.
+ */
+function midWordCapitalRate(text: string): number {
+  const words = text.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ']{2,}/g) ?? [];
+  if (words.length < 200) return 0;
+  const odd = words.filter((w) => /[A-ZÀ-Þ]/.test(w.slice(1))).length;
+  return odd / words.length;
+}
+
+/** Above this share of mid-word capitals, with unmapped fonts, text is a cipher. */
+const GARBLED_CAPITAL_RATE = 0.02;
+
+/**
+ * Drop caps.
+ *
+ * A drop cap spans two or three lines, so its baseline sits with the SECOND or
+ * third line of the paragraph, not the first. Assembled naively it is glued to
+ * the wrong line and — being several times the body size — promoted to a
+ * heading: the opening "D" of "Dust haze hung over Tabahi" became a heading
+ * reading "# Dof storms", and the paragraph began "ust haze".
+ *
+ * It belongs at the start of the topmost line indented past it.
+ */
+function isDropCap(f: Fragment, bodySize: number): boolean {
+  return /^[A-Za-zÀ-Þ]$/.test(f.text.trim()) && f.size >= bodySize * 1.8;
+}
+
+/**
  * Read a PDF into markdown.
  *
  * Throws ScannedPdfError when there is no text layer, so the caller can say why
@@ -380,10 +467,45 @@ export async function pdfToMarkdown(buffer: Buffer): Promise<string> {
   if (fragments.length === 0) throw new ScannedPdfError();
 
   const pageCount = Math.max(...fragments.map((f) => f.page));
-  const lines = stripFurniture(assembleLines(fragments), pageCount).filter(
-    (l) => l.text.trim() !== "",
-  );
+
+  // Body size first: drop-cap detection needs it, and it is read from the
+  // fragments rather than the lines so a drop cap cannot skew its own test.
+  const sizeWeights = new Map<number, number>();
+  for (const f of fragments) {
+    const size = Math.round(f.size);
+    sizeWeights.set(size, (sizeWeights.get(size) ?? 0) + f.text.length);
+  }
+  let bodySize = 12;
+  let heaviest = 0;
+  for (const [size, weight] of sizeWeights) {
+    if (weight > heaviest) {
+      bodySize = size;
+      heaviest = weight;
+    }
+  }
+
+  const lines = stripFurniture(
+    assembleLines(fragments, bodySize),
+    pageCount,
+  ).filter((l) => l.text.trim() !== "");
   if (lines.length === 0) throw new ScannedPdfError();
 
-  return render(buildBlocks(lines), modalSize(lines));
+  const markdown = render(buildBlocks(lines), bodySize);
+
+  // Fonts without a ToUnicode map give glyph indices, not characters. That
+  // alone is not proof — a standard-encoded font decodes fine without one — so
+  // the text itself has to look wrong too before we refuse it.
+  const unmapped = fragments
+    .filter((f) => !f.mapped)
+    .reduce((n, f) => n + f.text.length, 0);
+  const total = fragments.reduce((n, f) => n + f.text.length, 0);
+  if (
+    total > 0 &&
+    unmapped / total > 0.5 &&
+    midWordCapitalRate(markdown) >= GARBLED_CAPITAL_RATE
+  ) {
+    throw new GarbledPdfError();
+  }
+
+  return markdown;
 }

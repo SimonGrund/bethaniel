@@ -194,3 +194,47 @@ test("a PDF that is not a PDF fails clearly", async () => {
     (err: Error) => !(err instanceof ScannedPdfError),
   );
 });
+
+test("a drop cap opens its paragraph instead of becoming a heading", async () => {
+  // A drop cap spans two or three lines, so its baseline sits with the SECOND
+  // line. Assembled naively it is glued there and — being several times the
+  // body size — promoted to a heading: the "D" of "Dust haze hung over Tabahi"
+  // became "# Dof storms" and the paragraph began "ust haze".
+  const pdf = buildPdf([
+    {
+      runs: [
+        { text: "D", x: 72, y: 672, size: 36 },
+        { text: "ust haze hung over Tabahi after the three days", x: 100, y: BODY_TOP },
+        { text: "of storms. Tents peaked from sand piles that had", x: 100, y: BODY_TOP - 14 },
+        { text: "formed around them, and the wind had not yet dropped.", x: 72, y: BODY_TOP - 28 },
+      ],
+    },
+  ]);
+
+  const md = await pdfToMarkdown(pdf);
+  assert.match(md, /Dust haze hung over Tabahi/, md);
+  assert.doesNotMatch(md, /^#.*Dof storms/m, "the drop cap became a heading");
+  assert.doesNotMatch(md, /\bust haze/, "the paragraph lost its first letter");
+});
+
+test("a readable PDF is not refused for lacking a character map", async () => {
+  // The base-14 fonts these fixtures use carry no ToUnicode map either, and
+  // they decode perfectly. Absence of a map is not on its own evidence of
+  // anything — the text has to look wrong too.
+  const pdf = buildPdf([
+    {
+      runs: paragraph(
+        [
+          "The lighthouse keeper rose before dawn and walked the long path",
+          "down to the water, where the boards were shaky underfoot and the",
+          "rope had frayed against the post for years without anyone thinking",
+          "to replace it, which was the sort of thing he noticed every morning",
+          "and did nothing about, because there was always another morning.",
+        ],
+        { top: BODY_TOP, leading: 14 },
+      ),
+    },
+  ]);
+  const md = await pdfToMarkdown(pdf);
+  assert.match(md, /lighthouse keeper/);
+});
