@@ -1537,6 +1537,27 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── Quotation marks: deterministic, because the model does not
+              // do this reliably. Measured on three real defects: it fixed the
+              // missing closing mark and missed both the mark typed the wrong
+              // way round and the straight mark among curly ones — and the
+              // copy-edit prompt warns it off quotation marks anyway, to stop
+              // it splicing duplicates against existing ones.
+              {
+                const { getQuoteCorrections } = await import("./quoteRepair.js");
+                const quoteCs = getQuoteCorrections(chunk.body);
+                if (quoteCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...quoteCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `quote repair produced ${quoteCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── LanguageTool: grammar/punctuation via a local server. Runs
               // only when available (jar + Java bundled); degrades to a no-op
               // otherwise. A failure here must never break the chunk.
