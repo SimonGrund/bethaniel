@@ -205,31 +205,92 @@ function findNumberingIssues(units: ScanUnit[]): StructuralFinding[] {
   return findings;
 }
 
+/**
+ * Trailing markup that is not the end of the sentence.
+ *
+ * A chapter closing on "…_This doesn't make any sense…_" ends, as a string, in
+ * an underscore. Judging the last character alone reported a perfectly finished
+ * chapter as cut off.
+ */
+const TRAILING_MARKUP_RE = /[_*`\s]+$/;
+
+/** One paragraph's quote balance, and whether it opens a continued speech. */
+interface QuoteBalance {
+  opens: number;
+  closes: number;
+  startsWithOpen: boolean;
+}
+
+function quoteBalance(paragraph: string): QuoteBalance {
+  const text = paragraph.trim();
+  return {
+    opens: (text.match(/“/g) ?? []).length,
+    closes: (text.match(/”/g) ?? []).length,
+    startsWithOpen: /^[_*]*“/.test(text),
+  };
+}
+
+/** A short, readable excerpt of the paragraph a finding refers to. */
+function excerptOf(paragraph: string): string {
+  const flat = paragraph.replace(/\s+/g, " ").trim();
+  return flat.length <= 110 ? flat : `${flat.slice(0, 107)}…`;
+}
+
+/**
+ * Paragraphs whose quotes do not balance, excluding the standard convention for
+ * speech continued across paragraphs — each such paragraph opens with a quote
+ * and only the last one closes. Without that exception this fires on every
+ * novel containing a long speech.
+ */
+function unbalancedParagraphs(body: string): string[] {
+  const paragraphs = body.split(/\n\n+/);
+  const out: string[] = [];
+  for (let i = 0; i < paragraphs.length; i++) {
+    const p = paragraphs[i];
+    const { opens, closes, startsWithOpen } = quoteBalance(p);
+    if (opens === closes) continue;
+    // One unclosed opening quote, and the next paragraph opens one too: this is
+    // continued speech, not an error.
+    const next = paragraphs[i + 1];
+    if (
+      opens === closes + 1 &&
+      startsWithOpen &&
+      next &&
+      quoteBalance(next).startsWithOpen
+    ) {
+      continue;
+    }
+    out.push(excerptOf(p));
+  }
+  return out;
+}
+
 function findTruncation(units: ScanUnit[]): StructuralFinding[] {
   const findings: StructuralFinding[] = [];
   for (const u of units) {
     const body = u.original.trim();
     if (wordCount(body) < EMPTY_THRESHOLD) continue; // empty handled elsewhere
-    const last = body[body.length - 1] ?? "";
+    // Emphasis markers and trailing whitespace are not the end of the sentence.
+    const forEnding = body.replace(TRAILING_MARKUP_RE, "");
+    const last = forEnding[forEnding.length - 1] ?? "";
     if (!TERMINAL_END_RE.test(last)) {
       findings.push({
         check: "truncation",
         severity: "warning",
         location: u.name,
-        message: `Chapter ends without terminal punctuation ("…${body.slice(-40).trim()}") — content may be cut off.`,
+        message: `Chapter ends without terminal punctuation ("…${forEnding.slice(-40).trim()}") — content may be cut off.`,
       });
       continue;
     }
-    // Unbalanced double quotes hint at a mid-scene cut.
-    const straight = (body.match(/"/g) ?? []).length;
-    const open = (body.match(/[“]/g) ?? []).length;
-    const close = (body.match(/[”]/g) ?? []).length;
-    if (straight % 2 !== 0 || open !== close) {
+    // Unbalanced quotes hint at a mid-scene cut or a mistyped closing mark.
+    // Reported WITH the passage: the chapter name alone gives the author no way
+    // to check whether the finding is real.
+    for (const excerpt of unbalancedParagraphs(body)) {
       findings.push({
         check: "truncation",
         severity: "info",
         location: u.name,
-        message: `Unbalanced quotation marks — a scene or line of dialogue may be unclosed.`,
+        message: `Unbalanced quotation marks — a line of dialogue may be unclosed: "${excerpt}"`,
       });
     }
   }
