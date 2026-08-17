@@ -122,7 +122,7 @@ export default function ManuscriptUpload() {
             <input
               ref={fileRef}
               type="file"
-              accept=".docx,.pdf,.md,.markdown"
+              accept=".docx,.epub,.pdf,.md,.markdown"
               style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -155,7 +155,7 @@ export default function ManuscriptUpload() {
           {doc && documentMd && (
             <details
               className="import-preview"
-              open={doc.name.toLowerCase().endsWith(".pdf")}
+              open={/\.(pdf|epub)$/i.test(doc.name)}
             >
               <summary>{t("preview_extracted")}</summary>
               <p className="small-note">{t("preview_hint")}</p>
@@ -189,7 +189,7 @@ export default function ManuscriptUpload() {
           <input
             ref={fileRef}
             type="file"
-            accept=".docx,.pdf,.md,.markdown"
+            accept=".docx,.epub,.pdf,.md,.markdown"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

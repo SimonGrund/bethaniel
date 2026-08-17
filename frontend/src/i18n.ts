@@ -292,10 +292,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "El comienzo de tu manuscrito tal como Betty lo leyó. Comprueba que los párrafos, las letras iniciales y los caracteres acentuados sean correctos antes de editar.",
   },
   pdf_caveat: {
-    en: "PDF is read as text only. Layout, images and page design are not kept, and Betty cannot export back to PDF — you will get a Word or Markdown file. Scanned PDFs, and print-ready files whose fonts map to the wrong characters, cannot be read at all.",
-    da: "PDF læses kun som tekst. Layout, billeder og sidedesign bevares ikke, og Betty kan ikke eksportere tilbage til PDF — du får en Word- eller Markdown-fil. Scannede PDF'er, og trykklare filer hvis skrifttyper peger på forkerte tegn, kan slet ikke læses.",
-    de: "PDF wird nur als Text gelesen. Layout, Bilder und Seitengestaltung bleiben nicht erhalten, und Betty kann nicht zurück nach PDF exportieren — du erhältst eine Word- oder Markdown-Datei. Gescannte PDFs können gar nicht gelesen werden.",
-    es: "El PDF se lee solo como texto. El diseño, las imágenes y la maquetación no se conservan, y Betty no puede exportar de vuelta a PDF: obtendrás un archivo Word o Markdown. Los PDF escaneados no se pueden leer.",
+    en: "PDF and EPUB are read as text only — layout, images and page design are not kept, and Betty exports to Word or Markdown, not back to PDF or EPUB. If a print-ready PDF will not import, try the EPUB from the same export: it carries the same text and reads correctly.",
+    da: "PDF og EPUB læses kun som tekst — layout, billeder og sidedesign bevares ikke, og Betty eksporterer til Word eller Markdown, ikke tilbage til PDF eller EPUB. Hvis en trykklar PDF ikke kan indlæses, så prøv EPUB'en fra samme eksport: den indeholder den samme tekst og læses korrekt.",
+    de: "PDF und EPUB werden nur als Text gelesen — Layout, Bilder und Seitengestaltung bleiben nicht erhalten, und Betty exportiert nach Word oder Markdown, nicht zurück nach PDF oder EPUB. Lässt sich eine druckfertige PDF nicht laden, versuche die EPUB aus demselben Export: sie enthält denselben Text und wird korrekt gelesen.",
+    es: "El PDF y el EPUB se leen solo como texto: el diseño, las imágenes y la maquetación no se conservan, y Betty exporta a Word o Markdown, no de vuelta a PDF o EPUB. Si un PDF listo para imprenta no se carga, prueba el EPUB de la misma exportación: contiene el mismo texto y se lee correctamente.",
   },
   upload_failed: {
     en: "That file could not be read.",
