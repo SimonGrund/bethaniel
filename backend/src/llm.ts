@@ -411,7 +411,57 @@ export async function* editChunkStream(
   );
 }
 
-/** Streaming corrections-mode call — yields raw JSON tokens. */
+/**
+ * Consecutive identical lines before a stream is judged to be looping.
+ *
+ * Three is a loop, not a coincidence: the same correction twice running is
+ * already odd, and downstream dedup makes a genuine duplicate harmless to lose.
+ */
+const REPEAT_LIMIT = 3;
+
+/**
+ * Cut a JSONL stream short once it starts repeating itself.
+ *
+ * Observed on a real proofread: 357 correction lines, 8 distinct, the tail
+ * repeating one no-op until the 8192-token ceiling — 34 seconds and about 8k
+ * tokens, billed, for nothing. The corrections were harmless (no-ops are
+ * dropped downstream); the generation was the whole cost.
+ *
+ * Only an UNBROKEN run counts. The same correction can legitimately appear
+ * twice in a chunk, so alternating lines are not a loop. Tokens pass through as
+ * they arrive — the UI streams them, and buffering would stall the display.
+ */
+export async function* stopOnRepeatedLines(
+  source: AsyncGenerator<string>,
+  onCut?: (line: string) => void,
+): AsyncGenerator<string> {
+  let buffer = "";
+  let last = "";
+  let repeats = 0;
+
+  for await (const token of source) {
+    yield token;
+    buffer += token;
+
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      if (line === last) {
+        if (++repeats >= REPEAT_LIMIT - 1) {
+          onCut?.(line);
+          return;
+        }
+      } else {
+        last = line;
+        repeats = 0;
+      }
+    }
+  }
+}
+
+/** Streaming corrections-mode call — yields raw JSON tokens. *//** Streaming corrections-mode call — yields raw JSON tokens. */
 export async function* findCorrectionsStream(
   model: string,
   chunkText: string,
@@ -434,7 +484,7 @@ export async function* findCorrectionsStream(
     : defaultCap;
   const systemMsg = buildSystemMessage(model, systemPrompt);
   const cap = slotSafeMaxTokens(model, systemMsg, chunkText, requestedCap);
-  yield* chatStream(
+  const stream = chatStream(
     model,
     [
       { role: "system", content: systemMsg },
@@ -449,6 +499,16 @@ export async function* findCorrectionsStream(
     },
     signal,
   );
+  // A looping model will otherwise repeat one line until max_tokens: seconds
+  // and thousands of tokens, paid for, that produce nothing.
+  yield* stopOnRepeatedLines(stream, (line) => {
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Model began repeating itself; stopped the response early (${line.slice(0, 80)})`,
+      model,
+    });
+  });
 }
 
 /** Streaming analysis call — collects JSON output for catalog/timeline modes.
