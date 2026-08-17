@@ -211,6 +211,34 @@ export function apiMaxTokens(requested: number, apiModelName: string): number {
   return Math.min(65536, requested + 32768);
 }
 
+/**
+ * The external API rejected us over the account: no credit, bad key, no access.
+ *
+ * Separated from ordinary failures because it is not worth retrying and because
+ * the user can fix it — but only if told. It reached them as eight identical
+ * lines of "editor agent failed after retries" with no cause anywhere.
+ */
+export class ApiAccountError extends Error {
+  constructor(
+    public status: number,
+    body: string,
+  ) {
+    let detail = body.slice(0, 200);
+    try {
+      const parsed = JSON.parse(body) as { error?: { message?: string } };
+      if (parsed.error?.message) detail = parsed.error.message;
+    } catch {
+      // Not JSON — the raw body is the best detail available.
+    }
+    super(
+      status === 402
+        ? `Your API account is out of credit (${detail}). Top it up, or switch to a model that runs on this computer.`
+        : `The API rejected your key (${status}: ${detail}). Check it in Model settings.`,
+    );
+    this.name = "ApiAccountError";
+  }
+}
+
 // ── Core streaming chat via OpenAI-compatible API ──
 
 async function* chatStream(
@@ -271,6 +299,12 @@ async function* chatStream(
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
+        // 401/402/403 are about the account, not the request. Retrying cannot
+        // help, and three editor agents each retrying twice on every chunk
+        // turns one billing problem into dozens of identical failures.
+        if (res.status === 401 || res.status === 402 || res.status === 403) {
+          throw new ApiAccountError(res.status, text);
+        }
         throw new Error(`DeepSeek API error ${res.status}: ${text}`);
       }
 

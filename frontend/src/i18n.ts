@@ -2188,6 +2188,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die ausgewählte Modelldatei fehlt. Lade sie erneut von der Modell-Einrichtungsseite herunter.",
     es: "Falta el archivo del modelo seleccionado en el disco. Vuelve a descargarlo desde la pantalla de configuración del modelo.",
   },
+  log_hint_api_account: {
+    en: "External Betty could not bill your API account — usually no credit left, sometimes a rejected key. Top up your account or check the key in Model settings. A model that runs on this computer needs neither.",
+    da: "External Betty kunne ikke trække på din API-konto — som regel ingen resterende kredit, nogle gange en afvist nøgle. Fyld op på kontoen, eller tjek nøglen i Modelindstillinger. En model, der kører på denne computer, kræver ingen af delene.",
+    de: "External Betty konnte dein API-Konto nicht belasten — meist kein Guthaben mehr, manchmal ein abgelehnter Schlüssel. Lade dein Konto auf oder prüfe den Schlüssel in den Modelleinstellungen. Ein Modell, das auf diesem Rechner läuft, braucht beides nicht.",
+    es: "External Betty no pudo cobrar en tu cuenta de API: normalmente no queda saldo, a veces la clave fue rechazada. Recarga la cuenta o revisa la clave en Ajustes del modelo. Un modelo que se ejecuta en este ordenador no necesita ninguna de las dos cosas.",
+  },
   log_hint_port_conflict: {
     en: "Another copy of the model engine is already running and holding its network port. Quit any other running copy of Bethaniel and try again.",
     da: "En anden kopi af modelmotoren kører allerede og optager dens netværksport. Luk andre kørende kopier af Bethaniel, og prøv igen.",

@@ -193,6 +193,15 @@ export function diagnoseTaskError(message: string): Diagnosis | null {
     // separately) but still note network failure for context.
     return { hintKey: "log_hint_engine_unreachable", level: "error" };
   }
+  // The account, not the request. Distinct from every other failure because the
+  // user can fix it in a minute and nothing else will work until they do.
+  if (
+    text.includes("out of credit") ||
+    text.includes("insufficient balance") ||
+    text.includes("rejected your key")
+  ) {
+    return { hintKey: "log_hint_api_account", level: "error" };
+  }
   if (text.includes("already in use") && text.includes("port")) {
     return { hintKey: "log_hint_port_conflict", level: "error" };
   }
