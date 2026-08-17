@@ -31,8 +31,37 @@ export interface ModelCatalogEntry {
 //  Edit here to adjust Betty's persona globally for all models.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+/**
+ * Framing shared by every request, prepended to the task prompt.
+ *
+ * It deliberately assigns NO role. Every task prompt opens by assigning its own
+ * — proofreader, translator, literary analyst, copywriter — and a role stated
+ * here would come first and win. That is how the Final readthrough came to
+ * behave like a full copy edit: its prompt says "proofreader, change as little
+ * as possible", and the line above it said "copy editor and line editor".
+ *
+ * What remains is the /no_think marker, which is why this exists at all.
+ */
 export const BASE_SYSTEM_PROMPT =
-  "You are a meticulous copy editor and line editor. /no_think";
+  "Follow the task instructions that follow exactly. /no_think";
+
+/**
+ * Former values of BASE_SYSTEM_PROMPT.
+ *
+ * A per-model sidecar stores `system` verbatim, so every install that ever
+ * opened advanced settings has an old wording pinned to disk and would keep the
+ * behaviour this list exists to end. Matched exactly: a prompt the user really
+ * wrote is theirs to keep, even if it resembles one of ours.
+ */
+const LEGACY_SYSTEM_PROMPTS: ReadonlySet<string> = new Set([
+  "You are a meticulous copy editor and line editor. /no_think",
+  "You are a meticulous copy editor and line editor.",
+]);
+
+/** Whether a stored system prompt is just a stale copy of a former default. */
+export function isLegacySystemPrompt(value: string | undefined): boolean {
+  return value != null && LEGACY_SYSTEM_PROMPTS.has(value.trim());
+}
 
 // Shared default tuning. Per-entry overrides below can refine these values.
 const COMMON_DEFAULTS: Omit<ModelSettings, "system"> = {

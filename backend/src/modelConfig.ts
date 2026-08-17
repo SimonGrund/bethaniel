@@ -12,7 +12,11 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { getModelByFileName } from "./modelCatalog.js";
+import {
+  getModelByFileName,
+  isLegacySystemPrompt,
+  BASE_SYSTEM_PROMPT,
+} from "./modelCatalog.js";
 
 export interface ModelSettings {
   num_ctx: number;
@@ -63,7 +67,7 @@ const HARD_DEFAULTS: ModelSettings = {
   top_p: 0.8,
   top_k: 20,
   repeat_penalty: 1.05,
-  system: "You are a meticulous copy editor and line editor. /no_think",
+  system: BASE_SYSTEM_PROMPT,
   no_mmap: false,
 };
 
@@ -267,7 +271,11 @@ export function readModelConfig(
       top_p: parsed.top_p ?? defaults.top_p,
       top_k: parsed.top_k ?? defaults.top_k,
       repeat_penalty: parsed.repeat_penalty ?? defaults.repeat_penalty,
-      system: parsed.system ?? defaults.system,
+      // A pinned copy of a former default must not outlive it; a prompt the
+      // user actually wrote is theirs to keep.
+      system: isLegacySystemPrompt(parsed.system)
+        ? defaults.system
+        : (parsed.system ?? defaults.system),
       no_mmap: parsed.no_mmap ?? defaults.no_mmap,
     };
   } catch {
