@@ -31,21 +31,27 @@ export class PdfReadError extends Error {
 /**
  * A PDF whose text comes out as gibberish.
  *
- * Subset-embedded fonts carry no ToUnicode map when the producer omits one, and
- * then the codes in the content stream are glyph indices with no relation to
- * Unicode. The page looks perfect and the text is a substitution cipher:
- * "the forces" arrives as "the Horces", "they" as "theN". Print-ready files are
- * the common source.
+ * The file that prompted this carries a ToUnicode map for every font — and the
+ * map is wrong. The page renders perfectly and the text is a fixed substitution
+ * cipher: "the forces" arrives as "the Horces", "they" as "theN", "voice" as
+ * "xoice". Print-ready files are the common source.
  *
- * It cannot be undone reliably — recovering it means solving a cipher — and for
- * a copy-editor, confidently wrong text is the worst possible outcome.
+ * Nothing downstream can undo it. poppler's pdftotext, an entirely separate
+ * engine, produces the same garbage from the same file, and the embedded fonts
+ * are subsets stripped to glyf/head/hhea/hmtx/loca/maxp — no cmap, no post
+ * table — so the shapes carry no record of what letters they are. The text
+ * exists in the file only as ink.
+ *
+ * For a copy-editor, confidently wrong text is the worst possible outcome, so
+ * such files are refused rather than half-read.
  */
 export class GarbledPdfError extends Error {
   constructor() {
     super(
-      "This PDF's text cannot be read correctly — its fonts carry no character " +
-        "map, so the text extracts as gibberish. This is common in print-ready " +
-        "files. Use the Word document or the file you typeset from instead.",
+      "This PDF's text cannot be read correctly — its embedded fonts map to the " +
+        "wrong characters, so the text extracts as gibberish even though the " +
+        "pages look right. This is common in print-ready files, and no tool can " +
+        "recover it. Use the Word document or the file you typeset from instead.",
     );
     this.name = "GarbledPdfError";
   }
@@ -73,8 +79,6 @@ interface Fragment {
   page: number;
   /** Right edge, for deciding whether a space belongs before the next run. */
   endX: number;
-  /** Whether the font declared a ToUnicode map; without one, text is suspect. */
-  mapped: boolean;
 }
 
 interface Line {
@@ -84,6 +88,9 @@ interface Line {
   size: number;
   page: number;
 }
+
+/** Longest a line can be and still be running-head furniture rather than prose. */
+const MAX_FURNITURE_CHARS = 60;
 
 /** Same baseline, allowing for the sub-point jitter typesetters introduce. */
 const BASELINE_TOLERANCE = 2;
@@ -131,12 +138,10 @@ async function readFragments(buffer: Buffer): Promise<Fragment[]> {
       if (typeof item.str !== "string" || item.str.trim() === "") continue;
       let italic = false;
       let bold = false;
-      let mapped = true;
       try {
         const font = page.commonObjs.get(item.fontName);
         italic = Boolean(font?.italic);
         bold = Boolean(font?.bold);
-        mapped = Boolean(font?.toUnicode);
       } catch {
         // A font we cannot resolve costs emphasis on that run, nothing more.
       }
@@ -150,7 +155,6 @@ async function readFragments(buffer: Buffer): Promise<Fragment[]> {
         bold,
         page: p,
         endX: item.transform[4] + width,
-        mapped,
       });
     }
     page.cleanup();
@@ -276,8 +280,13 @@ function stripFurniture(lines: Line[], pageCount: number): Line[] {
   for (const page of new Set(lines.map((l) => l.page))) {
     const onPage = lines.filter((l) => l.page === page);
     if (onPage.length < 3) continue;
-    edges.add(onPage.reduce((a, b) => (a.y >= b.y ? a : b)));
-    edges.add(onPage.reduce((a, b) => (a.y <= b.y ? a : b)));
+    const top = onPage.reduce((a, b) => (a.y >= b.y ? a : b));
+    const bottom = onPage.reduce((a, b) => (a.y <= b.y ? a : b));
+    // Running heads and page numbers are short. A full measure of prose is not,
+    // and digit masking would otherwise let two body lines differing only by a
+    // number look like the same repeated furniture.
+    if (top.text.length <= MAX_FURNITURE_CHARS) edges.add(top);
+    if (bottom.text.length <= MAX_FURNITURE_CHARS) edges.add(bottom);
   }
 
   const threshold = Math.max(2, Math.ceil(pageCount / 2));
@@ -419,27 +428,46 @@ function render(blocks: Block[], bodySize: number): string {
 }
 
 /**
- * Share of words carrying a capital after their first letter.
+ * Share of words carrying a "dangling" capital: one that follows a lowercase
+ * letter and does not itself begin a new lowercase run.
  *
- * Near zero in any real prose, in any language. A glyph-index cipher maps
- * lowercase letters onto whatever character sits at that index, and capitals
- * land mid-word constantly — "Horces", "theN", "instantlN". Measured at 6.4% on
- * the file that prompted this, against 0.0% on every sample manuscript in the
- * repo, English, Danish, German and Spanish alike.
+ * A broken character map substitutes capitals into the middle and end of words
+ * — "instantlN", "theN", "celeW", "oH". Legitimate internal capitals almost
+ * always open a new component and are followed by lowercase: McDonald, DeWitt,
+ * iPhone, MacGregor, FitzGerald. That distinction is what makes this usable.
  *
- * Deliberately not a dictionary check: the cipher only remaps a handful of
+ * Measured:
+ *
+ *   text                 any mid-word cap    dangling cap
+ *   garbled book              6.39%             3.16%
+ *   name-heavy prose         16.67%             0.00%
+ *   english/danish/german     0.00%             0.00%
+ *
+ * The simpler "any capital after the first letter" was tried first and would
+ * have refused the name-heavy manuscript outright. This is one signal against
+ * one failure mode — a map that mangled text some other way would get through —
+ * but it is measured rather than assumed, and it does not punish proper nouns.
+ *
+ * Deliberately not a dictionary check: the cipher remaps only a handful of
  * glyphs, so most words survive and function-word frequency cannot tell the two
  * apart — measured 26.5% garbled against 23.5% for real German.
  */
-function midWordCapitalRate(text: string): number {
+function danglingCapitalRate(text: string): number {
   const words = text.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ']{2,}/g) ?? [];
+  // Below a manuscript's worth of words the rate is too noisy to act on.
   if (words.length < 200) return 0;
-  const odd = words.filter((w) => /[A-ZÀ-Þ]/.test(w.slice(1))).length;
+  const odd = words.filter((w) =>
+    /[a-zà-ÿ][A-ZÀ-Þ](?![a-zà-ÿ])/.test(w),
+  ).length;
   return odd / words.length;
 }
 
-/** Above this share of mid-word capitals, with unmapped fonts, text is a cipher. */
-const GARBLED_CAPITAL_RATE = 0.02;
+/**
+ * Above this share of dangling capitals, the character map is broken. Set with
+ * a threefold margin: 3.16% measured on the real file, 0.00% on every clean
+ * text tried, including one written to be as capital-heavy as prose gets.
+ */
+const GARBLED_CAPITAL_RATE = 0.01;
 
 /**
  * Drop caps.
@@ -492,18 +520,12 @@ export async function pdfToMarkdown(buffer: Buffer): Promise<string> {
 
   const markdown = render(buildBlocks(lines), bodySize);
 
-  // Fonts without a ToUnicode map give glyph indices, not characters. That
-  // alone is not proof — a standard-encoded font decodes fine without one — so
-  // the text itself has to look wrong too before we refuse it.
-  const unmapped = fragments
-    .filter((f) => !f.mapped)
-    .reduce((n, f) => n + f.text.length, 0);
-  const total = fragments.reduce((n, f) => n + f.text.length, 0);
-  if (
-    total > 0 &&
-    unmapped / total > 0.5 &&
-    midWordCapitalRate(markdown) >= GARBLED_CAPITAL_RATE
-  ) {
+  // Judged on the text alone. Asking the font whether it has a ToUnicode map
+  // would be the better test, but pdfjs does not expose one: font.toUnicode is
+  // undefined on every document, so a check on it silently passed everything.
+  // And it would not have helped here anyway — this file HAS maps, and they are
+  // wrong.
+  if (danglingCapitalRate(markdown) >= GARBLED_CAPITAL_RATE) {
     throw new GarbledPdfError();
   }
 

@@ -10,7 +10,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildPdf, paragraph } from "./helpers/pdf.ts";
-import { pdfToMarkdown, ScannedPdfError } from "../src/pdfToMarkdown.ts";
+import {
+  pdfToMarkdown,
+  ScannedPdfError,
+  GarbledPdfError,
+} from "../src/pdfToMarkdown.ts";
 
 const BODY_TOP = 700;
 
@@ -237,4 +241,55 @@ test("a readable PDF is not refused for lacking a character map", async () => {
   ]);
   const md = await pdfToMarkdown(pdf);
   assert.match(md, /lighthouse keeper/);
+});
+
+test("a PDF whose character map is wrong is refused", async () => {
+  // The shape of the real failure: a fixed substitution drops capitals into the
+  // middle of words. Transcribed from the file that prompted this — f→H, y→N,
+  // v→x — and repeated across pages, because the detector needs a manuscript's
+  // worth of words before it will judge anything.
+  const garbled = [
+    "Still, the ship's tossing testifed to the Horces raking at",
+    "them. ye hung his cape on a hook, snow and ice dropping",
+    "to the voor and melting instantlN. FierN red lanterns lit",
+    "the room at exerN table. “o need to saxe the waA at this",
+    "hour. C?nN news, ”apt’in-L ”rook asked, his xoice coarse",
+    "and drN. The large room was meant Hor dining, drinking,",
+    "celeW brating. TodaN it carried the silence oH men Hearing",
+    "a Hate theN could not change. He looked Hrom Hace to Hace.",
+  ];
+  const pdf = buildPdf(
+    Array.from({ length: 6 }, () => ({
+      runs: paragraph(garbled, { top: BODY_TOP, leading: 14 }),
+    })),
+  );
+  await assert.rejects(() => pdfToMarkdown(pdf), GarbledPdfError);
+});
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+test("ordinary prose with proper nouns and an acronym is NOT refused", async () => {
+  // The detector must survive everything that legitimately carries a capital,
+  // and must see enough words to be judging at all. Pages differ from one
+  // another, or their shared first and last lines read as running heads.
+  const pdf = buildPdf(
+    Array.from({ length: 6 }, (_, i) => ({
+      runs: paragraph(
+        [
+          `${DAYS[i]} McDonald met the DeWitt brothers again by the water,`,
+          "outside the BBC studios in London, where iPhone screens lit",
+          "the queue and a man from MI5 pretended not to watch closely.",
+          "O'Brien had warned them about the McKinsey report, and the",
+          "DiCaprio name came up twice in the same breath as the NHS,",
+          "which nobody in the OldeShoppe thought at all unusual then.",
+          "MacGregor waited by the river with the LaSalle papers under",
+          `one arm and a FitzGerald translation under the other, ${DAYS[i]}.`,
+        ],
+        { top: BODY_TOP, leading: 14 },
+      ),
+    })),
+  );
+  const md = await pdfToMarkdown(pdf);
+  assert.match(md, /McDonald met the DeWitt brothers/, md.slice(0, 200));
+  assert.match(md, /FitzGerald translation/);
 });

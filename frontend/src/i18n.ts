@@ -292,8 +292,8 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "El comienzo de tu manuscrito tal como Betty lo leyó. Comprueba que los párrafos, las letras iniciales y los caracteres acentuados sean correctos antes de editar.",
   },
   pdf_caveat: {
-    en: "PDF is read as text only. Layout, images and page design are not kept, and Betty cannot export back to PDF — you will get a Word or Markdown file. Scanned PDFs cannot be read at all.",
-    da: "PDF læses kun som tekst. Layout, billeder og sidedesign bevares ikke, og Betty kan ikke eksportere tilbage til PDF — du får en Word- eller Markdown-fil. Scannede PDF'er kan slet ikke læses.",
+    en: "PDF is read as text only. Layout, images and page design are not kept, and Betty cannot export back to PDF — you will get a Word or Markdown file. Scanned PDFs, and print-ready files whose fonts map to the wrong characters, cannot be read at all.",
+    da: "PDF læses kun som tekst. Layout, billeder og sidedesign bevares ikke, og Betty kan ikke eksportere tilbage til PDF — du får en Word- eller Markdown-fil. Scannede PDF'er, og trykklare filer hvis skrifttyper peger på forkerte tegn, kan slet ikke læses.",
     de: "PDF wird nur als Text gelesen. Layout, Bilder und Seitengestaltung bleiben nicht erhalten, und Betty kann nicht zurück nach PDF exportieren — du erhältst eine Word- oder Markdown-Datei. Gescannte PDFs können gar nicht gelesen werden.",
     es: "El PDF se lee solo como texto. El diseño, las imágenes y la maquetación no se conservan, y Betty no puede exportar de vuelta a PDF: obtendrás un archivo Word o Markdown. Los PDF escaneados no se pueden leer.",
   },
