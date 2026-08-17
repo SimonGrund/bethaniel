@@ -1570,6 +1570,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Deterministische Strukturprüfung für die Veröffentlichungsreife: doppelte Kapitel oder Abschnitte, leere oder fehlende Kapitel, Lücken in der Kapitelnummerierung und mitten im Satz abgeschnittener Inhalt. Hinweis: Echte fehlende Seiten lassen sich nicht direkt erkennen.",
     es: "Comprobación estructural determinista para la publicación: capítulos o secciones duplicados, capítulos vacíos o perdidos, saltos en la numeración de capítulos y contenido cortado a mitad de frase. Nota: las páginas realmente ausentes no se detectan directamente.",
   },
+  readiness_ready: {
+    en: "Ready to publish — no structural problems found.",
+    da: "Klar til udgivelse — ingen strukturelle problemer fundet.",
+    de: "Bereit zur Veröffentlichung — keine strukturellen Probleme gefunden.",
+    es: "Listo para publicar: no se encontraron problemas estructurales.",
+  },
+  readiness_check: {
+    en: "{n} issue(s) to check before publishing",
+    da: "{n} problem(er) at tjekke inden udgivelse",
+    de: "{n} Punkt(e) vor der Veröffentlichung prüfen",
+    es: "{n} problema(s) que revisar antes de publicar",
+  },
+  readiness_minor: {
+    en: "{n} minor corrections across {m} chapters (spelling, punctuation) — none of them block publication.",
+    da: "{n} mindre rettelser fordelt på {m} kapitler (stavning, tegnsætning) — ingen af dem blokerer udgivelse.",
+    de: "{n} kleinere Korrekturen in {m} Kapiteln (Rechtschreibung, Zeichensetzung) — keine davon verhindert die Veröffentlichung.",
+    es: "{n} correcciones menores en {m} capítulos (ortografía, puntuación): ninguna impide publicar.",
+  },
+  readiness_no_minor: {
+    en: "No minor corrections suggested either.",
+    da: "Ingen mindre rettelser foreslået heller.",
+    de: "Auch keine kleineren Korrekturen vorgeschlagen.",
+    es: "Tampoco se sugieren correcciones menores.",
+  },
+  readiness_review_all: {
+    en: "Review all",
+    da: "Gennemgå alle",
+    de: "Alle ansehen",
+    es: "Revisar todas",
+  },
   scan_no_issues: {
     en: "No structural issues found — looks publication-ready.",
     da: "Ingen strukturelle problemer fundet — ser klar til udgivelse ud.",

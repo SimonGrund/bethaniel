@@ -881,11 +881,90 @@ interface StructuralFinding {
   location: string;
   message: string;
   detail?: string;
+  /** Whether this must be fixed before publishing. Decided by the backend. */
+  blocking?: boolean;
 }
 interface StructuralScanReport {
   chaptersScanned: number;
   summary: { error: number; warning: number; info: number };
   findings: StructuralFinding[];
+}
+
+/**
+ * The question a final readthrough exists to answer: can this be published?
+ *
+ * It used to answer with per-chapter lists in which "wrinled → wrinkled" and
+ * "a chapter's dialogue is unclosed" carried equal weight. Structural findings
+ * are deterministic and, on a real book, all six were genuine defects — a
+ * duplicated tail from a botched edit, an unclosed quote, closing marks typed
+ * as opening ones. The model's comma suggestions are the ones that can wait, so
+ * they are counted rather than listed.
+ */
+function PublicationReadinessPanel({
+  report,
+  minorTotal,
+  minorChapters,
+  onReviewMinor,
+  t,
+}: {
+  report: StructuralScanReport | null;
+  minorTotal: number;
+  minorChapters: number;
+  onReviewMinor?: () => void;
+  t: (key: string) => string;
+}) {
+  const blocking = (report?.findings ?? []).filter((f) => f.blocking);
+  const ready = blocking.length === 0;
+
+  return (
+    <div className="readiness">
+      <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
+        {ready
+          ? `✅ ${t("readiness_ready")}`
+          : `⚠️ ${t("readiness_check").replace("{n}", String(blocking.length))}`}
+      </p>
+
+      {blocking.length > 0 && (
+        <ul className="readiness-list">
+          {blocking.map((f, i) => (
+            <li key={i} className="readiness-item">
+              <span className="readiness-loc">{f.location}</span>
+              <span className="readiness-msg">{f.message}</span>
+              {f.detail && (
+                <span className="scan-finding-detail">{f.detail}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="readiness-minor small-note">
+        {minorTotal === 0
+          ? t("readiness_no_minor")
+          : t("readiness_minor")
+              .replace("{n}", String(minorTotal))
+              .replace("{m}", String(minorChapters))}
+        {minorTotal > 0 && onReviewMinor && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="btn-link readiness-review"
+              onClick={onReviewMinor}
+            >
+              {t("readiness_review_all")}
+            </button>
+          </>
+        )}
+      </p>
+
+      {report && (
+        <p className="small-note readiness-scanned">
+          {report.chaptersScanned} {t("scan_chapters")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 const SEVERITY_ICON: Record<string, string> = {
@@ -1298,6 +1377,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
+  // Whether the per-chapter proofread detail is expanded under the verdict.
+  const [showMinorDetail, setShowMinorDetail] = useState(false);
   const [exportWarning, setExportWarning] = useState<{
     message: string;
     confirmLabel: string;
@@ -2375,13 +2456,34 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   );
                 }
 
+                // Minor corrections come from the proofread tasks that ran
+                // beside this scan — counted, not listed, so a comma suggestion
+                // cannot sit at the same weight as an unclosed line of dialogue.
+                const proofreadTasks = entries
+                  .map(([, task]) => task)
+                  .filter((task) => task.mode === "proofread");
+                const minorTotal = proofreadTasks.reduce(
+                  (n, task) => n + (task.result?.corrections?.length ?? 0),
+                  0,
+                );
+                const minorChapters = proofreadTasks.filter(
+                  (task) => (task.result?.corrections?.length ?? 0) > 0,
+                ).length;
+
                 return (
                   <details className="review-task review-summary-card" open>
                     <summary className="review-task-summary">
                       <strong>{t("mode_publication_scan")}</strong>
                     </summary>
-                    <StructuralFindingsPanel
-                      data={scanTask.result?.structuredData}
+                    <PublicationReadinessPanel
+                      report={
+                        (scanTask.result?.structuredData as
+                          | StructuralScanReport
+                          | undefined) ?? null
+                      }
+                      minorTotal={minorTotal}
+                      minorChapters={minorChapters}
+                      onReviewMinor={() => setShowMinorDetail((v) => !v)}
                       t={t}
                     />
                   </details>

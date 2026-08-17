@@ -5768,3 +5768,61 @@ summary.review-source::before {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+
+/* ── Publication readiness ──
+   The verdict is the answer; the blocking list is why; the minor count is
+   there so nothing is hidden, without letting a comma sit at the same weight
+   as an unclosed line of dialogue. */
+.readiness-verdict {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.readiness-verdict.is-ready { color: #2f6b3a; }
+.readiness-verdict.is-check { color: #8a5a1f; }
+
+.readiness-list {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.readiness-item {
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid #d9b98a;
+  border-radius: 4px;
+  background: #fdfbf6;
+  font-size: 0.82rem;
+}
+
+.readiness-loc {
+  display: block;
+  font-weight: 600;
+  color: #6b5d43;
+}
+
+.readiness-msg {
+  display: block;
+  color: #4a3f2d;
+  /* The quoted passage is the point: let it wrap rather than truncate. */
+  word-break: break-word;
+}
+
+.readiness-minor { margin: 0; }
+
+.readiness-review {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6b5d43;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.readiness-scanned { margin-top: 0.35rem; opacity: 0.75; }

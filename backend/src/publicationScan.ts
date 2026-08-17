@@ -25,6 +25,9 @@ const SHORT_THRESHOLD = 30;
 // so shared short lines (chapter epigraphs, refrains) aren't false positives.
 const BLOCK_MIN_WORDS = 40;
 
+/** A finding before the assembler stamps its publication verdict on it. */
+type DraftFinding = Omit<StructuralFinding, "blocking">;
+
 const normalize = (s: string): string =>
   s.toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -80,10 +83,10 @@ function parseChapterNumber(name: string): number | null {
 const TERMINAL_END_RE = /[.!?…"'”’)\]]$/;
 
 function findDuplicates(units: ScanUnit[]): {
-  findings: StructuralFinding[];
+  findings: DraftFinding[];
   chapterDupGroup: Map<number, number>;
 } {
-  const findings: StructuralFinding[] = [];
+  const findings: DraftFinding[] = [];
 
   // 1) Whole-chapter duplicates: group non-trivial chapters by body hash.
   const byBody = new Map<string, number[]>();
@@ -137,8 +140,8 @@ function findDuplicates(units: ScanUnit[]): {
   return { findings, chapterDupGroup };
 }
 
-function findEmptyChapters(units: ScanUnit[]): StructuralFinding[] {
-  const findings: StructuralFinding[] = [];
+function findEmptyChapters(units: ScanUnit[]): DraftFinding[] {
+  const findings: DraftFinding[] = [];
   for (const u of units) {
     const wc = wordCount(u.original);
     if (wc < EMPTY_THRESHOLD) {
@@ -160,8 +163,8 @@ function findEmptyChapters(units: ScanUnit[]): StructuralFinding[] {
   return findings;
 }
 
-function findNumberingIssues(units: ScanUnit[]): StructuralFinding[] {
-  const findings: StructuralFinding[] = [];
+function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
+  const findings: DraftFinding[] = [];
   const numbered = units
     .map((u) => ({ name: u.name, num: parseChapterNumber(u.name) }))
     .filter((x): x is { name: string; num: number } => x.num !== null);
@@ -265,8 +268,8 @@ function unbalancedParagraphs(body: string): string[] {
   return out;
 }
 
-function findTruncation(units: ScanUnit[]): StructuralFinding[] {
-  const findings: StructuralFinding[] = [];
+function findTruncation(units: ScanUnit[]): DraftFinding[] {
+  const findings: DraftFinding[] = [];
   for (const u of units) {
     const body = u.original.trim();
     if (wordCount(body) < EMPTY_THRESHOLD) continue; // empty handled elsewhere
@@ -299,12 +302,16 @@ function findTruncation(units: ScanUnit[]): StructuralFinding[] {
 
 export function buildPublicationScan(units: ScanUnit[]): StructuralScanReport {
   const { findings: dupFindings } = findDuplicates(units);
+  // Marked here rather than at each push site: every structural finding is a
+  // publication blocker, and stating it once keeps that true as checks are
+  // added. These are deterministic — on a real book all six were genuine
+  // defects — unlike the LLM's comma suggestions, which are not findings.
   const findings: StructuralFinding[] = [
     ...dupFindings,
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
     ...findTruncation(units),
-  ];
+  ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 
   const summary: Record<FindingSeverity, number> = {
     error: 0,
