@@ -296,6 +296,16 @@ export interface StructuralFinding {
   message: string;
   /** Optional supporting snippet (e.g. the start of a duplicated block). */
   detail?: string;
+  /**
+   * Whether this should be fixed before publishing.
+   *
+   * Every structural finding is: they are deterministic, and on a real
+   * 32-chapter book all six were genuine defects — a duplicated tail from a
+   * botched edit, an unclosed quote, closing marks typed as opening ones. The
+   * LLM's comma suggestions are the ones that can wait, and they are not
+   * structural findings.
+   */
+  blocking: boolean;
 }
 
 export interface StructuralScanReport {

@@ -16,6 +16,7 @@ import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import { buildPublicationScan } from "./publicationScan.js";
 import {
+  ApiAccountError,
   editChunkStream,
   findCorrectionsStream,
   parseCorrectionsJson,
@@ -1536,6 +1537,27 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── Quotation marks: deterministic, because the model does not
+              // do this reliably. Measured on three real defects: it fixed the
+              // missing closing mark and missed both the mark typed the wrong
+              // way round and the straight mark among curly ones — and the
+              // copy-edit prompt warns it off quotation marks anyway, to stop
+              // it splicing duplicates against existing ones.
+              {
+                const { getQuoteCorrections } = await import("./quoteRepair.js");
+                const quoteCs = getQuoteCorrections(chunk.body);
+                if (quoteCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...quoteCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `quote repair produced ${quoteCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── LanguageTool: grammar/punctuation via a local server. Runs
               // only when available (jar + Java bundled); degrades to a no-op
               // otherwise. A failure here must never break the chunk.
@@ -1678,16 +1700,18 @@ async function processJob(job: JobData): Promise<void> {
                     raws.push(r.value);
                   } else {
                     const reason = r.reason instanceof Error ? r.reason.message : String(r.reason);
+                    // No credit and a bad key cannot be retried into working.
+                    const hopeless = r.reason instanceof ApiAccountError;
                     appendLog({
                       level: "warn",
                       source: "engine",
                       taskId,
-                      message: `Editor agent ${idx + 1}/${editorCount} failed for chunk ${chunkLabel} (${reason}). Retrying…`,
+                      message: `Editor agent ${idx + 1}/${editorCount} failed for chunk ${chunkLabel} (${reason})${hopeless ? "" : ". Retrying…"}`,
                       model,
                     });
 
                     let retried = false;
-                    for (let rt = 1; rt <= DUAL_RETRIES; rt++) {
+                    for (let rt = 1; hopeless ? false : rt <= DUAL_RETRIES; rt++) {
                       try {
                         const val = await collectStream(editorPrompts[idx]);
                         raws.push(val);
@@ -1723,7 +1747,10 @@ async function processJob(job: JobData): Promise<void> {
                       // editors than requested. Recorded on the task so the run
                       // doesn't silently report success with missing agents.
                       errors.push(
-                        `chunk ${chunkLabel}: editor agent ${idx + 1}/${editorCount} failed after retries`,
+                        // The reason, not just the fact. Without it the user
+                        // sees eight identical lines and no cause — which is
+                        // how one billing problem read as "the wrong agents".
+                        `chunk ${chunkLabel}: editor agent ${idx + 1}/${editorCount} failed${hopeless ? "" : " after retries"} — ${reason}`,
                       );
                     }
                   }

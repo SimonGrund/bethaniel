@@ -84,7 +84,8 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `chunking.ts` | Split manuscript into word-count chunks with paragraph overlap |
 | `translationUpgrade.ts` | Post-translation target-language polish pass + fluency review loop (stages 3–4 of translate mode) |
 | `analysisMerge.ts` | Merge per-chapter analysis results (characters, locations, timeline) across chunks |
-| `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]` |
+| `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]`; folds sub-50-word sections (title pages, stray headings) into the chapter they belong to |
+| `pdfToMarkdown.ts` | PDF → Markdown via pdfjs — reconstructs paragraphs, emphasis and headings from glyph geometry. Import only; refuses scans |
 | `conversion.ts` | DOCX ↔ Markdown (mammoth for import, `mdToDocx.ts` for export) |
 | `mdBlocks.ts` | Markdown → block structure, shared by the DOCX and EPUB/HTML paths so they cannot drift |
 | `mdToDocx.ts` | Markdown → DOCX, built programmatically on the `docx` library (replaced html-to-docx) |
@@ -156,7 +157,7 @@ Uninstalling never removes it silently. Each platform asks first:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `BETHANIEL_PORT` | `4000` | Backend port |
+| `PORT` | `4000` | Backend port |
 | `LLAMA_BASE_URL` | _(empty)_ | Set by Electron main to reach llama-server |
 | `LLAMA_BIN` | `llama-server` | Path override for the llama-server binary |
 | `MODELS_DIR` | `./models` | GGUF model storage |

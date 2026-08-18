@@ -33,6 +33,13 @@ import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
+import {
+  pdfToMarkdown,
+  ScannedPdfError,
+  PdfReadError,
+  GarbledPdfError,
+} from "./pdfToMarkdown.js";
+import { epubToMarkdown, InvalidEpubError } from "./epubToMarkdown.js";
 import { listModels, getModelSizeBytes, attributeSuspects } from "./llm.js";
 import { findNewSuspectWords } from "./spellcheck.js";
 import {
@@ -130,6 +137,18 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 },
 });
+/**
+ * Whether a buffer is binary rather than text.
+ *
+ * A NUL byte never appears in real prose and appears immediately in PDFs,
+ * images and archives. Checking a prefix is enough: a manuscript that is text
+ * is text from its first bytes.
+ */
+function looksBinary(buffer: Buffer): boolean {
+  const head = buffer.subarray(0, 4096);
+  return head.includes(0);
+}
+
 const STYLE_GUIDE_PATH = process.env.STYLE_GUIDE_PATH ?? "./style.md";
 
 const router = Router();
@@ -151,12 +170,30 @@ router.post(
       const docId = uuidv4();
       let md: string;
 
-      if (fileName.toLowerCase().endsWith(".docx")) {
+      const lower = fileName.toLowerCase();
+      if (lower.endsWith(".docx")) {
         // Keep the original alongside its paragraph map so export can edit the
         // user's own file rather than rebuild an approximation of it.
         const mapped = await docxToMarkdownMapped(req.file.buffer, { docId });
         md = mapped.md;
         await saveOriginalDocx(docId, req.file.buffer, mapped.paragraphMap);
+      } else if (lower.endsWith(".epub")) {
+        // Real text, in spine order — no geometry to infer, unlike a PDF.
+        md = await epubToMarkdown(req.file.buffer);
+      } else if (lower.endsWith(".pdf")) {
+        // No original is kept: a PDF has no text flow to write corrections back
+        // into, so there is nothing surgical export could do with it.
+        md = await pdfToMarkdown(req.file.buffer);
+      } else if (looksBinary(req.file.buffer)) {
+        // Anything else is read as text. Without this a .pdf renamed .txt, or
+        // any binary at all, became thousands of "words" of mojibake that were
+        // then sent to the model as a manuscript.
+        res.status(400).json({
+          error:
+            "This file is not text. Upload a .docx, .epub, .pdf, .md or .txt file.",
+          reason: "not-text",
+        });
+        return;
       } else {
         md = req.file.buffer.toString("utf-8");
       }
@@ -184,6 +221,27 @@ router.post(
         uploadedAt: doc.uploadedAt,
       });
     } catch (err) {
+      if (
+        err instanceof ScannedPdfError ||
+        err instanceof PdfReadError ||
+        err instanceof GarbledPdfError ||
+        err instanceof InvalidEpubError
+      ) {
+        // Not a server fault, and the user can act on it — say which it is
+        // rather than hand them a blank manuscript and a 500.
+        res.status(400).json({
+          error: err.message,
+          reason:
+            err instanceof ScannedPdfError
+              ? "scanned-pdf"
+              : err instanceof GarbledPdfError
+                ? "garbled-pdf"
+                : err instanceof InvalidEpubError
+                  ? "unreadable-epub"
+                  : "unreadable-pdf",
+        });
+        return;
+      }
       res
         .status(500)
         .json({ error: err instanceof Error ? err.message : "Upload failed" });

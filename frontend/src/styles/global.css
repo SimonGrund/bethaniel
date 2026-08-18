@@ -1407,6 +1407,11 @@ h4 {
   align-items: flex-start;
 }
 
+/* Scan runs list their minor findings for reading only — nothing to click. */
+.correction-card-readonly {
+  cursor: default;
+}
+
 .correction-card.accepted {
   border-left-color: #2d4a1a;
   background: #f0f5eb;
@@ -5707,4 +5712,133 @@ summary.review-source::before {
 
 .unapplied-download {
   margin-top: 0.6rem;
+}
+
+
+/* What a PDF upload costs, said before the file is chosen rather than after. */
+.upload-pdf-note {
+  margin-top: 0.5rem;
+  max-width: 34rem;
+  color: #8a7c62;
+}
+
+/* A refusal the backend explained. Persistent — the user has to act on it. */
+.upload-error {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e0b4a6;
+  border-left: 3px solid #a0341f;
+  border-radius: 6px;
+  background: #fdf3f0;
+  color: #7d2a18;
+  font-size: 0.82rem;
+}
+
+
+/* ── Extracted-text preview ──
+   A lossy import (PDF above all) is worth showing back before any editing
+   starts: a displaced drop cap or a mangled accent is obvious on sight and
+   invisible in a word count. */
+.import-preview {
+  margin-top: 0.6rem;
+  width: 100%;
+  max-width: 42rem;
+  text-align: left;
+}
+
+.import-preview > summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #6b5d43;
+  user-select: none;
+}
+
+.import-preview > summary:hover {
+  color: #4a3f2d;
+}
+
+.import-preview-text {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid #e0d6c2;
+  border-radius: 6px;
+  background: #fdfbf6;
+  color: #4a3f2d;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  /* Prose, not code — but preserve the blank lines that mark paragraphs. */
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+
+/* ── Publication readiness ──
+   The verdict is the answer; the blocking list is why; the minor count is
+   there so nothing is hidden, without letting a comma sit at the same weight
+   as an unclosed line of dialogue. */
+.readiness-verdict {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.readiness-verdict.is-ready { color: #2f6b3a; }
+.readiness-verdict.is-check { color: #8a5a1f; }
+
+.readiness-list {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.readiness-item {
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid #d9b98a;
+  border-radius: 4px;
+  background: #fdfbf6;
+  font-size: 0.82rem;
+}
+
+.readiness-loc {
+  display: block;
+  font-weight: 600;
+  color: #6b5d43;
+}
+
+.readiness-msg {
+  display: block;
+  color: #4a3f2d;
+  /* The quoted passage is the point: let it wrap rather than truncate. */
+  word-break: break-word;
+}
+
+.readiness-minor { margin: 0; }
+
+.readiness-review {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6b5d43;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.readiness-scanned { margin-top: 0.35rem; opacity: 0.75; }
+
+/* Sits above the unfolded per-chapter minor list on a scan run, where nothing
+   can be accepted or exported — say why before the read-only cards start. */
+.readiness-readonly-note {
+  margin: 0.6rem 0 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid #d9b98a;
+  border-radius: 4px;
+  background: #fdfbf6;
+  font-style: italic;
 }

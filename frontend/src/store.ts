@@ -181,6 +181,14 @@ interface AppState {
   // Document
   document: DocumentMeta | null;
   setDocument: (d: DocumentMeta | null) => void;
+  /**
+   * Forget the loaded manuscript and everything scoped to it.
+   *
+   * Used when an upload is refused. Leaving the previous document in place
+   * behind an error message invites editing the wrong book — and a refused
+   * import is exactly when the user is least sure what is loaded.
+   */
+  clearDocument: () => void;
   documentMd: string;
   setDocumentMd: (md: string) => void;
 
@@ -467,6 +475,18 @@ export const useStore = create<AppState>()(
 
       document: null,
       setDocument: (document) => set({ document }),
+      clearDocument: () =>
+        set((state) => ({
+          document: null,
+          documentMd: "",
+          scopeMode: DEFAULT_SCOPE_MODE,
+          selectedChapters: [],
+          // Upload is no longer done, and no later step can be reached without
+          // it — so send the wizard back rather than leaving it stranded on a
+          // step that has nothing to work on.
+          completedSteps: state.completedSteps.filter((s) => s !== "upload"),
+          wizardStep: "upload",
+        })),
       documentMd: "",
       setDocumentMd: (documentMd) => set({ documentMd }),
 

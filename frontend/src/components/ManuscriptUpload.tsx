@@ -1,16 +1,25 @@
 // ── Manuscript upload — Stage I ──
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { uploadFile, getDocument } from "../api";
+import { uploadFile, getDocument, RequestRefusedError } from "../api";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
+
+/**
+ * How much of the manuscript to show back. Enough to see whether a PDF's drop
+ * caps, paragraph breaks and accents survived, without pasting a chapter into
+ * the upload panel.
+ */
+const PREVIEW_CHARS = 900;
 
 export default function ManuscriptUpload() {
   const {
     lang,
     document: doc,
     setDocument,
+    clearDocument,
+    documentMd,
     setDocumentMd,
     uploading,
     setUploading,
@@ -44,9 +53,13 @@ export default function ManuscriptUpload() {
     setModelIntroOpen(true);
   }
 
+  // Refusals the backend can explain — a scanned PDF, a file that is not text.
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleUpload = useCallback(
     async (file: File) => {
       setUploading(true);
+      setUploadError(null);
       try {
         const meta = await uploadFile(file);
         setDocument(meta);
@@ -57,12 +70,29 @@ export default function ManuscriptUpload() {
         setScopeMode("whole_book");
         setSelectedChapters(meta.chapters?.length > 0 ? [0] : []);
       } catch (err) {
+        // The backend explains refusals it can explain — a scanned PDF, a file
+        // whose fonts carry no character map, a file that is not text.
+        // Swallowing that left the user clicking Upload and watching nothing
+        // happen.
         console.error("Upload failed:", err);
+        // Drop whatever was loaded before, but ONLY when the server refused
+        // the file. Keeping it behind an error message invites editing the
+        // previous manuscript in the belief that the new one arrived. A 500 or
+        // a dropped connection says nothing about the file, and wiping a loaded
+        // manuscript over a backend hiccup would be the worse bug.
+        const refused = err instanceof RequestRefusedError;
+        const had = useStore.getState().document !== null;
+        if (refused) clearDocument();
+        const detail =
+          err instanceof Error && err.message ? err.message : t("upload_failed");
+        setUploadError(
+          refused && had ? `${detail} ${t("upload_cleared")}` : detail,
+        );
       } finally {
         setUploading(false);
       }
     },
-    [],
+    [t, clearDocument],
   );
 
   const onDrop = useCallback(
@@ -92,7 +122,7 @@ export default function ManuscriptUpload() {
             <input
               ref={fileRef}
               type="file"
-              accept=".docx,.md,.markdown"
+              accept=".docx,.epub,.pdf,.md,.markdown"
               style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -108,9 +138,33 @@ export default function ManuscriptUpload() {
               <p className="small-note">{t("upload_prompt")}</p>
             )}
           </div>
+          <p className="small-note upload-pdf-note">{t("pdf_caveat")}</p>
+          {uploadError && (
+            <p className="upload-error" role="alert">
+              {uploadError}
+            </p>
+          )}
         </>
       ) : (
         <div className="file-summary">
+          {uploadError && (
+            <p className="upload-error" role="alert">
+              {uploadError}
+            </p>
+          )}
+          {doc && documentMd && (
+            <details
+              className="import-preview"
+              open={/\.(pdf|epub)$/i.test(doc.name)}
+            >
+              <summary>{t("preview_extracted")}</summary>
+              <p className="small-note">{t("preview_hint")}</p>
+              <pre className="import-preview-text">
+                {documentMd.slice(0, PREVIEW_CHARS)}
+                {documentMd.length > PREVIEW_CHARS ? "\n…" : ""}
+              </pre>
+            </details>
+          )}
           <span className="file-name">{doc.name}</span>
           <span className="file-stats">
             {doc.wordCount.toLocaleString()} words ·{" "}
@@ -135,7 +189,7 @@ export default function ManuscriptUpload() {
           <input
             ref={fileRef}
             type="file"
-            accept=".docx,.md,.markdown"
+            accept=".docx,.epub,.pdf,.md,.markdown"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

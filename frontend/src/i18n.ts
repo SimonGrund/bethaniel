@@ -273,6 +273,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Manuskript",
     es: "Manuscrito",
   },
+  upload_cleared: {
+    en: "The manuscript you had loaded has been cleared, so nothing is selected for editing.",
+    da: "Det manuskript, du havde indlæst, er ryddet, så intet er valgt til redigering.",
+    de: "Das zuvor geladene Manuskript wurde entfernt, es ist also nichts zum Bearbeiten ausgewählt.",
+    es: "El manuscrito que tenías cargado se ha borrado, así que no hay nada seleccionado para editar.",
+  },
+  preview_extracted: {
+    en: "Check the extracted text",
+    da: "Tjek den udtrukne tekst",
+    de: "Extrahierten Text prüfen",
+    es: "Revisar el texto extraído",
+  },
+  preview_hint: {
+    en: "The opening of your manuscript as Betty read it. Check that paragraphs, first letters and accented characters look right before editing.",
+    da: "Begyndelsen af dit manuskript, som Betty læste det. Tjek at afsnit, forbogstaver og tegn med accent ser rigtige ud, før du redigerer.",
+    de: "Der Anfang deines Manuskripts, wie Betty ihn gelesen hat. Prüfe vor dem Bearbeiten, ob Absätze, Anfangsbuchstaben und Sonderzeichen stimmen.",
+    es: "El comienzo de tu manuscrito tal como Betty lo leyó. Comprueba que los párrafos, las letras iniciales y los caracteres acentuados sean correctos antes de editar.",
+  },
+  pdf_caveat: {
+    en: "PDF and EPUB are read as text only — layout, images and page design are not kept, and Betty exports to Word or Markdown, not back to PDF or EPUB. If a print-ready PDF will not import, try the EPUB from the same export: it carries the same text and reads correctly.",
+    da: "PDF og EPUB læses kun som tekst — layout, billeder og sidedesign bevares ikke, og Betty eksporterer til Word eller Markdown, ikke tilbage til PDF eller EPUB. Hvis en trykklar PDF ikke kan indlæses, så prøv EPUB'en fra samme eksport: den indeholder den samme tekst og læses korrekt.",
+    de: "PDF und EPUB werden nur als Text gelesen — Layout, Bilder und Seitengestaltung bleiben nicht erhalten, und Betty exportiert nach Word oder Markdown, nicht zurück nach PDF oder EPUB. Lässt sich eine druckfertige PDF nicht laden, versuche die EPUB aus demselben Export: sie enthält denselben Text und wird korrekt gelesen.",
+    es: "El PDF y el EPUB se leen solo como texto: el diseño, las imágenes y la maquetación no se conservan, y Betty exporta a Word o Markdown, no de vuelta a PDF o EPUB. Si un PDF listo para imprenta no se carga, prueba el EPUB de la misma exportación: contiene el mismo texto y se lee correctamente.",
+  },
+  upload_failed: {
+    en: "That file could not be read.",
+    da: "Filen kunne ikke læses.",
+    de: "Diese Datei konnte nicht gelesen werden.",
+    es: "No se pudo leer ese archivo.",
+  },
   upload_prompt: {
     en: "Upload a .docx or .md to begin.",
     da: "Upload en .docx eller .md for at starte.",
@@ -1540,6 +1570,48 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Deterministische Strukturprüfung für die Veröffentlichungsreife: doppelte Kapitel oder Abschnitte, leere oder fehlende Kapitel, Lücken in der Kapitelnummerierung und mitten im Satz abgeschnittener Inhalt. Hinweis: Echte fehlende Seiten lassen sich nicht direkt erkennen.",
     es: "Comprobación estructural determinista para la publicación: capítulos o secciones duplicados, capítulos vacíos o perdidos, saltos en la numeración de capítulos y contenido cortado a mitad de frase. Nota: las páginas realmente ausentes no se detectan directamente.",
   },
+  readiness_ready: {
+    en: "Ready to publish — no structural problems found.",
+    da: "Klar til udgivelse — ingen strukturelle problemer fundet.",
+    de: "Bereit zur Veröffentlichung — keine strukturellen Probleme gefunden.",
+    es: "Listo para publicar: no se encontraron problemas estructurales.",
+  },
+  readiness_check: {
+    en: "{n} issue(s) to check before publishing",
+    da: "{n} problem(er) at tjekke inden udgivelse",
+    de: "{n} Punkt(e) vor der Veröffentlichung prüfen",
+    es: "{n} problema(s) que revisar antes de publicar",
+  },
+  readiness_minor: {
+    en: "{n} minor corrections across {m} chapters (spelling, punctuation) — none of them block publication.",
+    da: "{n} mindre rettelser fordelt på {m} kapitler (stavning, tegnsætning) — ingen af dem blokerer udgivelse.",
+    de: "{n} kleinere Korrekturen in {m} Kapiteln (Rechtschreibung, Zeichensetzung) — keine davon verhindert die Veröffentlichung.",
+    es: "{n} correcciones menores en {m} capítulos (ortografía, puntuación): ninguna impide publicar.",
+  },
+  readiness_no_minor: {
+    en: "No minor corrections suggested either.",
+    da: "Ingen mindre rettelser foreslået heller.",
+    de: "Auch keine kleineren Korrekturen vorgeschlagen.",
+    es: "Tampoco se sugieren correcciones menores.",
+  },
+  readiness_review_all: {
+    en: "Review all",
+    da: "Gennemgå alle",
+    de: "Alle ansehen",
+    es: "Revisar todas",
+  },
+  readiness_hide_minor: {
+    en: "Hide list",
+    da: "Skjul listen",
+    de: "Liste ausblenden",
+    es: "Ocultar lista",
+  },
+  readiness_read_only: {
+    en: "A scan reports; it doesn't change your manuscript. To apply these, run a copy edit.",
+    da: "En scanning rapporterer; den ændrer ikke dit manuskript. Kør en korrekturlæsning for at anvende dem.",
+    de: "Ein Scan berichtet nur; er ändert Ihr Manuskript nicht. Für Änderungen führen Sie ein Lektorat aus.",
+    es: "Un escaneo informa; no modifica tu manuscrito. Para aplicarlas, ejecuta una corrección de estilo.",
+  },
   scan_no_issues: {
     en: "No structural issues found — looks publication-ready.",
     da: "Ingen strukturelle problemer fundet — ser klar til udgivelse ud.",
@@ -2157,6 +2229,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Den valgte modelfil mangler på disken. Download den igen fra modelopsætningsskærmen.",
     de: "Die ausgewählte Modelldatei fehlt. Lade sie erneut von der Modell-Einrichtungsseite herunter.",
     es: "Falta el archivo del modelo seleccionado en el disco. Vuelve a descargarlo desde la pantalla de configuración del modelo.",
+  },
+  log_hint_api_account: {
+    en: "External Betty could not bill your API account — usually no credit left, sometimes a rejected key. Top up your account or check the key in Model settings. A model that runs on this computer needs neither.",
+    da: "External Betty kunne ikke trække på din API-konto — som regel ingen resterende kredit, nogle gange en afvist nøgle. Fyld op på kontoen, eller tjek nøglen i Modelindstillinger. En model, der kører på denne computer, kræver ingen af delene.",
+    de: "External Betty konnte dein API-Konto nicht belasten — meist kein Guthaben mehr, manchmal ein abgelehnter Schlüssel. Lade dein Konto auf oder prüfe den Schlüssel in den Modelleinstellungen. Ein Modell, das auf diesem Rechner läuft, braucht beides nicht.",
+    es: "External Betty no pudo cobrar en tu cuenta de API: normalmente no queda saldo, a veces la clave fue rechazada. Recarga la cuenta o revisa la clave en Ajustes del modelo. Un modelo que se ejecuta en este ordenador no necesita ninguna de las dos cosas.",
   },
   log_hint_port_conflict: {
     en: "Another copy of the model engine is already running and holding its network port. Quit any other running copy of Bethaniel and try again.",

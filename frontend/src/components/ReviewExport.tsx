@@ -260,6 +260,7 @@ function CorrectionCard({
   onAcceptAllOccurrences,
   onDismissAllOccurrences,
   originalText,
+  readOnly = false,
 }: {
   correction: Correction;
   taskId: string;
@@ -268,14 +269,18 @@ function CorrectionCard({
   onAcceptAllOccurrences: () => void;
   onDismissAllOccurrences: () => void;
   originalText?: string;
+  /** Scan results are a report, not a worklist: show the finding, no checkbox. */
+  readOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   // Guard: if no correction ID, show a simple non-interactive card
   if (!correction.id) {
     return (
-      <div className={`correction-card ${correction.flagged ? "flagged" : ""}`}>
-        <div className="correction-check">☐</div>
+      <div
+        className={`correction-card ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+      >
+        {!readOnly && <div className="correction-check">☐</div>}
         {correction.chunk && (
           <div
             style={{
@@ -304,10 +309,12 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
-        onClick={() => onToggleOccurrence(0)}
+        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+        onClick={readOnly ? undefined : () => onToggleOccurrence(0)}
       >
-        <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        {!readOnly && (
+          <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        )}
         {correction.chunk && (
           <div
             style={{
@@ -339,10 +346,12 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
-        onClick={() => onToggleOccurrence(0)}
+        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+        onClick={readOnly ? undefined : () => onToggleOccurrence(0)}
       >
-        <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        {!readOnly && (
+          <div className="correction-check">{accepted ? "☑" : "☐"}</div>
+        )}
         <span className="correction-diff">
           <InlineDiff
             before={correction.original}
@@ -373,29 +382,35 @@ function CorrectionCard({
 
   return (
     <div
-      className={`correction-card ${allAccepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""}`}
+      className={`correction-card ${allAccepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
     >
       {/* Header row: master toggle + count badge */}
       <div
         className="correction-header"
-        onClick={() => {
-          if (allAccepted) {
-            onDismissAllOccurrences();
-          } else {
-            onAcceptAllOccurrences();
-          }
-        }}
+        onClick={
+          readOnly
+            ? undefined
+            : () => {
+                if (allAccepted) {
+                  onDismissAllOccurrences();
+                } else {
+                  onAcceptAllOccurrences();
+                }
+              }
+        }
         style={{
           display: "flex",
           alignItems: "center",
           gap: "0.5rem",
-          cursor: "pointer",
+          cursor: readOnly ? "default" : "pointer",
           userSelect: "none",
         }}
       >
-        <div className="correction-check">
-          {allAccepted ? "☑" : anyAccepted ? "◐" : "☐"}
-        </div>
+        {!readOnly && (
+          <div className="correction-check">
+            {allAccepted ? "☑" : anyAccepted ? "◐" : "☐"}
+          </div>
+        )}
         {correction.chunk && (
           <div
             style={{
@@ -881,11 +896,96 @@ interface StructuralFinding {
   location: string;
   message: string;
   detail?: string;
+  /** Whether this must be fixed before publishing. Decided by the backend. */
+  blocking?: boolean;
 }
 interface StructuralScanReport {
   chaptersScanned: number;
   summary: { error: number; warning: number; info: number };
   findings: StructuralFinding[];
+}
+
+/**
+ * The question a final readthrough exists to answer: can this be published?
+ *
+ * It used to answer with per-chapter lists in which "wrinled → wrinkled" and
+ * "a chapter's dialogue is unclosed" carried equal weight. Structural findings
+ * are deterministic and, on a real book, all six were genuine defects — a
+ * duplicated tail from a botched edit, an unclosed quote, closing marks typed
+ * as opening ones. The model's comma suggestions are the ones that can wait, so
+ * they are counted rather than listed.
+ */
+function PublicationReadinessPanel({
+  report,
+  minorTotal,
+  minorChapters,
+  onReviewMinor,
+  minorOpen,
+  t,
+}: {
+  report: StructuralScanReport | null;
+  minorTotal: number;
+  minorChapters: number;
+  onReviewMinor?: () => void;
+  /** Whether the per-chapter minor list below is currently unfolded. */
+  minorOpen?: boolean;
+  t: (key: string) => string;
+}) {
+  const blocking = (report?.findings ?? []).filter((f) => f.blocking);
+  const ready = blocking.length === 0;
+
+  return (
+    <div className="readiness">
+      <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
+        {ready
+          ? `✅ ${t("readiness_ready")}`
+          : `⚠️ ${t("readiness_check").replace("{n}", String(blocking.length))}`}
+      </p>
+
+      {blocking.length > 0 && (
+        <ul className="readiness-list">
+          {blocking.map((f, i) => (
+            <li key={i} className="readiness-item">
+              <span className="readiness-loc">{f.location}</span>
+              <span className="readiness-msg">{f.message}</span>
+              {f.detail && (
+                <span className="scan-finding-detail">{f.detail}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="readiness-minor small-note">
+        {minorTotal === 0
+          ? t("readiness_no_minor")
+          : t("readiness_minor")
+              .replace("{n}", String(minorTotal))
+              .replace("{m}", String(minorChapters))}
+        {minorTotal > 0 && onReviewMinor && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="btn-link readiness-review"
+              aria-expanded={minorOpen ?? false}
+              onClick={onReviewMinor}
+            >
+              {minorOpen
+                ? t("readiness_hide_minor")
+                : t("readiness_review_all")}
+            </button>
+          </>
+        )}
+      </p>
+
+      {report && (
+        <p className="small-note readiness-scanned">
+          {report.chaptersScanned} {t("scan_chapters")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 const SEVERITY_ICON: Record<string, string> = {
@@ -1298,6 +1398,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
+  // Which publication-scan jobs have their per-chapter proofread detail
+  // expanded under the verdict. Keyed by job so opening one scan's minor list
+  // doesn't unfold every other scan in the old-results list.
+  const [minorDetailJobs, setMinorDetailJobs] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [exportWarning, setExportWarning] = useState<{
     message: string;
     confirmLabel: string;
@@ -1946,6 +2052,24 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ),
           ).map((m) => modelNames[m] ?? m);
 
+          // ── Final readthrough: a scan, not a fixing pass ──
+          // The publication verdict is the output. The proofread tasks that ran
+          // beside it produce comma-level suggestions that must not compete
+          // with it, so this job hides the whole fixing UI — exports, accept-all,
+          // per-correction checkboxes — and keeps the per-chapter detail folded
+          // until the user asks for it from the verdict panel.
+          // A failed scan is the exception: the run degenerates into an
+          // ordinary proofread pass, and hiding its exports would leave the
+          // user with nothing at all.
+          const scanTaskEntry = entries.find(
+            ([, task]) => task.mode === "publication_scan",
+          );
+          const isScanJob =
+            !!scanTaskEntry &&
+            scanTaskEntry[1].status !== "error" &&
+            scanTaskEntry[1].status !== "cancelled";
+          const showMinorDetail = minorDetailJobs.has(jid);
+
           // ── Shared manuscript-wide edit state (accept-all toggle + downloads) ──
           const editTasks = entries.filter(([, task]) =>
             EDIT_MODES.includes(task.mode),
@@ -2375,13 +2499,42 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   );
                 }
 
+                // Minor corrections come from the proofread tasks that ran
+                // beside this scan — counted, not listed, so a comma suggestion
+                // cannot sit at the same weight as an unclosed line of dialogue.
+                const proofreadTasks = entries
+                  .map(([, task]) => task)
+                  .filter((task) => task.mode === "proofread");
+                const minorTotal = proofreadTasks.reduce(
+                  (n, task) => n + (task.result?.corrections?.length ?? 0),
+                  0,
+                );
+                const minorChapters = proofreadTasks.filter(
+                  (task) => (task.result?.corrections?.length ?? 0) > 0,
+                ).length;
+
                 return (
                   <details className="review-task review-summary-card" open>
                     <summary className="review-task-summary">
                       <strong>{t("mode_publication_scan")}</strong>
                     </summary>
-                    <StructuralFindingsPanel
-                      data={scanTask.result?.structuredData}
+                    <PublicationReadinessPanel
+                      report={
+                        (scanTask.result?.structuredData as
+                          | StructuralScanReport
+                          | undefined) ?? null
+                      }
+                      minorTotal={minorTotal}
+                      minorChapters={minorChapters}
+                      onReviewMinor={() =>
+                        setMinorDetailJobs((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(jid)) next.delete(jid);
+                          else next.add(jid);
+                          return next;
+                        })
+                      }
+                      minorOpen={showMinorDetail}
                       t={t}
                     />
                   </details>
@@ -2821,6 +2974,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })()}
 
+              {/* On a scan job the chapter-by-chapter minor fixes stay folded
+                  behind the verdict's "Review all" link — unfolding them is a
+                  read-only look, never a fixing surface. */}
+              {(!isScanJob || showMinorDetail) && (
+              <>
+              {isScanJob && (
+                <p className="small-note readiness-readonly-note">
+                  {t("readiness_read_only")}
+                </p>
+              )}
               <div
                 className="chapters-scroll"
                 onScroll={(e) => {
@@ -2980,7 +3143,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           ↻ {t("retry_task")}
                         </button>
                       )}
-                      {!isTranslation && hasChanges && (
+                      {!isTranslation && hasChanges && !isScanJob && (
                         <button
                           type="button"
                           className="btn-small btn-accept summary-accept-btn"
@@ -3074,6 +3237,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 onDismissAllOccurrences={() => {
                                   if (c.id) dismissCorrection(tid, c.id);
                                 }}
+                                readOnly={isScanJob}
                                 originalText={result.originalText}
                               />
                             );
@@ -3119,21 +3283,26 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                       : `⚠ ${t("show_all_suggestions")} (${flaggedCount})`}
                                   </button>
                                 )}
-                                <button
-                                  className="btn-small btn-accept"
-                                  onClick={() => acceptAll(tid)}
-                                >
-                                  {t("accept_all")}
-                                </button>
-                                <button
-                                  className="btn-small btn-dismiss"
-                                  onClick={() => dismissAll(tid)}
-                                >
-                                  {t("dismiss_all")}
-                                </button>
+                                {!isScanJob && (
+                                  <>
+                                    <button
+                                      className="btn-small btn-accept"
+                                      onClick={() => acceptAll(tid)}
+                                    >
+                                      {t("accept_all")}
+                                    </button>
+                                    <button
+                                      className="btn-small btn-dismiss"
+                                      onClick={() => dismissAll(tid)}
+                                    >
+                                      {t("dismiss_all")}
+                                    </button>
+                                  </>
+                                )}
                                 <span className="small-note">
-                                  {acceptedCount}{" "}
-                                  {t("of")} {visible.length}{" "}
+                                  {isScanJob
+                                    ? visible.length
+                                    : `${acceptedCount} ${t("of")} ${visible.length}`}{" "}
                                   {t("proposed_changes")}
                                   {flaggedCount > 0 && !showAll && (
                                     <span
@@ -3220,6 +3389,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       </div>
                     )}
 
+                    {!isScanJob && (
                     <div className="export-buttons">
                       <button
                         className="btn-secondary"
@@ -3278,6 +3448,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         {t("download_chapter_docx")}
                       </button>
                     </div>
+                    )}
                       </>
                     )}
 
@@ -3285,9 +3456,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })}
               </div>
+              </>
+              )}
 
               {/* ── Accept-all toggle: bottom of the chapter list, right-aligned ── */}
-              {editTasks.length > 0 && (
+              {editTasks.length > 0 && !isScanJob && (
                 <div className="accept-all-job-row">
                   <button
                     className={`btn-primary btn-accept-all-job ${
@@ -3319,7 +3492,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
               {/* ── Full manuscript downloads: below the bright card, but still
                    collapsing with this <details> container ── */}
-              {editTasks.length > 0 && (
+              {editTasks.length > 0 && !isScanJob && (
                 <div className="export-minor-break-row" title={t("minor_break_hint")}>
                   <span className="option-toggle-label">
                     {t("export_minor_break")}
@@ -3342,7 +3515,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   </div>
                 </div>
               )}
-              {editTasks.length > 0 && (
+              {editTasks.length > 0 && !isScanJob && (
                 <div className="export-buttons full-manuscript-export">
                   <button
                     className="btn-primary"
