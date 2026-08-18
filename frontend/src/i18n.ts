@@ -1600,6 +1600,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Alle ansehen",
     es: "Revisar todas",
   },
+  readiness_hide_minor: {
+    en: "Hide list",
+    da: "Skjul listen",
+    de: "Liste ausblenden",
+    es: "Ocultar lista",
+  },
+  readiness_read_only: {
+    en: "A scan reports; it doesn't change your manuscript. To apply these, run a copy edit.",
+    da: "En scanning rapporterer; den ændrer ikke dit manuskript. Kør en korrekturlæsning for at anvende dem.",
+    de: "Ein Scan berichtet nur; er ändert Ihr Manuskript nicht. Für Änderungen führen Sie ein Lektorat aus.",
+    es: "Un escaneo informa; no modifica tu manuscrito. Para aplicarlas, ejecuta una corrección de estilo.",
+  },
   scan_no_issues: {
     en: "No structural issues found — looks publication-ready.",
     da: "Ingen strukturelle problemer fundet — ser klar til udgivelse ud.",

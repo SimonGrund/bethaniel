@@ -1407,6 +1407,11 @@ h4 {
   align-items: flex-start;
 }
 
+/* Scan runs list their minor findings for reading only — nothing to click. */
+.correction-card-readonly {
+  cursor: default;
+}
+
 .correction-card.accepted {
   border-left-color: #2d4a1a;
   background: #f0f5eb;
@@ -5826,3 +5831,14 @@ summary.review-source::before {
 }
 
 .readiness-scanned { margin-top: 0.35rem; opacity: 0.75; }
+
+/* Sits above the unfolded per-chapter minor list on a scan run, where nothing
+   can be accepted or exported — say why before the read-only cards start. */
+.readiness-readonly-note {
+  margin: 0.6rem 0 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid #d9b98a;
+  border-radius: 4px;
+  background: #fdfbf6;
+  font-style: italic;
+}
