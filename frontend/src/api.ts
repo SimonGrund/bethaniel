@@ -2,8 +2,11 @@
 
 import type {
   CatalogEntry,
+  EngineDeviceStatus,
   HardwareInfo,
   InstalledModel,
+  LanguageToolDownload,
+  LanguageToolStatus,
   ModelRecommendation,
   PurgeSelection,
   StorageUsage,
@@ -475,6 +478,87 @@ export async function deleteCustomModelConfig() {
   await apiFetch("/models/custom/config", { method: "DELETE" });
 }
 
+// ── Betty in the Cloud (pay-per-job) ──
+
+const BETHANIEL_CLOUD_ENTRY_ID = "bethaniel-cloud";
+
+export interface CloudEstimateRequest {
+  units: { wordCount: number }[];
+  modes: string[];
+  wordsPerChunk: number;
+  runMode: "speed" | "max" | "custom";
+  reviewMode: boolean;
+  reviewerCount: number;
+  dualEditor: boolean;
+  dualCount: number;
+  styleComplianceAgent: boolean;
+  extraPass: boolean;
+  styleGuide?: string;
+  manuscriptLang?: string;
+}
+
+export interface CloudEstimateResponse {
+  estimatedTotalTokens: number;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  confidence: "estimate" | "lower_bound";
+  quoteId: string;
+  priceCents: number;
+  currency: string;
+}
+
+/** Ask the backend (which asks the Cloudflare Worker) what this job would
+ *  cost to run in the cloud. Does not charge anything. */
+export async function getCloudEstimate(
+  req: CloudEstimateRequest,
+): Promise<CloudEstimateResponse> {
+  const res = await apiFetch("/cloud/estimate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  return res.json();
+}
+
+/** Start a Stripe Checkout session for a previously-fetched quote. Returns a
+ *  URL to open in the system browser — never a card form in-app. */
+export async function createCloudCheckout(
+  quoteId: string,
+): Promise<{ checkoutUrl: string }> {
+  const res = await apiFetch("/cloud/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quoteId }),
+  });
+  return res.json();
+}
+
+/** Save the credential issued after a successful cloud payment — the same
+ *  storage the External Betty key uses, keyed to the Bethaniel Cloud entry. */
+export async function saveCloudCredential(
+  credential: string,
+  model: string,
+  baseUrl?: string,
+): Promise<void> {
+  await apiFetch("/models/custom/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entryId: BETHANIEL_CLOUD_ENTRY_ID,
+      apiKey: credential,
+      model,
+      baseUrl,
+    }),
+  });
+}
+
+export async function deleteCloudCredential(): Promise<void> {
+  await apiFetch(
+    `/models/custom/config?entryId=${encodeURIComponent(BETHANIEL_CLOUD_ENTRY_ID)}`,
+    { method: "DELETE" },
+  );
+}
+
 // ── Custom Betty (custom GGUF path) ──
 
 export async function fetchCustomGgufConfig(): Promise<{
@@ -513,4 +597,31 @@ export async function purgeStorage(
     body: JSON.stringify(selection),
   });
   return res.json();
+}
+
+// ── Engine device (GPU/CPU) ──
+
+export async function fetchEngineStatus(): Promise<EngineDeviceStatus> {
+  const res = await apiFetch("/engine/status");
+  return res.json();
+}
+
+// ── LanguageTool (grammar checking) ──
+
+export async function fetchLanguageToolStatus(): Promise<LanguageToolStatus> {
+  const res = await apiFetch("/languagetool/status");
+  return res.json();
+}
+
+export async function downloadLanguageTool(): Promise<{ status: string }> {
+  const res = await apiFetch("/languagetool/download", { method: "POST" });
+  return res.json();
+}
+
+/** Re-sync an in-flight download after a page reload — it keeps running
+ *  detached server-side regardless. */
+export async function fetchLanguageToolDownloadStatus(): Promise<LanguageToolDownload | null> {
+  const res = await apiFetch("/languagetool/download/status");
+  const data = await res.json();
+  return data.download ?? null;
 }

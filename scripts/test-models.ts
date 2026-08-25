@@ -2,8 +2,18 @@
 /**
  * Model Benchmark Test Script
  *
- * Runs each installed model against the sample texts (copy-edit and line-edit variants)
- * and measures: corrections found, false positives on clean texts, and runtime.
+ * Runs each installed model against the sample texts (copy-edit and line-edit
+ * variants) and scores it on RECALL (did it catch the deliberately planted
+ * errors?), PRECISION (did it invent problems that aren't there?), a
+ * false-positive rate on already-clean text, consistency across repeated
+ * runs of the same task, and a time score — combined into one overall
+ * weighted score per mode (copy_edit / line_edit) and per model.
+ *
+ * Ground truth is NOT hardcoded. sample_texts/{lang}_correct.md and
+ * {lang}_{copy_edit,line_edit}.md are near-identical prose except for
+ * deliberately planted errors — buildGroundTruth (backend/src/benchScoring.ts)
+ * diffs each pair once to recover the exact planted-error set, replacing the
+ * old "assume every non-clean file has 10 errors" guess.
  *
  * Prerequisites:
  *   - Backend server running on http://127.0.0.1:4000
@@ -16,6 +26,8 @@
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
  *   npx tsx scripts/test-models.ts --en        # Only run English texts
  *   npx tsx scripts/test-models.ts --da --de   # Only Danish and German
+ *   npx tsx scripts/test-models.ts --repeat 1  # Skip the consistency re-run (faster, no consistency score)
+ *   npx tsx scripts/test-models.ts --report-only  # Recompute + reprint the report from saved results, no new runs
  */
 
 import {
@@ -27,6 +39,16 @@ import {
 } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import {
+  buildGroundTruth,
+  scoreCorrections,
+  consistencyScore,
+  timeScore as computeTimeScore,
+  falsePositiveCleanScore,
+  overallScore,
+  type PlantedError,
+  type ScoredCorrection,
+} from "../backend/src/benchScoring.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +62,19 @@ const TASK_TIMEOUT = 3_600_000; // 1 hour
 
 const CLEAN_RUN = process.argv.includes("--clean");
 const TEST_MODE = process.argv.includes("--test");
+const REPORT_ONLY = process.argv.includes("--report-only");
+
+function parseRepeat(): number {
+  const idx = process.argv.indexOf("--repeat");
+  if (idx === -1 || idx + 1 >= process.argv.length) return 2;
+  const val = parseInt(process.argv[idx + 1], 10);
+  return Number.isFinite(val) && val >= 1 ? val : 2;
+}
+// Repeat >1 is what makes the consistency score possible — the seeding work
+// (deriveSeed in llm.ts) should make local models converge on the SAME
+// corrections across repeats; a low consistency score here means the
+// quality numbers above it were a lucky/unlucky roll, not something to trust.
+const REPEAT = TEST_MODE ? 1 : parseRepeat();
 
 const LANG_FLAGS: Record<string, string> = {
   "--en": "english",
@@ -81,9 +116,10 @@ interface TestResult {
   language: string;
   variant: string;
   mode: "copy_edit" | "line_edit";
+  repeatIndex: number;
   correctionsFound: number;
   runtimeMs: number;
-  corrections: { original: string; corrected: string }[];
+  corrections: ScoredCorrection[];
   errors: string[];
   runDate: string;
 }
@@ -93,7 +129,9 @@ interface TestResult {
 function loadResults(): TestResult[] {
   if (CLEAN_RUN || !existsSync(RESULTS_PATH)) return [];
   try {
-    return JSON.parse(readFileSync(RESULTS_PATH, "utf-8"));
+    const raw = JSON.parse(readFileSync(RESULTS_PATH, "utf-8")) as TestResult[];
+    // Back-compat: results saved before --repeat existed have no repeatIndex.
+    return raw.map((r) => ({ repeatIndex: 1, ...r }));
   } catch {
     return [];
   }
@@ -103,8 +141,8 @@ function saveResults(results: TestResult[]): void {
   writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2), "utf-8");
 }
 
-function resultKey(model: string, file: string, mode: string): string {
-  return `${model}::${file}::${mode}`;
+function resultKey(model: string, file: string, mode: string, repeatIndex: number): string {
+  return `${model}::${file}::${mode}::${repeatIndex}`;
 }
 
 // ── Helpers ──
@@ -151,7 +189,7 @@ function wordsPerChunkForModel(fileName: string): number {
 
 async function waitForTask(taskId: string): Promise<{
   status: string;
-  corrections: { original: string; corrected: string }[];
+  corrections: ScoredCorrection[];
   errors: string[];
   editedText?: string;
 }> {
@@ -162,7 +200,7 @@ async function waitForTask(taskId: string): Promise<{
       const task = (await api("GET", `/results/${taskId}`)) as {
         status: string;
         result: {
-          corrections: { original: string; corrected: string }[];
+          corrections: ScoredCorrection[];
           errors: string[];
           editedText?: string;
         } | null;
@@ -213,14 +251,59 @@ function discoverFiles(): TestFile[] {
   return files.sort((a, b) => a.filename.localeCompare(b.filename));
 }
 
+// ── Ground truth (diff-based, cached per language+mode) ──
+
+const groundTruthCache = new Map<string, PlantedError[]>();
+
+/** Planted errors for one (language, mode) pair — [] for the clean fixture. */
+function groundTruthFor(
+  language: string,
+  mode: "copy_edit" | "line_edit",
+): PlantedError[] {
+  const cacheKey = `${language}:${mode}`;
+  const cached = groundTruthCache.get(cacheKey);
+  if (cached) return cached;
+
+  const correctPath = join(SAMPLE_DIR, `${language}_correct.md`);
+  const erroredPath = join(SAMPLE_DIR, `${language}_${mode}.md`);
+  if (!existsSync(correctPath) || !existsSync(erroredPath)) {
+    groundTruthCache.set(cacheKey, []);
+    return [];
+  }
+  const correct = readFileSync(correctPath, "utf-8");
+  const errored = readFileSync(erroredPath, "utf-8");
+  const truth = buildGroundTruth(errored, correct);
+  groundTruthCache.set(cacheKey, truth);
+  return truth;
+}
+
 // ── Main ──
 
 async function main() {
   console.log("=== Bethaniel Model Benchmark ===\n");
+
+  if (REPORT_ONLY) {
+    const results = loadResults();
+    if (results.length === 0) {
+      console.error(`ERROR: no saved results at ${RESULTS_PATH} to report on.`);
+      process.exit(1);
+    }
+    const allModels = [...new Set(results.map((r) => r.model))];
+    const report = buildReport(results, allModels);
+    writeFileSync(REPORT_PATH, report, "utf-8");
+    console.log(report);
+    return;
+  }
+
   console.log(
     CLEAN_RUN
       ? "Mode: CLEAN RUN (previous results wiped)"
       : "Mode: RESUME (skipping completed)",
+  );
+  console.log(
+    REPEAT > 1
+      ? `Repeats per task: ${REPEAT} (enables the consistency score)`
+      : `Repeats per task: 1 (no consistency score — pass --repeat 2 to enable it)`,
   );
   console.log("");
 
@@ -342,7 +425,7 @@ async function main() {
   // Load existing results (or start fresh)
   const results: TestResult[] = loadResults();
   const completedKeys = new Set(
-    results.map((r) => resultKey(r.model, r.file, r.mode)),
+    results.map((r) => resultKey(r.model, r.file, r.mode, r.repeatIndex)),
   );
 
   let skipped = 0;
@@ -369,6 +452,7 @@ async function main() {
     const pendingTasks: {
       file: TestFile;
       mode: "copy_edit" | "line_edit";
+      repeatIndex: number;
       label: string;
     }[] = [];
 
@@ -381,16 +465,23 @@ async function main() {
             : ["line_edit"];
 
       for (const mode of modesToRun) {
-        const key = resultKey(model, file.filename, mode);
-        if (completedKeys.has(key)) {
-          skipped++;
-          continue;
+        // Repeats only matter for files with real content to converge on;
+        // a clean file's "right answer" is always zero corrections, so one
+        // run is enough to measure its false-positive rate.
+        const repeats = file.variant === "correct" ? 1 : REPEAT;
+        for (let repeatIndex = 1; repeatIndex <= repeats; repeatIndex++) {
+          const key = resultKey(model, file.filename, mode, repeatIndex);
+          if (completedKeys.has(key)) {
+            skipped++;
+            continue;
+          }
+          pendingTasks.push({
+            file,
+            mode,
+            repeatIndex,
+            label: `${file.filename} [${mode}]${repeats > 1 ? ` (run ${repeatIndex}/${repeats})` : ""}`,
+          });
         }
-        pendingTasks.push({
-          file,
-          mode,
-          label: `${file.filename} [${mode}]`,
-        });
       }
     }
 
@@ -470,7 +561,7 @@ async function main() {
             const msg = err instanceof Error ? err.message : String(err);
             const taskResult = {
               status: "error",
-              corrections: [] as { original: string; corrected: string }[],
+              corrections: [] as ScoredCorrection[],
               errors: [msg],
               editedText: undefined as string | undefined,
             };
@@ -498,6 +589,7 @@ async function main() {
           language: br.task.file.language,
           variant: br.task.file.variant,
           mode: br.task.mode,
+          repeatIndex: br.task.repeatIndex,
           correctionsFound: count,
           runtimeMs: br.elapsed,
           corrections: br.taskResult.corrections,
@@ -507,7 +599,7 @@ async function main() {
 
         results.push(result);
         completedKeys.add(
-          resultKey(model, br.task.file.filename, br.task.mode),
+          resultKey(model, br.task.file.filename, br.task.mode, br.task.repeatIndex),
         );
 
         // Clean up the uploaded doc
@@ -534,6 +626,99 @@ async function main() {
   console.log(report);
 }
 
+// ── Scoring ──
+
+interface ModeScorecard {
+  mode: "copy_edit" | "line_edit";
+  recall: number | null;
+  precision: number;
+  f1: number;
+  falsePositiveClean: number;
+  consistency: number | null;
+  timeScoreValue: number;
+  overall: number;
+  avgRuntimeMs: number;
+}
+
+/**
+ * Score one model's results for one mode, across every language tested.
+ * Recall/precision/F1 average across languages AND repeats (each repeat is
+ * an independent sample); consistency compares repeat 1 against repeat 2 of
+ * the SAME (language, file) task, averaged across languages; the
+ * false-positive-clean score comes from the *_correct.md runs specifically.
+ */
+function scoreModelMode(
+  results: TestResult[],
+  model: string,
+  mode: "copy_edit" | "line_edit",
+  fastestAvgMs: number,
+): ModeScorecard | null {
+  const erroredResults = results.filter(
+    (r) => r.model === model && r.mode === mode && r.variant !== "correct" && r.errors.length === 0,
+  );
+  const cleanResults = results.filter(
+    (r) => r.model === model && r.mode === mode && r.variant === "correct" && r.errors.length === 0,
+  );
+  if (erroredResults.length === 0 && cleanResults.length === 0) return null;
+
+  // ── Recall / precision / F1, averaged per-run against that run's own
+  // language's ground truth ──
+  const perRunScores = erroredResults.map((r) =>
+    scoreCorrections(r.corrections, groundTruthFor(r.language, mode)),
+  );
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const recalls = perRunScores.map((s) => s.recall).filter((r): r is number => r !== null);
+  const recall = recalls.length ? avg(recalls) : null;
+  const precision = perRunScores.length ? avg(perRunScores.map((s) => s.precision)) : 100;
+  const f1 = perRunScores.length ? avg(perRunScores.map((s) => s.f1)) : precision;
+
+  // ── False positives on already-clean text ──
+  const cleanFpCounts = cleanResults.map((r) => r.correctionsFound);
+  const avgCleanFp = cleanFpCounts.length ? avg(cleanFpCounts) : 0;
+  const fpClean = falsePositiveCleanScore(avgCleanFp);
+
+  // ── Consistency: repeat 1 vs repeat 2+ of the same (language, file) ──
+  const byLangFile = new Map<string, TestResult[]>();
+  for (const r of erroredResults) {
+    const k = `${r.language}:${r.file}`;
+    (byLangFile.get(k) ?? byLangFile.set(k, []).get(k)!).push(r);
+  }
+  const consistencyScores: number[] = [];
+  for (const runs of byLangFile.values()) {
+    const byRepeat = [...runs].sort((a, b) => a.repeatIndex - b.repeatIndex);
+    for (let i = 1; i < byRepeat.length; i++) {
+      consistencyScores.push(consistencyScore(byRepeat[0].corrections, byRepeat[i].corrections));
+    }
+  }
+  const consistency = consistencyScores.length ? avg(consistencyScores) : null;
+
+  // ── Time ──
+  const allRuntimes = [...erroredResults, ...cleanResults].map((r) => r.runtimeMs);
+  const avgRuntimeMs = allRuntimes.length ? avg(allRuntimes) : 0;
+  const timeScoreValue = computeTimeScore(avgRuntimeMs, fastestAvgMs);
+
+  const overall = overallScore(f1, timeScoreValue);
+
+  return {
+    mode,
+    recall,
+    precision,
+    f1,
+    falsePositiveClean: fpClean,
+    consistency,
+    timeScoreValue,
+    overall,
+    avgRuntimeMs,
+  };
+}
+
+function fmtPct(v: number | null): string {
+  return v === null ? "  n/a" : `${v.toFixed(0).padStart(4)}%`;
+}
+function fmtScore(v: number | null): string {
+  return v === null ? " n/a" : v.toFixed(0).padStart(4);
+}
+
 function buildReport(results: TestResult[], models: string[]): string {
   const lines: string[] = [];
   const timestamp = new Date().toISOString();
@@ -543,137 +728,95 @@ function buildReport(results: TestResult[], models: string[]): string {
   lines.push(`Report generated: ${timestamp}`);
   lines.push(`${"═".repeat(80)}\n`);
 
+  // ── Scorecards ──
+  // Time score needs a reference point: the fastest model's own average
+  // runtime, computed once across everything so both modes share one scale.
+  const avgRuntimeByModel = new Map<string, number>();
+  for (const model of models) {
+    const times = results.filter((r) => r.model === model && r.errors.length === 0).map((r) => r.runtimeMs);
+    if (times.length) avgRuntimeByModel.set(model, times.reduce((a, b) => a + b, 0) / times.length);
+  }
+  const fastestAvgMs = Math.min(...[...avgRuntimeByModel.values(), Infinity]);
+
+  lines.push(`SCORECARDS`);
+  lines.push(`${"═".repeat(80)}`);
+  lines.push(
+    `Weighting: overall = 80% F1(recall, precision) + 20% time score.`,
+  );
+  lines.push(
+    `False-positive-clean and consistency are reported separately, not folded`,
+  );
+  lines.push(`into "overall" — they're diagnostic, not part of the headline number.\n`);
+
+  const modelOveralls: { model: string; overall: number }[] = [];
+
   for (const model of models) {
     const modelResults = results.filter((r) => r.model === model);
     if (modelResults.length === 0) continue;
-    lines.push(`\n${"═".repeat(80)}`);
+
+    lines.push(`${"─".repeat(80)}`);
     lines.push(`MODEL: ${model}`);
+    lines.push(`${"─".repeat(80)}`);
+    lines.push(
+      `  ${"Mode".padEnd(10)} ${"Recall".padStart(6)} ${"Prec.".padStart(6)} ${"F1".padStart(5)} ${"Time".padStart(5)} ${"FP-clean".padStart(9)} ${"Consist.".padStart(9)} ${"OVERALL".padStart(8)}`,
+    );
+
+    const cards: ModeScorecard[] = [];
+    for (const mode of ["copy_edit", "line_edit"] as const) {
+      const card = scoreModelMode(modelResults, model, mode, fastestAvgMs);
+      if (!card) continue;
+      cards.push(card);
+      lines.push(
+        `  ${mode.padEnd(10)} ${fmtPct(card.recall)} ${fmtPct(card.precision)} ${fmtScore(card.f1)} ${fmtScore(card.timeScoreValue)} ${fmtScore(card.falsePositiveClean).padStart(9)} ${fmtScore(card.consistency).padStart(9)} ${fmtScore(card.overall).padStart(8)}`,
+      );
+    }
+
+    if (cards.length > 0) {
+      const modelOverall = Math.round(
+        cards.reduce((s, c) => s + c.overall, 0) / cards.length,
+      );
+      lines.push(`  ${"─".repeat(76)}`);
+      lines.push(`  MODEL OVERALL (mean of the modes above): ${modelOverall}`);
+      modelOveralls.push({ model, overall: modelOverall });
+    }
+    lines.push("");
+  }
+
+  // ── Ranked summary ──
+  if (modelOveralls.length > 1) {
     lines.push(`${"═".repeat(80)}`);
-
-    for (const lang of languages) {
-      const langResults = modelResults.filter((r) => r.language === lang);
-      if (langResults.length === 0) continue;
-
-      lines.push(
-        `\n  ┌─ ${lang.toUpperCase()} ${"─".repeat(70 - lang.length)}`,
-      );
-      lines.push(
-        `  │ ${"File".padEnd(35)} ${"Mode".padEnd(12)} ${"Found".padEnd(7)} ${"Expected".padEnd(10)} ${"Time".padEnd(8)} ${"Run Date"}`,
-      );
-      lines.push(
-        `  │ ${"─".repeat(35)} ${"─".repeat(12)} ${"─".repeat(7)} ${"─".repeat(10)} ${"─".repeat(8)} ${"─".repeat(19)}`,
-      );
-
-      let langCorrect = 0;
-      let langFalsePos = 0;
-      let langExpected = 0;
-      let langTime = 0;
-
-      for (const r of langResults) {
-        const expected = r.variant === "correct" ? 0 : 10;
-        const timeStr = `${(r.runtimeMs / 1000).toFixed(1)}s`;
-        const dateStr = r.runDate
-          ? r.runDate.slice(0, 19).replace("T", " ")
-          : "unknown";
-        lines.push(
-          `  │ ${r.file.padEnd(35)} ${r.mode.padEnd(12)} ${String(r.correctionsFound).padEnd(7)} ${String(expected).padEnd(10)} ${timeStr.padEnd(8)} ${dateStr}`,
-        );
-
-        if (r.variant === "correct") {
-          langFalsePos += r.correctionsFound;
-        } else {
-          langCorrect += r.correctionsFound;
-          langExpected += expected;
-        }
-        langTime += r.runtimeMs;
-      }
-
-      lines.push(`  │`);
-      lines.push(
-        `  │ Corrections: ${langCorrect} / ${langExpected} expected | False positives: ${langFalsePos} | Time: ${(langTime / 1000).toFixed(1)}s`,
-      );
-      lines.push(`  └${"─".repeat(78)}`);
+    lines.push(`RANKED — model overall score, highest first`);
+    lines.push(`${"═".repeat(80)}`);
+    for (const { model, overall } of [...modelOveralls].sort((a, b) => b.overall - a.overall)) {
+      lines.push(`  ${String(overall).padStart(4)}  ${model}`);
     }
-
-    // Model-wide totals
-    let totalCorrect = 0;
-    let totalFalsePos = 0;
-    let totalExpected = 0;
-    let totalTime = 0;
-    for (const r of modelResults) {
-      if (r.variant === "correct") {
-        totalFalsePos += r.correctionsFound;
-      } else {
-        totalCorrect += r.correctionsFound;
-        totalExpected += r.variant === "correct" ? 0 : 10;
-      }
-      totalTime += r.runtimeMs;
-    }
-
-    lines.push(`\n  MODEL TOTALS:`);
-    lines.push(
-      `    True corrections found: ${totalCorrect} / ${totalExpected} expected`,
-    );
-    lines.push(`    False positives (clean texts): ${totalFalsePos}`);
-    lines.push(`    Total runtime: ${(totalTime / 1000).toFixed(1)}s`);
-    lines.push(
-      `    Avg time per task: ${(totalTime / modelResults.length / 1000).toFixed(1)}s`,
-    );
+    lines.push("");
   }
 
-  // ── Cross-model language comparison ──
-  if (models.length > 1 && languages.length > 0) {
-    lines.push(`\n\n${"═".repeat(80)}`);
-    lines.push(`CROSS-MODEL COMPARISON BY LANGUAGE`);
-    lines.push(`${"═".repeat(80)}\n`);
-
-    lines.push(
-      `  ${"Language".padEnd(12)} ${"Model".padEnd(45)} ${"Correct".padEnd(10)} ${"FP".padEnd(5)} ${"Time"}`,
-    );
-    lines.push(
-      `  ${"─".repeat(12)} ${"─".repeat(45)} ${"─".repeat(10)} ${"─".repeat(5)} ${"─".repeat(8)}`,
-    );
-
-    for (const lang of languages) {
-      for (const model of models) {
-        const subset = results.filter(
-          (r) => r.model === model && r.language === lang,
-        );
-        if (subset.length === 0) continue;
-        let correct = 0,
-          fp = 0,
-          time = 0;
-        for (const r of subset) {
-          if (r.variant === "correct") fp += r.correctionsFound;
-          else correct += r.correctionsFound;
-          time += r.runtimeMs;
-        }
-        const modelShort =
-          model.length > 43 ? model.slice(0, 40) + "..." : model;
-        lines.push(
-          `  ${lang.padEnd(12)} ${modelShort.padEnd(45)} ${String(correct).padEnd(10)} ${String(fp).padEnd(5)} ${(time / 1000).toFixed(1)}s`,
-        );
-      }
-    }
-  }
-
-  // ── Detailed corrections list ──
-  lines.push(`\n\n${"═".repeat(80)}`);
-  lines.push(`DETAILED CORRECTIONS`);
+  // ── Missed errors / false positives detail, per model+mode ──
   lines.push(`${"═".repeat(80)}`);
-
-  for (const r of results) {
-    if (r.corrections.length === 0) continue;
-    const dateStr = r.runDate ? r.runDate.slice(0, 19).replace("T", " ") : "";
-    lines.push(`\n[${r.model}] ${r.file} (${r.mode}) — ${dateStr}:`);
-    for (const c of r.corrections) {
-      const orig =
-        c.original.length > 60 ? c.original.slice(0, 57) + "..." : c.original;
-      const corr =
-        c.corrected.length > 60
-          ? c.corrected.slice(0, 57) + "..."
-          : c.corrected;
-      lines.push(`  "${orig}" → "${corr}"`);
+  lines.push(`DETAIL — missed planted errors and false positives (run 1 of each task)`);
+  lines.push(`${"═".repeat(80)}`);
+  for (const model of models) {
+    for (const mode of ["copy_edit", "line_edit"] as const) {
+      const runs = results.filter(
+        (r) => r.model === model && r.mode === mode && r.variant !== "correct" && r.repeatIndex === 1 && r.errors.length === 0,
+      );
+      if (runs.length === 0) continue;
+      for (const r of runs) {
+        const truth = groundTruthFor(r.language, mode);
+        const scored = scoreCorrections(r.corrections, truth);
+        if (scored.missedErrors.length === 0 && scored.falsePositiveCorrections.length === 0) continue;
+        lines.push(`\n[${model}] ${r.file} (${mode}):`);
+        for (const m of scored.missedErrors.slice(0, 10)) {
+          lines.push(`  MISSED:  "${m.wrong}" → "${m.right}"`);
+        }
+        if (scored.missedErrors.length > 10) lines.push(`  …and ${scored.missedErrors.length - 10} more missed`);
+        for (const fp of scored.falsePositiveCorrections.slice(0, 10)) {
+          lines.push(`  INVENTED: "${fp.original}" → "${fp.corrected}"`);
+        }
+        if (scored.falsePositiveCorrections.length > 10) lines.push(`  …and ${scored.falsePositiveCorrections.length - 10} more invented`);
+      }
     }
   }
 

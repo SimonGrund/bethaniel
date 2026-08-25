@@ -72,6 +72,11 @@ import {
   DEFAULT_LINE_EDIT_OPTIONS,
   ANALYSIS_MODES,
 } from "./types.js";
+import {
+  estimateCloudJob,
+  type CloudEstimateInput,
+  type CloudEstimateMode,
+} from "./cloudEstimate.js";
 import { buildConsistencyReport } from "./consistency.js";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
 import {
@@ -94,6 +99,7 @@ import {
   isApiModel,
   isCustomGgufModel,
   getPreferredOrder,
+  getModelByFileName,
 } from "./modelCatalog.js";
 import type { ModelCatalogEntry } from "./modelCatalog.js";
 import { getAllowedTiers } from "./modelRecommendation.js";
@@ -300,7 +306,7 @@ router.get("/system/recommend", async (req: Request, res: Response) => {
   // API models — hardware-independent, concurrency limited only by provider rate limits
   if (model && isApiModel(model)) {
     res.json({
-      recommendedParallel: 3,
+      recommendedParallel: getModelByFileName(model)?.recommendedParallel ?? 3,
       totalRamGb: 0,
       freeRamGb: 0,
       usableRamGb: 0,
@@ -1513,17 +1519,16 @@ router.get("/models/installed", async (_req: Request, res: Response) => {
       }
     }
 
-    // Check API models — "installed" when the user has configured an API key
-    if (hasApiConfig()) {
-      for (const entry of MODEL_CATALOG) {
-        if (entry.source === "api") {
-          installed.push({
-            id: entry.id,
-            tier: entry.tier,
-            name: entry.name,
-            fileName: entry.fileName,
-          });
-        }
+    // Check API models — each entry is "installed" independently, based on
+    // whether *that* provider has a configured key (not whether any does).
+    for (const entry of MODEL_CATALOG) {
+      if (entry.source === "api" && hasApiConfig(entry.id)) {
+        installed.push({
+          id: entry.id,
+          tier: entry.tier,
+          name: entry.name,
+          fileName: entry.fileName,
+        });
       }
     }
 
@@ -1950,32 +1955,160 @@ router.delete("/models/custom-gguf/config", (_req: Request, res: Response) => {
 // ── External Betty (API) configuration ──
 // Must be registered BEFORE /models/:fileName to avoid "custom" being captured as a fileName param
 
-router.get("/models/custom/config", (_req: Request, res: Response) => {
-  const cfg = readApiConfig();
+// `entryId` identifies which API-backed catalog entry a request is about
+// (e.g. "custom-deepseek" for External Betty, "bethaniel-cloud" for Betty in
+// the Cloud). Defaults to External Betty's id so callers written before
+// providers were keyed individually keep working unchanged.
+const DEFAULT_API_ENTRY_ID = "custom-deepseek";
+
+router.get("/models/custom/config", (req: Request, res: Response) => {
+  const entryId =
+    typeof req.query.entryId === "string" && req.query.entryId
+      ? req.query.entryId
+      : DEFAULT_API_ENTRY_ID;
+  const cfg = readApiConfig(entryId);
   res.json({ configured: !!cfg?.apiKey, model: cfg?.model ?? "" });
 });
 
 router.put("/models/custom/config", (req: Request, res: Response) => {
-  const { apiKey, model } = req.body ?? {};
+  const { apiKey, model, baseUrl, entryId: bodyEntryId } = req.body ?? {};
+  const entryId =
+    typeof bodyEntryId === "string" && bodyEntryId
+      ? bodyEntryId
+      : DEFAULT_API_ENTRY_ID;
   // Model can be changed without re-entering the key (the key never leaves
   // the backend, so the frontend can't echo it back).
   const key =
     typeof apiKey === "string" && apiKey.trim().length > 0
       ? apiKey.trim()
-      : (readApiConfig()?.apiKey ?? "");
+      : (readApiConfig(entryId)?.apiKey ?? "");
   if (!key) {
     res.status(400).json({ error: "API key is required" });
     return;
   }
   const apiModel =
     typeof model === "string" && model.trim() ? model.trim() : "deepseek-chat";
-  writeApiConfig({ apiKey: key, model: apiModel });
+  const config: { apiKey: string; model: string; baseUrl?: string } = {
+    apiKey: key,
+    model: apiModel,
+  };
+  if (typeof baseUrl === "string" && baseUrl.trim()) {
+    config.baseUrl = baseUrl.trim();
+  }
+  writeApiConfig(entryId, config);
   res.json({ ok: true });
 });
 
-router.delete("/models/custom/config", (_req: Request, res: Response) => {
-  deleteApiConfig();
+router.delete("/models/custom/config", (req: Request, res: Response) => {
+  const entryId =
+    typeof req.query.entryId === "string" && req.query.entryId
+      ? req.query.entryId
+      : DEFAULT_API_ENTRY_ID;
+  deleteApiConfig(entryId);
   res.json({ ok: true });
+});
+
+// ── Betty in the Cloud — pre-run token/price estimate + checkout kickoff ──
+// The Worker URL/response are never forwarded raw to the renderer beyond what
+// it needs to render a price and open a checkout link, mirroring how the API
+// key itself never round-trips to the frontend.
+
+router.post("/cloud/estimate", async (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  const units = Array.isArray(body.units)
+    ? body.units.map((u: unknown) => ({
+        wordCount: Number((u as { wordCount?: unknown })?.wordCount) || 0,
+      }))
+    : [];
+  const modes: CloudEstimateMode[] = Array.isArray(body.modes) ? body.modes : [];
+  if (units.length === 0 || modes.length === 0) {
+    res.status(400).json({ error: "units and modes are required" });
+    return;
+  }
+
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  const input: CloudEstimateInput = {
+    units,
+    modes,
+    wordsPerChunk: Number(body.wordsPerChunk) || 2000,
+    runMode:
+      body.runMode === "speed" || body.runMode === "max" ? body.runMode : "custom",
+    reviewMode: !!body.reviewMode,
+    reviewerCount: Number(body.reviewerCount) || 0,
+    dualEditor: !!body.dualEditor,
+    dualCount: Number(body.dualCount) || 1,
+    styleComplianceAgent: !!body.styleComplianceAgent,
+    extraPass: !!body.extraPass,
+    numPredict: cloudEntry?.defaults.num_predict ?? 8192,
+    styleGuideChars:
+      typeof body.styleGuide === "string" ? body.styleGuide.length : undefined,
+    manuscriptLang:
+      typeof body.manuscriptLang === "string" ? body.manuscriptLang : undefined,
+  };
+  const estimate = estimateCloudJob(input);
+
+  const workerBaseUrl = cloudEntry?.defaultBaseUrl;
+  if (!workerBaseUrl) {
+    res.status(503).json({ error: "Betty in the Cloud is not configured yet" });
+    return;
+  }
+  try {
+    const quoteRes = await fetch(`${workerBaseUrl}/v1/quote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estimatedTokens: estimate.estimatedTotalTokens }),
+    });
+    if (!quoteRes.ok) {
+      res
+        .status(502)
+        .json({ error: "Could not get a price quote from the cloud service" });
+      return;
+    }
+    const quote = (await quoteRes.json()) as {
+      quoteId: string;
+      priceEurCents: number;
+    };
+    res.json({
+      estimatedTotalTokens: estimate.estimatedTotalTokens,
+      estimatedInputTokens: estimate.estimatedInputTokens,
+      estimatedOutputTokens: estimate.estimatedOutputTokens,
+      confidence: estimate.confidence,
+      quoteId: quote.quoteId,
+      priceCents: quote.priceEurCents,
+      currency: "EUR",
+    });
+  } catch {
+    res.status(502).json({ error: "Could not reach the cloud service" });
+  }
+});
+
+router.post("/cloud/checkout", async (req: Request, res: Response) => {
+  const { quoteId } = req.body ?? {};
+  if (typeof quoteId !== "string" || !quoteId) {
+    res.status(400).json({ error: "quoteId is required" });
+    return;
+  }
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  const workerBaseUrl = cloudEntry?.defaultBaseUrl;
+  if (!workerBaseUrl) {
+    res.status(503).json({ error: "Betty in the Cloud is not configured yet" });
+    return;
+  }
+  try {
+    const checkoutRes = await fetch(`${workerBaseUrl}/v1/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quoteId }),
+    });
+    if (!checkoutRes.ok) {
+      res.status(502).json({ error: "Could not start checkout" });
+      return;
+    }
+    const { checkoutUrl } = (await checkoutRes.json()) as { checkoutUrl: string };
+    res.json({ checkoutUrl });
+  } catch {
+    res.status(502).json({ error: "Could not reach the cloud service" });
+  }
 });
 
 // ── DELETE /api/models/:fileName ──
@@ -2127,11 +2260,88 @@ import {
   ensureModelLoaded,
   fitsInVram,
   unloadCurrentModel,
+  getEngineDevice,
 } from "./llamaServer.js";
+import {
+  getLanguageToolStatus,
+  ensureLanguageToolRunning,
+} from "./languageToolServer.js";
+import { downloadLanguageTool } from "./languageToolInstall.js";
 
 router.get("/logs", (_req: Request, res: Response) => {
   res.json({ logs: getLogSnapshot() });
 });
+
+// ── GET /api/engine/status — is the running llama-server using the GPU? ──
+router.get("/engine/status", (_req: Request, res: Response) => {
+  res.json(getEngineDevice());
+});
+
+// ── LanguageTool: status + on-demand download ──
+
+router.get("/languagetool/status", (_req: Request, res: Response) => {
+  res.json(getLanguageToolStatus());
+});
+
+let languageToolDownload: {
+  status: "starting" | "downloading" | "done" | "error";
+  error?: string;
+} | null = null;
+
+router.post(
+  "/languagetool/download",
+  async (_req: Request, res: Response) => {
+    if (getLanguageToolStatus().available) {
+      res.json({ status: "already_installed" });
+      return;
+    }
+    if (languageToolDownload && languageToolDownload.status !== "error") {
+      res.json({ status: languageToolDownload.status });
+      return;
+    }
+    languageToolDownload = { status: "starting" };
+    res.json({ status: "started" });
+
+    const io = getSocketIO();
+    (async () => {
+      try {
+        languageToolDownload = { status: "downloading" };
+        io?.emit("languagetool:download", languageToolDownload);
+        await downloadLanguageTool({
+          log: (m) => console.log(`[languagetool-install] ${m}`),
+        });
+        // Take effect immediately — unlike the CUDA engine (frozen into
+        // LLAMA_BIN at process start), LanguageTool is just spawned on
+        // demand, so the very next check can already use it.
+        await ensureLanguageToolRunning();
+        languageToolDownload = { status: "done" };
+        io?.emit("languagetool:download", languageToolDownload);
+        appendLog({
+          level: "info",
+          source: "engine",
+          message: "LanguageTool grammar checking installed and ready.",
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        languageToolDownload = { status: "error", error: message };
+        io?.emit("languagetool:download", languageToolDownload);
+        appendLog({
+          level: "warn",
+          source: "engine",
+          message: `LanguageTool download failed: ${message}`,
+        });
+      }
+    })();
+  },
+);
+
+// Re-sync after a page reload — the download keeps running detached server-side.
+router.get(
+  "/languagetool/download/status",
+  (_req: Request, res: Response) => {
+    res.json({ download: languageToolDownload });
+  },
+);
 
 router.delete("/logs", (_req: Request, res: Response) => {
   clearLogs();

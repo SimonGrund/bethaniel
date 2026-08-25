@@ -14,6 +14,7 @@ import {
   readApiConfig,
   type ModelSettings,
 } from "./modelConfig.js";
+import { getModelByFileName } from "./modelCatalog.js";
 import { appendLog } from "./logBus.js";
 import * as path from "path";
 import * as fs from "fs";
@@ -34,6 +35,28 @@ export const CHARS_PER_TOKEN = 3.5;
 /** Estimate token count from raw text length using {@link CHARS_PER_TOKEN}. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+/**
+ * A stable sampling seed derived from content, never from `taskId`/`jobId`
+ * (those are fresh UUIDs every submission, so keying on them would defeat
+ * the point — re-running the same manuscript would reseed differently every
+ * time). Callers pass identifiers like the chapter name, chunk index, a
+ * role tag ("editor"/"reviewer:0"), and the retry attempt number — the last
+ * one matters: without it, a retry after a bad output would resample with
+ * the identical seed+prompt and likely reproduce the identical bad output.
+ *
+ * Plain FNV-1a over the joined parts — collision-resistant enough for this
+ * (picking one of ~4 billion seeds per distinct call site), not cryptographic.
+ */
+export function deriveSeed(...parts: (string | number)[]): number {
+  const s = parts.join("|");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 /** Per-slot context window (tokens) for a model, from its active config. */
@@ -241,35 +264,72 @@ export class ApiAccountError extends Error {
 
 // ── Core streaming chat via OpenAI-compatible API ──
 
+export interface ChatStreamOptions {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repeat_penalty?: number;
+  max_tokens?: number;
+  response_format?: { type: string };
+  /** Override the context window size for this request. When set the
+   *  llama-server will be restarted with `-c <numCtxOverride>` if the
+   *  currently running instance was started with a different context size. */
+  numCtxOverride?: number;
+  /** Reproducible sampling seed — see {@link deriveSeed}. Omitted means
+   *  llama-server/the external API picks its own (effectively random). */
+  seed?: number;
+}
+
+/**
+ * Build the JSON body for a local llama-server `/v1/chat/completions`
+ * request. Extracted from chatStream as a pure function so the sampling
+ * params it sends — seed included — are directly unit-testable without
+ * spinning up a mock model server.
+ */
+export function buildLocalChatBody(
+  cfg: ModelSettings,
+  messages: { role: string; content: string }[],
+  options: ChatStreamOptions,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    messages,
+    stream: true,
+    temperature: options.temperature ?? cfg.temperature,
+    top_p: options.top_p ?? cfg.top_p,
+    top_k: options.top_k ?? cfg.top_k,
+    repeat_penalty: options.repeat_penalty ?? cfg.repeat_penalty,
+    max_tokens: options.max_tokens ?? cfg.num_predict,
+  };
+  if (options.response_format) {
+    body.response_format = options.response_format;
+  }
+  if (options.seed !== undefined) body.seed = options.seed;
+  return body;
+}
+
 async function* chatStream(
   model: string,
   messages: { role: string; content: string }[],
-  options: {
-    temperature?: number;
-    top_p?: number;
-    top_k?: number;
-    repeat_penalty?: number;
-    max_tokens?: number;
-    response_format?: { type: string };
-    /** Override the context window size for this request. When set the
-     *  llama-server will be restarted with `-c <numCtxOverride>` if the
-     *  currently running instance was started with a different context size. */
-    numCtxOverride?: number;
-  },
+  options: ChatStreamOptions,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
 
-  // ── Route: external API model (e.g. DeepSeek) ──
+  // ── Route: external API model (e.g. DeepSeek, Betty in the Cloud) ──
   if (model.startsWith("custom:") && !model.startsWith("custom:gguf")) {
-    const apiConfig = readApiConfig();
+    const entry = getModelByFileName(model);
+    const apiConfig = entry ? readApiConfig(entry.id) : null;
     if (!apiConfig?.apiKey) {
       throw new Error(
-        "External Betty API key not configured. Go to Settings to add your API key.",
+        `${entry?.name ?? "This model"}'s API key isn't configured. Go to Settings to add it.`,
       );
     }
 
-    const baseUrl = process.env.DEEPSEEK_API_BASE || "https://api.deepseek.com";
+    const baseUrl =
+      apiConfig.baseUrl ||
+      entry?.defaultBaseUrl ||
+      process.env.DEEPSEEK_API_BASE ||
+      "https://api.deepseek.com";
     const apiModel = apiConfig.model || "deepseek-chat";
     const apiBody: Record<string, unknown> = {
       model: apiModel,
@@ -284,6 +344,7 @@ async function* chatStream(
       apiBody.frequency_penalty =
         (options.repeat_penalty ?? cfg.repeat_penalty) - 1.0;
     }
+    if (options.seed !== undefined) apiBody.seed = options.seed;
 
     const watchdog = stallWatchdog(signal);
     try {
@@ -321,18 +382,7 @@ async function* chatStream(
   // All sampling params come from the per-model config (catalog defaults +
   // user sidecar overrides). Per-call options are only used for niche
   // overrides; in normal flows callers pass none.
-  const body: Record<string, unknown> = {
-    messages,
-    stream: true,
-    temperature: options.temperature ?? cfg.temperature,
-    top_p: options.top_p ?? cfg.top_p,
-    top_k: options.top_k ?? cfg.top_k,
-    repeat_penalty: options.repeat_penalty ?? cfg.repeat_penalty,
-    max_tokens: options.max_tokens ?? cfg.num_predict,
-  };
-  if (options.response_format) {
-    body.response_format = options.response_format;
-  }
+  const body = buildLocalChatBody(cfg, messages, options);
 
   const baseUrl = getLlamaBaseUrl();
   const watchdog = stallWatchdog(signal);
@@ -396,6 +446,7 @@ export async function* editChunkStream(
   chunkText: string,
   systemPrompt: string,
   signal?: AbortSignal,
+  seed?: number,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
   const systemMsg = buildSystemMessage(model, systemPrompt);
@@ -406,7 +457,7 @@ export async function* editChunkStream(
       { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
-    { max_tokens: cap },
+    { max_tokens: cap, seed },
     signal,
   );
 }
@@ -468,6 +519,7 @@ export async function* findCorrectionsStream(
   systemPrompt: string,
   signal?: AbortSignal,
   maxTokensOverride?: number,
+  seed?: number,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
   // The corrections JSON is usually smaller than the chunk it describes,
@@ -496,6 +548,15 @@ export async function* findCorrectionsStream(
       // `json_object` would fight the prompt and re-introduce truncation
       // problems on long responses.
       max_tokens: cap,
+      // Corrections-finding is "identify the objectively right fix," not
+      // creative generation — forced to near-zero regardless of the
+      // model's configured temperature slider (that slider still governs
+      // line-edit rewriting via editChunkStream). Combined with a
+      // content-derived seed (see deriveSeed), the same chunk re-run
+      // should sample the same corrections instead of a fresh roll each
+      // time.
+      temperature: 0,
+      seed,
     },
     signal,
   );
@@ -950,6 +1011,7 @@ export async function* reviewCorrectionsStream(
   corrections: Correction[],
   systemPrompt: string,
   signal?: AbortSignal,
+  seed?: number,
 ): AsyncGenerator<string> {
   const systemMsg = buildSystemMessage(model, systemPrompt);
   const userMsg = buildReviewerUserMessage(chunkText, corrections);
@@ -965,7 +1027,10 @@ export async function* reviewCorrectionsStream(
       { role: "system", content: systemMsg },
       { role: "user", content: userMsg },
     ],
-    { max_tokens: cap },
+    // Judging whether a proposed fix is correct is the same "objectively
+    // right answer" kind of task as finding one — see the matching note in
+    // findCorrectionsStream.
+    { max_tokens: cap, temperature: 0, seed },
     signal,
   );
 }

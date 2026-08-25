@@ -16,6 +16,7 @@ import * as net from "net";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { appendLog } from "./logBus.js";
+import { languageToolInstallDir } from "./languageToolInstall.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,9 @@ const LT_PORT = parseInt(process.env.LANGUAGETOOL_PORT ?? "8081", 10);
 /** Resource roots where the bundled LanguageTool distribution may live. */
 function resourceRoots(): string[] {
   return [
+    // Downloaded on demand (see languageToolInstall.ts) — checked first so a
+    // fresh download always wins over a stale bundled copy.
+    languageToolInstallDir(),
     // backend/dist/languageToolServer.js → ../../electron/resources/languagetool
     path.resolve(__dirname, "..", "..", "electron", "resources", "languagetool"),
     // backend/src/languageToolServer.ts (tsx dev) → ../../../electron/resources/languagetool
@@ -62,21 +66,41 @@ export function getLanguageToolBaseUrl(): string {
   );
 }
 
+export interface LanguageToolStatus {
+  available: boolean;
+  hasJar: boolean;
+  hasJava: boolean;
+}
+
 /**
- * Whether grammar checking can run: the server jar must be bundled AND a Java
- * runtime resolvable. Returns false (degrade silently) otherwise.
+ * Whether grammar checking can run — the server jar must be bundled AND a
+ * Java runtime resolvable — broken down by which half is missing, so the UI
+ * can say something more useful than just "unavailable".
+ */
+export function getLanguageToolStatus(): LanguageToolStatus {
+  if (process.env.LANGUAGETOOL_DISABLED === "1") {
+    return { available: false, hasJar: false, hasJava: false };
+  }
+  if (process.env.LANGUAGETOOL_BASE_URL) {
+    return { available: true, hasJar: true, hasJava: true }; // external server provided
+  }
+  const hasJar = resolveJar() !== null;
+  let hasJava = false;
+  try {
+    execFileSync(resolveJava(), ["-version"], { timeout: 4000, stdio: "pipe" });
+    hasJava = true;
+  } catch {
+    // no usable java — hasJava stays false
+  }
+  return { available: hasJar && hasJava, hasJar, hasJava };
+}
+
+/**
+ * Whether grammar checking can run. Returns false (degrade silently)
+ * otherwise.
  */
 export function isLanguageToolAvailable(): boolean {
-  if (process.env.LANGUAGETOOL_DISABLED === "1") return false; // global off-switch
-  if (process.env.LANGUAGETOOL_BASE_URL) return true; // external server provided
-  if (!resolveJar()) return false;
-  const java = resolveJava();
-  try {
-    execFileSync(java, ["-version"], { timeout: 4000, stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
-  }
+  return getLanguageToolStatus().available;
 }
 
 /**

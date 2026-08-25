@@ -15,6 +15,7 @@ import type {
 import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import { buildPublicationScan } from "./publicationScan.js";
+import { detectDialect } from "./dialect.js";
 import {
   ApiAccountError,
   editChunkStream,
@@ -33,6 +34,7 @@ import {
   unloadModel,
   estimateTokens,
   getContextWindow,
+  deriveSeed,
 } from "./llm.js";
 import {
   runWithRetry,
@@ -45,7 +47,13 @@ import {
   foldContainedCorrections,
   collapseIntroducedPunctuationPairs,
   reconcileSpellWithEditor,
+  dropNoOpCorrections,
+  dedupeChapterCorrections,
 } from "./correctionHygiene.js";
+import {
+  classifyPublicationBlocking,
+  isPunctuationOnlyChange,
+} from "./correctionSeverity.js";
 import {
   buildAnalysisSummaryPrompt,
   buildBlurbPrompt,
@@ -178,14 +186,16 @@ function runReviewerAgentWithRetry(opts: {
   agentLabel: string;
 }): Promise<string> {
   return runWithRetry(
-    async () => {
+    async (attempt) => {
       let acc = "";
+      const seed = deriveSeed(opts.chunkLabel, opts.agentLabel, attempt);
       for await (const tok of reviewCorrectionsStream(
         opts.model,
         opts.chunkText,
         opts.cs,
         opts.reviewerPrompt,
         opts.signal,
+        seed,
       )) {
         acc += tok;
       }
@@ -1282,6 +1292,14 @@ async function processJob(job: JobData): Promise<void> {
     skipped: Correction[];
   } | null> => {
     const { mode, prompt } = pass;
+    // Publication Scan's proofread pass has no copy-edit panel to configure a
+    // dialect from, and unlike copy_edit (which deliberately CONVERTS to a
+    // chosen dialect), a bare proofread pass should just recognize whichever
+    // dialect the manuscript already uses — never "correct" every "grey" to
+    // "gray" just because nothing was configured. Detected once per chapter
+    // (not per chunk) for a consistent choice across the whole pass.
+    const detectedDialect =
+      mode === "proofread" ? detectDialect(sourceText) : null;
     const passPrefix = pass.total > 1 ? `pass ${pass.n}/${pass.total} — ` : "";
     const chunks = splitIntoChunks(sourceText, wpc, overlap);
     totalChunks += chunks.length;
@@ -1476,7 +1494,8 @@ async function processJob(job: JobData): Promise<void> {
               spellCorrections = [];
               if (job.spellCheck) {
                 const { getSpellCorrections } = await import("./spellcheck.js");
-                const dialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
+                const configuredDialect = (job.editOptions as Record<string, unknown>)?.englishDialect as string | undefined;
+                const dialect = detectedDialect?.dialect ?? configuredDialect;
                 const chunkLang = job.manuscriptLang ?? "en";
                 // Unsupported languages (no dictionary) yield [] — spell-check
                 // is silently skipped rather than run against English.
@@ -1678,16 +1697,21 @@ async function processJob(job: JobData): Promise<void> {
                 // is real (not measured after Promise.allSettled has already
                 // joined every finished stream).
                 let dualFirstTokenAt = 0;
-                const collectStream = async (promptText: string) => {
+                const collectStream = async (
+                  promptText: string,
+                  idx: number,
+                  innerRetry = 0,
+                ) => {
                   let a = "";
-                  for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal)) {
+                  const seed = deriveSeed(mode, job.name, j, `editor:${idx}`, attempt, innerRetry);
+                  for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal, undefined, seed)) {
                     if (dualFirstTokenAt === 0) dualFirstTokenAt = performance.now();
                     a += t;
                   }
                   return a;
                 };
 
-                const promises = editorPrompts.map((pr) => collectStream(pr));
+                const promises = editorPrompts.map((pr, idx) => collectStream(pr, idx));
                 const results = await Promise.allSettled(promises);
 
                 // Build raw values per agent.
@@ -1713,7 +1737,7 @@ async function processJob(job: JobData): Promise<void> {
                     let retried = false;
                     for (let rt = 1; hopeless ? false : rt <= DUAL_RETRIES; rt++) {
                       try {
-                        const val = await collectStream(editorPrompts[idx]);
+                        const val = await collectStream(editorPrompts[idx], idx, rt);
                         raws.push(val);
                         retried = true;
                         appendLog({
@@ -1781,7 +1805,7 @@ async function processJob(job: JobData): Promise<void> {
                   const k = JSON.stringify([c.original, c.corrected]);
                   if (!seen.has(k)) { seen.add(k); merged.push(c); }
                 }
-                _dualMergedCorrections = merged;
+                _dualMergedCorrections = dropNoOpCorrections(merged);
                 // Aggregate output-token estimate across all parallel agents.
                 // Paired with the real first-token time above this yields an
                 // honest aggregate decode throughput (tokens / wall-clock).
@@ -1792,6 +1816,8 @@ async function processJob(job: JobData): Promise<void> {
                   chunk.body,
                   chunkPrompt,
                   ac.signal,
+                  undefined,
+                  deriveSeed(mode, job.name, j, "editor", attempt),
                 )) {
                 acc += tok;
                 tokCount++;
@@ -1821,6 +1847,7 @@ async function processJob(job: JobData): Promise<void> {
                 chunk.body,
                 prompt,
                 ac.signal,
+                deriveSeed(mode, job.name, j, "rewrite", attempt),
               )) {
                 acc += tok;
                 tokCount++;
@@ -2178,6 +2205,7 @@ async function processJob(job: JobData): Promise<void> {
                           srcParas[f.idx],
                           rePrompt,
                           ac.signal,
+                          deriveSeed(mode, job.name, j, "retranslate", f.idx),
                         )) reAcc += tok;
                         const reTranslated = reAcc.trim();
                         if (reTranslated) {
@@ -2232,17 +2260,25 @@ async function processJob(job: JobData): Promise<void> {
                 signal: ac.signal,
               },
               {
-                editStream: async (text, systemPrompt) => {
-                  let out = "";
-                  for await (const tok of editChunkStream(
-                    model,
-                    text,
-                    systemPrompt,
-                    ac.signal,
-                  ))
-                    out += tok;
-                  return out;
-                },
+                editStream: (() => {
+                  // runTranslationUpgrade invokes this repeatedly (the
+                  // initial polish, then once per flagged re-polish) with no
+                  // index of its own — a local counter keeps each call's
+                  // seed distinct while still reproducible run-to-run.
+                  let callIndex = 0;
+                  return async (text: string, systemPrompt: string) => {
+                    let out = "";
+                    for await (const tok of editChunkStream(
+                      model,
+                      text,
+                      systemPrompt,
+                      ac.signal,
+                      deriveSeed(mode, job.name, j, "upgrade", callIndex++),
+                    ))
+                      out += tok;
+                    return out;
+                  };
+                })(),
                 runReviewer: (draftChunk, pairs) =>
                   runReviewerAgentWithRetry({
                     model,
@@ -2476,35 +2512,9 @@ async function processJob(job: JobData): Promise<void> {
   // Deduplicate corrections — overlapping chunks and chunk boundaries can
   // produce the same correction multiple times, sometimes with extra context.
   {
-    // Pass 1: exact dedup by (original, corrected) with whitespace normalisation.
-    const seen = new Set<string>();
-    const deduped: Correction[] = [];
-    const norm = (s: string) => s.trim().replace(/\s+/g, " ");
-    for (const c of corrections) {
-      const k = JSON.stringify([norm(c.original), norm(c.corrected)]);
-      if (!seen.has(k)) {
-        seen.add(k);
-        deduped.push(c);
-      }
-    }
-
-    // Pass 2: remove corrections whose (original, corrected) pair is fully
-    // contained within a shorter correction — i.e. the shorter one already
-    // captures the same fix with less context, making the longer one redundant.
-    const subsumeFree: Correction[] = [];
-    for (const c of deduped) {
-      const subsumed = deduped.some(
-        (other) =>
-          other !== c &&
-          other.original.length < c.original.length &&
-          c.original.includes(other.original) &&
-          c.corrected.includes(other.corrected),
-      );
-      if (!subsumed) subsumeFree.push(c);
-    }
-
+    const deduped = dedupeChapterCorrections(original, corrections);
     corrections.length = 0;
-    corrections.push(...subsumeFree);
+    corrections.push(...deduped);
   }
 
   // Chapter-level punctuation net: doubled marks the original didn't have
@@ -2536,6 +2546,11 @@ async function processJob(job: JobData): Promise<void> {
         model,
       });
     }
+  }
+
+  for (const c of corrections) {
+    c.blocksPublication = classifyPublicationBlocking(c, mode);
+    c.polishOnly = isPunctuationOnlyChange(c.original, c.corrected);
   }
 
   const result: TaskResult = {

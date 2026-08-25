@@ -9,6 +9,7 @@ import {
   saveCustomModelConfig,
   saveCustomModelName,
   deleteCustomModelConfig,
+  deleteCloudCredential,
   fetchCustomGgufConfig,
   saveCustomGgufConfig,
   deleteCustomGgufConfig,
@@ -30,6 +31,7 @@ const TIER_COLORS: Record<string, string> = {
 // a user-supplied GGUF).
 function modelIcon(fileName: string, tier: string): string {
   if (fileName === "custom:deepseek-chat") return "☁️";
+  if (fileName === "custom:bethaniel-cloud") return "💳";
   if (fileName === "custom:gguf") return "🛠️";
   switch (tier) {
     case "small":
@@ -223,6 +225,17 @@ export default function ModelSelector() {
     }
   }
 
+  async function handleDisconnectCloud() {
+    try {
+      await deleteCloudCredential();
+      setHighlightedModel("");
+      if (model === "custom:bethaniel-cloud") setModel("");
+      await refreshAll();
+    } catch {
+      // Best-effort — the credential is short-lived and single-job anyway.
+    }
+  }
+
   // ── Custom Betty (custom GGUF) handlers ──
 
   async function handleBrowseGguf() {
@@ -364,11 +377,15 @@ export default function ModelSelector() {
               entry.fileName.startsWith("custom:") &&
               entry.fileName !== "custom:gguf";
             const isCustomGguf = entry.fileName === "custom:gguf";
+            // Each API entry reports its own configured state via `installed`
+            // (the backend checks that entry's own stored credential, not
+            // "is any API provider configured") — this is what lets External
+            // Betty and Betty in the Cloud coexist without one masking the
+            // other's status.
             const isInstalled = isCustomGguf
               ? customGgufConfigured
-              : isApiModel
-                ? apiKeyConfigured
-                : installed.some((i) => i.id === entry.id);
+              : installed.some((i) => i.id === entry.id);
+            const isBethanielCloud = entry.fileName === "custom:bethaniel-cloud";
             const isDownloading =
               !isApiModel && !isCustomGguf && downloading.has(entry.id);
             // over-spec: machine lacks RAM but download is still allowed
@@ -420,6 +437,10 @@ export default function ModelSelector() {
                       return;
                     }
                     if (isApiModel) {
+                      // Betty in the Cloud has no key-entry form here — its
+                      // credential is only ever set from the Run step's
+                      // pay-per-job flow — so selecting the card just picks
+                      // it (once paid for) or opens its info panel.
                       if (isInstalled) {
                         setHighlightedModel(entry.fileName);
                         setApiConfigOpen(false);
@@ -456,6 +477,12 @@ export default function ModelSelector() {
                       ) : (
                         t("custom_gguf_path_label")
                       )
+                    ) : isBethanielCloud ? (
+                      isInstalled ? (
+                        t("cloud_credit_active", "Cloud credit active")
+                      ) : (
+                        t("cloud_pay_per_job", "Pay per job — no setup")
+                      )
                     ) : isApiModel ? (
                       apiKeyConfigured ? (
                         `${t("api_model_label")}: ${apiModelName}`
@@ -486,6 +513,19 @@ export default function ModelSelector() {
                     ) : (
                       <span className="model-card-status">
                         {t("custom_gguf_connect")}
+                      </span>
+                    )
+                  ) : isBethanielCloud ? (
+                    isInstalled ? (
+                      <span className="model-card-status">
+                        <span className="model-installed-check">✓</span>
+                        <span className="model-recommended-badge">
+                          {t("cloud_connected", "Ready")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="model-card-status">
+                        {t("cloud_get_started", "Get a price →")}
                       </span>
                     )
                   ) : isApiModel ? (
@@ -1020,7 +1060,7 @@ export default function ModelSelector() {
             )}
           {apiKeyConfigured &&
             !modelLocked &&
-            (model?.startsWith("custom:") ||
+            (model === "custom:deepseek-chat" ||
               highlightedModel === "custom:deepseek-chat") && (
               <div className="api-config-inline">
                 <div className="api-config-row">
@@ -1050,6 +1090,42 @@ export default function ModelSelector() {
                     {t("api_disconnect")}
                   </button>
                 </div>
+              </div>
+            )}
+
+          {/* ── Betty in the Cloud: pay-per-job, no key entry here ──
+              Its credential is only ever written by the Run step's checkout
+              flow, so this panel is informational, not a form. */}
+          {!modelLocked &&
+            (model === "custom:bethaniel-cloud" ||
+              highlightedModel === "custom:bethaniel-cloud") && (
+              <div className="api-config-inline">
+                {installed.some((m) => m.id === "bethaniel-cloud") ? (
+                  <>
+                    <p className="api-privacy-warning">
+                      {t(
+                        "cloud_ready_notice",
+                        "A paid cloud credit is active for this job. It's spent automatically as the job runs and expires if unused.",
+                      )}
+                    </p>
+                    <div className="api-config-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={handleDisconnectCloud}
+                      >
+                        {t("cloud_disconnect", "Remove credit")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="api-privacy-warning">
+                    {t(
+                      "cloud_setup_notice",
+                      "No setup here — go to the Run step, get a price for your job, and pay to unlock this option. Your manuscript is sent to Bethaniel's cloud service.",
+                    )}
+                  </p>
+                )}
               </div>
             )}
         </>

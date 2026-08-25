@@ -357,7 +357,77 @@ export const DIALECT_PAIRS: DialectPair[] = [
   p("encyclopaedias", "encyclopedias"),
   p("mediaeval", "medieval"),
   p("diarrhoea", "diarrhea"),
+  // ── Directional "-wards" adverbs — BrE keeps the trailing -s, AmE drops it.
+  //    Unambiguous in both directions (no other sense collides). ──
+  p("towards", "toward"),
+  p("backwards", "backward"),
+  p("forwards", "forward"),
+  p("upwards", "upward"),
+  p("downwards", "downward"),
+  p("onwards", "onward"),
+  p("afterwards", "afterward"),
+  p("inwards", "inward"),
+  p("outwards", "outward"),
+  p("homewards", "homeward"),
+  p("eastwards", "eastward"),
+  p("westwards", "westward"),
+  p("northwards", "northward"),
+  p("southwards", "southward"),
+  // ── Misc unambiguous pairs ──
+  // BrE commonly hyphenates "no-one"; AmE always writes it as two words.
+  p("no-one", "no one"),
+  p("artefact", "artifact"),
+  p("artefacts", "artifacts"),
+  p("cosy", "cozy"),
+  p("cosier", "cozier"),
+  p("cosiest", "coziest"),
+  p("cosily", "cozily"),
+  p("cosiness", "coziness"),
 ];
+
+export interface DialectDetection {
+  /** null when there isn't enough signal either way (very short/sparse text). */
+  dialect: "american" | "british" | null;
+  americanHits: number;
+  britishHits: number;
+  /** Both dialects appear often enough that this looks like a genuine
+   *  inconsistency, not one stray outlier (a quoted foreign spelling, a
+   *  proper noun that happens to collide with a dialect pair). */
+  mixed: boolean;
+}
+
+/**
+ * Detect a manuscript's English dialect by counting occurrences of each side
+ * of the curated DIALECT_PAIRS list — reusing the exact word list the
+ * copy-edit conversion already trusts, so detection and enforcement never
+ * disagree about what counts as a dialect marker.
+ */
+export function detectDialect(text: string): DialectDetection {
+  let americanHits = 0;
+  let britishHits = 0;
+  for (const pair of DIALECT_PAIRS) {
+    const usMatches = text.match(new RegExp(`\\b${pair.us}\\b`, "gi"));
+    const brMatches = text.match(new RegExp(`\\b${pair.br}\\b`, "gi"));
+    americanHits += usMatches?.length ?? 0;
+    britishHits += brMatches?.length ?? 0;
+  }
+
+  const total = americanHits + britishHits;
+  if (total === 0) {
+    return { dialect: null, americanHits, britishHits, mixed: false };
+  }
+
+  const minority = Math.min(americanHits, britishHits);
+  const mixed = minority >= 3 && minority / total >= 0.15;
+  const dialect =
+    americanHits === britishHits
+      ? null
+      : americanHits > britishHits
+        ? "american"
+        : "british";
+
+  return { dialect, americanHits, britishHits, mixed };
+}
 
 /** Reshape `target` to match the casing pattern of `surface`. */
 function matchCase(surface: string, target: string): string {

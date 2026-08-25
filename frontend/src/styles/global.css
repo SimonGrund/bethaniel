@@ -1040,6 +1040,38 @@ h4 {
   color: #3d2f1a;
 }
 
+/* Betty in the Cloud — pay-per-job. Deliberately not gold/parchment like the
+   local-run button: it's a distinct, opt-in, off-device path, not the
+   default. */
+.btn-run-cloud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: #eef4f8;
+  color: #1f4a63;
+  border: 1.5px solid #9fc3d6;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-run-cloud:hover:not(:disabled) {
+  background: #dfeef5;
+  border-color: #5d92ab;
+}
+
+.btn-run-cloud:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Rent-A-Betty button (golden, coming soon / greyed out) ── */
 .btn-rent-betty {
   display: flex;
@@ -1835,6 +1867,24 @@ summary.review-source::before {
   display: flex;
   justify-content: flex-end;
   margin-top: 0.5rem;
+}
+
+.dialect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: #fdf4e2;
+  border: 1px solid #e6c98a;
+  border-radius: 4px;
+}
+
+.dialect-banner-text {
+  margin: 0;
+  font-style: normal;
+  color: #6b5a1f;
 }
 
 .btn-accept-all-job {
@@ -3924,6 +3974,29 @@ summary.review-source::before {
   transition: width 0.3s ease;
 }
 
+/* LanguageTool's download has no byte-level progress (two separate files,
+   reported as coarse stages) — a sweeping bar rather than a stalled 0%. */
+.model-download-fill-indeterminate {
+  width: 40%;
+  animation: model-download-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes model-download-indeterminate {
+  0% {
+    margin-left: 0%;
+  }
+  50% {
+    margin-left: 60%;
+  }
+  100% {
+    margin-left: 0%;
+  }
+}
+
+.model-confirm-text-error {
+  color: #7f1d1d;
+}
+
 /* Run button waiting on a model — reads as "not yet", not "broken". */
 .btn-run-waiting {
   font-style: italic;
@@ -4718,6 +4791,38 @@ summary.review-source::before {
   display: flex;
   flex-direction: column;
   margin-bottom: 0.75rem;
+}
+
+.sidebar-engine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sidebar-engine-header .sidebar-label {
+  margin-bottom: 0;
+}
+
+/* GPU/CPU badge for the currently running engine — reuses the hardware-badge
+   palette (ModelSelector's hardware chips) so the same fact reads the same
+   way wherever it appears. */
+.engine-device-badge {
+  background: #e8dfc8;
+  color: #4a3f2f;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.engine-device-badge-gpu {
+  background: #d4e6d4;
+  color: #2a4a2a;
 }
 
 .sidebar-engine .engine-status {
@@ -5779,14 +5884,75 @@ summary.review-source::before {
    The verdict is the answer; the blocking list is why; the minor count is
    there so nothing is hidden, without letting a comma sit at the same weight
    as an unclosed line of dialogue. */
+.readiness-headline {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
 .readiness-verdict {
-  margin: 0 0 0.6rem;
+  margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
 }
 
 .readiness-verdict.is-ready { color: #2f6b3a; }
 .readiness-verdict.is-check { color: #8a5a1f; }
+
+/* Quality-score ring: a compact gauge, not a dashboard widget — same warm
+   palette as the verdict text (green/amber), plus a muted brick tone for a
+   score bad enough to need real attention. */
+.quality-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.quality-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.quality-ring svg { transform: rotate(-90deg); }
+
+.quality-ring-track {
+  fill: none;
+  stroke: #e4dcc6;
+  stroke-width: 5;
+}
+
+.quality-ring-fill {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.quality-ring-good .quality-ring-fill { stroke: #2f6b3a; }
+.quality-ring-ok .quality-ring-fill { stroke: #8a5a1f; }
+.quality-ring-bad .quality-ring-fill { stroke: #9c3b2e; }
+
+.quality-ring-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #2a2419;
+}
+
+.quality-score-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
 
 .readiness-list {
   margin: 0 0 0.75rem;
@@ -5819,6 +5985,16 @@ summary.review-source::before {
 }
 
 .readiness-minor { margin: 0; }
+
+.readiness-polish-nudge {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.65rem;
+  background: #fdf4e2;
+  border: 1px solid #e6c98a;
+  border-radius: 4px;
+  font-style: normal;
+  color: #6b5a1f;
+}
 
 .readiness-review {
   background: none;

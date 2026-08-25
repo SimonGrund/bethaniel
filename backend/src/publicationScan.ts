@@ -6,6 +6,7 @@
 
 import { createHash } from "crypto";
 import { splitIntoParagraphs } from "./chunking.js";
+import { detectDialect } from "./dialect.js";
 import type {
   FindingSeverity,
   StructuralFinding,
@@ -276,7 +277,10 @@ function findTruncation(units: ScanUnit[]): DraftFinding[] {
     // Emphasis markers and trailing whitespace are not the end of the sentence.
     const forEnding = body.replace(TRAILING_MARKUP_RE, "");
     const last = forEnding[forEnding.length - 1] ?? "";
-    if (!TERMINAL_END_RE.test(last)) {
+    // The synthetic "Frontmatter" unit (chapters.ts) is title/copyright-page
+    // material — a list of credits and edition info, not prose — so it has
+    // no reason to end in sentence punctuation.
+    if (u.name !== "Frontmatter" && !TERMINAL_END_RE.test(last)) {
       findings.push({
         check: "truncation",
         severity: "warning",
@@ -300,6 +304,34 @@ function findTruncation(units: ScanUnit[]): DraftFinding[] {
   return findings;
 }
 
+/**
+ * Manuscript-wide English dialect consistency, using the same curated
+ * British/American word-pair list the copy-edit dialect conversion trusts —
+ * so detection and enforcement never disagree about what counts as a marker.
+ * A professionally edited manuscript uses one dialect throughout; genuinely
+ * mixed usage (not one stray outlier) is worth catching before publication.
+ */
+function findDialectConsistency(units: ScanUnit[]): DraftFinding[] {
+  const combined = units.map((u) => u.original).join("\n\n");
+  const { dialect, americanHits, britishHits, mixed } = detectDialect(combined);
+  if (!mixed || !dialect) return [];
+
+  const majorLabel = dialect === "american" ? "American" : "British";
+  const minorLabel = dialect === "american" ? "British" : "American";
+  const majorCount = dialect === "american" ? americanHits : britishHits;
+  const minorCount = dialect === "american" ? britishHits : americanHits;
+
+  return [
+    {
+      check: "dialect",
+      severity: "warning",
+      location: "Manuscript",
+      message: `Mixed English spelling: mostly ${majorLabel} (${majorCount} word(s)) but ${minorCount} word(s) use ${minorLabel} spelling.`,
+      detail: "Pick one dialect and apply it consistently before publishing.",
+    },
+  ];
+}
+
 export function buildPublicationScan(units: ScanUnit[]): StructuralScanReport {
   const { findings: dupFindings } = findDuplicates(units);
   // Marked here rather than at each push site: every structural finding is a
@@ -311,6 +343,7 @@ export function buildPublicationScan(units: ScanUnit[]): StructuralScanReport {
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
     ...findTruncation(units),
+    ...findDialectConsistency(units),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 
   const summary: Record<FindingSeverity, number> = {

@@ -18,6 +18,8 @@ files:
 extraResources:
   - from: build/icon.png
     to: icon.png
+  - from: scripts/llama-manifest.json
+    to: llama-manifest.json
   - from: electron/resources/llama/
     to: llama/
     filter:

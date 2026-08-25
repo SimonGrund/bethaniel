@@ -6,39 +6,29 @@ import { useTranslation } from "../i18n";
 import { FINAL_READTHROUGH_MODES, modeLabelKeys } from "../types";
 import type { TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
-type Category = "editing" | "analysis" | "translation" | "feedback";
+type Category = "editing" | "analysis" | "translation" | "feedback" | "readthrough";
 
-// What the editing panel offers. "final_readthrough" is a UI-only pairing of
-// the proofread and publication_scan backend modes — the last pass before you
-// publish, so the user picks one thing rather than two.
-type EditingChoice =
-  | "developmental_edit"
-  | "line_edit"
-  | "copy_edit"
-  | "final_readthrough";
+type EditingChoice = "developmental_edit" | "line_edit" | "copy_edit";
 
 const EDITING_CHOICE_MODES: Record<EditingChoice, TaskMode[]> = {
   developmental_edit: ["developmental_edit"],
   line_edit: ["line_edit"],
   copy_edit: ["copy_edit"],
-  final_readthrough: FINAL_READTHROUGH_MODES,
 };
 
 // Ordered as a full-manuscript development workflow would run: big-picture
-// developmental pass first, tightening down to the final readthrough.
+// developmental pass first, tightening down to line/copy edits. Publication
+// Scan (proofread + publication_scan) is its own top-level card, not part of
+// this panel — see the "readthrough" category below.
 const EDITING_CHOICES: EditingChoice[] = [
   "developmental_edit",
   "line_edit",
   "copy_edit",
-  "final_readthrough",
 ];
 
-// A whole-manuscript pass of its own — it makes no sense to pair either of
-// these with anything else in the panel. Copy and line edits stay combinable.
-const EXCLUSIVE_CHOICES: EditingChoice[] = [
-  "developmental_edit",
-  "final_readthrough",
-];
+// A whole-manuscript pass of its own — it makes no sense to pair it with
+// anything else in the panel. Copy and line edits stay combinable.
+const EXCLUSIVE_CHOICES: EditingChoice[] = ["developmental_edit"];
 
 const EDITING_MODES: TaskMode[] = EDITING_CHOICES.flatMap(
   (c) => EDITING_CHOICE_MODES[c],
@@ -78,6 +68,7 @@ const CATEGORY_COLOR: Record<Category, string> = {
   analysis: "mode-cat-amber",
   translation: "mode-cat-amber",
   feedback: "mode-cat-amber",
+  readthrough: "mode-cat-amber",
 };
 
 export default function ModeSelector() {
@@ -112,6 +103,9 @@ export default function ModeSelector() {
   const hasAnalysis = selectedModes.some((m) => ANALYSIS_MODES.includes(m));
   const hasTranslation = selectedModes.includes("translate");
   const hasFeedback = selectedModes.some((m) => FEEDBACK_MODES.includes(m));
+  const hasReadthrough = selectedModes.some((m) =>
+    FINAL_READTHROUGH_MODES.includes(m),
+  );
 
   // Categories are mutually exclusive: opening one replaces the whole
   // selection with whatever of its own modes was already picked, or its
@@ -123,6 +117,14 @@ export default function ModeSelector() {
       return;
     }
     setOpenCat(cat);
+    // Publication Scan has no per-mode UI of its own — it's always both
+    // modes together, never a user-chosen subset — so opening it always
+    // resets the selection to both rather than preserving a partial one.
+    if (cat === "readthrough") {
+      setSelectedModes(FINAL_READTHROUGH_MODES);
+      markStepComplete("edits");
+      return;
+    }
     const [catModes, fallback]: [TaskMode[], TaskMode] =
       cat === "translation"
         ? [["translate"], "translate"]
@@ -251,6 +253,26 @@ export default function ModeSelector() {
           <span className="mode-cat-desc">{t("mode_desc_translate")}</span>
           {hasTranslation && (
             <span className="mode-cat-badge">{t("mode_translate")}</span>
+          )}
+        </button>
+
+        {/* Publication Scan */}
+        <button
+          type="button"
+          className={[
+            "mode-cat-card",
+            CATEGORY_COLOR.readthrough,
+            openCat === "readthrough" ? "mode-cat-open" : "",
+            hasReadthrough ? "mode-cat-active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() => selectCategory("readthrough")}
+        >
+          <span className="mode-cat-name">{t("group_readthrough")}</span>
+          <span className="mode-cat-desc">{t("group_desc_readthrough")}</span>
+          {hasReadthrough && (
+            <span className="mode-cat-badge">{t("group_readthrough")}</span>
           )}
         </button>
 
@@ -442,17 +464,6 @@ export default function ModeSelector() {
             </div>
           )}
 
-          {isChoiceSelected("final_readthrough") && (
-            <div className="option-panel">
-              <span className="option-panel-label">
-                {t("mode_final_readthrough")}
-              </span>
-              <p className="option-panel-desc">
-                {t("mode_desc_final_readthrough")}
-              </p>
-            </div>
-          )}
-
           {isSelected("developmental_edit") && (
             <div className="option-panel">
               <span className="option-panel-label">
@@ -551,6 +562,25 @@ export default function ModeSelector() {
                 className="lang-input"
               />
             </label>
+          </div>
+        </div>
+      )}
+
+      {(openCat === "readthrough" || (wizardStep === "edits" && editSubOptionsOpen === "readthrough")) && (
+        <div className="mode-sub-panel mode-cat-amber">
+          <button
+            type="button"
+            className="mode-sub-close"
+            onClick={() => { setOpenCat(null); setEditSubOptionsOpen(null); }}
+            title={t("btn_cancel")}
+          >
+            −
+          </button>
+          <div className="option-panel">
+            <span className="option-panel-label">{t("group_readthrough")}</span>
+            <p className="option-panel-desc">
+              {t("mode_desc_final_readthrough")}
+            </p>
           </div>
         </div>
       )}

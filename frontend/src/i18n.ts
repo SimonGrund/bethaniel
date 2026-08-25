@@ -304,10 +304,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "No se pudo leer ese archivo.",
   },
   upload_prompt: {
-    en: "Upload a .docx or .md to begin.",
-    da: "Upload en .docx eller .md for at starte.",
-    de: "Lade eine .docx oder .md hoch, um zu beginnen.",
-    es: "Sube un .docx o .md para comenzar.",
+    en: "Upload a .docx to begin.",
+    da: "Upload en .docx for at starte.",
+    de: "Lade eine .docx hoch, um zu beginnen.",
+    es: "Sube un .docx para comenzar.",
   },
   lbl_file: {
     en: "file",
@@ -740,6 +740,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Ingen rettelser foreslået.",
     de: "Keine Korrekturen vorgeschlagen.",
     es: "No se propusieron correcciones.",
+  },
+  dialect_banner_american: {
+    en: "Betty updated {n} word(s) from British to American English.",
+    da: "Betty opdaterede {n} ord fra britisk til amerikansk engelsk.",
+    de: "Betty hat {n} Wort/Wörter von britischem auf amerikanisches Englisch umgestellt.",
+    es: "Betty actualizó {n} palabra(s) de inglés británico a americano.",
+  },
+  dialect_banner_british: {
+    en: "Betty updated {n} word(s) from American to British English.",
+    da: "Betty opdaterede {n} ord fra amerikansk til britisk engelsk.",
+    de: "Betty hat {n} Wort/Wörter von amerikanischem auf britisches Englisch umgestellt.",
+    es: "Betty actualizó {n} palabra(s) de inglés americano a británico.",
   },
   skipped_label: {
     en: "skipped",
@@ -1543,14 +1555,28 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Veröffentlichungs-Scan",
     es: "Escaneo de publicación",
   },
-  // ── "Final readthrough" is the UI name for proofread + publication_scan
-  // selected together. The two mode_/mode_desc_ keys above stay in use for
-  // the individual tasks in the queue and the results view. ──
+  // ── "Publication Scan" is the UI name for proofread + publication_scan
+  // selected together (its own top-level card, previously called "Final
+  // readthrough" and nested under "Develop manuscript"). The two
+  // mode_/mode_desc_ keys above stay in use for the individual tasks in the
+  // queue and the results view. ──
+  group_readthrough: {
+    en: "Publication Scan",
+    da: "Udgivelsestjek",
+    de: "Veröffentlichungs-Scan",
+    es: "Escaneo de publicación",
+  },
+  group_desc_readthrough: {
+    en: "The last pass before publishing: typos plus a structural check.",
+    da: "Den sidste gennemgang før udgivelse: slåfejl plus et strukturtjek.",
+    de: "Der letzte Durchgang vor der Veröffentlichung: Tippfehler plus Strukturprüfung.",
+    es: "La última revisión antes de publicar: erratas más una comprobación estructural.",
+  },
   mode_final_readthrough: {
-    en: "Final readthrough",
-    da: "Sidste gennemlæsning",
-    de: "Letzter Durchgang",
-    es: "Lectura final",
+    en: "Publication Scan",
+    da: "Udgivelsestjek",
+    de: "Veröffentlichungs-Scan",
+    es: "Escaneo de publicación",
   },
   mode_tip_final_readthrough: {
     en: "The last pass before publishing: a light sweep for typos, plus a structural check for duplicated text, missing chapters, numbering gaps, and text cut off mid-sentence.",
@@ -1594,11 +1620,23 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Auch keine kleineren Korrekturen vorgeschlagen.",
     es: "Tampoco se sugieren correcciones menores.",
   },
+  quality_score_label: {
+    en: "Publication quality",
+    da: "Udgivelseskvalitet",
+    de: "Veröffentlichungsqualität",
+    es: "Calidad de publicación",
+  },
   readiness_review_all: {
     en: "Review all",
     da: "Gennemgå alle",
     de: "Alle ansehen",
     es: "Revisar todas",
+  },
+  readiness_polish_nudge: {
+    en: "{n} of those are comma/punctuation-level calls across {m} chapters — none block publication, but for a full polish, run the Copy Editor.",
+    da: "{n} af dem er komma-/tegnsætningsniveau fordelt på {m} kapitler — ingen af dem blokerer udgivelse, men kør Korrekturlæseren for en fuld finpudsning.",
+    de: "{n} davon sind Komma-/Zeichensetzungsentscheidungen in {m} Kapiteln — keine davon blockiert die Veröffentlichung, aber für einen vollständigen Feinschliff führen Sie das Lektorat aus.",
+    es: "{n} de ellas son decisiones de coma/puntuación en {m} capítulos — ninguna bloquea la publicación, pero para un pulido completo, ejecuta el Editor de estilo.",
   },
   readiness_hide_minor: {
     en: "Hide list",
@@ -1607,10 +1645,58 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Ocultar lista",
   },
   readiness_read_only: {
-    en: "A scan reports; it doesn't change your manuscript. To apply these, run a copy edit.",
-    da: "En scanning rapporterer; den ændrer ikke dit manuskript. Kør en korrekturlæsning for at anvende dem.",
-    de: "Ein Scan berichtet nur; er ändert Ihr Manuskript nicht. Für Änderungen führen Sie ein Lektorat aus.",
-    es: "Un escaneo informa; no modifica tu manuscrito. Para aplicarlas, ejecuta una corrección de estilo.",
+    en: "A scan reports; it doesn't change your manuscript in place. Download the manuscript with safe fixes applied below, or run a copy edit, to apply these.",
+    da: "En scanning rapporterer; den ændrer ikke selve dit manuskript. Download manuskriptet med sikre rettelser anvendt nedenfor, eller kør en korrekturlæsning, for at anvende dem.",
+    de: "Ein Scan berichtet nur; er ändert Ihr Manuskript nicht direkt. Laden Sie das Manuskript mit angewendeten sicheren Korrekturen unten herunter, oder führen Sie ein Lektorat aus, um sie anzuwenden.",
+    es: "Un escaneo informa; no modifica tu manuscrito directamente. Descarga el manuscrito con las correcciones seguras aplicadas más abajo, o ejecuta una corrección de estilo, para aplicarlas.",
+  },
+  readiness_report_title: {
+    en: "Publication Readiness Report",
+    da: "Udgivelsesparathedsrapport",
+    de: "Bericht zur Veröffentlichungsreife",
+    es: "Informe de preparación para publicar",
+  },
+  readiness_report_structural: {
+    en: "Structural issues",
+    da: "Strukturelle problemer",
+    de: "Strukturelle Probleme",
+    es: "Problemas estructurales",
+  },
+  readiness_report_corrections: {
+    en: "Corrections that block publication",
+    da: "Rettelser der blokerer udgivelse",
+    de: "Korrekturen, die die Veröffentlichung blockieren",
+    es: "Correcciones que bloquean la publicación",
+  },
+  readiness_report_minor: {
+    en: "Minor suggestions",
+    da: "Mindre forslag",
+    de: "Kleinere Vorschläge",
+    es: "Sugerencias menores",
+  },
+  download_safe_fixes_md: {
+    en: "Download manuscript with safe fixes applied (.md)",
+    da: "Download manuskript med sikre rettelser anvendt (.md)",
+    de: "Manuskript mit angewendeten sicheren Korrekturen herunterladen (.md)",
+    es: "Descargar manuscrito con correcciones seguras aplicadas (.md)",
+  },
+  download_safe_fixes_docx: {
+    en: "Download manuscript with safe fixes applied (.docx)",
+    da: "Download manuskript med sikre rettelser anvendt (.docx)",
+    de: "Manuskript mit angewendeten sicheren Korrekturen herunterladen (.docx)",
+    es: "Descargar manuscrito con correcciones seguras aplicadas (.docx)",
+  },
+  download_readiness_report_md: {
+    en: "Download readiness report (.md)",
+    da: "Download parathedsrapport (.md)",
+    de: "Bereitschaftsbericht herunterladen (.md)",
+    es: "Descargar informe de preparación (.md)",
+  },
+  download_readiness_report_docx: {
+    en: "Download readiness report (.docx)",
+    da: "Download parathedsrapport (.docx)",
+    de: "Bereitschaftsbericht herunterladen (.docx)",
+    es: "Descargar informe de preparación (.docx)",
   },
   scan_no_issues: {
     en: "No structural issues found — looks publication-ready.",
@@ -3038,6 +3124,92 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Manuelt justeret i modelindstillinger. Vælg en forudindstilling for at vende tilbage til en standardtilstand.",
     de: "Manuell in den Modelleinstellungen angepasst. Wähle eine Voreinstellung, um zu einem Standardmodus zurückzukehren.",
     es: "Ajustada a mano en los ajustes del modelo. Elige un preajuste para volver a un modo estándar.",
+  },
+
+  languagetool_advice_title: {
+    en: "Enable grammar checking?",
+    da: "Aktivér grammatikkontrol?",
+    de: "Grammatikprüfung aktivieren?",
+    es: "¿Activar la revisión gramatical?",
+  },
+  languagetool_advice_body: {
+    en: "Betty has an extra layer of grammar checks (via LanguageTool) that isn't installed on this machine yet. It's a one-time download of roughly 150–250 MB and runs fully offline afterwards, same as everything else.",
+    da: "Betty har et ekstra lag af grammatikkontrol (via LanguageTool), som endnu ikke er installeret på denne maskine. Det er en engangsdownload på ca. 150-250 MB og køre derefter fuldstændig offline, ligesom alt andet.",
+    de: "Betty verfügt über eine zusätzliche Ebene der Grammatikprüfung (über LanguageTool), die auf diesem Rechner noch nicht installiert ist. Es ist ein einmaliger Download von etwa 150-250 MB und läuft danach vollständig offline, genau wie alles andere.",
+    es: "Betty tiene una capa adicional de revisión gramatical (a través de LanguageTool) que aún no está instalada en este equipo. Es una descarga única de unos 150-250 MB y después funciona completamente sin conexión, igual que todo lo demás.",
+  },
+  languagetool_advice_download: {
+    en: "Download & enable",
+    da: "Download og aktivér",
+    de: "Herunterladen & aktivieren",
+    es: "Descargar y activar",
+  },
+  languagetool_advice_not_now: {
+    en: "Not now",
+    da: "Ikke nu",
+    de: "Nicht jetzt",
+    es: "Ahora no",
+  },
+  languagetool_advice_starting: {
+    en: "Starting download…",
+    da: "Starter download…",
+    de: "Download wird gestartet…",
+    es: "Iniciando descarga…",
+  },
+  languagetool_advice_downloading: {
+    en: "Downloading grammar checker…",
+    da: "Downloader grammatikkontrol…",
+    de: "Grammatikprüfung wird heruntergeladen…",
+    es: "Descargando el corrector gramatical…",
+  },
+  languagetool_advice_done: {
+    en: "Done — grammar checking is ready to use.",
+    da: "Færdig — grammatikkontrol er klar til brug.",
+    de: "Fertig — die Grammatikprüfung ist einsatzbereit.",
+    es: "Listo — la revisión gramatical ya está disponible.",
+  },
+  languagetool_advice_error: {
+    en: "The download failed: {error}. You can try again later from this same prompt.",
+    da: "Downloadet mislykkedes: {error}. Du kan prøve igen senere fra denne samme besked.",
+    de: "Der Download ist fehlgeschlagen: {error}. Du kannst es später über denselben Hinweis erneut versuchen.",
+    es: "La descarga falló: {error}. Puedes volver a intentarlo más tarde desde este mismo aviso.",
+  },
+
+  engine_device_gpu: {
+    en: "GPU",
+    da: "GPU",
+    de: "GPU",
+    es: "GPU",
+  },
+  engine_device_cpu: {
+    en: "CPU",
+    da: "CPU",
+    de: "CPU",
+    es: "CPU",
+  },
+  engine_device_unknown: {
+    en: "…",
+    da: "…",
+    de: "…",
+    es: "…",
+  },
+  engine_device_gpu_help: {
+    en: "Betty is running on your graphics card.",
+    da: "Betty kører på dit grafikkort.",
+    de: "Betty läuft auf deiner Grafikkarte.",
+    es: "Betty se está ejecutando en tu tarjeta gráfica.",
+  },
+  engine_device_cpu_help: {
+    en: "Betty is running on the CPU — slower than a GPU, but works everywhere.",
+    da: "Betty kører på CPU'en — langsommere end en GPU, men fungerer overalt.",
+    de: "Betty läuft auf der CPU — langsamer als eine GPU, funktioniert aber überall.",
+    es: "Betty se está ejecutando en la CPU — más lento que una GPU, pero funciona en cualquier equipo.",
+  },
+  engine_device_unknown_help: {
+    en: "Still figuring out whether this is running on the GPU or the CPU.",
+    da: "Finder stadig ud af, om dette kører på GPU'en eller CPU'en.",
+    de: "Wird noch ermittelt, ob dies auf der GPU oder der CPU läuft.",
+    es: "Aún determinando si esto se ejecuta en la GPU o en la CPU.",
   },
 };
 

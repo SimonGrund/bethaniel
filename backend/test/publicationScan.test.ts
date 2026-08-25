@@ -119,6 +119,20 @@ test("does not flag a chapter ending in a closing quote", () => {
   assert.equal(found.filter((f) => f.check === "truncation").length, 0);
 });
 
+test("does not flag the synthetic Frontmatter unit for lacking terminal punctuation", () => {
+  // Title/copyright-page material — a list of credits and edition info, not
+  // prose — legitimately has no sentence-ending punctuation.
+  const found = checks([
+    {
+      name: "Frontmatter",
+      original:
+        "Some Novel\nby Author Name\n\nMaps by Luise Ravica\nThird Edition 2026",
+    },
+    { name: "Chapter 1", original: LONG("one") },
+  ]);
+  assert.equal(found.filter((f) => f.check === "truncation").length, 0);
+});
+
 test("ignores unnumbered special sections in numbering checks", () => {
   const found = checks([
     { name: "Prologue", original: LONG("prologue") },
@@ -127,4 +141,27 @@ test("ignores unnumbered special sections in numbering checks", () => {
     { name: "Epilogue", original: LONG("epilogue") },
   ]);
   assert.equal(found.filter((f) => f.check === "numbering").length, 0);
+});
+
+test("flags a manuscript that genuinely mixes British and American spelling", () => {
+  const british =
+    "The grey harbour smelled of the sea. She realised her favourite colour had faded. " +
+    "More neighbours gathered by the harbour to watch the theatre troupe.";
+  const american =
+    "The gray harbor smelled of rain. He realized his favorite color had changed too.";
+  const found = checks([
+    { name: "Chapter 1", original: `${british} ${LONG("pad")}` },
+    { name: "Chapter 2", original: `${american} ${LONG("pad2")}` },
+  ]);
+  const dialectFindings = found.filter((f) => f.check === "dialect");
+  assert.equal(dialectFindings.length, 1);
+  assert.equal(dialectFindings[0].location, "Manuscript");
+});
+
+test("a consistently British (or American) manuscript is not flagged for dialect", () => {
+  const found = checks([
+    { name: "Chapter 1", original: `The grey harbour. ${LONG("pad")}` },
+    { name: "Chapter 2", original: `Her favourite colour. ${LONG("pad2")}` },
+  ]);
+  assert.equal(found.filter((f) => f.check === "dialect").length, 0);
 });

@@ -79,6 +79,34 @@ function loadDict(dictName: string): SpellDict | null {
 // en_GB) turns into a corrupting correction.
 const WORD_RE = /\p{L}[\p{L}'’ʼ-]*[\p{L}]/gu;
 
+/**
+ * A hyphenated word Hunspell doesn't recognize as a single entry ("iron-clad")
+ * but whose parts are each independently valid ("iron", "clad") is a
+ * legitimate compound, not a typo — dictionaries are notoriously incomplete
+ * on hyphenation, and hyphenated vs. solid spelling is a style choice
+ * ("iron-clad" and "ironclad" are both standard English).
+ */
+function isValidHyphenCompound(word: string, dict: SpellDict): boolean {
+  if (!word.includes("-")) return false;
+  const parts = word.split("-").filter(Boolean);
+  return parts.length >= 2 && parts.every((p) => p.length >= 2 && dict.correct(p));
+}
+
+/**
+ * A word Hunspell doesn't recognize but whose de-pluralized base form it
+ * does ("storages" → "storage") is more likely an uncommon-but-real
+ * inflection than an outright typo — worth a lower-confidence tag rather
+ * than the same severity as "teh"/"amd".
+ */
+function isValidInflection(word: string, dict: SpellDict): boolean {
+  const lower = word.toLowerCase();
+  const bases = [
+    lower.endsWith("es") ? lower.slice(0, -2) : null,
+    lower.endsWith("s") ? lower.slice(0, -1) : null,
+  ].filter((b): b is string => !!b && b.length >= 3);
+  return bases.some((b) => dict.correct(b));
+}
+
 /** Dictionaries and SKIP_WORDS use the straight apostrophe; manuscripts
  *  usually use ’. Normalize before any lookup. */
 function normalizeApostrophes(word: string): string {
@@ -415,9 +443,20 @@ export function getSpellCorrections(
     seen.add(lower);
 
     if (!dict.correct(norm)) {
+      // A valid hyphenated compound isn't a spelling error at all — the
+      // dictionary just doesn't enumerate every compound, and the choice
+      // between "iron-clad" and "ironclad" is style, not correctness.
+      if (isValidHyphenCompound(norm, dict)) continue;
+
       const suggestions = dict.suggest(norm);
       const corrected = suggestions.length > 0 ? suggestions[0] : word;
-      corrections.push({ original: word, corrected });
+      const correction: Correction = { original: word, corrected };
+      // Tagged distinctly (not the plain "spell-check" reason) so it's
+      // surfaced as a minor suggestion rather than a publication blocker —
+      // an unrecognized-but-plausible inflection is a much weaker signal
+      // than an outright non-word like "amd" or "whe".
+      if (isValidInflection(norm, dict)) correction.reason = "spell-check-uncommon";
+      corrections.push(correction);
       if (corrections.length >= maxHints) break;
     }
   }

@@ -9,7 +9,7 @@ import * as os from "os";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { readModelConfig, getCustomGgufPath } from "./modelConfig.js";
-import { appendLog, diagnoseEngineExit } from "./logBus.js";
+import { appendLog, diagnoseEngineExit, emitEvent } from "./logBus.js";
 import { getModelByFileName } from "./modelCatalog.js";
 import { resolveEnginePort } from "./enginePort.js";
 
@@ -53,10 +53,14 @@ function resolveLlamaBin(): string {
 
   // On Linux with an NVIDIA GPU, prefer the Vulkan build (vendor-neutral, needs
   // no CUDA toolkit) over the CPU build so models offload to VRAM by default.
+  // On Windows the default bundled build has no GPU backend at all, so an
+  // NVIDIA GPU means preferring the CUDA build instead.
   const archDirs =
     process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
       ? ["linux-x64-vulkan", platformArch]
-      : [platformArch];
+      : process.platform === "win32" && hasNvidiaGpu()
+        ? ["win32-x64-cuda", platformArch]
+        : [platformArch];
 
   // Resource roots (dev + packaged)
   const roots = [
@@ -77,7 +81,26 @@ function resolveLlamaBin(): string {
     if (fs.existsSync(p)) return p;
   }
   // Fallback: rely on system PATH
-  return "llama-server";
+  return binaryName;
+}
+
+/** Platform-specific guidance when no bundled/PATH binary could be started. */
+function missingBinaryHint(): string {
+  switch (process.platform) {
+    case "win32":
+      return (
+        "The bundled llama-server.exe was not found. Reinstall Bethaniel, " +
+        "check Windows Security → Protection history in case antivirus " +
+        "quarantined it, or set LLAMA_BIN to a llama-server.exe you already have."
+      );
+    case "darwin":
+      return "Install llama.cpp (brew install llama.cpp) or check the bundled binary.";
+    default:
+      return (
+        "Install llama.cpp (see https://github.com/ggml-org/llama.cpp) " +
+        "or check the bundled binary."
+      );
+  }
 }
 
 const LLAMA_BIN = resolveLlamaBin();
@@ -262,6 +285,38 @@ let loadPromise: Promise<void> | null = null;
  * Reset when a new engine is spawned.
  */
 let deliberateStop = false;
+
+/**
+ * Whether the running engine is actually using a GPU, parsed from its own
+ * startup `device_info:` block (e.g. "- CUDA0 : NVIDIA GeForce RTX 5090 ...")
+ * rather than assumed from hardware presence — a GPU can be present while
+ * the bundled/downloaded build still has no matching backend (see the
+ * Windows CPU-only-by-default build and its on-demand CUDA download in
+ * electron/gpuEngine.ts). Reset to "unknown" on every fresh spawn.
+ */
+let detectedDevice: "gpu" | "cpu" | "unknown" = "unknown";
+const GPU_DEVICE_LINE_RE = /-\s+(CUDA|Metal|Vulkan|ROCm|HIP|SYCL)\d*\s*:/i;
+const CPU_DEVICE_LINE_RE = /-\s+CPU\s*:/;
+
+function noteEngineDevice(next: "gpu" | "cpu"): void {
+  if (detectedDevice === next) return;
+  // A GPU line always wins — CPU is always listed alongside a GPU in the same
+  // block, so seeing it after a GPU line must not downgrade the result.
+  if (detectedDevice === "gpu" && next === "cpu") return;
+  detectedDevice = next;
+  emitEvent("engine:device", getEngineDevice());
+}
+
+/** GPU/CPU status of the currently running engine, for the UI. `running` is
+ *  false (and `device` "unknown") once nothing is loaded — the last engine's
+ *  device is not a fact about the next one. */
+export function getEngineDevice(): {
+  device: "gpu" | "cpu" | "unknown";
+  running: boolean;
+  model: string | null;
+} {
+  return { device: detectedDevice, running: currentModel !== null, model: currentModel };
+}
 
 /** Return the currently loaded model file name (or null). */
 /** Slots the running engine was launched with; 0 when nothing is loaded. */
@@ -543,6 +598,11 @@ function onEngineOutput(text: string): void {
   if (!serverListeningSeen && SERVER_READY_RE.test(text)) {
     serverListeningSeen = true;
   }
+  if (GPU_DEVICE_LINE_RE.test(text)) {
+    noteEngineDevice("gpu");
+  } else if (CPU_DEVICE_LINE_RE.test(text)) {
+    noteEngineDevice("cpu");
+  }
 }
 
 // ── Kill helper ──
@@ -799,8 +859,11 @@ async function doLoad(
     // best-effort
   }
 
-  // Fresh engine, fresh slate — a stale flag would mask a real crash.
+  // Fresh engine, fresh slate — a stale flag would mask a real crash, and a
+  // carried-over device reading would misreport this engine before its own
+  // device_info line has even been seen.
   deliberateStop = false;
+  detectedDevice = "unknown";
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
     env: {
@@ -830,8 +893,8 @@ async function doLoad(
       reject(
         new Error(
           `Failed to start llama-server: ${err.message}. ` +
-            (LLAMA_BIN === "llama-server"
-              ? "Install llama.cpp (brew install llama.cpp) or check the bundled binary."
+            (LLAMA_BIN === path.basename(LLAMA_BIN)
+              ? missingBinaryHint()
               : `Binary not found at: ${LLAMA_BIN}`),
         ),
       );

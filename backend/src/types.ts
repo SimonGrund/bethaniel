@@ -119,6 +119,22 @@ export interface Correction {
    * mode already tells you) and defaulted to "copy" when unlabeled.
    */
   editType?: "copy" | "line";
+  /**
+   * Whether this is an objective/mechanical error (spelling, duplicated
+   * words/phrases, missing words, spacing, punctuation that's grammatically
+   * wrong, dialogue-tag punctuation, missing articles/prepositions) that
+   * should block publication until fixed, vs. a subjective style/word-choice
+   * suggestion. Set by classifyPublicationBlocking (correctionSeverity.ts).
+   */
+  blocksPublication?: boolean;
+  /**
+   * Whether original→corrected differs only in punctuation/spacing — no
+   * word added, removed, or changed. Set alongside blocksPublication so the
+   * UI can group these separately (e.g. "N comma-level suggestions — run
+   * the Copy Editor for a full polish") instead of lumping them in with
+   * subjective line-edit suggestions. See isPunctuationOnlyChange.
+   */
+  polishOnly?: boolean;
 }
 
 export interface TaskResult {
@@ -289,7 +305,7 @@ export interface ConsistencyReport {
 export type FindingSeverity = "error" | "warning" | "info";
 
 export interface StructuralFinding {
-  check: "duplicate" | "empty_chapter" | "numbering" | "truncation";
+  check: "duplicate" | "empty_chapter" | "numbering" | "truncation" | "dialect";
   severity: FindingSeverity;
   /** Chapter name, or "Chapter 3 ↔ Chapter 9" for cross-chapter findings. */
   location: string;

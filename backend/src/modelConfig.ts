@@ -25,16 +25,28 @@ export interface ModelSettings {
   no_mmap: boolean;
 }
 
-/** API model configuration stored in DATA_DIR/api-config.json. */
+/** API model configuration stored in DATA_DIR/api-config.json, keyed by
+ *  catalog entry id (e.g. "custom-deepseek", "bethaniel-cloud") so multiple
+ *  API-backed providers can be configured at once without colliding. */
 export interface ApiConfig {
   apiKey: string;
   model: string;
+  /** Per-install override of the entry's `defaultBaseUrl` (modelCatalog.ts).
+   *  Unset for entries that only ever talk to one endpoint. */
+  baseUrl?: string;
   temperature?: number;
   top_p?: number;
   top_k?: number;
   repeat_penalty?: number;
   num_predict?: number;
 }
+
+type ApiConfigStore = Record<string, ApiConfig>;
+
+/** The catalog id External Betty configs were saved under before entries
+ *  were keyed by provider — kept as the default so existing installs don't
+ *  lose their DeepSeek key on upgrade. */
+const LEGACY_DEFAULT_ENTRY_ID = "custom-deepseek";
 
 /** Custom GGUF model configuration stored in DATA_DIR/custom-gguf-config.json. */
 export interface CustomGgufConfig {
@@ -93,35 +105,51 @@ function ensureDataDir(): void {
   } catch {}
 }
 
-/** Read API model configuration from disk. Returns null if not configured. */
-export function readApiConfig(): ApiConfig | null {
+/** Read the raw on-disk store, transparently upgrading the pre-multi-provider
+ *  flat-object format (`{ apiKey, model, ... }`) into `{ [entryId]: {...} }`
+ *  so an existing install's External Betty key survives the upgrade. */
+function readApiConfigStore(): ApiConfigStore {
   try {
     const raw = fs.readFileSync(API_CONFIG_PATH, "utf-8");
-    return JSON.parse(raw) as ApiConfig;
+    const parsed = JSON.parse(raw) as ApiConfig | ApiConfigStore;
+    if (parsed && typeof (parsed as ApiConfig).apiKey === "string") {
+      return { [LEGACY_DEFAULT_ENTRY_ID]: parsed as ApiConfig };
+    }
+    return (parsed as ApiConfigStore) ?? {};
   } catch {
-    return null;
+    return {};
   }
 }
 
-/** Write API model configuration to disk. */
-export function writeApiConfig(config: ApiConfig): void {
+function writeApiConfigStore(store: ApiConfigStore): void {
   ensureDataDir();
-  const existing = readApiConfig();
-  const merged: ApiConfig = { ...existing, ...config };
-  fs.writeFileSync(API_CONFIG_PATH, JSON.stringify(merged, null, 2) + "\n");
+  fs.writeFileSync(API_CONFIG_PATH, JSON.stringify(store, null, 2) + "\n");
 }
 
-/** Check whether any API model is configured. */
-export function hasApiConfig(): boolean {
-  const cfg = readApiConfig();
-  return !!cfg?.apiKey;
+/** Read one provider's API model configuration. Returns null if not configured. */
+export function readApiConfig(entryId: string): ApiConfig | null {
+  return readApiConfigStore()[entryId] ?? null;
 }
 
-/** Delete the API config file entirely. */
-export function deleteApiConfig(): void {
-  try {
-    fs.unlinkSync(API_CONFIG_PATH);
-  } catch {}
+/** Write (merge onto) one provider's API model configuration. */
+export function writeApiConfig(entryId: string, config: Partial<ApiConfig>): void {
+  const store = readApiConfigStore();
+  const existing = store[entryId];
+  store[entryId] = { ...existing, ...config } as ApiConfig;
+  writeApiConfigStore(store);
+}
+
+/** Check whether a specific provider has a configured API key. */
+export function hasApiConfig(entryId: string): boolean {
+  return !!readApiConfig(entryId)?.apiKey;
+}
+
+/** Delete one provider's API config entirely. */
+export function deleteApiConfig(entryId: string): void {
+  const store = readApiConfigStore();
+  if (!(entryId in store)) return;
+  delete store[entryId];
+  writeApiConfigStore(store);
 }
 
 // ── Custom GGUF config persistence ──
@@ -187,9 +215,7 @@ export function writeModelConfig(
 ): void {
   const entry = getModelByFileName(ggufFileName);
   if (entry?.source === "api") {
-    const apiCfg = readApiConfig() || { apiKey: "", model: "deepseek-chat" };
-    writeApiConfig({
-      ...apiCfg,
+    writeApiConfig(entry.id, {
       temperature: settings.temperature,
       top_p: settings.top_p,
       top_k: settings.top_k,
@@ -227,7 +253,7 @@ export function readModelConfig(
   const entry = getModelByFileName(ggufFileName);
   if (entry?.source === "api") {
     const defaults = entry.defaults;
-    const apiCfg = readApiConfig();
+    const apiCfg = readApiConfig(entry.id);
     return {
       num_ctx: defaults.num_ctx,
       num_predict: apiCfg?.num_predict ?? defaults.num_predict,
@@ -282,11 +308,12 @@ export function resetModelConfig(
 ): ModelSettings {
   const entry = getModelByFileName(ggufFileName);
   if (entry?.source === "api") {
-    const apiCfg = readApiConfig();
+    const apiCfg = readApiConfig(entry.id);
     if (apiCfg) {
-      writeApiConfig({
+      writeApiConfig(entry.id, {
         apiKey: apiCfg.apiKey,
         model: apiCfg.model,
+        baseUrl: apiCfg.baseUrl,
       });
     }
     return getDefaultsForFile(ggufFileName);

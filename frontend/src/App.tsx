@@ -18,12 +18,16 @@ import OnboardingGuide from "./components/OnboardingGuide";
 import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
+import LanguageToolAdviceModal from "./components/LanguageToolAdviceModal";
+import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
 import type {
   TaskState,
   Lang,
   DownloadProgress,
   PerfAdvice,
   RunStats,
+  LanguageToolDownload,
+  EngineDeviceStatus,
 } from "./types";
 import "./styles/global.css";
 
@@ -61,6 +65,9 @@ export default function App() {
   const setAdvancedMode = useStore((s) => s.setAdvancedMode);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
+  const setLanguageToolAdvice = useStore((s) => s.setLanguageToolAdvice);
+  const setLanguageToolDownload = useStore((s) => s.setLanguageToolDownload);
+  const setEngineDevice = useStore((s) => s.setEngineDevice);
   const t = useTranslation(lang);
   const [modelReady, setModelReady] = useState<boolean | null>(null);
 
@@ -73,6 +80,21 @@ export default function App() {
   useEffect(() => {
     if (!useStore.getState().hasSeenIntro) setIntroOpen(true);
   }, [setIntroOpen]);
+
+  // Grammar checking (LanguageTool) may not be installed on this build — a
+  // silent degrade otherwise. Offer to fetch it, unless the user already
+  // said not now.
+  useEffect(() => {
+    fetchLanguageToolStatus()
+      .then((status) => {
+        if (status.available) return;
+        if (useStore.getState().dismissedAdvice.includes("languagetool-missing")) {
+          return;
+        }
+        setLanguageToolAdvice(true);
+      })
+      .catch(() => {});
+  }, [setLanguageToolAdvice]);
 
   // Check if a model is installed
   useEffect(() => {
@@ -120,6 +142,9 @@ export default function App() {
     });
     socket.on("queue:update", (data: Record<string, TaskState>) => {
       setTasks(data);
+      // A task starting/finishing is also the engine loading/unloading a
+      // model — the moments GPU/CPU status can go stale — so refresh it too.
+      fetchEngineStatus().then(setEngineDevice).catch(() => {});
     });
     // Separate from queue:update so that event's shape stays untouched.
     socket.on("run:stats", (data: RunStats) => {
@@ -176,6 +201,17 @@ export default function App() {
       setPerfAdvice(advice);
     });
 
+    // On-demand LanguageTool download, started from LanguageToolAdviceModal.
+    socket.on("languagetool:download", (d: LanguageToolDownload) => {
+      setLanguageToolDownload(d);
+    });
+
+    // GPU/CPU status of the running engine, pushed the moment its own
+    // startup output confirms which backend actually loaded.
+    socket.on("engine:device", (d: EngineDeviceStatus) => {
+      setEngineDevice(d);
+    });
+
     // Re-sync any in-flight downloads (covers a full page reload — the backend
     // keeps downloading regardless).
     fetch(`${BASE}/api/models/download/status`)
@@ -184,6 +220,12 @@ export default function App() {
         for (const dl of d.downloads ?? []) setDownloadProgress(dl);
       })
       .catch(() => {});
+    fetchLanguageToolDownloadStatus()
+      .then((d) => {
+        if (d) setLanguageToolDownload(d);
+      })
+      .catch(() => {});
+    fetchEngineStatus().then(setEngineDevice).catch(() => {});
 
     return () => {
       socket.off("connect");
@@ -198,11 +240,15 @@ export default function App() {
       socket.off("model:warming");
       socket.off("model:download");
       socket.off("model:perf-advice");
+      socket.off("languagetool:download");
+      socket.off("engine:device");
     };
   }, [
     setTasks,
     setLogs,
     appendLog,
+    setLanguageToolDownload,
+    setEngineDevice,
     clearLogsLocal,
     setWarming,
     setDownloadProgress,
@@ -269,6 +315,7 @@ export default function App() {
       <ModelIntroModal />
       <ModelReadyModal />
       <PerfAdviceModal />
+      <LanguageToolAdviceModal />
       <Sidebar />
       <main className="main-content">
         {/* Header */}

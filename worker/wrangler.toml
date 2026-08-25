@@ -1,0 +1,45 @@
+name = "bethaniel-cloud"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom domain / route — point this at cloud.bethaniel.eu (or whatever
+# subdomain modelCatalog.ts's `defaultBaseUrl` for the "bethaniel-cloud"
+# catalog entry is set to) once DNS is configured. Until then this deploys to
+# the default *.workers.dev URL.
+# routes = [{ pattern = "cloud.bethaniel.eu/*", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bethaniel-cloud"
+database_id = "REPLACE_WITH_D1_DATABASE_ID" # `wrangler d1 create bethaniel-cloud`
+
+[[durable_objects.bindings]]
+name = "CREDENTIAL_LEDGER"
+class_name = "CredentialLedger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CredentialLedger"]
+
+[triggers]
+crons = ["0 * * * *"] # hourly: sweep expired unused credentials
+
+[vars]
+# Non-secret tuning knobs. Secrets (MISTRAL_API_KEY, STRIPE_SECRET_KEY,
+# STRIPE_WEBHOOK_SECRET) are set via `wrangler secret put <NAME>` and must
+# never appear here.
+MISTRAL_MODEL = "mistral-large-latest"
+MISTRAL_API_BASE = "https://api.mistral.ai"
+# Blended EUR cost per token across input+output, calibrated to Bethaniel's
+# actual input-heavy workload (full chunk sent, short JSON corrections back)
+# against Mistral's list price. Revisit once real usage data exists.
+BASE_COST_EUR_PER_TOKEN = "0.0000045"
+# Company markup — 50-100% range; 0.75 sits at the middle.
+MARKUP_MULTIPLIER = "1.75"
+# Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
+STRIPE_PCT_FEE = "0.015"
+STRIPE_FIXED_FEE_EUR = "0.25"
+MIN_CHARGE_EUR_CENTS = "200"
+CREDENTIAL_EXPIRY_DAYS = "7"
+CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"

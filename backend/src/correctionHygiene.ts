@@ -316,7 +316,7 @@ function cleanWordEdgesAt(text: string, pos: number, match: string): boolean {
   return true;
 }
 
-function boundaryOccurrences(text: string, needle: string): number[] {
+export function boundaryOccurrences(text: string, needle: string): number[] {
   const out: number[] = [];
   let idx = -1;
   while ((idx = text.indexOf(needle, idx + 1)) !== -1) {
@@ -528,4 +528,148 @@ export function reconcileSpellWithEditor(
 
   if (agreedKeys.size === 0) return editorCorrections;
   return editorCorrections.filter((c) => !agreedKeys.has(key(c)));
+}
+
+/**
+ * Drop corrections that are no-ops after whitespace normalization — e.g. an
+ * editor "fixing" a period by replacing it with another period. These
+ * occasionally slip through the editor/reviewer pipeline and would otherwise
+ * surface as an inexplicable suggestion with no visible change.
+ */
+// Zero-width and other invisible "format" characters a model can slip into
+// a "fix" — invisible to a human, but different bytes, so a plain
+// trim+collapse-whitespace check still sees two strings as distinct (reads
+// to a user as "replacing a dot with a dot"). Regular whitespace, including
+// NBSP, is already covered by \s below. Built from numeric code points
+// rather than typed as literal characters — these are invisible/bidi-control
+// code points that must never appear as literal source bytes.
+const INVISIBLE_CODE_POINTS = [
+  0x200b, 0x200c, 0x200d, 0x200e, 0x200f, // zero-width space/joiners, direction marks
+  0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // bidi embedding/override
+  0x2060, 0x2061, 0x2062, 0x2063, 0x2064, // word joiner, invisible operators
+  0xfeff, // BOM / zero-width no-break space
+  0x00ad, // soft hyphen
+];
+const INVISIBLE_RE = new RegExp(
+  `[${INVISIBLE_CODE_POINTS.map((c) => String.fromCharCode(c)).join("")}]`,
+  "g",
+);
+
+function normalizeForComparison(s: string): string {
+  return s.replace(INVISIBLE_RE, "").trim().replace(/\s+/g, " ");
+}
+
+export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
+  return corrections.filter(
+    (c) =>
+      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected),
+  );
+}
+
+const TRAILING_PUNCT_RE = /^[.!?,:;…]+$/;
+
+/**
+ * Drop corrections that only APPEND terminal punctuation (e.g. adding a
+ * period) when that exact punctuation already exists as the very next
+ * character(s) in the source, right after the correction's own span. This is
+ * an editor "fixing" a sentence that already properly ends — its local
+ * context window just cuts off before the real punctuation — and applying
+ * the correction as given would double it up ("..").
+ */
+export function dropRedundantPunctuationAppends(
+  chapterText: string,
+  corrections: Correction[],
+): Correction[] {
+  return corrections.filter((c) => {
+    if (!c.corrected.startsWith(c.original)) return true;
+    const added = c.corrected.slice(c.original.length);
+    if (!added || !TRAILING_PUNCT_RE.test(added)) return true;
+    const positions = boundaryOccurrences(chapterText, c.original);
+    const redundant = positions.some(
+      (pos) =>
+        chapterText.slice(
+          pos + c.original.length,
+          pos + c.original.length + added.length,
+        ) === added,
+    );
+    return !redundant;
+  });
+}
+
+/**
+ * Chapter-level correction dedup, run once all of a chapter's chunk
+ * corrections are assembled. Overlapping chunks and chunk boundaries can
+ * produce the same correction multiple times, sometimes with extra context.
+ *
+ * Pass 0: drop no-op corrections (e.g. an editor "fixing" a period by
+ * replacing it with another period) before they can subsume real fixes.
+ *
+ * Pass 0b: drop corrections that only append terminal punctuation already
+ * present right after their own span (an editor's context window ending
+ * just short of a sentence that already properly closes).
+ *
+ * Pass 1: exact dedup by (original, corrected) with whitespace normalisation.
+ *
+ * Pass 2: remove corrections whose (original, corrected) pair is fully
+ * contained within a shorter correction AND anchored at the same spot in the
+ * chapter — i.e. the shorter one already captures the same fix with less
+ * context, making the longer one redundant. The position check matters: two
+ * distinct, unrelated fixes can have strings that are lexical substrings of
+ * each other without being the same edit, and a pure string-containment
+ * check would silently drop the real one.
+ */
+export function dedupeChapterCorrections(
+  chapterText: string,
+  corrections: Correction[],
+): Correction[] {
+  const noOpFree = dropRedundantPunctuationAppends(
+    chapterText,
+    dropNoOpCorrections(corrections),
+  );
+
+  const seen = new Set<string>();
+  const deduped: Correction[] = [];
+  for (const c of noOpFree) {
+    const k = JSON.stringify([
+      normalizeForComparison(c.original),
+      normalizeForComparison(c.corrected),
+    ]);
+    if (!seen.has(k)) {
+      seen.add(k);
+      deduped.push(c);
+    }
+  }
+
+  const spanCache = new Map<string, [number, number][]>();
+  const spansFor = (s: string): [number, number][] => {
+    let spans = spanCache.get(s);
+    if (!spans) {
+      spans = boundaryOccurrences(chapterText, s).map(
+        (p) => [p, p + s.length] as [number, number],
+      );
+      spanCache.set(s, spans);
+    }
+    return spans;
+  };
+  const subsumeFree: Correction[] = [];
+  for (const c of deduped) {
+    const cSpans = spansFor(c.original);
+    const subsumed = deduped.some((other) => {
+      if (
+        other === c ||
+        other.original.length >= c.original.length ||
+        !c.original.includes(other.original) ||
+        !c.corrected.includes(other.corrected)
+      )
+        return false;
+      const otherSpans = spansFor(other.original);
+      if (cSpans.length === 0 || otherSpans.length === 0) return false;
+      return otherSpans.some(([os, oe]) =>
+        cSpans.some(([cs, ce]) => os >= cs && oe <= ce),
+      );
+    });
+    if (!subsumed) subsumeFree.push(c);
+  }
+
+  return subsumeFree;
 }

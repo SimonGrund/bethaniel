@@ -1,5 +1,6 @@
 [
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "danish_copy_edit.md",
     "language": "danish",
@@ -403,6 +404,7 @@
     "runDate": "2026-07-22T08:35:09.988Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "danish_correct.md",
     "language": "danish",
@@ -848,6 +850,7 @@
     "runDate": "2026-07-22T08:35:09.989Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "danish_correct.md",
     "language": "danish",
@@ -1352,6 +1355,7 @@
     "runDate": "2026-07-22T08:35:09.991Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "danish_line_edit.md",
     "language": "danish",
@@ -1705,6 +1709,7 @@
     "runDate": "2026-07-22T08:36:13.150Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "english_copy_edit.md",
     "language": "english",
@@ -1786,6 +1791,7 @@
     "runDate": "2026-07-22T08:36:13.152Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "english_correct.md",
     "language": "english",
@@ -1818,6 +1824,7 @@
     "runDate": "2026-07-22T08:36:13.153Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "english_correct.md",
     "language": "english",
@@ -2025,6 +2032,7 @@
     "runDate": "2026-07-22T08:36:49.930Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "english_line_edit.md",
     "language": "english",
@@ -2296,6 +2304,7 @@
     "runDate": "2026-07-22T08:36:49.932Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "german_copy_edit.md",
     "language": "german",
@@ -2537,6 +2546,7 @@
     "runDate": "2026-07-22T08:36:49.933Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "german_correct.md",
     "language": "german",
@@ -2779,6 +2789,7 @@
     "runDate": "2026-07-22T08:37:55.039Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "german_correct.md",
     "language": "german",
@@ -3020,6 +3031,7 @@
     "runDate": "2026-07-22T08:37:55.040Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "german_line_edit.md",
     "language": "german",
@@ -3418,6 +3430,7 @@
     "runDate": "2026-07-22T08:37:55.041Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "spanish_copy_edit.md",
     "language": "spanish",
@@ -3756,6 +3769,7 @@
     "runDate": "2026-07-22T08:38:59.647Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "spanish_correct.md",
     "language": "spanish",
@@ -4093,6 +4107,7 @@
     "runDate": "2026-07-22T08:38:59.648Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "spanish_correct.md",
     "language": "spanish",
@@ -4418,6 +4433,7 @@
     "runDate": "2026-07-22T08:38:59.649Z"
   },
   {
+    "repeatIndex": 1,
     "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
     "file": "spanish_line_edit.md",
     "language": "spanish",
@@ -4885,5 +4901,83 @@
     ],
     "errors": [],
     "runDate": "2026-07-22T08:39:39.135Z"
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "file": "english_copy_edit.md",
+    "language": "english",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "repeatIndex": 1,
+    "correctionsFound": 6,
+    "runtimeMs": 6119,
+    "corrections": [
+      {
+        "original": "a hand grown thin and shakey",
+        "corrected": "a hand grown thin and shaky",
+        "confidence": 5,
+        "reviewReason": "Fixes a spelling error: 'shakey' is misspelled and should be 'shaky'.",
+        "chunk": "Chunk 1/1",
+        "id": "f5446ee8-4ebc-4231-9505-fe60af70d57e",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "because her knees had began to tremble",
+        "corrected": "because her knees had begun to tremble",
+        "confidence": 5,
+        "reviewReason": "Corrects a grammar error: 'had began' is incorrect and should be 'had begun'.",
+        "chunk": "Chunk 1/1",
+        "id": "dc719cd4-b2c1-495f-ab71-e9c9a5c63185",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "her name writen on the front",
+        "corrected": "her name written on the front",
+        "confidence": 5,
+        "reviewReason": "Fixes the spelling error identified in change [0] by ensuring 'written' is used correctly.",
+        "chunk": "Chunk 1/1",
+        "id": "5e3010cf-5848-4aa4-8ecf-02aae7baa5ed",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "unmoored",
+        "corrected": "uncured",
+        "reason": "spell-check",
+        "confidence": 2,
+        "reviewReason": "Changes 'unmoored' to 'uncured', which alters the metaphorical meaning of being emotionally detached from one's roots.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "c6441603-5cb8-475d-9db5-d931545d4cf3",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "began",
+        "corrected": "begin",
+        "confidence": 2,
+        "reviewReason": "Changes 'began' to 'begin', which contradicts the original text and creates confusion about whether the author intended to fix or break the sentence.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "847f4cae-9567-443c-98c0-c7a2146aa563",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "ran",
+        "corrected": "run",
+        "confidence": 2,
+        "reviewReason": "Changes 'ran' to 'run', which contradicts the original text and creates confusion about whether the author intended to fix or break the sentence.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "b4a01282-a4bb-4e96-8df1-7b4cd23f7af1",
+        "blocksPublication": true,
+        "polishOnly": false
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-08-25T12:45:01.289Z"
   }
 ]

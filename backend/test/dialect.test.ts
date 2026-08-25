@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { getDialectCorrections } from "../src/dialect.ts";
+import { getDialectCorrections, detectDialect } from "../src/dialect.ts";
 
 function pairs(cs: { original: string; corrected: string }[]) {
   return cs.map((c) => `${c.original}→${c.corrected}`).sort();
@@ -128,6 +128,64 @@ test("british: newly-added families convert (fervour / -ise / -ment / -yse / -ae
   ]);
 });
 
+test("american: '-wards' directional adverbs drop the trailing -s", () => {
+  const cs = getDialectCorrections(
+    "She walked towards the door, glanced backwards, then moved forwards and upwards, onwards and outwards.",
+    "american",
+  );
+  assert.deepEqual(pairs(cs), [
+    "backwards→backward",
+    "forwards→forward",
+    "onwards→onward",
+    "outwards→outward",
+    "towards→toward",
+    "upwards→upward",
+  ]);
+});
+
+test("british: '-wards' directional adverbs gain the trailing -s", () => {
+  const cs = getDialectCorrections(
+    "She walked toward the door, glanced backward, then moved forward and upward.",
+    "british",
+  );
+  assert.deepEqual(pairs(cs), [
+    "backward→backwards",
+    "forward→forwards",
+    "toward→towards",
+    "upward→upwards",
+  ]);
+});
+
+test("'-wards' matching respects word boundaries (toward is not a substring hit inside towards)", () => {
+  assert.deepEqual(getDialectCorrections("towards", "british"), []);
+  assert.deepEqual(getDialectCorrections("towards", "american"), [
+    { original: "towards", corrected: "toward" },
+  ]);
+});
+
+test("american: 'no-one' becomes 'no one'", () => {
+  assert.deepEqual(getDialectCorrections("No-one came.", "american"), [
+    { original: "No-one", corrected: "No one" },
+  ]);
+});
+
+test("british: 'no one' becomes 'no-one'", () => {
+  assert.deepEqual(getDialectCorrections("No one came.", "british"), [
+    { original: "No one", corrected: "No-one" },
+  ]);
+});
+
+test("misc unambiguous pairs: artefact/artifact and cosy/cozy convert both ways", () => {
+  assert.deepEqual(
+    pairs(getDialectCorrections("The artefact sat in a cosy corner.", "american")),
+    ["artefact→artifact", "cosy→cozy"],
+  );
+  assert.deepEqual(
+    pairs(getDialectCorrections("The artifact sat in a cozy corner.", "british")),
+    ["artifact→artefact", "cozy→cosy"],
+  );
+});
+
 test("always -ise words are never touched (either direction)", () => {
   const text =
     "They advertise a surprise that will comprise and compromise the exercise.";
@@ -143,4 +201,47 @@ test("no false positives in neutral text", () => {
     ),
     [],
   );
+});
+
+// ── detectDialect ──
+
+test("detectDialect: a clearly British manuscript is detected as british", () => {
+  const text =
+    "The grey harbour smelled of the sea. She realised her favourite colour had faded, and the neighbours gathered by the harbour to watch the theatre troupe travelling through, favoured by all.";
+  const d = detectDialect(text);
+  assert.equal(d.dialect, "british");
+  assert.equal(d.mixed, false);
+});
+
+test("detectDialect: a clearly American manuscript is detected as american", () => {
+  const text =
+    "The gray harbor smelled of the sea. She realized her favorite color had faded, and the neighbors gathered by the harbor to watch the theater troupe traveling through, favored by all.";
+  const d = detectDialect(text);
+  assert.equal(d.dialect, "american");
+  assert.equal(d.mixed, false);
+});
+
+test("detectDialect: text with no dialect markers returns null, not a guess", () => {
+  const d = detectDialect("The cat sat on the mat and looked at the door.");
+  assert.equal(d.dialect, null);
+  assert.equal(d.mixed, false);
+});
+
+test("detectDialect: one stray outlier is not 'mixed'", () => {
+  // Mostly British, with a single incidental American spelling — not enough
+  // to call the manuscript inconsistent.
+  const text =
+    "The grey harbour smelled of the sea. She realised her favourite colour had faded. The neighbours gathered by the harbour. The theatre troupe travelled through, favoured by all. Someone mentioned the color once.";
+  const d = detectDialect(text);
+  assert.equal(d.dialect, "british");
+  assert.equal(d.mixed, false);
+});
+
+test("detectDialect: genuinely mixed usage is flagged", () => {
+  const text =
+    "The grey harbour smelled of the sea. She realised her favourite colour had faded. " +
+    "The gray harbor smelled of rain. He realized his favorite color had changed too. " +
+    "More neighbours gathered by the harbour to watch the theatre troupe.";
+  const d = detectDialect(text);
+  assert.equal(d.mixed, true);
 });

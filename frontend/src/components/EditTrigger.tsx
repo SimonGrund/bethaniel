@@ -1,9 +1,45 @@
 // ── Edit trigger — wizard step 5: Run ──
 
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { addToQueue } from "../api";
+import {
+  addToQueue,
+  getCloudEstimate,
+  createCloudCheckout,
+  type CloudEstimateResponse,
+} from "../api";
 import { buildUnits } from "./ScopeSelection";
+import { refreshModelEnvironment } from "../useModelRuntime";
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+/** Bridge to the Electron main process — undefined outside the desktop app
+ *  (e.g. a browser preview), in which case the cloud button is hidden. */
+function getElectronBridge(): {
+  openCloudCheckout: (url: string) => Promise<void>;
+  onCloudCredentialClaimed: (
+    listener: (result: { ok: boolean; error?: string }) => void,
+  ) => () => void;
+} | null {
+  const win = window as unknown as {
+    bethaniel?: {
+      openCloudCheckout?: (url: string) => Promise<void>;
+      onCloudCredentialClaimed?: (
+        listener: (result: { ok: boolean; error?: string }) => void,
+      ) => () => void;
+    };
+  };
+  if (win.bethaniel?.openCloudCheckout && win.bethaniel?.onCloudCredentialClaimed) {
+    return {
+      openCloudCheckout: win.bethaniel.openCloudCheckout,
+      onCloudCredentialClaimed: win.bethaniel.onCloudCredentialClaimed,
+    };
+  }
+  return null;
+}
 
 export default function EditTrigger() {
   const {
@@ -45,7 +81,6 @@ export default function EditTrigger() {
     setSessionStartedAt,
     installed,
     downloads,
-    apiKeyConfigured,
     modelEnvLoaded,
   } = useStore();
   const t = useTranslation(lang);
@@ -107,7 +142,7 @@ export default function EditTrigger() {
           .replace("{percent}", String(activeDownload.percent))
       : modelPending
         ? t("run_blocked_preparing")
-        : isApiModel && !apiKeyConfigured
+        : isApiModel && !installed.some((m) => m.fileName === model)
           ? t("run_blocked_no_api_key")
           : null;
 
@@ -118,13 +153,143 @@ export default function EditTrigger() {
     submitting ||
     notReadyReason !== null;
 
+  // ── Betty in the Cloud: pre-run estimate + pay-to-run ──
+
+  const [cloudEstimate, setCloudEstimate] = useState<CloudEstimateResponse | null>(
+    null,
+  );
+  const [cloudEstimateError, setCloudEstimateError] = useState<string | null>(null);
+  const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
+  const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
+  const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Looked up once — the bridge itself never changes across a session, and a
+  // stable reference lets the credential-claimed subscription below mount
+  // exactly once instead of resubscribing on every render.
+  const [electronBridge] = useState(() => getElectronBridge());
+  // Always resolves to the current render's handleClick, so the credential
+  // handler (subscribed once, fired much later after payment) submits with
+  // up-to-date doc/units/settings instead of whatever they were on mount.
+  const handleClickRef = useRef<() => Promise<void>>(async () => {});
+
+  // Refetch whenever anything that changes the job's shape changes. `units`
+  // is recomputed fresh every render, so its content (not identity) drives
+  // the dependency list via the chapter-selection/scope inputs it's built
+  // from — same inputs the run button's own chapter count already uses.
+  useEffect(() => {
+    if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
+    if (!doc || units.length === 0 || selectedModes.length === 0) {
+      setCloudEstimate(null);
+      return;
+    }
+    estimateDebounceRef.current = setTimeout(() => {
+      getCloudEstimate({
+        units: units.map((u) => ({ wordCount: countWords(u.original) })),
+        modes: selectedModes,
+        wordsPerChunk,
+        runMode,
+        reviewMode,
+        reviewerCount,
+        dualEditor,
+        dualCount,
+        styleComplianceAgent,
+        extraPass,
+        styleGuide: styleGuide || undefined,
+        manuscriptLang,
+      })
+        .then((est) => {
+          setCloudEstimate(est);
+          setCloudEstimateError(null);
+        })
+        .catch((err) => {
+          setCloudEstimate(null);
+          setCloudEstimateError(
+            err instanceof Error ? err.message : "Could not price this job",
+          );
+        });
+    }, 500);
+    return () => {
+      if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    doc?.id,
+    scopeMode,
+    selectedChapters.join(","),
+    firstNWords,
+    selectedModes.join(","),
+    wordsPerChunk,
+    runMode,
+    reviewMode,
+    reviewerCount,
+    dualEditor,
+    dualCount,
+    styleComplianceAgent,
+    extraPass,
+    styleGuide,
+    manuscriptLang,
+  ]);
+
+  // Once a credential is claimed (paid + saved via the bethaniel:// deep
+  // link), point the run at Betty in the Cloud and submit immediately — the
+  // user already committed to running this exact job by paying for it.
+  useEffect(() => {
+    if (!electronBridge) return;
+    return electronBridge.onCloudCredentialClaimed((result) => {
+      setCloudCheckoutPending(false);
+      if (!result.ok) {
+        setCloudClaimError(result.error ?? "Could not activate your cloud credit");
+        return;
+      }
+      setCloudClaimError(null);
+      void (async () => {
+        await refreshModelEnvironment();
+        useStore.getState().setModel("custom:bethaniel-cloud");
+        await handleClickRef.current();
+      })();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [electronBridge]);
+
+  const handleRunInCloud = async () => {
+    if (!cloudEstimate) return;
+    setCloudClaimError(null);
+    try {
+      const { checkoutUrl } = await createCloudCheckout(cloudEstimate.quoteId);
+      setCloudCheckoutPending(true);
+      if (electronBridge) {
+        await electronBridge.openCloudCheckout(checkoutUrl);
+      } else {
+        window.open(checkoutUrl, "_blank");
+      }
+    } catch (err) {
+      setCloudClaimError(
+        err instanceof Error ? err.message : "Could not start checkout",
+      );
+    }
+  };
+
   const buildEditOptions = () => {
-    const opts: Record<string, boolean> = {};
+    const opts: Record<string, boolean | string> = {};
     if (selectedModes.includes("copy_edit")) {
       Object.assign(opts, copyEditOptions);
     }
     if (selectedModes.includes("line_edit")) {
       Object.assign(opts, lineEditOptions);
+    }
+    // The deterministic spell-checker (queue.ts) needs the manuscript's own
+    // dialect regardless of which edit modes are selected — Publication
+    // Scan's proofread pass runs it too, with no copy-edit panel to set the
+    // dialect from. Without this it silently defaults to American English
+    // and flags every British spelling ("grey", "ambience") as a typo.
+    const usesSpellCheck = selectedModes.some(
+      (m) =>
+        m === "proofread" ||
+        m === "copy_edit" ||
+        m === "line_edit" ||
+        m === "combined_edit",
+    );
+    if (usesSpellCheck && opts.englishDialect === undefined) {
+      opts.englishDialect = copyEditOptions.englishDialect;
     }
     return Object.keys(opts).length > 0 ? opts : undefined;
   };
@@ -186,6 +351,10 @@ export default function EditTrigger() {
     }
   };
 
+  useEffect(() => {
+    handleClickRef.current = handleClick;
+  });
+
   // Reveal the latest-run results (hidden while a setup menu is open) and jump
   // to the run header.
   const viewLatestRun = () => {
@@ -238,32 +407,73 @@ export default function EditTrigger() {
     );
   }
 
-  // No run in this session yet — the normal launch button.
+  // No run in this session yet — the normal launch button, plus (when a
+  // price is available) the pay-per-job cloud option beside it.
   return (
-    <button
-      className="btn-run"
-      data-tour="run"
-      disabled={disabled}
-      onClick={handleClick}
-      title={notReadyReason ?? undefined}
-    >
-      <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
-      <span className="btn-run-label">
-        {hasRun ? t("run_again") : t("btn_add_to_queue")}
-      </span>
-      {/* When Betty isn't ready, say so in place of the chapter count — a
-          greyed button with no explanation reads as a bug. */}
-      {notReadyReason ? (
-        <span className="btn-run-meta btn-run-waiting">{notReadyReason}</span>
-      ) : (
-        units.length > 0 && (
-          <span className="btn-run-meta">
-            {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
-            {selectedModes.length}{" "}
-            {selectedModes.length === 1 ? "mode" : "modes"}
+    <div className="run-actions">
+      <button
+        className="btn-run"
+        data-tour="run"
+        disabled={disabled}
+        onClick={handleClick}
+        title={notReadyReason ?? undefined}
+      >
+        <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+        <span className="btn-run-label">
+          {hasRun ? t("run_again") : t("btn_add_to_queue")}
+        </span>
+        {/* When Betty isn't ready, say so in place of the chapter count — a
+            greyed button with no explanation reads as a bug. */}
+        {notReadyReason ? (
+          <span className="btn-run-meta btn-run-waiting">{notReadyReason}</span>
+        ) : (
+          units.length > 0 && (
+            <span className="btn-run-meta">
+              {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+              {selectedModes.length}{" "}
+              {selectedModes.length === 1 ? "mode" : "modes"}
+            </span>
+          )
+        )}
+      </button>
+
+      {electronBridge && !disabled && (
+        <button
+          type="button"
+          className="btn-run-cloud"
+          disabled={!cloudEstimate || cloudCheckoutPending}
+          onClick={handleRunInCloud}
+          title={t(
+            "cloud_run_disclosure",
+            "Your manuscript will be sent to Bethaniel's cloud service for this job.",
+          )}
+        >
+          <span aria-hidden="true">💳</span>
+          <span className="btn-run-label">
+            {cloudCheckoutPending
+              ? t("cloud_waiting_payment", "Waiting for payment…")
+              : t("cloud_run_cta", "Run in Cloud")}
           </span>
-        )
+          {cloudEstimate && !cloudCheckoutPending && (
+            <span className="btn-run-meta">
+              ≈{cloudEstimate.estimatedTotalTokens.toLocaleString()}{" "}
+              {t("cloud_tokens", "tokens")} · {cloudEstimate.confidence ===
+              "lower_bound"
+                ? "≥"
+                : "≈"}
+              €{(cloudEstimate.priceCents / 100).toFixed(2)}
+            </span>
+          )}
+          {cloudEstimateError && !cloudEstimate && (
+            <span className="btn-run-meta btn-run-waiting">
+              {t("cloud_estimate_error", "Cloud pricing unavailable")}
+            </span>
+          )}
+        </button>
       )}
-    </button>
+      {cloudClaimError && (
+        <div className="api-error">{cloudClaimError}</div>
+      )}
+    </div>
   );
 }

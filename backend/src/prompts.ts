@@ -298,7 +298,9 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
   const items: string[] = [];
   if (opts.spelling) items.push("- Spelling errors and typos");
   if (opts.duplicateWords)
-    items.push('- Duplicated words ("the the", "and and")');
+    items.push(
+      '- Duplicated words or short phrases ("the the", "and and", "in weeks in weeks")',
+    );
   if (opts.punctuation)
     items.push("- Missing or extra punctuation that is grammatically wrong");
   if (opts.capitalization)
@@ -327,7 +329,7 @@ function buildCopyEditScope(opts: CopyEditOptions): string {
   let scope = "YOUR ONLY JOB IS TO FIX OBJECTIVE ERRORS:\n" + items.join("\n");
   if (opts.spelling)
     scope +=
-      '\n- Clearly incorrect word usage where context is unambiguous (e.g. "their" vs "there", "affect" vs "effect")';
+      '\n- ONLY classic confusable-word pairs where context is unambiguous (e.g. "their" vs "there", "affect" vs "effect") — never swap in a different, better-sounding real word just because it fits better; that is word choice, not an error';
   if (standards.length > 0)
     scope += "\n\nLANGUAGE STANDARDS:\n" + standards.join("\n");
   return scope;
@@ -339,7 +341,7 @@ YOU MUST NOT:
 - "Improve" flow, clarity, or style
 - Change word choice if the original word is correct
 - Add, remove, split, or merge sentences or paragraphs
-- Change punctuation that is merely a stylistic preference (em-dash usage, sentence fragments, comma splices used for effect in dialogue)
+- Change punctuation that is merely a stylistic preference (em-dash usage, sentence fragments, comma splices used for effect INSIDE QUOTED DIALOGUE — never in narration; a comma splice in narration, e.g. right after a line of dialogue, is a grammatical error and must be fixed)
 - Change quote style, dash style, or ellipsis style
 - "Correct" intentional dialect, slang, or character voice in dialogue
 - Translate anything
@@ -389,10 +391,10 @@ export function buildCopyEditCorrectionsPrompt(
   p += "WHAT COUNTS AS AN ERROR:\n";
   // Reuse the scope items
   if (opts.spelling) p += "- Spelling errors and typos\n";
-  if (opts.duplicateWords) p += '- Duplicated words ("the the", "and and")\n';
+  if (opts.duplicateWords) p += '- Duplicated words or short phrases ("the the", "and and", "in weeks in weeks")\n';
   if (opts.spelling)
     p +=
-      '- Clearly incorrect word usage in unambiguous context (e.g. "their" vs "there")\n';
+      '- ONLY classic confusable-word pairs in unambiguous context (e.g. "their" vs "there") — never swap in a different, better-sounding real word just because it fits better; that is word choice, not an error\n';
   if (opts.punctuation)
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (opts.capitalization)
@@ -416,7 +418,7 @@ export function buildCopyEditCorrectionsPrompt(
 
   p += `\n\nDO NOT FLAG (these are NOT errors):
 - ANY markdown formatting character
-- Stylistic choices: em-dash usage, sentence fragments, comma splices in dialogue
+- Stylistic choices: em-dash usage, sentence fragments, comma splices used for effect INSIDE QUOTED DIALOGUE (never in narration — a comma splice in narration, e.g. right after a line of dialogue, is a grammatical error and must be flagged)
 - Quote style (straight vs curly), dash style, ellipsis style
 - Word choice when the original word is correct
 - Anything in dialogue that is intentional dialect, slang, or character voice
@@ -460,9 +462,9 @@ export function buildProofreadCorrectionsPrompt(
   p += `\nYOUR JOB: find SURFACE ERRORS in the text and return them as a JSON list of corrections.\n\n`;
   p += "WHAT COUNTS AS A SURFACE ERROR:\n";
   p += "- Spelling errors and obvious typos\n";
-  p += '- Duplicated words ("the the", "and and")\n';
+  p += '- Duplicated words or short phrases ("the the", "and and", "in weeks in weeks")\n';
   p +=
-    '- Clearly incorrect word usage in unambiguous context (e.g. "their" vs "there", "its" vs "it\'s")\n';
+    '- ONLY classic confusable-word pairs (e.g. "their" vs "there", "its" vs "it\'s", "affect" vs "effect") — never swap in a different, better-sounding real word just because it fits the scene better; that is word choice, not an error, even if the new word is technically valid\n';
   p += "- Missing or extra punctuation that is grammatically wrong\n";
   p +=
     "- Clear grammatical slips: subject–verb agreement, a/an, an obviously wrong verb tense\n";
@@ -476,7 +478,7 @@ export function buildProofreadCorrectionsPrompt(
 - The Oxford/serial comma, and commas after introductory words — never add or remove them
 - Dialogue tag punctuation restyling, quote style (straight vs curly), dash style, ellipsis style
 - Word choice when the original word is correct; any rephrasing, tightening, or "improvement"
-- Sentence fragments, comma splices in dialogue, and other stylistic choices
+- Sentence fragments, comma splices used for effect INSIDE QUOTED DIALOGUE (never in narration — a comma splice in narration is a grammatical error, not a stylistic choice), and other stylistic choices
 - Proper nouns (character/place names) — unless the style guide says otherwise
 - Anything subjective ("flow", "clarity", "voice")
 
@@ -611,10 +613,10 @@ export function buildCombinedEditPrompt(
   p += "═══ COPY EDIT — WHAT COUNTS AS AN ERROR ═══\n";
   if (copyOpts.spelling) p += "- Spelling errors and typos\n";
   if (copyOpts.duplicateWords)
-    p += '- Duplicated words ("the the", "and and")\n';
+    p += '- Duplicated words or short phrases ("the the", "and and", "in weeks in weeks")\n';
   if (copyOpts.spelling)
     p +=
-      '- Clearly incorrect word usage in unambiguous context (e.g. "their" vs "there")\n';
+      '- ONLY classic confusable-word pairs in unambiguous context (e.g. "their" vs "there") — never swap in a different, better-sounding real word just because it fits better; that is word choice, not an error\n';
   if (copyOpts.punctuation)
     p += "- Missing or extra punctuation that is grammatically wrong\n";
   if (copyOpts.capitalization)

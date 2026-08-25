@@ -30,10 +30,11 @@ export const ANALYSIS_MODES: TaskMode[] = [
   "combined_analysis",
 ];
 
-// The UI presents these two as a single "Final readthrough" choice: a surface
-// proofread pass plus the deterministic structural scan. They stay separate
-// backend modes (different task granularity and result shapes) — only the
-// selection and the labels are merged.
+// The UI presents these two as a single "Publication Scan" choice (its own
+// top-level card): a surface proofread pass plus the deterministic
+// structural scan. They stay separate backend modes (different task
+// granularity and result shapes) — only the selection and the labels are
+// merged.
 export const FINAL_READTHROUGH_MODES: TaskMode[] = [
   "proofread",
   "publication_scan",
@@ -153,6 +154,21 @@ export interface Correction {
    * treated as "copy" when unlabeled.
    */
   editType?: "copy" | "line";
+  /**
+   * Whether this is an objective/mechanical error (spelling, duplicated
+   * words/phrases, missing words, spacing, punctuation that's grammatically
+   * wrong, dialogue-tag punctuation, missing articles/prepositions) that
+   * should block publication until fixed, vs. a subjective style/word-choice
+   * suggestion. Set by the backend's classifyPublicationBlocking.
+   */
+  blocksPublication?: boolean;
+  /**
+   * Whether original→corrected differs only in punctuation/spacing — no
+   * word added, removed, or changed. Set by the backend alongside
+   * blocksPublication so the UI can group these separately (e.g. "N
+   * comma-level suggestions — run the Copy Editor for a full polish").
+   */
+  polishOnly?: boolean;
 }
 
 export interface TaskResult {
@@ -222,6 +238,29 @@ export interface DownloadProgress {
   error?: string;
 }
 
+/** GET /api/languagetool/status — whether grammar checking can run, and
+ *  which half (jar / Java) is missing if not. */
+export interface LanguageToolStatus {
+  available: boolean;
+  hasJar: boolean;
+  hasJava: boolean;
+}
+
+/** POST /api/languagetool/download progress, via the `languagetool:download`
+ *  socket event or the resync endpoint. No byte-level progress — the backend
+ *  reports coarse stages only, since the download spans two separate files. */
+export interface LanguageToolDownload {
+  status: "starting" | "downloading" | "done" | "error";
+  error?: string;
+}
+
+/** GET /api/engine/status — is the running llama-server using the GPU? */
+export interface EngineDeviceStatus {
+  device: "gpu" | "cpu" | "unknown";
+  running: boolean;
+  model: string | null;
+}
+
 // ── Models & hardware ──
 // Shared by the model-runtime hook, the selector, and the first-run popups.
 // Previously these lived as private interfaces inside ModelSelector, which is
@@ -233,6 +272,7 @@ export interface CatalogEntry {
   name: string;
   description: string;
   fileName: string;
+  source: "gguf" | "ollama" | "api" | "custom_gguf";
   sizeBytes: number;
   minRamGb: number;
   minRamAppleSiliconGb: number;

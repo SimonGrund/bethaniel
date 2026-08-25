@@ -66,6 +66,13 @@ export function resolveLogsForTask(taskId: string): number {
   return removed;
 }
 
+/** Generic push to every connected client — for state that isn't a log line
+ *  (e.g. llamaServer's GPU/CPU device detection) but still wants a live UI
+ *  update rather than polling. No-op before a socket server is attached. */
+export function emitEvent(event: string, payload: unknown): void {
+  io?.emit(event, payload);
+}
+
 export function appendLog(entry: Omit<LogEntry, "id" | "ts">): LogEntry {
   const full: LogEntry = {
     id: String(nextId++),

@@ -17,6 +17,7 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
 export default function Sidebar() {
   const { lang, completedSteps, setWizardStep, resetAll, showEngineStatus, tasks } =
     useStore();
+  const engineDevice = useStore((s) => s.engineDevice);
   const t = useTranslation(lang);
   const [confirm, setConfirm] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -90,7 +91,29 @@ export default function Sidebar() {
 
       {showEngineStatus && (
         <div className="sidebar-engine">
-          <span className="sidebar-label">{t("sidebar_engine")}</span>
+          <div className="sidebar-engine-header">
+            <span className="sidebar-label">{t("sidebar_engine")}</span>
+            {engineDevice?.running && (
+              <span
+                className={`engine-device-badge engine-device-badge-${engineDevice.device}`}
+                title={t(
+                  engineDevice.device === "gpu"
+                    ? "engine_device_gpu_help"
+                    : engineDevice.device === "cpu"
+                      ? "engine_device_cpu_help"
+                      : "engine_device_unknown_help",
+                )}
+              >
+                {t(
+                  engineDevice.device === "gpu"
+                    ? "engine_device_gpu"
+                    : engineDevice.device === "cpu"
+                      ? "engine_device_cpu"
+                      : "engine_device_unknown",
+                )}
+              </span>
+            )}
+          </div>
           <EngineStatus />
         </div>
       )}

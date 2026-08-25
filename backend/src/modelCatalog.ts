@@ -24,6 +24,14 @@ export interface ModelCatalogEntry {
   /** Per-model default runtime settings. User overrides are layered on top
    *  via the per-model JSON sidecar in MODELS_DIR. */
   defaults: ModelSettings;
+  /** source "api" only: the endpoint this entry talks to when no per-install
+   *  `baseUrl` override is stored in api-config.json. Lets multiple API
+   *  entries (e.g. External Betty vs. Betty in the Cloud) coexist without
+   *  colliding on a single hardcoded base URL. */
+  defaultBaseUrl?: string;
+  /** source "api" only: suggested parallel job count for /system/recommend.
+   *  A UI hint, not an enforced cap — defaults to 3 when unset. */
+  recommendedParallel?: number;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -133,9 +141,39 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 0,
     minRamGb: 0,
     minRamAppleSiliconGb: 0,
+    defaultBaseUrl: "https://api.deepseek.com",
     defaults: {
       ...COMMON_DEFAULTS,
       num_ctx: 131072,
+      num_predict: 8192,
+      system: BASE_SYSTEM_PROMPT,
+    },
+  },
+  {
+    id: "bethaniel-cloud",
+    tier: "custom",
+    name: "Betty in the Cloud",
+    description:
+      "Pay per job to run on Bethaniel's cloud service — no download, no local hardware required. Your manuscript is sent to Bethaniel's cloud service.",
+    fileName: "custom:bethaniel-cloud",
+    source: "api",
+    url: "",
+    sha256: "",
+    sizeBytes: 0,
+    minRamGb: 0,
+    minRamAppleSiliconGb: 0,
+    // Points at the Bethaniel-run Cloudflare Worker, which proxies to Mistral
+    // under its own key — the credential stored locally is a paid, scoped
+    // token for that Worker, never a raw Mistral key. Override at runtime via
+    // process.env.BETHANIEL_CLOUD_BASE_URL until the production Worker is live.
+    defaultBaseUrl:
+      process.env.BETHANIEL_CLOUD_BASE_URL || "https://cloud.bethaniel.eu",
+    // Provider rate limits, not local hardware, bound concurrency here too —
+    // tune once the Worker's real Mistral rate limits are known.
+    recommendedParallel: 3,
+    defaults: {
+      ...COMMON_DEFAULTS,
+      num_ctx: 128000,
       num_predict: 8192,
       system: BASE_SYSTEM_PROMPT,
     },

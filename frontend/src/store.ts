@@ -22,6 +22,8 @@ import type {
   ModelRecommendation,
   PerfAdvice,
   RunStats,
+  LanguageToolDownload,
+  EngineDeviceStatus,
 } from "./types";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
 
@@ -312,6 +314,10 @@ interface AppState {
    *  persisted. */
   runStats: RunStats | null;
   setRunStats: (s: RunStats | null) => void;
+  /** Whether the running engine is on GPU or CPU, from `engine:device` /
+   *  GET /api/engine/status. Null until the first fetch lands. */
+  engineDevice: EngineDeviceStatus | null;
+  setEngineDevice: (s: EngineDeviceStatus | null) => void;
   /** Ceiling for the parallel-jobs slider — hardware- or provider-derived. */
   maxParallel: number;
   setMaxParallel: (n: number) => void;
@@ -342,6 +348,16 @@ interface AppState {
   dismissedAdvice: string[];
   dismissAdvice: (key: string) => void;
 
+  /** Grammar checking (LanguageTool) isn't installed — offer to fetch it.
+   *  Uses the same `dismissedAdvice` list (key "languagetool-missing") so a
+   *  "not now" answer survives a restart, same as perf advice. */
+  languageToolAdvice: boolean;
+  setLanguageToolAdvice: (b: boolean) => void;
+  /** Progress of an in-flight (or just-finished) on-demand LanguageTool
+   *  download. Transient — re-synced from the server on mount. */
+  languageToolDownload: LanguageToolDownload | null;
+  setLanguageToolDownload: (p: LanguageToolDownload | null) => void;
+
   /** Reveals the model step and its advanced settings. Off for new users. */
   advancedMode: boolean;
   setAdvancedMode: (b: boolean) => void;
@@ -361,7 +377,13 @@ interface AppState {
   // DOCX export: how minor section breaks render ("hash" = Atticus-safe "#")
   minorBreakStyle: "blank" | "hash";
   setMinorBreakStyle: (s: "blank" | "hash") => void;
-  editSubOptionsOpen: "editing" | "analysis" | "translation" | "feedback" | null;
+  editSubOptionsOpen:
+    | "editing"
+    | "analysis"
+    | "translation"
+    | "feedback"
+    | "readthrough"
+    | null;
   setEditSubOptionsOpen: (
     cat: "editing" | "analysis" | "translation" | "feedback" | null,
   ) => void;
@@ -818,6 +840,8 @@ export const useStore = create<AppState>()(
       modelEnvLoaded: false,
       runStats: null,
       setRunStats: (runStats) => set({ runStats }),
+      engineDevice: null,
+      setEngineDevice: (engineDevice) => set({ engineDevice }),
       setModelEnvLoaded: (modelEnvLoaded) => set({ modelEnvLoaded }),
       maxParallel: DEFAULT_MAX_PARALLEL,
       setMaxParallel: (maxParallel) => set({ maxParallel }),
@@ -845,6 +869,13 @@ export const useStore = create<AppState>()(
             ? state.dismissedAdvice
             : [...state.dismissedAdvice, key],
         })),
+
+      languageToolAdvice: false,
+      setLanguageToolAdvice: (languageToolAdvice) =>
+        set({ languageToolAdvice }),
+      languageToolDownload: null,
+      setLanguageToolDownload: (languageToolDownload) =>
+        set({ languageToolDownload }),
 
       advancedMode: false,
       setAdvancedMode: (advancedMode) => set({ advancedMode }),

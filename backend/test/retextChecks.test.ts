@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { getRetextCorrections } from "../src/retextChecks.ts";
+import { getRetextCorrections, findRepeatedPhrases } from "../src/retextChecks.ts";
 import { applyCorrections } from "../src/llm.ts";
 
 async function fix(text: string): Promise<string> {
@@ -48,4 +48,39 @@ test("each correction is tagged with a retext reason", async () => {
   const cs = await getRetextCorrections("I dont know.", "en");
   assert.ok(cs.length >= 1);
   assert.ok(cs.every((c) => (c.reason ?? "").startsWith("retext")));
+});
+
+// ── findRepeatedPhrases: duplicated multi-word phrases, e.g. "in weeks in weeks" ──
+
+test("repeated phrase: 'in weeks in weeks' is flagged and fixed", () => {
+  const text = "The first hint of a smile in weeks in weeks.";
+  const cs = findRepeatedPhrases(text);
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].reason, "retext:repeated-phrase");
+  const [out] = applyCorrections(text, cs);
+  assert.equal(out, "The first hint of a smile in weeks.");
+});
+
+test("repeated phrase: a single repeated word is left to retext-repeated-words", () => {
+  // "north north" is a single-word repeat, not a phrase repeat — out of scope here.
+  assert.deepEqual(findRepeatedPhrases("ride to the north north, or south"), []);
+});
+
+test("repeated phrase: repetition split across a sentence boundary is not flagged", () => {
+  assert.deepEqual(
+    findRepeatedPhrases("She waited in silence. In silence, she waited."),
+    [],
+  );
+});
+
+test("repeated phrase: clean text produces nothing", () => {
+  assert.deepEqual(findRepeatedPhrases("The cat ran fast. She smiled."), []);
+});
+
+test("getRetextCorrections also surfaces repeated phrases", async () => {
+  const cs = await getRetextCorrections(
+    "The first hint of a smile in weeks in weeks.",
+    "en",
+  );
+  assert.ok(cs.some((c) => c.reason === "retext:repeated-phrase"));
 });

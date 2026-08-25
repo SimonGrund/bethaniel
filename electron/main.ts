@@ -3,13 +3,43 @@
 // via the backend's supervisor, and opens a BrowserWindow pointed at the
 // backend's built-in frontend.
 
-import { app, BrowserWindow, shell, dialog, ipcMain, Menu } from "electron";
+import {
+  app,
+  BrowserWindow,
+  shell,
+  dialog,
+  ipcMain,
+  Menu,
+  Notification,
+} from "electron";
 import { ChildProcess, fork, execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as http from "http";
 import * as net from "net";
 import { autoUpdater } from "electron-updater";
+import { downloadCudaEngine, hasCudaEngineInstalled } from "./gpuEngine";
+
+// ── Betty in the Cloud: bethaniel:// protocol handoff ──
+//
+// After a successful cloud-job payment, the Worker's hosted success page
+// navigates the system browser to bethaniel://claim?token=...&model=..., the
+// OS hands that to this app, and we save the credential the same way
+// External Betty's own key is saved — no card details or Stripe session ever
+// touch the renderer.
+const PROTOCOL = "bethaniel";
+if (!app.isDefaultProtocolClient(PROTOCOL)) {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+
+// Only one instance may hold the backend's port/data dir at a time. A second
+// launch (e.g. the OS opening a bethaniel:// link while the app is already
+// running) hands its argv to the first instance via "second-instance" and
+// then exits, rather than starting a competing backend.
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) {
+  app.quit();
+}
 
 // ── Paths ──
 
@@ -235,12 +265,21 @@ function findLlamaBin(): string {
 
   // On Linux with an NVIDIA GPU, prefer the Vulkan build so models offload
   // to VRAM by default. Falls back gracefully to the CPU build otherwise.
+  // On Windows the default bundled build has no GPU backend at all, so an
+  // NVIDIA GPU means preferring the CUDA build instead.
   const archDirs =
     process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
       ? ["linux-x64-vulkan", platformArch]
-      : [platformArch];
+      : process.platform === "win32" && hasNvidiaGpu()
+        ? ["win32-x64-cuda", platformArch]
+        : [platformArch];
 
   for (const arch of archDirs) {
+    // Downloaded on demand (Windows CUDA build — see maybeDownloadCudaEngine):
+    // userData/engine/<arch>/llama-server.exe
+    const downloaded = path.join(userDataPath("engine", arch), binaryName);
+    if (fs.existsSync(downloaded)) return downloaded;
+
     // In packaged builds: resources/llama/<arch>/llama-server
     const packaged = path.join(
       process.resourcesPath,
@@ -265,6 +304,65 @@ function findLlamaBin(): string {
 
   // Fallback: system PATH
   return binaryName;
+}
+
+// ── On-demand CUDA engine download (Windows) ──
+//
+// The bundled Windows build has no GPU backend at all — shipping the CUDA
+// build (well over 1 GB once its cuBLAS/cuDART runtime is included) in every
+// installer would bloat non-NVIDIA installs for no benefit. Instead: when an
+// NVIDIA GPU is detected and no CUDA build is present yet, download one into
+// userData in the background (survives app updates, needs no elevated
+// permissions) — see gpuEngine.ts. It's picked up the next time the app
+// starts — this never blocks or interrupts the current session, and any
+// failure just leaves the existing CPU build in place.
+
+function llamaManifestPath(): string {
+  return IS_DEV
+    ? path.resolve(__dirname, "..", "..", "scripts", "llama-manifest.json")
+    : path.join(process.resourcesPath, "llama-manifest.json");
+}
+
+function cudaEngineFinalDir(): string {
+  return userDataPath("engine", "win32-x64-cuda");
+}
+
+/** Never throws — logs and leaves the existing (CPU) build in place on any failure. */
+async function maybeDownloadCudaEngine(): Promise<void> {
+  try {
+    if (process.platform !== "win32") return;
+    const finalDir = cudaEngineFinalDir();
+    if (hasCudaEngineInstalled(finalDir)) return;
+    if (!hasNvidiaGpu()) return;
+    // Already resolvable via a bundled/dev copy (e.g. manually dropped in)?
+    if (findLlamaBin().includes("win32-x64-cuda")) return;
+
+    console.log(
+      "[gpu-engine] NVIDIA GPU detected — downloading the CUDA-accelerated engine in the background (one-time, applies after next restart)...",
+    );
+    const installed = await downloadCudaEngine({
+      manifestPath: llamaManifestPath(),
+      finalDir,
+      tmpDir: userDataPath("engine", ".download-tmp"),
+      log: (m) => console.log(`[gpu-engine] ${m}`),
+    });
+    if (!installed) return;
+
+    console.log(
+      "[gpu-engine] CUDA-accelerated engine installed. It will be used starting next launch.",
+    );
+    if (Notification.isSupported()) {
+      new Notification({
+        title: "Bethaniel",
+        body: "GPU acceleration is ready — restart Bethaniel to use it.",
+      }).show();
+    }
+  } catch (err) {
+    console.error(
+      "[gpu-engine] CUDA engine download failed (will keep using the CPU build):",
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 /**
@@ -492,6 +590,87 @@ ipcMain.handle("dialog:openGguf", async () => {
   return result.filePaths[0];
 });
 
+// ── IPC: open a Stripe Checkout URL in the system browser ──
+// Routed through the main process (rather than window.open) so the renderer
+// can show a "waiting for payment" state instead of firing and forgetting.
+ipcMain.handle("cloud:openCheckout", (_event, url: unknown) => {
+  if (typeof url === "string" && url.startsWith("https://")) {
+    shell.openExternal(url);
+  }
+});
+
+// ── Betty in the Cloud: bethaniel:// deep-link handoff ──
+
+let pendingDeepLink: string | null = null;
+let backendReady = false;
+
+/** Claim a cloud credential by saving it into the same api-config store
+ *  External Betty's own key lives in, keyed to the "bethaniel-cloud" entry. */
+async function claimCloudCredential(url: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return;
+  }
+  if (parsed.protocol !== `${PROTOCOL}:`) return;
+  // Electron parses "bethaniel://claim?token=..." with the host as "claim"
+  // (custom schemes have no real authority component).
+  if (parsed.hostname !== "claim" && parsed.pathname !== "/claim") return;
+
+  const token = parsed.searchParams.get("token");
+  if (!token) return;
+  const model = parsed.searchParams.get("model") || "mistral-large-latest";
+
+  try {
+    await fetch(`http://127.0.0.1:${backendPort}/api/models/custom/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entryId: "bethaniel-cloud", apiKey: token, model }),
+    });
+    mainWindow?.webContents.send("cloud:credentialClaimed", { ok: true });
+  } catch (err) {
+    console.error("[cloud] failed to save claimed credential:", err);
+    mainWindow?.webContents.send("cloud:credentialClaimed", {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+}
+
+/** Cold starts (Windows/Linux) and second-instance launches may arrive before
+ *  the backend has a port to PUT the credential to — queue until ready. */
+function handleDeepLinkOrQueue(url: string): void {
+  if (!url.startsWith(`${PROTOCOL}://`)) return;
+  if (backendReady) void claimCloudCredential(url);
+  else pendingDeepLink = url;
+}
+
+// macOS delivers the URL via this event, even for a cold start.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleDeepLinkOrQueue(url);
+});
+
+// Windows/Linux: a second launch (from the OS opening the link) hands its
+// argv to the already-running instance instead of starting a new one.
+app.on("second-instance", (_event, argv) => {
+  const url = argv.find((a) => a.startsWith(`${PROTOCOL}://`));
+  if (url) handleDeepLinkOrQueue(url);
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+// Windows/Linux cold start: the link is a plain argv entry on first launch.
+const argvDeepLink = process.argv.find((a) => a.startsWith(`${PROTOCOL}://`));
+if (argvDeepLink) pendingDeepLink = argvDeepLink;
+
 // ── App lifecycle ──
 
 app.whenReady().then(async () => {
@@ -561,6 +740,8 @@ app.whenReady().then(async () => {
     }
   }
 
+  backendReady = true;
+
   // Create the main window
   const iconPath = IS_DEV
     ? path.join(__dirname, "..", "build", "icon.png")
@@ -585,10 +766,24 @@ app.whenReady().then(async () => {
     : `http://127.0.0.1:${backendPort}`;
   mainWindow.loadURL(loadURL);
 
+  // Flush a deep link that arrived before the window existed to receive it
+  // (a cold start via bethaniel://claim) once the renderer is actually up.
+  mainWindow.webContents.once("did-finish-load", () => {
+    if (pendingDeepLink) {
+      const url = pendingDeepLink;
+      pendingDeepLink = null;
+      void claimCloudCredential(url);
+    }
+  });
+
   // Check for updates a few seconds after launch so the window is settled
   if (!IS_DEV) {
     setTimeout(() => autoUpdater.checkForUpdates(), 5000);
   }
+
+  // Kick off the on-demand CUDA engine download (Windows + NVIDIA GPU only,
+  // no-op otherwise) well after launch so it never competes with startup.
+  setTimeout(() => void maybeDownloadCudaEngine(), 10_000);
 
   // Open external links in the default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

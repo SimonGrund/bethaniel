@@ -32,6 +32,13 @@ import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+// Too many near-duplicate export buttons (.md next to .docx, everywhere)
+// cluttered the review UI. DOCX is the default now; Markdown downloads are
+// hidden, not removed — every buildXxx()/downloadFile() call they used is
+// untouched, so flipping this back to true restores them exactly as they
+// were.
+const SHOW_MARKDOWN_DOWNLOADS = false;
+
 /**
  * Extract a numeric sort key from a chapter name so tasks render
  * in manuscript order (Ch 1, Ch 2, …) rather than completion order.
@@ -55,54 +62,67 @@ function formatDuration(task: TaskState): string | null {
   return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
 }
 
-function InlineDiff({ before, after }: { before: string; after: string }) {
-  // Simple word-level diff in React
-  const aWords: string[] = before.match(/\s+|\w+|[^\w\s]/g) ?? [];
-  const bWords: string[] = after.match(/\s+|\w+|[^\w\s]/g) ?? [];
-
-  // LCS-based diff (simple approach for UI)
+/**
+ * True minimal word-level diff via LCS (dynamic programming), not a greedy
+ * "look ahead" heuristic. The greedy version degenerates on a long passage
+ * with several SCATTERED changes of the same token (e.g. two "?"→"." swaps
+ * in one sentence): each mismatch searches for its own word anywhere ahead
+ * and can end up deleting/inserting a whole run between them, making the
+ * diff read as if most of the sentence changed. LCS finds the true minimal
+ * edit script, so only the tokens that actually differ are marked.
+ *
+ * Capped at 200k table cells (~450 words per side) — a correction that long
+ * is rare, and past that the O(n·m) table isn't worth the memory/time; it
+ * falls back to one delete-block + one insert-block instead of hanging.
+ */
+function diffTokens(
+  aWords: string[],
+  bWords: string[],
+): { type: "equal" | "del" | "ins"; text: string }[] {
+  const n = aWords.length;
+  const m = bWords.length;
   const parts: { type: "equal" | "del" | "ins"; text: string }[] = [];
-  let ai = 0,
-    bi = 0;
 
-  // Use a basic approach: find common subsequences
-  while (ai < aWords.length && bi < bWords.length) {
-    if (aWords[ai] === bWords[bi]) {
-      parts.push({ type: "equal", text: aWords[ai] });
-      ai++;
-      bi++;
-    } else {
-      // Look ahead in B for current A word
-      const bLook = bWords.indexOf(aWords[ai], bi);
-      const aLook = aWords.indexOf(bWords[bi], ai);
+  if (n * m > 200_000) {
+    for (const w of aWords) parts.push({ type: "del", text: w });
+    for (const w of bWords) parts.push({ type: "ins", text: w });
+    return parts;
+  }
 
-      if (bLook >= 0 && (aLook < 0 || bLook - bi <= aLook - ai)) {
-        // B has extra words (insertions)
-        for (let j = bi; j < bLook; j++) {
-          parts.push({ type: "ins", text: bWords[j] });
-        }
-        bi = bLook;
-      } else if (aLook >= 0) {
-        // A has extra words (deletions)
-        for (let j = ai; j < aLook; j++) {
-          parts.push({ type: "del", text: aWords[j] });
-        }
-        ai = aLook;
-      } else {
-        // Replace
-        parts.push({ type: "del", text: aWords[ai] });
-        parts.push({ type: "ins", text: bWords[bi] });
-        ai++;
-        bi++;
-      }
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] =
+        aWords[i] === bWords[j]
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
-  while (ai < aWords.length) {
-    parts.push({ type: "del", text: aWords[ai++] });
+
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (aWords[i] === bWords[j]) {
+      parts.push({ type: "equal", text: aWords[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      parts.push({ type: "del", text: aWords[i] });
+      i++;
+    } else {
+      parts.push({ type: "ins", text: bWords[j] });
+      j++;
+    }
   }
-  while (bi < bWords.length) {
-    parts.push({ type: "ins", text: bWords[bi++] });
-  }
+  while (i < n) parts.push({ type: "del", text: aWords[i++] });
+  while (j < m) parts.push({ type: "ins", text: bWords[j++] });
+  return parts;
+}
+
+function InlineDiff({ before, after }: { before: string; after: string }) {
+  const aWords: string[] = before.match(/\s+|\w+|[^\w\s]/g) ?? [];
+  const bWords: string[] = after.match(/\s+|\w+|[^\w\s]/g) ?? [];
+  const parts = diffTokens(aWords, bWords);
 
   return (
     <span className="correction-diff">
@@ -905,51 +925,197 @@ interface StructuralScanReport {
   findings: StructuralFinding[];
 }
 
+/** A blocking issue for the readiness verdict — either a structural defect
+ * (duplicate chapter, truncation, ...) or an objective/mechanical correction
+ * (spelling, duplicated words, wrong punctuation, ...). Corrections carry the
+ * raw Correction + originalText so they can be rendered with the same
+ * word-level diff and full-sentence context as the normal copy-edit review,
+ * rather than a fixed-radius text snippet. */
+type BlockingIssue =
+  | { kind: "structural"; location: string; message: string; detail?: string }
+  | { kind: "correction"; location: string; correction: Correction; originalText: string };
+
+/** Same sentence-context + word-diff rendering as the normal copy-edit
+ * CorrectionCard, so a Publication Scan blocker reads the same way. */
+function CorrectionContext({
+  correction,
+  originalText,
+}: {
+  correction: Correction;
+  originalText: string;
+}) {
+  const { before, after } = extractSentenceContext(correction.original, originalText, 0);
+  return (
+    <span className="readiness-msg">
+      {before && <span className="correction-context">{before} </span>}
+      <InlineDiff before={correction.original} after={correction.corrected} />
+      {after && <span className="correction-context"> {after}</span>}
+    </span>
+  );
+}
+
+/** Text form of a correction issue, for the markdown export (no JSX there). */
+function correctionIssueText(correction: Correction, originalText: string): string {
+  const { before, after } = extractSentenceContext(correction.original, originalText, 0);
+  const ctx = [before, correction.original, after].filter(Boolean).join(" ").trim();
+  return ctx
+    ? `${ctx} → "${correction.corrected}"`
+    : `${correction.original} → ${correction.corrected}`;
+}
+
 /**
- * The question a final readthrough exists to answer: can this be published?
+ * A heuristic 0-100 publication-quality score. Structural defects are rare
+ * and always serious (a duplicated chapter, a truncated ending), so each one
+ * costs a flat amount; confirmed mechanical corrections are scored by
+ * DENSITY (per 1,000 words) rather than raw count, so a handful of typos in
+ * a full novel doesn't score the same as a handful in a five-page chapter.
+ * Only reviewer-CONFIRMED corrections count — an unconfirmed/flagged one is
+ * hidden from the panel entirely, so it doesn't touch the score either. This
+ * is a heuristic guide for "does this look clean", not a formal QA metric —
+ * 95+ is the bar this panel treats as publication-ready.
+ */
+function computeQualityScore(opts: {
+  wordCount: number;
+  structuralCount: number;
+  confirmedCount: number;
+}): number {
+  const perThousandWords = Math.max(opts.wordCount, 1) / 1000;
+  const penalty =
+    opts.structuralCount * 15 + (opts.confirmedCount / perThousandWords) * 20;
+  return Math.max(0, Math.min(100, Math.round(100 - penalty)));
+}
+
+const QUALITY_SCORE_PASS = 95;
+
+/** A compact ring gauge for the publication-quality score. */
+function QualityScoreRing({ score, t }: { score: number; t: (key: string) => string }) {
+  const radius = 22;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - score / 100);
+  const tier =
+    score >= QUALITY_SCORE_PASS ? "good" : score >= 80 ? "ok" : "bad";
+  return (
+    <div className="quality-score">
+      <div
+        className={`quality-ring quality-ring-${tier}`}
+        role="img"
+        aria-label={`${t("quality_score_label")}: ${score}/100`}
+      >
+        <svg width="56" height="56" viewBox="0 0 56 56">
+          <circle className="quality-ring-track" cx="28" cy="28" r={radius} />
+          <circle
+            className="quality-ring-fill"
+            cx="28"
+            cy="28"
+            r={radius}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <span className="quality-ring-number">{score}</span>
+      </div>
+      <span className="quality-score-label small-note">
+        {t("quality_score_label")}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The question a Publication Scan exists to answer: can this be published?
  *
  * It used to answer with per-chapter lists in which "wrinled → wrinkled" and
  * "a chapter's dialogue is unclosed" carried equal weight. Structural findings
  * are deterministic and, on a real book, all six were genuine defects — a
  * duplicated tail from a botched edit, an unclosed quote, closing marks typed
- * as opening ones. The model's comma suggestions are the ones that can wait, so
- * they are counted rather than listed.
+ * as opening ones. Objective proofread corrections (spelling, duplicated
+ * words/phrases, missing words, spacing, wrong punctuation) are just as much
+ * publication blockers and are listed here too — but ONLY the ones BOTH the
+ * editor agent(s) and the reviewer pass actually confirmed. Exactly like the
+ * normal copy-edit review, a correction the reviewer flagged as low-
+ * confidence or never scored is hidden rather than asserted as a must-fix —
+ * deterministic checkers (spell-check especially) produce enough false
+ * positives that showing every one as a "publication blocker" would bury the
+ * real ones. Genuinely subjective suggestions are simply counted, same as
+ * any correction the reviewer didn't confirm.
  */
+// Below this many punctuation-only suggestions, the nudge to run a full
+// copy edit isn't worth the extra line — a handful of comma calls doesn't
+// need its own recommendation.
+const POLISH_NUDGE_THRESHOLD = 10;
+
 function PublicationReadinessPanel({
   report,
+  blockingCorrections,
   minorTotal,
   minorChapters,
+  polishOnlyTotal,
+  polishOnlyChapters,
+  wordCount,
   onReviewMinor,
   minorOpen,
   t,
 }: {
   report: StructuralScanReport | null;
+  blockingCorrections: BlockingIssue[];
   minorTotal: number;
   minorChapters: number;
+  /** Punctuation-only suggestions (comma/semicolon/period, no word changed)
+   * within the minor bucket — common enough in bulk to warrant their own
+   * nudge toward a full copy edit rather than being lost in the total. */
+  polishOnlyTotal: number;
+  polishOnlyChapters: number;
+  /** Manuscript word count the score's error-density penalty is scaled by. */
+  wordCount: number;
   onReviewMinor?: () => void;
   /** Whether the per-chapter minor list below is currently unfolded. */
   minorOpen?: boolean;
   t: (key: string) => string;
 }) {
-  const blocking = (report?.findings ?? []).filter((f) => f.blocking);
+  const structuralBlocking: BlockingIssue[] = (report?.findings ?? [])
+    .filter((f) => f.blocking)
+    .map((f) => ({
+      kind: "structural" as const,
+      location: f.location,
+      message: f.message,
+      detail: f.detail,
+    }));
+  const blocking = [...structuralBlocking, ...blockingCorrections];
   const ready = blocking.length === 0;
+  const score = computeQualityScore({
+    wordCount,
+    structuralCount: structuralBlocking.length,
+    confirmedCount: blockingCorrections.length,
+  });
 
   return (
     <div className="readiness">
-      <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
-        {ready
-          ? `✅ ${t("readiness_ready")}`
-          : `⚠️ ${t("readiness_check").replace("{n}", String(blocking.length))}`}
-      </p>
+      <div className="readiness-headline">
+        <QualityScoreRing score={score} t={t} />
+        <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
+          {ready
+            ? `✅ ${t("readiness_ready")}`
+            : `⚠️ ${t("readiness_check").replace("{n}", String(blocking.length))}`}
+        </p>
+      </div>
 
       {blocking.length > 0 && (
         <ul className="readiness-list">
-          {blocking.map((f, i) => (
+          {blocking.map((issue, i) => (
             <li key={i} className="readiness-item">
-              <span className="readiness-loc">{f.location}</span>
-              <span className="readiness-msg">{f.message}</span>
-              {f.detail && (
-                <span className="scan-finding-detail">{f.detail}</span>
+              <span className="readiness-loc">{issue.location}</span>
+              {issue.kind === "correction" ? (
+                <CorrectionContext
+                  correction={issue.correction}
+                  originalText={issue.originalText}
+                />
+              ) : (
+                <>
+                  <span className="readiness-msg">{issue.message}</span>
+                  {issue.detail && (
+                    <span className="scan-finding-detail">{issue.detail}</span>
+                  )}
+                </>
               )}
             </li>
           ))}
@@ -978,6 +1144,14 @@ function PublicationReadinessPanel({
           </>
         )}
       </p>
+
+      {polishOnlyTotal >= POLISH_NUDGE_THRESHOLD && (
+        <p className="readiness-polish-nudge small-note">
+          {t("readiness_polish_nudge")
+            .replace("{n}", String(polishOnlyTotal))
+            .replace("{m}", String(polishOnlyChapters))}
+        </p>
+      )}
 
       {report && (
         <p className="small-note readiness-scanned">
@@ -1331,6 +1505,16 @@ export function buildChapterPairs(
   return pairs;
 }
 
+/** A correction as a blocking issue, carrying the raw data the panel needs
+ * to render it with full-sentence context and a word-level diff. */
+function describeCorrection(
+  taskName: string,
+  originalText: string,
+  c: Correction,
+): BlockingIssue {
+  return { kind: "correction", location: taskName, correction: c, originalText };
+}
+
 function buildFullManuscript(
   entries: [string, TaskState][],
   acceptedCorrections: Record<string, Set<string>>,
@@ -1364,6 +1548,87 @@ function buildFullManuscript(
   return chapters.join(`\n\n${PAGEBREAK_MARKER}\n\n`);
 }
 
+/**
+ * Serializes a Publication Scan verdict into a standalone Markdown report:
+ * structural findings, blocking corrections, and a minor-suggestion summary,
+ * so the verdict can be handed to someone who isn't looking at the app.
+ */
+function buildReadinessReportMarkdown(
+  src: string,
+  report: StructuralScanReport | null,
+  blockingCorrections: BlockingIssue[],
+  minorTotal: number,
+  minorChapters: number,
+  polishOnlyTotal: number,
+  polishOnlyChapters: number,
+  wordCount: number,
+  t: (key: string) => string,
+): string {
+  const structuralCount = (report?.findings ?? []).filter((f) => f.blocking).length;
+  const score = computeQualityScore({
+    wordCount,
+    structuralCount,
+    confirmedCount: blockingCorrections.length,
+  });
+  const ready = blockingCorrections.length === 0 && structuralCount === 0;
+  const lines: string[] = [`# ${t("readiness_report_title")}: ${src}`, ""];
+  lines.push(`**${t("quality_score_label")}: ${score}/100**`, "");
+  lines.push(
+    ready
+      ? `**${t("readiness_ready")}**`
+      : `**${t("readiness_check").replace(
+          "{n}",
+          String(blockingCorrections.length + structuralCount),
+        )}**`,
+  );
+  lines.push("");
+
+  const structuralBlocking = (report?.findings ?? []).filter((f) => f.blocking);
+  if (structuralBlocking.length > 0) {
+    lines.push(`## ${t("readiness_report_structural")}`, "");
+    for (const f of structuralBlocking) {
+      lines.push(`- **${f.location}** — ${f.message}${f.detail ? ` (${f.detail})` : ""}`);
+    }
+    lines.push("");
+  }
+
+  if (blockingCorrections.length > 0) {
+    lines.push(`## ${t("readiness_report_corrections")}`, "");
+    for (const issue of blockingCorrections) {
+      const text =
+        issue.kind === "correction"
+          ? correctionIssueText(issue.correction, issue.originalText)
+          : issue.message;
+      const detail = issue.kind === "correction" ? issue.correction.reason : issue.detail;
+      lines.push(`- **${issue.location}** — ${text}${detail ? ` (${detail})` : ""}`);
+    }
+    lines.push("");
+  }
+
+  lines.push(`## ${t("readiness_report_minor")}`, "");
+  lines.push(
+    minorTotal === 0
+      ? t("readiness_no_minor")
+      : t("readiness_minor")
+          .replace("{n}", String(minorTotal))
+          .replace("{m}", String(minorChapters)),
+  );
+  if (polishOnlyTotal >= POLISH_NUDGE_THRESHOLD) {
+    lines.push(
+      t("readiness_polish_nudge")
+        .replace("{n}", String(polishOnlyTotal))
+        .replace("{m}", String(polishOnlyChapters)),
+    );
+  }
+  lines.push("");
+
+  if (report) {
+    lines.push(`${report.chaptersScanned} ${t("scan_chapters")}`);
+  }
+
+  return lines.join("\n");
+}
+
 export default function ReviewExport({ isOldResults }: { isOldResults?: boolean }) {
   const {
     lang,
@@ -1382,6 +1647,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     toggleOccurrence,
     minorBreakStyle,
     setMinorBreakStyle,
+    copyEditOptions,
   } = useStore();
   const tasks = isOldResults
     ? allTasks
@@ -2052,12 +2318,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ),
           ).map((m) => modelNames[m] ?? m);
 
-          // ── Final readthrough: a scan, not a fixing pass ──
-          // The publication verdict is the output. The proofread tasks that ran
-          // beside it produce comma-level suggestions that must not compete
-          // with it, so this job hides the whole fixing UI — exports, accept-all,
-          // per-correction checkboxes — and keeps the per-chapter detail folded
-          // until the user asks for it from the verdict panel.
+          // ── Publication Scan: a verdict, not a manual-review workbench ──
+          // The publication verdict is the output. Objective/mechanical
+          // corrections from the proofread tasks that ran beside it (typos,
+          // duplicated words, wrong punctuation) surface IN the verdict as
+          // blocking issues; only genuinely subjective suggestions are
+          // counted rather than listed. This job hides the normal per-
+          // correction fixing UI — accept-all, per-correction checkboxes —
+          // and keeps the per-chapter detail folded until the user asks for
+          // it from the verdict panel, offering two dedicated exports
+          // instead ("safe fixes applied" manuscript, readiness report).
           // A failed scan is the exception: the run degenerates into an
           // ordinary proofread pass, and hiding its exports would leave the
           // user with nothing at all.
@@ -2090,6 +2360,32 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const allAccepted =
             hasAnyCorrections &&
             allEditCorrections.every(({ tid, id }) => {
+              const set = acceptedCorrections[tid] ?? new Set<string>();
+              return (
+                set.has(id) || [...set].some((k) => k.startsWith(`${id}:`))
+              );
+            });
+
+          // Dialect (British↔American) conversions can fire dozens of times
+          // across a manuscript — one per swapped word — which would bloat
+          // every chapter's list for something that's really one decision.
+          // Summarized as a single job-level notice instead; the individual
+          // corrections are excluded from each chapter's visible list below.
+          const dialectCorrections = editTasks.flatMap(([tid, task]) =>
+            (task.result?.corrections ?? [])
+              .filter((c) => c.id && c.reason === "dialect")
+              .map((c) => ({ tid, id: c.id as string })),
+          );
+          const dialectTargetDialect = editTasks
+            .map(
+              ([, task]) =>
+                (task.editOptions as Record<string, unknown> | undefined)
+                  ?.englishDialect,
+            )
+            .find((d): d is "american" | "british" => d === "american" || d === "british");
+          const dialectAllAccepted =
+            dialectCorrections.length > 0 &&
+            dialectCorrections.every(({ tid, id }) => {
               const set = acceptedCorrections[tid] ?? new Set<string>();
               return (
                 set.has(id) || [...set].some((k) => k.startsWith(`${id}:`))
@@ -2339,18 +2635,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     </summary>
                     <MarkdownView text={reportTask.result.editedText} />
                     <div className="export-buttons">
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          downloadFile(
-                            reportTask.result!.editedText,
-                            `${src}.writing-report.md`,
-                            "text/markdown",
-                          )
-                        }
-                      >
-                        Download Markdown
-                      </button>
+                      {SHOW_MARKDOWN_DOWNLOADS && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            downloadFile(
+                              reportTask.result!.editedText,
+                              `${src}.writing-report.md`,
+                              "text/markdown",
+                            )
+                          }
+                        >
+                          Download Markdown
+                        </button>
+                      )}
                       <button
                         className="btn-secondary"
                         onClick={() =>
@@ -2430,18 +2728,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     </summary>
                     <MarkdownView text={devTask.result.editedText} />
                     <div className="export-buttons">
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          downloadFile(
-                            devTask.result!.editedText,
-                            `${src}.developmental-edit.md`,
-                            "text/markdown",
-                          )
-                        }
-                      >
-                        Download Markdown
-                      </button>
+                      {SHOW_MARKDOWN_DOWNLOADS && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            downloadFile(
+                              devTask.result!.editedText,
+                              `${src}.developmental-edit.md`,
+                              "text/markdown",
+                            )
+                          }
+                        >
+                          Download Markdown
+                        </button>
+                      )}
                       <button
                         className="btn-secondary"
                         onClick={() =>
@@ -2499,19 +2799,60 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   );
                 }
 
-                // Minor corrections come from the proofread tasks that ran
-                // beside this scan — counted, not listed, so a comma suggestion
-                // cannot sit at the same weight as an unclosed line of dialogue.
+                // Corrections come from the proofread tasks that ran beside
+                // this scan. Only a mechanical correction BOTH the editor(s)
+                // and the reviewer confirmed (blocksPublication && !flagged)
+                // is listed as a publication blocker — exactly like normal
+                // copy-edit review, where a flagged/unscored correction is
+                // hidden rather than shown as if it had been vetted.
+                // Deterministic checkers (spell-check especially) produce
+                // enough false positives ("grey"→"trey") that surfacing every
+                // one would bury the real issues, so anything not confirmed —
+                // flagged mechanical or genuinely subjective — is simply
+                // counted, not listed.
                 const proofreadTasks = entries
                   .map(([, task]) => task)
                   .filter((task) => task.mode === "proofread");
+                const blockingCorrections = proofreadTasks.flatMap((task) =>
+                  (task.result?.corrections ?? [])
+                    .filter((c) => c.blocksPublication && !c.flagged)
+                    .map((c) =>
+                      describeCorrection(
+                        task.name,
+                        task.result?.originalText ?? "",
+                        c,
+                      ),
+                    ),
+                );
+                const minorCorrectionCount = (task: TaskState) =>
+                  (task.result?.corrections ?? []).filter(
+                    (c) => !c.blocksPublication || c.flagged,
+                  ).length;
                 const minorTotal = proofreadTasks.reduce(
-                  (n, task) => n + (task.result?.corrections?.length ?? 0),
+                  (n, task) => n + minorCorrectionCount(task),
                   0,
                 );
                 const minorChapters = proofreadTasks.filter(
-                  (task) => (task.result?.corrections?.length ?? 0) > 0,
+                  (task) => minorCorrectionCount(task) > 0,
                 ).length;
+                // Punctuation-only calls (comma/semicolon/period, no word
+                // changed) within the minor bucket — common enough in bulk
+                // that they're worth their own nudge toward a full copy edit.
+                const polishCorrectionCount = (task: TaskState) =>
+                  (task.result?.corrections ?? []).filter(
+                    (c) => !c.blocksPublication && c.polishOnly,
+                  ).length;
+                const polishOnlyTotal = proofreadTasks.reduce(
+                  (n, task) => n + polishCorrectionCount(task),
+                  0,
+                );
+                const polishOnlyChapters = proofreadTasks.filter(
+                  (task) => polishCorrectionCount(task) > 0,
+                ).length;
+                const scanWordCount = proofreadTasks.reduce(
+                  (n, task) => n + (task.wordCount ?? 0),
+                  0,
+                );
 
                 return (
                   <details className="review-task review-summary-card" open>
@@ -2524,8 +2865,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           | StructuralScanReport
                           | undefined) ?? null
                       }
+                      blockingCorrections={blockingCorrections}
                       minorTotal={minorTotal}
                       minorChapters={minorChapters}
+                      polishOnlyTotal={polishOnlyTotal}
+                      polishOnlyChapters={polishOnlyChapters}
+                      wordCount={scanWordCount}
                       onReviewMinor={() =>
                         setMinorDetailJobs((prev) => {
                           const next = new Set(prev);
@@ -2537,6 +2882,90 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       minorOpen={showMinorDetail}
                       t={t}
                     />
+                    {editTaskIds.length > 0 && (
+                      <div className="export-buttons full-manuscript-export">
+                        {SHOW_MARKDOWN_DOWNLOADS && (
+                          <button
+                            className="btn-primary"
+                            disabled={!allEditDone || !editResultsReady || verifying}
+                            title={allEditDone ? undefined : t("full_manuscript_wait")}
+                            onClick={() => {
+                              editTaskIds.forEach((tid) => acceptAll(tid));
+                              void verifyThenExport(
+                                editTaskIds,
+                                (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                                (md) => downloadFile(md, `${src}.safe-fixes.md`),
+                              );
+                            }}
+                          >
+                            {t("download_safe_fixes_md")}
+                          </button>
+                        )}
+                        <button
+                          className="btn-primary"
+                          disabled={!allEditDone || !editResultsReady || verifying}
+                          title={allEditDone ? undefined : t("full_manuscript_wait")}
+                          onClick={() => {
+                            editTaskIds.forEach((tid) => acceptAll(tid));
+                            void verifyThenExport(
+                              editTaskIds,
+                              (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                              (md) => handleDownloadDocx(md, `${src}.safe-fixes.docx`),
+                            );
+                          }}
+                        >
+                          {t("download_safe_fixes_docx")}
+                        </button>
+                        {SHOW_MARKDOWN_DOWNLOADS && (
+                          <button
+                            className="btn-secondary"
+                            onClick={() =>
+                              downloadFile(
+                                buildReadinessReportMarkdown(
+                                  src,
+                                  (scanTask.result?.structuredData as
+                                    | StructuralScanReport
+                                    | undefined) ?? null,
+                                  blockingCorrections,
+                                  minorTotal,
+                                  minorChapters,
+                                  polishOnlyTotal,
+                                  polishOnlyChapters,
+                                  scanWordCount,
+                                  t,
+                                ),
+                                `${src}.readiness-report.md`,
+                              )
+                            }
+                          >
+                            {t("download_readiness_report_md")}
+                          </button>
+                        )}
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            void handleDownloadDocx(
+                              buildReadinessReportMarkdown(
+                                src,
+                                (scanTask.result?.structuredData as
+                                  | StructuralScanReport
+                                  | undefined) ?? null,
+                                blockingCorrections,
+                                minorTotal,
+                                minorChapters,
+                                polishOnlyTotal,
+                                polishOnlyChapters,
+                                scanWordCount,
+                                t,
+                              ),
+                              `${src}.readiness-report.docx`,
+                            )
+                          }
+                        >
+                          {t("download_readiness_report_docx")}
+                        </button>
+                      </div>
+                    )}
                   </details>
                 );
               })()}
@@ -2599,18 +3028,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     </summary>
                     <MarkdownView text={summaryTask.result.editedText} />
                     <div className="export-buttons">
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          downloadFile(
-                            summaryTask.result!.editedText,
-                            `${src}.summary.md`,
-                            "text/markdown",
-                          )
-                        }
-                      >
-                        Download Markdown
-                      </button>
+                      {SHOW_MARKDOWN_DOWNLOADS && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            downloadFile(
+                              summaryTask.result!.editedText,
+                              `${src}.summary.md`,
+                              "text/markdown",
+                            )
+                          }
+                        >
+                          Download Markdown
+                        </button>
+                      )}
                       <button
                         className="btn-secondary"
                         onClick={() =>
@@ -2685,18 +3116,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     </summary>
                     <MarkdownView text={blurbTask.result.editedText} />
                     <div className="export-buttons">
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          downloadFile(
-                            blurbTask.result!.editedText,
-                            `${src}.blurb.md`,
-                            "text/markdown",
-                          )
-                        }
-                      >
-                        Download Markdown
-                      </button>
+                      {SHOW_MARKDOWN_DOWNLOADS && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            downloadFile(
+                              blurbTask.result!.editedText,
+                              `${src}.blurb.md`,
+                              "text/markdown",
+                            )
+                          }
+                        >
+                          Download Markdown
+                        </button>
+                      )}
                       <button
                         className="btn-secondary"
                         onClick={() =>
@@ -3194,9 +3627,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             (c) => c.flagged,
                           ).length;
                           const showAll = showFlagged[tid] === true;
-                          const visible = showAll
+                          // Dialect (British↔American) conversions are
+                          // summarized in a single job-level banner instead
+                          // of bloating every chapter's list — see the
+                          // "Accept-all toggle" section below.
+                          const visible = (showAll
                             ? corrections
-                            : corrections.filter((c) => !c.flagged);
+                            : corrections.filter((c) => !c.flagged)
+                          ).filter((c) => c.reason !== "dialect");
                           let acceptedCount = 0;
                           for (const c of visible) {
                             if (!c.id) continue;
@@ -3391,32 +3829,34 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                     {!isScanJob && (
                     <div className="export-buttons">
-                      <button
-                        className="btn-secondary"
-                        disabled={verifying}
-                        onClick={() => {
-                          if (isTranslation) {
-                            downloadFile(
-                              result.editedText,
-                              `${task.name}.edited.md`,
+                      {SHOW_MARKDOWN_DOWNLOADS && (
+                        <button
+                          className="btn-secondary"
+                          disabled={verifying}
+                          onClick={() => {
+                            if (isTranslation) {
+                              downloadFile(
+                                result.editedText,
+                                `${task.name}.edited.md`,
+                              );
+                              return;
+                            }
+                            verifyThenExport(
+                              [tid],
+                              (acc, fixed) =>
+                                fixed[tid] ??
+                                applyAccepted(
+                                  result.originalText,
+                                  corrections,
+                                  acc[tid] ?? new Set<string>(),
+                                ),
+                              (md) => downloadFile(md, `${task.name}.edited.md`),
                             );
-                            return;
-                          }
-                          verifyThenExport(
-                            [tid],
-                            (acc, fixed) =>
-                              fixed[tid] ??
-                              applyAccepted(
-                                result.originalText,
-                                corrections,
-                                acc[tid] ?? new Set<string>(),
-                              ),
-                            (md) => downloadFile(md, `${task.name}.edited.md`),
-                          );
-                        }}
-                      >
-                        {t("download_chapter_md")}
-                      </button>
+                          }}
+                        >
+                          {t("download_chapter_md")}
+                        </button>
+                      )}
                       <button
                         className="btn-secondary"
                         disabled={verifying}
@@ -3457,6 +3897,39 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               })}
               </div>
               </>
+              )}
+
+              {/* ── Dialect (British↔American) summary: one notice instead of
+                   one card per swapped word ── */}
+              {dialectCorrections.length > 0 && !isScanJob && (
+                <div className="dialect-banner">
+                  <p className="small-note dialect-banner-text">
+                    {t(
+                      dialectTargetDialect === "british"
+                        ? "dialect_banner_british"
+                        : "dialect_banner_american",
+                    ).replace("{n}", String(dialectCorrections.length))}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-small"
+                    onClick={() => {
+                      if (dialectAllAccepted) {
+                        dialectCorrections.forEach(({ tid, id }) =>
+                          dismissCorrection(tid, id),
+                        );
+                        setToast({ msg: t("dismiss_all_job_toast"), kind: "dismiss" });
+                      } else {
+                        dialectCorrections.forEach(({ tid, id }) =>
+                          acceptCorrection(tid, id),
+                        );
+                        setToast({ msg: t("accept_all_job_toast"), kind: "accept" });
+                      }
+                    }}
+                  >
+                    {dialectAllAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                  </button>
+                </div>
               )}
 
               {/* ── Accept-all toggle: bottom of the chapter list, right-aligned ── */}
@@ -3517,20 +3990,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               )}
               {editTasks.length > 0 && !isScanJob && (
                 <div className="export-buttons full-manuscript-export">
-                  <button
-                    className="btn-primary"
-                    disabled={!allEditDone || !editResultsReady || verifying}
-                    title={allEditDone ? undefined : t("full_manuscript_wait")}
-                    onClick={() =>
-                      verifyThenExport(
-                        editTaskIds,
-                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                        (md) => downloadFile(md, `${src}.full.md`),
-                      )
-                    }
-                  >
-                    {t("download_full_md")}
-                  </button>
+                  {SHOW_MARKDOWN_DOWNLOADS && (
+                    <button
+                      className="btn-primary"
+                      disabled={!allEditDone || !editResultsReady || verifying}
+                      title={allEditDone ? undefined : t("full_manuscript_wait")}
+                      onClick={() =>
+                        verifyThenExport(
+                          editTaskIds,
+                          (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                          (md) => downloadFile(md, `${src}.full.md`),
+                        )
+                      }
+                    >
+                      {t("download_full_md")}
+                    </button>
+                  )}
                   <button
                     className="btn-primary"
                     disabled={!allEditDone || !editResultsReady || verifying}

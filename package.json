@@ -14,7 +14,7 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "lsof -ti:4000 | xargs kill -9 2>/dev/null; concurrently -n fe,be,el \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\" \"wait-on http://localhost:4000/health http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "node scripts/kill-port.mjs 4000 && concurrently -n fe,be,el \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\" \"wait-on http://localhost:4000/health http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:frontend": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
     "build:electron": "tsc -p electron/tsconfig.json",
@@ -49,5 +49,12 @@
     "electron-builder": "^26.8.1",
     "typescript": "^5.6.0",
     "wait-on": "^8.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.10.0": true,
+    "electron@41.10.4": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.25.12": true
   }
 }

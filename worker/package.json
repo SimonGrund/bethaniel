@@ -1,0 +1,24 @@
+{
+  "name": "bethaniel-cloud-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Betty in the Cloud — Stripe checkout, credential issuance, and metered Mistral proxy for Bethaniel's pay-per-job cloud editing.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:init": "wrangler d1 execute bethaniel-cloud --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute bethaniel-cloud --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.90.0"
+  },
+  "allowScripts": {
+    "esbuild@0.17.19": true,
+    "sharp@0.33.5": true,
+    "workerd@1.20250718.0": true
+  }
+}

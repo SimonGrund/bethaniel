@@ -16,6 +16,10 @@ import {
   foldContainedCorrections,
   revertSuspectRuns,
   reconcileSpellWithEditor,
+  dropNoOpCorrections,
+  dropRedundantPunctuationAppends,
+  boundaryOccurrences,
+  dedupeChapterCorrections,
 } from "../src/correctionHygiene.ts";
 import { applyCorrections } from "../src/llm.ts";
 import type { Correction } from "../src/types.ts";
@@ -380,4 +384,151 @@ test("reconcileSpellWithEditor: a spell fix with no editor match is left for the
   const editorKept = reconcileSpellWithEditor(spell, editor);
   assert.notEqual(spell[0].preApproved, true);
   assert.equal(editorKept.length, 0);
+});
+
+// ── dropNoOpCorrections ──
+
+test("dropNoOpCorrections: removes a correction that changes nothing", () => {
+  const cs: Correction[] = [
+    { original: ".", corrected: "." },
+    { original: "the the", corrected: "the" },
+  ];
+  const kept = dropNoOpCorrections(cs);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].original, "the the");
+});
+
+test("dropNoOpCorrections: whitespace-only differences also count as no-ops", () => {
+  const cs: Correction[] = [{ original: "Cool sweat", corrected: "Cool  sweat" }];
+  // trim + collapse-whitespace normalization treats these as identical
+  const kept = dropNoOpCorrections(cs);
+  assert.equal(kept.length, 0);
+});
+
+test("dropNoOpCorrections: real changes survive", () => {
+  const cs: Correction[] = [{ original: "recieve", corrected: "receive" }];
+  assert.deepEqual(dropNoOpCorrections(cs), cs);
+});
+
+test("dropNoOpCorrections: a no-op hidden behind a zero-width space is still dropped", () => {
+  // A model-introduced ZERO WIDTH SPACE (U+200B) makes two strings byte-
+  // distinct while reading identically to a user — "replacing a dot with a
+  // dot". Built from a code point, never typed as a literal character.
+  const zwsp = String.fromCharCode(0x200b);
+  const cs: Correction[] = [{ original: "sweat.", corrected: `sweat.${zwsp}` }];
+  assert.deepEqual(dropNoOpCorrections(cs), []);
+});
+
+test("dropNoOpCorrections: a soft hyphen difference is also a no-op", () => {
+  const softHyphen = String.fromCharCode(0x00ad);
+  const cs: Correction[] = [
+    { original: `pass${softHyphen}word`, corrected: "password" },
+  ];
+  assert.deepEqual(dropNoOpCorrections(cs), []);
+});
+
+// ── dropRedundantPunctuationAppends ──
+
+test("dropRedundantPunctuationAppends: drops a period the source already has right after", () => {
+  const text =
+    "as the last sliver of power from Katja and John faded into nothing. Broken, Flint roared into the night.";
+  const cs: Correction[] = [
+    {
+      original: "the last sliver of power from Katja and John faded into nothing",
+      corrected: "the last sliver of power from Katja and John faded into nothing.",
+    },
+  ];
+  assert.deepEqual(dropRedundantPunctuationAppends(text, cs), []);
+});
+
+test("dropRedundantPunctuationAppends: a genuinely missing period is kept", () => {
+  const text = "He reached for the door and then he stopped Something was wrong.";
+  const cs: Correction[] = [
+    {
+      original: "He reached for the door and then he stopped",
+      corrected: "He reached for the door and then he stopped.",
+    },
+  ];
+  assert.deepEqual(dropRedundantPunctuationAppends(text, cs), cs);
+});
+
+test("dropRedundantPunctuationAppends: a substantive (non-punctuation-only) append is kept", () => {
+  const text = "He nodded and said okay to the plan.";
+  const cs: Correction[] = [
+    { original: "He nodded and said okay", corrected: "He nodded and said okay, sure" },
+  ];
+  assert.deepEqual(dropRedundantPunctuationAppends(text, cs), cs);
+});
+
+// ── boundaryOccurrences ──
+
+test("boundaryOccurrences: finds only whole-word-boundary matches", () => {
+  const text = "He clenched his fists. Not saving John.";
+  assert.deepEqual(boundaryOccurrences(text, "his fists"), [text.indexOf("his fists")]);
+  // "is" is inside "his"/"fists" — must not match as a substring hit
+  assert.deepEqual(boundaryOccurrences(text, "is"), []);
+});
+
+// ── dedupeChapterCorrections ──
+
+test("dedupeChapterCorrections: drops no-op corrections", () => {
+  const text = "He wiped the sweat from his face. Cool sweat trickled down.";
+  const cs: Correction[] = [{ original: ".", corrected: "." }];
+  assert.deepEqual(dedupeChapterCorrections(text, cs), []);
+});
+
+test("dedupeChapterCorrections: exact duplicates (whitespace-insensitive) collapse to one", () => {
+  const text = "It was  broken beyond repair.";
+  const cs: Correction[] = [
+    { original: "It was  broken", corrected: "It was fixed" },
+    { original: "It was broken", corrected: "It was  fixed" }, // same fix, re-normalized
+  ];
+  const out = dedupeChapterCorrections(text, cs);
+  assert.equal(out.length, 1);
+});
+
+test("dedupeChapterCorrections: true subsumption still collapses (same location, less context)", () => {
+  const text = 'Flint said, "Not saving John and Katja is no excuse."';
+  const cs: Correction[] = [
+    {
+      original: 'Flint said, "Not saving John and Katja is no excuse."',
+      corrected: 'Flint said, "Not saving John and Katja is no excuse!"',
+    },
+    { original: 'excuse."', corrected: 'excuse!"' },
+  ];
+  const out = dedupeChapterCorrections(text, cs);
+  assert.equal(out.length, 1, "the shorter, same-location fix subsumes the longer one");
+  assert.equal(out[0].original, 'excuse."');
+});
+
+test("dedupeChapterCorrections: an unlocatable 'container' no longer forces a drop by string coincidence alone", () => {
+  // The old subsumption pass compared correction STRINGS only, with no check
+  // that either correction actually occurs in the manuscript — a longer
+  // correction whose wording was hallucinated/paraphrased (not verbatim in
+  // the text) could still lexically contain a shorter correction's strings
+  // and get treated as "the same fix with more context" purely by
+  // coincidence. Since it can't be verified to occur where it claims to,
+  // the position-aware check now leaves it alone instead of asserting a
+  // same-location relationship it cannot confirm.
+  const text = "Flint's words hit Aaron like a punch in the stomach, He clenched his fists.";
+  const cs: Correction[] = [
+    {
+      // Real, locatable fix: comma splice → period.
+      original: "stomach, He",
+      corrected: "stomach. He",
+    },
+    {
+      // Hallucinated: "clenched hard" never appears verbatim in the text
+      // (the real text says "clenched his fists"), so this correction is not
+      // locatable — but it still lexically CONTAINS the real fix's strings.
+      original: "punch in the stomach, He clenched hard",
+      corrected: "punch in the stomach. He clenched hard",
+    },
+  ];
+  const out = dedupeChapterCorrections(text, cs);
+  // The real, locatable fix always survives (Pass 2 only ever drops the
+  // longer side of a pair); the unverifiable one is no longer force-dropped
+  // as if it were confirmed redundant — both are left for downstream review.
+  assert.equal(out.length, 2);
+  assert.ok(out.some((c) => c.original === "stomach, He"));
 });
