@@ -1,0 +1,6 @@
+{
+  "name": "@napi-rs/canvas",
+  "version": "0.0.0-stub",
+  "private": true,
+  "main": "index.js"
+}

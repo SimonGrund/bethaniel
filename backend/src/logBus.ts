@@ -104,7 +104,7 @@ export function diagnoseEngineExit(
   recentOutput: string,
   code: number | null,
   signal: NodeJS.Signals | null,
-  opts: { deliberate?: boolean } = {},
+  opts: { deliberate?: boolean; platform?: NodeJS.Platform } = {},
 ): Diagnosis {
   const text = recentOutput.toLowerCase();
 
@@ -142,6 +142,22 @@ export function diagnoseEngineExit(
     (text.includes("bind") && text.includes("server socket"))
   ) {
     return { hintKey: "log_hint_port_conflict", level: "error" };
+  }
+
+  // Windows only: the engine produced ZERO output before dying — no startup
+  // banner, no error text, nothing. A real crash (bad model, OOM, bad args)
+  // always prints something first; total silence means the process was
+  // killed before it ever ran a line of its own code. The most common real
+  // cause with these unsigned, third-party prebuilt binaries is Windows
+  // itself blocking them outright — Smart App Control or another
+  // Application Control/WDAC policy — not a crash in the usual sense.
+  if (
+    (opts.platform ?? process.platform) === "win32" &&
+    recentOutput.trim().length === 0 &&
+    code !== 0 &&
+    code !== null
+  ) {
+    return { hintKey: "log_hint_engine_blocked_by_policy", level: "error" };
   }
 
   // A kill we did NOT initiate. The OS OOM killer really does SIGKILL, and

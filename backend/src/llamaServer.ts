@@ -171,16 +171,34 @@ function reportReclaim(pid: string, port: number): void {
 function freePort(port: number): void {
   try {
     if (process.platform === "win32") {
-      // Windows: parse netstat output for PIDs holding the port.
-      const out = execSync(`netstat -ano -p tcp | findstr :${port}`, {
+      // Windows: parse netstat output for PIDs *listening* on the port.
+      //
+      // `findstr :${port}` used to grep the whole line, which also matches
+      // the Foreign Address column — e.g. this very backend process shows up
+      // there for every open HTTP connection it holds to llama-server on
+      // this same port. That previously let freePort() taskkill the backend
+      // itself (self-inflicted, silent — a forceful taskkill bypasses every
+      // Node exit/signal handler, so nothing gets a chance to log it) right
+      // as concurrent requests were streaming to a freshly-loaded model.
+      // Parsing columns and requiring LISTENING on the *local* port avoids
+      // matching a mere client connection.
+      const out = execSync(`netstat -ano -p tcp`, {
         stdio: ["ignore", "pipe", "ignore"],
       }).toString();
+      const self = String(process.pid);
       const pids = new Set<string>();
       for (const line of out.split(/\r?\n/)) {
-        const m = line.trim().match(/\s(\d+)$/);
-        if (m) pids.add(m[1]);
+        const cols = line.trim().split(/\s+/);
+        // Proto  Local Address  Foreign Address  State  PID
+        if (cols.length < 5 || cols[0] !== "TCP" || cols[3] !== "LISTENING") {
+          continue;
+        }
+        const localPort = cols[1].split(":").pop();
+        if (localPort === String(port)) pids.add(cols[4]);
       }
       for (const pid of pids) {
+        if (pid === self) continue;
+        reportReclaim(pid, port);
         try {
           execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
         } catch {}
@@ -511,6 +529,16 @@ export function detectParallelSlots(
 // (e.g. mmap'ing a 14 GB GGUF, warming the KV cache).
 let lastEngineActivityAt = 0;
 
+// Set whenever doLoad() fails (crash-on-launch, health-check timeout, etc).
+// A crashed engine leaves every caller waiting on it (dual-editor agents,
+// retries) to independently re-trigger a fresh restart the instant the
+// failure propagates — observed in practice as 5+ launch attempts within
+// under a minute, each crashing the same way. A brief cooldown before the
+// next attempt gives a wedged GPU driver/context a moment to settle instead
+// of hammering it, without changing behavior on the (common) success path.
+let lastLoadFailureAt = 0;
+const LOAD_FAILURE_COOLDOWN_MS = 3000;
+
 // Set by stdout/stderr handlers as soon as llama-server prints its
 // "server is listening" marker. This is the authoritative signal that the
 // model finished loading and the HTTP server bound the port. Some llama.cpp
@@ -709,6 +737,15 @@ async function doLoad(
   numCtx: number,
   desiredSlots?: number,
 ): Promise<void> {
+  if (lastLoadFailureAt) {
+    const elapsed = Date.now() - lastLoadFailureAt;
+    if (elapsed < LOAD_FAILURE_COOLDOWN_MS) {
+      await new Promise((r) =>
+        setTimeout(r, LOAD_FAILURE_COOLDOWN_MS - elapsed),
+      );
+    }
+  }
+
   // Kill existing server if running
   await killChild();
 
@@ -875,6 +912,11 @@ async function doLoad(
   // Rolling tail of llama-server output, used to diagnose crashes.
   let recentOutput = "";
 
+  // Captured by the 'exit' handler below so the load-wait's catch block can
+  // pass the real code/signal to diagnoseEngineExit() instead of guessing.
+  let lastExitCode: number | null = null;
+  let lastExitSignal: NodeJS.Signals | null = null;
+
   // Handle spawn errors (e.g. binary not found)
   const spawnError = new Promise<never>((_, reject) => {
     childProcess!.on("error", (err) => {
@@ -916,6 +958,8 @@ async function doLoad(
 
   childProcess.on("exit", (code, signal) => {
     console.log(`[llama-server] exited with code ${code} signal ${signal}`);
+    lastExitCode = code;
+    lastExitSignal = signal;
     const stoppedByUs = deliberateStop;
     deliberateStop = false;
 
@@ -961,14 +1005,29 @@ async function doLoad(
     }
   });
 
+  // An exit during the load-wait itself is always a failure — no legitimate
+  // path exits before the health check ever succeeds. Race it in so a
+  // near-instant death (e.g. Windows silently killing an unsigned binary)
+  // fails in milliseconds instead of sitting through the full 90s idle-output
+  // timeout on every single attempt.
+  const exitDuringLoad = new Promise<never>((_, reject) => {
+    childProcess!.once("exit", (code, signal) => {
+      reject(
+        new Error(
+          `llama-server exited before startup finished (code ${code ?? "n/a"}, signal ${signal ?? "n/a"})`,
+        ),
+      );
+    });
+  });
+
   // Wait for health endpoint (or spawn error)
   try {
-    await Promise.race([pollHealth(), spawnError]);
+    await Promise.race([pollHealth(), spawnError, exitDuringLoad]);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Don't double-log spawn errors (already logged in the 'error' handler).
     if (!msg.startsWith("Failed to start llama-server")) {
-      const diag = diagnoseEngineExit(recentOutput, null, null);
+      const diag = diagnoseEngineExit(recentOutput, lastExitCode, lastExitSignal);
       const tail = recentOutput.split("\n").slice(-6).join("\n").trim();
       appendLog({
         level: "error",
@@ -986,6 +1045,7 @@ async function doLoad(
     currentModel = null;
     currentCtx = null;
     currentParallelSlots = null;
+    lastLoadFailureAt = Date.now();
     try {
       childProcess?.kill("SIGKILL");
     } catch {}
@@ -996,6 +1056,7 @@ async function doLoad(
   currentCtx = numCtx;
   currentParallelSlots = parallelSlots;
   loadPromise = null;
+  lastLoadFailureAt = 0;
   console.log(
     `[llama-server] Model loaded: ${file} (ctx=${numCtx}, parallel=${parallelSlots})`,
   );

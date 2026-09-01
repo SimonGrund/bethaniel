@@ -2334,6 +2334,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die Modell-Engine konnte nicht gestartet werden. Installiere Bethaniel neu, um die mitgelieferte Engine wiederherzustellen.",
     es: "No se pudo iniciar el binario del motor del modelo. Reinstala Bethaniel para restaurar el motor incluido.",
   },
+  log_hint_engine_blocked_by_policy: {
+    en: "Windows appears to be blocking this file outright, not crashing it — most likely Smart App Control. Go to Settings → Privacy & security → Windows Security → App & browser control → Smart App Control, and turn it off. Note: on most PCs this cannot be turned back on without reinstalling Windows.",
+    da: "Windows blokerer sandsynligvis denne fil helt frem for at den crasher — højst sandsynligt Smart App Control. Gå til Indstillinger → Privatliv og sikkerhed → Windows-sikkerhed → App- og browserstyring → Smart App Control, og slå den fra. Bemærk: På de fleste pc'er kan den ikke slås til igen uden at geninstallere Windows.",
+    de: "Windows blockiert diese Datei offenbar komplett, statt dass sie abstürzt — höchstwahrscheinlich Smart App Control. Gehe zu Einstellungen → Datenschutz und Sicherheit → Windows-Sicherheit → App- und Browsersteuerung → Smart App Control und schalte es aus. Hinweis: Auf den meisten PCs lässt es sich danach nur durch eine Windows-Neuinstallation wieder aktivieren.",
+    es: "Es probable que Windows esté bloqueando este archivo por completo, no que esté fallando — lo más probable es Smart App Control. Ve a Configuración → Privacidad y seguridad → Seguridad de Windows → Control de aplicaciones y navegador → Smart App Control, y desactívalo. Nota: en la mayoría de los PC no se puede volver a activar sin reinstalar Windows.",
+  },
   model_name_custom_betty: {
     en: "External Betty",
     da: "External Betty",

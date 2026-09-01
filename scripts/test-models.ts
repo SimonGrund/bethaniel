@@ -103,6 +103,17 @@ function parseMaxSize(): number | null {
 }
 const MAX_SIZE_GB = parseMaxSize();
 
+function parseMaxParallel(): number | null {
+  const idx = process.argv.indexOf("--max-parallel");
+  if (idx === -1 || idx + 1 >= process.argv.length) return null;
+  const val = parseInt(process.argv[idx + 1], 10);
+  return Number.isFinite(val) && val >= 1 ? val : null;
+}
+// Caps concurrent submissions below the backend's own recommendation — useful
+// if a heavier model (e.g. a 24B model) is crashing/becoming unreachable
+// under the backend's recommended parallel slot count on this machine.
+const MAX_PARALLEL = parseMaxParallel();
+
 interface TestFile {
   path: string;
   filename: string;
@@ -231,6 +242,48 @@ async function waitForTask(taskId: string): Promise<{
   throw new Error(`Task ${taskId} timed out after ${TASK_TIMEOUT / 1000}s`);
 }
 
+/** True for the "backend process is unreachable" family of errors — as
+ *  opposed to e.g. a 4xx from the API, which is a real bug worth seeing. */
+function isConnectionError(msg: string): boolean {
+  return (
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("fetch failed") ||
+    msg.includes("Lost connection to backend")
+  );
+}
+
+async function isBackendHealthy(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API.replace("/api", "")}/health`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Poll until the backend answers /health again, or give up after maxWaitMs. */
+async function waitForBackendRecovery(maxWaitMs: number): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    if (await isBackendHealthy()) return true;
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  return false;
+}
+
+/** Write the final report and print it — shared by the normal completion
+ *  path and the early-stop-on-dead-backend path. */
+function writeFinalReport(results: TestResult[], allModels: string[]): void {
+  const report = buildReport(results, allModels);
+  writeFileSync(REPORT_PATH, report, "utf-8");
+  console.log(`\n\n${"═".repeat(60)}`);
+  console.log(`Results saved to: ${REPORT_PATH}`);
+  console.log(`${"═".repeat(60)}`);
+  console.log(report);
+}
+
 // ── Discover sample files ──
 
 function discoverFiles(): TestFile[] {
@@ -321,9 +374,14 @@ async function main() {
   // Get installed models — only consider models listed in the catalog JSON
   const modelData = (await api("GET", "/models")) as { models: string[] };
   const catalogData = (await api("GET", "/models/catalog")) as {
-    catalog: { fileName: string }[];
+    catalog: { fileName: string; sizeBytes: number }[];
   };
   const catalogFileNames = new Set(catalogData.catalog.map((c) => c.fileName));
+  const catalogSizeGb = new Map(
+    catalogData.catalog
+      .filter((c) => c.sizeBytes > 0)
+      .map((c) => [c.fileName, c.sizeBytes / 1024 ** 3]),
+  );
   let models = modelData.models.filter((m) => catalogFileNames.has(m));
   if (models.length === 0) {
     console.error("ERROR: No catalog models found in backend/models/");
@@ -351,6 +409,14 @@ async function main() {
   }
 
   const modelSizeGb = (model: string): number | null => {
+    // Catalog sizeBytes is the reliable source — it doesn't depend on
+    // guessing where MODELS_DIR actually points (e.g. Electron's userData
+    // dir vs. this script's backend/models fallback, which are usually
+    // different and previously caused every model to look "unknown size"
+    // and sort alphabetically instead of smallest-first).
+    if (catalogSizeGb.has(model)) {
+      return catalogSizeGb.get(model)!;
+    }
     const modelPath = join(MODELS_DIR, model);
     if (model.endsWith(".gguf") && existsSync(modelPath)) {
       return statSync(modelPath).size / 1024 ** 3;
@@ -446,6 +512,9 @@ async function main() {
     } catch {
       // Fallback to 1 if endpoint unavailable
     }
+    if (MAX_PARALLEL !== null && MAX_PARALLEL < recommendedParallel) {
+      recommendedParallel = MAX_PARALLEL;
+    }
     console.log(`  Parallel slots: ${recommendedParallel}`);
 
     // Collect all tasks to run for this model
@@ -494,56 +563,64 @@ async function main() {
         `\n  Batch ${Math.floor(i / recommendedParallel) + 1}: ${batch.map((t) => t.label).join(", ")}`,
       );
 
-      // Submit all tasks in the batch
+      // Submit all tasks in the batch. Upload/queue-add can fail exactly like
+      // polling can (backend restarting, crashed, network blip) — wrapped the
+      // same way as waitForTask below so a submission failure becomes a
+      // recorded error result instead of an uncaught rejection that kills
+      // the whole benchmark (and every task after it) via Promise.all.
       const submissions = await Promise.all(
         batch.map(async (task) => {
-          const content = readFileSync(task.file.path, "utf-8");
-          const docId = await uploadText(task.file.filename, content);
-
-          const editOptions =
-            task.mode === "copy_edit"
-              ? {
-                  spelling: true,
-                  punctuation: true,
-                  capitalization: true,
-                  duplicateWords: true,
-                  englishDialect: "american" as const,
-                  oxfordComma: true,
-                  dialogueTags: false,
-                }
-              : {
-                  awkwardPhrasing: true,
-                  redundancy: true,
-                  weakVerbs: true,
-                  cliches: true,
-                  showDontTell: true,
-                  sentenceRhythm: true,
-                  dialogueNaturalness: true,
-                  tightenProse: true,
-                };
-
           const startTime = Date.now();
+          try {
+            const content = readFileSync(task.file.path, "utf-8");
+            const docId = await uploadText(task.file.filename, content);
 
-          const queueRes = (await api("POST", "/queue/add", {
-            docId,
-            units: [{ name: task.file.filename, original: content }],
-            model,
-            modes: [task.mode],
-            fast: true,
-            wordsPerChunk: wordsPerChunkForModel(model),
-            overlapParagraphs: 1,
-            parallel: recommendedParallel,
-            editOptions,
-            manuscriptLang: LANG_CODE[task.file.language] ?? undefined,
-          })) as { jobId: string; taskIds: string[] };
+            const editOptions =
+              task.mode === "copy_edit"
+                ? {
+                    spelling: true,
+                    punctuation: true,
+                    capitalization: true,
+                    duplicateWords: true,
+                    englishDialect: "american" as const,
+                    oxfordComma: true,
+                    dialogueTags: false,
+                  }
+                : {
+                    awkwardPhrasing: true,
+                    redundancy: true,
+                    weakVerbs: true,
+                    cliches: true,
+                    showDontTell: true,
+                    sentenceRhythm: true,
+                    dialogueNaturalness: true,
+                    tightenProse: true,
+                  };
 
-          return {
-            task,
-            docId,
-            taskId: queueRes.taskIds[0],
-            startTime,
-            content,
-          };
+            const queueRes = (await api("POST", "/queue/add", {
+              docId,
+              units: [{ name: task.file.filename, original: content }],
+              model,
+              modes: [task.mode],
+              fast: true,
+              wordsPerChunk: wordsPerChunkForModel(model),
+              overlapParagraphs: 1,
+              parallel: recommendedParallel,
+              editOptions,
+              manuscriptLang: LANG_CODE[task.file.language] ?? undefined,
+            })) as { jobId: string; taskIds: string[] };
+
+            return {
+              ok: true as const,
+              task,
+              docId,
+              taskId: queueRes.taskIds[0],
+              startTime,
+            };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { ok: false as const, task, error: msg, startTime };
+          }
         }),
       );
 
@@ -552,6 +629,20 @@ async function main() {
       // failed result and move on so the remaining models still run.
       const batchResults = await Promise.all(
         submissions.map(async (sub) => {
+          if (!sub.ok) {
+            return {
+              task: sub.task,
+              docId: undefined as string | undefined,
+              startTime: sub.startTime,
+              elapsed: Date.now() - sub.startTime,
+              taskResult: {
+                status: "error",
+                corrections: [] as ScoredCorrection[],
+                errors: [sub.error],
+                editedText: undefined as string | undefined,
+              },
+            };
+          }
           try {
             const taskResult = await waitForTask(sub.taskId);
             const elapsed = Date.now() - sub.startTime;
@@ -602,13 +693,42 @@ async function main() {
           resultKey(model, br.task.file.filename, br.task.mode, br.task.repeatIndex),
         );
 
-        // Clean up the uploaded doc
-        await api("DELETE", `/documents/${br.docId}`).catch(() => {});
+        // Clean up the uploaded doc (nothing to clean up if submission
+        // itself failed before a doc existed).
+        if (br.docId) {
+          await api("DELETE", `/documents/${br.docId}`).catch(() => {});
+        }
       }
 
       // Save after each batch (incremental)
       saveResults(results);
       writeFileSync(REPORT_PATH, buildReport(results, models), "utf-8");
+
+      // If the backend just died mid-batch, every remaining task — this
+      // model and every model after it — will fail the exact same way.
+      // Burning through the whole remaining task list logging identical
+      // "connection refused" errors wastes time and pollutes the results
+      // with noise. Give it a short window to come back (a restart-on-crash
+      // supervisor, if any, needs a moment); if it doesn't, stop cleanly
+      // with what's already been saved rather than grinding on or crashing.
+      const batchHadConnectionFailure = batchResults.some((br) =>
+        br.taskResult.errors.some(isConnectionError),
+      );
+      if (batchHadConnectionFailure && !(await isBackendHealthy())) {
+        console.log(
+          `\n⚠ Backend at ${API.replace("/api", "")} appears to be down. Waiting up to 60s for it to come back…`,
+        );
+        const recovered = await waitForBackendRecovery(60_000);
+        if (!recovered) {
+          console.error(
+            `\n❌ Backend did not come back within 60s. Stopping here — results so far are saved.\n` +
+              `   Restart the backend and re-run the same command; already-completed tasks are skipped automatically.`,
+          );
+          writeFinalReport(results, [...new Set([...models, ...results.map((r) => r.model)])]);
+          process.exit(1);
+        }
+        console.log("✓ Backend is back — resuming.\n");
+      }
     }
   }
 
@@ -617,13 +737,7 @@ async function main() {
   }
 
   // Final report write (include models from results that may not be currently installed)
-  const allModels = [...new Set([...models, ...results.map((r) => r.model)])];
-  const report = buildReport(results, allModels);
-  writeFileSync(REPORT_PATH, report, "utf-8");
-  console.log(`\n\n${"═".repeat(60)}`);
-  console.log(`Results saved to: ${REPORT_PATH}`);
-  console.log(`${"═".repeat(60)}`);
-  console.log(report);
+  writeFinalReport(results, [...new Set([...models, ...results.map((r) => r.model)])]);
 }
 
 // ── Scoring ──

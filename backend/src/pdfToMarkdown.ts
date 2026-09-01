@@ -100,8 +100,27 @@ const PARAGRAPH_GAP_RATIO = 1.35;
 const HEADING_SIZE_RATIO = 1.25;
 
 // pdfjs ships ESM; the legacy build is the one that runs under Node without a
-// browser worker, which is what the backend needs.
+// browser worker, which is what the backend needs. That build also assumes a
+// browser's DOMMatrix exists — it references `new DOMMatrix()` at module
+// scope, so simply importing it throws `ReferenceError: DOMMatrix is not
+// defined` unless something has already polyfilled it. pdfjs's own fallback
+// is to pull DOMMatrix off the @napi-rs/canvas native binary, which this repo
+// deliberately stubs out (see the root package.json "overrides" entry and
+// vendor/napi-rs-canvas-stub) — a large, unsigned native module that this
+// text/glyph-only extraction never needed in the first place, and which
+// crashed the whole backend process on Windows machines with Smart App
+// Control enabled. Polyfilling with a small pure-JS DOMMatrix instead avoids
+// that native dependency entirely.
+let domMatrixPolyfilled = false;
 async function loadPdfjs() {
+  if (!domMatrixPolyfilled) {
+    if (!("DOMMatrix" in globalThis)) {
+      const { default: CSSMatrix } = await import("@thednp/dommatrix");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).DOMMatrix = CSSMatrix;
+    }
+    domMatrixPolyfilled = true;
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
 }
