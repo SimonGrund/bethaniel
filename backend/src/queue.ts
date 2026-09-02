@@ -96,7 +96,8 @@ import {
   recordThroughputSample,
   recordJobThroughput,
 } from "./db.js";
-import { isApiModel, isCustomGgufModel } from "./modelCatalog.js";
+import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
+import { estimateTaskOutputTokens } from "./cloudEstimate.js";
 import { shouldAutoRetry, MAX_AUTO_ATTEMPTS } from "./retryPolicy.js";
 import { liveJobProgress, computeRuntime } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
@@ -1307,6 +1308,58 @@ async function processJob(job: JobData): Promise<void> {
     totalChunks += chunks.length;
     updateTask(taskId, { phase: `${passPrefix}0/${chunks.length} chunks` });
 
+    // ── Progress: real token-budget estimate instead of chunk-count math ──
+    // (j + intraChunkHeuristic) / chunks.length treated every chunk as equal
+    // size and approximated in-flight progress with a shape that has no
+    // relation to the actual expected output (a saturating curve for JSON
+    // corrections, an input/output length ratio for rewrites). Reusing the
+    // same per-mode formulas the cloud estimator prices a job with — now
+    // scoped to this one task — gives a real denominator: tokens generated
+    // so far, divided by tokens the task is expected to need in total.
+    // Capped short of 1 because this only counts the primary generation
+    // stream; reviewer/upgrade work that isn't (see below) still needs to
+    // happen before the task is genuinely done.
+    const estimatorMode =
+      mode === "translate" || mode === "line_edit" || mode === "combined_edit"
+        ? mode
+        : "copy_edit"; // proofread/publication_scan/etc. — same stand-in cloudEstimate.ts uses
+    const passWordCount = sourceText.split(/\s+/).filter(Boolean).length;
+    const estimatedOutputTokens = Math.max(
+      1,
+      estimateTaskOutputTokens(estimatorMode, passWordCount, {
+        wordsPerChunk: wpc,
+        runMode:
+          job.runMode === "speed" || job.runMode === "max" ? job.runMode : "custom",
+        reviewMode: !!job.reviewMode,
+        reviewerCount: job.reviewerCount ?? 1,
+        dualEditor: !!job.dualEditor,
+        dualCount: job.dualCount ?? 2,
+        styleComplianceAgent: !!job.styleComplianceAgent,
+        extraPass: job.extraPass === true,
+        numPredict: getModelByFileName(model)?.defaults.num_predict ?? 4096,
+        styleGuideChars: job.styleGuide?.length,
+        manuscriptLang: job.manuscriptLang,
+      }),
+    );
+    let passTokensSoFar = 0;
+    /**
+     * Task-level progress (0-1) from real tokens generated so far in this
+     * pass, scaled into the pass's own slice of the whole task — needed for
+     * "thorough" mode's two passes, where pass 2 owns progressBase=0.5,
+     * progressSpan=0.5. The old chunk-count math applied this scaling only
+     * at chunk boundaries, not to the intra-chunk updates in between, which
+     * could jump backward when pass 2 started; folding it into every call
+     * here fixes that as a side effect.
+     */
+    const tokenProgress = (): number =>
+      pass.progressBase +
+      Math.min(0.97, passTokensSoFar / estimatedOutputTokens) * pass.progressSpan;
+    /** Seconds left in this pass at the given tok/s, from the same budget tokenProgress() uses. */
+    const estimatedEtaSeconds = (tps: number): number | undefined =>
+      tps > 0
+        ? Math.max(0, Math.round((estimatedOutputTokens - passTokensSoFar) / tps))
+        : undefined;
+
     const pieces: string[] = [];
     const corrections: Correction[] = [];
     const skipped: Correction[] = [];
@@ -1760,6 +1813,11 @@ async function processJob(job: JobData): Promise<void> {
                   for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal, undefined, seed)) {
                     if (dualFirstTokenAt === 0) dualFirstTokenAt = performance.now();
                     a += t;
+                    // Dual-editor agents stream concurrently with no other
+                    // progress feedback for this chunk otherwise — the bar
+                    // would sit frozen for the whole chunk without this.
+                    passTokensSoFar++;
+                    updateProgress(taskId, tokenProgress());
                   }
                   return a;
                 };
@@ -1874,23 +1932,25 @@ async function processJob(job: JobData): Promise<void> {
                 )) {
                 acc += tok;
                 tokCount++;
+                passTokensSoFar++;
                 if (tokCount === 1) {
                   firstTokenAt = performance.now();
                   updateTask(taskId, {
                     phase: `${phasePrefix}chunk ${chunkLabel}`,
                   });
                 }
-                // Live tok/s every 20 tokens
+                // Live tok/s + ETA every 20 tokens
                 if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
                   const elapsed = performance.now() - firstTokenAt;
                   if (elapsed > 0) {
+                    const tps = (tokCount - 1) / (elapsed / 1000);
                     updateTask(taskId, {
-                      tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                      tokPerSec: tps.toFixed(1),
+                      etaSeconds: estimatedEtaSeconds(tps),
                     });
                   }
                 }
-                const intra = creepingProgress(tokCount);
-                updateProgress(taskId, (j + intra) / chunks.length);
+                updateProgress(taskId, tokenProgress());
               }
               }
             } else {
@@ -1904,26 +1964,25 @@ async function processJob(job: JobData): Promise<void> {
               )) {
                 acc += tok;
                 tokCount++;
+                passTokensSoFar++;
                 if (tokCount === 1) {
                   firstTokenAt = performance.now();
                   updateTask(taskId, {
                     phase: `${phasePrefix}chunk ${chunkLabel}`,
                   });
                 }
-                // Live tok/s every 20 tokens
+                // Live tok/s + ETA every 20 tokens
                 if (tokCount > 1 && tokCount % 20 === 0 && firstTokenAt > 0) {
                   const elapsed = performance.now() - firstTokenAt;
                   if (elapsed > 0) {
+                    const tps = (tokCount - 1) / (elapsed / 1000);
                     updateTask(taskId, {
-                      tokPerSec: ((tokCount - 1) / (elapsed / 1000)).toFixed(1),
+                      tokPerSec: tps.toFixed(1),
+                      etaSeconds: estimatedEtaSeconds(tps),
                     });
                   }
                 }
-                const intra = Math.min(
-                  0.98,
-                  acc.length / Math.max(1, chunk.body.length),
-                );
-                updateProgress(taskId, (j + intra) / chunks.length);
+                updateProgress(taskId, tokenProgress());
               }
             }
             lastErr = null;
@@ -2321,14 +2380,35 @@ async function processJob(job: JobData): Promise<void> {
                   let callIndex = 0;
                   return async (text: string, systemPrompt: string) => {
                     let out = "";
+                    let upgradeToks = 0;
+                    let upgradeFirstTokenAt = 0;
+                    // Sequential with the draft translation above (not hidden
+                    // behind next-chunk work like a corrections-mode reviewer
+                    // is), so without this the bar would sit still through
+                    // the whole upgrade+fluency-review pass.
                     for await (const tok of editChunkStream(
                       model,
                       text,
                       systemPrompt,
                       ac.signal,
                       deriveSeed(mode, job.name, j, "upgrade", callIndex++),
-                    ))
+                    )) {
                       out += tok;
+                      upgradeToks++;
+                      passTokensSoFar++;
+                      if (upgradeToks === 1) upgradeFirstTokenAt = performance.now();
+                      if (upgradeToks > 1 && upgradeToks % 20 === 0 && upgradeFirstTokenAt > 0) {
+                        const elapsed = performance.now() - upgradeFirstTokenAt;
+                        if (elapsed > 0) {
+                          const tps = (upgradeToks - 1) / (elapsed / 1000);
+                          updateTask(taskId, {
+                            tokPerSec: tps.toFixed(1),
+                            etaSeconds: estimatedEtaSeconds(tps),
+                          });
+                        }
+                      }
+                      updateProgress(taskId, tokenProgress());
+                    }
                     return out;
                   };
                 })(),
@@ -2407,7 +2487,10 @@ async function processJob(job: JobData): Promise<void> {
         }
         // Push live tok/s to task state for UI display
         if (tokPerSec !== "n/a") {
-          updateTask(taskId, { tokPerSec });
+          updateTask(taskId, {
+            tokPerSec,
+            etaSeconds: estimatedEtaSeconds(Number(tokPerSec)),
+          });
           // Feed the same number into the machine's throughput profile. Only
           // local GGUFs: an API model's speed says nothing about this computer,
           // and a custom GGUF is not something we can recommend switching away

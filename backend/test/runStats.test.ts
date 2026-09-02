@@ -163,6 +163,37 @@ test("unparsable tokPerSec is ignored rather than producing NaN", () => {
   assert.ok(Number.isFinite(r.aggregateTokPerSec));
 });
 
+// ── Estimated time remaining ──
+
+test("estimatedSecondsRemaining is the longest ETA among running streams", () => {
+  // Job isn't done until the slowest of what's actually running finishes.
+  const r = computeRuntime(
+    [
+      task({ id: "a", status: "editing", tokPerSec: "10", etaSeconds: 30 }),
+      task({ id: "b", status: "editing", tokPerSec: "8", etaSeconds: 90 }),
+    ],
+    2,
+  );
+  assert.equal(r.estimatedSecondsRemaining, 90);
+});
+
+test("estimatedSecondsRemaining ignores non-editing tasks", () => {
+  const r = computeRuntime(
+    [
+      task({ id: "a", status: "editing", tokPerSec: "10", etaSeconds: 20 }),
+      task({ id: "b", status: "done", tokPerSec: "99", etaSeconds: 999 }),
+      task({ id: "c", status: "queued", etaSeconds: 500 }),
+    ],
+    2,
+  );
+  assert.equal(r.estimatedSecondsRemaining, 20);
+});
+
+test("estimatedSecondsRemaining is undefined when nothing running has an ETA yet", () => {
+  const r = computeRuntime([task({ id: "a", status: "editing", tokPerSec: "10" })], 1);
+  assert.equal(r.estimatedSecondsRemaining, undefined);
+});
+
 // ── Is the run over? ──
 //
 // A row reading "13,774 of 19,710 words / 70%" is identical whether the run is

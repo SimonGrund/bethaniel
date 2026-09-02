@@ -120,6 +120,12 @@ export default function CurrentRunHeader({
           .replace("{rate}", String(runtime.aggregateTokPerSec))
           .replace("{streams}", String(runtime.activeStreams))
       : null;
+  // Lower bound, not a full estimate — see RuntimeStats.estimatedSecondsRemaining:
+  // only covers streams already running, not chapters still queued behind them.
+  const etaText =
+    runtime?.estimatedSecondsRemaining != null && runtime.estimatedSecondsRemaining > 0
+      ? t("run_eta").replace("{time}", formatElapsed(runtime.estimatedSecondsRemaining * 1000))
+      : null;
 
   const start = Math.min(
     ...jobTasks.map((task) => task.startedAt ?? task.submittedAt ?? Date.now()),
@@ -179,6 +185,7 @@ export default function CurrentRunHeader({
         </span>
         {modelText && <span className="crh-stat">{modelText}</span>}
         {throughput && <span className="crh-stat crh-tok">{throughput}</span>}
+        {etaText && <span className="crh-stat crh-tok">{etaText}</span>}
         {failedCount > 0 && (
           <span className="crh-stat crh-failed">
             {t("run_chapters_failed").replace("{count}", String(failedCount))}

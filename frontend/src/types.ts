@@ -211,6 +211,7 @@ export interface TaskState {
   targetLang?: string;
   model?: string;
   tokPerSec?: string;
+  etaSeconds?: number;
 }
 
 export interface EditUnit {
@@ -391,6 +392,7 @@ export interface RuntimeStats {
   activeStreams: number;
   aggregateTokPerSec: number;
   parallelSlots: number;
+  estimatedSecondsRemaining?: number;
 }
 
 export interface RunStats {

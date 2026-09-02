@@ -38,6 +38,14 @@ export interface RuntimeStats {
   aggregateTokPerSec: number;
   /** Slots llama-server was actually launched with. */
   parallelSlots: number;
+  /**
+   * Longest per-task ETA among the currently-editing streams — i.e. "done
+   * once the slowest of what's running right now finishes". A lower bound,
+   * not a full estimate: a task still queued (not yet editing) has no
+   * per-task ETA of its own yet, so its wait isn't counted here. undefined
+   * when nothing running has emitted an ETA yet.
+   */
+  estimatedSecondsRemaining?: number;
 }
 
 /**
@@ -135,6 +143,7 @@ export function computeRuntime(
 ): RuntimeStats {
   let activeStreams = 0;
   let aggregateTokPerSec = 0;
+  let maxEtaSeconds: number | undefined;
 
   for (const t of tasks) {
     if (t.status !== "editing") continue;
@@ -144,11 +153,15 @@ export function computeRuntime(
     if (!Number.isFinite(rate) || rate <= 0) continue;
     activeStreams++;
     aggregateTokPerSec += rate;
+    if (t.etaSeconds != null && (maxEtaSeconds == null || t.etaSeconds > maxEtaSeconds)) {
+      maxEtaSeconds = t.etaSeconds;
+    }
   }
 
   return {
     activeStreams,
     aggregateTokPerSec: Math.round(aggregateTokPerSec * 100) / 100,
     parallelSlots,
+    estimatedSecondsRemaining: maxEtaSeconds,
   };
 }

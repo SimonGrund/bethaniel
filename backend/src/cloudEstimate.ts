@@ -290,6 +290,32 @@ function estimateAnalysisMode(
   return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
 }
 
+/**
+ * Estimated OUTPUT tokens for a single task (one unit, one already-merged
+ * mode) — the same per-mode formulas `estimateCloudJob` sums across a whole
+ * job, scoped down to one chapter's worth of work. Used to drive the local
+ * progress bar: dividing tokens generated so far by this number gives a real
+ * fraction instead of the chunk-count/heuristic-curve approximation it
+ * replaces. Input tokens are irrelevant here — progress tracks what the
+ * engine emits, not what it reads — so only the output half is returned.
+ */
+export function estimateTaskOutputTokens(
+  mode: "copy_edit" | "line_edit" | "combined_edit" | "translate",
+  wordCount: number,
+  input: Omit<CloudEstimateInput, "units" | "modes">,
+): number {
+  const scoped: CloudEstimateInput = {
+    ...input,
+    units: [{ wordCount }],
+    modes: [mode],
+  };
+  const result =
+    mode === "translate"
+      ? estimateTranslateMode(scoped)
+      : estimateCorrectionsMode(mode, scoped);
+  return result.outputTokens;
+}
+
 export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult {
   const perMode: Record<string, { inputTokens: number; outputTokens: number }> = {};
   let confidence: "estimate" | "lower_bound" = "estimate";

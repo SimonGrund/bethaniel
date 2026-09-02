@@ -176,6 +176,9 @@ export interface TaskState {
   manuscriptLang?: string;
   model?: string;
   tokPerSec?: string;
+  /** Estimated seconds remaining, from the current tok/s and the task's
+   *  estimated output-token budget (see cloudEstimate.ts's estimateTaskOutputTokens). */
+  etaSeconds?: number;
   /** Automatic retries already spent on this task (see retryPolicy.ts). */
   attempts?: number;
   // Stored re-submission spec so a failed task can be re-run without

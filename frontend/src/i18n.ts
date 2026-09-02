@@ -321,6 +321,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Wörter",
     es: "palabras",
   },
+  lbl_left: {
+    en: "left",
+    da: "tilbage",
+    de: "übrig",
+    es: "restante",
+  },
   lbl_chapters: {
     en: "chapters",
     da: "kapitler",
@@ -572,6 +578,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "{rate} tok/s i alt · {streams} strømme",
     de: "{rate} Tok/s gesamt · {streams} Ströme",
     es: "{rate} tok/s en total · {streams} flujos",
+  },
+  run_eta: {
+    en: "~{time} left",
+    da: "~{time} tilbage",
+    de: "~{time} übrig",
+    es: "~{time} restante",
   },
   run_chapters_failed: {
     en: "{count} failed",

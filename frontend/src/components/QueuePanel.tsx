@@ -135,7 +135,11 @@ function renderTaskRow(
           {s.status === "editing" && s.tokPerSec && (
             <span style={{ fontSize: "0.7rem", color: "#6b5c44" }}>
               {" "}
-              ({s.tokPerSec} tok/s)
+              ({s.tokPerSec} tok/s
+              {s.etaSeconds != null && s.etaSeconds > 0
+                ? ` · ~${formatDuration(s.etaSeconds * 1000)} ${t("lbl_left")}`
+                : ""}
+              )
             </span>
           )}
           {s.status === "editing" && s.phase && (
