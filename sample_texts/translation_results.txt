@@ -1,0 +1,33 @@
+BETHANIEL TRANSLATION QUALITY BENCHMARK
+Report generated: 2026-09-02T15:22:32.256Z
+Judge model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf (self-judging caveat applies to its own rows)
+Source: C:\Users\simon\code\Bethaniel\sample_texts\english_correct.md
+================================================================================
+
+SCORECARD — judge confidence 1-5 per paragraph (rubric: fidelity + fluency)
+================================================================================
+  Model                                         Lang       Avg   Min   Flagged    Time
+  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf Danish     4.4     3      0/11     27s *
+  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf German     5.0     5      0/11     24s *
+  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf Spanish    4.9     4      0/11     23s *
+  Qwen3.5-4B-Q4_K_M.gguf                        Danish     4.2     2      1/11     15s
+  Qwen3.5-4B-Q4_K_M.gguf                        German     4.5     2      1/11     15s
+  Qwen3.5-4B-Q4_K_M.gguf                        Spanish    4.5     3      0/11     14s
+  Qwen3.5-9B-Q4_K_M.gguf                        Danish     4.9     4      0/11     18s
+  Qwen3.5-9B-Q4_K_M.gguf                        German     5.0     5      0/11     17s
+  Qwen3.5-9B-Q4_K_M.gguf                        Spanish    4.9     4      0/11     17s
+
+  * this model judged its own translation — treat with extra skepticism
+
+================================================================================
+DETAIL — flagged paragraphs (confidence < 3) and judge reasoning
+================================================================================
+
+[Qwen3.5-4B-Q4_K_M.gguf → Danish]:
+  [5] confidence 2: Problematic — significant meaning loss ('hans mor forlod ham' should be 'her mother had left')
+
+[Qwen3.5-4B-Q4_K_M.gguf → German]:
+  [7] confidence 2: Problematic — 'Algen kreisten langsam über dem Wasser' is nonsensical (should be 'Möwen')
+
+
+── END OF REPORT ──

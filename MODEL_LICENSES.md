@@ -2,7 +2,7 @@
 
 Bethaniel uses open-weight AI models for local inference. This document records
 the provenance and licensing terms for each model that Bethaniel can download and
-run. All three models are distributed under the **Apache License 2.0**.
+run. Both models are distributed under the **Apache License 2.0**.
 
 > **Note on GGUF quantization.** The `.gguf` files Bethaniel downloads are
 > quantized (compressed) versions of the original model weights. Quantization is
@@ -47,11 +47,11 @@ limitations under the License.
 
 ---
 
-## 2. Basic Betty — Qwen3.5 9B (Q4_K_M)
+## 2. Big Bad Betty — Qwen3.5 9B (Q4_K_M)
 
 | Field             | Value                                                                             |
 | ----------------- | --------------------------------------------------------------------------------- |
-| In-app name       | Basic Betty                                                                       |
+| In-app name       | Big Bad Betty                                                                     |
 | Model family      | Qwen3.5                                                                           |
 | Parameter count   | 9 B                                                                               |
 | Quantization      | Q4_K_M GGUF                                                                       |
@@ -63,40 +63,6 @@ limitations under the License.
 
 The copyright notice is identical to Qwen3.5 4B above; both models belong to
 the same Qwen3.5 release by the Qwen Team.
-
----
-
-## 3. Big Bad Betty — Mistral Small 3.2 24B Instruct (Q4_K_M)
-
-| Field             | Value                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| In-app name       | Big Bad Betty                                                                                                                                       |
-| Model family      | Mistral Small 3.2                                                                                                                                   |
-| Parameter count   | 24 B                                                                                                                                                |
-| Quantization      | Q4_K_M GGUF (imatrix)                                                                                                                               |
-| Original model    | [mistralai/Mistral-Small-3.2-24B-Instruct-2506](https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506)                               |
-| Original authors  | Mistral AI                                                                                                                                          |
-| GGUF source       | [bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF](https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF) |
-| GGUF quantized by | bartowski                                                                                                                                           |
-| License           | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)                                                                                   |
-
-### Copyright notice (Mistral Small 3.2)
-
-```
-Copyright 2025 Mistral AI
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
 
 ---
 
@@ -113,8 +79,8 @@ The full license text is reproduced below. In plain language, Apache 2.0 means:
 - **If you modify** the model weights (e.g., fine-tune, further quantize), you
   must mark those changes clearly — you may not represent the modified weights as
   the unmodified originals.
-- **No trademark rights** are granted. You may not use "Qwen", "Mistral", or the
-  respective logos to endorse a derived product without written permission.
+- **No trademark rights** are granted. You may not use "Qwen" or its logo to
+  endorse a derived product without written permission.
 - **No warranty is given.** The models are provided "AS IS".
 
 ### Full License Text
@@ -264,5 +230,5 @@ The full license text is reproduced below. In plain language, Apache 2.0 means:
 
 ---
 
-_This document was last reviewed on 27 May 2026 against the Hugging Face model
+_This document was last reviewed on 2 September 2026 against the Hugging Face model
 cards for each model listed above._

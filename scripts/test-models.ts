@@ -118,7 +118,7 @@ function parseModel(): string | null {
   return process.argv[idx + 1];
 }
 // Case-insensitive substring match against the catalog fileName — lets you
-// pass a short name ("9b", "mistral") instead of the full .gguf filename.
+// pass a short name ("4b", "9b") instead of the full .gguf filename.
 const MODEL_FILTER = parseModel();
 
 function parseMaxParallel(): number | null {
@@ -221,9 +221,9 @@ async function uploadText(filename: string, content: string): Promise<string> {
 // same per-slot context budget as the real UI.
 function wordsPerChunkForModel(fileName: string): number {
   const f = fileName.toLowerCase();
-  // Big tier: 20B+ parameter models — smaller chunks keep prompt + verbose
-  // JSON output comfortably within the per-slot context window.
-  if (/24b|27b|32b|34b|mistral-small-3\.2/.test(f)) return 1500;
+  // 20B+ parameter models (e.g. a custom GGUF) — smaller chunks keep prompt +
+  // verbose JSON output comfortably within the per-slot context window.
+  if (/24b|27b|32b|34b/.test(f)) return 1500;
   return 2000;
 }
 

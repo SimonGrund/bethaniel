@@ -42,10 +42,11 @@ export default function RunModeSlider() {
   // Max on a weak local machine is a footgun: 3 editors + a 2nd pass is ~5× the
   // work, and a full book can take hours. External Betty (API) is unaffected —
   // its throughput comes from the provider, not this hardware. "Weak" = the
-  // machine can't comfortably run big models (the backend's own tier verdict).
+  // machine can't comfortably run "normal" tier — Big Bad Betty, the biggest
+  // local model there is (the backend's own tier verdict).
   const isApiModel =
     model.startsWith("custom:") && !model.startsWith("custom:gguf");
-  const weakHardware = !!hardware && !(hardware.allowedTiers ?? []).includes("big");
+  const weakHardware = !!hardware && !(hardware.allowedTiers ?? []).includes("normal");
   const maxIsRisky = !isApiModel && weakHardware;
 
   /** Adopt a stop — but intercept Max on weak local hardware with a warning. */

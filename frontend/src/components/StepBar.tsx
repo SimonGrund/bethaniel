@@ -46,8 +46,7 @@ export default function StepBar() {
     if (!model) return "";
     if (model.startsWith("custom:")) return `External: ${apiModel || "DeepSeek"}`;
     if (model.includes("Qwen3.5-4B")) return "Baby Betty";
-    if (model.includes("Qwen3.5-9B")) return "Basic Betty";
-    if (model.includes("Mistral")) return "Big Bad Betty";
+    if (model.includes("Qwen3.5-9B")) return "Big Bad Betty";
     return model.replace(".gguf", "");
   }
 

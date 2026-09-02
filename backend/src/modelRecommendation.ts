@@ -20,8 +20,8 @@
 
 import { MODEL_CATALOG, type ModelCatalogEntry } from "./modelCatalog.js";
 
-/** The three bundled local tiers, smallest first. Custom/API are never recommended. */
-export const LOCAL_TIERS = ["small", "normal", "big"] as const;
+/** The two bundled local tiers, smallest first. Custom/API are never recommended. */
+export const LOCAL_TIERS = ["small", "normal"] as const;
 export type LocalTier = (typeof LOCAL_TIERS)[number];
 
 export interface HardwareInfo {
@@ -81,23 +81,15 @@ export function appleChipVariant(name: string | null): AppleVariant | null {
  */
 export function guessTierFromHardware(hw: HardwareInfo): LocalTier {
   if (hw.appleSilicon) {
-    const variant = appleChipVariant(hw.gpu.name);
-    // Unified memory doubles as VRAM, but only the wide-bus Max/Ultra parts
-    // have the bandwidth to decode a 24B model at a tolerable rate. Read the
-    // effective figure so BETHANIEL_FAKE_RAM_GB reaches the guess too, not
-    // only the clamp below — otherwise the Apple branches are untestable.
+    // Unified memory doubles as VRAM. Read the effective figure so
+    // BETHANIEL_FAKE_RAM_GB reaches the guess too, not only the clamp below
+    // — otherwise the Apple branch is untestable.
     const unifiedGb = effectiveRamGb(hw);
-    if ((variant === "max" || variant === "ultra") && unifiedGb >= 48) {
-      return "big";
-    }
     if (unifiedGb >= 24) return "normal";
     return "small";
   }
 
   if (hw.gpu.vendor === "nvidia" && hw.gpu.vramGb != null) {
-    // 24 GB is the 4090/5090/pro-card line: the 14.3 GB weights plus KV cache
-    // fit entirely in VRAM with headroom for several parallel slots.
-    if (hw.gpu.vramGb >= 24) return "big";
     // 12 GB holds the 9B comfortably; below that it spills to system RAM.
     if (hw.gpu.vramGb >= 12) return "normal";
     return "small";

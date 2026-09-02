@@ -40,7 +40,13 @@ import {
   GarbledPdfError,
 } from "./pdfToMarkdown.js";
 import { epubToMarkdown, InvalidEpubError } from "./epubToMarkdown.js";
-import { listModels, getModelSizeBytes, attributeSuspects } from "./llm.js";
+import {
+  listModels,
+  getModelSizeBytes,
+  attributeSuspects,
+  reviewCorrectionsStream,
+  parseReviewScores,
+} from "./llm.js";
 import { findNewSuspectWords } from "./spellcheck.js";
 import {
   collapseIntroducedQuotePairs,
@@ -2420,6 +2426,50 @@ router.post("/models/preload", async (req: Request, res: Response) => {
     io?.emit("model:warming", { model, status: "error", error: msg });
   } finally {
     warmingByModel.delete(model);
+  }
+});
+
+// ── Benchmark-only: ad-hoc LLM-judge scoring, for scripts/ comparison runs
+// (e.g. translation quality across models). Reuses the exact same reviewer
+// machinery (reviewCorrectionsStream + parseReviewScores) and the SAME
+// already-running llama-server production review passes use — this never
+// spawns a second engine process, so it can't collide with a real job the
+// way a benchmark script importing llamaServer.ts directly would. Not
+// called by the UI; the caller supplies its own systemPrompt.
+router.post("/bench/judge", async (req: Request, res: Response) => {
+  const body = req.body as
+    | {
+        model?: string;
+        systemPrompt?: string;
+        chunkText?: string;
+        pairs?: { original: string; corrected: string }[];
+      }
+    | undefined;
+  const { model, systemPrompt, chunkText, pairs } = body ?? {};
+  if (!model || !systemPrompt || !Array.isArray(pairs) || pairs.length === 0) {
+    res
+      .status(400)
+      .json({ error: "model, systemPrompt, and a non-empty pairs[] are required" });
+    return;
+  }
+  try {
+    await ensureModelLoaded(model, undefined, getConcurrency());
+    let acc = "";
+    for await (const tok of reviewCorrectionsStream(
+      model,
+      chunkText ?? "",
+      pairs,
+      systemPrompt,
+    )) {
+      acc += tok;
+    }
+    const scores = parseReviewScores(acc);
+    res.json({
+      scores: [...scores.entries()].map(([index, s]) => ({ index, ...s })),
+      raw: acc,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

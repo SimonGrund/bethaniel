@@ -102,11 +102,10 @@ npm run dist:linux    # Linux .AppImage + .deb
 Output lands in `dist/`. The first time you launch, Bethaniel detects your
 hardware and lets you download the right model:
 
-| Tier          | Model                          | Size   | Min RAM                        |
-| ------------- | ------------------------------ | ------ | ------------------------------ |
-| Baby Betty    | Qwen3.5 4B (Q4_K_M)            | ~3 GB  | 8 GB                           |
-| Basic Betty   | Qwen3.5 9B (Q4_K_M)            | ~6 GB  | 16 GB (12 GB on Apple Silicon) |
-| Big Bad Betty | Mistral Small 3.2 24B (Q4_K_M) | ~14 GB | 24 GB (16 GB on Apple Silicon) |
+| Tier          | Model                | Size  | Min RAM                        |
+| ------------- | -------------------- | ----- | ------------------------------ |
+| Baby Betty    | Qwen3.5 4B (Q4_K_M)  | ~3 GB | 8 GB                           |
+| Big Bad Betty | Qwen3.5 9B (Q4_K_M)  | ~6 GB | 16 GB (12 GB on Apple Silicon) |
 
 ### Browser Mode (developer / power-user)
 
@@ -272,7 +271,7 @@ Bethaniel is provided "AS IS", without warranty of any kind, express or implied.
 
 ### AI Model Licenses
 
-The AI models used by Bethaniel (Qwen3.5 4B, Qwen3.5 9B, and Mistral Small 3.2 24B) are open-weight models distributed under the **Apache License 2.0** by their respective authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
+The AI models used by Bethaniel (Qwen3.5 4B and Qwen3.5 9B) are open-weight models distributed under the **Apache License 2.0** by their respective authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
 
 ### Third-Party Components
 

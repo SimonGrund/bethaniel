@@ -1332,16 +1332,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Pequeña, práctica y rápida. Pero a veces cometo errores.",
   },
   model_desc_qwen3_5_9b: {
-    en: "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
-    da: "Basic Betty er fremragende til de fleste opgaver. Her får du the beeeest of both worlds - Miley Cyrus",
-    de: "Basic Betty ist hervorragend für die meisten Aufgaben. Hier bekommst du the beeeest of both worlds - Miley Cyrus",
-    es: "Basic Betty es excelente para la mayoría de tareas. Aquí tienes the beeeest of both worlds - Miley Cyrus",
-  },
-  model_desc_mistral_small_3_2_24b: {
-    en: "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    da: "Business foran. Fest bagi. Big Bad Betty ved, hvad det handler om.",
-    de: "Business in the front. Party in the back. Big Bad Betty weiß, worum es geht.",
-    es: "Business in the front. Party in the back. Big Bad Betty sabe de qué va la cosa.",
+    en: "Big Bad Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+    da: "Big Bad Betty er fremragende til de fleste opgaver. Her får du the beeeest of both worlds - Miley Cyrus",
+    de: "Big Bad Betty ist hervorragend für die meisten Aufgaben. Hier bekommst du the beeeest of both worlds - Miley Cyrus",
+    es: "Big Bad Betty es excelente para la mayoría de tareas. Aquí tienes the beeeest of both worlds - Miley Cyrus",
   },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
@@ -3123,6 +3117,37 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Forstået",
     de: "Verstanden",
     es: "Entendido",
+  },
+
+  translate_baby_betty_warning_title: {
+    en: "Baby Betty and translation don't mix well",
+    da: "Baby Betty og oversættelse passer ikke godt sammen",
+    de: "Baby Betty und Übersetzung passen nicht gut zusammen",
+    es: "Baby Betty y la traducción no combinan bien",
+  },
+  translate_baby_betty_warning_body: {
+    en: "Baby Betty's small size makes it more prone to real mistranslations — not just style issues, but wrong pronouns, wrong words, and dropped meaning. For translation specifically, a bigger model or the cloud gives noticeably more reliable results.",
+    da: "Baby Bettys lille størrelse gør den mere tilbøjelig til reelle fejloversættelser — ikke bare stilistiske problemer, men forkerte pronominer, forkerte ord og tabt betydning. Til oversættelse specifikt giver en større model eller skyen markant mere pålidelige resultater.",
+    de: "Baby Bettys geringe Größe macht sie anfälliger für echte Fehlübersetzungen — nicht nur Stilprobleme, sondern falsche Pronomen, falsche Wörter und verlorene Bedeutung. Speziell für Übersetzungen liefert ein größeres Modell oder die Cloud deutlich zuverlässigere Ergebnisse.",
+    es: "El pequeño tamaño de Baby Betty la hace más propensa a errores de traducción reales, no solo problemas de estilo, sino pronombres equivocados, palabras erróneas y pérdida de significado. Para traducción en concreto, un modelo más grande o la nube dan resultados notablemente más fiables.",
+  },
+  translate_baby_betty_switch_big_bad: {
+    en: "Switch to {name}",
+    da: "Skift til {name}",
+    de: "Zu {name} wechseln",
+    es: "Cambiar a {name}",
+  },
+  translate_baby_betty_switch_cloud: {
+    en: "Use Betty in the Cloud",
+    da: "Brug Betty i skyen",
+    de: "Betty in der Cloud verwenden",
+    es: "Usar Betty en la nube",
+  },
+  translate_baby_betty_continue: {
+    en: "Continue with Baby Betty anyway",
+    da: "Fortsæt med Baby Betty alligevel",
+    de: "Trotzdem mit Baby Betty fortfahren",
+    es: "Continuar con Baby Betty de todos modos",
   },
 
   run_mode_custom_sidebar_help: {

@@ -1,0 +1,578 @@
+[
+  {
+    "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "targetLang": "Danish",
+    "translatedText": "Fyrværtsmesterens Brev\n\nMara besteg den snoede trappe for første gang på tyve år. Jerntrinnene knirkede under hendes støvler, og saltluften trykkede sig mod de smalle vinduer som en gammel, insisterende ven. Hendes bedstefar havde passet dette fyr for fire årtier, og nu, tre måneder efter hans begravelse, var ejendomsretten endelig overgået til hende.\n\nOppe på toppen var lanternrummet netop som hun huskede det: messingbeslag poleret til en blød glans, den store linse tavs og vagtsom, en logbog åben på den lille egetrækseskrivemaskine. Hun satte sin taske ned og løb en finger langs vindueskarmen. Ingen støv. Nogen havde været her for nylig.\n\nEt foldet stykke papir lå skjult under logbogen, hendes navn skrevet på forsiden i hendes bedstefars omhyggelige håndskrift. Mara satte sig ned før hun åbnede det, fordi hendes knæ begyndte at ryste, og hun ville ikke indrømme hvorfor.\n\n\"Mara,\" begyndte brevet, \"hvis du læser dette, så har jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden selv. Tilgiv en gammel mand hans feighet.\"\n\nHun læste langsomt. Han skrev om natten hendes mor var gået, om stormen der havde drevet en lille fiskerbåd på klipperne nedenfor klippen, om kvinden han havde trukket ud af bølgerne og båret op ad disse trappe. Han skrev om valget han havde truffet til at holde hendes hemmelighed, og om datteren som kvinden havde efterladt i hans pleje.\n\n\"Du var tre år gammel,\" skrev han. \"Du kaldte mig Bedstefar fordi det var hvad jeg bad dig kalde mig. Jeg er ked af det. Jeg elskede dig ikke mindre for løgnene, og måske lidt mere, fordi jeg vidste hvad det kostede.\"\n\nMara lagde brevet fra sig. Udenfor drejede måger langsomme cirkler over vandet, og havet bevægede sig med samme tålmodige rytme som det havde gjort siden lang tid før hendes fødsel. Hun troede hun burde føle sig vred, eller bedraget, eller utryg. I stedet følte hun kun en stille, overraskende ømhed, som om en dør hun aldrig havde lagt mærke til havde åbnet sig i et kendt værelse.\n\nHun tog logbogen op og bladrede til den seneste indtragning. Den var dateret morgenen efter hans død. I en håndskrift der var blevet tynd og rystende, havde han skrevet: \"Vind let fra sydvest. Synlighed god. Fortalte M. om brevet i dag. Hun forstod ikke, men hun vil, når tiden kommer. Lyset er klar. Jeg er det også.\"\n\nMara lukkede bogen. Hun stod op, gik hen til den store linse, og lagde sin håndflade flad mod den kølige glas. Havet strækker sig ud i alle retninger, uendeligt og lysende og ligegyldigt, og derude, forstod hun nu, var der en historie som tilhørte hende, og som hun havde kun netop begyndt at lære.\n\nHun ville blive natten over. Om morgenen ville hun tænde lampen.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title — natural and idiomatic in Danish"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'egetrækseskrivemaskine' (should be 'egetrækseskrivbord') but meaning intact"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 3,
+        "reason": "Acceptable — conveys the general meaning but has noticeable issues (awkward phrasing, minor inaccuracies)"
+      },
+      {
+        "index": 6,
+        "confidence": 4,
+        "reason": "Good translation — one awkward word choice ('løgnene' should be 'løgnen') but meaning intact"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 8,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'indtragning' (should be 'indtrag') but meaning intact"
+      },
+      {
+        "index": 9,
+        "confidence": 3,
+        "reason": "Acceptable — conveys the general meaning but has noticeable issues (awkward phrasing, minor inaccuracies)"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 27429
+  },
+  {
+    "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "targetLang": "German",
+    "translatedText": "**Der Brief des Leuchtturmwärters**\n\nMara stieg zum ersten Mal seit zwanzig Jahren die Wendeltreppe hinauf. Die eisernen Stufen knarrten unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster wie ein alter, treuer Freund. Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang betreut, und jetzt, drei Monate nach seiner Beerdigung, war das Eigentum endlich auf sie übergegangen.\n\nOben im Laternenraum sah alles genau so aus, wie sie es in Erinnerung hatte: Die Messingarmaturen glänzten sanft poliert, die große Linse stand still und wachsam, und auf dem kleinen Eichenschreibtisch lag ein aufgeschlagenes Logbuch. Sie stellte ihre Tasche ab und strich mit einem Finger über die Fensterbank. Kein Staub. Jemand war kürzlich hier gewesen.\n\nUnter dem Logbuch versteckt lag ein gefaltetes Blatt Papier, darauf ihr Name in der akkuraten Handschrift ihres Großvaters. Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen und sie wollte nicht zugeben, warum.\n\n\"Mara\", begann der Brief, \"wenn du das liest, dann habe ich endlich keine Ausreden mehr, dir die Wahrheit selbst zu sagen. Verzeih einem alten Mann seine Feigheit.\"\n\nSie las langsam. Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischereiboot auf die Felsen unter der Klippe getrieben hatte, über die Frau, die er aus der Brandung gezogen und diese Treppe hinaufgetragen hatte. Er schrieb über die Entscheidung, ihr Geheimnis zu bewahren, und über die Tochter, die diese Frau in seiner Obhut zurückgelassen hatte.\n\n\"Du warst drei Jahre alt\", schrieb er. \"Du nanntest mich Großvater, weil ich dich darum bat. Es tut mir leid. Ich liebte dich nicht weniger wegen der Lüge, und vielleicht ein wenig mehr, weil ich wusste, was sie mich kostete.\"\n\nMara legte den Brief beiseite. Draußen zogen Möwen langsame Kreise über dem Wasser, und das Meer bewegte sich im gleichen geduldigen Rhythmus, den es seit langem vor ihrer Geburt bewahrt hatte. Sie dachte, sie sollte wütend sein oder betrogen oder orientierungslos. Stattdessen spürte sie nur eine stille, überraschende Zärtlichkeit, als ob eine Tür, die sie nie bemerkt hatte, in einem vertrauten Raum geöffnet worden wäre.\n\nSie nahm das Logbuch und blätterte zur letzten Eintragung. Es war auf den Morgen seines Todes datiert. In einer Handschrift, die dünn und zittrig geworden war, hatte er geschrieben: \"Wind leicht aus Südwesten. Sicht gut. Heute habe ich M. von dem Brief erzählt. Sie verstand nicht, aber sie wird es, wenn die Zeit kommt. Das Licht ist bereit. Ich auch.\"\n\nMara schloss das Buch. Sie stand auf, ging zur großen Linse und legte ihre Handfläche flach gegen das kühle Glas. Das Meer erstreckte sich in alle Richtungen, weit und hell und gleichgültig, und irgendwo da draußen, das verstand sie jetzt, gab es eine Geschichte, die ihr gehörte und die sie gerade erst begonnen hatte zu lernen.\n\nSie würde über Nacht bleiben. Am Morgen würde sie die Lampe anzünden.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate and natural translation of the title"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 24462
+  },
+  {
+    "model": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "targetLang": "Spanish",
+    "translatedText": "La Carta del Guardián del Faro\n\nMara subió la escalera de caracol por primera vez en veinte años. Los peldaños de hierro crujieron bajo sus botas, y el aire salado empujó contra las estrechas ventanas como un viejo amigo insistente. Su abuelo había cuidado este faro durante cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente a ella.\n\nEn la cima, la habitación de la linterna era exactamente como la recordaba: los accesorios de latón pulidos hasta un suave brillo, la gran lente silenciosa y vigilante, un libro de registros abierto sobre el pequeño escritorio de roble. Dejó su bolso y pasó un dedo por el alféizar de la ventana. No había polvo. Alguien había estado allí recientemente.\n\nUna hoja de papel doblada estaba colocada debajo del libro de registros, con su nombre escrito en el frente en la cuidadosa letra de su abuelo. Mara se sentó antes de abrirla, porque sus rodillas habían comenzado a temblar y no quería admitir por qué.\n\n\"Mara\", comenzaba la carta, \"si estás leyendo esto, entonces finalmente me he quedado sin excusas para contarte la verdad yo mismo. Perdona a un viejo por su cobardía\".\n\nElla leyó lentamente. Él escribió sobre la noche en que su madre se había ido, sobre la tormenta que había llevado un pequeño barco de pesca contra las rocas debajo del acantilado, sobre la mujer que él había sacado del oleaje y llevado por estas mismas escaleras. Escribió sobre la elección que había hecho para guardar su secreto, y sobre la hija que esa mujer había dejado a su cuidado.\n\n\"Tenías tres años\", escribió. \"Me llamabas Abuelo porque así te lo pedí. Lo siento. No te amé menos por la mentira, y quizá un poco más, porque sabía lo que me costaba\".\n\nMara dejó la carta. Fuera, las gaviotas trazaban círculos lentos sobre el agua, y el mar se movía con el mismo ritmo paciente que había mantenido desde mucho antes de su nacimiento. Pensó que debería sentirse enojada, o traicionada, o desorientada. En cambio, sintió solo una quietud, una ternura sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.\n\nTomó el libro de registros y pasó a la entrada más reciente. Estaba fechada la mañana de su muerte. Con una mano delgada y temblorosa, había escrito: \"Viento ligero del suroeste. Visibilidad buena. Le conté a M. sobre la carta hoy. No entendió, pero lo hará, cuando llegue el momento. La luz está lista. Yo también\".\n\nMara cerró el libro. Se puso de pie, caminó hacia la gran lente y apoyó su palma contra el vidrio frío. El mar se extendía en todas direcciones, vasto, brillante e indiferente, y en algún lugar allí afuera, entendió ahora, había una historia que le pertenecía y que apenas comenzaba a aprender.\n\nSe quedaría esa noche. Por la mañana, encendería la lámpara.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 7,
+        "confidence": 4,
+        "reason": "Good translation — one awkward phrasing ('una quietud' instead of 'una quietud, una ternura sorprendente') but meaning intact"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 22943
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "targetLang": "Danish",
+    "translatedText": "Lysværts Vagterens Brev\n\nMara klatrede den spiraltreks for første gang på tyve år. Jerntrappen græd under hendes støvler, og saltluften pressede sig mod de smalle vinduer som en gammel, insisterende ven. Hendes farfar havde bevaret lysværten i fire årtier, og nu, tre måneder efter hans begravelse, var ejendommen endelig overgået til hende.\n\nOpmødet i den øverste del, i lyseværtsrummet, var præcis som hun huskede det: messingfæstninger poleret til en blød glød, det store linseglas stille og vagt, et dagbog åbnet på det lille egnemøbel. Hun satte sin taske ned og løb en finger langs vindueskarmen. Ingen støv. Nogen havde været her nylig.\n\nEt foldet stykke papir lå skjult under dagbogen, hendes navn skrevet på forsiden i hendes farfars forsigtige hånd. Mara satte sig før hun åbnede det, fordi knæene begyndte at trille, og hun ønskede ikke at indrømme hvorfor.\n\n\"Mara,\" begyndte brevet, \"hvis du læser dette, så er jeg endelig nået til at miste alle undskyldninger, jeg har til rådighed for at fortælle dig sandheden selv. Tåle en gammel mand sin mod.\"\n\nHun læste langsomt. Han skrev om natten, da hans mor forlod ham, om stormen, der havde drevet en lille fiskebåd ned på klipperne under klippen, om kvinden, han havde trådt ud af vandet og båret op ad disse præcis trapper. Han skrev om valget, han havde taget for at bevare hendes hemmelighed, og om døttren, den kvinde havde efterladt sig i hans pleje.\n\n\"Du var tre år gammel,\" skrev han. \"Du kaldte mig farfar, fordi det var det, jeg bad dig om. Jeg er ked af det. Jeg elskede dig ikke mindre for lügen, og måske lidt mere, fordi jeg vidste, hvad den kostede.\"\n\nMara satte brevet ned. Udenfor drejede havfugle langsomme kredser over vandet, og havet bevægede sig med samme tålmodige rytme, det havde bevaret siden længe før hendes fødsel. Hun troede, hun burde føle sig vrede, eller forrædet, eller usikker. I stedet følte hun kun en stille, overraskende kærlighed, som om en dør hun aldrig havde bemærket var åbnet i et bekendt rum.\n\nHun pillede på logbogen og vendte sig til den seneste indgang. Den var datert til morgenen før hans død. Med en hånd, der var blevet tynd og træt, havde han skrevet: \"Lufthavnen fra sydvest. Synlighed god. Fortalt M. om brevet i dag. Hun forstod det ikke, men hun vil, når tiden kommer. Lyset er klar. Så er jeg også.\"\n\nMara lukkede bogen. Hun stod op, gik hen til det store linseglas og lagde hendes håndflade fladt mod den kølige glas. Havet strakte sig ud i alle retninger, vidt, klart og ligegladt, og nede derude, forstod hun nu, lå en historie, der hørte til hende, og som hun først lige begyndte at lære.\n\nHun ville blive om natten. Om morgenen ville hun tænde lygten.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 3,
+        "reason": "Acceptable but slightly awkward phrasing ('Opmødet i den øverste del' is unnatural)"
+      },
+      {
+        "index": 3,
+        "confidence": 4,
+        "reason": "Good translation — minor issues only (slightly awkward phrasing, one word choice could be better)"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 2,
+        "reason": "Problematic — significant meaning loss ('hans mor forlod ham' should be 'her mother had left')"
+      },
+      {
+        "index": 6,
+        "confidence": 4,
+        "reason": "Good translation — minor issues only (slightly awkward phrasing, one word choice could be better)"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 8,
+        "confidence": 3,
+        "reason": "Acceptable but slightly awkward phrasing ('Lufthavnen fra sydvest' should be 'Wind light from the southwest')"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 15281
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "targetLang": "German",
+    "translatedText": "Der Brief des Leuchtturmwächters\n\nMara stieg zum ersten Mal seit zwanzig Jahren die Spiraltreppe hinauf. Die Eisenstufen grollten unter ihren Stiefeln, und salzige Luft drückte sich gegen die schmalen Fenster wie ein alter, beständiger Freund. Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang bewacht; nun, drei Monate nach seinem Tod, war das Eigentum endlich an sie übergegangen.\n\nOben im Lampenraum war alles genau so, wie sie es sich erinnerte: Messingteile, die zu einem weichen Glanz poliert waren, die große Linse still und wachsam, ein Logbuch offen auf dem kleinen Eichen Schreibtisch. Sie legte ihren Rucksack ab und streichelte mit einem Finger das Fensterbrett. Kein Staub. Jemand war hier kürzlich gewesen.\n\nUnter dem Logbuch lag ein gefaltetes Blatt Papier, auf dem vor der Vorderseite ihr Name in der sorgfältigen Handschrift ihres Großvaters geschrieben stand. Mara setzte sich, bevor sie es öffnete, denn ihre Knie begannen zu zittern und sie wollte nicht zugestehen, warum.\n\n„Mara\", begann der Brief, „wenn du diesen Text liest, dann habe ich endlich keine Entschuldigungen mehr, um dir die Wahrheit selbst zu sagen. Verzeihe einem alten Mann seine Mutlosigkeit.\"\n\nSie las langsam. Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe gerissen hatte, über die Frau, die er aus dem Wasser gezogen und genau auf diesen Treppen hinaufgetragen hatte. Er schrieb über die Wahl, die er getroffen hatte, um ihr Geheimnis zu bewahren, und über das Kind, das diese Frau hinterlassen hatte, in seiner Obhut.\n\n„Sie waren drei Jahre alt\", schrieb er. „Sie nannten mich Großvater, weil das war, was ich von Ihnen verlangt hatte. Ich bin es leid. Ich habe Sie nicht weniger geliebt wegen der Lüge, und vielleicht sogar ein wenig mehr, denn ich wusste, welchen Preis sie kostete.\"\n\nMara legte den Brief beiseite. Draußen kreisten Algen langsam über dem Wasser, und das Meer bewegte sich mit derselben geduldigen Rhythmik, die es schon lange vor ihrer Geburt bewahrt hatte. Sie dachte, sie sollte wütend sein, verraten oder entwurzelt. Stattdessen fühlte sie nur eine stille, überraschende Zärtlichkeit, als hätte sich in einem vertrauten Raum eine Tür geöffnet, die sie nie bemerkt hatte.\n\nSie griff zum Logbuch und blätterte zur neuesten Eintragung. Sie war vom Morgen seines Todes datiert. In einer Hand, die dünn und zitternd geworden war, hatte er geschrieben: „Wind leicht aus Südwest. Sicht gut. M. habe ich heute über den Brief informiert. Sie hat ihn nicht verstanden, wird aber, wenn die Zeit kommt. Das Licht ist bereit. So bin auch ich.\"\n\nMara schloss das Buch. Sie stand auf, ging zur großen Linse und legte ihre Handfläche flach gegen die kalte Glasfläche. Das Meer erstreckte sich in jede Richtung, weit, hell und gleichgültig, und irgendwo dort draußen, verstand sie nun, lag eine Geschichte, die ihr gehörte und die sie erst gerade zu lernen begonnen hatte.\n\nSie würde die Nacht hier verbringen. Morgens würde sie das Licht anzünden.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 6,
+        "confidence": 3,
+        "reason": "Acceptable but slightly awkward phrasing — 'Ich bin es leid' should be 'Es tut mir leid'"
+      },
+      {
+        "index": 7,
+        "confidence": 2,
+        "reason": "Problematic — 'Algen kreisten langsam über dem Wasser' is nonsensical (should be 'Möwen')"
+      },
+      {
+        "index": 8,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness in 'wird aber, wenn die Zeit kommt' but meaning intact"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 15320
+  },
+  {
+    "model": "Qwen3.5-4B-Q4_K_M.gguf",
+    "targetLang": "Spanish",
+    "translatedText": "La Carta del Guardacostas\n\nMara subió por la escalera caracol por primera vez en veinte años. Los peldaños de hierro rugieron bajo sus botas y el aire salino presionó contra las estrechas ventanas como un viejo amigo insistente. Su abuelo había custodiado este faro durante cuatro décadas, y ahora, tres meses después de su funeral, la propiedad había pasado finalmente a ella.\n\nEn la parte superior, la sala de la linterna era exactamente como la recordaba: los herrajes de bronce pulidos hasta un brillo suave, la gran lente silenciosa y vigilante, un libro de registro abierto sobre el pequeño escritorio de roble. Se sentó su maleta y pasó un dedo por el alféizar de la ventana. Sin polvo. Alguien había estado aquí recientemente.\n\nUna hoja doblada yace escondida debajo del libro de registro, con su nombre escrito en la portada en la cuidadosa letra de su abuelo. Mara se sentó antes de abrirla, porque sus rodillas habían comenzado a temblar y no quería admitir por qué.\n\n\"Mara,\" decía la carta, \"si estás leyendo esto, entonces he agotado por fin las excusas para decirte la verdad yo mismo. Perdone un anciano su cobardía.\"\n\nLa leyó despacio. Hablaba de la noche en que su madre se fue, de la tormenta que había empujado un pequeño barco de pesca contra las rocas debajo del acantilado, de la mujer que había sacado de la marea y llevado por esas mismas escaleras. Hablaba de la elección que había hecho para guardar ese secreto y de la hija que esa mujer había dejado a su cuidado.\n\n«Tenías tres años», escribió. «Te llamé Abuelo porque eso es lo que me pediste que te llamara. Lo siento. Te amé no menos por la mentira, y quizás un poco más, porque sabía qué costo».\n\nMara dejó la carta sobre la mesa. Fuera, las gaviotas giraban círculos lentos sobre el agua, y el mar se movía con el mismo ritmo paciente que había mantenido desde mucho antes de su nacimiento. Pensó que debía sentirse enojada, traicionada o desaterrada. En su lugar, sintió solo una ternura tranquila y sorprendente, como si una puerta que nunca había notado se hubiera abierto en una habitación familiar.\n\nCogió el diario de a bordo y se dirigió a la entrada más reciente. Fechaba la mañana de su muerte. Con una mano delgada y temblorosa, había escrito: «Viento ligero del sureste. Visibilidad buena. Le he contado sobre la carta hoy. Ella no lo entiende, pero lo entenderá cuando llegue el momento. La luz está lista. Así como yo».\n\nMara cerró el libro. Se puso de pie, caminó hacia la gran lente y apoyó la palma plana contra el vidrio frío. El mar se extendía en todas direcciones, vasto, brillante e indiferente, y en algún lugar allá fuera, ahora lo entendía, estaba una historia que le pertenecía y que solo acababa de comenzar a aprender.\n\nSe quedaría esa noche. Al día siguiente, encendería la linterna.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 3,
+        "reason": "Acceptable — conveys meaning but 'Guardacostas' is not a direct equivalent of 'Lighthouse Keeper'"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'Se sentó su maleta' but meaning intact"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 6,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'Te llamé Abuelo' but meaning intact"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 8,
+        "confidence": 4,
+        "reason": "Good translation — minor inaccuracy with 'sureste' instead of 'southwest' but meaning intact"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 13738
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "targetLang": "Danish",
+    "translatedText": "Lysvokterens brev\n\nMara klatrede op ad den spiraletrappe for første gang på tyve år. De jerntræder gned under hendes støvler, og saltluft pressede sig ind gennem de smalle vinduer som en gammel, ivrig ven. Bedstefaren havde stået vagt i dette fyrtårn i fire årtier, og nu, tre måneder efter hans begravelse, var arvebrevene endelig overgået til hende.\n\nOppe i lysetrummet var alt præcis, som hun huskede det: messingbeslagene poleret til en blød glød, den store linse stille og vagtsom, en dagbog åben på det lille egebord. Hun lagde tasken ned og strøg en finger langs vindueskarmen. Ingen støv. Nogen havde været her nylig.\n\nEt foldet stykke papir lå gemt under dagbogen, hendes navn skrevet foran i bedstefarens omsorgsfulde hånd. Mara sad ned, før hun åbnede det, fordi hendes knæ begyndte at ryste, og hun ikke ville indrømme hvorfor.\n\n«Mara», begyndte brevet, «hvis du læser dette, så har jeg endelig brugt op alle undskyldninger for at fortælle sandheden selv. Tilgiv en gammel mand sin svaghed.»\n\nHun læste langsomt. Han skrev om natten, hvor hendes mor var rejst, om stormen, der havde drevet en lille fiskerbåd ind mod klipperne under klinten, om den kvinde, han havde trukket ud af bølgerne og båret op ad disse præcis trapper. Han skrev om valget, han havde taget for at bevare hendes hemmelighed, og om datteren, kvinden havde efterladt i hans forsorg.\n\n«Du var tre år gammel», skrev han. «Du kaldte mig bedstefar, fordi det var det, jeg bad dig kalde mig. Jeg er ked af det. Jeg elskede dig ikke mindre på grund af løgnet, og måske endda lidt mere, fordi jeg vidste, hvad det kostede.»\n\nMara lagde brevet ned. Udenfor drejede mågerne langsomt i cirkler over vandet, og havet bevægede sig med samme tålmodige rytme, det havde holdt siden længe før hendes fødsel. Hun troede, hun burde føle sig vred, eller forrådt, eller ubundet. I stedet følte hun kun en stille, overraskende kærlighed, som om en dør, hun aldrig havde bemærket, var gået op i et bekendt rum.\n\nHun tog dagbogen op og vendte til den nyeste indgang. Den var dateret morgenen af hans død. Med en hånd, der var blevet tynd og rystende, havde han skrevet: «Vind let fra sydvest. Synlighed god. Fortalte M. om brevet i dag. Hun forstod ikke det, men hun vil, når tiden kommer. Lyset er klar. Så er jeg også.»\n\nMara lukkede bogen. Hun rejste sig, gik til den store linse og lagde håndfladen fladt mod det køle glas. Havet strakte sig i alle retninger, vidt, lyst og ligegladt, og et sted derude, forstod hun nu, lå en historie, der hørte til hende, og som hun lige netop havde begyndt at lære.\n\nHun ville blive den nat. Om morgenen ville hun tænde lyset.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title — natural and idiomatic in Danish"
+      },
+      {
+        "index": 1,
+        "confidence": 4,
+        "reason": "Good translation — minor awkward phrasing but meaning intact"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural flow"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Perfect translation — natural and accurate"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Excellent translation — preserves tone and meaning perfectly"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Accurate and natural translation — no issues"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning and tone preserved"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Natural and accurate translation — no issues"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Perfect translation — meaning and style preserved"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Accurate and natural translation — no issues"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — simple and accurate"
+      }
+    ],
+    "elapsedMs": 18259
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "targetLang": "German",
+    "translatedText": "Der Brief des Leuchtturmwärters\n\nMara stieg zum ersten Mal seit zwanzig Jahren die Spiraltreppe hinauf. Die eisernen Stufen knarrten unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster wie ein alter, beharrlicher Freund. Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang bewacht, und nun, drei Monate nach seiner Beerdigung, war das Erbteil endlich an sie übergegangen.\n\nOben war der Laternenraum genau so, wie sie sich erinnerte: Messingteile, die zu einem sanften Schein poliert waren, die große Linse stumm und wachsam, ein Tagebuch offen auf dem kleinen Tisch. Sie legte ihre Tasche ab und fuhr mit dem Finger über das Fensterbrett. Kein Staub. Jemand war hier kürzlich gewesen.\n\nUnter dem Tagebuch lag ein gefaltetes Blatt Papier, auf dessen Vorderseite ihr Name in ihrer Großvaters sorgfältiger Handschrift stand. Mara setzte sich hin, bevor sie es öffnete, denn ihre Knie hatten begonnen zu zittern, und sie wollte nicht zugeben, warum.\n\n„Mara\", begann der Brief, „wenn du dies liest, dann habe ich endlich keine Ausreden mehr, um dir die Wahrheit selbst zu sagen. Verzeihe einem alten Mann seine Feigheit.\"\n\nSie las langsam. Er schrieb über die Nacht, in der ihre Mutter gegangen war, über den Sturm, der ein kleines Fischerboot auf die Felsen unter dem Klippenrand getrieben hatte, über die Frau, die er aus dem Wellengang gezogen und diese sehr Treppe hinaufgetragen hatte. Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu wahren, und über die Tochter, die Frau ihm hinterlassen hatte.\n\n„Du warst drei Jahre alt\", schrieb er. „Du hast mich Großvater genannt, weil ich dich darum gebeten habe. Es tut mir leid. Ich habe dich nicht weniger geliebt wegen der Lüge, und vielleicht sogar ein wenig mehr, denn ich wusste, welchen Preis sie kostete.\"\n\nMara legte den Brief ab. Draußen kreisten Möwen langsam über dem Wasser, und das Meer bewegte sich mit demselben geduldigen Rhythmus, den es seit langem vor ihrer Geburt aufrechterhalten hatte. Sie dachte, sie sollte wütend oder verraten oder entwurzelt fühlen. Stattdessen spürte sie nur eine stille, überraschende Zärtlichkeit, als hätte sich eine Tür geöffnet, die sie noch nie bemerkt hatte, in einem vertrauten Raum.\n\nSie griff nach dem Tagebuch und blätterte zum neuesten Eintrag. Er war auf den Morgen seines Todes datiert. In einer Hand, die dünn und zitterig geworden war, hatte er geschrieben: „Wind leicht vom Südwesten. Sicht gut. Habe M. heute über den Brief informiert. Sie hat es nicht verstanden, aber sie wird es verstehen, wenn die Zeit reif ist. Das Licht ist bereit. Auch ich.\"\n\nMara schloss das Buch. Sie stand auf, ging zur großen Linse und legte ihre Handfläche flach gegen das kühle Glas. Das Meer erstreckte sich in alle Richtungen, riesig, hell und gleichgültig, und irgendwo dort draußen verstand sie nun, dass es eine Geschichte gab, die ihr gehörte und die sie erst gerade begann zu lernen.\n\nSie würde die Nacht hier verbringen. Morgens würde sie die Lampe anzünden.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural target language flow"
+      }
+    ],
+    "elapsedMs": 16823
+  },
+  {
+    "model": "Qwen3.5-9B-Q4_K_M.gguf",
+    "targetLang": "Spanish",
+    "translatedText": "# La Carta del Guardaluz\n\nMara subió por la escalera de caracol por primera vez en veinte años. Los peldaños de hierro gemían bajo sus botas y el aire salino presionaba contra las estrechas ventanas como un viejo amigo insistente. Su abuelo había custodiado este faro durante cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente a ella.\n\nEn lo alto, la sala del faro era exactamente como se la recordaba: herrajes de latón pulidos hasta emitir un brillo suave, el gran lente silencioso y vigilante, y un libro de bitácora abierto sobre el pequeño escritorio de roble. Depositó su bolso y deslizó un dedo a lo largo del alféizar. No había polvo. Alguien había estado aquí recientemente.\n\nUna hoja doblada yace escondida bajo el libro de bitácora, con su nombre escrito en la parte frontal con la cuidadosa letra de su abuelo. Mara se sentó antes de abrirla porque sus rodillas habían comenzado a temblar y no quería admitir por qué.\n\n«Mara», comenzaba la carta, «si estás leyendo esto, entonces he agotado finalmente las excusas para contarte yo mismo la verdad. Perdona a un viejo su cobardía».\n\nLa leyó despacio. Hablaba de la noche en que su madre se fue, de la tormenta que había arrojado un pequeño barco de pesca contra las rocas debajo del acantilado, de la mujer que había sacado de las olas y llevado por estas mismas escaleras. Hablaba de la decisión que había tomado para guardar su secreto y de la hija que esa mujer había dejado en su cuidado.\n\n«Tenías tres años», escribía. «Me llamabas abuelo porque es lo que te pedí que me llamaras. Lo siento. Te amé no menos por la mentira, y quizás un poco más, porque sabía lo que costaba».\n\nMara dejó la carta sobre el escritorio. Fuera, las gaviotas giraban lentamente sobre el agua y el mar se movía con el mismo ritmo paciente que mantenía desde mucho antes de su nacimiento. Pensó que debería sentirse enojada, traicionada o desarraigada. En cambio, sintió solo una ternura tranquila y sorprendente, como si se hubiera abierto una puerta que nunca había notado en una habitación familiar.\n\nRecogió el libro de bitácora y pasó a la entrada más reciente. Estaba fechada por la mañana de su muerte. Con una letra delgada y temblorosa, había escrito: «Viento ligero del suroeste. Visibilidad buena. Hoy le conté a M. sobre la carta. No lo entendió, pero lo entenderá cuando llegue el momento. El faro está listo. Yo también».\n\nMara cerró el libro. Se levantó, caminó hacia el gran lente y apoyó la palma plana contra el vidrio frío. El mar se extendía en todas direcciones, vasto, brillante e indiferente, y en algún lugar allá afuera, entendió ahora, había una historia que le pertenecía y que apenas comenzaba a aprender.\n\nSe quedaría esa noche. Por la mañana, encendería la lámpara.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation — title is correctly adapted to Spanish"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — meaning preserved, natural flow in Spanish"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Excellent translation — detailed and accurate, reads naturally"
+      },
+      {
+        "index": 3,
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'yace escondida' but meaning intact"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Perfect translation — dialogue is accurately conveyed and flows well"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Accurate and natural — meaning fully preserved, reads smoothly"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — dialogue is accurate and natural in Spanish"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Excellent translation — meaning preserved, flows naturally in Spanish"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Accurate and natural — dialogue is well-translated and reads smoothly"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Perfect translation — meaning fully preserved, flows naturally"
+      },
+      {
+        "index": 10,
+        "confidence": 5,
+        "reason": "Flawless translation — concise and accurate, reads naturally in Spanish"
+      }
+    ],
+    "elapsedMs": 16819
+  }
+]

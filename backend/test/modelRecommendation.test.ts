@@ -92,9 +92,10 @@ test("NVIDIA VRAM thresholds", () => {
   assert.equal(guessTierFromHardware(nvidia(11.9)), "small");
   assert.equal(guessTierFromHardware(nvidia(12)), "normal");
   assert.equal(guessTierFromHardware(nvidia(16)), "normal");
-  assert.equal(guessTierFromHardware(nvidia(23.9)), "normal");
-  assert.equal(guessTierFromHardware(nvidia(24)), "big");
-  assert.equal(guessTierFromHardware(nvidia(32)), "big");
+  // "normal" (Big Bad Betty, 9B) is the ceiling — no tier above it to
+  // promote into no matter how much VRAM is available.
+  assert.equal(guessTierFromHardware(nvidia(24)), "normal");
+  assert.equal(guessTierFromHardware(nvidia(32)), "normal");
 });
 
 test("an unreadable GPU is treated as no GPU, never as a fast one", () => {
@@ -112,21 +113,22 @@ test("an unreadable GPU is treated as no GPU, never as a fast one", () => {
   assert.equal(guessTierFromHardware(noVram), "small");
 });
 
-test("Apple Silicon needs both a wide-bus chip and the memory", () => {
+test("Apple Silicon promotes on unified memory alone", () => {
+  // "normal" (Big Bad Betty, 9B) is the ceiling now — no bandwidth-sensitive
+  // top tier left to gate behind a specific chip variant, so any Apple
+  // Silicon chip with enough unified memory reaches it.
   assert.equal(guessTierFromHardware(apple("Apple M2", 16)), "small");
   assert.equal(guessTierFromHardware(apple("Apple M4", 24)), "normal");
   assert.equal(guessTierFromHardware(apple("Apple M3 Pro", 36)), "normal");
-  // 64 GB but a base chip: the memory is there, the bandwidth is not.
   assert.equal(guessTierFromHardware(apple("Apple M4", 64)), "normal");
-  // Max/Ultra at 48 GB and up.
-  assert.equal(guessTierFromHardware(apple("Apple M4 Max", 48)), "big");
-  assert.equal(guessTierFromHardware(apple("Apple M2 Ultra", 128)), "big");
-  // Max but not enough unified memory.
-  assert.equal(guessTierFromHardware(apple("Apple M4 Max", 36)), "normal");
+  assert.equal(guessTierFromHardware(apple("Apple M4 Max", 48)), "normal");
+  assert.equal(guessTierFromHardware(apple("Apple M2 Ultra", 128)), "normal");
 });
 
-test("an unnamed Apple chip cannot reach the top tier", () => {
+test("an unnamed Apple chip still reaches the top tier on memory alone", () => {
   // sysctl failed; we know it's Apple Silicon with 64 GB but not which part.
+  // With no bandwidth-gated top tier left, an unknown chip name no longer
+  // matters — only unified memory does.
   const unnamed = hw({
     totalRamGb: 64,
     platform: "darwin",
@@ -140,10 +142,10 @@ test("an unnamed Apple chip cannot reach the top tier", () => {
 // ── RAM clamp ────────────────────────────────────────────────────────────
 
 test("the RAM gate clamps a guess the machine cannot load", () => {
-  // A 24 GB card in a box with only 8 GB of system RAM: the guess says "big",
-  // but Big Bad Betty needs 24 GB and Basic Betty 16 GB, so it lands on small.
+  // A 24 GB card in a box with only 8 GB of system RAM: the guess says
+  // "normal", but Big Bad Betty needs 16 GB, so it lands on small.
   const starved = hw({ totalRamGb: 8, gpu: { vendor: "nvidia", vramGb: 24, name: "x" } });
-  assert.equal(guessTierFromHardware(starved), "big");
+  assert.equal(guessTierFromHardware(starved), "normal");
   assert.equal(recommendModel(starved).tier, "small");
 });
 
@@ -156,65 +158,49 @@ test("under the minimum for everything we still name the smallest model", () => 
 test("getAllowedTiers deduplicates the shared custom tier", () => {
   // Custom Betty and External Betty both have minRam 0 and tier "custom".
   // The old version pushed one entry per catalog row, so the array ended
-  // ["small","normal","big","custom","custom"] and reverse()[0] was always
+  // ["small","normal","custom","custom"] and reverse()[0] was always
   // "custom" — which is how the Recommended badge ended up on the cloud card.
   const tiers = getAllowedTiers(hw({ totalRamGb: 64 }));
-  assert.deepEqual([...tiers].sort(), ["big", "custom", "normal", "small"]);
+  assert.deepEqual([...tiers].sort(), ["custom", "normal", "small"]);
   assert.equal(new Set(tiers).size, tiers.length);
 });
 
 test("getAllowedTiers honours the Apple Silicon minimums", () => {
-  // Basic Betty needs 16 GB generally but only 12 GB on Apple Silicon.
+  // Big Bad Betty needs 16 GB generally but only 12 GB on Apple Silicon.
   assert.ok(!getAllowedTiers(hw({ totalRamGb: 12 })).includes("normal"));
   assert.ok(getAllowedTiers(apple("Apple M2", 12)).includes("normal"));
 });
 
 // ── Layer 2: measured correction ─────────────────────────────────────────
 
-test("a trusted median below the floor downgrades one tier", () => {
-  const machine = nvidia(24);
-  assert.equal(recommendModel(machine).tier, "big");
+test("a trusted median below the floor downgrades to the smallest tier", () => {
+  // With only two tiers left, "normal" measuring slow has nowhere to step
+  // down to but "small" — there is no intermediate tier to stop at.
+  const machine = nvidia(16);
+  assert.equal(recommendModel(machine).tier, "normal");
 
-  const rec = recommendModel(machine, { big: measured(FLOOR_TPS - 1) });
-  assert.equal(rec.tier, "normal");
+  const rec = recommendModel(machine, { normal: measured(FLOOR_TPS - 1) });
+  assert.equal(rec.tier, "small");
   assert.equal(rec.basis, "measured");
   assert.equal(rec.advice?.kind, "downgrade");
-  assert.equal(rec.advice?.from, "big");
-  assert.equal(rec.advice?.to, "normal");
+  assert.equal(rec.advice?.from, "normal");
+  assert.equal(rec.advice?.to, "small");
 });
 
 test("measurement at or above the floor leaves the guess alone", () => {
-  const rec = recommendModel(nvidia(24), { big: measured(FLOOR_TPS) });
-  assert.equal(rec.tier, "big");
+  const rec = recommendModel(nvidia(16), { normal: measured(FLOOR_TPS) });
+  assert.equal(rec.tier, "normal");
   assert.equal(rec.advice, null);
   assert.equal(rec.basis, "measured");
 });
 
 test("too few samples is not evidence", () => {
-  const rec = recommendModel(nvidia(24), {
-    big: measured(1, MIN_SAMPLES - 1),
+  const rec = recommendModel(nvidia(16), {
+    normal: measured(1, MIN_SAMPLES - 1),
   });
-  assert.equal(rec.tier, "big", "warm-up noise must not move the recommendation");
+  assert.equal(rec.tier, "normal", "warm-up noise must not move the recommendation");
   assert.equal(rec.basis, "estimated");
   assert.equal(rec.advice, null);
-});
-
-test("the walk keeps stepping down while each tier measures slow", () => {
-  const rec = recommendModel(nvidia(24), {
-    big: measured(2),
-    normal: measured(3),
-  });
-  assert.equal(rec.tier, "small");
-  assert.equal(rec.advice?.kind, "downgrade");
-  assert.equal(rec.advice?.from, "big");
-  assert.equal(rec.advice?.to, "small");
-});
-
-test("the walk stops at a tier we have never measured", () => {
-  // Big measured slow, nothing known about normal — recommend normal and wait
-  // for evidence rather than skipping straight to the smallest.
-  const rec = recommendModel(nvidia(24), { big: measured(2) });
-  assert.equal(rec.tier, "normal");
 });
 
 test("a slow Baby Betty informs, and never offers a downgrade", () => {
@@ -239,7 +225,7 @@ test("a healthy Baby Betty produces no advice at all", () => {
 
 test("the recommendation carries the catalog entry the UI needs", () => {
   const rec = recommendModel(nvidia(32));
-  assert.equal(rec.entry.tier, "big");
+  assert.equal(rec.entry.tier, "normal");
   assert.ok(rec.entry.name.length > 0);
   assert.ok(rec.entry.sizeBytes > 0);
   assert.ok(rec.entry.fileName.endsWith(".gguf"));
@@ -283,7 +269,7 @@ test("summarizeHardware classifies the three machine kinds", () => {
 
 test("BETHANIEL_FAKE_RAM_GB overrides the RAM gate", () => {
   const machine = hw({ totalRamGb: 64, gpu: { vendor: "nvidia", vramGb: 24, name: "x" } });
-  assert.equal(recommendModel(machine).tier, "big");
+  assert.equal(recommendModel(machine).tier, "normal");
 
   process.env.BETHANIEL_FAKE_RAM_GB = "8";
   try {
@@ -296,15 +282,15 @@ test("BETHANIEL_FAKE_RAM_GB overrides the RAM gate", () => {
 
 test("BETHANIEL_FAKE_RAM_GB also drives the Apple Silicon guess", () => {
   // Unified memory IS the deciding figure on Apple, so an override that only
-  // reached the clamp would leave the Max/Ultra branch impossible to exercise
-  // on any machine that doesn't already have 48 GB.
-  const m4max = apple("Apple M4 Max", 16);
-  assert.equal(guessTierFromHardware(m4max), "small");
+  // reached the clamp would leave the Apple branch impossible to exercise on
+  // a machine that doesn't already have the RAM.
+  const m4 = apple("Apple M4", 16);
+  assert.equal(guessTierFromHardware(m4), "small");
 
-  process.env.BETHANIEL_FAKE_RAM_GB = "64";
+  process.env.BETHANIEL_FAKE_RAM_GB = "24";
   try {
-    assert.equal(guessTierFromHardware(m4max), "big");
-    assert.equal(recommendModel(m4max).tier, "big");
+    assert.equal(guessTierFromHardware(m4), "normal");
+    assert.equal(recommendModel(m4).tier, "normal");
   } finally {
     delete process.env.BETHANIEL_FAKE_RAM_GB;
   }

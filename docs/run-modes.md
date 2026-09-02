@@ -62,7 +62,7 @@ corrections between modes (flagged suggestions are surfaced for manual review in
 *both* modes, so they measure candidate volume, not applied quality; degenerate
 `original === corrected` no-ops are filtered out).
 
-### Local model — Basic Betty (Qwen3.5-9B), one 8.5k-word chapter
+### Local model — Big Bad Betty (Qwen3.5-9B), one 8.5k-word chapter
 
 | | Speed | Max |
 |---|---|---|

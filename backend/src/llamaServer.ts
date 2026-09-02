@@ -851,6 +851,19 @@ async function doLoad(
     // `content` as expected.
     "--reasoning",
     "off",
+    // llama-server's automatic GPU-memory-fitting step ("-fit", on by
+    // default in newer builds) exists to auto-tune arguments we leave
+    // unset — but every arg it would touch (-ngl, -c, -b, -ub) is already
+    // explicitly set above, so it has nothing useful to do. Observed
+    // hanging past pollHealth()'s 90s idle timeout while loading a 24B
+    // model that fits VRAM comfortably (RTX 5090, 32GB) — the load then
+    // gets SIGTERM'd as "failed" and silently retried with -ngl 0
+    // (CPU-only), a ~15-20x slowdown that looks like "the model is just
+    // slow" rather than a load bug. llama-server's own log for this step
+    // suggests the same workaround: "for bugs during this step try to
+    // reproduce them with -fit off".
+    "-fit",
+    "off",
   ];
 
   if (cfg.no_mmap) {

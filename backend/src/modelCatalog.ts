@@ -75,9 +75,9 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "qwen3.5-9b",
     tier: "normal",
-    name: "Basic Betty",
+    name: "Big Bad Betty",
     description:
-      "Basic Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+      "Big Bad Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
     fileName: "Qwen3.5-9B-Q4_K_M.gguf",
     source: "gguf",
     url: "https://huggingface.co/unsloth/Qwen3.5-9B-MTP-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
@@ -86,29 +86,6 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minRamGb: 16,
     minRamAppleSiliconGb: 12,
     defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
-  },
-  {
-    id: "mistral-small-3.2-24b",
-    tier: "big",
-    name: "Big Bad Betty",
-    description:
-      "Business in the front. Party in the back. Big Bad Betty knows what it's about.",
-    fileName: "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    source: "gguf",
-    url: "https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 14_300_000_000,
-    minRamGb: 24,
-    minRamAppleSiliconGb: 16,
-    // Larger ctx + output budget so a ~2k-token prompt plus a verbose JSON
-    // corrections response comfortably fits per slot (prompt + output must
-    // share num_ctx). detectParallelSlots already accounts for KV cost.
-    defaults: {
-      ...COMMON_DEFAULTS,
-      num_ctx: 12288,
-      num_predict: 6144,
-      system: BASE_SYSTEM_PROMPT,
-    },
   },
   {
     id: "custom-gguf",
