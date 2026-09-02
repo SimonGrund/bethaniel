@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { runWithRetry, aggregateReviewScores } from "../src/reviewResilience.ts";
+import { runWithRetry, aggregateReviewScores, applyPrecisionPass } from "../src/reviewResilience.ts";
 import type { Correction } from "../src/types.ts";
 
 const noBackoff = () => 0;
@@ -171,4 +171,57 @@ test("aggregateReviewScores: a preApproved correction is not flagged below thres
   const verdict = aggregateReviewScores(cs, [scores([[0, 1, "reviewer disliked it"]])], 3);
   assert.equal(cs[0].flagged, undefined);
   assert.deepEqual(verdict, { flaggedCount: 0, unscoredCount: 0 });
+});
+
+test("applyPrecisionPass: removes below-threshold corrections, keeps the rest", () => {
+  const cs = mkCorrections(3);
+  const { kept, removed } = applyPrecisionPass(
+    cs,
+    [scores([[0, 1, "unforced reword"], [1, 5, "real fix"], [2, 3, "uncertain"]])],
+    3,
+  );
+  assert.deepEqual(kept.map((c) => c.original), ["orig1", "orig2"]);
+  assert.deepEqual(removed.map((c) => c.original), ["orig0"]);
+});
+
+test("applyPrecisionPass: min confidence across agents decides removal", () => {
+  const cs = mkCorrections(1);
+  const { kept, removed } = applyPrecisionPass(
+    cs,
+    [scores([[0, 5]]), scores([[0, 1, "one agent says unnecessary"]])],
+    3,
+  );
+  assert.deepEqual(kept, []);
+  assert.equal(removed.length, 1);
+});
+
+test("applyPrecisionPass: unscored corrections are kept, not removed (fail-open)", () => {
+  const cs = mkCorrections(2);
+  const { kept, removed } = applyPrecisionPass(cs, [scores([[0, 1, "unnecessary"]])], 3);
+  assert.deepEqual(kept.map((c) => c.original), ["orig1"]);
+  assert.deepEqual(removed.map((c) => c.original), ["orig0"]);
+});
+
+test("applyPrecisionPass: a preApproved correction is kept even when scored low", () => {
+  const cs = mkCorrections(1);
+  cs[0].preApproved = true;
+  const { kept, removed } = applyPrecisionPass(cs, [scores([[0, 1, "unnecessary"]])], 3);
+  assert.equal(kept.length, 1);
+  assert.equal(removed.length, 0);
+});
+
+test("applyPrecisionPass: a combined-edit LINE-kind correction is kept even when scored low", () => {
+  const cs = mkCorrections(1);
+  cs[0].editType = "line";
+  const { kept, removed } = applyPrecisionPass(cs, [scores([[0, 1, "unnecessary"]])], 3);
+  assert.equal(kept.length, 1, "subjective line-edit rewrites are out of scope for this pass");
+  assert.equal(removed.length, 0);
+});
+
+test("applyPrecisionPass: a combined-edit COPY-kind correction is still evaluated normally", () => {
+  const cs = mkCorrections(1);
+  cs[0].editType = "copy";
+  const { kept, removed } = applyPrecisionPass(cs, [scores([[0, 1, "unnecessary"]])], 3);
+  assert.equal(kept.length, 0);
+  assert.equal(removed.length, 1);
 });

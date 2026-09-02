@@ -187,6 +187,36 @@ test("Danish: getSpellCorrections has no false positives where en_US floods", ()
   assert.ok(getSpellCorrections(text, "en_US", {}).length > 0);
 });
 
+// de_DE.aff declares `SET ISO8859-1` — unlike every other bundled dictionary
+// (all UTF-8) — because it's inherited from the igerman98 source. Reading it
+// as UTF-8 regardless mangled every non-ASCII German letter into U+FFFD,
+// which meant correctly-spelled words like "über" failed validation (their
+// dictionary entry didn't byte-match) and getSpellCorrections surfaced
+// garbled "suggestions" like "über" → "�ber" — a real corrupted-Unicode
+// correction a user could have accepted into their manuscript.
+
+test("German: validator accepts real umlaut/ß words, rejects corruptions", () => {
+  const validate = getWordValidator("de");
+  assert.ok(validate, "de_DE dictionary should be available");
+  assert.equal(validate!("über"), true);
+  assert.equal(validate!("große"), true);
+  assert.equal(validate!("drückte"), true);
+  assert.equal(validate!("schließlich"), true);
+  assert.equal(validate!("übxr"), false);
+});
+
+test("German: getSpellCorrections never suggests a replacement character", () => {
+  const text = "Er ging uber die grosse Strasse und drueckte die Tur.";
+  const corrections = getSpellCorrections(text, "de", {});
+  assert.ok(corrections.length > 0, "misspellings should still be caught");
+  for (const c of corrections) {
+    assert.ok(
+      !c.corrected.includes("�"),
+      `suggestion for "${c.original}" was corrupted: "${c.corrected}"`,
+    );
+  }
+});
+
 test("Danish: findNewSuspectWords flags an introduced non-word, accepts real Danish", () => {
   const before = "Han gik hjem til sin hest.";
   const goodAfter = "Han gik hjem til sin smukke hest.";

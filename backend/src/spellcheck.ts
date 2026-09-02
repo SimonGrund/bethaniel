@@ -46,6 +46,24 @@ interface SpellDict {
 
 const cache = new Map<string, SpellDict>();
 
+/**
+ * Hunspell .aff/.dic pairs declare their own byte encoding via a `SET`
+ * directive — most bundled dictionaries (en_US, en_GB, da_DK, es_ES) are
+ * UTF-8, but de_DE's is `SET ISO8859-1` (inherited from the igerman98
+ * source). Reading it as UTF-8 regardless — the previous behavior — silently
+ * mangled every non-ASCII German letter (ä/ö/ü/ß) into a run of U+FFFD
+ * replacement characters, which then surfaced as garbled "spell-check"
+ * suggestions like "über" → "�ber". `latin1` is Node's byte-identical decode
+ * for the classic single-byte Hunspell charsets (ISO8859-1, CP1252, etc.);
+ * `SET` lines that name anything else fall back to `utf-8`.
+ */
+function detectDictEncoding(affBuffer: Buffer): BufferEncoding {
+  const header = affBuffer.toString("latin1").slice(0, 512);
+  const m = header.match(/^SET\s+(\S+)/im);
+  const charset = m?.[1]?.toUpperCase() ?? "UTF-8";
+  return /^UTF-?8$/.test(charset) ? "utf-8" : "latin1";
+}
+
 function loadDict(dictName: string): SpellDict | null {
   const cached = cache.get(dictName);
   if (cached) return cached;
@@ -54,8 +72,10 @@ function loadDict(dictName: string): SpellDict | null {
   const dicPath = path.join(DICT_DIR, `${dictName}.dic`);
 
   try {
-    const aff = fs.readFileSync(affPath, "utf-8");
-    const dic = fs.readFileSync(dicPath, "utf-8");
+    const affRaw = fs.readFileSync(affPath);
+    const encoding = detectDictEncoding(affRaw);
+    const aff = affRaw.toString(encoding);
+    const dic = fs.readFileSync(dicPath, encoding);
     // Dynamic import of nspell — avoids requiring it at import time
     // (keeps startup fast when spell-check is disabled).
     const nspell = _require("nspell") as (

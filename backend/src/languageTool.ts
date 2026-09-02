@@ -6,6 +6,7 @@
 
 import type { Correction } from "./types.js";
 import { widenToWords } from "./retextChecks.js";
+import { filterHallucinatedCorrections } from "./llm.js";
 
 export interface LanguageToolReplacement {
   value: string;
@@ -63,7 +64,7 @@ export function buildCheckParams(
 export function parseLanguageToolMatches(
   text: string,
   matches: LanguageToolMatch[],
-  opts?: { skipCategories?: Set<string> },
+  opts?: { skipCategories?: Set<string>; lang?: string },
 ): Correction[] {
   const skip = opts?.skipCategories ?? DEFAULT_SKIP_CATEGORIES;
   const out: Correction[] = [];
@@ -101,7 +102,11 @@ export function parseLanguageToolMatches(
       reason: `grammar:${(catId ?? m.rule?.id ?? "lt").toLowerCase()}`,
     });
   }
-  return out;
+  // LanguageTool's own suggestions are just as prone to the same invented-text
+  // patterns as the LLM's (an unrelated "typos" replacement on a name-shaped
+  // token, a "repetitions_style" rule inserting a connective) — same filter,
+  // same reasoning as llm.ts's parseCorrectionsJson.
+  return filterHallucinatedCorrections(out, opts?.lang);
 }
 
 /**
@@ -160,5 +165,5 @@ export async function checkText(
     throw new Error(`LanguageTool /v2/check returned ${res.status}`);
   }
   const data = (await res.json()) as { matches?: LanguageToolMatch[] };
-  return parseLanguageToolMatches(text, data.matches ?? []);
+  return parseLanguageToolMatches(text, data.matches ?? [], { lang: opts.lang });
 }

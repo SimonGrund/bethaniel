@@ -114,15 +114,30 @@ function freePort(port: number): void {
   const self = String(process.pid);
   try {
     if (process.platform === "win32") {
-      const out = execSync(`netstat -ano -p tcp | findstr :${port}`, {
+      // Parse by column and require LISTENING on the local port — `findstr
+      // :${port}` used to grep the whole line, which also matches the
+      // Foreign Address column (e.g. this process's own recent connection
+      // to LanguageTool on this same port shows up there). That previously
+      // let a second, independent process (any fresh `checkText()` caller
+      // that hasn't itself started LanguageTool yet — this ran the same
+      // bug into the ground on llamaServer.ts's port; see that fix for the
+      // full story) taskkill a perfectly healthy, already-running
+      // LanguageTool server out from under the process actually using it.
+      const out = execSync(`netstat -ano -p tcp`, {
         stdio: ["ignore", "pipe", "ignore"],
       }).toString();
       const pids = new Set<string>();
       for (const line of out.split(/\r?\n/)) {
-        const m = line.trim().match(/\s(\d+)$/);
-        if (m && m[1] !== self) pids.add(m[1]);
+        const cols = line.trim().split(/\s+/);
+        // Proto  Local Address  Foreign Address  State  PID
+        if (cols.length < 5 || cols[0] !== "TCP" || cols[3] !== "LISTENING") {
+          continue;
+        }
+        const localPort = cols[1].split(":").pop();
+        if (localPort === String(port)) pids.add(cols[4]);
       }
       for (const pid of pids) {
+        if (pid === self) continue;
         try {
           execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
         } catch {}

@@ -23,11 +23,14 @@
  *   npx tsx scripts/test-models.ts            # Resume (skip already-completed)
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
+ *   npx tsx scripts/test-models.ts --model 9b     # Only run models whose filename contains "9b" (case-insensitive)
+ *   npx tsx scripts/test-models.ts --max-parallel 1  # Cap concurrent task dispatch (avoids batched-decode variance/reload contention)
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
  *   npx tsx scripts/test-models.ts --en        # Only run English texts
  *   npx tsx scripts/test-models.ts --da --de   # Only Danish and German
  *   npx tsx scripts/test-models.ts --repeat 1  # Skip the consistency re-run (faster, no consistency score)
  *   npx tsx scripts/test-models.ts --report-only  # Recompute + reprint the report from saved results, no new runs
+ *   npx tsx scripts/test-models.ts --mode line_edit  # Only run line_edit (skips *_copy_edit.md entirely)
  */
 
 import {
@@ -81,6 +84,11 @@ const LANG_FLAGS: Record<string, string> = {
   "--da": "danish",
   "--de": "german",
   "--es": "spanish",
+  // Not a real language — a separate, larger English stress fixture
+  // (stress100_correct.md / stress100_copy_edit.md) with 100 planted
+  // copy-edit errors across every category the copy-edit prompt covers, for
+  // a higher-confidence recall read than the ~9-15-error standard fixtures.
+  "--stress": "stress100",
 };
 const SELECTED_LANGS = Object.entries(LANG_FLAGS)
   .filter(([flag]) => process.argv.includes(flag))
@@ -93,6 +101,7 @@ const LANG_CODE: Record<string, string> = {
   danish: "da",
   german: "de",
   spanish: "es",
+  stress100: "en",
 };
 
 function parseMaxSize(): number | null {
@@ -102,6 +111,15 @@ function parseMaxSize(): number | null {
   return isNaN(val) ? null : val;
 }
 const MAX_SIZE_GB = parseMaxSize();
+
+function parseModel(): string | null {
+  const idx = process.argv.indexOf("--model");
+  if (idx === -1 || idx + 1 >= process.argv.length) return null;
+  return process.argv[idx + 1];
+}
+// Case-insensitive substring match against the catalog fileName — lets you
+// pass a short name ("9b", "mistral") instead of the full .gguf filename.
+const MODEL_FILTER = parseModel();
 
 function parseMaxParallel(): number | null {
   const idx = process.argv.indexOf("--max-parallel");
@@ -113,6 +131,17 @@ function parseMaxParallel(): number | null {
 // if a heavier model (e.g. a 24B model) is crashing/becoming unreachable
 // under the backend's recommended parallel slot count on this machine.
 const MAX_PARALLEL = parseMaxParallel();
+
+function parseModeFilter(): "copy_edit" | "line_edit" | null {
+  const idx = process.argv.indexOf("--mode");
+  if (idx === -1 || idx + 1 >= process.argv.length) return null;
+  const val = process.argv[idx + 1];
+  return val === "copy_edit" || val === "line_edit" ? val : null;
+}
+// Restrict to one mode (e.g. --mode line_edit) — skips the *_copy_edit.md
+// fixture entirely and only runs the *_correct.md / *_line_edit.md pair,
+// useful when benchmarking line-edit quality specifically.
+const MODE_FILTER = parseModeFilter();
 
 interface TestFile {
   path: string;
@@ -465,6 +494,19 @@ async function main() {
     }
   }
 
+  // Filter by name if --model specified (case-insensitive substring match)
+  if (MODEL_FILTER !== null) {
+    const needle = MODEL_FILTER.toLowerCase();
+    const filtered = models.filter((m) => m.toLowerCase().includes(needle));
+    if (filtered.length === 0) {
+      console.error(
+        `ERROR: No model filename contains "${MODEL_FILTER}". Available: ${models.join(", ")}`,
+      );
+      process.exit(1);
+    }
+    models = filtered;
+  }
+
   // --test: only smallest model
   if (TEST_MODE) {
     models = [models[0]];
@@ -481,6 +523,10 @@ async function main() {
     testFiles = testFiles.filter((f) => f.filename === "english_copy_edit.md");
   } else if (SELECTED_LANGS.length > 0) {
     testFiles = testFiles.filter((f) => SELECTED_LANGS.includes(f.language));
+  }
+  if (MODE_FILTER !== null) {
+    const otherMode = MODE_FILTER === "copy_edit" ? "line_edit" : "copy_edit";
+    testFiles = testFiles.filter((f) => f.variant !== otherMode);
   }
 
   console.log(`Sample files found: ${testFiles.length}`);
@@ -526,12 +572,15 @@ async function main() {
     }[] = [];
 
     for (const file of testFiles) {
-      const modesToRun: ("copy_edit" | "line_edit")[] =
+      let modesToRun: ("copy_edit" | "line_edit")[] =
         file.variant === "correct"
           ? ["copy_edit", "line_edit"]
           : file.variant === "copy_edit"
             ? ["copy_edit"]
             : ["line_edit"];
+      if (MODE_FILTER !== null) {
+        modesToRun = modesToRun.filter((m) => m === MODE_FILTER);
+      }
 
       for (const mode of modesToRun) {
         // Repeats only matter for files with real content to converge on;
@@ -752,6 +801,24 @@ interface ModeScorecard {
   timeScoreValue: number;
   overall: number;
   avgRuntimeMs: number;
+  /** Avg false positives per run that landed on a real error's span but proposed the wrong fix — reviewer-catchable. */
+  avgWrongFix: number;
+  /** Avg false positives per run that touched text with no planted error at all. */
+  avgHallucination: number;
+  /**
+   * Mean of the production reviewer's own 1-5 confidence score across every
+   * correction, rescaled to 0-100. Diff-based precision judges a correction
+   * against ONE gold rewrite, which unfairly penalizes a different-but-valid
+   * line edit — this instead reuses the same "is this actually a good edit"
+   * judgment the app itself already makes (no extra LLM calls: the score is
+   * already on each correction from the real review pass). null when no
+   * correction in the run carries a confidence score.
+   */
+  avgReviewerConfidence: number | null;
+  /** Share of SCORED corrections the reviewer flagged (confidence below its own threshold). Excludes unscored ones — see unscoredRate. */
+  flaggedRate: number | null;
+  /** Share of corrections the reviewer never scored at all (a coverage gap, not a quality judgment). */
+  unscoredRate: number | null;
 }
 
 /**
@@ -785,6 +852,37 @@ function scoreModelMode(
   const recall = recalls.length ? avg(recalls) : null;
   const precision = perRunScores.length ? avg(perRunScores.map((s) => s.precision)) : 100;
   const f1 = perRunScores.length ? avg(perRunScores.map((s) => s.f1)) : precision;
+  const avgWrongFix = perRunScores.length
+    ? avg(perRunScores.map((s) => s.falsePositiveBreakdown.wrongFix.length))
+    : 0;
+  const avgHallucination = perRunScores.length
+    ? avg(perRunScores.map((s) => s.falsePositiveBreakdown.hallucination.length))
+    : 0;
+
+  // ── Reviewer's own confidence score, reused (not recomputed) from the
+  // real review pass each correction already went through. Scoped to
+  // corrections the reviewer actually SCORED — a correction can be flagged
+  // for two very different reasons (the reviewer scored it low, or the
+  // reviewer never got to it at all, e.g. LanguageTool/spell-check items
+  // competing with a large correction list for attention) and conflating
+  // them would make "100/100 avg confidence, 85% flagged" look like a
+  // contradiction instead of what it actually is: most items unscored. ──
+  const allCorrections = erroredResults.flatMap((r) => r.corrections) as unknown as {
+    confidence?: number;
+    flagged?: boolean;
+  }[];
+  const scored = allCorrections.filter(
+    (c): c is { confidence: number; flagged?: boolean } => typeof c.confidence === "number",
+  );
+  const avgReviewerConfidence = scored.length
+    ? ((avg(scored.map((c) => c.confidence)) - 1) / 4) * 100
+    : null;
+  const flaggedRate = scored.length
+    ? (scored.filter((c) => c.flagged === true).length / scored.length) * 100
+    : null;
+  const unscoredRate = allCorrections.length
+    ? ((allCorrections.length - scored.length) / allCorrections.length) * 100
+    : null;
 
   // ── False positives on already-clean text ──
   const cleanFpCounts = cleanResults.map((r) => r.correctionsFound);
@@ -823,6 +921,11 @@ function scoreModelMode(
     timeScoreValue,
     overall,
     avgRuntimeMs,
+    avgWrongFix,
+    avgHallucination,
+    avgReviewerConfidence,
+    flaggedRate,
+    unscoredRate,
   };
 }
 
@@ -883,6 +986,25 @@ function buildReport(results: TestResult[], models: string[]): string {
       lines.push(
         `  ${mode.padEnd(10)} ${fmtPct(card.recall)} ${fmtPct(card.precision)} ${fmtScore(card.f1)} ${fmtScore(card.timeScoreValue)} ${fmtScore(card.falsePositiveClean).padStart(9)} ${fmtScore(card.consistency).padStart(9)} ${fmtScore(card.overall).padStart(8)}`,
       );
+      if (card.avgWrongFix > 0 || card.avgHallucination > 0) {
+        lines.push(
+          `             false positives: avg ${card.avgWrongFix.toFixed(1)} wrong-fix (right spot, wrong guess — reviewer-catchable) + avg ${card.avgHallucination.toFixed(1)} hallucinated (no error there at all)`,
+        );
+      }
+      if (card.avgReviewerConfidence !== null) {
+        // For line_edit especially: precision above judges against ONE gold
+        // rewrite and unfairly penalizes a different-but-valid edit. This
+        // reuses the production reviewer's own better-vs-worse judgment on
+        // every correction instead — a fairer read on subjective quality.
+        // Scoped to corrections the reviewer actually scored; unscoredRate
+        // is reported alongside so a coverage gap doesn't masquerade as a
+        // quality signal (see the field's doc comment on ModeScorecard).
+        const unscored = card.unscoredRate ?? 0;
+        lines.push(
+          `             reviewer quality: ${card.avgReviewerConfidence.toFixed(0)}/100 avg confidence, ${(card.flaggedRate ?? 0).toFixed(0)}% of SCORED flagged` +
+            (unscored > 0 ? ` (${unscored.toFixed(0)}% went unscored — reviewer didn't get to them)` : ""),
+        );
+      }
     }
 
     if (cards.length > 0) {
@@ -926,10 +1048,15 @@ function buildReport(results: TestResult[], models: string[]): string {
           lines.push(`  MISSED:  "${m.wrong}" → "${m.right}"`);
         }
         if (scored.missedErrors.length > 10) lines.push(`  …and ${scored.missedErrors.length - 10} more missed`);
-        for (const fp of scored.falsePositiveCorrections.slice(0, 10)) {
-          lines.push(`  INVENTED: "${fp.original}" → "${fp.corrected}"`);
+        const { wrongFix, hallucination } = scored.falsePositiveBreakdown;
+        for (const fp of wrongFix.slice(0, 10)) {
+          lines.push(`  WRONG-FIX:    "${fp.original}" → "${fp.corrected}" (right spot, wrong guess)`);
         }
-        if (scored.falsePositiveCorrections.length > 10) lines.push(`  …and ${scored.falsePositiveCorrections.length - 10} more invented`);
+        if (wrongFix.length > 10) lines.push(`  …and ${wrongFix.length - 10} more wrong-fix`);
+        for (const fp of hallucination.slice(0, 10)) {
+          lines.push(`  HALLUCINATED: "${fp.original}" → "${fp.corrected}" (no error there)`);
+        }
+        if (hallucination.length > 10) lines.push(`  …and ${hallucination.length - 10} more hallucinated`);
       }
     }
   }

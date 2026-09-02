@@ -139,6 +139,66 @@ export interface RecallPrecisionResult {
   f1: number;
   missedErrors: PlantedError[];
   falsePositiveCorrections: ScoredCorrection[];
+  /**
+   * Every false positive split into two kinds that call for different fixes:
+   * "wrongFix" landed on a real planted error's span but proposed the wrong
+   * replacement (e.g. "ceder"→"ceded" instead of "cedar") — the model's
+   * DETECTION was right, only its guess was wrong, which is exactly the
+   * class of mistake a skeptical reviewer re-reading the fix in context
+   * should be able to catch. "hallucination" touches text with no planted
+   * error at all — a different failure mode the reviewer can't fix by
+   * checking spelling, since there was nothing wrong to begin with.
+   */
+  falsePositiveBreakdown: {
+    wrongFix: ScoredCorrection[];
+    hallucination: ScoredCorrection[];
+  };
+}
+
+function words(s: string): string[] {
+  return norm(s).split(" ").filter(Boolean);
+}
+
+function bigrams(ws: string[]): Set<string> {
+  const out = new Set<string>();
+  for (let i = 0; i < ws.length - 1; i++) out.add(`${ws[i]} ${ws[i + 1]}`);
+  return out;
+}
+
+/**
+ * Whether a correction's span touches ANY planted error's span, regardless
+ * of whether its fix is right — used to separate "found the spot, wrong
+ * guess" false positives from "invented a problem" ones.
+ *
+ * Full substring containment (either direction) is the fast, common case.
+ * It under-counts, though: ground-truth spans get merged when errors sit
+ * close together (`mergeGapChars`), and a model's correction span can be
+ * wider or offset from the merged span (e.g. it fixes a duplicated word but
+ * not a typo four words later that got merged into the same ground-truth
+ * span) — neither side then contains the other even though the correction
+ * plainly targets that error. A shared two-word run (bigram) between the
+ * correction's original text and the error's wrong text catches these
+ * without over-matching on lone common words like "the" or "and".
+ */
+function touchesAnyErrorSpan(
+  correction: ScoredCorrection,
+  groundTruth: PlantedError[],
+): boolean {
+  const original = norm(correction.original);
+  const originalWords = words(correction.original);
+  const originalBigrams = originalWords.length >= 2 ? bigrams(originalWords) : null;
+  return groundTruth.some((err) => {
+    const wrong = norm(err.wrong);
+    if (!wrong) return false;
+    if (original.includes(wrong) || wrong.includes(original)) return true;
+    if (!originalBigrams) return false;
+    const wrongWords = words(err.wrong);
+    if (wrongWords.length < 2) return false;
+    for (const bg of bigrams(wrongWords)) {
+      if (originalBigrams.has(bg)) return true;
+    }
+    return false;
+  });
 }
 
 /**
@@ -171,6 +231,15 @@ export function scoreCorrections(
   const falsePositives = falsePositiveCorrections.length;
   const falseNegatives = missedErrors.length;
 
+  const falsePositiveBreakdown = {
+    wrongFix: falsePositiveCorrections.filter((c) =>
+      touchesAnyErrorSpan(c, groundTruth),
+    ),
+    hallucination: falsePositiveCorrections.filter(
+      (c) => !touchesAnyErrorSpan(c, groundTruth),
+    ),
+  };
+
   const recall =
     groundTruth.length > 0 ? (truePositives / groundTruth.length) * 100 : null;
   const precision =
@@ -191,6 +260,7 @@ export function scoreCorrections(
     f1,
     missedErrors,
     falsePositiveCorrections,
+    falsePositiveBreakdown,
   };
 }
 

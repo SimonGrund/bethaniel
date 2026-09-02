@@ -39,6 +39,7 @@ import {
 import {
   runWithRetry,
   aggregateReviewScores,
+  applyPrecisionPass,
   flagUnanchoredCorrections,
 } from "./reviewResilience.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
@@ -58,6 +59,7 @@ import {
   buildAnalysisSummaryPrompt,
   buildBlurbPrompt,
   buildReviewerPrompt,
+  buildPrecisionPassPrompt,
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
   buildCopyEditCorrectionsPrompt,
@@ -1362,6 +1364,57 @@ async function processJob(job: JobData): Promise<void> {
           model,
         });
 
+        // ── Precision pass: a second, narrower audit that DROPS (not flags)
+        // corrections judged unnecessary — "did the original need fixing
+        // here at all", not "is this fix well-formed" (the main reviewer's
+        // question above). Only meaningful where corrections claim to fix an
+        // objective problem — line_edit's rewrites are subjective by design,
+        // so this is skipped there entirely (applyPrecisionPass separately
+        // exempts combined-edit's LINE-kind corrections per-item).
+        if (mode !== "line_edit") {
+          try {
+            const precisionPrompt = buildPrecisionPassPrompt(
+              job.styleGuide,
+              job.manuscriptLang,
+            );
+            const precisionOutput = await runReviewerAgentWithRetry({
+              model,
+              chunkText: pr.chunk.body,
+              cs: pr.cs,
+              reviewerPrompt: precisionPrompt,
+              signal: ac.signal,
+              taskId,
+              chunkLabel: pr.chunkLabel,
+              agentLabel: "Precision pass",
+            });
+            const precisionScores = parseReviewScores(precisionOutput);
+            const { kept, removed } = applyPrecisionPass(
+              pr.cs,
+              [precisionScores],
+              threshold,
+            );
+            if (removed.length > 0) {
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Precision pass dropped ${removed.length}/${pr.cs.length} correction(s) in chunk ${pr.chunkLabel} judged unnecessary (unforced rewording, unwanted punctuation, or an unneeded wording change).`,
+                model,
+              });
+              pr.cs = kept;
+            }
+          } catch (err) {
+            if (ac.signal.aborted) throw err;
+            appendLog({
+              level: "warn",
+              source: "engine",
+              taskId,
+              message: `Precision pass failed for chunk ${pr.chunkLabel}: ${err instanceof Error ? err.message : String(err)}. Skipped — all corrections kept as-is.`,
+              model,
+            });
+          }
+        }
+
         const toApply = pr.cs.filter((c) => !c.flagged);
         const flagged = pr.cs.filter((c) => c.flagged);
 
@@ -1789,7 +1842,7 @@ async function processJob(job: JobData): Promise<void> {
 
                 // Union-dedupe all correction sets by (original, corrected)
                 const parseAll = (raw: string) => {
-                  const parsed = parseCorrectionsJson(raw);
+                  const parsed = parseCorrectionsJson(raw, job.manuscriptLang);
                   const out: Correction[] = [];
                   const seen = new Set<string>();
                   for (const c of parsed) {
@@ -1895,7 +1948,7 @@ async function processJob(job: JobData): Promise<void> {
 
         if (isCorrectionsMode) {
           updateTask(taskId, { phase: `writing up corrections` });
-          const editorCsRaw: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc);
+          const editorCsRaw: Correction[] = _dualMergedCorrections ?? parseCorrectionsJson(acc, job.manuscriptLang);
           const isDual = _dualMergedCorrections !== null;
           _dualMergedCorrections = null;
 

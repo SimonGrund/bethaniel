@@ -84,6 +84,33 @@ const SPELLING_RECALL_DIRECTIVE = `
 SPELLING — CATCH EVERY ONE (high recall required):
 Report EVERY spelling error and obvious typo you find, from the first word to the last. Never stop early and never leave a clearly misspelled word unflagged. A misspelling is an OBJECTIVE, unambiguous error: the "when in doubt, leave it alone" caution elsewhere in these rules governs JUDGMENT CALLS (punctuation, word choice, style) — it does NOT license skipping a word that is genuinely misspelled. When a word is truly misspelled, always flag it.`;
 
+// Benchmarking found coordinate-adjective and compound-sentence commas
+// (added above in WHAT COUNTS AS AN ERROR) were still missed at a high rate
+// even with a rule and one example each — the model was applying the
+// general "punctuation is a judgment call, when in doubt leave it" caution
+// to them too. Modeled directly on SPELLING_RECALL_DIRECTIVE, which fixed
+// the identical problem for spelling: name the three comma rules as
+// OBJECTIVE (not style), explicitly exempt them from the doubt-caution, and
+// reinforce each with a second example — one example per rule consistently
+// under-generalized where two made the pattern stick.
+function punctuationRecallDirective(opts: CopyEditOptions, langName: string | null): string {
+  if (langName || !opts.punctuation) return "";
+  const examples: string[] = [
+    '- Coordinate adjectives: "a long jagged shore" → "a long, jagged shore"; "a low steady voice" → "a low, steady voice".',
+    '- Compound sentences: "the rain eased and a light appeared" → "the rain eased, and a light appeared"; "she turned and the door creaked" → "she turned, and the door creaked".',
+  ];
+  if (opts.oxfordComma) {
+    examples.push(
+      '- Oxford comma in 3+ item lists: "salt, tar and smoke" → "salt, tar, and smoke".',
+    );
+  }
+  return `
+
+PUNCTUATION RECALL — the same "catch every one" standard as spelling applies to these three comma rules specifically, because they are OBJECTIVE grammar, not style:
+${examples.join("\n")}
+These are NOT judgment calls — the "when in doubt, leave it alone" caution does not apply to them. If a sentence matches one of these patterns, flag it, even if the sentence reads fine aloud without the comma. Scan for these three patterns as deliberately as you scan for misspellings; do not rely on noticing them incidentally while looking for something else.`;
+}
+
 // Rewrite-mode counterpart of SPELLING_RECALL_DIRECTIVE: the whole-chunk
 // rewrite path fixes text in place rather than emitting correction pairs, so
 // it says "correct every one" instead of "report every one".
@@ -395,8 +422,22 @@ export function buildCopyEditCorrectionsPrompt(
   if (opts.spelling)
     p +=
       '- ONLY classic confusable-word pairs in unambiguous context (e.g. "their" vs "there") — never swap in a different, better-sounding real word just because it fits better; that is word choice, not an error\n';
-  if (opts.punctuation)
+  if (opts.punctuation) {
     p += "- Missing or extra punctuation that is grammatically wrong\n";
+    // English-specific comma conventions — gated like Oxford comma/dialect
+    // below, since other languages have different (often stricter or
+    // opposite) comma rules. Concrete before→after examples and an explicit
+    // test, matching every other well-caught item in this list — the prior
+    // one-line "missing or extra punctuation" phrasing gave the model
+    // nothing concrete to pattern-match against for these two, and they
+    // were the single largest recall gap in benchmarking.
+    if (!langName) {
+      p +=
+        '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma).\n';
+      p +=
+        '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule.\n';
+    }
+  }
   if (opts.capitalization)
     p +=
       '- Capitalization errors at sentence starts and on proper nouns — including names and nicknames: a word used as a name should keep the same capitalization everywhere it appears (a lowercase "scarface" used as a name → "Scarface")\n';
@@ -409,7 +450,8 @@ export function buildCopyEditCorrectionsPrompt(
     p +=
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (!langName && opts.oxfordComma)
-    p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
+    p +=
+      '- Lists of three+ items missing the OXFORD COMMA — add it ("boots, nets and rope" → "boots, nets, and rope")\n';
   if (opts.dialogueTags)
     p +=
       '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';
@@ -425,9 +467,17 @@ export function buildCopyEditCorrectionsPrompt(
 - Proper nouns (character/place names) — leave them alone unless the style guide says otherwise
 - Anything subjective ("flow", "clarity", "improvement")
 
+NEVER INVENT TEXT THAT WASN'T THERE — every correction must be a strict edit of what's already on the page, never an addition of new content:
+- Do NOT insert a connective or transition word/phrase that isn't already in the sentence ("He would come Tuesday" → "Furthermore, he would come Tuesday" is inventing content, not fixing an error, even if it reads smoothly)
+- Do NOT change which word a proper noun actually is, even if it looks unusual or hard to spell — an unfamiliar name ("Okafor") is not a typo; only its capitalization can ever be corrected, never its letters
+- Do NOT split a correctly-spelled compound word into two words, or merge two correct words into one ("woodsmoke" is one correct word — do not "fix" it to "wood smoke")
+- Do NOT reword a correct sentence to a different correct sentence ("laying the satchel" → "placing the satchel", "the shop around her" → "the surrounding shop") — if the original already reads correctly, changing it to a different-but-also-correct phrasing is not a fix, it's a rewrite
+- Do NOT "fix" subjunctive mood in hypothetical/counterfactual phrases ("as if she were", "as though it were", "I wish I were") — subjunctive "were" is correct there even with a singular subject; changing it to "was" introduces an error, it doesn't remove one
+
 When in doubt, do NOT flag it.`;
 
   if (opts.spelling) p += SPELLING_RECALL_DIRECTIVE;
+  p += punctuationRecallDirective(opts, langName);
   p += introductoryCommaRule(opts);
 
   p += buildSpellHintBlock(suspectWords ?? []);
@@ -481,6 +531,13 @@ export function buildProofreadCorrectionsPrompt(
 - Sentence fragments, comma splices used for effect INSIDE QUOTED DIALOGUE (never in narration — a comma splice in narration is a grammatical error, not a stylistic choice), and other stylistic choices
 - Proper nouns (character/place names) — unless the style guide says otherwise
 - Anything subjective ("flow", "clarity", "voice")
+
+NEVER INVENT TEXT THAT WASN'T THERE — every correction must be a strict edit of what's already on the page, never an addition of new content:
+- Do NOT insert a connective or transition word/phrase that isn't already in the sentence
+- Do NOT change which word a proper noun actually is, even if it looks unusual — only its capitalization can ever be corrected, never its letters
+- Do NOT split a correctly-spelled compound word into two words, or merge two correct words into one
+- Do NOT reword a correct sentence to a different correct sentence — if the original already reads correctly, a different-but-also-correct phrasing is not a fix
+- Do NOT "fix" subjunctive mood in hypothetical/counterfactual phrases ("as if she were", "as though it were") — subjunctive "were" is correct there even with a singular subject
 
 When in doubt, do NOT flag it.`;
 
@@ -1090,6 +1147,7 @@ These changes are a MIX of two kinds — judge each by its kind:
 Common COPY-EDIT mistakes to flag:
 - Adding or removing punctuation where the original was already correct (e.g. "." → ".." is wrong)
 - "Fixing" something that wasn't broken; introducing a grammar/spelling error where the original was fine
+- A spelling fix that lands on the wrong real word — read the corrected text back into the sentence in place of the original span; if it doesn't parse or make sense there (even though it's a valid dictionary word), the fix is wrong. Score 1-2.
 
 Common LINE-EDIT mistakes to flag:
 - Flattening the author's distinctive voice into generic "good writing"
@@ -1118,6 +1176,7 @@ Common editor mistakes to flag:
 - Introducing grammar or spelling errors where the original was fine
 - Unnecessary changes that don't improve the text
 - Ignoring or contradicting the author's style sheet — any correction that violates it is a MISTAKE
+- A SPELLING FIX that lands on the wrong word: the corrected spelling must be a real word in the dictionary, in the RIGHT part of speech, AND make sense at that exact spot in the sentence — being a valid English word is not enough on its own. Read the "corrected" text back into the ORIGINAL TEXT in place of the "original" span and check the resulting sentence actually parses and means something sensible. "ceder"→"ceded" is a real word but wrong here ("it smelled faintly of ceded and old rain" is nonsense) — the right fix is "cedar". Score any fix that fails this substitution check 1-2, regardless of how plausible the correction looks in isolation.
 
 IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-blue wool dress", "well-known author") are standard English grammar. Adding a hyphen to form a compound modifier before a noun is a VALID improvement — do NOT flag it as "adding punctuation." Score these 4-5 unless the hyphen creates confusion.`;
   }
@@ -1135,6 +1194,66 @@ IMPORTANT: Hyphenated compound adjectives (e.g. "white-chalked houses", "azure-b
 {"index": 0, "confidence": 5, "reason": "Fixes spelling — recieve→receive"}
 {"index": 1, "confidence": 1, "reason": "Adds unnecessary period before existing period — original was correct"}
 {"index": 2, "confidence": 4, "reason": "Fixes grammar — 'he don't'→'he doesn't'"}
+
+Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the correction number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
+Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
+Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
+
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PRECISION PASS — a second, narrower audit that drops (not flags)
+// corrections that fix nothing real
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Unlike `buildReviewerPrompt`, which judges whether a correction's FIX is
+ * right and only flags failures for manual review, this asks one narrower
+ * question per correction: did the original text need a fix here AT ALL?
+ * Benchmarking found the editor and LanguageTool both have a recurring
+ * pattern of proposing a "correction" on text that was already fine —
+ * unforced rewording, an unwanted comma on a defensible authorial choice, a
+ * word swap that changes nothing objectively wrong — and the main reviewer's
+ * "is the fix well-formed" framing doesn't catch these, because the fix
+ * often IS well-formed, it just wasn't needed. Low-confidence answers here
+ * are dropped outright rather than flagged: if the original had no real
+ * error, there is nothing to recall by keeping the "fix" around.
+ */
+export function buildPrecisionPassPrompt(
+  styleGuide?: string,
+  manuscriptLang?: string,
+): string {
+  let p = `You are a PRECISION AUDIT reviewing a list of proposed corrections to a manuscript. Other passes have already checked whether each fix is well-formed — that is NOT your job. Your ONLY job: for each correction, decide whether the original text actually needed fixing at all.
+
+Editors (human and automated) share a recurring blind spot: proposing technically-plausible "corrections" on text that was already correct. Three shapes this takes:
+
+1. UNFORCED REWORDING — the original sentence already read correctly, and the correction just swaps in different-but-equally-valid wording, adds a detail that wasn't there, or restructures a sentence with no error in it.
+2. UNWANTED PUNCTUATION — the correction adds or removes a comma (or other mark) where the original punctuation was a defensible authorial choice, not an objective grammar error.
+3. UNNEEDED WORDING CHANGE — the correction swaps in a different word or verb form the sentence didn't need, including "fixing" grammar that was already correct (e.g. subjunctive mood: "as though she were" is correct even with a singular subject — a "was" swap there is wrong, not a fix).
+
+For each correction, ask: does the ORIGINAL text, exactly as written, already read correctly at this spot? If yes, the correction has no reason to exist. If the original had a genuine, objective problem — a real typo, a missing word, a grammar error, a punctuation rule actually broken — the correction is doing real work.
+
+Score each 1-5:
+- 5: The original was genuinely wrong here; this is a necessary fix.
+- 4: Likely a real fix.
+- 3: Uncertain — could plausibly be either. Default here when unsure.
+- 2: The original was probably already fine; this looks like an unforced change.
+- 1: The original was clearly already fine; this correction is invented or unnecessary.
+
+Do NOT re-score whether the fix itself is well-formed, whether it's the best possible wording, or anything about style/voice — a different pass already covers that. Score LOW only when you're confident nothing was actually wrong with the original at that spot. When genuinely unsure, score 3.`;
+
+  const langName = manuscriptLangName(manuscriptLang);
+  if (langName) {
+    p += `\n\nMANUSCRIPT LANGUAGE: ${langName}. The chapter text and every correction are in ${langName}.`;
+  }
+
+  p += buildStyleSheetBlock(styleGuide ?? "", "reviewer");
+
+  p += `\n\nOUTPUT FORMAT — STRICT JSONL (one JSON object per line):
+{"index": 0, "confidence": 5, "reason": "Original had a real typo — this fixes it"}
+{"index": 1, "confidence": 1, "reason": "Original sentence already read correctly — this is an unforced reword"}
+{"index": 2, "confidence": 2, "reason": "Original comma placement was a defensible authorial choice, not an error"}
 
 Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the correction number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
 Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.

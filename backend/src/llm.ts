@@ -15,6 +15,7 @@ import {
   type ModelSettings,
 } from "./modelConfig.js";
 import { getModelByFileName } from "./modelCatalog.js";
+import { getWordValidator } from "./spellcheck.js";
 import { appendLog } from "./logBus.js";
 import * as path from "path";
 import * as fs from "fs";
@@ -631,6 +632,146 @@ export async function* synthesizeStream(
 
 // ── JSON parsing (unchanged from ollama.ts) ──
 
+// llama-server occasionally detokenizes to a genuinely invalid UTF-8 byte
+// sequence (observed on Qwen3.5 and Mistral-Small-3.2 GGUFs, most often on
+// German ä/ö/ü/ß) and silently substitutes U+FFFD when it serializes the SSE
+// JSON — confirmed via raw-byte capture that the replacement character is
+// already present in the network response, not introduced by our own
+// decoding. The original byte is gone by the time it reaches us, so the only
+// sound move is to drop the correction rather than show a user "→ Ma�" garbage.
+function hasReplacementChar(s: string): boolean {
+  return s.includes("�");
+}
+
+// ── Deterministic hallucination filters ──
+//
+// The copy-edit prompt already forbids these (see prompts.ts's "NEVER INVENT
+// TEXT THAT WASN'T THERE" block), but benchmarking showed the model does them
+// anyway often enough to matter, and negative prompt instructions proved
+// unreliable at fixing them (a re-benchmark after tightening the prompt
+// language showed zero change in these specific patterns). These are the
+// subset of that failure mode that can be caught mechanically, with no risk
+// of dropping a real fix — everything else stays prompt/reviewer-only.
+
+const STOCK_TRANSITIONS = [
+  "furthermore", "however", "moreover", "nevertheless", "nonetheless",
+  "additionally", "consequently", "meanwhile", "therefore", "thus",
+  "in addition", "as a result", "in conclusion", "on the other hand",
+];
+
+function normLoose(s: string): string {
+  return s.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * A correction that just prepends a stock transition/connective word or
+ * phrase that wasn't in the original text — never a real fix, only ever an
+ * invented addition. E.g. "He would come." → "Furthermore, he would come."
+ */
+function isConnectiveInsertion(original: string, corrected: string): boolean {
+  const originalNorm = normLoose(original).toLowerCase();
+  for (const word of STOCK_TRANSITIONS) {
+    const re = new RegExp(`\\b${word},?\\s+`, "gi");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(corrected))) {
+      const without = corrected.slice(0, m.index) + corrected.slice(m.index + m[0].length);
+      if (normLoose(without).toLowerCase() === originalNorm) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * A correction that inserts exactly one space, splitting a single word into
+ * two, where everything else is byte-identical and the original word is
+ * already valid in the dictionary — i.e. "fixing" a word that wasn't broken
+ * by breaking it apart ("woodsmoke" → "wood smoke"). Requires a word
+ * validator for the manuscript's language; skipped (never drops) without one.
+ */
+function isCompoundWordSplit(
+  original: string,
+  corrected: string,
+  isValidWord: ((w: string) => boolean) | null,
+): boolean {
+  if (!isValidWord) return false;
+  if (corrected.length !== original.length + 1) return false;
+  let i = 0;
+  while (i < original.length && original[i] === corrected[i]) i++;
+  if (corrected[i] !== " ") return false;
+  if (corrected.slice(0, i) + corrected.slice(i + 1) !== original) return false;
+  const before = original[i - 1];
+  const after = original[i];
+  if (!before || !after || !/\p{L}/u.test(before) || !/\p{L}/u.test(after)) return false;
+  let start = i;
+  while (start > 0 && /[\p{L}'-]/u.test(original[start - 1])) start--;
+  let end = i;
+  while (end < original.length && /[\p{L}'-]/u.test(original[end])) end++;
+  const word = original.slice(start, end);
+  return word.length > 0 && isValidWord(word);
+}
+
+/**
+ * A correction that changes the actual letters of a capitalized,
+ * non-dictionary word (a name-shaped token) rather than just its case — the
+ * prompt already bans altering proper nouns beyond capitalization, this
+ * enforces it. E.g. "Thaddeus Okafor," → "Thaddeus Orator,". Conservative by
+ * design: skips (never drops) when word counts differ, so it never touches a
+ * correction that also inserts/removes words.
+ */
+function isProperNounLetterChange(
+  original: string,
+  corrected: string,
+  isValidWord: ((w: string) => boolean) | null,
+): boolean {
+  if (!isValidWord) return false;
+  const origWords = original.match(/[\p{L}'-]+/gu) ?? [];
+  const corrWords = corrected.match(/[\p{L}'-]+/gu) ?? [];
+  if (origWords.length === 0 || origWords.length !== corrWords.length) return false;
+  const isCapWord = (w: string) => /^[A-Z][a-z']*$/.test(w);
+  for (let i = 0; i < origWords.length; i++) {
+    const ow = origWords[i];
+    const cw = corrWords[i];
+    if (ow === cw) continue;
+    if (ow.toLowerCase() === cw.toLowerCase()) continue; // pure case change — fine
+    if (!isCapWord(ow) || !isCapWord(cw)) continue;
+    if (isValidWord(ow.toLowerCase())) continue; // a real word, not a name
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Drop corrections matching a known hallucination pattern (see the three
+ * helpers above). `lang` enables the two dictionary-backed checks; omit it
+ * to skip them (the connective-insertion check always runs).
+ */
+export function filterHallucinatedCorrections(
+  corrections: Correction[],
+  lang?: string,
+): Correction[] {
+  const isValidWord = getWordValidator(lang ?? "en");
+  let dropped = 0;
+  const kept = corrections.filter((c) => {
+    if (
+      isConnectiveInsertion(c.original, c.corrected) ||
+      isCompoundWordSplit(c.original, c.corrected, isValidWord) ||
+      isProperNounLetterChange(c.original, c.corrected, isValidWord)
+    ) {
+      dropped++;
+      return false;
+    }
+    return true;
+  });
+  if (dropped > 0) {
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Dropped ${dropped} correction(s) matching a known hallucination pattern (invented connective word, a correctly-spelled compound word split apart, or a proper noun's letters changed).`,
+    });
+  }
+  return kept;
+}
+
 /**
  * Parse the model's JSONL output into a list of corrections.
  *
@@ -641,7 +782,7 @@ export async function* synthesizeStream(
  * commentary lines between objects, missing newline between `}{` pairs,
  * and (as a back-compat fallback) the legacy `{"corrections":[...]}` shape.
  */
-export function parseCorrectionsJson(raw: string): Correction[] {
+export function parseCorrectionsJson(raw: string, lang?: string): Correction[] {
   let text = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
   text = text.replace(/```(?:jsonl?|ndjson)?/gi, "").replace(/```/g, "");
 
@@ -652,6 +793,7 @@ export function parseCorrectionsJson(raw: string): Correction[] {
     .flatMap((line) => line.split(/(?<=\})\s*(?=\{)/));
 
   const cleaned: Correction[] = [];
+  let replacementCharDrops = 0;
   for (const line of lines) {
     const s = line.trim().replace(/^[,\s]+|[,\s]+$/g, "");
     if (!s || !s.startsWith("{") || !s.endsWith("}")) continue;
@@ -676,6 +818,10 @@ export function parseCorrectionsJson(raw: string): Correction[] {
       typeof corrected === "string" &&
       original
     ) {
+      if (hasReplacementChar(original) || hasReplacementChar(corrected)) {
+        replacementCharDrops++;
+        continue;
+      }
       const normalized = normalizeMarkdownMarkers(original, corrected);
       if (normalized === null) continue; // unrecoverable marker mismatch
       if (normalized === original) continue; // no-op after stripping spurious markup
@@ -691,18 +837,26 @@ export function parseCorrectionsJson(raw: string): Correction[] {
     }
   }
 
+  if (replacementCharDrops > 0) {
+    appendLog({
+      level: "warn",
+      source: "engine",
+      message: `Dropped ${replacementCharDrops} correction(s) containing a corrupted character (U+FFFD) — a known llama-server detokenization issue, most common on German text.`,
+    });
+  }
+
   // Back-compat: legacy `{"corrections":[...]}` shape from older prompts or
   // non-llama models. Only attempt if JSONL parse yielded nothing.
   if (cleaned.length === 0 && /"corrections"\s*:\s*\[/.test(raw)) {
-    return parseCorrectionsArrayLegacy(raw);
+    return filterHallucinatedCorrections(parseCorrectionsArrayLegacy(raw), lang);
   }
 
   // Final fallback: regex-extract individual objects from malformed text.
   if (cleaned.length === 0 && /"original"\s*:/.test(raw)) {
-    return extractCorrectionsRegex(raw);
+    return filterHallucinatedCorrections(extractCorrectionsRegex(raw), lang);
   }
 
-  return cleaned;
+  return filterHallucinatedCorrections(cleaned, lang);
 }
 
 /** Legacy parser for the old `{"corrections":[...]}` envelope. */
@@ -751,6 +905,7 @@ function parseCorrectionsArrayLegacy(raw: string): Correction[] {
       typeof corrected === "string" &&
       original
     ) {
+      if (hasReplacementChar(original) || hasReplacementChar(corrected)) continue;
       const normalized = normalizeMarkdownMarkers(original, corrected);
       if (normalized === null) continue;
       if (normalized === original) continue;
@@ -929,6 +1084,8 @@ function extractCorrectionsRegex(raw: string): Correction[] {
         corrected = JSON.parse(`"${sanitizeJsonEscapes(m[2])}"`);
       }
       if (typeof original === "string" && original) {
+        if (hasReplacementChar(original) || hasReplacementChar(corrected))
+          continue;
         const normalized = normalizeMarkdownMarkers(original, corrected);
         if (normalized === null || normalized === original) continue;
         out.push({ original, corrected: normalized });

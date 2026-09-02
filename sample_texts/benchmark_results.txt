@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-08-25T12:45:01.360Z
+Report generated: 2026-09-02T07:05:41.366Z
 ════════════════════════════════════════════════════════════════════════════════
 
 SCORECARDS
@@ -12,234 +12,138 @@ into "overall" — they're diagnostic, not part of the headline number.
 MODEL: Qwen3.5-4B-Q4_K_M.gguf
 ────────────────────────────────────────────────────────────────────────────────
   Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
-  copy_edit    21%   50%   30  100       100       n/a       44
+  copy_edit    57%   69%   63   70        85       100       64
+             false positives: avg 22.0 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 4.0 hallucinated (no error there at all)
+             reviewer quality: 100/100 avg confidence, 0% of SCORED flagged (85% went unscored — reviewer didn't get to them)
+  line_edit    23%   55%   32  100         0        81       46
+             false positives: avg 6.5 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.0 hallucinated (no error there at all)
+             reviewer quality: 79/100 avg confidence, 15% of SCORED flagged (7% went unscored — reviewer didn't get to them)
   ────────────────────────────────────────────────────────────────────────────
-  MODEL OVERALL (mean of the modes above): 44
+  MODEL OVERALL (mean of the modes above): 55
 
 ────────────────────────────────────────────────────────────────────────────────
-MODEL: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+MODEL: Qwen3.5-9B-Q4_K_M.gguf
 ────────────────────────────────────────────────────────────────────────────────
   Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
-  copy_edit     9%   11%    9   10         0       n/a        9
-  line_edit    11%   10%   11   12         0       n/a       11
+  copy_edit    59%   68%   63   56       100       100       62
+             false positives: avg 23.0 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 5.0 hallucinated (no error there at all)
+             reviewer quality: 93/100 avg confidence, 6% of SCORED flagged (80% went unscored — reviewer didn't get to them)
+  line_edit    27%   46%   34  100         0        78       47
+             false positives: avg 11.0 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.0 hallucinated (no error there at all)
+             reviewer quality: 86/100 avg confidence, 5% of SCORED flagged (7% went unscored — reviewer didn't get to them)
   ────────────────────────────────────────────────────────────────────────────
-  MODEL OVERALL (mean of the modes above): 10
+  MODEL OVERALL (mean of the modes above): 55
 
 ════════════════════════════════════════════════════════════════════════════════
 RANKED — model overall score, highest first
 ════════════════════════════════════════════════════════════════════════════════
-    44  Qwen3.5-4B-Q4_K_M.gguf
-    10  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+    55  Qwen3.5-4B-Q4_K_M.gguf
+    55  Qwen3.5-9B-Q4_K_M.gguf
 
 ════════════════════════════════════════════════════════════════════════════════
 DETAIL — missed planted errors and false positives (run 1 of each task)
 ════════════════════════════════════════════════════════════════════════════════
 
-[Qwen3.5-4B-Q4_K_M.gguf] english_copy_edit.md (copy_edit):
-  MISSED:  "old insistent" → "old, insistent"
-  MISSED:  "decades and" → "decades, and"
-  MISSED:  "funeral the" → "funeral, the"
-  MISSED:  "top the" → "top, the"
-  MISSED:  ""Mara, the" → ""Mara," the"
-  MISSED:  ""You was three" → ""You were three"
-  MISSED:  "water and" → "water, and"
-  MISSED:  "quiet surprising" → "quiet, surprising"
-  MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
-  MISSED:  "indifferent and" → "indifferent, and"
-  …and 1 more missed
-  INVENTED: "a hand grown thin and shakey" → "a hand grown thin and shaky"
-  INVENTED: "unmoored" → "uncured"
-  INVENTED: "began" → "begin"
+[Qwen3.5-4B-Q4_K_M.gguf] stress100_copy_edit.md (copy_edit):
+  MISSED:  "rare and" → "rare, and"
+  MISSED:  "yellowed brittle" → "yellowed, brittle"
+  MISSED:  "small careful" → "small, careful"
+  MISSED:  "tall weathered" → "tall, weathered"
+  MISSED:  "old careful" → "old, careful"
+  MISSED:  "shelf and" → "shelf, and"
+  MISSED:  "fragile forgotten" → "fragile, forgotten"
+  MISSED:  "islands and" → "islands, and"
+  MISSED:  "tides and" → "tides, and"
+  MISSED:  "with with streets, buildings and" → "with streets, buildings, and"
+  …and 33 more missed
+  WRONG-FIX:    "apologise" → "apologist" (right spot, wrong guess)
+  WRONG-FIX:    "mension" → "mansion" (right spot, wrong guess)
+  WRONG-FIX:    "surveyd" → "surveys" (right spot, wrong guess)
+  WRONG-FIX:    "be the the last" → "be the last" (right spot, wrong guess)
+  WRONG-FIX:    "town, with with streets," → "town, with streets," (right spot, wrong guess)
+  WRONG-FIX:    "against the the front" → "against the front" (right spot, wrong guess)
+  WRONG-FIX:    "was a a joke" → "was a joke" (right spot, wrong guess)
+  WRONG-FIX:    "went very very quiet." → "went very quiet." (right spot, wrong guess)
+  WRONG-FIX:    "for a a" → "for an a" (right spot, wrong guess)
+  WRONG-FIX:    "was a a" → "was an a" (right spot, wrong guess)
+  …and 12 more wrong-fix
+  HALLUCINATED: "see the shop around her:" → "see the surrounding shop:" (no error there)
+  HALLUCINATED: "old woodsmoke." → "old wood smoke." (no error there)
+  HALLUCINATED: "still damp from" → "still damps from" (no error there)
+  HALLUCINATED: "story were returning" → "story was returning" (no error there)
 
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] danish_copy_edit.md (copy_edit):
-  MISSED:  "støvler og" → "støvler, og"
-  MISSED:  "gammel påtrængende" → "gammel, påtrængende"
-  MISSED:  "årtier og" → "årtier, og"
-  MISSED:  "begravelse var" → "begravelse, var"
-  MISSED:  "præcis som" → "præcis, som"
-  MISSED:  "for nyligt." → "for nylig."
-  MISSED:  "navn skreven på" → "navn skrevet på"
-  MISSED:  "sig før" → "sig, før"
-  MISSED:  "ryste og" → "ryste, og"
-  MISSED:  ""Mara, begyndte" → ""Mara," begyndte"
-  …and 15 more missed
-  INVENTED: "I morgen ville hun tænde lampen." → "Tomorrow she would light the lamp."
-  INVENTED: "og som hun først lige var begyndt at lærer." → "and that she had only just begun to learn."
-  INVENTED: "let vind fra sydvest. God sigtbarhed" → "light wind from the southwest. Good visibility"
-  INVENTED: "Med en hånd der var blevet tynd og rystene, havde han skrevet:" → "With a hand that had become thin and trembling, he had written:"
-  INVENTED: "Den var dateret morgenen for hans død." → "It was dated the morning of his death."
-  INVENTED: "I stedet følte hun kun en stille overraskende ømhed, som om en dør hun aldrig havde lagt mærke til var gået op i et velkendt rum." → "Instead she felt only a quiet, surprising tenderness, as if a door she had never noticed had opened into a familiar room."
-  INVENTED: "Mara lagde brevet fra sig." → "Mara set the letter down."
-  INVENTED: ""Du kaldte mig bedstefar, fordi det var det jeg bad dig kalde mig." → ""You called me grandfather, because that was what I asked you to call me."
-  INVENTED: ""Du var tre år gammel," skrev han." → ""You were three years old," he wrote."
-  INVENTED: "og om datteren som kvinden havde efterladt i hans varetægt." → "and about the daughter the woman had left in his care."
-  …and 33 more invented
-
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_copy_edit.md (copy_edit):
-  MISSED:  "old insistent" → "old, insistent"
-  MISSED:  "decades and" → "decades, and"
-  MISSED:  "funeral the" → "funeral, the"
-  MISSED:  "top the" → "top, the"
-  MISSED:  ""Mara, the" → ""Mara," the"
-  MISSED:  ""You was three" → ""You were three"
-  MISSED:  "water and" → "water, and"
-  MISSED:  "quiet surprising" → "quiet, surprising"
-  MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
-  MISSED:  "indifferent and" → "indifferent, and"
-  …and 1 more missed
-  INVENTED: "she had only just begun too learn" → "she had only just begun to learn"
-  INVENTED: "hand grown thin and shakey" → "hand grown thin and shaky"
-  INVENTED: "You was three years old" → "You were three years old"
-  INVENTED: "unmoored" → "uncured"
-  INVENTED: "the letter began" → "the letter began,"
-
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] german_copy_edit.md (copy_edit):
-  MISSED:  "ersten mal seit" → "ersten Mal seit"
-  MISSED:  "Stiefeln und" → "Stiefeln, und"
-  MISSED:  "alter beharrlicher" → "alter, beharrlicher"
-  MISSED:  "geführt und" → "geführt, und"
-  MISSED:  "Beerdigung war" → "Beerdigung, war"
-  MISSED:  "so wie" → "so, wie"
-  MISSED:  "vor kurzem hier gewessen." → "vor Kurzem hier gewesen."
-  MISSED:  "sich bevor" → "sich, bevor"
-  MISSED:  "begonnen und" → "begonnen, und"
-  MISSED:  "eingestehen warum.
-
-„Mara," → "eingestehen, warum.
-
-„Mara","
-  …and 16 more missed
-  INVENTED: "zum ersten mal" → "for the first time"
-  INVENTED: "des" → "dds"
-  INVENTED: "stieg" → "sties"
-  INVENTED: "zum" → "gum"
-  INVENTED: "ersten" → "eaten"
-  INVENTED: "mal" → "mall"
-  INVENTED: "seit" → "spit"
-  INVENTED: "hinauf" → "Hindu"
-  INVENTED: "unter" → "enter"
-  INVENTED: "ihren" → "siren"
-  …and 13 more invented
-
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit):
-  MISSED:  "botas y" → "botas, y"
-  MISSED:  "funeral la" → "funeral, la"
-  MISSED:  "el alfeizar." → "el alféizar."
-  MISSED:  "de habrirla," → "de abrirla,"
-  MISSED:  "las escusas para" → "las excusas para"
-  MISSED:  "«Tenia tres" → "«Tenías tres"
-  MISSED:  "agua y" → "agua, y"
-  MISSED:  "ella nasciera." → "ella naciera."
-  MISSED:  "sorprendente como" → "sorprendente, como"
-  MISSED:  "temblorosa, habia escrito: «viento ligero" → "temblorosa, había escrito: «Viento ligero"
-  …and 3 more missed
-  INVENTED: "Se quedaría a pasar la noche." → "She would stay to spend the night."
-  INVENTED: "No entendió, pero entenderá, cuando llegue el momento." → "She didn’t understand, but she will, when the time comes."
-  INVENTED: "antes de habrirla" → "before opening it"
-  INVENTED: "un cuaderno de bitácora abierto sobre el pequeño escritorio de roble." → "a logbook open on the small oak desk."
-  INVENTED: "los herrajes de latón pulidos hasta un brillo suave" → "the brass fittings polished to a soft shine"
-  INVENTED: "la escritura había pasado por fin a sus manos." → "the deed had finally passed into her hands."
-  INVENTED: "carta" → "carts"
-  INVENTED: "del" → "dell"
-  INVENTED: "farero" → "carer"
-  INVENTED: "subio" → "audio"
-  …and 22 more invented
-
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] danish_line_edit.md (line_edit):
-  MISSED:  "for allerførste gang i tyve lange år. Jerntrinene lavede en knagende lyd under" → "for første gang i tyve år. Jerntrinene knagede under"
-  MISSED:  "bedstefar, som var hendes bedstefar, havde" → "bedstefar havde"
-  MISSED:  "i en periode på fire" → "i fire"
-  MISSED:  "endelig til sidst overgået" → "endelig overgået"
-  MISSED:  "præcis sådan, som hun huskede, at det var:" → "præcis, som hun huskede det:"
-  MISSED:  "pudset op til" → "pudset til"
-  MISSED:  "linse, der var tavs og vågen, og en logbog, der lå" → "linse lå tavs og vågen, og en logbog lå"
-  MISSED:  "sig der og" → "sig og"
-  MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
-  MISSED:  "forsiden af det med bedstefarens omhyggelige håndskriftshånd. Mara satte sig selv ned, før hun åbnede det op," → "forsiden i bedstefarens omhyggelige håndskrift. Mara satte sig, før hun åbnede det,"
-  …and 17 more missed
-  INVENTED: "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum, som hun kendte godt" → "Instead she felt only a quiet, surprising tenderness, as if a door she had never noticed before had opened into a familiar room"
-  INVENTED: "Du var tre år gammel dengang på det tidspunkt" → "You were three years old then"
-  INVENTED: "Mara satte sig selv ned, før hun åbnede det op, for hendes knæ var begyndt at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor" → "Mara sat down before opening it, her knees beginning to shake, though she wouldn't admit why"
-  INVENTED: "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd" → "A folded sheet of paper lay hidden beneath the logbook, her name written on the front in her grandfather's careful hand"
-  INVENTED: "messingbeslagene var pudset op til en blød glans, den store linse, der var tavs og vågen" → "the brass fittings polished to a soft glow, the great lens silent and watchful"
-  INVENTED: "lange" → "mange"
-  INVENTED: "gik" → "geek"
-  INVENTED: "tyve" → "gyve"
-  INVENTED: "lavede" → "laved"
-  INVENTED: "lyd" → "lad"
-  …and 23 more invented
-
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] english_line_edit.md (line_edit):
+[Qwen3.5-4B-Q4_K_M.gguf] english_line_edit.md (line_edit):
   MISSED:  "Mara went up the" → "Mara climbed the"
-  MISSED:  "windows in a way that was like" → "windows like"
-  MISSED:  "grandfather, who was her grandfather, had" → "grandfather had"
+  MISSED:  "the very first time in twenty long years. The iron steps made a groaning sound beneath her boots, and the salty salt" → "the first time in twenty years. The iron steps groaned beneath her boots, and salt"
+  MISSED:  "for a period of four" → "for four"
+  MISSED:  "finally at last passed" → "finally passed"
   MISSED:  "remembered it to be:" → "remembered:"
+  MISSED:  "logbook that was open" → "logbook open"
   MISSED:  "windowsill. There was no dust there. Someone had been there in that place recently." → "windowsill. No dust. Someone had been here recently."
-  MISSED:  "logbook, with her" → "logbook, her"
   MISSED:  "front of it in her grandfather's careful handwriting hand. Mara sat herself down before she opened it up," → "front in her grandfather's careful hand. Mara sat down before she opened it,"
   MISSED:  "begun the process of trembling and she did not really want to admit to herself why this was happening." → "begun to tremble and she did not want to admit why."
   MISSED:  "began to say," → "began,"
-  MISSED:  "this letter," → "this,"
-  …and 18 more missed
-  INVENTED: "and somewhere out there, she now understood at this point" → "and somewhere out there, she now understood"
-  INVENTED: "The sea stretched away in every single direction" → "The sea stretched in every direction"
-  INVENTED: "She closed the book in a closing motion." → "She closed the book."
-  INVENTED: "Outside, gulls were turning slow circles above the water" → "Outside, gulls circled slowly above the water"
-  INVENTED: "Mara set the letter down on the desk." → "Mara set the letter on the desk."
-  INVENTED: "You called me Grandfather because that is what I asked you to call me." → "You called me Grandfather because I asked you to."
-  INVENTED: "the daughter that that woman had left behind in his care to look after" → "the daughter the woman had left in his care"
-  INVENTED: "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs." → "He wrote about the night her mother had left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he pulled from the surf and carried up these very stairs."
-  INVENTED: "she did not really want to admit to herself why this was happening" → "she didn’t want to admit why this was happening"
-  INVENTED: "because her knees had begun the process of trembling" → "because her knees trembled"
-  …and 14 more invented
+  …and 17 more missed
+  WRONG-FIX:    "She closed the book in a closing motion. She stood up, walked over to the great lens, and laid her palm flat against the cool glass of it." → "She closed the book, stood, and laid her palm flat against the cool glass of the great lens." (right spot, wrong guess)
+  WRONG-FIX:    "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well." → "Instead, she felt only a quiet, surprising tenderness, as if a door she'd never noticed had opened in the familiar room she knew well." (right spot, wrong guess)
+  WRONG-FIX:    "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way." → "She thought she ought to feel angry, betrayed, or unmoored." (right spot, wrong guess)
+  WRONG-FIX:    "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs." → "He wrote of the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he'd pulled from the surf and carried up these very stairs." (right spot, wrong guess)
+  WRONG-FIX:    "unmoored" → "uncured" (right spot, wrong guess)
+  WRONG-FIX:    "trembling and she" → "trembling, and she" (right spot, wrong guess)
+  WRONG-FIX:    "The sea stretched away in every single direction, and somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about." → "The sea stretched in every direction; somewhere out there, she now understood, was a story that belonged to her and which she'd only just begun to learn." (right spot, wrong guess)
 
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] german_line_edit.md (line_edit):
-  MISSED:  "zum allerersten Mal seit zwanzig langen Jahren" → "zum ersten Mal seit zwanzig Jahren"
-  MISSED:  "Stufen machten ein ächzendes Geräusch unter" → "Stufen ächzten unter"
-  MISSED:  "endlich schließlich an" → "endlich an"
-  MISSED:  "in ihrer Erinnerung in Erinnerung hatte: die Messingbeschläge, die zu" → "in Erinnerung hatte: die Messingbeschläge zu"
-  MISSED:  "poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag. Sie stellte ihre Tasche dort ab" → "poliert, die große Linse still und wachsam, ein Logbuch aufgeschlagen auf dem kleinen Eichentisch. Sie stellte ihre Tasche ab"
-  MISSED:  "die Kante der Fensterbank gleiten. Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen."
-  MISSED:  "Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war. Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "Vorderseite, geschrieben in der sorgfältigen Handschrift ihres Großvaters. Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum."
-  MISSED:  "Brief zu sagen, „wenn du diesen Brief gerade liest," → "Brief, „wenn du dies liest,"
-  MISSED:  "Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine" → "Wahrheit selbst zu sagen. Vergib einem alten Mann seine"
-  MISSED:  "langsam und sorgfältig." → "langsam."
-  …and 19 more missed
-  INVENTED: "Es tut mir sehr leid darüber." → "Es tut mir sehr leid."
-  INVENTED: "Bitte vergib einem alten Mann für seine Feigheit." → "Bitte vergib einem alten Mann seine Feigheit."
-  INVENTED: "und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "und sie wollte sich nicht wirklich eingestehen, warum das geschah."
-  INVENTED: "Oben war der Laternenraum genau so, wie sie ihn in ihrer Erinnerung in Erinnerung hatte:" → "Oben war der Laternenraum genau so, wie sie ihn in Erinnerung hatte:"
-  INVENTED: "des" → "dds"
-  INVENTED: "stieg" → "sties"
-  INVENTED: "zum" → "gum"
-  INVENTED: "seit" → "spit"
-  INVENTED: "langen" → "lantern"
-  INVENTED: "hinauf" → "Hindu"
-  …and 29 more invented
+[Qwen3.5-9B-Q4_K_M.gguf] stress100_copy_edit.md (copy_edit):
+  MISSED:  "rare and" → "rare, and"
+  MISSED:  "yellowed brittle" → "yellowed, brittle"
+  MISSED:  "small careful" → "small, careful"
+  MISSED:  "tall weathered" → "tall, weathered"
+  MISSED:  "decide weather it" → "decide whether it"
+  MISSED:  "shelf and" → "shelf, and"
+  MISSED:  "fragile forgotten" → "fragile, forgotten"
+  MISSED:  "islands and" → "islands, and"
+  MISSED:  "tides and" → "tides, and"
+  MISSED:  "places but" → "places, but"
+  …and 31 more missed
+  WRONG-FIX:    "mension" → "mansion" (right spot, wrong guess)
+  WRONG-FIX:    "surveyd" → "surveys" (right spot, wrong guess)
+  WRONG-FIX:    "be the the last" → "be the last" (right spot, wrong guess)
+  WRONG-FIX:    "town, with with streets," → "town, with streets," (right spot, wrong guess)
+  WRONG-FIX:    "against the the front" → "against the front" (right spot, wrong guess)
+  WRONG-FIX:    "was a a joke" → "was a joke" (right spot, wrong guess)
+  WRONG-FIX:    "went very very quiet." → "went very quiet." (right spot, wrong guess)
+  WRONG-FIX:    "for a a" → "for an a" (right spot, wrong guess)
+  WRONG-FIX:    "was a a" → "was an a" (right spot, wrong guess)
+  WRONG-FIX:    "of ceder and" → "of ceded and" (right spot, wrong guess)
+  …and 13 more wrong-fix
+  HALLUCINATED: "see the shop around her:" → "see the surrounding shop:" (no error there)
+  HALLUCINATED: "old woodsmoke." → "old wood smoke." (no error there)
+  HALLUCINATED: "still damp from" → "still damps from" (no error there)
+  HALLUCINATED: "story were returning" → "story was returning" (no error there)
+  HALLUCINATED: ""I don't know what these are," he admitted, laying the satchel on the counter." → ""I don't know what these are," he admitted, placing the satchel on the counter." (no error there)
 
-[Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf] spanish_line_edit.md (line_edit):
-  MISSED:  "subió por la" → "subió la"
-  MISSED:  "por la primera vez en veinte largos años. Los peldaños de hierro hicieron un sonido de gemido bajo" → "por primera vez en veinte años. Los peldaños de hierro gimieron bajo"
-  MISSED:  "estrechas de una manera que era como" → "estrechas como"
-  MISSED:  "abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas, y" → "abuelo había cuidado este faro durante cuatro décadas y"
-  MISSED:  "pasado finalmente por" → "pasado por"
-  MISSED:  "exactamente tal y como ella la recordaba que era:" → "exactamente como ella la recordaba:"
-  MISSED:  "hasta llegar a un" → "hasta un"
-  MISSED:  "bolso allí y" → "bolso y"
-  MISSED:  "alféizar de la ventana. No había nada de polvo allí." → "alféizar. No había polvo."
-  MISSED:  "allí en ese lugar hacía poco tiempo." → "allí hacía poco."
-  …and 19 more missed
-  INVENTED: "Se puso de pie, caminó hasta la gran lente y apoyó la palma de su mano plana contra el cristal fresco del mismo" → "She stood up, walked to the great lens, and pressed her palm flat against its cool glass"
-  INVENTED: "porque yo sabía bien lo que me costaba a mí hacerlo»." → "porque sabía lo que me costaba hacerlo»."
-  INVENTED: "Lo siento mucho por ello" → "I’m so sorry for that"
-  INVENTED: "es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo." → "es que por fin se me han acabado las excusas para decirte la verdad en persona."
-  INVENTED: "porque las rodillas le habían comenzado a empezar a temblar" → "because her knees had started to tremble"
-  INVENTED: "tal y como ella la recordaba que era:" → "tal y como ella la recordaba:"
-  INVENTED: "la escritura había pasado finalmente por fin a sus manos" → "la escritura había pasado finalmente a sus manos"
-  INVENTED: "carta" → "carts"
-  INVENTED: "del" → "dell"
-  INVENTED: "farero" → "carer"
-  …and 36 more invented
+[Qwen3.5-9B-Q4_K_M.gguf] english_line_edit.md (line_edit):
+  MISSED:  "Mara went up the" → "Mara climbed the"
+  MISSED:  "for a period of four" → "for four"
+  MISSED:  "remembered it to be:" → "remembered:"
+  MISSED:  "windowsill. There was no dust there. Someone had been there in that place recently." → "windowsill. No dust. Someone had been here recently."
+  MISSED:  "front of it in her grandfather's careful handwriting hand. Mara sat herself down before she opened it up," → "front in her grandfather's careful hand. Mara sat down before she opened it,"
+  MISSED:  "begun the process of trembling and she did not really want to admit to herself why this was happening." → "begun to tremble and she did not want to admit why."
+  MISSED:  "began to say," → "began,"
+  MISSED:  "truth by myself in person. Please forgive an old man for his" → "truth myself. Forgive an old man his"
+  MISSED:  "slowly and carefully." → "slowly."
+  MISSED:  "left, and he wrote about" → "left, about"
+  …and 16 more missed
+  WRONG-FIX:    "The sea stretched away in every single direction, and somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about" → "The sea stretched away in every direction. Somewhere out there, she now understood, was a story that belonged to her, one she had only just begun to learn" (right spot, wrong guess)
+  WRONG-FIX:    "She closed the book in a closing motion." → "She closed the book." (right spot, wrong guess)
+  WRONG-FIX:    "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well" → "Instead, she felt only a quiet, surprising tenderness, as though a door she'd never noticed had opened in a familiar room" (right spot, wrong guess)
+  WRONG-FIX:    "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way" → "She thought she ought to feel angry, betrayed, or unmoored" (right spot, wrong guess)
+  WRONG-FIX:    ""You were three years old at the time," he wrote in his writing. "You called me Grandfather because that is what I asked you to call me. I am sorry about it. I loved you no less for the lie that I told, and perhaps a little bit more, because I knew what it cost me to do."" → ""You were three years old at the time," he wrote. "You called me Grandfather because I asked you to. I'm sorry about it. I loved you no less for the lie I told, and perhaps a little more, because I knew what it cost me."" (right spot, wrong guess)
+  WRONG-FIX:    "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs" → "He wrote of the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he pulled from the surf and carried up these stairs" (right spot, wrong guess)
+  WRONG-FIX:    "Mara sat herself down before she opened it up, because her knees had begun the process of trembling and she did not really want to admit to herself why this was happening" → "Mara sat down before opening it, her knees trembling. She didn't want to admit why." (right spot, wrong guess)
+  WRONG-FIX:    "Someone had been there in that place recently." → "Someone had been there recently." (right spot, wrong guess)
+  WRONG-FIX:    "She set down her bag and ran a finger along the windowsill. There was no dust there." → "She set down her bag and ran a finger along the windowsill. No dust lay there." (right spot, wrong guess)
+  WRONG-FIX:    "unmoored" → "uncured" (right spot, wrong guess)
+  …and 2 more wrong-fix
 
 
 ── END OF REPORT ──

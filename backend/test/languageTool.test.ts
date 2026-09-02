@@ -53,6 +53,38 @@ test("tags corrections with a grammar reason", () => {
   assert.ok((cs[0].reason ?? "").startsWith("grammar"));
 });
 
+// Benchmarking found LanguageTool's own suggestions hit the same hallucination
+// patterns as the LLM's (a "typos" rule renaming an unfamiliar proper noun to
+// its nearest dictionary word; a "repetitions_style" rule inserting a
+// connective) — and since LanguageTool corrections skip reviewer scoring
+// entirely ("not scored by reviewer — verify manually"), the deterministic
+// filter is the only backstop for them. Confirms it's wired in here too.
+test("drops a LanguageTool 'typos' match that renames a proper noun's letters", () => {
+  const text = "Thaddeus Okafor arrived.";
+  const cs = parseLanguageToolMatches(
+    text,
+    [grammarMatch(text.indexOf("Okafor"), "Okafor".length, "Orator", "TYPOS")],
+    { lang: "en" },
+  );
+  assert.deepEqual(cs, []);
+});
+
+test("drops a LanguageTool 'repetitions_style' match that inserts a connective word", () => {
+  const text = "Forever. He would come Tuesday.";
+  const cs = parseLanguageToolMatches(
+    text,
+    [grammarMatch(text.indexOf("He"), "He".length, "Furthermore, he", "REPETITIONS_STYLE")],
+    { lang: "en" },
+  );
+  assert.deepEqual(cs, []);
+});
+
+test("keeps a genuine LanguageTool grammar fix", () => {
+  const text = "Its a nice day.";
+  const cs = parseLanguageToolMatches(text, [grammarMatch(0, 3, "It's")], { lang: "en" });
+  assert.equal(cs.length, 1);
+});
+
 test("mapLangToLanguageTool maps manuscript codes to LT language codes", () => {
   assert.equal(mapLangToLanguageTool("en", "american"), "en-US");
   assert.equal(mapLangToLanguageTool("en", "british"), "en-GB");

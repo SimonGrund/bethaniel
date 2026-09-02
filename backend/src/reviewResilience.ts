@@ -154,3 +154,52 @@ export function aggregateReviewScores(
 
   return { flaggedCount, unscoredCount };
 }
+
+/**
+ * Drop corrections a focused precision pass judged unnecessary — narrower
+ * than {@link aggregateReviewScores}: it answers only "did the original need
+ * fixing here at all?", not "is this fix well-formed?" (the main reviewer's
+ * question). Unlike that function, low scores here REMOVE the correction
+ * rather than flag it: if the original text had no real error, keeping the
+ * "fix" around costs nothing on recall (there was nothing to recall) and
+ * only adds noise for the reader to reject by hand.
+ *
+ * `preApproved` corrections (editor and spell-check independently agreed) and
+ * corrections no precision-pass agent scored are both kept, not dropped —
+ * fail-open, since an unscored item may be a real catch the pass missed
+ * under load, not one it judged unnecessary.
+ */
+export function applyPrecisionPass(
+  cs: Correction[],
+  scoreMaps: Map<number, { confidence: number; reason: string }>[],
+  threshold: number,
+): { kept: Correction[]; removed: Correction[] } {
+  const kept: Correction[] = [];
+  const removed: Correction[] = [];
+
+  for (let i = 0; i < cs.length; i++) {
+    const c = cs[i];
+    // A combined-edit pass's subjective LINE-kind corrections are legitimate
+    // rewrites of already-correct prose by design — exactly what this pass
+    // would otherwise mistake for "unforced rewording". Only COPY-kind (or
+    // untagged, single-mode) corrections are in scope.
+    if (c.preApproved || c.editType === "line") {
+      kept.push(c);
+      continue;
+    }
+
+    let minConfidence = Infinity;
+    for (const scores of scoreMaps) {
+      const score = scores.get(i);
+      if (score && score.confidence < minConfidence) minConfidence = score.confidence;
+    }
+
+    if (Number.isFinite(minConfidence) && minConfidence < threshold) {
+      removed.push(c);
+    } else {
+      kept.push(c);
+    }
+  }
+
+  return { kept, removed };
+}
