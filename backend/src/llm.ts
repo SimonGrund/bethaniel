@@ -4,6 +4,8 @@
 
 import type { Correction } from "./types.js";
 import {
+  beginEngineRequest,
+  endEngineRequest,
   ensureModelLoaded,
   unloadCurrentModel,
   getCurrentModel,
@@ -387,6 +389,11 @@ async function* chatStream(
 
   const baseUrl = getLlamaBaseUrl();
   const watchdog = stallWatchdog(signal);
+  // Held for the whole exchange, not just the fetch: the idle-unloader reads
+  // this to know the engine is still in use. Without it, the lull between one
+  // task finishing and the next starting looked like idleness, the model was
+  // unloaded underneath agents mid-stream, and they reported "fetch failed".
+  beginEngineRequest();
   try {
     const res = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
@@ -402,6 +409,7 @@ async function* chatStream(
 
     yield* parseSSE(res, watchdog.signal, model, watchdog.bump);
   } finally {
+    endEngineRequest();
     watchdog.done();
   }
 }

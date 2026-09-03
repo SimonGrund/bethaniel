@@ -296,6 +296,23 @@ let currentParallelSlots: number | null = null;
 let loadPromise: Promise<void> | null = null;
 
 /**
+ * True between spawning an engine and its health check settling. During that
+ * window `childProcess` is set but `currentModel` is not, so anything that
+ * guards on `childProcess` alone — the idle-unloader did — will SIGTERM a
+ * model that is still loading and surface it as "llama-server exited before
+ * startup finished".
+ */
+let loadInFlight = false;
+
+/**
+ * Requests currently streaming from the engine. The idle-unloader used to read
+ * only the queue's task counters, which go quiet in the gap between one task
+ * finishing and the next flipping to "editing" — long enough to kill an engine
+ * that agents were still talking to, which reached them as "fetch failed".
+ */
+let activeRequests = 0;
+
+/**
  * True while a stop we initiated is in flight (idle unload, model swap, app
  * shutdown). killChild sends SIGTERM then SIGKILL, and a bare SIGKILL is
  * otherwise indistinguishable from the OS OOM killer — which is why every
@@ -303,6 +320,7 @@ let loadPromise: Promise<void> | null = null;
  * Reset when a new engine is spawned.
  */
 let deliberateStop = false;
+let stopReason: StopReason = "reload";
 
 /**
  * Whether the running engine is actually using a GPU, parsed from its own
@@ -313,8 +331,89 @@ let deliberateStop = false;
  * electron/gpuEngine.ts). Reset to "unknown" on every fresh spawn.
  */
 let detectedDevice: "gpu" | "cpu" | "unknown" = "unknown";
-const GPU_DEVICE_LINE_RE = /-\s+(CUDA|Metal|Vulkan|ROCm|HIP|SYCL)\d*\s*:/i;
-const CPU_DEVICE_LINE_RE = /-\s+CPU\s*:/;
+// llama.cpp labels devices by backend in its `device_info:` block. The names
+// are abbreviated in some builds and spelled out in others — Apple Silicon
+// reports "MTL0" rather than "Metal" (b9279), so matching only the long forms
+// left every Mac reading as CPU. BLAS/Accelerate is deliberately absent: it is
+// listed alongside the real devices but offloads nothing.
+const GPU_DEVICE_LINE_RE =
+  /-\s+(CUDA|MTL|Metal|Vulkan|VLK|ROCm|HIP|SYCL|OpenCL|CANN|MUSA)\d*\s*:/i;
+const CPU_DEVICE_LINE_RE = /-\s+CPU\d*\s*:/i;
+
+/** Which device, if any, a single line of engine output names. */
+export function parseEngineDevice(line: string): "gpu" | "cpu" | null {
+  if (GPU_DEVICE_LINE_RE.test(line)) return "gpu";
+  if (CPU_DEVICE_LINE_RE.test(line)) return "cpu";
+  return null;
+}
+
+/**
+ * Does the running engine already meet what a caller needs, or must it be
+ * restarted?
+ *
+ * Context is a ceiling, not an exact figure: an engine loaded at 8192 serves a
+ * request that needs 4096 perfectly well. Requiring equality here meant that
+ * every LLM request — each one passing the context its own chunk happened to
+ * need — restarted the engine underneath the agents already streaming from it.
+ */
+export function engineSatisfies(
+  state: {
+    model: string | null;
+    ctx: number | null;
+    slots: number | null;
+    alive: boolean;
+  },
+  want: { model: string; ctx: number; slots: number },
+): boolean {
+  if (!state.alive || state.model === null) return false;
+  if (state.model !== want.model) return false;
+  return (state.ctx ?? 0) >= want.ctx && (state.slots ?? 0) >= want.slots;
+}
+
+/**
+ * Why we are stopping the engine. Threaded through killChild so the exit
+ * handler can say which kind of stop it was: every deliberate stop used to log
+ * "Model unloaded to free memory", so a storm of reloads read as a storm of
+ * idle unloads and pointed diagnosis at the wrong component.
+ */
+export type StopReason = "reload" | "idle-unload" | "shutdown";
+
+/** How a deliberate stop should be described in the user-facing log. */
+export function describeStop(reason: StopReason): string {
+  switch (reason) {
+    case "reload":
+      return "Model stopped to restart it with new settings";
+    case "idle-unload":
+      return "Model unloaded to free memory";
+    case "shutdown":
+      return "Model stopped — shutting down";
+  }
+}
+
+/** Snapshot of the running engine, in the shape engineSatisfies() reads. */
+function engineState() {
+  return {
+    model: currentModel,
+    ctx: currentCtx,
+    slots: currentParallelSlots,
+    alive: !!childProcess && !childProcess.killed,
+  };
+}
+
+/**
+ * May we stop the engine right now?
+ *
+ * Shutdown always may — the app is going away and a wedged request must not
+ * hold it open. An idle unload is an optimisation, so it yields to any work in
+ * progress: a load that has not finished, or a request still streaming.
+ */
+export function mayStopEngine(
+  reason: "idle-unload" | "shutdown",
+  state: { loadInFlight: boolean; activeRequests: number },
+): boolean {
+  if (reason === "shutdown") return true;
+  return !state.loadInFlight && state.activeRequests === 0;
+}
 
 function noteEngineDevice(next: "gpu" | "cpu"): void {
   if (detectedDevice === next) return;
@@ -626,16 +725,14 @@ function onEngineOutput(text: string): void {
   if (!serverListeningSeen && SERVER_READY_RE.test(text)) {
     serverListeningSeen = true;
   }
-  if (GPU_DEVICE_LINE_RE.test(text)) {
-    noteEngineDevice("gpu");
-  } else if (CPU_DEVICE_LINE_RE.test(text)) {
-    noteEngineDevice("cpu");
-  }
+  const device = parseEngineDevice(text);
+  if (device) noteEngineDevice(device);
 }
 
 // ── Kill helper ──
 
-function killChild(): Promise<void> {
+function killChild(reason: StopReason = "reload"): Promise<void> {
+  stopReason = reason;
   return new Promise((resolve) => {
     if (!childProcess || childProcess.killed) {
       childProcess = null;
@@ -698,13 +795,8 @@ export function ensureModelLoaded(
   const targetCtx = numCtxOverride ?? readModelConfig(MODELS_DIR, file).num_ctx;
 
   const requestedSlots = Math.max(1, desiredSlots ?? 1);
-  if (
-    currentModel === file &&
-    currentCtx === targetCtx &&
-    (currentParallelSlots ?? 0) >= requestedSlots &&
-    childProcess &&
-    !childProcess.killed
-  ) {
+  const want = { model: file, ctx: targetCtx, slots: requestedSlots };
+  if (engineSatisfies(engineState(), want)) {
     return Promise.resolve();
   }
 
@@ -715,15 +807,7 @@ export function ensureModelLoaded(
     // back restarts of the engine.
     const prev = loadPromise;
     loadPromise = prev.then(() => {
-      if (
-        currentModel === file &&
-        currentCtx === targetCtx &&
-        (currentParallelSlots ?? 0) >= requestedSlots &&
-        childProcess &&
-        !childProcess.killed
-      ) {
-        return;
-      }
+      if (engineSatisfies(engineState(), want)) return;
       return doLoad(file, targetCtx, desiredSlots);
     });
   } else {
@@ -914,6 +998,7 @@ async function doLoad(
   // device_info line has even been seen.
   deliberateStop = false;
   detectedDevice = "unknown";
+  loadInFlight = true;
   childProcess = spawn(LLAMA_BIN, args, {
     stdio: "pipe",
     env: {
@@ -982,7 +1067,7 @@ async function doLoad(
       appendLog({
         level: "info",
         source: "engine",
-        message: `Model unloaded to free memory (${file}).`,
+        message: `${describeStop(stopReason)} (${file}).`,
         hintKey: "log_hint_model_unloaded",
         model: file,
       });
@@ -1055,6 +1140,7 @@ async function doLoad(
     // Clear shared state so the next ensureModelLoaded() call doesn't chain
     // on a rejected promise or believe a broken engine is still running.
     loadPromise = null;
+    loadInFlight = false;
     currentModel = null;
     currentCtx = null;
     currentParallelSlots = null;
@@ -1069,6 +1155,7 @@ async function doLoad(
   currentCtx = numCtx;
   currentParallelSlots = parallelSlots;
   loadPromise = null;
+  loadInFlight = false;
   lastLoadFailureAt = 0;
   console.log(
     `[llama-server] Model loaded: ${file} (ctx=${numCtx}, parallel=${parallelSlots})`,
@@ -1081,16 +1168,43 @@ async function doLoad(
   });
 }
 
-/** Unload the current model (kill llama-server). */
+/**
+ * Unload the current model to reclaim RAM between jobs.
+ *
+ * Yields to work in progress. `childProcess` alone is not evidence that the
+ * engine is idle: it is assigned at spawn, while `currentModel` is only
+ * assigned once the health check passes, so guarding on it killed engines that
+ * were still loading. Requests in flight matter for the same reason — the gap
+ * between one task finishing and the next starting is not idleness.
+ */
 export function unloadCurrentModel(): boolean {
   if (!childProcess) return false;
-  killChild().catch(() => {});
+  if (!mayStopEngine("idle-unload", { loadInFlight, activeRequests })) {
+    console.log(
+      `[llama-server] Idle unload skipped — ` +
+        `${loadInFlight ? "a load is in flight" : `${activeRequests} request(s) in flight`}.`,
+    );
+    return false;
+  }
+  killChild("idle-unload").catch(() => {});
   return true;
+}
+
+/**
+ * Bracket a request to the engine so the idle-unloader does not stop the model
+ * mid-answer. Callers must pair these; llm.ts does it in a try/finally.
+ */
+export function beginEngineRequest(): void {
+  activeRequests++;
+}
+
+export function endEngineRequest(): void {
+  activeRequests = Math.max(0, activeRequests - 1);
 }
 
 /** Graceful shutdown — called on process exit. */
 export async function shutdownLlamaServer(): Promise<void> {
-  await killChild();
+  await killChild("shutdown");
 }
 
 // Cleanup on process exit
