@@ -1,6 +1,6 @@
 // ── Metering proxy: /v1/chat/completions ──
 //
-// Bearer-authed by a credential this Worker issued (never a raw Mistral
+// Bearer-authed by a credential this Worker issued (never a raw upstream
 // key). Mirrors the OpenAI-compatible shape Bethaniel's `llm.ts` already
 // speaks to External Betty, so no protocol changes are needed on the app
 // side — only the base URL and credential differ.
@@ -100,7 +100,7 @@ export async function handleChatCompletions(
 
   const upstreamBody = {
     ...body,
-    model: env.MISTRAL_MODEL,
+    model: env.PROVIDER_MODEL,
     // Without this, a streamed OpenAI-compatible response never carries a
     // token-usage figure at all — the trailing usage chunk is opt-in.
     stream_options: body.stream ? { include_usage: true } : undefined,
@@ -108,11 +108,11 @@ export async function handleChatCompletions(
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${env.MISTRAL_API_BASE}/v1/chat/completions`, {
+    upstream = await fetch(`${env.PROVIDER_API_BASE}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
+        Authorization: `Bearer ${env.PROVIDER_API_KEY}`,
       },
       body: JSON.stringify(upstreamBody),
     });

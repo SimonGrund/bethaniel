@@ -5,13 +5,13 @@ export interface Env {
   CREDENTIAL_LEDGER: DurableObjectNamespace;
 
   // Secrets — set via `wrangler secret put <NAME>`, never committed.
-  MISTRAL_API_KEY: string;
+  PROVIDER_API_KEY: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
 
   // Vars — non-secret tuning knobs, see wrangler.toml.
-  MISTRAL_MODEL: string;
-  MISTRAL_API_BASE: string;
+  PROVIDER_MODEL: string;
+  PROVIDER_API_BASE: string;
   BASE_COST_EUR_PER_TOKEN: string;
   MARKUP_MULTIPLIER: string;
   STRIPE_PCT_FEE: string;

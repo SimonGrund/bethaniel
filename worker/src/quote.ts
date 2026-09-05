@@ -7,8 +7,8 @@ export interface PriceQuote {
   priceEurCents: number;
 }
 
-/** Price an estimated token count in EUR cents: Mistral's blended cost,
- *  marked up 50-100% (MARKUP_MULTIPLIER), grossed up to absorb Stripe's own
+/** Price an estimated token count in EUR cents: the provider's blended cost,
+ *  marked up (MARKUP_MULTIPLIER), grossed up to absorb Stripe's own
  *  cut, and floored at a minimum charge so Stripe's fixed fee doesn't eat a
  *  disproportionate share of a tiny job. */
 export function priceTokens(env: Env, estimatedTokens: number): PriceQuote {

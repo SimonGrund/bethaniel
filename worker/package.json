@@ -2,7 +2,7 @@
   "name": "bethaniel-cloud-worker",
   "version": "0.1.0",
   "private": true,
-  "description": "Betty in the Cloud — Stripe checkout, credential issuance, and metered Mistral proxy for Bethaniel's pay-per-job cloud editing.",
+  "description": "Betty in the Cloud — Stripe checkout, credential issuance, and metered inference proxy for Bethaniel's pay-per-job cloud editing.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

@@ -26,17 +26,24 @@ new_sqlite_classes = ["CredentialLedger"]
 crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 
 [vars]
-# Non-secret tuning knobs. Secrets (MISTRAL_API_KEY, STRIPE_SECRET_KEY,
+# Non-secret tuning knobs. Secrets (PROVIDER_API_KEY, STRIPE_SECRET_KEY,
 # STRIPE_WEBHOOK_SECRET) are set via `wrangler secret put <NAME>` and must
 # never appear here.
-MISTRAL_MODEL = "mistral-large-latest"
-MISTRAL_API_BASE = "https://api.mistral.ai"
+# OVHcloud AI Endpoints: EU-sovereign, zero data retention by default (only
+# billing data is kept), and OpenAI-compatible — proxy.ts appends
+# /v1/chat/completions to the base below. Qwen3.5-397B-A17B is the flagship
+# (262K context), which is the point of the cloud option: a model no laptop
+# in the local catalog can run.
+PROVIDER_MODEL = "Qwen3.5-397B-A17B"
+PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
 # Blended EUR cost per token across input+output, calibrated to Bethaniel's
-# actual input-heavy workload (full chunk sent, short JSON corrections back)
-# against Mistral's list price. Revisit once real usage data exists.
-BASE_COST_EUR_PER_TOKEN = "0.0000045"
-# Company markup — 50-100% range; 0.75 sits at the middle.
-MARKUP_MULTIPLIER = "1.75"
+# actual input-heavy workload — the estimator puts a corrections job at 68.2%
+# input / 31.8% output, and OVHcloud lists Qwen3.5-397B-A17B at EUR 0.60/Mtok
+# in and EUR 3.60/Mtok out, so 0.682*0.60 + 0.318*3.60 = EUR 1.55/Mtok.
+# Revisit against a real invoice once usage data exists.
+BASE_COST_EUR_PER_TOKEN = "0.00000155"
+# Company markup — 3x the blended provider cost.
+MARKUP_MULTIPLIER = "3"
 # Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
 STRIPE_PCT_FEE = "0.015"
 STRIPE_FIXED_FEE_EUR = "0.25"

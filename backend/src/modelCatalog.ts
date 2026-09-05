@@ -139,14 +139,14 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 0,
     minRamGb: 0,
     minRamAppleSiliconGb: 0,
-    // Points at the Bethaniel-run Cloudflare Worker, which proxies to Mistral
+    // Points at the Bethaniel-run Cloudflare Worker, which proxies to OVHcloud
     // under its own key — the credential stored locally is a paid, scoped
-    // token for that Worker, never a raw Mistral key. Override at runtime via
+    // token for that Worker, never a raw provider key. Override at runtime via
     // process.env.BETHANIEL_CLOUD_BASE_URL until the production Worker is live.
     defaultBaseUrl:
       process.env.BETHANIEL_CLOUD_BASE_URL || "https://cloud.bethaniel.eu",
     // Provider rate limits, not local hardware, bound concurrency here too —
-    // tune once the Worker's real Mistral rate limits are known.
+    // tune once the Worker's real OVHcloud rate limits are known.
     recommendedParallel: 3,
     defaults: {
       ...COMMON_DEFAULTS,

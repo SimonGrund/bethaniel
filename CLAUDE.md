@@ -141,11 +141,11 @@ Models are identified by `source` in `modelCatalog.ts`:
 
 ### Betty in the Cloud (pay-per-job cloud processing)
 
-The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over token cost) to run one job against Mistral instead of locally or via their own key — no local hardware or BYO API key required. It reuses the `"api"` source's existing plumbing end-to-end; nothing in `queue.ts`/`llm.ts`'s core pipeline needed to change.
+The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over token cost) to run one job against OVHcloud AI Endpoints (Qwen3.5-397B-A17B) instead of locally or via their own key — no local hardware or BYO API key required. It reuses the `"api"` source's existing plumbing end-to-end; nothing in `queue.ts`/`llm.ts`'s core pipeline needed to change.
 
 - `backend/src/cloudEstimate.ts` — pre-run token/cost estimator (`estimateCloudJob`), built on `llm.ts`'s `estimateTokens` heuristic and the real prompt builders in `prompts.ts`. Mirrors `routes.ts`'s `/queue/add` mode-merge logic (copy_edit+line_edit → combined_edit; any analysis mode selection → one combined_analysis task) so it never double-counts work the real job doesn't do.
 - `POST /api/cloud/estimate` and `POST /api/cloud/checkout` (`routes.ts`) — compute the estimate and proxy to the Cloudflare Worker's `/v1/quote` / `/v1/checkout`, keeping the Worker URL out of the renderer.
-- `worker/` — a **separate deployable package** (own `package.json`/`wrangler.toml`, not part of the root npm workspaces) implementing the Worker: Stripe Checkout, a per-credential Durable Object ledger (`worker/src/ledger.ts`) that hard-caps total exposure via reserve/commit/release, and a metering proxy in front of Mistral that returns a 402 on budget exhaustion — which `llm.ts`'s existing `ApiAccountError` already surfaces gracefully. See `worker/README.md` for deployment.
+- `worker/` — a **separate deployable package** (own `package.json`/`wrangler.toml`, not part of the root npm workspaces) implementing the Worker: Stripe Checkout, a per-credential Durable Object ledger (`worker/src/ledger.ts`) that hard-caps total exposure via reserve/commit/release, and a metering proxy in front of OVHcloud AI Endpoints that returns a 402 on budget exhaustion — which `llm.ts`'s existing `ApiAccountError` already surfaces gracefully. See `worker/README.md` for deployment.
 - `electron/main.ts` registers `bethaniel://` and handles the paid-credential handoff (`claimCloudCredential`) once the Worker's hosted success page redirects there after a completed Stripe Checkout; the app's own `PUT /api/models/custom/config` (now `entryId`-aware) saves it exactly like an External Betty key.
 
 ### Electron packaging

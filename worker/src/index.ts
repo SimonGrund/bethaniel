@@ -3,7 +3,9 @@
 // From the Bethaniel app's point of view this Worker is just another
 // OpenAI-compatible `source: "api"` base URL — see backend/src/llm.ts's
 // `chatStream`. Everything provider-specific (Stripe, the credential ledger,
-// Mistral) is hidden behind that one contract.
+// the upstream inference provider) is hidden behind that one contract — the
+// provider is three env vars, so switching one is a config change, not a
+// rewrite.
 
 import type { Env } from "./env";
 import { priceTokens } from "./quote";
@@ -129,7 +131,7 @@ export default {
           status: "issued",
           token: claim.token,
           tokenBudget: claim.tokenBudget,
-          model: env.MISTRAL_MODEL,
+          model: env.PROVIDER_MODEL,
         });
       }
 
