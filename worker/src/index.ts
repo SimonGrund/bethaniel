@@ -18,6 +18,7 @@ import {
   insertPendingClaim,
   findPendingClaim,
   sweepExpiredPendingClaims,
+  sweepExpiredQuotes,
 } from "./db";
 import { createCheckoutSession, verifyAndParseStripeWebhook } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
@@ -25,6 +26,7 @@ import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
 
 export { CredentialLedger } from "./ledger";
+export { GlobalMeter } from "./globalMeter";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -50,6 +52,21 @@ export default {
         const { estimatedTokens } = (await request.json()) as { estimatedTokens: number };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
           return json({ error: "estimatedTokens must be a positive number" }, 400);
+        }
+        // /v1/quote is unauthenticated by necessity — the app asks for a price
+        // before anyone has paid. Bound it so a bad (or hostile) caller cannot
+        // mint a Checkout Session for an absurd sum, or size a credential
+        // budget larger than the daily ceiling could ever serve.
+        const maxQuote = Number(env.MAX_QUOTE_TOKENS) || 0;
+        if (maxQuote > 0 && estimatedTokens > maxQuote) {
+          return json(
+            {
+              error:
+                "This job is larger than Betty in the Cloud will price in one go — split it into fewer chapters per run.",
+              maxTokens: maxQuote,
+            },
+            413,
+          );
         }
         const quote = priceTokens(env, estimatedTokens);
         const quoteId = crypto.randomUUID();
@@ -151,8 +168,11 @@ export default {
       (async () => {
         const expiredCredentials = await sweepExpiredCredentials(env);
         const expiredClaims = await sweepExpiredPendingClaims(env);
+        // Quotes were never swept — /v1/quote is unauthenticated, so the table
+        // grew by one row per price check forever, paid or not.
+        const expiredQuotes = await sweepExpiredQuotes(env);
         console.log(
-          `[cron] expired ${expiredCredentials} credential(s), swept ${expiredClaims} stale pending claim(s)`,
+          `[cron] expired ${expiredCredentials} credential(s), swept ${expiredClaims} stale pending claim(s), ${expiredQuotes} expired quote(s)`,
         );
       })(),
     );

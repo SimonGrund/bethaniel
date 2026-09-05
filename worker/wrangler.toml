@@ -1,6 +1,6 @@
 name = "bethaniel-cloud"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Custom domain / route — point this at cloud.bethaniel.eu (or whatever
@@ -18,9 +18,17 @@ database_id = "REPLACE_WITH_D1_DATABASE_ID" # `wrangler d1 create bethaniel-clou
 name = "CREDENTIAL_LEDGER"
 class_name = "CredentialLedger"
 
+[[durable_objects.bindings]]
+name = "GLOBAL_METER"
+class_name = "GlobalMeter"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CredentialLedger"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["GlobalMeter"]
 
 [triggers]
 crons = ["0 * * * *"] # hourly: sweep expired unused credentials
@@ -50,3 +58,26 @@ STRIPE_FIXED_FEE_EUR = "0.25"
 MIN_CHARGE_EUR_CENTS = "200"
 CREDENTIAL_EXPIRY_DAYS = "7"
 CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
+
+# ── Safety limits ──
+# OVHcloud offers budget *alerts* but no hard spending cap, and an
+# authenticated key may send 400 requests/minute per project per model —
+# roughly EUR 187/hour at a representative Bethaniel chunk. These are
+# therefore the only real ceilings that exist. See src/globalMeter.ts.
+#
+# Worker-wide tokens per UTC day. 5M ~= EUR 8/day at the blended rate above,
+# which comfortably covers one full 100k-word Max job (5.0M) while capping a
+# leaked key or a runaway retry loop. Raise deliberately as real demand
+# appears; a value of 0 or an unparseable one fails CLOSED (all requests
+# refused), never open.
+DAILY_TOKEN_CEILING = "5000000"
+# No single call may reserve or generate more than this, whatever it asks for.
+MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
+# Upper bound on an unauthenticated /v1/quote, so nobody can mint a Checkout
+# Session for an absurd sum. 6M covers the largest job the estimator produces
+# for a 100k-word manuscript on Max (5.0M) with headroom.
+MAX_QUOTE_TOKENS = "6000000"
+# "none" disables the model's chain-of-thought. Qwen3.5 reasons by default and
+# will burn the entire output budget thinking, returning empty content — see
+# the measurement in src/proxy.ts. "default" hands control back to the provider.
+PROVIDER_REASONING_EFFORT = "none"

@@ -47,6 +47,44 @@ credential-issuance ledger logic can still be exercised directly by posting a
 hand-signed webhook payload (see the HMAC-SHA256 scheme Stripe documents for
 its `Stripe-Signature` header).
 
+## Safety limits
+
+OVHcloud offers budget **alerts** (an email once forecast usage crosses a
+threshold) but **no hard spending cap**, and an authenticated key may send 400
+requests/minute per project per model — roughly EUR 187/hour at a
+representative Bethaniel chunk. The ceilings below are therefore the only real
+ones that exist, and they live here rather than at the provider.
+
+| Var | Default | What it bounds |
+|---|---|---|
+| `DAILY_TOKEN_CEILING` | 5,000,000 | Worker-wide tokens per UTC day (~EUR 8). Enforced by the `GlobalMeter` DO. **Fails closed** if unset or unparseable. |
+| `MAX_OUTPUT_TOKENS_PER_REQUEST` | 8,192 | Caps one call's generation however large a `max_tokens` it asks for. |
+| `MAX_QUOTE_TOKENS` | 6,000,000 | Upper bound on an unauthenticated `/v1/quote`, so nobody can mint a Checkout Session for an absurd sum. |
+| `PROVIDER_REASONING_EFFORT` | `none` | See below. |
+
+`CredentialLedger` caps what one *paying user* can spend; `GlobalMeter` caps
+what Bethaniel spends in aggregate. Both are needed — ten thousand credentials
+would otherwise mean ten thousand independent budgets and no total limit.
+`npm test` covers the GlobalMeter's ceiling, fail-closed and concurrency
+behaviour.
+
+### Reasoning must stay off
+
+Qwen3.5 is a reasoning model and thinks by default. Measured against the live
+API on a four-sentence copy-edit prompt: **102 input tokens produced 3,000
+completion tokens of pure reasoning, `finish_reason: "length"`, and an empty
+`content` field** — the app's JSON parser would have received nothing. With
+`reasoning_effort: "none"` the same prompt costs 209 completion tokens and
+returns the corrections array. That is both a >10x cost difference and the
+difference between the feature working and not, so `proxy.ts` injects it on
+every upstream call. Setting `PROVIDER_REASONING_EFFORT = "default"` hands
+control back to the provider — don't, without re-measuring both cost and
+whether `content` still arrives.
+
+Note that OVHcloud rejects `chat_template_kwargs` (the vLLM/Qwen convention
+for the same thing) with an explicit "not currently supported", so
+`reasoning_effort` is the only lever available.
+
 ## Before launch
 
 - OVHcloud AI Endpoints was chosen over Mistral because zero data retention

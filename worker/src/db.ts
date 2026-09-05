@@ -158,3 +158,13 @@ export async function sweepExpiredPendingClaims(env: Env): Promise<number> {
     .run();
   return result.meta.changes ?? 0;
 }
+
+/** Quotes are write-once and short-lived; nothing reads one after it has been
+ *  turned into a Checkout Session. Without this the table grew unboundedly,
+ *  since anyone can ask for a price without paying. */
+export async function sweepExpiredQuotes(env: Env): Promise<number> {
+  const result = await env.DB.prepare(`DELETE FROM quotes WHERE expires_at < ?`)
+    .bind(new Date().toISOString())
+    .run();
+  return result.meta.changes ?? 0;
+}
