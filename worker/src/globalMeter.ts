@@ -6,9 +6,19 @@
 // This exists because the provider will not do it for us. OVHcloud AI
 // Endpoints offers budget *alerts* (an email once forecast usage crosses a
 // threshold) but no hard cap that stops the meter, and an authenticated key
-// is allowed 400 requests/minute per project per model. At a representative
-// Bethaniel chunk that is roughly EUR 187/hour — so a leaked PROVIDER_API_KEY
-// or a runaway retry loop is a four-figure day on a company card.
+// is allowed 400 requests/minute per project per model — roughly EUR 187/hour
+// at a representative Bethaniel chunk.
+//
+// What this DOES bound: our own runaway retry loops, a bug that fans out more
+// calls than intended, and — the likeliest one — systematic under-pricing. If
+// cloudEstimate is wrong and jobs cost more upstream than we charge for them,
+// this caps how much we can bleed in a day before anyone notices.
+//
+// What this does NOT bound: a stolen PROVIDER_API_KEY. That key is used
+// directly against OVHcloud and never passes through this Worker, so nothing
+// here can see it. The only controls for that are the provider account's own
+// funding and rotating the key — which is why the key lives on a separate,
+// lightly-funded OVHcloud project.
 //
 // CredentialLedger caps what any one *paying user* can spend, which is a
 // different question: ten thousand credentials means ten thousand independent

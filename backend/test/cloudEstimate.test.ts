@@ -1,13 +1,19 @@
 // Tests for estimateTaskOutputTokens — the per-task output-token budget the
 // local progress bar divides real tokens-generated-so-far by (see queue.ts's
-// runCorrectionPass). Scoped to this one function; estimateCloudJob itself
-// (the whole-job cloud-pricing estimator it's built from) has no prior test
-// coverage and backfilling that is out of scope here.
+// runCorrectionPass), plus the rule that a Betty in the Cloud job always runs
+// the Speed preset — that one guards what Bethaniel pays upstream, so it is
+// asserted rather than assumed.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { estimateTaskOutputTokens } from "../src/cloudEstimate.ts";
+import {
+  estimateTaskOutputTokens,
+  estimateCloudJob,
+  cloudRunKnobs,
+} from "../src/cloudEstimate.ts";
+import { MODEL_CATALOG } from "../src/modelCatalog.ts";
+import { RUN_MODE_PRESETS } from "../src/runModePresets.ts";
 
 const baseOpts = {
   wordsPerChunk: 2000,
@@ -87,4 +93,54 @@ test("estimateTaskOutputTokens: translate budgets more than a plain copy_edit fo
   const copy = estimateTaskOutputTokens("copy_edit", 4000, baseOpts);
   const translate = estimateTaskOutputTokens("translate", 4000, baseOpts);
   assert.ok(translate > copy);
+});
+
+// ── Cloud jobs always run Speed ──
+// Betty in the Cloud is Bethaniel's spend, not the user's. "custom" still
+// exposes 4 editors + style agent + 4 reviewers + a second pass, which costs
+// ~6x upstream for output the run-mode benchmarks found no better — so a
+// cloud job must never be able to select it, whatever the client sends.
+
+test("cloudRunKnobs forces the Speed preset for the cloud model", () => {
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud")!;
+  const knobs = cloudRunKnobs(cloudEntry.fileName);
+  assert.ok(knobs, "cloud model must get forced knobs");
+  assert.equal(knobs.extraPass, false, "the 2x second pass must be off");
+  assert.equal(knobs.dualEditor, false, "no multi-editor fan-out");
+  assert.equal(knobs.reviewerCount, 1);
+  assert.deepEqual(knobs, RUN_MODE_PRESETS.speed);
+});
+
+test("cloudRunKnobs leaves every other model alone", () => {
+  // Local and BYO-key runs spend the user's own compute — not ours to clamp.
+  for (const m of ["Qwen3.5-9B.gguf", "custom:deepseek", "custom:gguf:/tmp/x.gguf", "", undefined]) {
+    assert.equal(cloudRunKnobs(m), null, `${String(m)} must be untouched`);
+  }
+});
+
+test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
+  // The knobs a hostile or stale client might send.
+  const greedy = {
+    reviewMode: true, reviewerCount: 4, dualEditor: true, dualCount: 4,
+    styleComplianceAgent: true, extraPass: true,
+  };
+  const units = Array.from({ length: 30 }, () => ({ wordCount: 3333 }));
+  const base = {
+    units, modes: ["copy_edit", "line_edit"], wordsPerChunk: 2500,
+    numPredict: 8192, manuscriptLang: "en",
+  } as const;
+
+  const asSent = estimateCloudJob({ ...base, runMode: "custom", ...greedy });
+  const forced = estimateCloudJob({
+    ...base, runMode: "speed", ...RUN_MODE_PRESETS.speed,
+  });
+
+  assert.ok(
+    forced.estimatedTotalTokens * 4 < asSent.estimatedTotalTokens,
+    `forcing Speed must cut cost several-fold (got ${forced.estimatedTotalTokens} vs ${asSent.estimatedTotalTokens})`,
+  );
+  // 100k words is the headline case; Speed must stay well inside the Worker's
+  // MAX_QUOTE_TOKENS (25M) and DAILY_TOKEN_CEILING, with the greedy variant
+  // being the thing that would have blown through them.
+  assert.ok(forced.estimatedTotalTokens < 2_000_000);
 });

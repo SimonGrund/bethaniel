@@ -65,18 +65,26 @@ CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
 # roughly EUR 187/hour at a representative Bethaniel chunk. These are
 # therefore the only real ceilings that exist. See src/globalMeter.ts.
 #
-# Worker-wide tokens per UTC day. 5M ~= EUR 8/day at the blended rate above,
-# which comfortably covers one full 100k-word Max job (5.0M) while capping a
-# leaked key or a runaway retry loop. Raise deliberately as real demand
-# appears; a value of 0 or an unparseable one fails CLOSED (all requests
-# refused), never open.
-DAILY_TOKEN_CEILING = "5000000"
+# Worker-wide tokens per UTC day (~EUR 23 of upstream cost at the blended rate
+# above). Cloud jobs are forced to the Speed preset server-side
+# (cloudRunKnobs in backend/src/cloudEstimate.ts), so the largest single job
+# is bounded: a 400k-word manuscript is 4.98M tokens. This leaves room for
+# ~3 of those in a day, or a dozen ordinary 100k-word ones.
+#
+# Must stay at or above MAX_QUOTE_TOKENS, or we could sell a job we then
+# refuse to run — /v1/quote enforces that relationship at runtime rather than
+# trusting this comment.
+#
+# A value of 0 or an unparseable one fails CLOSED (every request refused),
+# never open.
+DAILY_TOKEN_CEILING = "15000000"
 # No single call may reserve or generate more than this, whatever it asks for.
 MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
 # Upper bound on an unauthenticated /v1/quote, so nobody can mint a Checkout
-# Session for an absurd sum. 6M covers the largest job the estimator produces
-# for a 100k-word manuscript on Max (5.0M) with headroom.
-MAX_QUOTE_TOKENS = "6000000"
+# Session for an absurd sum. 8M is ~1.6x the largest job anyone can actually
+# buy (a 400k-word manuscript at Speed, 4.98M). An anti-nonsense bound, not a
+# product limit — real jobs must never reach it.
+MAX_QUOTE_TOKENS = "8000000"
 # "none" disables the model's chain-of-thought. Qwen3.5 reasons by default and
 # will burn the entire output budget thinking, returning empty content — see
 # the measurement in src/proxy.ts. "default" hands control back to the provider.

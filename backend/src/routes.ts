@@ -80,6 +80,7 @@ import {
 } from "./types.js";
 import {
   estimateCloudJob,
+  cloudRunKnobs,
   type CloudEstimateInput,
   type CloudEstimateMode,
 } from "./cloudEstimate.js";
@@ -135,7 +136,7 @@ import {
   setConcurrency,
   getConcurrency,
 } from "./queue.js";
-import { resolveRunMode } from "./runModePresets.js";
+import { resolveRunMode, RUN_MODE_PRESETS } from "./runModePresets.js";
 import {
   getStorageUsage,
   purge,
@@ -452,6 +453,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // knobs, so this mainly serves CLI/headless/benchmark callers.
     const preset = resolveRunMode(runMode);
 
+    // Betty in the Cloud is Bethaniel's spend, not the user's, so it always
+    // runs Speed regardless of what the client asked for. `forced` overrides
+    // the explicit knobs below; for every other model it is null and the
+    // caller's own settings win exactly as before.
+    const forced = cloudRunKnobs(model);
+
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
@@ -752,23 +759,29 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           manuscriptLang:
             currentMode === "translate" ? undefined : manuscriptLang,
-          reviewMode: reviewMode ?? preset?.reviewMode ?? true,
+          reviewMode: forced?.reviewMode ?? reviewMode ?? preset?.reviewMode ?? true,
           reviewerThreshold:
-            reviewerThreshold ?? preset?.reviewerThreshold ?? 3,
-          reviewerCount: reviewerCount ?? preset?.reviewerCount ?? 1,
-          spellCheck: spellCheck ?? preset?.spellCheck ?? true,
-          retextCheck: retextCheck ?? preset?.retextCheck ?? true,
-          grammarCheck: grammarCheck ?? preset?.grammarCheck ?? true,
-          dualEditor: dualEditor ?? preset?.dualEditor ?? true,
-          dualCount: dualCount ?? preset?.dualCount ?? 2,
+            forced?.reviewerThreshold ?? reviewerThreshold ?? preset?.reviewerThreshold ?? 3,
+          reviewerCount:
+            forced?.reviewerCount ?? reviewerCount ?? preset?.reviewerCount ?? 1,
+          spellCheck: forced?.spellCheck ?? spellCheck ?? preset?.spellCheck ?? true,
+          retextCheck: forced?.retextCheck ?? retextCheck ?? preset?.retextCheck ?? true,
+          grammarCheck: forced?.grammarCheck ?? grammarCheck ?? preset?.grammarCheck ?? true,
+          dualEditor: forced?.dualEditor ?? dualEditor ?? preset?.dualEditor ?? true,
+          dualCount: forced?.dualCount ?? dualCount ?? preset?.dualCount ?? 2,
           characterDedup: characterDedup ?? false,
           styleComplianceAgent:
-            styleComplianceAgent ?? preset?.styleComplianceAgent ?? true,
-          // Off unless the client asks or a preset opts in (max): the UI always
+            forced?.styleComplianceAgent ??
+            styleComplianceAgent ??
+            preset?.styleComplianceAgent ??
+            true,
+          // Off unless the client asks or a preset opts in: the UI always
           // sends it explicitly; headless/API callers that omit both shouldn't
-          // get surprise 2× runs.
-          extraPass: extraPass === true || preset?.extraPass === true,
-          runMode,
+          // get surprise 2× runs. A cloud job can never turn it on.
+          extraPass: forced
+            ? forced.extraPass
+            : extraPass === true || preset?.extraPass === true,
+          runMode: forced ? "speed" : runMode,
           styleGuide,
         });
         taskIds.push(taskId);
@@ -2033,17 +2046,21 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
   }
 
   const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  const cloudKnobs = RUN_MODE_PRESETS.speed;
   const input: CloudEstimateInput = {
     units,
     modes,
     wordsPerChunk: Number(body.wordsPerChunk) || 2000,
-    runMode: body.runMode === "speed" ? "speed" : "custom",
-    reviewMode: !!body.reviewMode,
-    reviewerCount: Number(body.reviewerCount) || 0,
-    dualEditor: !!body.dualEditor,
-    dualCount: Number(body.dualCount) || 1,
-    styleComplianceAgent: !!body.styleComplianceAgent,
-    extraPass: !!body.extraPass,
+    // A cloud quote must price the Speed run the job will actually be, not
+    // whatever knobs the caller happens to be carrying — otherwise the price
+    // and the work disagree in one direction or the other.
+    runMode: "speed",
+    reviewMode: cloudKnobs.reviewMode,
+    reviewerCount: cloudKnobs.reviewerCount,
+    dualEditor: cloudKnobs.dualEditor,
+    dualCount: cloudKnobs.dualCount,
+    styleComplianceAgent: cloudKnobs.styleComplianceAgent,
+    extraPass: cloudKnobs.extraPass,
     numPredict: cloudEntry?.defaults.num_predict ?? 8192,
     styleGuideChars:
       typeof body.styleGuide === "string" ? body.styleGuide.length : undefined,

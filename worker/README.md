@@ -57,9 +57,9 @@ ones that exist, and they live here rather than at the provider.
 
 | Var | Default | What it bounds |
 |---|---|---|
-| `DAILY_TOKEN_CEILING` | 5,000,000 | Worker-wide tokens per UTC day (~EUR 8). Enforced by the `GlobalMeter` DO. **Fails closed** if unset or unparseable. |
+| `DAILY_TOKEN_CEILING` | 15,000,000 | Worker-wide tokens per UTC day (~EUR 23 upstream). Enforced by the `GlobalMeter` DO. **Fails closed** if unset or unparseable. |
 | `MAX_OUTPUT_TOKENS_PER_REQUEST` | 8,192 | Caps one call's generation however large a `max_tokens` it asks for. |
-| `MAX_QUOTE_TOKENS` | 6,000,000 | Upper bound on an unauthenticated `/v1/quote`, so nobody can mint a Checkout Session for an absurd sum. |
+| `MAX_QUOTE_TOKENS` | 8,000,000 | Upper bound on an unauthenticated `/v1/quote`. Clamped at runtime to `min(MAX_QUOTE_TOKENS, DAILY_TOKEN_CEILING)` so we can never sell a job the ceiling would refuse. |
 | `PROVIDER_REASONING_EFFORT` | `none` | See below. |
 
 `CredentialLedger` caps what one *paying user* can spend; `GlobalMeter` caps
@@ -67,6 +67,18 @@ what Bethaniel spends in aggregate. Both are needed — ten thousand credentials
 would otherwise mean ten thousand independent budgets and no total limit.
 `npm test` covers the GlobalMeter's ceiling, fail-closed and concurrency
 behaviour.
+
+Sizing assumes cloud jobs run the **Speed** preset, which the backend forces
+(`cloudRunKnobs`, backend/src/cloudEstimate.ts) rather than trusting the
+client: the largest job anyone can buy is then a 400k-word manuscript at 4.98M
+tokens. Without that forcing, "custom" would allow 4 editors + style agent + 4
+reviewers + a second pass — 21.3M tokens for 300k words, several times these
+ceilings.
+
+**What GlobalMeter does not cover:** a stolen `PROVIDER_API_KEY`. That key is
+used directly against OVHcloud and never passes through this Worker. The only
+controls there are the provider account's funding and key rotation — which is
+why it belongs on a separate, lightly-funded OVHcloud project.
 
 ### Reasoning must stay off
 

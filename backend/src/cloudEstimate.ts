@@ -14,6 +14,8 @@
 // than this formula assumes.
 
 import { estimateTokens } from "./llm.js";
+import { MODEL_CATALOG } from "./modelCatalog.js";
+import { RUN_MODE_PRESETS, type RunModeKnobs } from "./runModePresets.js";
 import {
   buildCopyEditCorrectionsPrompt,
   buildLineEditCorrectionsPrompt,
@@ -357,4 +359,22 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     confidence,
     perMode,
   };
+}
+
+/** Betty in the Cloud always runs the Speed preset.
+ *
+ *  The Max preset was retired because benchmarking showed it did not earn its
+ *  cost, but "custom" still exposes 4 editors + a style agent + 4 reviewers +
+ *  a second pass. On a cloud job those knobs are not the user's to spend:
+ *  they multiply what Bethaniel pays upstream ~6x (a 100k-word manuscript
+ *  goes from 1.2M tokens to 7.1M) for output the benchmarks say is no better.
+ *
+ *  Forced here rather than in the UI because this is the only place both the
+ *  price quote and the actual run pass through — a client that sent its own
+ *  knobs could otherwise be quoted a Speed price and then run a custom job.
+ *  Returns null for every other model, leaving local/BYO-key runs untouched:
+ *  there the compute is the user's own to spend however they like. */
+export function cloudRunKnobs(model: unknown): RunModeKnobs | null {
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  return model === cloudEntry?.fileName ? RUN_MODE_PRESETS.speed : null;
 }

@@ -100,9 +100,10 @@ export async function handleChatCompletions(
 
   // Second gate: the Worker-wide daily ceiling. The per-credential ledger
   // above says "this buyer has budget left"; this says "Bethaniel has not
-  // spent more upstream today than it is willing to". A leaked provider key
-  // or a runaway retry loop is only ever reachable through this path, so this
-  // is where the company card's exposure is actually bounded.
+  // spent more upstream today than it is willing to" — the backstop against
+  // our own runaway loops and against systematic under-pricing. It cannot see
+  // a stolen provider key (that one is used directly against OVHcloud); see
+  // globalMeter.ts for what this does and does not cover.
   const meter = env.GLOBAL_METER.get(env.GLOBAL_METER.idFromName("global"));
   const meterRes = await meter.fetch("https://meter/reserve", {
     method: "POST",

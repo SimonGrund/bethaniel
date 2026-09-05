@@ -57,7 +57,16 @@ export default {
         // before anyone has paid. Bound it so a bad (or hostile) caller cannot
         // mint a Checkout Session for an absurd sum, or size a credential
         // budget larger than the daily ceiling could ever serve.
-        const maxQuote = Number(env.MAX_QUOTE_TOKENS) || 0;
+        // Never quote a job the daily ceiling could not serve: taking money
+        // for work we would then refuse with a 503 is worse than declining it
+        // up front. Enforced here rather than left to a comment on the config,
+        // so a careless edit to either var cannot produce an unservable sale.
+        const dailyCeiling = Number(env.DAILY_TOKEN_CEILING) || 0;
+        const configuredMax = Number(env.MAX_QUOTE_TOKENS) || 0;
+        const maxQuote =
+          dailyCeiling > 0 && configuredMax > 0
+            ? Math.min(configuredMax, dailyCeiling)
+            : Math.max(configuredMax, dailyCeiling);
         if (maxQuote > 0 && estimatedTokens > maxQuote) {
           return json(
             {
