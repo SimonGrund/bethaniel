@@ -11,6 +11,7 @@ import {
   estimateTaskOutputTokens,
   estimateCloudJob,
   cloudRunKnobs,
+  partitionCloudModes,
 } from "../src/cloudEstimate.ts";
 import { MODEL_CATALOG } from "../src/modelCatalog.ts";
 import { RUN_MODE_PRESETS } from "../src/runModePresets.ts";
@@ -143,4 +144,43 @@ test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
   // MAX_QUOTE_TOKENS (25M) and DAILY_TOKEN_CEILING, with the greedy variant
   // being the thing that would have blown through them.
   assert.ok(forced.estimatedTotalTokens < 2_000_000);
+});
+
+// ── Only tested passes may run in the cloud ──
+// Developmental editing and story analysis are long-context whole-book passes
+// whose cloud cost and quality have not been validated, so they must not be
+// sellable — selling an untested pass is worse than not offering it.
+
+test("the cloud allowlist covers exactly the tested passes", () => {
+  for (const m of ["copy_edit", "line_edit", "combined_edit", "translate"]) {
+    assert.deepEqual(partitionCloudModes([m]).rejected, [], `${m} must be allowed`);
+  }
+  // "Final readthrough" is one button in the UI but two modes underneath
+  // (FINAL_READTHROUGH_MODES in frontend/src/types.ts); both must pass or the
+  // selection breaks for a reason nobody would guess. Spelled out rather than
+  // imported — the backend does not otherwise depend on frontend types.
+  assert.deepEqual(
+    partitionCloudModes(["proofread", "publication_scan"]).rejected, [],
+  );
+});
+
+test("developmental edit and story analysis are refused", () => {
+  const blocked = [
+    "developmental_edit", "character_catalog", "location_catalog",
+    "timeline", "combined_analysis", "analysis_summary", "blurb",
+    "text_evaluator",
+  ];
+  for (const m of blocked) {
+    assert.deepEqual(
+      partitionCloudModes([m]).allowed, [], `${m} must not be sellable`,
+    );
+  }
+});
+
+test("a mixed selection reports precisely which passes are refused", () => {
+  const { allowed, rejected } = partitionCloudModes([
+    "copy_edit", "developmental_edit", "translate", "timeline",
+  ]);
+  assert.deepEqual(allowed, ["copy_edit", "translate"]);
+  assert.deepEqual(rejected, ["developmental_edit", "timeline"]);
 });

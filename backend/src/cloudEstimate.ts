@@ -378,3 +378,38 @@ export function cloudRunKnobs(model: unknown): RunModeKnobs | null {
   const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
   return model === cloudEntry?.fileName ? RUN_MODE_PRESETS.speed : null;
 }
+
+// ── What Betty in the Cloud is allowed to run ──
+//
+// Only the modes whose cloud behaviour has actually been tested. Developmental
+// editing and the story-analysis family are deliberately excluded: they are
+// long-context, whole-book passes whose output quality and token cost have not
+// been validated against a cloud model, and selling an untested pass is worse
+// than not offering it. Widen this list once each has been benchmarked.
+//
+// "Final readthrough" is a two-mode selection in the UI (proofread +
+// publication_scan), so both are listed; publication_scan is deterministic and
+// costs no tokens, but it must not be *rejected* when it arrives alongside a
+// proofread.
+export const CLOUD_ALLOWED_MODES: readonly string[] = [
+  "copy_edit",
+  "line_edit",
+  "combined_edit",
+  "proofread",
+  "publication_scan",
+  "translate",
+];
+
+/** Split a mode selection into what the cloud will run and what it will not.
+ *  Returns `rejected` empty when everything is allowed. */
+export function partitionCloudModes(modes: readonly string[]): {
+  allowed: string[];
+  rejected: string[];
+} {
+  const allowed: string[] = [];
+  const rejected: string[] = [];
+  for (const m of modes) {
+    (CLOUD_ALLOWED_MODES.includes(m) ? allowed : rejected).push(m);
+  }
+  return { allowed, rejected };
+}

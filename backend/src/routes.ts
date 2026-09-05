@@ -81,6 +81,7 @@ import {
 import {
   estimateCloudJob,
   cloudRunKnobs,
+  partitionCloudModes,
   type CloudEstimateInput,
   type CloudEstimateMode,
 } from "./cloudEstimate.js";
@@ -462,6 +463,21 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
+
+    // Same gate as /cloud/estimate, repeated here because this is the endpoint
+    // that actually spends money: a client could otherwise get a quote for an
+    // allowed mode and then submit a blocked one against the same credential.
+    if (forced) {
+      const { rejected } = partitionCloudModes(modeList);
+      if (rejected.length > 0) {
+        res.status(400).json({
+          error:
+            "Betty in the Cloud can currently run copy edit, line edit, final readthrough and translation. The other passes are still local-only.",
+          unsupportedModes: rejected,
+        });
+        return;
+      }
+    }
 
     console.log(
       `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} runMode=${runMode ?? "custom"} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
@@ -2042,6 +2058,18 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
   const modes: CloudEstimateMode[] = Array.isArray(body.modes) ? body.modes : [];
   if (units.length === 0 || modes.length === 0) {
     res.status(400).json({ error: "units and modes are required" });
+    return;
+  }
+
+  // Refuse to *price* what we would refuse to run — a quote for a blocked
+  // mode would otherwise become a Checkout Session for work never delivered.
+  const { rejected } = partitionCloudModes(modes);
+  if (rejected.length > 0) {
+    res.status(400).json({
+      error:
+        "Betty in the Cloud can currently run copy edit, line edit, final readthrough and translation. The other passes are still local-only.",
+      unsupportedModes: rejected,
+    });
     return;
   }
 
