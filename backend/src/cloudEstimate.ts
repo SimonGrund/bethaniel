@@ -95,7 +95,7 @@ export interface CloudEstimateInput {
   units: { wordCount: number }[];
   modes: CloudEstimateMode[];
   wordsPerChunk: number;
-  runMode: "speed" | "max" | "custom";
+  runMode: "speed" | "custom";
   reviewMode: boolean;
   reviewerCount: number;
   dualEditor: boolean;
@@ -192,7 +192,7 @@ function estimateCorrectionsMode(
     }
   }
 
-  // "max" preset re-runs the whole pass a second time for copy/combined edit.
+  // extraPass re-runs the whole pass a second time for copy/combined edit.
   if (input.extraPass && mode !== "line_edit") {
     inputTokens *= 2;
     outputTokens *= 2;

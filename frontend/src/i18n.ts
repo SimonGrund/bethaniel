@@ -69,72 +69,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Erweiterte Einstellungen",
     es: "Ajustes avanzados",
   },
-  run_mode: {
-    en: "Run mode",
-    da: "Kørselstilstand",
-    de: "Ausführungsmodus",
-    es: "Modo de ejecución",
-  },
-  run_mode_speed: {
-    en: "Speed",
-    da: "Hurtig",
-    de: "Schnell",
-    es: "Rápido",
-  },
-  run_mode_max: {
-    en: "Max",
-    da: "Maks",
-    de: "Max",
-    es: "Máx",
-  },
-  run_mode_custom: {
-    en: "Custom",
-    da: "Tilpasset",
-    de: "Benutzerdefiniert",
-    es: "Personalizado",
-  },
-  run_mode_speed_help: {
-    en: "Fastest. One editor + style check + one reviewer, plus all built-in checks. Best for local models.",
-    da: "Hurtigst. Én redaktør + stiltjek + én bedømmer, plus alle indbyggede tjek. Bedst til lokale modeller.",
-    de: "Am schnellsten. Ein Lektor + Stilprüfung + ein Prüfer, plus alle integrierten Prüfungen. Ideal für lokale Modelle.",
-    es: "El más rápido. Un editor + revisión de estilo + un revisor, más todas las comprobaciones integradas. Ideal para modelos locales.",
-  },
-  run_mode_max_help: {
-    en: "Highest quality. Three editors + style check + two reviewers + a thorough second pass. Best for External Betty.",
-    da: "Højeste kvalitet. Tre redaktører + stiltjek + to bedømmere + en grundig ekstra gennemgang. Bedst til Ekstern Betty.",
-    de: "Höchste Qualität. Drei Lektoren + Stilprüfung + zwei Prüfer + ein gründlicher zweiter Durchgang. Ideal für Externe Betty.",
-    es: "Máxima calidad. Tres editores + revisión de estilo + dos revisores + una segunda pasada minuciosa. Ideal para Betty Externa.",
-  },
-  run_mode_max_warn: {
-    en: "Max mode on this hardware may be very slow.",
-    da: "Maks-tilstand kan være meget langsom på denne hardware.",
-    de: "Max-Modus kann auf dieser Hardware sehr langsam sein.",
-    es: "El modo Máx puede ser muy lento en este hardware.",
-  },
-  run_mode_max_warn_detail: {
-    en: "Max runs three editors and a thorough second pass — roughly five times the work of Speed. On this machine a full book can take hours. Speed is recommended for local models.",
-    da: "Maks kører tre redaktører og en grundig ekstra gennemgang — cirka fem gange så meget arbejde som Hurtig. På denne maskine kan en hel bog tage timer. Hurtig anbefales til lokale modeller.",
-    de: "Max führt drei Lektoren und einen gründlichen zweiten Durchgang aus — etwa das Fünffache von Schnell. Auf diesem Rechner kann ein ganzes Buch Stunden dauern. Für lokale Modelle wird Schnell empfohlen.",
-    es: "Máx ejecuta tres editores y una segunda pasada minuciosa: unas cinco veces el trabajo de Rápido. En este equipo un libro entero puede tardar horas. Se recomienda Rápido para modelos locales.",
-  },
-  run_mode_max_warn_proceed: {
-    en: "Use Max anyway",
-    da: "Brug Maks alligevel",
-    de: "Trotzdem Max verwenden",
-    es: "Usar Máx de todos modos",
-  },
-  run_mode_max_warn_cancel: {
-    en: "Keep Speed",
-    da: "Behold Hurtig",
-    de: "Bei Schnell bleiben",
-    es: "Mantener Rápido",
-  },
-  run_mode_custom_help: {
-    en: "Hand-tuned settings. Adjust the options below, or pick a preset above.",
-    da: "Manuelt justerede indstillinger. Justér mulighederne nedenfor, eller vælg en forudindstilling ovenfor.",
-    de: "Manuell angepasste Einstellungen. Passe die Optionen unten an oder wähle oben eine Voreinstellung.",
-    es: "Ajustes manuales. Modifica las opciones de abajo o elige un preajuste arriba.",
-  },
   model_tuning: {
     en: "Model tuning",
     da: "Modeltuning",
@@ -2901,12 +2835,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Intro erneut",
     es: "Repetir intro",
   },
-  intro_runmode: {
-    en: "Slide this to trade speed for thoroughness. Speed is a good place to start.",
-    da: "Træk her for at bytte hastighed mod grundighed. Hurtig er et godt sted at starte.",
-    de: "Schiebe hier, um Tempo gegen Gründlichkeit zu tauschen. Schnell ist ein guter Anfang.",
-    es: "Desliza para cambiar velocidad por minuciosidad. Rápido es un buen punto de partida.",
-  },
 
   // ── Model selector visibility ──
   activate_model_selector: {
@@ -3160,13 +3088,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Fortsæt med Baby Betty alligevel",
     de: "Trotzdem mit Baby Betty fortfahren",
     es: "Continuar con Baby Betty de todos modos",
-  },
-
-  run_mode_custom_sidebar_help: {
-    en: "Hand-tuned in model settings. Pick a preset to go back to a standard mode.",
-    da: "Manuelt justeret i modelindstillinger. Vælg en forudindstilling for at vende tilbage til en standardtilstand.",
-    de: "Manuell in den Modelleinstellungen angepasst. Wähle eine Voreinstellung, um zu einem Standardmodus zurückzukehren.",
-    es: "Ajustada a mano en los ajustes del modelo. Elige un preajuste para volver a un modo estándar.",
   },
 
   languagetool_advice_title: {

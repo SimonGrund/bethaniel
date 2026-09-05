@@ -73,7 +73,16 @@ const DEFAULT_MANUSCRIPT_LANG = "en";
 // local, and catch most mechanical errors. `parallel` is handled separately by
 // the model-change auto-tune (hardware recommendation / API ceiling), not here.
 // Mirrors backend/src/runModePresets.ts — keep the two tables in sync.
-export type RunMode = "speed" | "max" | "custom";
+//
+// "Max" (3 editors + 2 reviewers + a thorough 2nd pass) and "Balanced" both
+// existed as presets here and were removed after benchmarking: Max helped on
+// External Betty (a strong API model) but bought nothing on either bundled
+// local model, and rather than keep a heavy preset that only pays off for one
+// model source, it was dropped everywhere for one predictable pipeline. See
+// docs/run-modes.md. `runMode` and the "custom" tag (a knob was hand-tuned
+// away from the one preset) stay, since CLI/benchmark callers and the knob
+// setters below still use them.
+export type RunMode = "speed" | "custom";
 const DEFAULT_RUN_MODE: RunMode = "speed";
 
 interface RunModeKnobs {
@@ -90,7 +99,7 @@ interface RunModeKnobs {
 }
 
 const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
-  // Local default: 1 editor + style agent + 1 reviewer. No thorough 2nd pass.
+  // The only preset: 1 editor + style agent + 1 reviewer. No thorough 2nd pass.
   speed: {
     reviewMode: true,
     reviewerCount: 1,
@@ -102,19 +111,6 @@ const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
     dualCount: DEFAULT_DUAL_COUNT,
     styleComplianceAgent: true,
     extraPass: false,
-  },
-  // External Betty default: 3 editors + style agent + 2 reviewers + 2nd pass.
-  max: {
-    reviewMode: true,
-    reviewerCount: 2,
-    reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
-    spellCheck: true,
-    retextCheck: true,
-    grammarCheck: true,
-    dualEditor: true,
-    dualCount: 3,
-    styleComplianceAgent: true,
-    extraPass: true,
   },
 };
 
@@ -966,6 +962,19 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "bethaniel-settings",
+      // Bumped when "max" run mode was removed: a persisted install that had
+      // "max" selected (including every External Betty user — it used to be
+      // the auto-selected default there) would otherwise keep max-shaped
+      // knobs (dualEditor, reviewerCount: 2, extraPass, …) forever, since
+      // those are persisted independently of the runMode label itself.
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<AppState> & { runMode?: string };
+        if (version < 1 && state?.runMode && state.runMode !== "speed" && state.runMode !== "custom") {
+          return { ...state, runMode: DEFAULT_RUN_MODE, ...DEFAULT_KNOBS } as unknown as AppState;
+        }
+        return state as unknown as AppState;
+      },
       partialize: (state) => ({
         // Persisted across sessions
         lang: state.lang,

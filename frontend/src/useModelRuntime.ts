@@ -227,12 +227,14 @@ export function useModelRuntime(): void {
     const modelSwitched = prev !== null;
 
     // External Betty (API): concurrency is bounded by provider rate limits, not
-    // local hardware, so the ceiling is much higher. Max mode wants throughput,
-    // so a switch pushes parallel toward that ceiling.
+    // local hardware, so the ceiling is much higher — a switch pushes parallel
+    // toward that ceiling for throughput. Run mode is always Speed, same as
+    // local models (see docs/run-modes.md: a heavier pipeline was benchmarked
+    // for External Betty too and removed anyway, for one predictable pipeline).
     if (isApiModel(activeModel)) {
       setMaxParallel(API_MAX_PARALLEL);
       if (modelSwitched) {
-        setRunMode("max");
+        setRunMode("speed");
         setParallel(API_MAX_PARALLEL);
       }
       return;

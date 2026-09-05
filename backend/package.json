@@ -12,8 +12,6 @@
     "start": "node --max-old-space-size=8192 dist/index.js",
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsx -r ./preload.cjs src/index.ts",
     "cli": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsx -r ./preload.cjs src/cli.ts",
-    "bench:modes": "tsx scripts/bench-modes.ts",
-    "bench:chapters": "tsx scripts/bench-chapters.ts",
     "install:betty": "npm link",
     "uninstall:betty": "npm unlink -g bethaniel-backend"
   },

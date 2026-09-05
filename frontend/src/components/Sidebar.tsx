@@ -13,7 +13,6 @@ import { cancelJob } from "../api";
 import StepBar from "./StepBar";
 import EditTrigger from "./EditTrigger";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
-import RunModeSlider from "./RunModeSlider";
 import ModelDownloadStrip from "./ModelDownloadStrip";
 
 const SETUP_STEPS = ["model", "edits", "upload", "style"];
@@ -109,14 +108,7 @@ export default function Sidebar() {
           </span>
         </button>
 
-        {setupOpen && (
-          <>
-            <StepBar />
-            {/* Quality vs. time — the one advanced knob every user has a view
-                on, so it sits next to the button that starts the wait. */}
-            <RunModeSlider />
-          </>
-        )}
+        {setupOpen && <StepBar />}
 
         {/* Download progress and the run button stay put: they are the two
             things you still need while a run is folded away. */}

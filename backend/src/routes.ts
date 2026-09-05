@@ -446,7 +446,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       runMode,
     } = req.body;
 
-    // Run-mode preset (speed / max). Fills any knob the caller
+    // Run-mode preset (speed). Fills any knob the caller
     // omitted; explicitly-sent knobs still win (see the `?? preset ?? default`
     // chain below). The UI resolves presets client-side and sends concrete
     // knobs, so this mainly serves CLI/headless/benchmark callers.
@@ -2037,8 +2037,7 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     units,
     modes,
     wordsPerChunk: Number(body.wordsPerChunk) || 2000,
-    runMode:
-      body.runMode === "speed" || body.runMode === "max" ? body.runMode : "custom",
+    runMode: body.runMode === "speed" ? "speed" : "custom",
     reviewMode: !!body.reviewMode,
     reviewerCount: Number(body.reviewerCount) || 0,
     dualEditor: !!body.dualEditor,

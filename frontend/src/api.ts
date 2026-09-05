@@ -486,7 +486,7 @@ export interface CloudEstimateRequest {
   units: { wordCount: number }[];
   modes: string[];
   wordsPerChunk: number;
-  runMode: "speed" | "max" | "custom";
+  runMode: "speed" | "custom";
   reviewMode: boolean;
   reviewerCount: number;
   dualEditor: boolean;

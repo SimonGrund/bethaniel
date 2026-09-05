@@ -1,0 +1,92 @@
+BETHANIEL RUN-MODE BENCHMARK (Speed vs Max, local models)
+Report generated: 2026-09-05T12:04:04.697Z
+══════════════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: Baby Betty (Qwen3.5-4B-Q4_K_M.gguf)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     60%    69%   64        24        4    19.4s   253.1       100       0%
+  max       61%    77%   68        15        4    60.3s   235.3       100       0%
+
+  Clean-text false positives (should be 0):
+    speed  0 false positive(s) in 12.3s
+    max    0 false positive(s) in 42.3s
+
+  → Max vs Speed: +1.0pt recall, 3.1× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+
+
+  line_edit (english fixture)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     20%    50%   29         7        0     9.1s   258.8        85       8%
+  max       20%    50%   29         7        0    18.1s   321.2        85       8%
+
+  Clean-text false positives (should be 0):
+    speed  8 false positive(s) in 6.1s
+             "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent friend." → "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent presence."
+             "unmoored" → "uncured"
+             "tremble and she" → "tremble, and she"
+             "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here recently." → "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here."
+             "Mara sat down before she opened it, because her knees had begun to tremble and she did not want to admit why." → "Mara sat down before opening it, because her knees had begun to tremble and she did not want to admit why."
+             "He wrote about the choice he had made to keep her secret, and about the daughter that woman had left behind in his care." → "He wrote about the choice he had made to keep her secret, and the daughter that woman had left behind in his care."
+             "You called me Grandfather because that is what I asked you to call me." → "You called me Grandfather because that was what I asked you to call me."
+             "She thought she ought to feel angry, or betrayed, or unmoored." → "She thought she ought to feel angry, or betrayed, or adrift."
+    max    12 false positive(s) in 12.1s
+             "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent friend." → "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old friend."
+             "unmoored" → "uncured"
+             "tremble and she" → "tremble, and she"
+             "Mara set down her bag and ran a finger along the windowsill. No dust. Someone had been here recently." → "Mara set down her bag and ran a finger along the windowsill. No dust. Someone had been here."
+             "She read slowly. He wrote about the night her mother had left, about the storm that had driven a small fishing boat onto the rocks below the cliff, about the woman he had pulled from the surf and carried up these very stairs." → "He wrote about the night her mother had left, the storm that had driven a small fishing boat onto the rocks below the cliff, and the woman he had pulled from the surf and carried up these very stairs."
+             "She thought she ought to feel angry, or betrayed, or unmoored." → "She thought she ought to feel angry, or betrayed, or lost."
+             "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent friend." → "The iron steps groaned beneath her boots, and salt air pressed against the narrow windows like an old, insistent presence."
+             "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here recently." → "She set down her bag and ran a finger along the windowsill. No dust. Someone had been here."
+
+  → Max vs Speed: +0.0pt recall, 2.0× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: Big Bad Betty (Qwen3.5-9B-Q4_K_M.gguf)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     59%    67%   63        24        5    18.1s   184.6       n/a      n/a
+  max       59%    67%   63        24        5    57.3s   224.9       n/a      n/a
+
+  Clean-text false positives (should be 0):
+    speed  0 false positive(s) in 12.2s
+    max    0 false positive(s) in 54.3s
+
+  → Max vs Speed: +0.0pt recall, 3.2× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+
+
+  line_edit (english fixture)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     11%    22%   15        12        2     9.1s   188.1        85      11%
+  max       11%    22%   15        12        2    24.1s   228.8        85      11%
+
+  Clean-text false positives (should be 0):
+    speed  10 false positive(s) in 6.1s
+             "The sea stretched away in every direction, vast and bright and indifferent, and somewhere out there, she understood now, was a story that belonged to her and that she had only just begun to learn." → "The sea stretched away in every direction, vast and bright and indifferent. Somewhere out there, she understood now, was a story that belonged to her, one she had only just begun to learn."
+             "In a hand grown thin and shaky, he had written:" → "In a hand grown thin and shaky, he wrote:"
+             "She thought she ought to feel angry, or betrayed, or unmoored." → "She thought she ought to feel angry, betrayed, or unmoored."
+             "You called me Grandfather because that is what I asked you to call me." → "You called me Grandfather because I asked you to call me that."
+             "She read slowly. He wrote about the night her mother had left, about the storm that had driven a small fishing boat onto the rocks below the cliff, about the woman he had pulled from the surf and carried up these very stairs." → "She read slowly. He wrote about the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he pulled from the surf and carried up these very stairs."
+             "because her knees had begun to tremble" → "because her knees began to tremble"
+             "The iron steps groaned beneath her boots" → "The iron steps groaned under her boots"
+             "unmoored" → "uncured"
+    max    10 false positive(s) in 15.1s
+             "The sea stretched away in every direction, vast and bright and indifferent, and somewhere out there, she understood now, was a story that belonged to her and that she had only just begun to learn." → "The sea stretched away in every direction, vast and bright and indifferent. Somewhere out there, she understood now, was a story that belonged to her, one she had only just begun to learn."
+             "In a hand grown thin and shaky, he had written:" → "In a hand grown thin and shaky, he wrote:"
+             "She thought she ought to feel angry, or betrayed, or unmoored." → "She thought she ought to feel angry, betrayed, or unmoored."
+             "You called me Grandfather because that is what I asked you to call me." → "You called me Grandfather because I asked you to call me that."
+             "She read slowly. He wrote about the night her mother had left, about the storm that had driven a small fishing boat onto the rocks below the cliff, about the woman he had pulled from the surf and carried up these very stairs." → "She read slowly. He wrote about the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he pulled from the surf and carried up these very stairs."
+             "because her knees had begun to tremble" → "because her knees began to tremble"
+             "The iron steps groaned beneath her boots" → "The iron steps groaned under her boots"
+             "unmoored" → "uncured"
+
+  → Max vs Speed: +0.0pt recall, 2.6× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+
+
+── END OF REPORT ──

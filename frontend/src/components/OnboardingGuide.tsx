@@ -16,8 +16,7 @@ type TourStop =
  *
  * The model stop only exists in advanced mode: outside it there is no
  * `data-tour="model"` card to spotlight, and the tour would point an arrow at
- * nothing. Everyone else gets the run-mode slider instead, which is the choice
- * they actually have.
+ * nothing.
  */
 function buildStops(advancedMode: boolean): TourStop[] {
   return [
@@ -28,7 +27,6 @@ function buildStops(advancedMode: boolean): TourStop[] {
       ? ([{ kind: "anchor", target: "model", textKey: "intro_model" }] as TourStop[])
       : []),
     { kind: "anchor", target: "style", textKey: "intro_style" },
-    { kind: "anchor", target: "runmode", textKey: "intro_runmode" },
     { kind: "anchor", target: "run", textKey: "intro_run" },
   ];
 }

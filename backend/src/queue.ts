@@ -1328,8 +1328,7 @@ async function processJob(job: JobData): Promise<void> {
       1,
       estimateTaskOutputTokens(estimatorMode, passWordCount, {
         wordsPerChunk: wpc,
-        runMode:
-          job.runMode === "speed" || job.runMode === "max" ? job.runMode : "custom",
+        runMode: job.runMode === "speed" ? "speed" : "custom",
         reviewMode: !!job.reviewMode,
         reviewerCount: job.reviewerCount ?? 1,
         dualEditor: !!job.dualEditor,
