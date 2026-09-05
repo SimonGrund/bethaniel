@@ -8,12 +8,19 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
+import type { LogEntry } from "../types";
 
 // The feed fills the full rail height now, so keep a generous history; the
 // flex container + overflow/fade mask gate how many lines are actually visible.
 const MAX_LINES_PER_STREAM = 30;
 
-export default function EngineStatus() {
+/**
+ * The feed's content, shared with the sidebar so it can decide whether to
+ * reserve rail for the dock at all. An empty amber box holding its floor
+ * height is just space stolen from the setup block above it, and only this
+ * hook knows whether there is anything to say.
+ */
+export function useEngineFeed(): { warming: boolean; lines: LogEntry[] } {
   const showEngineStatus = useStore((s) => s.showEngineStatus);
   const tasks = useStore((s) => s.tasks);
   const logs = useStore((s) => s.logs);
@@ -38,44 +45,53 @@ export default function EngineStatus() {
     return logs.filter((e) => e.ts >= cutoff);
   }, [logs, latestTaskTs]);
 
+  // Single amber column: all task lines merged, newest at the bottom —
+  // deduplicate consecutive identical messages (e.g. repeated model launch
+  // lines).
+  const lines = useMemo(() => {
+    const merged: LogEntry[] = [];
+    for (const entry of jobLogs.slice(-MAX_LINES_PER_STREAM * 2)) {
+      if (merged.length === 0 || merged[merged.length - 1].message !== entry.message) {
+        merged.push(entry);
+      }
+    }
+    return merged.slice(-MAX_LINES_PER_STREAM);
+  }, [jobLogs]);
+
+  if (!showEngineStatus) return { warming: false, lines: [] };
+
+  // No job has run yet — but if the selected model is warming up, surface
+  // that to mask the cold-load latency.
+  const warming =
+    lines.length === 0 &&
+    !!warmingModel &&
+    warmingModel === model &&
+    warmingStatus === "warming";
+
+  return { warming, lines };
+}
+
+export default function EngineStatus() {
+  const { warming, lines } = useEngineFeed();
+
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [jobLogs.length]);
+  }, [lines.length]);
 
-  // Guard placed after all hooks so hook order stays stable when the user
-  // toggles this on/off at runtime.
-  if (!showEngineStatus) return null;
-
-  if (jobLogs.length === 0) {
-    // No job has run yet — but if the selected model is warming up, surface
-    // that to mask the cold-load latency.
-    if (warmingModel && warmingModel === model && warmingStatus === "warming") {
-      return (
-        <ul className="engine-status" role="status" aria-live="polite">
-          <li className="engine-status-line engine-status-info">
-            Warming up the model… Ready when you are.
-          </li>
-        </ul>
-      );
-    }
-    return null;
+  if (warming) {
+    return (
+      <ul className="engine-status" role="status" aria-live="polite">
+        <li className="engine-status-line engine-status-info">
+          Warming up the model… Ready when you are.
+        </li>
+      </ul>
+    );
   }
 
-  // Single amber column: all task lines merged, newest at the bottom —
-  // deduplicate consecutive identical messages (e.g. repeated model launch
-  // lines).
-  const allLines: typeof jobLogs = [];
-  for (const entry of jobLogs.slice(-MAX_LINES_PER_STREAM * 2)) {
-    if (
-      allLines.length === 0 ||
-      allLines[allLines.length - 1].message !== entry.message
-    ) {
-      allLines.push(entry);
-    }
-  }
-  const dedupedLines = allLines.slice(-MAX_LINES_PER_STREAM);
+  if (lines.length === 0) return null;
+
   return (
     <ul
       ref={listRef}
@@ -83,7 +99,7 @@ export default function EngineStatus() {
       role="status"
       aria-live="polite"
     >
-      {dedupedLines.map((e) => (
+      {lines.map((e) => (
         <li
           key={e.id}
           className={`engine-status-line engine-status-${e.level}`}

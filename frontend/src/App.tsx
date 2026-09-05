@@ -19,6 +19,7 @@ import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
 import LanguageToolAdviceModal from "./components/LanguageToolAdviceModal";
+import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
 import type {
   TaskState,
@@ -62,7 +63,6 @@ export default function App() {
   const setDownloadError = useStore((s) => s.setDownloadError);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const advancedMode = useStore((s) => s.advancedMode);
-  const setAdvancedMode = useStore((s) => s.setAdvancedMode);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
   const setLanguageToolAdvice = useStore((s) => s.setLanguageToolAdvice);
@@ -323,26 +323,18 @@ export default function App() {
           <img src="/title-wide.svg" alt="Bethaniel" className="title-svg" />
           <BettyWorking />
           <div className="lang-toggle" style={{ marginLeft: "auto" }}>
-            {/* Reveals the model step and its advanced settings. Most users
-                never touch it — they get a recommendation instead of a
-                decision — but nothing is hidden from anyone who wants it. */}
+            {/* Past runs are a destination, not a setup step — so they live in
+                the header rather than the wizard rail. */}
             <button
               type="button"
-              className={`btn-model-settings${advancedMode ? " btn-model-settings-on" : ""}`}
-              aria-pressed={advancedMode}
-              onClick={() => {
-                const next = !advancedMode;
-                setAdvancedMode(next);
-                // Leaving advanced mode while the model step is open would
-                // otherwise leave an empty panel behind.
-                if (!next && wizardStep === "model") setWizardStep("folded");
-                if (next) setWizardStep("model");
-              }}
+              className={`btn-former-runs${!isSetupPhase ? " btn-former-runs-on" : ""}`}
+              aria-pressed={!isSetupPhase}
+              onClick={() => setWizardStep(isSetupPhase ? "done" : "folded")}
             >
-              {advancedMode
-                ? t("hide_model_selector")
-                : t("activate_model_selector")}
+              {t("former_runs")}
             </button>
+            {/* Model settings (the advanced-mode reveal) and Storage & data. */}
+            <HeaderSettingsMenu />
             <button
               type="button"
               className="btn-rerun-intro"

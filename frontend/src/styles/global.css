@@ -109,8 +109,10 @@ h4 {
   background: #efe6d0;
   border-right: 2px solid #8a7050;
   padding: 1rem;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* The rail owns no scrollbar of its own: if the whole column scrolled, the
+     engine log and the session footer would simply slide below the fold on a
+     short window. Each block scrolls or shrinks in place instead. */
+  overflow: hidden;
   height: 100vh;
   position: sticky;
   top: 0;
@@ -118,8 +120,62 @@ h4 {
   flex-direction: column;
 }
 
+/* Setup block — takes its natural height, but yields it (and scrolls inside)
+   before the engine log or the footer are allowed to lose theirs. */
 .sidebar-section {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   margin-bottom: 1rem;
+  /* Scroll shadows: the `local` cover gradients ride the content and the
+     `scroll` shadows stay pinned, so each edge shadow shows only while there
+     is more in that direction. Without them a clipped step card reads as a
+     rendering bug rather than "scroll me". */
+  background:
+    linear-gradient(#efe6d0 30%, rgba(239, 230, 208, 0)) top / 100% 14px no-repeat
+      local,
+    linear-gradient(rgba(239, 230, 208, 0), #efe6d0 70%) bottom / 100% 14px
+      no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(42, 36, 25, 0.16), transparent)
+      top / 100% 7px no-repeat scroll,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        rgba(42, 36, 25, 0.16),
+        transparent
+      )
+      bottom / 100% 7px no-repeat scroll;
+}
+
+/* Fold/unfold header for the step cards. Looks like the plain SETUP label it
+   replaced — the chevron is the only tell that it is clickable. */
+.sidebar-setup-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sidebar-setup-toggle .sidebar-label {
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+}
+
+.sidebar-setup-chevron {
+  font-size: 0.7rem;
+  color: #8b7355;
+  margin-bottom: 0.4rem;
+  transition: color 0.15s;
+}
+
+.sidebar-setup-toggle:hover .sidebar-label,
+.sidebar-setup-toggle:hover .sidebar-setup-chevron {
+  color: #2a2419;
 }
 
 .sidebar-label {
@@ -285,8 +341,23 @@ h4 {
   margin-bottom: 0.3rem;
 }
 
+/* On a short window every fixed block in the rail is rail the engine log
+   doesn't get. The crest is the one that can give some back. */
+@media (max-height: 760px) {
+  .sidebar-logo {
+    padding: 0.3rem 0 0.5rem 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-logo img {
+    height: 46px;
+    width: 46px;
+  }
+}
+
 /* ── Sidebar logo ── */
 .sidebar-logo {
+  flex: 0 0 auto;
   text-align: center;
   padding: 0.75rem 0 1rem 0;
   margin-bottom: 0.75rem;
@@ -2453,8 +2524,14 @@ summary.review-source::before {
     min-width: 100%;
     height: auto;
     position: relative;
+    overflow: visible;
     border-right: none;
     border-bottom: 1px solid #c9b896;
+  }
+
+  /* Stacked, the rail grows with the page — no internal scroll region. */
+  .sidebar-section {
+    overflow: visible;
   }
 
   .content-layout {
@@ -2482,8 +2559,7 @@ summary.review-source::before {
     margin-top: 0.75rem;
   }
 
-  .sidebar-session .btn-start-over,
-  .sidebar-session .btn-former-runs {
+  .sidebar-session .btn-start-over {
     width: auto;
     flex: 1;
   }
@@ -4003,6 +4079,66 @@ summary.review-source::before {
   opacity: 0.85;
 }
 
+/* ── Header settings menu (model settings + storage & data) ── */
+.header-settings {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.btn-header-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  border: 1px solid #d9c9a8;
+  background: #fdfaf0;
+  border-radius: 4px;
+  color: #8b7355;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-header-settings:hover,
+.btn-header-settings-on {
+  border-color: #1a140a;
+  color: #1a140a;
+}
+
+.header-settings-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 60;
+  min-width: 13rem;
+  padding: 0.25rem;
+  background: #fdfaf0;
+  border: 1px solid #c9b896;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(42, 36, 25, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.header-settings-item {
+  padding: 0.45rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.83rem;
+  color: #2a2419;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.header-settings-item:hover {
+  background: #efe6d0;
+}
+
 /* ── Model settings toggle (header) ── */
 .btn-model-settings {
   padding: 0.25rem 0.6rem;
@@ -4717,6 +4853,29 @@ summary.review-source::before {
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
 }
 
+/* In the header it sits beside the settings/intro buttons, so it matches
+   their scale rather than the sidebar's full-width rail buttons. */
+.title-header .btn-former-runs {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  border-width: 1px;
+  border-radius: 4px;
+  border-color: #d9c9a8;
+  background: #fdfaf0;
+  color: #8b7355;
+}
+
+.title-header .btn-former-runs:hover,
+.title-header .btn-former-runs-on {
+  border-color: #1a140a;
+  color: #1a140a;
+  box-shadow: none;
+}
+
+.title-header .btn-former-runs-on {
+  background: #efe6d0;
+}
+
 /* Wizard run (step 5) */
 .wizard-run-section {
   display: flex;
@@ -4786,11 +4945,24 @@ summary.review-source::before {
 /* ── Sidebar engine log dock — single amber column, constrained to the rail ── */
 /* Grow to fill the rail between the ENGINE label and the session divider. */
 .sidebar-engine {
-  flex: 1;
+  /* Basis 0, not auto: the dock takes the rail that is left over but never
+     *creates* overflow, so the setup block keeps its natural height and only
+     scrolls once it alone outgrows the rail. `overflow: hidden` means that
+     when there is nothing left over the dock vanishes cleanly rather than
+     spilling its label over the footer. */
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   margin-bottom: 0.75rem;
+}
+
+/* While a job is actually running the log is the point of the rail, so it
+   gets a floor even if that pushes the setup block into scrolling. Idle —
+   including sitting on finished logs — setup wins instead. */
+.sidebar-engine-active {
+  min-height: 7rem;
 }
 
 .sidebar-engine-header {
@@ -4849,7 +5021,11 @@ summary.review-source::before {
 
 /* ── Sidebar session footer ── */
 .sidebar-session {
+  /* `margin-top: auto` only pins to the bottom while the column fits. The
+     rail no longer scrolls, so this is a real pin — and `flex-shrink: 0`
+     keeps the button at full height rather than clipping it. */
   margin-top: auto;
+  flex: 0 0 auto;
   padding-top: 0.75rem;
   border-top: 1px solid #c9b896;
   display: flex;
@@ -4857,8 +5033,7 @@ summary.review-source::before {
   gap: 0.4rem;
 }
 
-.sidebar-session .btn-start-over,
-.sidebar-session .btn-former-runs {
+.sidebar-session .btn-start-over {
   width: 100%;
 }
 
