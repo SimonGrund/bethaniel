@@ -11,7 +11,11 @@ import { fileURLToPath } from "url";
 import { readModelConfig, getCustomGgufPath } from "./modelConfig.js";
 import { appendLog, diagnoseEngineExit, emitEvent } from "./logBus.js";
 import { getModelByFileName } from "./modelCatalog.js";
-import { resolveEnginePort } from "./enginePort.js";
+import {
+  resolveEnginePort,
+  isPortBindFailure,
+  isStablePort,
+} from "./enginePort.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -107,15 +111,28 @@ const LLAMA_BIN = resolveLlamaBin();
 /**
  * The port llama-server listens on.
  *
- * Electron passes a freshly-chosen free port in packaged builds. Dev has no
- * such env, so it falls back to a fixed 8012 — which is the only configuration
- * where a leftover engine from a previous session can collide. `activeLlamaPort`
- * holds the port actually in use, so dev can move to a free one when 8012 is
- * stuck rather than launching into a bind failure.
+ * `LLAMA_PORT` is a *preference*, never a reservation — see enginePort.ts for
+ * why a port cannot be held between choosing it and launching the engine. The
+ * port actually in use is `activeLlamaPort`, settled at spawn time, and it is
+ * what everything else must address the engine by.
  */
 const LLAMA_PORT = parseInt(process.env.LLAMA_PORT ?? "8012", 10);
-const LLAMA_PORT_IS_FIXED = process.env.LLAMA_PORT == null;
 let activeLlamaPort = LLAMA_PORT;
+/** True once we have picked the engine's port ourselves. */
+let enginePortSettled = false;
+/**
+ * Ports that lost a bind race this session. The engine band is small and
+ * stable, so without this a retry would keep choosing the same taken port.
+ */
+const enginePortsLost: number[] = [];
+/** How many times a lost bind race is retried elsewhere before giving up. */
+const ENGINE_PORT_ATTEMPTS = 3;
+/**
+ * How long that list is kept. A port lost an hour ago is very likely free
+ * again, and the band is only so wide — remembering forever would slowly wall
+ * the engine out of it.
+ */
+const ENGINE_PORTS_LOST_MAX = 8;
 const LLAMA_HOST = "127.0.0.1";
 
 /** Remove macOS quarantine attribute and ensure the binary is executable. */
@@ -168,6 +185,34 @@ function reportReclaim(pid: string, port: number): void {
   });
 }
 
+/**
+ * Whether a pid is one of our own engines.
+ *
+ * The engine now launches from a small, well-known band of ports (see
+ * enginePort.ts) rather than a random high one, so "whatever holds this port"
+ * is far more likely to be someone else's server than it used to be — and
+ * killing a stranger's process to take their port is not ours to do. Unknown
+ * ownership counts as not-ours: we can simply launch on a different port.
+ */
+function holderIsOurEngine(pid: string): boolean {
+  try {
+    if (process.platform === "win32") {
+      const out = execSync(`tasklist /FI "PID eq ${pid}" /NH /FO CSV`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      }).toString();
+      return /llama-server/i.test(out);
+    }
+    const name = execSync(`ps -o comm= -p ${pid}`, {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    return /llama-server/i.test(name);
+  } catch {
+    return false;
+  }
+}
+
 function freePort(port: number): void {
   try {
     if (process.platform === "win32") {
@@ -198,6 +243,7 @@ function freePort(port: number): void {
       }
       for (const pid of pids) {
         if (pid === self) continue;
+        if (!holderIsOurEngine(pid)) continue;
         reportReclaim(pid, port);
         try {
           execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
@@ -214,18 +260,22 @@ function freePort(port: number): void {
       const pids = out.split(/\s+/).filter(Boolean);
       // Skip our own pid just in case.
       const self = String(process.pid);
+      let reclaiming = false;
       for (const pid of pids) {
         if (pid === self) continue;
+        if (!holderIsOurEngine(pid)) continue;
+        reclaiming = true;
         // Say what is being reclaimed and from whom. An orphaned engine holds
         // the whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
-        // this is often the real answer to "where did my memory go". It also
-        // matters that we name the process: freePort kills whatever holds the
-        // port, identified only by port number.
+        // this is often the real answer to "where did my memory go".
         reportReclaim(pid, port);
         try {
           process.kill(Number(pid), "SIGTERM");
         } catch {}
       }
+      // Nobody of ours to collect — whoever holds the port keeps it, and the
+      // engine launches somewhere else.
+      if (!reclaiming) return;
       // Give them a moment, then SIGKILL stragglers.
       const deadline = Date.now() + 1500;
       while (Date.now() < deadline) {
@@ -254,6 +304,7 @@ function freePort(port: number): void {
           .trim();
         for (const pid of remaining.split(/\s+/).filter(Boolean)) {
           if (pid === self) continue;
+          if (!holderIsOurEngine(pid)) continue;
           try {
             process.kill(Number(pid), "SIGKILL");
           } catch {}
@@ -267,9 +318,19 @@ function freePort(port: number): void {
 const MODELS_DIR =
   process.env.MODELS_DIR ?? path.resolve(__dirname, "../models");
 
-/** Base URL for the llama-server HTTP API. */
+/**
+ * Base URL for the llama-server HTTP API.
+ *
+ * Once we have launched an engine, the port we launched it on is the only
+ * truth. LLAMA_BASE_URL names the port Electron *suggested* at app start,
+ * which we may well have had to move away from — honouring it after the fact
+ * would send every request to a port with nothing behind it.
+ */
 export function getLlamaBaseUrl(): string {
-  return process.env.LLAMA_BASE_URL || `http://${LLAMA_HOST}:${activeLlamaPort}`;
+  if (!enginePortSettled && process.env.LLAMA_BASE_URL) {
+    return process.env.LLAMA_BASE_URL;
+  }
+  return `http://${LLAMA_HOST}:${activeLlamaPort}`;
 }
 
 /** Check if the llama-server binary is available. */
@@ -820,6 +881,7 @@ async function doLoad(
   file: string,
   numCtx: number,
   desiredSlots?: number,
+  attempt = 0,
 ): Promise<void> {
   if (lastLoadFailureAt) {
     const elapsed = Date.now() - lastLoadFailureAt;
@@ -879,28 +941,35 @@ async function doLoad(
   // to ensure each slot gets the full requested context window.
   const totalCtx = numCtx * parallelSlots;
 
-  // Reclaim the port from any stale llama-server (orphaned by a previous
-  // backend crash or hard-kill) so the new spawn doesn't fail with
-  // "couldn't bind HTTP server socket".
-  freePort(LLAMA_PORT);
+  // Stay on the port we already settled on across model swaps; only the first
+  // load starts from the configured preference.
+  const preferred = enginePortSettled ? activeLlamaPort : LLAMA_PORT;
+  // Reclaim the port from an orphaned engine of our own (left by a backend
+  // crash or hard-kill). We could simply launch elsewhere now, but an orphan
+  // holds its whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
+  // it is worth collecting.
+  freePort(preferred);
   const choice = await resolveEnginePort({
     host: LLAMA_HOST,
-    preferred: LLAMA_PORT,
-    // Only dev's fixed fallback may step aside; see enginePort.ts.
-    movable: LLAMA_PORT_IS_FIXED,
+    preferred,
     // The OS can hold the socket in TIME_WAIT briefly after the prior process
     // exits, so give a real bind a few seconds to start succeeding.
     waitMs: 8000,
+    avoid: enginePortsLost,
   });
-  if (choice.moved) {
+  // Moving off an ephemeral preference is routine (see enginePort.ts) and not
+  // worth a line in the user's log. Being pushed off a port that *was* ours to
+  // keep is worth saying out loud.
+  if (choice.moved && isStablePort(preferred)) {
     appendLog({
       level: "info",
       source: "engine",
-      message: `Port ${LLAMA_PORT} is held by another process — using ${choice.port} instead.`,
+      message: `Port ${preferred} is held by another process — using ${choice.port} instead.`,
       model: file,
     });
   }
   activeLlamaPort = choice.port;
+  enginePortSettled = true;
 
   const args = [
     "-m",
@@ -1123,6 +1192,35 @@ async function doLoad(
     await Promise.race([pollHealth(), spawnError, exitDuringLoad]);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // The port was taken between our bind check and the engine's own bind —
+    // the one failure a pre-flight check can never rule out, since the socket
+    // has to be released before the child can have it. Nothing is wrong with
+    // the model or the machine: take a different port and go again.
+    if (isPortBindFailure(recentOutput) && attempt + 1 < ENGINE_PORT_ATTEMPTS) {
+      if (!enginePortsLost.includes(activeLlamaPort)) {
+        enginePortsLost.push(activeLlamaPort);
+        if (enginePortsLost.length > ENGINE_PORTS_LOST_MAX) {
+          enginePortsLost.shift();
+        }
+      }
+      appendLog({
+        level: "info",
+        source: "engine",
+        message:
+          `Port ${activeLlamaPort} was claimed by another process as the engine ` +
+          `started — retrying on a different port.`,
+        model: file,
+      });
+      try {
+        childProcess?.kill("SIGKILL");
+      } catch {}
+      childProcess = null;
+      loadInFlight = false;
+      currentModel = null;
+      currentCtx = null;
+      currentParallelSlots = null;
+      return doLoad(file, numCtx, desiredSlots, attempt + 1);
+    }
     // Don't double-log spawn errors (already logged in the 'error' handler).
     if (!msg.startsWith("Failed to start llama-server")) {
       const diag = diagnoseEngineExit(recentOutput, lastExitCode, lastExitSignal);

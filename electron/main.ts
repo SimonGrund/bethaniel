@@ -681,7 +681,6 @@ app.whenReady().then(async () => {
   backendPort = IS_DEV ? 4000 : await resolveBackendPort();
 
   const llamaBin = findLlamaBin();
-  const llamaPort = await getFreePort();
 
   // Environment for the backend child process
   const backendEnv: Record<string, string> = {
@@ -691,15 +690,17 @@ app.whenReady().then(async () => {
     DATA_DIR: userDataPath("data"),
     MODELS_DIR: userDataPath("models"),
     LLAMA_BIN: llamaBin,
-    LLAMA_PORT: String(llamaPort),
-    LLAMA_BASE_URL: `http://127.0.0.1:${llamaPort}`,
+    // No LLAMA_PORT / LLAMA_BASE_URL: the engine's port is the backend's to
+    // choose, at the moment it launches the engine. Picking one here — minutes
+    // earlier, out of the range the OS reassigns at will — looked like a
+    // reservation but was not one, and the engine died binding a port that had
+    // since been handed to someone else. See backend/src/enginePort.ts.
     NODE_ENV: IS_DEV ? "development" : "production",
   };
 
   // LanguageTool (optional grammar server). Point the backend at the bundled
   // jar + JRE if present; otherwise the backend degrades to no grammar checks.
   const ltDir = findLanguageToolDir();
-  backendEnv.LANGUAGETOOL_PORT = String(await getFreePort());
   if (ltDir) {
     const jar = path.join(ltDir, "languagetool-server.jar");
     if (fs.existsSync(jar)) backendEnv.LANGUAGETOOL_JAR = jar;

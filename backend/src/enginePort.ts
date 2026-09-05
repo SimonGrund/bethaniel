@@ -1,25 +1,52 @@
 // ── Choosing the port llama-server listens on ──
 //
-// Electron picks a free port and passes it in LLAMA_PORT for packaged builds.
-// Dev has no such env and falls back to a fixed 8012, which is the one
-// configuration where an engine orphaned by a previous session can still be
-// holding the socket.
+// The engine port has to be bindable at the moment the engine starts, which
+// can be many minutes after the app launched. A port from the OS ephemeral
+// range cannot carry that promise. The kernel allocates that range, in
+// sequence, to every outbound connection and every listen(0) on the machine —
+// the app's own loopback chatter (health polls, streamed completions, grammar
+// checks, socket.io) walks the counter along, and a long job walks it right
+// around the loop. "Reserving" one by binding a socket and closing it again
+// reserves nothing: the port goes straight back in the pool, and any process
+// on the machine — including this one — can be handed it.
 //
-// The old behaviour was to log a warning and launch anyway. llama-server then
-// died with "couldn't bind HTTP server socket", which surfaced to the user as
-// "Model engine crashed while running <model> (exit 1)" — sending them to look
-// for a fault in the model, the one place the problem definitely was not.
+// That is exactly how a launch died with
+//   couldn't bind HTTP server socket, hostname: 127.0.0.1, port: 59051
+// which reached the user as "Model engine crashed (exit 1)" — sending them to
+// look for a fault in the model, the one place the problem definitely was not.
+//
+// So the engine is launched on a port *below* every platform's ephemeral
+// floor, where the kernel never allocates on its own. A pre-flight bind check
+// still can't be authoritative — the socket must be released before the child
+// can take it — so `isPortBindFailure` lets the caller recognise a lost race
+// in llama-server's own output and retry on a different port.
 
 import * as net from "net";
 import { execSync } from "child_process";
 
+/**
+ * The lowest port any mainstream platform hands out on its own: Linux starts
+ * its ephemeral range at 32768, macOS/BSD and Windows at 49152. Staying below
+ * the lowest of them keeps the engine port out of every kernel's pool.
+ */
+export const EPHEMERAL_FLOOR = 32768;
+
+/** Where the search for an engine port starts, and how far it runs. */
+export const ENGINE_PORT_BASE = 8100;
+export const ENGINE_PORT_SPAN = 400;
+
+/** Whether a port is ours to keep rather than one the OS may reassign. */
+export function isStablePort(port: number): boolean {
+  return port >= 1024 && port < EPHEMERAL_FLOOR;
+}
+
 export interface EnginePortRequest {
   host: string;
   preferred: number;
-  /** Whether we may pick a different port. True only for dev's fixed fallback. */
-  movable: boolean;
   /** How long to wait for the preferred port to come free. */
   waitMs: number;
+  /** Ports that already lost a bind race this session. */
+  avoid?: number[];
 }
 
 export interface EnginePortChoice {
@@ -50,6 +77,23 @@ export async function waitForBindable(
   }
 }
 
+/**
+ * The first free port outside the OS ephemeral range, or null if the whole
+ * band is somehow spoken for.
+ */
+export async function findStablePort(
+  host: string,
+  avoid: number[] = [],
+): Promise<number | null> {
+  const skip = new Set(avoid);
+  const end = ENGINE_PORT_BASE + ENGINE_PORT_SPAN;
+  for (let port = ENGINE_PORT_BASE; port < end; port++) {
+    if (skip.has(port) || !isStablePort(port)) continue;
+    if (await canBind(host, port)) return port;
+  }
+  return null;
+}
+
 /** A free ephemeral port, or null if one cannot be obtained. */
 export function findFreePort(host: string): Promise<number | null> {
   return new Promise((resolve) => {
@@ -61,6 +105,17 @@ export function findFreePort(host: string): Promise<number | null> {
       srv.close(() => resolve(port));
     });
   });
+}
+
+/**
+ * Whether engine output shows the port was taken out from under us between our
+ * bind check and the child's own bind. That race cannot be closed by checking
+ * harder, so the caller retries elsewhere instead of failing the job.
+ */
+export function isPortBindFailure(output: string): boolean {
+  return /couldn't bind HTTP server socket|exiting due to HTTP server error|bind: address already in use/i.test(
+    output,
+  );
 }
 
 /**
@@ -94,25 +149,37 @@ export function describePortHolder(port: number): string | null {
 /**
  * The port to launch on, or a thrown error saying plainly that it is taken.
  *
- * A movable request (dev) steps aside onto a free port. A fixed one (packaged,
- * where Electron already chose a free port) refuses instead — if that port is
- * occupied something is genuinely wrong, and moving would hide it.
+ * The preferred port is honoured only when it is both free and outside the
+ * ephemeral range. An ephemeral one is stepped away from even while it still
+ * binds: it binds *now*, and the engine starts a few hundred milliseconds from
+ * now, which is not the same promise.
  */
 export async function resolveEnginePort(
   req: EnginePortRequest,
 ): Promise<EnginePortChoice> {
-  if (await waitForBindable(req.host, req.preferred, req.waitMs)) {
+  const avoid = req.avoid ?? [];
+  if (
+    isStablePort(req.preferred) &&
+    !avoid.includes(req.preferred) &&
+    (await waitForBindable(req.host, req.preferred, req.waitMs))
+  ) {
     return { port: req.preferred, moved: false };
   }
 
-  if (req.movable) {
-    const alternative = await findFreePort(req.host);
-    if (alternative) return { port: alternative, moved: true };
+  const stable = await findStablePort(req.host, avoid);
+  if (stable) return { port: stable, moved: true };
+
+  // Nothing free in the stable band — an ephemeral port is still better than
+  // not starting at all, and a lost race there is retried by the caller.
+  const fallback = await findFreePort(req.host);
+  if (fallback && !avoid.includes(fallback)) {
+    return { port: fallback, moved: true };
   }
 
   const holder = describePortHolder(req.preferred);
   throw new Error(
-    `Port ${req.preferred} is already in use${holder ? ` by ${holder}` : ""}. ` +
+    `Port ${req.preferred} is already in use${holder ? ` by ${holder}` : ""}, ` +
+      `and no free port could be found for the engine. ` +
       `Another copy of the engine is probably still running — quit it and try again.`,
   );
 }

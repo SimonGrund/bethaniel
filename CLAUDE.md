@@ -77,6 +77,7 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `queue.ts` | In-memory task queue, concurrency control, per-chunk LLM orchestration |
 | `llm.ts` | OpenAI-compatible client wrapping llama-server; streaming SSE parser |
 | `llamaServer.ts` | llama-server process supervisor (spawn, health-poll, hot-swap models) |
+| `enginePort.ts` | Picks the port the engine (and LanguageTool) listens on. Keeps it out of the OS ephemeral range, which the kernel hands to any process at any time, and recognises a lost bind race so the caller can retry elsewhere |
 | `modelCatalog.ts` | Single source of truth for all models (tiers, URLs, defaults). Edit here to add/change models. |
 | `modelConfig.ts` | Per-model JSON sidecars (user overrides layered on top of catalog defaults) |
 | `db.ts` | better-sqlite3 — documents, style guides, completed task states |
@@ -167,13 +168,13 @@ Uninstalling never removes it silently. Each platform asks first:
 | Variable | Default | Notes |
 |---|---|---|
 | `PORT` | `4000` | Backend port |
-| `LLAMA_BASE_URL` | _(empty)_ | Set by Electron main to reach llama-server |
+| `LLAMA_BASE_URL` | _(empty)_ | Point at an external llama-server. Ignored once the backend has launched an engine of its own — that engine's actual port is the only truth |
 | `LLAMA_BIN` | `llama-server` | Path override for the llama-server binary |
 | `MODELS_DIR` | `./models` | GGUF model storage |
 | `DATA_DIR` | `./data` | SQLite DB + uploaded manuscripts |
 | `LANGUAGETOOL_JAR` | _(empty)_ | Path to `languagetool-server.jar`; set by Electron main when bundled. Absent → grammar checks skipped |
 | `JAVA_BIN` | `java` | Path to a Java runtime (bundled JRE preferred) |
-| `LANGUAGETOOL_PORT` | `8081` | Local LanguageTool server port |
+| `LANGUAGETOOL_PORT` | `8081` | Preferred LanguageTool port; the server moves to a free one if it is taken |
 | `LANGUAGETOOL_BASE_URL` | _(empty)_ | Point at an external LanguageTool server and skip spawning one |
 | `LANGUAGETOOL_DISABLED` | _(empty)_ | Set to `1` to force grammar checks off globally, even if a distribution is bundled |
 | `BETHANIEL_FAKE_RAM_GB` | — | Dev override for hardware tier detection |
