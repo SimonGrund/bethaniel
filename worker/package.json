@@ -12,9 +12,9 @@
     "db:init:local": "wrangler d1 execute bethaniel-cloud --local --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250101.0",
+    "@cloudflare/workers-types": "^5.20260905.1",
     "typescript": "^5.6.0",
-    "wrangler": "^3.90.0"
+    "wrangler": "^4.129.0"
   },
   "allowScripts": {
     "esbuild@0.17.19": true,
