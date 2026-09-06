@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-09-06T14:35:11.797Z
+Report generated: 2026-09-06T19:20:03.064Z
 ════════════════════════════════════════════════════════════════════════════════
 
 SCORECARDS
@@ -12,27 +12,27 @@ into "overall" — they're diagnostic, not part of the headline number.
 MODEL: Qwen3.5-4B-Q4_K_M.gguf
 ────────────────────────────────────────────────────────────────────────────────
   Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
-  copy_edit    37%   65%   41   97         0        66       52
-             false positives: avg 10.9 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 17.1 hallucinated (no error there at all)
-             reviewer quality: 85/100 avg confidence, 13% of SCORED flagged (88% went unscored — reviewer didn't get to them)
-  line_edit    23%   34%   26  100         0        59       41
-             false positives: avg 16.4 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 1.5 hallucinated (no error there at all)
-             reviewer quality: 36/100 avg confidence, 65% of SCORED flagged (1% went unscored — reviewer didn't get to them)
+  copy_edit    34%   72%   43   94        98        43       53
+             false positives: avg 7.3 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 2.4 hallucinated (no error there at all)
+             reviewer quality: 86/100 avg confidence, 14% of SCORED flagged (76% went unscored — reviewer didn't get to them)
+  line_edit    19%   34%   24  100         0        51       39
+             false positives: avg 11.8 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.6 hallucinated (no error there at all)
+             reviewer quality: 54/100 avg confidence, 42% of SCORED flagged (3% went unscored — reviewer didn't get to them)
   ────────────────────────────────────────────────────────────────────────────
-  MODEL OVERALL (mean of the modes above): 47
+  MODEL OVERALL (mean of the modes above): 46
 
 ────────────────────────────────────────────────────────────────────────────────
 MODEL: Qwen3.5-9B-Q4_K_M.gguf
 ────────────────────────────────────────────────────────────────────────────────
   Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
-  copy_edit    41%   68%   44   88         0        86       53
-             false positives: avg 12.6 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 19.1 hallucinated (no error there at all)
-             reviewer quality: 89/100 avg confidence, 10% of SCORED flagged (87% went unscored — reviewer didn't get to them)
-  line_edit    18%   25%   20  100         0        58       36
-             false positives: avg 16.3 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 1.8 hallucinated (no error there at all)
-             reviewer quality: 67/100 avg confidence, 26% of SCORED flagged (5% went unscored — reviewer didn't get to them)
+  copy_edit    40%   71%   48   84        94        62       55
+             false positives: avg 8.3 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 3.0 hallucinated (no error there at all)
+             reviewer quality: 95/100 avg confidence, 5% of SCORED flagged (69% went unscored — reviewer didn't get to them)
+  line_edit    18%   30%   22   93         0        61       36
+             false positives: avg 12.6 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 1.0 hallucinated (no error there at all)
+             reviewer quality: 83/100 avg confidence, 10% of SCORED flagged (1% went unscored — reviewer didn't get to them)
   ────────────────────────────────────────────────────────────────────────────
-  MODEL OVERALL (mean of the modes above): 45
+  MODEL OVERALL (mean of the modes above): 46
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -47,8 +47,8 @@ copy_edit
 
   danish — 25 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                      0%      0%          0.0
-    Qwen3.5-9B                      0%    100%          0.0
+    Qwen3.5-4B                      0%     50%          0.0
+    Qwen3.5-9B                      0%     50%          0.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
       wordChoice                     5         0%         0%
       comma                         18         0%         0%
@@ -57,82 +57,82 @@ copy_edit
 
   english — 14 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     21%     75%          0.0
-    Qwen3.5-9B                     21%     60%          0.0
+    Qwen3.5-4B                     21%     88%          0.0
+    Qwen3.5-9B                     29%     80%          1.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
       misspelling                    2        50%        50%
-      wordChoice                     4        50%        50%
+      wordChoice                     4        50%        75%
       comma                          7         0%         0%
       punctuation                    1         0%         0%
 
   german — 26 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     35%    100%          0.0
-    Qwen3.5-9B                     35%    100%          0.0
+    Qwen3.5-4B                     13%     63%          0.0
+    Qwen3.5-9B                     35%     95%          0.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                    4        50%        50%
-      comma                         19        37%        37%
+      misspelling                    4        25%        75%
+      comma                         19         0%        32%
       capitalization                 2         0%         0%
       punctuation                    1         0%         0%
 
   spanish — 15 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     10%    100%          0.0
-    Qwen3.5-9B                     33%     56%          0.0
+    Qwen3.5-4B                     20%     75%          1.0
+    Qwen3.5-9B                     30%     45%          0.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                    7        14%        57%
+      misspelling                    7        29%        43%
       wordChoice                     3         0%         0%
       comma                          5         0%        20%
 
   stress100 — 101 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     60%     72%          0.0
-    Qwen3.5-9B                     58%     72%          1.0
+    Qwen3.5-4B                     59%     71%          0.0
+    Qwen3.5-9B                     57%     69%          0.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   17        94%        94%
-      wordChoice                    15        47%        67%
-      dialect                        9        89%        78%
-      comma                         37        32%        30%
-      capitalization                 7        43%        29%
+      misspelling                   17       100%        94%
+      wordChoice                    15        67%        60%
+      dialect                        9        67%        78%
+      comma                         37        30%        30%
+      capitalization                 7        29%        29%
       duplicateWord                  2       100%       100%
       punctuation                    2        50%        50%
-      other                         12        83%        83%
+      other                         12        75%        75%
 
   stress100da — 101 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     47%     79%          0.0
-    Qwen3.5-9B                     50%     68%          1.0
+    Qwen3.5-4B                     46%     78%          0.0
+    Qwen3.5-9B                     39%     74%          1.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   27        85%        85%
-      wordChoice                    12        17%        33%
-      comma                         47        26%        23%
-      capitalization                10        80%        80%
-      duplicateWord                  3       100%        67%
+      misspelling                   27        78%        81%
+      wordChoice                    12        25%        42%
+      comma                         47        21%         9%
+      capitalization                10        80%        50%
+      duplicateWord                  3       100%       100%
       punctuation                    2         0%         0%
 
-  stress100de — 105 planted errors
+  stress100de — 106 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     60%     63%          0.0
-    Qwen3.5-9B                     68%     62%          6.0
+    Qwen3.5-4B                     55%     78%          0.0
+    Qwen3.5-9B                     65%     77%          1.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   32        53%        56%
+      misspelling                   33        48%        48%
       wordChoice                    14        50%        57%
-      comma                         37        54%        73%
+      comma                         37        46%        70%
       capitalization                14        79%        79%
       duplicateWord                  3       100%       100%
       punctuation                    5        80%        80%
 
   stress100es — 109 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     60%     31%         71.0
-    Qwen3.5-9B                     63%     31%        131.0
+    Qwen3.5-4B                     59%     76%          0.0
+    Qwen3.5-9B                     62%     76%          0.0
     recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   43        98%        95%
-      wordChoice                    12        83%        83%
-      comma                         38         3%        16%
-      capitalization                10        80%        80%
+      misspelling                   43        91%        93%
+      wordChoice                    12        92%        92%
+      comma                         38         3%         8%
+      capitalization                10        80%       100%
       duplicateWord                  4       100%       100%
-      punctuation                    2         0%         0%
+      punctuation                    2         0%        50%
 
 ────────────────────────────────────────────────────────────────────────────────
 line_edit
@@ -140,28 +140,28 @@ line_edit
 
   danish — 30 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     22%     30%          9.0
-    Qwen3.5-9B                     18%     23%          0.0
+    Qwen3.5-4B                     18%     26%          1.0
+    Qwen3.5-9B                     20%     27%          0.0
 
   english — 35 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     24%     59%         14.0
-    Qwen3.5-9B                     20%     28%          2.0
+    Qwen3.5-4B                     24%     59%         15.0
+    Qwen3.5-9B                     17%     32%          2.0
 
   german — 31 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     27%     19%         29.0
-    Qwen3.5-9B                     16%     17%         27.0
+    Qwen3.5-4B                     10%     20%         14.0
+    Qwen3.5-9B                     15%     24%          6.0
 
   spanish — 32 planted errors
     model                       recall   prec.  clean flags
-    Qwen3.5-4B                     17%     28%         16.0
-    Qwen3.5-9B                     16%     32%         20.0
+    Qwen3.5-4B                     22%     32%         15.0
+    Qwen3.5-9B                     20%     36%         18.0
 ════════════════════════════════════════════════════════════════════════════════
 RANKED — model overall score, highest first
 ════════════════════════════════════════════════════════════════════════════════
-    47  Qwen3.5-4B-Q4_K_M.gguf
-    45  Qwen3.5-9B-Q4_K_M.gguf
+    46  Qwen3.5-4B-Q4_K_M.gguf
+    46  Qwen3.5-9B-Q4_K_M.gguf
 
 ════════════════════════════════════════════════════════════════════════════════
 DETAIL — missed planted errors and false positives (run 1 of each task)
@@ -193,14 +193,15 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
   MISSED:  "indifferent and" → "indifferent, and"
   …and 1 more missed
-  WRONG-FIX:    "only just begun too learn" → "only just begun to learn" (right spot, wrong guess)
 
 [Qwen3.5-4B-Q4_K_M.gguf] german_copy_edit.md (copy_edit):
   MISSED:  "ersten mal seit" → "ersten Mal seit"
   MISSED:  "Stiefeln und" → "Stiefeln, und"
   MISSED:  "alter beharrlicher" → "alter, beharrlicher"
   MISSED:  "geführt und" → "geführt, und"
+  MISSED:  "Beerdigung war" → "Beerdigung, war"
   MISSED:  "so wie" → "so, wie"
+  MISSED:  "sich bevor" → "sich, bevor"
   MISSED:  "begonnen und" → "begonnen, und"
   MISSED:  "eingestehen warum.
 
@@ -208,9 +209,8 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
 
 „Mara","
   MISSED:  "die Warheit selbst" → "die Wahrheit selbst"
-  MISSED:  "Nacht in" → "Nacht, in"
-  MISSED:  "Sturm der" → "Sturm, der"
-  …and 7 more missed
+  …and 15 more missed
+  WRONG-FIX:    "Du wart drei Jahre alt" → "Du warst drei Jahre alt" (right spot, wrong guess)
 
 [Qwen3.5-4B-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit):
   MISSED:  "Mara subio la" → "Mara subió la"
@@ -223,20 +223,87 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "«Tenia tres" → "«Tenías tres"
   MISSED:  "agua y" → "agua, y"
   MISSED:  "sorprendente como" → "sorprendente, como"
-  …and 4 more missed
+  …and 3 more missed
+  HALLUCINATED: "antes de habrirla" → "antes de abrirla" (no error there)
+  HALLUCINATED: "Yo también»,
+
+Mara cerró el cuaderno." → "Yo también».
+
+Mara cerró el cuaderno." (no error there)
+
+[Qwen3.5-4B-Q4_K_M.gguf] stress100de_copy_edit.md (copy_edit):
+  MISSED:  "Händen bevor" → "Händen, bevor"
+  MISSED:  "nach Zederholz und" → "nach Zedernholz und"
+  MISSED:  "losen Wandverkliedung im" → "losen Wandverkleidung im"
+  MISSED:  "zeigen bevor" → "zeigen, bevor"
+  MISSED:  "den Wolcken hervor." → "den Wolken hervor."
+  MISSED:  "Regen der" → "Regen, der"
+  MISSED:  "eine Ledermapppe vor" → "eine Ledermappe vor"
+  MISSED:  "Angewohnheit sich" → "Angewohnheit, sich"
+  MISSED:  "Papier das" → "Papier, das"
+  MISSED:  "Notizen klein und dicht die" → "Notizen, klein und dicht, die"
+  …and 38 more missed
+  WRONG-FIX:    "verwerfen" → "verworfen" (right spot, wrong guess)
+  WRONG-FIX:    "Zahnräder grifen ineinander" → "Zahnräder greifen ineinander" (right spot, wrong guess)
+  WRONG-FIX:    "Band zusammengebungen." → "Band Zusammengebungen." (right spot, wrong guess)
+  WRONG-FIX:    "den Largen zäh" → "den Lärchen zäh" (right spot, wrong guess)
+  WRONG-FIX:    "gereicht"
+
+Konrad" → "gereicht".
+
+Konrad" (right spot, wrong guess)
+  WRONG-FIX:    "die Mauwer." → "die Mau wer." (right spot, wrong guess)
+  WRONG-FIX:    "das Papier roch nach Zederholz und altem Regen." → "Das Papier roch nach Zederholz und altem Regen." (right spot, wrong guess)
+  WRONG-FIX:    "Almut zählte die Positionen ab mit dem Finger in der Luft und ihr wurde kalt. "Nach außen. Auf dem sechsten Blatt sitzt es fast am Rand des Gehäuses. Noch ein Schritt, und es steht außerhalb der Uhr."" → "Almut zählte die Positionen ab mit dem Finger in der Luft, und ihr wurde kalt. „Nach außen. Auf dem sechsten Blatt sitzt es fast am Rand des Gehäuses. Noch ein Schritt, und es steht außerhalb der Uhr."" (right spot, wrong guess)
+  HALLUCINATED: "schwere" → "Schwere" (no error there)
+  HALLUCINATED: "bauten" → "hauten" (no error there)
+  HALLUCINATED: "mit tintenfleckigen Fingern" → "mit binde-fleckigen Fingern" (no error there)
+  HALLUCINATED: "las sie sie nicht" → "las sie nicht" (no error there)
+  HALLUCINATED: "zwischen Regalen voller stummer Gehäuse" → "zwischen Regalen voller stummer Gehäusen" (no error there)
+  HALLUCINATED: ""Das ist die Handschrift meines Vaters", sagte sie schließlich. "Aber das Werk kenne ich nicht."" → ""Das ist die Handschrift meines Vaters", sagte sie schließlich. „Aber das Werk kenne ich nicht."" (no error there)
+  HALLUCINATED: ""Haben Sie die anderen Blätter in dieser Reihenfolge gefunden?, fragte sie." → ""Haben Sie die anderen Blätter in dieser Reihenfolge gefunden?", fragte sie." (no error there)
+  HALLUCINATED: ""Er hat es bewegt", sagte sie leise. "Von Blatt zu Blatt."" → ""Er hat es bewegt", sagte sie leise. „Von Blatt zu Blatt."" (no error there)
+  HALLUCINATED: ""Was hat er damit gemeint?, fragte Konrad." → ""Was hat er damit gemeint?", fragte Konrad." (no error there)
+  HALLUCINATED: "das siebzehnzähnige Rad" → "das siebzehnjährige Rad" (no error there)
+
+[Qwen3.5-4B-Q4_K_M.gguf] stress100es_copy_edit.md (copy_edit):
+  MISSED:  "de tapaz mudas," → "de tapas mudas,"
+  MISSED:  "ventoso con" → "ventoso, con"
+  MISSED:  "cuidadoso con" → "cuidadoso, con"
+  MISSED:  "admitió dejando" → "admitió, dejando"
+  MISSED:  "pliegos cada" → "pliegos, cada"
+  MISSED:  "enrevesada una" → "enrevesada, una"
+  MISSED:  "notas pequeñas" → "notas, pequeñas"
+  MISSED:  "asintió como" → "asintió, como"
+  MISSED:  "He encuardenado libros" → "He encuadernado libros"
+  MISSED:  "la lus de" → "la luz de"
+  …and 36 more missed
+  WRONG-FIX:    "tapaz" → "rapaz" (right spot, wrong guess)
+  WRONG-FIX:    "detras" → "detrae" (right spot, wrong guess)
+  WRONG-FIX:    "Queria" → "Quera" (right spot, wrong guess)
+  WRONG-FIX:    "habia" → "hacia" (right spot, wrong guess)
+  WRONG-FIX:    "pudó" → "podó" (right spot, wrong guess)
+  WRONG-FIX:    "el taler de" → "el tales de" (right spot, wrong guess)
+  WRONG-FIX:    "He encuardenado libros" → "He encadenado libros" (right spot, wrong guess)
+  WRONG-FIX:    "la lus de" → "la las de" (right spot, wrong guess)
+  WRONG-FIX:    "había lograddo quebrar." → "había logrando quebrar." (right spot, wrong guess)
+  WRONG-FIX:    "entre estantes llenos de tapaz mudas" → "entre estantes llenos de tapas mudas" (right spot, wrong guess)
+  …and 3 more wrong-fix
+  HALLUCINATED: ""Ésta es" → ""Esta es" (no error there)
+  HALLUCINATED: ""Mi abuela nunca habló de ellos. Los encontré solo porque el panel se soltó mientras vaciaba el desván."" → ""Mi abuela nunca habló de ellos. Los encontré solo porque el panel se soltó mientras vaciaba el despensa."" (no error there)
 
 [Qwen3.5-4B-Q4_K_M.gguf] stress100_copy_edit.md (copy_edit):
   MISSED:  "rare and" → "rare, and"
   MISSED:  "yellowed brittle" → "yellowed, brittle"
   MISSED:  "small careful" → "small, careful"
   MISSED:  "tall weathered" → "tall, weathered"
-  MISSED:  "decide weather it" → "decide whether it"
+  MISSED:  "down and" → "down, and"
   MISSED:  "old careful" → "old, careful"
   MISSED:  "shelf and" → "shelf, and"
   MISSED:  "fragile forgotten" → "fragile, forgotten"
   MISSED:  "islands and" → "islands, and"
   MISSED:  "with with streets, buildings and" → "with streets, buildings, and"
-  …and 32 more missed
+  …and 33 more missed
   WRONG-FIX:    "surveyd" → "surveys" (right spot, wrong guess)
   WRONG-FIX:    "be the the last" → "be the last" (right spot, wrong guess)
   WRONG-FIX:    "town, with with streets," → "town, with streets," (right spot, wrong guess)
@@ -247,21 +314,22 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   WRONG-FIX:    "was a a" → "was an a" (right spot, wrong guess)
   WRONG-FIX:    "of ceder and" → "of ceded and" (right spot, wrong guess)
   WRONG-FIX:    "modern atlus." → "modern Atlas." (right spot, wrong guess)
-  …and 10 more wrong-fix
+  …and 12 more wrong-fix
   HALLUCINATED: "old woodsmoke." → "old wood smoke." (no error there)
+  HALLUCINATED: "it took her three days of asking before anyone would say it allowed" → "it took her three days of asking before anyone would say it aloud," (no error there)
 
 [Qwen3.5-4B-Q4_K_M.gguf] stress100da_copy_edit.md (copy_edit):
   MISSED:  "ark der" → "ark, der"
   MISSED:  "bog han" → "bog, han"
-  MISSED:  "til nogle," → "til nogen,"
-  MISSED:  "vej hvis" → "vej, hvis"
+  MISSED:  "en lædermape presset" → "en lædermappe presset"
   MISSED:  "gammel omhyggelig" → "gammel, omhyggelig"
   MISSED:  "kun fordi" → "kun, fordi"
   MISSED:  "Støvet lagde tykt" → "Støvet lå tykt"
   MISSED:  "har der" → "har, der"
   MISSED:  "mindre end" → "mindre, end"
   MISSED:  "håndskrift der" → "håndskrift, der"
-  …and 43 more missed
+  MISSED:  "noter små og tætte der" → "noter, små og tætte, der"
+  …and 46 more missed
   WRONG-FIX:    "længre" → "længde" (right spot, wrong guess)
   WRONG-FIX:    "ældeste" → "ædleste" (right spot, wrong guess)
   WRONG-FIX:    "steder, men stregene stod" → "steder, mens tregene stod" (right spot, wrong guess)
@@ -269,92 +337,14 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   WRONG-FIX:    "hende længre." → "hende længer." (right spot, wrong guess)
   WRONG-FIX:    "Solveig åbnede mappen med den særlige varsomhed, som kun den har der har holdt tusind skrøbelige, glemte ting i hænderne." → "Solveig åbnede mappen med den særlige varsomhed, som kun den har holdt tusind skrøbelige, glemte ting i hænderne." (right spot, wrong guess)
   WRONG-FIX:    "I margenen stod noter små og tætte der talte om spændinger, om fugt og om læderets vaner, som Solveig aldrig havde hørt om." → "I margenen stod noter små og tætte, der talte om spændinger, om fugt og om læderets vaner, som Solveig aldrig havde hørt om." (right spot, wrong guess)
-  WRONG-FIX:    "de arbejdede hele eftermiddagen." → "De arbejdede hele eftermiddagen." (right spot, wrong guess)
+  WRONG-FIX:    "Han var en gammel omhyggelig mand med blækplettede fingre og for vane at rømme sig før hver eneste sætning." → "Han var en gammel omhyggelig mand med blækplettede fingre og for vanen at rømme sig før hver eneste sætning." (right spot, wrong guess)
+  HALLUCINATED: ""Fandt du arkene i den her rækkefølge?", spurgte hun." → ""Fandt du arkene i den her rækkefølge?" spurgte hun." (no error there)
+  HALLUCINATED: ""Hun flyttede det", sagde hun stille. "Fra ark til ark." Ejnar trådte hen ved siden af hende." → ""Hun flyttede det," sagde hun stille. "Fra ark til ark." Ejnar trådte hen ved siden af hende." (no error there)
   HALLUCINATED: ""Hvor vandrer det hen?", spurgte han til sidst." → ""Hvor vandrer det hen?" spurgte han til sidst." (no error there)
-  HALLUCINATED: ""Hvad mente hun med det?", spurgte Ejnar." → ""Hvad mente hun med det?" spurgte Ejnar." (no error there)
-
-[Qwen3.5-4B-Q4_K_M.gguf] stress100de_copy_edit.md (copy_edit):
-  MISSED:  "nach Zederholz und" → "nach Zedernholz und"
-  MISSED:  "losen Wandverkliedung im" → "losen Wandverkleidung im"
-  MISSED:  "zeigen bevor" → "zeigen, bevor"
-  MISSED:  "den Wolcken hervor." → "den Wolken hervor."
-  MISSED:  "eine Ledermapppe vor" → "eine Ledermappe vor"
-  MISSED:  "Papier das" → "Papier, das"
-  MISSED:  "hatte. Der Tinte" → "hatte. Die Tinte"
-  MISSED:  "die Linnien selbst" → "die Linien selbst"
-  MISSED:  "sagen, das dieses" → "sagen, dass dieses"
-  MISSED:  "Rad das" → "Rad, das"
-  …and 33 more missed
-  WRONG-FIX:    "kommen" → "kimmen" (right spot, wrong guess)
-  WRONG-FIX:    "tisch" → "tusch" (right spot, wrong guess)
-  WRONG-FIX:    "licht" → "locht" (right spot, wrong guess)
-  WRONG-FIX:    "wind" → "sind" (right spot, wrong guess)
-  WRONG-FIX:    "weg" → "reg" (right spot, wrong guess)
-  WRONG-FIX:    "fort" → "dort" (right spot, wrong guess)
-  WRONG-FIX:    "tee" → "tue" (right spot, wrong guess)
-  WRONG-FIX:    "sein" → "dein" (right spot, wrong guess)
-  WRONG-FIX:    "tat" → "taz" (right spot, wrong guess)
-  WRONG-FIX:    "verwerfen" → "verworfen" (right spot, wrong guess)
-  …and 5 more wrong-fix
-  HALLUCINATED: "stand" → "Stand" (no error there)
-  HALLUCINATED: "alter" → "Alter" (no error there)
-  HALLUCINATED: "paar" → "Paar" (no error there)
-  HALLUCINATED: "entscheiden" → "Entscheiden" (no error there)
-  HALLUCINATED: "wolle" → "solle" (no error there)
-  HALLUCINATED: "stehen" → "stegen" (no error there)
-  HALLUCINATED: "sehen" → "seen" (no error there)
-  HALLUCINATED: "schwere" → "Schwere" (no error there)
-  HALLUCINATED: "erschüttern" → "Erschüttern" (no error there)
-  HALLUCINATED: "lassen" → "lasen" (no error there)
-  …and 15 more hallucinated
-
-[Qwen3.5-4B-Q4_K_M.gguf] stress100es_copy_edit.md (copy_edit):
-  MISSED:  "de tapaz mudas," → "de tapas mudas,"
-  MISSED:  "decía, sí a" → "decía, si a"
-  MISSED:  "veces la" → "veces, la"
-  MISSED:  "ventoso con" → "ventoso, con"
-  MISSED:  "cuidadoso con" → "cuidadoso, con"
-  MISSED:  "admitió dejando" → "admitió, dejando"
-  MISSED:  "pliegos cada" → "pliegos, cada"
-  MISSED:  "enrevesada una" → "enrevesada, una"
-  MISSED:  "notas pequeñas" → "notas, pequeñas"
-  MISSED:  "asintió como" → "asintió, como"
-  …and 34 more missed
-  WRONG-FIX:    "tapaz" → "rapaz" (right spot, wrong guess)
-  WRONG-FIX:    "olia" → "eolia" (right spot, wrong guess)
-  WRONG-FIX:    "detras" → "detrae" (right spot, wrong guess)
-  WRONG-FIX:    "Queria" → "Quera" (right spot, wrong guess)
-  WRONG-FIX:    "palido" → "balido" (right spot, wrong guess)
-  WRONG-FIX:    "gargarta" → "gargarea" (right spot, wrong guess)
-  WRONG-FIX:    "habia" → "hacia" (right spot, wrong guess)
-  WRONG-FIX:    "lus" → "les" (right spot, wrong guess)
-  WRONG-FIX:    "desplasado" → "desplayado" (right spot, wrong guess)
-  WRONG-FIX:    "cajon" → "canon" (right spot, wrong guess)
-  …and 26 more wrong-fix
-  HALLUCINATED: "responderle" → "respondedle" (no error there)
-  HALLUCINATED: "vacía: "El" → "vacía: “El" (no error there)
-  HALLUCINATED: "bien." La" → "bien.” La" (no error there)
-  HALLUCINATED: "dijeran.
-
-"No" → "dijeran.
-
-“No" (no error there)
-  HALLUCINATED: "son"," → "son”," (no error there)
-  HALLUCINATED: "mostrador. "Mi" → "mostrador. “Mi" (no error there)
-  HALLUCINATED: "desván." El" → "desván.” El" (no error there)
-  HALLUCINATED: "como "el" → "como “el" (no error there)
-  HALLUCINATED: "espera"." → "espera”." (no error there)
-  HALLUCINATED: "seguras.
-
-"Ésta" → "seguras.
-
-“Ésta" (no error there)
-  …and 100 more hallucinated
 
 [Qwen3.5-4B-Q4_K_M.gguf] danish_line_edit.md (line_edit):
   MISSED:  "for allerførste gang i tyve lange år. Jerntrinene lavede en knagende lyd under" → "for første gang i tyve år. Jerntrinene knagede under"
   MISSED:  "luft med salt i pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel," → "luft pressede sig mod de smalle vinduer som en gammel,"
-  MISSED:  "i en periode på fire" → "i fire"
   MISSED:  "endelig til sidst overgået" → "endelig overgået"
   MISSED:  "præcis sådan, som hun huskede, at det var:" → "præcis, som hun huskede det:"
   MISSED:  "pudset op til" → "pudset til"
@@ -362,18 +352,19 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "sig der og" → "sig og"
   MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
   MISSED:  "forsiden af det med bedstefarens omhyggelige håndskriftshånd. Mara satte sig selv ned, før hun åbnede det op," → "forsiden i bedstefarens omhyggelige håndskrift. Mara satte sig, før hun åbnede det,"
-  …and 15 more missed
-  WRONG-FIX:    "Havet strakte sig i hver eneste retning, og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "Havet strakte sig i hver eneste retning, og et sted derude lå en historie, der tilhørte hende, og som hun lige netop havde begyndt at lære om." (right spot, wrong guess)
+  MISSED:  "at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "at ryste, og hun ville ikke indrømme hvorfor."
+  …and 14 more missed
+  WRONG-FIX:    "Havet strakte sig i hver eneste retning, og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "Havet strakte sig i hver eneste retning, og et sted derude lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at lære om." (right spot, wrong guess)
   WRONG-FIX:    "Hun lukkede bogen i en lukkende bevægelse." → "Hun lukkede bogen." (right spot, wrong guess)
-  WRONG-FIX:    "Mara satte sig selv ned, før hun åbnede det op, for hendes knæ var begyndt at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "Mara satte sig ned, før hun åbnede det op, for hendes knæ startede at ryste, og hun ville ikke indrømme over for sig selv, hvorfor." (right spot, wrong guess)
+  WRONG-FIX:    "Mara lagde brevet fra sig på skrivebordet." → "Mara lagde brevet på skrivebordet." (right spot, wrong guess)
+  WRONG-FIX:    "Du var tre år gammel dengang på det tidspunkt," → "Du var tre år gammel dengang," (right spot, wrong guess)
+  WRONG-FIX:    "Mara satte sig selv ned, før hun åbnede det op, for hendes knæ var begyndt at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "Mara satte sig ned, før hun åbnede det op, for hendes knæ begyndte at ryste, og hun ville ikke rigtig indrømme over for sig selv, hvorfor." (right spot, wrong guess)
   WRONG-FIX:    "Øverst oppe var lanternerummet præcis sådan, som hun huskede, at det var: messingbeslagene var pudset op til en blød glans, den store linse, der var tavs og vågen, og en logbog, der lå opslået på det lille egetræsskrivebord." → "Øverst oppe var lanternerummet præcis sådan, som hun huskede: messingbeslagene var pudset op til en blød glans, den store linse var tavs og vågen, og en logbog lå opslået på det lille egetræsskrivebord." (right spot, wrong guess)
-  WRONG-FIX:    "Jerntrinene lavede en knagende lyd under hendes støvler, og den salte luft med salt i pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel, påtrængende ven." → "Jerntrinene lavede en knagende lyd under hendes støvler, og den salte luft pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel, påtrængende ven." (right spot, wrong guess)
+  WRONG-FIX:    "Jerntrinene lavede en knagende lyd under hendes støvler, og den salte luft med salt i pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel, påtrængende ven." → "Jerntrinene lavede en knagende lyd under hendes støvler, og den salte luft, med salt i, pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel, påtrængende ven." (right spot, wrong guess)
   WRONG-FIX:    "Mara gik op ad vindeltrappen for allerførste gang i tyve lange år." → "Mara gik op ad vindeltrappen for første gang i tyve år." (right spot, wrong guess)
   WRONG-FIX:    "Der var intet støv der. Nogen havde været der på det sted for nylig." → "Der var intet støv. Nogen havde været her for nylig." (right spot, wrong guess)
   WRONG-FIX:    "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd." → "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden med bedstefarens omhyggelige håndskrift." (right spot, wrong guess)
-  WRONG-FIX:    "Han skrev om det valg, som han havde truffet om at bevare hendes hemmelighed, og han skrev om datteren, som den kvinde havde efterladt i hans varetægt for at passe på." → "Han skrev om valget, han havde truffet for at bevare hendes hemmelighed, og om datteren, kvinden havde efterladt i hans varetægt for at passe på." (right spot, wrong guess)
-  WRONG-FIX:    ""Du var tre år gammel dengang på det tidspunkt," skrev han i sin skrivning. "Du kaldte mig Bedstefar, fordi det var præcis det, jeg bad dig om at kalde mig. Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre."" → ""Du var tre år gammel dengang," skrev han i sin skrivning. "Du kaldte mig Bedstefar, fordi det var præcis det, jeg bad dig om at kalde mig. Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre."" (right spot, wrong guess)
-  …and 2 more wrong-fix
+  …and 8 more wrong-fix
 
 [Qwen3.5-4B-Q4_K_M.gguf] english_line_edit.md (line_edit):
   MISSED:  "Mara went up the" → "Mara climbed the"
@@ -392,36 +383,34 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   WRONG-FIX:    "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs." → "He wrote of the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he'd pulled from the surf and carried up these very stairs." (right spot, wrong guess)
   WRONG-FIX:    "Mara sat herself down before she opened it up, because her knees had begun the process of trembling and she did not really want to admit to herself why this was happening." → "Mara sat down before opening it; her knees were already trembling, and she didn't want to admit why." (right spot, wrong guess)
   WRONG-FIX:    "unmoored" → "uncured" (right spot, wrong guess)
+  WRONG-FIX:    "A folded sheet of paper lay tucked beneath the logbook, with her name written on the front of it in her grandfather's careful handwriting hand." → "A folded sheet of paper lay tucked beneath the logbook, with her name written on the front in her grandfather's careful handwriting." (right spot, wrong guess)
 
 [Qwen3.5-4B-Q4_K_M.gguf] german_line_edit.md (line_edit):
   MISSED:  "zum allerersten Mal seit zwanzig langen Jahren" → "zum ersten Mal seit zwanzig Jahren"
   MISSED:  "Stufen machten ein ächzendes Geräusch unter" → "Stufen ächzten unter"
   MISSED:  "Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie" → "Luft drückte gegen die schmalen Fenster wie"
   MISSED:  "Freund war. Ihr Großvater, der ihr Großvater war, hatte diesen Leuchtturm einen Zeitraum von vier Jahrzehnten lang" → "Freund. Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang"
+  MISSED:  "endlich schließlich an" → "endlich an"
   MISSED:  "in ihrer Erinnerung in Erinnerung hatte: die Messingbeschläge, die zu" → "in Erinnerung hatte: die Messingbeschläge zu"
   MISSED:  "poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag. Sie stellte ihre Tasche dort ab" → "poliert, die große Linse still und wachsam, ein Logbuch aufgeschlagen auf dem kleinen Eichentisch. Sie stellte ihre Tasche ab"
   MISSED:  "die Kante der Fensterbank gleiten. Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen."
   MISSED:  "Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war. Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "Vorderseite, geschrieben in der sorgfältigen Handschrift ihres Großvaters. Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum."
   MISSED:  "Brief zu sagen, „wenn du diesen Brief gerade liest," → "Brief, „wenn du dies liest,"
-  MISSED:  "Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine" → "Wahrheit selbst zu sagen. Vergib einem alten Mann seine"
-  …and 13 more missed
-  WRONG-FIX:    "einen" → "eiben" (right spot, wrong guess)
-  WRONG-FIX:    "zittern" → "gittern" (right spot, wrong guess)
-  WRONG-FIX:    "gerade" → "gerate" (right spot, wrong guess)
-  WRONG-FIX:    "leid" → "leit" (right spot, wrong guess)
-  WRONG-FIX:    "gut" → "tut" (right spot, wrong guess)
-  WRONG-FIX:    "ziehen" → "ziegen" (right spot, wrong guess)
-  WRONG-FIX:    "bewegen" → "bewogen" (right spot, wrong guess)
-  WRONG-FIX:    "empfinden" → "empfunden" (right spot, wrong guess)
-  WRONG-FIX:    "schloss" → "schliss" (right spot, wrong guess)
-  WRONG-FIX:    "bleiben" → "Bleiben" (right spot, wrong guess)
-  …and 17 more wrong-fix
+  …and 18 more missed
+  WRONG-FIX:    "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "Mara setzte sich, bevor sie es aufmachte und öffnete, denn ihre Knie zitterten bereits, und sie wollte sich selbst nicht eingestehen, warum das geschah." (right spot, wrong guess)
+  WRONG-FIX:    "Mara stieg die Wendeltreppe zum allerersten Mal seit zwanzig langen Jahren hinauf." → "Mara stieg die Wendeltreppe zum allerersten Mal seit zwanzig Jahren hinauf." (right spot, wrong guess)
+  WRONG-FIX:    "Die eisernen Stufen machten ein ächzendes Geräusch unter ihren Stiefeln, und die salzige Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie ein alter, beharrlicher Freund war." → "Die eisernen Stufen machten ein ächzendes Geräusch unter ihren Stiefeln, und die salzige Luft drückte gegen die schmalen Fenster, wie ein alter, beharrlicher Freund." (right spot, wrong guess)
+  WRONG-FIX:    "Oben war der Laternenraum genau so, wie sie ihn in ihrer Erinnerung in Erinnerung hatte:" → "Oben war der Laternenraum genau so, wie sie ihn erinnerte:" (right spot, wrong guess)
+  WRONG-FIX:    "die Messingbeschläge, die zu einem sanften Glanz poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag." → "die Messingbeschläge, die zu einem sanften Glanz poliert waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag." (right spot, wrong guess)
+  WRONG-FIX:    "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten." → "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Fensterbank gleiten." (right spot, wrong guess)
+  WRONG-FIX:    "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "Es gab dort keinen Staub. Irgendjemand war vor kurzem dort gewesen." (right spot, wrong guess)
+  WRONG-FIX:    "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen, mit ihrem Namen auf der Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war." → "Ein gefaltetes Blatt Papier lag unter dem Logbuch verborgen, mit ihrem Namen auf der Vorderseite, der in der sorgfältigen Handschrift ihres Großvaters geschrieben war." (right spot, wrong guess)
+  WRONG-FIX:    "Mara legte den Brief auf dem Eichentisch beiseite." → "Mara legte den Brief auf den Eichentisch." (right spot, wrong guess)
+  WRONG-FIX:    "Sie dachte bei sich selbst, dass sie wirklich wütend, oder verraten, oder verloren auf irgendeine Art und Weise empfinden sollte." → "Sie dachte bei sich selbst, dass sie wütend, verraten oder verloren sein sollte." (right spot, wrong guess)
+  …and 3 more wrong-fix
   HALLUCINATED: "alter" → "Alter" (no error there)
-  HALLUCINATED: "bewahren" → "gewahren" (no error there)
   HALLUCINATED: "stille" → "stile" (no error there)
-  HALLUCINATED: "stand" → "Stand" (no error there)
   HALLUCINATED: "verstand" → "vorstand" (no error there)
-  HALLUCINATED: "Der Brief des Leuchtturmwärters" → "Der Brief des Leuchtturmwartens" (no error there)
 
 [Qwen3.5-4B-Q4_K_M.gguf] spanish_line_edit.md (line_edit):
   MISSED:  "subió por la" → "subió la"
@@ -434,18 +423,18 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "bitácora que estaba abierto" → "bitácora abierto"
   MISSED:  "bolso allí y" → "bolso y"
   MISSED:  "alféizar de la ventana. No había nada de polvo allí." → "alféizar. No había polvo."
-  …and 17 more missed
-  WRONG-FIX:    "Mara se sentó a sí misma antes de proceder a abrirla, porque las rodillas le habían comenzado a empezar a temblar y ella no quería admitirse a sí misma por qué estaba sucediendo eso." → "Mara se sentó antes de abrirla, porque sus rodillas empezaban a temblar y no quería admitir por qué." (right spot, wrong guess)
-  WRONG-FIX:    "No había nada de polvo allí. Alguien había estado allí en ese lugar hacía poco tiempo." → "No había polvo allí. Alguien había estado hace poco." (right spot, wrong guess)
+  …and 16 more missed
+  WRONG-FIX:    "Se quedaría allí a pasar la noche. Por la mañana, encendería la lámpara hacia arriba." → "Se quedaría allí a pasar la noche. Al día siguiente, encendería la linterna." (right spot, wrong guess)
+  WRONG-FIX:    "Mara dejó la carta sobre el escritorio de roble." → "Mara dejó la carta sobre el escritorio." (right spot, wrong guess)
+  WRONG-FIX:    "Mara se sentó a sí misma antes de proceder a abrirla, porque las rodillas le habían comenzado a empezar a temblar y ella no quería admitirse a sí misma por qué estaba sucediendo eso." → "Mara se sentó antes de abrirla, porque sus rodillas empezaban a temblar y no quería admitir por qué sucedía eso." (right spot, wrong guess)
+  WRONG-FIX:    "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente de la misma con la letra cuidadosa de la mano de su abuelo." → "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente con la letra cuidadosa de la mano de su abuelo." (right spot, wrong guess)
   WRONG-FIX:    "Arriba, la sala de la linterna estaba exactamente tal y como ella la recordaba que era:" → "Arriba, la sala de la linterna estaba exactamente tal como ella la recordaba:" (right spot, wrong guess)
   WRONG-FIX:    "Su abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente por fin a sus manos." → "Su abuelo había cuidado este faro durante cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente a sus manos." (right spot, wrong guess)
   WRONG-FIX:    "Mara subió por la escalera de caracol por la primera vez en veinte largos años." → "Mara subió por la escalera de caracol por primera vez en veinte largos años." (right spot, wrong guess)
   WRONG-FIX:    "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana." → "Dejó su bolso allí y pasó un dedo por el alféizar." (right spot, wrong guess)
-  WRONG-FIX:    "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente de la misma con la letra cuidadosa de la mano de su abuelo." → "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente con la letra cuidadosa de la mano de su abuelo." (right spot, wrong guess)
-  WRONG-FIX:    "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo. Por favor, perdona a un viejo hombre por su cobardía»." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Por favor, perdona a un viejo hombre por su cobardía»." (right spot, wrong guess)
-  WRONG-FIX:    "«Tenías tres años de edad en ese entonces —escribió en su escritura—. Me llamabas Abuelo a mí porque eso fue exactamente lo que te pedí que me llamaras a mí. Lo siento mucho por ello. No te quise a ti menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba a mí hacerlo»." → "«Tenías tres años en ese entonces —escribió—. Me llamabas Abuelo porque eso fue exactamente lo que te pediste. Lo siento mucho por ello. No te quise menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba hacerlo»." (right spot, wrong guess)
-  WRONG-FIX:    "Mara dejó la carta sobre el escritorio de roble." → "Mara dejó la carta sobre el escritorio." (right spot, wrong guess)
-  …and 3 more wrong-fix
+  WRONG-FIX:    "No había nada de polvo allí. Alguien había estado allí en ese lugar hacía poco tiempo." → "No había polvo allí. Alguien había estado allí hace poco." (right spot, wrong guess)
+  WRONG-FIX:    "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo. Por favor, perdona a un viejo hombre por su cobardía»." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Por favor, perdona a un viejo hombre por su cobardía.»" (right spot, wrong guess)
+  …and 6 more wrong-fix
 
 [Qwen3.5-9B-Q4_K_M.gguf] danish_copy_edit.md (copy_edit):
   MISSED:  "støvler og" → "støvler, og"
@@ -471,9 +460,7 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "quiet surprising" → "quiet, surprising"
   MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
   MISSED:  "indifferent and" → "indifferent, and"
-  …and 1 more missed
-  WRONG-FIX:    "she understood now, was a story that belonged to her and that she had only just begun too learn" → "she understood now, was a story that belonged to her and that she had only just begun to learn" (right spot, wrong guess)
-  WRONG-FIX:    "In a hand grown thin and shakey," → "In a hand grown thin and shaky," (right spot, wrong guess)
+  HALLUCINATED: "In a hand grown thin and shakey" → "In a hand grown thin and shaky" (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] german_copy_edit.md (copy_edit):
   MISSED:  "ersten mal seit" → "ersten Mal seit"
@@ -491,6 +478,7 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "die Warheit selbst" → "die Wahrheit selbst"
   MISSED:  "Sturm der" → "Sturm, der"
   …and 7 more missed
+  WRONG-FIX:    "wart" → "wahrt" (right spot, wrong guess)
 
 [Qwen3.5-9B-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit):
   MISSED:  "botas y" → "botas, y"
@@ -503,23 +491,26 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "sorprendente como" → "sorprendente, como"
   MISSED:  "temblorosa, habia escrito: «viento ligero" → "temblorosa, había escrito: «Viento ligero"
   MISSED:  "indiferente y" → "indiferente, y"
+  …and 1 more missed
   WRONG-FIX:    "Con una letra adelgazada y temblorosa, habia escrito:" → "Con una letra adelgazada y temblorosa, había escrito:" (right spot, wrong guess)
   WRONG-FIX:    "«Tenia tres años —escribió—." → "«Tenía tres años —escribió—. " (right spot, wrong guess)
+  HALLUCINATED: "Hoy le hablé a M. de la carta." → "Hoy le hablé a M. de la carta," (no error there)
   HALLUCINATED: "desde mucho antes de que ella nasciera" → "desde mucho antes de que ella naciera" (no error there)
   HALLUCINATED: "antes de habrirla" → "antes de abrirla" (no error there)
+  HALLUCINATED: "cuando llegue el momento. La luz está lista. Yo también»." → "cuando llegue el momento. La luz está lista. Yo también." (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] stress100_copy_edit.md (copy_edit):
   MISSED:  "rare and" → "rare, and"
   MISSED:  "yellowed brittle" → "yellowed, brittle"
   MISSED:  "small careful" → "small, careful"
   MISSED:  "tall weathered" → "tall, weathered"
+  MISSED:  "by than," → "by then,"
   MISSED:  "decide weather it" → "decide whether it"
   MISSED:  "old careful" → "old, careful"
   MISSED:  "shelf and" → "shelf, and"
   MISSED:  "fragile forgotten" → "fragile, forgotten"
   MISSED:  "islands and" → "islands, and"
-  MISSED:  "places but" → "places, but"
-  …and 32 more missed
+  …and 34 more missed
   WRONG-FIX:    "be the the last" → "be the last" (right spot, wrong guess)
   WRONG-FIX:    "town, with with streets," → "town, with streets," (right spot, wrong guess)
   WRONG-FIX:    "against the the front" → "against the front" (right spot, wrong guess)
@@ -530,42 +521,43 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   WRONG-FIX:    "of ceder and" → "of ceded and" (right spot, wrong guess)
   WRONG-FIX:    "modern atlus." → "modern Atlas." (right spot, wrong guess)
   WRONG-FIX:    "came grey and" → "came gray and" (right spot, wrong guess)
-  …and 10 more wrong-fix
+  …and 12 more wrong-fix
   HALLUCINATED: "old woodsmoke." → "old wood smoke." (no error there)
   HALLUCINATED: ""I don't know what these are," he admitted, laying the satchel on the counter. "My grandmother never spoke of them. I only found them because the panel came loose when I was clearing the attic."" → ""I don't know what these are," he admitted, placing the satchel on the counter. "My grandmother never spoke of them. I only found them because the panel came loose when I was clearing the attic."" (no error there)
   HALLUCINATED: "though it took her three days of asking before anyone would say it allowed" → "though it took her three days of asking before anyone would say it aloud" (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] stress100da_copy_edit.md (copy_edit):
-  MISSED:  "ikke ikke bundet" → "ikke bundet"
+  MISSED:  "vendte konvoluten to" → "vendte konvolutten to"
+  MISSED:  "af cedertræe og" → "af cedertræ og"
   MISSED:  "skrev at" → "skrev, at"
+  MISSED:  "fortalte at" → "fortalte, at"
   MISSED:  "ark der" → "ark, der"
   MISSED:  "bog han" → "bog, han"
   MISSED:  "til nogle," → "til nogen,"
+  MISSED:  "tirsdag skrev" → "tirsdag, skrev"
   MISSED:  "op og" → "op, og"
-  MISSED:  "vej hvis" → "vej, hvis"
-  MISSED:  "kun fordi" → "kun, fordi"
-  MISSED:  "Støvet lagde tykt" → "Støvet lå tykt"
-  MISSED:  "mindre end" → "mindre, end"
-  …and 43 more missed
-  WRONG-FIX:    "cedertræe" → "cedertræer" (right spot, wrong guess)
-  WRONG-FIX:    "stregene" → "strengene" (right spot, wrong guess)
-  WRONG-FIX:    "udkats" → "udsats" (right spot, wrong guess)
-  WRONG-FIX:    "hændene" → "hængene" (right spot, wrong guess)
+  MISSED:  "skyerne.
+
+tirsdagen kom" → "skyerne.
+
+Tirsdagen kom"
+  …and 52 more missed
   WRONG-FIX:    "udvisked" → "udviskes" (right spot, wrong guess)
-  WRONG-FIX:    "længre" → "længde" (right spot, wrong guess)
-  WRONG-FIX:    "ældeste" → "ædleste" (right spot, wrong guess)
-  WRONG-FIX:    "steder, men stregene stod" → "steder, mens tregene stod" (right spot, wrong guess)
-  WRONG-FIX:    "hende længre." → "hende længer." (right spot, wrong guess)
-  WRONG-FIX:    ""Jeg ved ikke, hvad det er", indrømede han og lagde mappen på disken." → ""Jeg ved ikke, hvad det er," indrømede han og lagde mappen på disken." (right spot, wrong guess)
-  …and 8 more wrong-fix
-  HALLUCINATED: ""Det er min mors håndskrift", sagde hun til sidst. "Men den bog kender jeg ikke."" → ""Det er min mors håndskrift," sagde hun til sidst. "Men den bog kender jeg ikke."" (no error there)
-  HALLUCINATED: "Ejnar nikkede, som om han havde ventet præcis det svar." → "Ejnar nikkede, som om han havde ventet på præcis det svar." (no error there)
-  HALLUCINATED: ""Fandt du arkene i den her rækkefølge?", spurgte hun." → ""Fandt du arkene i den her rækkefølge?" spurgte hun." (no error there)
-  HALLUCINATED: ""Hun flyttede det", sagde hun stille. "Fra ark til ark."" → ""Hun flyttede det," sagde hun stille. "Fra ark til ark."" (no error there)
-  HALLUCINATED: ""Hvor vandrer det hen?", spurgte han til sidst." → ""Hvor vandrer det hen?" spurgte han til sidst." (no error there)
-  HALLUCINATED: ""Den samme side", sagde Ejnar langsomt. "Altid."" → ""Den samme side," sagde Ejnar langsomt. "Altid."" (no error there)
-  HALLUCINATED: "Solveig læste brevet to gange, lagde det på høvlebænken og sagde højt ud i det tomme rum: "Tirsdag går an."" → "Solveig læste brevet to gange, lagde det på høvlebænken og sagde højt: "Tirsdag går an."" (no error there)
-  HALLUCINATED: "Det rørte ikke ved noget. Det holdt ikke noget sammen. Det hang i tegningen som et ord på et fremmed sprog." → "Det rørte ikke ved noget. Det holdt ikke noget sammen. Det hang i tegningen som et ord på et fremmedsprog." (no error there)
+  WRONG-FIX:    "De ældeste var" → "De ædleste var" (right spot, wrong guess)
+  WRONG-FIX:    "lugtede af cedertræe" → "lugtede af cedertræ" (right spot, wrong guess)
+  WRONG-FIX:    "grebb ind i hinanden" → "greb ind i hinanden" (right spot, wrong guess)
+  WRONG-FIX:    "noter små og tætte der talte" → "noter små og tætte, der talte" (right spot, wrong guess)
+  WRONG-FIX:    "de de seks ark" → "de seks ark" (right spot, wrong guess)
+  WRONG-FIX:    "hendes mor havde ikke været en kvinde med store ord" → "Hendes mor havde ikke været en kvinde med store ord" (right spot, wrong guess)
+  WRONG-FIX:    "om morgenen ringede hun til Ejnar" → "Om morgenen ringede hun til Ejnar" (right spot, wrong guess)
+  WRONG-FIX:    "arbejdet gik langsommere" → "Arbejdet gik langsommere" (right spot, wrong guess)
+  WRONG-FIX:    "stregene stod stadig skarpe og sikre" → "stregen stod stadig skarp og sikker" (right spot, wrong guess)
+  …and 3 more wrong-fix
+  HALLUCINATED: "for vane at rømme sig" → "af vane at rømme sig" (no error there)
+  HALLUCINATED: "syet med hørgardn" → "syet med hør garn" (no error there)
+  HALLUCINATED: "et der ikke hørte til nogen steder" → "et der ikke hørte til noget sted" (no error there)
+  HALLUCINATED: "tålmodigt og uden et eneste hul" → "tålmodigt og uden et eneste hull" (no error there)
+  HALLUCINATED: "og som fortæller den samme historie til alle, der spørger" → "og som fortæller den samme historie til alle, der spørger om" (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] stress100de_copy_edit.md (copy_edit):
   MISSED:  "nach Zederholz und" → "nach Zedernholz und"
@@ -578,33 +570,35 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "hatte. Der Tinte" → "hatte. Die Tinte"
   MISSED:  "die Linnien selbst" → "die Linien selbst"
   MISSED:  "Bild, wie" → "Bild wie"
-  …and 24 more missed
-  WRONG-FIX:    "tisch" → "tusch" (right spot, wrong guess)
-  WRONG-FIX:    "licht" → "locht" (right spot, wrong guess)
-  WRONG-FIX:    "einen" → "eiben" (right spot, wrong guess)
-  WRONG-FIX:    "wind" → "sind" (right spot, wrong guess)
-  WRONG-FIX:    "weg" → "reg" (right spot, wrong guess)
-  WRONG-FIX:    "fort" → "dort" (right spot, wrong guess)
-  WRONG-FIX:    "tee" → "tue" (right spot, wrong guess)
-  WRONG-FIX:    "sein" → "dein" (right spot, wrong guess)
-  WRONG-FIX:    "tat" → "taz" (right spot, wrong guess)
+  …and 28 more missed
   WRONG-FIX:    "verwerfen" → "verworfen" (right spot, wrong guess)
-  …and 9 more wrong-fix
-  HALLUCINATED: "stand" → "Stand" (no error there)
+  WRONG-FIX:    "Zahnräder grifen ineinander" → "Zahnräder greifen ineinander" (right spot, wrong guess)
+  WRONG-FIX:    "Band zusammengebungen." → "Band Zusammengebungen." (right spot, wrong guess)
+  WRONG-FIX:    "den Largen zäh" → "den Lärchen zäh" (right spot, wrong guess)
+  WRONG-FIX:    "gereicht"
+
+Konrad" → "gereicht".
+
+Konrad" (right spot, wrong guess)
+  WRONG-FIX:    "die Mauwer." → "die Mau wer." (right spot, wrong guess)
+  WRONG-FIX:    "Das Staub lag dick auf jedem Regal" → "Der Staub lag dick auf jedem Regal" (right spot, wrong guess)
+  WRONG-FIX:    "Der Tinte war stellenweise verblasst" → "Die Tinte war stellenweise verblasst" (right spot, wrong guess)
+  WRONG-FIX:    ""Der Fehler ist die Absicht", stand unter der dritte Zeichnung" → ""Der Fehler ist die Absicht", stand unter der dritten Zeichnung" (right spot, wrong guess)
+  WRONG-FIX:    ""Und unter der fünften: "Ein Werk, das nur sich selbst dient, ist eine Uhr. Ein Werk, das aus sich heraustritt, ist etwas anderes."" → ""Und unter der fünften: "Ein Werk, das nur sich selbst dient, ist eine Uhr. Ein Werk, das aus sich heraustritt, ist etwas anderes.""" (right spot, wrong guess)
+  …and 3 more wrong-fix
+  HALLUCINATED: "alter" → "Alter" (no error there)
   HALLUCINATED: "wolle" → "solle" (no error there)
-  HALLUCINATED: "tausend" → "pausend" (no error there)
-  HALLUCINATED: "stehen" → "stegen" (no error there)
-  HALLUCINATED: "sehen" → "seen" (no error there)
-  HALLUCINATED: "finden" → "finten" (no error there)
-  HALLUCINATED: "lassen" → "lasen" (no error there)
-  HALLUCINATED: "begriff" → "Begriff" (no error there)
-  HALLUCINATED: "erklären" → "Erklären" (no error there)
-  HALLUCINATED: "strich" → "sprich" (no error there)
-  …and 13 more hallucinated
+  HALLUCINATED: "verschwinden" → "Verschwinden" (no error there)
+  HALLUCINATED: "bauten" → "hauten" (no error there)
+  HALLUCINATED: "mit tintenfleckigen Fingern" → "mit binde-fleckigen Fingern" (no error there)
+  HALLUCINATED: "las sie sie nicht" → "las sie nicht" (no error there)
+  HALLUCINATED: "Am Dienstag könne er kommen, wenn es ihr recht sei" → "Am Dienstag könne er kommen wenn es ihr recht sei" (no error there)
+  HALLUCINATED: ""Wohin wandert es." → ""Wohin wandert es?" (no error there)
+  HALLUCINATED: "Konrad trat neben sie. Eine lange Minute sagte keiner von beiden etwas" → "Konrad trat neben sie. Eine lange Minute, sagte keiner von beiden etwas" (no error there)
+  HALLUCINATED: "ruhig und gleichmässig" → "ruhig und gleichmäßig" (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] stress100es_copy_edit.md (copy_edit):
   MISSED:  "de tapaz mudas," → "de tapas mudas,"
-  MISSED:  "decía, sí a" → "decía, si a"
   MISSED:  "ventoso con" → "ventoso, con"
   MISSED:  "cuidadoso con" → "cuidadoso, con"
   MISSED:  "admitió dejando" → "admitió, dejando"
@@ -612,38 +606,24 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "notas pequeñas" → "notas, pequeñas"
   MISSED:  "asintió como" → "asintió, como"
   MISSED:  "He encuardenado libros" → "He encuadernado libros"
+  MISSED:  "nada. Colgava en" → "nada. Colgaba en"
   MISSED:  ""Encontró" → ""¿Encontró"
   …and 30 more missed
-  WRONG-FIX:    "tapaz" → "rapaz" (right spot, wrong guess)
-  WRONG-FIX:    "olia" → "eolia" (right spot, wrong guess)
-  WRONG-FIX:    "detras" → "detrae" (right spot, wrong guess)
-  WRONG-FIX:    "Queria" → "Quera" (right spot, wrong guess)
-  WRONG-FIX:    "palido" → "balido" (right spot, wrong guess)
-  WRONG-FIX:    "gargarta" → "gargarea" (right spot, wrong guess)
   WRONG-FIX:    "habia" → "hacia" (right spot, wrong guess)
   WRONG-FIX:    "lus" → "les" (right spot, wrong guess)
   WRONG-FIX:    "desplasado" → "desplayado" (right spot, wrong guess)
-  WRONG-FIX:    "cajon" → "canon" (right spot, wrong guess)
-  …and 26 more wrong-fix
+  WRONG-FIX:    "decadas" → "recadas" (right spot, wrong guess)
+  WRONG-FIX:    "pudó" → "podó" (right spot, wrong guess)
+  WRONG-FIX:    "empesado" → "empesador" (right spot, wrong guess)
+  WRONG-FIX:    "el taler de" → "el tales de" (right spot, wrong guess)
+  WRONG-FIX:    "de tapaz mudas," → "de tapás mudas," (right spot, wrong guess)
+  WRONG-FIX:    "He encuardenado libros" → "He encadenado libros" (right spot, wrong guess)
+  WRONG-FIX:    "la lus de" → "la las de" (right spot, wrong guess)
+  …and 6 more wrong-fix
   HALLUCINATED: "responderle" → "respondedle" (no error there)
-  HALLUCINATED: "vacía: "El" → "vacía: “El" (no error there)
-  HALLUCINATED: "bien." La" → "bien.” La" (no error there)
-  HALLUCINATED: "dijeran.
-
-"No" → "dijeran.
-
-“No" (no error there)
-  HALLUCINATED: "son"," → "son”," (no error there)
-  HALLUCINATED: "mostrador. "Mi" → "mostrador. “Mi" (no error there)
-  HALLUCINATED: "desván." El" → "desván.” El" (no error there)
-  HALLUCINATED: "como "el" → "como “el" (no error there)
-  HALLUCINATED: "espera"." → "espera”." (no error there)
-  HALLUCINATED: "seguras.
-
-"Ésta" → "seguras.
-
-“Ésta" (no error there)
-  …and 106 more hallucinated
+  HALLUCINATED: ""Ésta es" → ""Esta es" (no error there)
+  HALLUCINATED: "Nunca levantaba la voz, dijeran lo que dijeran." → "Nunca levantaba la voz, dijera lo que dijera." (no error there)
+  HALLUCINATED: ""Lo fue moviendo", dijo en voz baja." → ""Lo fue moviendo", dijo en voz alta." (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] danish_line_edit.md (line_edit):
   MISSED:  "for allerførste gang i tyve lange år. Jerntrinene lavede en knagende lyd under" → "for første gang i tyve år. Jerntrinene knagede under"
@@ -654,20 +634,20 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "linse, der var tavs og vågen, og en logbog, der lå" → "linse lå tavs og vågen, og en logbog lå"
   MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
   MISSED:  "forsiden af det med bedstefarens omhyggelige håndskriftshånd. Mara satte sig selv ned, før hun åbnede det op," → "forsiden i bedstefarens omhyggelige håndskrift. Mara satte sig, før hun åbnede det,"
+  MISSED:  "at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "at ryste, og hun ville ikke indrømme hvorfor."
   MISSED:  "brevet at sige, "hvis du læser dette brev," → "brevet, "hvis du læser dette,"
-  MISSED:  "sandheden personligt selv. Vær venlig at tilgive en gammel mand for hans" → "sandheden selv. Tilgiv en gammel mand hans"
   …and 14 more missed
-  WRONG-FIX:    "I morgen ville hun tænde lampen op." → "I morgen ville hun tænde lyset." (right spot, wrong guess)
-  WRONG-FIX:    "Havet strakte sig i hver eneste retning, og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "Havet strakte sig i hver retning, og et sted derude lå en historie, der tilhørte hende, og som hun lige netop havde begyndt at lære om." (right spot, wrong guess)
+  WRONG-FIX:    "Hun ville blive der natten over. I morgen ville hun tænde lampen op." → "Hun ville blive der natten over. I morgen ville hun tænde lyset." (right spot, wrong guess)
+  WRONG-FIX:    "og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "og et sted derude, hun forstod nu, lå en historie, der tilhørte hende, og som hun lige netop havde begyndt at lære om." (right spot, wrong guess)
   WRONG-FIX:    "Hun lukkede bogen i en lukkende bevægelse." → "Hun lukkede bogen." (right spot, wrong guess)
-  WRONG-FIX:    "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum, som hun kendte godt." → "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, hun aldrig havde lagt mærke til, var gået op i et velkendt rum." (right spot, wrong guess)
-  WRONG-FIX:    "Udenfor var mågerne i færd med at dreje langsomme cirkler over vandet" → "Udenfor drejede mågerne langsomme cirkler over vandet" (right spot, wrong guess)
-  WRONG-FIX:    "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre." → "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda lidt mere, fordi jeg vidste, hvad den kostede mig." (right spot, wrong guess)
+  WRONG-FIX:    "næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum, som hun kendte godt." → "næsten som om en dør, hun aldrig havde lagt mærke til, var gået op i et velkendt rum." (right spot, wrong guess)
+  WRONG-FIX:    "Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre." → "Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda lidt mere, fordi jeg vidste, hvad den kostede mig." (right spot, wrong guess)
   WRONG-FIX:    ""Du var tre år gammel dengang på det tidspunkt," skrev han i sin skrivning." → ""Du var tre år gammel dengang," skrev han." (right spot, wrong guess)
-  WRONG-FIX:    "og han skrev om datteren, som den kvinde havde efterladt i hans varetægt for at passe på" → "og han skrev om datteren, som den kvinde havde efterladt i hans varetægt" (right spot, wrong guess)
-  WRONG-FIX:    "Han skrev om det valg, som han havde truffet om at bevare hendes hemmelighed" → "Han skrev om valget, han havde truffet for at bevare hendes hemmelighed" (right spot, wrong guess)
-  WRONG-FIX:    "og han skrev om kvinden, som han selv havde trukket op af brændingen og båret op ad netop disse trapper." → "og om kvinden, som han selv havde trukket op af brændingen og båret op ad disse trapper." (right spot, wrong guess)
-  …and 7 more wrong-fix
+  WRONG-FIX:    "og han skrev om kvinden, som han selv havde trukket op af brændingen og båret op ad netop disse trapper." → "og han skrev om kvinden, som han havde trukket op af brændingen og båret op ad netop disse trapper." (right spot, wrong guess)
+  WRONG-FIX:    "Han skrev om den nat, hendes mor var rejst, og han skrev om stormen" → "Han skrev om den nat hendes mor var rejst, og om stormen" (right spot, wrong guess)
+  WRONG-FIX:    "Mara satte sig selv ned, før hun åbnede det op, for hendes knæ var begyndt at starte med at ryste" → "Mara satte sig ned, før hun åbnede det, for hendes knæ begyndte at ryste" (right spot, wrong guess)
+  WRONG-FIX:    "med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd." → "med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskrift." (right spot, wrong guess)
+  …and 5 more wrong-fix
 
 [Qwen3.5-9B-Q4_K_M.gguf] english_line_edit.md (line_edit):
   MISSED:  "Mara went up the" → "Mara climbed the"
@@ -680,20 +660,19 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "front of it in her grandfather's careful handwriting hand. Mara sat herself down before she opened it up," → "front in her grandfather's careful hand. Mara sat down before she opened it,"
   MISSED:  "begun the process of trembling and she did not really want to admit to herself why this was happening." → "begun to tremble and she did not want to admit why."
   MISSED:  "began to say," → "began,"
-  …and 20 more missed
-  WRONG-FIX:    "and somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about" → "somewhere out there was a story that belonged to her and that she had only just begun to learn" (right spot, wrong guess)
+  …and 19 more missed
   WRONG-FIX:    "The sea stretched away in every single direction" → "The sea stretched away in every direction" (right spot, wrong guess)
-  WRONG-FIX:    "She closed the book in a closing motion" → "She closed the book" (right spot, wrong guess)
-  WRONG-FIX:    "almost as though a door that she had never noticed before had opened up in a familiar room that she knew well" → "as though a door she had never noticed before had opened in a familiar room" (right spot, wrong guess)
-  WRONG-FIX:    "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way" → "She thought she ought to feel angry, betrayed, or unmoored" (right spot, wrong guess)
+  WRONG-FIX:    "She closed the book in a closing motion." → "She closed the book." (right spot, wrong guess)
+  WRONG-FIX:    "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well." → "Instead, she felt only a quiet, surprising tenderness, as if a door she'd never noticed had opened in a familiar room." (right spot, wrong guess)
+  WRONG-FIX:    "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way." → "She thought she ought to feel angry, betrayed, or unmoored." (right spot, wrong guess)
   WRONG-FIX:    "Outside, gulls were turning slow circles above the water" → "Outside, gulls turned in slow circles above the water" (right spot, wrong guess)
-  WRONG-FIX:    "because I knew what it cost me to do." → "because I knew the cost." (right spot, wrong guess)
-  WRONG-FIX:    "I loved you no less for the lie that I told, and perhaps a little bit more" → "I loved you no less for the lie I told, and perhaps a little more" (right spot, wrong guess)
-  WRONG-FIX:    ""You were three years old at the time," he wrote in his writing." → ""You were three years old at the time," he wrote." (right spot, wrong guess)
-  WRONG-FIX:    "and he wrote about the daughter that that woman had left behind in his care to look after" → "and the daughter that woman had left behind in his care" (right spot, wrong guess)
-  …and 11 more wrong-fix
-  HALLUCINATED: "In the morning, she would light the lamp up" → "In the morning, she would light the lamp" (no error there)
-  HALLUCINATED: "You called me Grandfather because that is what I asked you to call me" → "You called me Grandfather because I asked you to" (no error there)
+  WRONG-FIX:    "I loved you no less for the lie that I told, and perhaps a little bit more, because I knew what it cost me to do." → "I loved you no less for the lie I told, and perhaps a little more, knowing what it cost me." (right spot, wrong guess)
+  WRONG-FIX:    "and he wrote about the daughter that that woman had left behind in his care to look after" → "and he wrote about the daughter that woman had left behind in his care" (right spot, wrong guess)
+  WRONG-FIX:    "and he wrote about the woman that he had pulled from the surf" → "and he wrote about the woman he had pulled from the surf" (right spot, wrong guess)
+  WRONG-FIX:    "because her knees had begun the process of trembling" → "because her knees began to tremble" (right spot, wrong guess)
+  WRONG-FIX:    "Mara sat herself down before she opened it up" → "Mara sat down before opening it" (right spot, wrong guess)
+  …and 3 more wrong-fix
+  HALLUCINATED: "You called me Grandfather because that is what I asked you to call me." → "You called me Grandfather because I asked you to." (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] german_line_edit.md (line_edit):
   MISSED:  "zum allerersten Mal seit zwanzig langen Jahren" → "zum ersten Mal seit zwanzig Jahren"
@@ -703,25 +682,23 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "in ihrer Erinnerung in Erinnerung hatte: die Messingbeschläge, die zu" → "in Erinnerung hatte: die Messingbeschläge zu"
   MISSED:  "poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag. Sie stellte ihre Tasche dort ab" → "poliert, die große Linse still und wachsam, ein Logbuch aufgeschlagen auf dem kleinen Eichentisch. Sie stellte ihre Tasche ab"
   MISSED:  "die Kante der Fensterbank gleiten. Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen."
+  MISSED:  "Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war. Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "Vorderseite, geschrieben in der sorgfältigen Handschrift ihres Großvaters. Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum."
   MISSED:  "Brief zu sagen, „wenn du diesen Brief gerade liest," → "Brief, „wenn du dies liest,"
   MISSED:  "Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine" → "Wahrheit selbst zu sagen. Vergib einem alten Mann seine"
-  MISSED:  "langsam und sorgfältig." → "langsam."
   …and 16 more missed
   WRONG-FIX:    "Sie schloss das Buch mit einer schließenden Bewegung." → "Sie schloss das Buch." (right spot, wrong guess)
-  WRONG-FIX:    "Mara legte den Brief auf dem Eichentisch beiseite." → "Mara legte den Brief auf den Eichentisch." (right spot, wrong guess)
-  WRONG-FIX:    "Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und er schrieb über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte, damit er auf sie aufpasste." → "Er schrieb von der Entscheidung, ihr Geheimnis zu bewahren, und von der Tochter, die jene Frau in seiner Obhut zurückgelassen hatte." (right spot, wrong guess)
-  WRONG-FIX:    "Er schrieb über die Nacht, in der ihre Mutter gegangen war, und er schrieb über den Sturm, der ein kleines Fischerboot auf die Felsen unterhalb der Klippe getrieben hatte, und er schrieb über die Frau, die er selbst aus der Brandung gezogen und genau diese Treppe hinaufgetragen hatte." → "Er schrieb von der Nacht, in der ihre Mutter gegangen war, vom Sturm, der ein Fischerboot auf die Felsen unter der Klippe getrieben hatte, und von der Frau, die er aus der Brandung gezogen und diese Treppe hinaufgetragen hatte." (right spot, wrong guess)
-  WRONG-FIX:    "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern" → "Mara setzte sich hin, bevor sie es aufmachte, denn ihre Knie hatten angefangen zu zittern," (right spot, wrong guess)
-  WRONG-FIX:    "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten." → "Sie stellte ihre Tasche ab und ließ einen Finger über die Kante der Fensterbank gleiten." (right spot, wrong guess)
-  WRONG-FIX:    "die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag." → "die große Linse, die still und wachsam war, ein aufgeschlagenes Logbuch auf dem kleinen Eichentisch." (right spot, wrong guess)
-  WRONG-FIX:    "die Messingbeschläge, die zu einem sanften Glanz poliert worden waren" → "die Messingbeschläge, die zu einem sanften Glanz poliert waren," (right spot, wrong guess)
-  WRONG-FIX:    "Mara stieg die Wendeltreppe zum allerersten Mal seit zwanzig langen Jahren hinauf." → "Mara stieg zum allerersten Mal seit zwanzig Jahren die Wendeltreppe hinauf." (right spot, wrong guess)
-  WRONG-FIX:    "einen" → "eiben" (right spot, wrong guess)
-  …and 9 more wrong-fix
+  WRONG-FIX:    "Mara legte den Brief auf dem Eichentisch beiseite." → "Mara legte den Brief auf den Eichentisch beiseite." (right spot, wrong guess)
+  WRONG-FIX:    ""Du nanntest mich Großvater, weil das genau das war, worum ich dich gebeten hatte. Es tut mir sehr leid darüber. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger, und vielleicht ein ganz kleines bisschen mehr, weil ich gut wusste, was sie mich kostete zu tun."" → ""Du nanntest mich Großvater, weil das genau das war, worum ich dich gebeten hatte. Es tut mir sehr leid darüber. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger, und vielleicht ein ganz kleines bisschen mehr, weil ich gut wusste, was sie mich kostete."" (right spot, wrong guess)
+  WRONG-FIX:    ""Mara", begann der Brief zu sagen, "wenn du diesen Brief gerade liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine Feigheit."" → ""Mara", begann der Brief, "wenn du diesen Brief liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich zu sagen. Bitte vergib einem alten Mann seine Feigheit."" (right spot, wrong guess)
+  WRONG-FIX:    "und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "und sie wollte sich nicht eingestehen, warum das geschah." (right spot, wrong guess)
+  WRONG-FIX:    "denn ihre Knie hatten begonnen, anzufangen zu zittern" → "denn ihre Knie begannen zu zittern" (right spot, wrong guess)
+  WRONG-FIX:    "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete" → "Mara setzte sich hin, bevor sie es aufmachte" (right spot, wrong guess)
+  WRONG-FIX:    "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten." → "Sie stellte ihre Tasche dort ab und ließ ihren Finger über die Kante der Fensterbank gleiten." (right spot, wrong guess)
+  WRONG-FIX:    "ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag." → "ein aufgeschlagenes Logbuch auf dem kleinen Eichentisch." (right spot, wrong guess)
+  WRONG-FIX:    "die Messingbeschläge, die zu einem sanften Glanz poliert worden waren" → "die Messingbeschläge, die zu einem sanften Glanz poliert waren" (right spot, wrong guess)
+  …and 1 more wrong-fix
   HALLUCINATED: "alter" → "Alter" (no error there)
-  HALLUCINATED: "bewahren" → "gewahren" (no error there)
   HALLUCINATED: "stille" → "stile" (no error there)
-  HALLUCINATED: "stand" → "Stand" (no error there)
   HALLUCINATED: "verstand" → "vorstand" (no error there)
 
 [Qwen3.5-9B-Q4_K_M.gguf] spanish_line_edit.md (line_edit):
@@ -731,21 +708,21 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   MISSED:  "estrechas de una manera que era como" → "estrechas como"
   MISSED:  "abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas, y" → "abuelo había cuidado este faro durante cuatro décadas y"
   MISSED:  "pasado finalmente por" → "pasado por"
+  MISSED:  "exactamente tal y como ella la recordaba que era:" → "exactamente como ella la recordaba:"
   MISSED:  "hasta llegar a un" → "hasta un"
   MISSED:  "bitácora que estaba abierto" → "bitácora abierto"
   MISSED:  "bolso allí y" → "bolso y"
-  MISSED:  "alféizar de la ventana. No había nada de polvo allí." → "alféizar. No había polvo."
-  …and 17 more missed
-  WRONG-FIX:    "Cerró el cuaderno con un movimiento de cierre. Se puso de pie, caminó hasta la gran lente y apoyó la palma de su mano plana contra el cristal fresco del mismo." → "Cerró el cuaderno. Se puso de pie, caminó hasta la gran lente y apoyó la palma plana contra el cristal fresco." (right spot, wrong guess)
-  WRONG-FIX:    "«Tenías tres años de edad en ese entonces —escribió en su escritura—. Me llamabas Abuelo a mí porque eso fue exactamente lo que te pedí que me llamaras a mí. Lo siento mucho por ello. No te quise a ti menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba a mí hacerlo»." → "«Tenías tres años en ese entonces —escribió—. Me llamabas Abuelo porque eso fue exactamente lo que te pedí. Lo siento mucho. No te quise menos por la mentira que te dije, y quizá un poquito más, porque sabía bien lo que me costaba hacerlo»." (right spot, wrong guess)
-  WRONG-FIX:    "Leyó despacio y con cuidado. Él escribía sobre la noche en que su madre se había marchado, y escribía sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y escribía sobre la mujer que él mismo había sacado del oleaje y había subido por estas mismas escaleras. Escribía sobre la decisión que él había tomado de guardar su secreto, y escribía sobre la hija que aquella mujer había dejado abandonada a su cuidado para que la cuidara." → "Leyó despacio. Hablaba de la noche en que su madre se había marchado, de la tormenta que arrojó una pequeña barca contra las rocas al pie del acantilado, y de la mujer que él sacó del oleaje y subió por esas escaleras. Hablaba de la decisión de guardar el secreto y de la hija que aquella mujer dejó abandonada a su cuidado." (right spot, wrong guess)
-  WRONG-FIX:    "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo. Por favor, perdona a un viejo hombre por su cobardía»." → "«Mara —comenzaba la carta—, si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona. Por favor, perdona a un viejo hombre por su cobardía»." (right spot, wrong guess)
+  …and 16 more missed
+  WRONG-FIX:    "Cerró el cuaderno con un movimiento de cierre. Se puso de pie, caminó hasta la gran lente y apoyó la palma de su mano plana contra el cristal fresco del mismo." → "Cerró el cuaderno. Se puso de pie, caminó hasta la gran lente y apoyó la palma plana contra el cristal." (right spot, wrong guess)
+  WRONG-FIX:    "En cambio, sintió solo una ternura tranquila y sorprendente, casi como si una puerta que ella nunca antes había notado se hubiera abierto en una habitación familiar que ella conocía bien." → "En cambio, sintió una ternura tranquila y sorprendente, casi como si una puerta que nunca había notado se hubiera abierto en una habitación familiar." (right spot, wrong guess)
+  WRONG-FIX:    "Lo siento mucho por ello. No te quise a ti menos por la mentira que te dije, y quizá un poquito más, porque yo sabía bien lo que me costaba a mí hacerlo»." → "Lo siento mucho. No te quise menos por la mentira que te dije, y quizá un poquito más, porque sabía bien lo que me costaba hacerlo." (right spot, wrong guess)
+  WRONG-FIX:    "«Tenías tres años de edad en ese entonces —escribió en su escritura—. Me llamabas Abuelo a mí porque eso fue exactamente lo que te pedí que me llamaras a mí." → "«Tenías tres años en ese entonces —escribió—. Me llamabas Abuelo porque eso fue exactamente lo que te pedí." (right spot, wrong guess)
+  WRONG-FIX:    "«Mara —comenzaba a decir la carta—, si estás leyendo esta carta, es que por fin se me han acabado a mí las excusas para decirte a ti la verdad en persona por mí mismo." → "«Mara —comenzaba la carta—: si estás leyendo esto, es que por fin se me han acabado las excusas para decirte la verdad en persona." (right spot, wrong guess)
   WRONG-FIX:    "Mara se sentó a sí misma antes de proceder a abrirla, porque las rodillas le habían comenzado a empezar a temblar y ella no quería admitirse a sí misma por qué estaba sucediendo eso." → "Mara se sentó antes de abrirla, porque las rodillas le habían comenzado a temblar y no quería admitir por qué sucedía." (right spot, wrong guess)
   WRONG-FIX:    "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente de la misma con la letra cuidadosa de la mano de su abuelo." → "Una hoja doblada de papel descansaba debajo del cuaderno, con su nombre escrito al frente con la letra cuidadosa de su abuelo." (right spot, wrong guess)
-  WRONG-FIX:    "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana. No había nada de polvo allí. Alguien había estado allí en ese lugar hacía poco tiempo." → "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana. No había polvo. Alguien había estado allí hace poco." (right spot, wrong guess)
-  WRONG-FIX:    "Su abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente por fin a sus manos." → "Su abuelo había cuidado este faro durante cuatro décadas, y ahora, tres meses después de su funeral, la escritura había pasado finalmente a sus manos." (right spot, wrong guess)
+  WRONG-FIX:    "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana. No había nada de polvo allí." → "Dejó su bolso allí y pasó un dedo por el alféizar de la ventana. No había polvo." (right spot, wrong guess)
+  WRONG-FIX:    "y ahora, tres meses después de su funeral, la escritura había pasado finalmente por fin a sus manos." → "y ahora, tres meses después de su funeral, la escritura había pasado finalmente a sus manos." (right spot, wrong guess)
   WRONG-FIX:    "Mara subió por la escalera de caracol por la primera vez en veinte largos años." → "Mara subió por la escalera de caracol por primera vez en veinte largos años." (right spot, wrong guess)
-  WRONG-FIX:    "Leyó despacio y con cuidado. Él escribía sobre la noche en que su madre se había marchado, y escribía sobre la tormenta que había arrojado una pequeña barca de pesca contra las rocas al pie del acantilado, y escribía sobre la mujer que él mismo había sacado del oleaje y había subido por estas mismas escaleras. Escribía sobre la decisión que él había tomado de guardar su secreto, y escribía sobre la hija que aquella mujer había dejado abandonada a su cuidado para que la cuidara." → "Leyó despacio. Hablaba de la noche en que su madre se había marchado, de la tormenta que arrojó una pequeña barca contra las rocas al pie del acantilado, y de la mujer que él mismo sacó del oleaje y subió por esas escaleras. Hablaba de la decisión de guardar el secreto y de la hija que aquella mujer dejó abandonada a su cuidado." (right spot, wrong guess)
   …and 1 more wrong-fix
 
 
