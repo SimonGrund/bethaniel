@@ -57,6 +57,62 @@ export function modeLabelKeys(modes: TaskMode[]): string[] {
   return keys;
 }
 
+// ── Task-step grouping ──
+//
+// The three front cards are the paid product: FRONT_CARD_MODES must stay
+// equal to CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus
+// combined_edit, which the backend synthesises from copy_edit + line_edit and
+// no user ever selects. backend/test/cloudModes.test.ts pins the other side.
+
+export type FrontCard = "edit" | "readthrough" | "translate";
+
+/** Modes each front card selects. The Edit card's line_edit is removable via
+ *  its own toggle; copy_edit is not — without it the card means nothing. */
+export const FRONT_CARD_MODES: Record<FrontCard, TaskMode[]> = {
+  edit: ["copy_edit", "line_edit"],
+  readthrough: FINAL_READTHROUGH_MODES,
+  translate: ["translate"],
+};
+
+export type BetaGroupId = "developmental" | "analysis" | "feedback";
+
+export interface BetaGroup {
+  id: BetaGroupId;
+  modes: TaskMode[];
+  /** A whole-manuscript pass that cannot be combined with anything else. */
+  exclusive: boolean;
+}
+
+export const BETA_GROUPS: BetaGroup[] = [
+  { id: "developmental", modes: ["developmental_edit"], exclusive: true },
+  {
+    id: "analysis",
+    modes: ["character_catalog", "location_catalog", "timeline"],
+    exclusive: false,
+  },
+  { id: "feedback", modes: ["text_evaluator"], exclusive: true },
+];
+
+/** Which front card, if any, a selection belongs to. First match wins, most
+ *  specific first: the cards do not overlap, but a selection persisted by an
+ *  older UI can hold modes from more than one. */
+export function frontCardFor(modes: TaskMode[]): FrontCard | null {
+  if (modes.some((m) => FRONT_CARD_MODES.translate.includes(m))) return "translate";
+  if (modes.some((m) => FRONT_CARD_MODES.readthrough.includes(m)))
+    return "readthrough";
+  if (modes.some((m) => FRONT_CARD_MODES.edit.includes(m))) return "edit";
+  return null;
+}
+
+/** Which Beta group a selection belongs to, if any. Drives whether the
+ *  disclosure starts open so a saved choice is never invisible. */
+export function betaGroupFor(modes: TaskMode[]): BetaGroupId | null {
+  for (const group of BETA_GROUPS) {
+    if (modes.some((m) => group.modes.includes(m))) return group.id;
+  }
+  return null;
+}
+
 export interface CopyEditOptions {
   spelling: boolean;
   punctuation: boolean;
