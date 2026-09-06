@@ -88,6 +88,76 @@ export function stripMorphologicalFields(dic: string): string {
   return dic.replace(/^(\S+)(?:[ \t]+\w\w:\S+)+$/gm, "$1");
 }
 
+/**
+ * Every headword the dictionary lists as usable on its own.
+ *
+ * A Hunspell entry may be flagged ONLYINCOMPOUND (valid only inside a
+ * compound) or NEEDAFFIX (valid only once an affix is attached). Everything
+ * else is a word a writer may type as it stands.
+ */
+export function standaloneHeadwords(aff: string, dic: string): Set<string> {
+  const onlyInCompound = aff.match(/^ONLYINCOMPOUND\s+(\S)/m)?.[1];
+  const needAffix = aff.match(/^NEEDAFFIX\s+(\S)/m)?.[1];
+
+  const out = new Set<string>();
+  const lines = dic.split(/\r?\n/);
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    const slash = line.indexOf("/");
+    const word = slash === -1 ? line : line.slice(0, slash);
+    if (!word) continue;
+    const flags = slash === -1 ? "" : line.slice(slash + 1);
+    if (onlyInCompound && flags.includes(onlyInCompound)) continue;
+    if (needAffix && flags.includes(needAffix)) continue;
+    out.add(word);
+  }
+  return out;
+}
+
+/**
+ * Accept a word the dictionary lists outright, even when nspell does not.
+ *
+ * German spellcheck rejected a third of its own dictionary. 93,148 lowercase
+ * German words also exist capitalised — because German capitalises every noun,
+ * so a nominalised verb or adjective collides with itself (`kommen`/`Kommen`,
+ * `recht`/`Recht`, `gut`/`Gut`) — and nspell keeps only one of the pair,
+ * rejecting 87,955 of them. `kommen/DIVXW` sits in de_DE.dic at line 179,634
+ * and `correct("kommen")` still answers false.
+ *
+ * The other three dictionaries are untouched by this: Danish rejects 1 of
+ * 1,240 such pairs, Spanish and English 0. Only German has enough collisions
+ * for it to matter, which is why it went unnoticed.
+ *
+ * The damage was indirect and worse than the missing words. The spell pass
+ * emitted a correction for every one of those rejected words, so a German
+ * chunk arrived at the reviewer carrying dozens of bogus corrections, and real
+ * misspellings drowned in them: German scored 55% on misspelling recall
+ * against 85-97% for the other three languages, while its clean fixture drew
+ * 43 flags.
+ *
+ * Merging duplicate entries' flags — the obvious fix, and what Hunspell itself
+ * does — was tried and made things worse: it also accepted `haus` for `Haus`,
+ * which would gut the capitalization check German scores 79-86% on. So the
+ * rescue is narrower. A word is accepted only if the dictionary lists it as a
+ * STANDALONE headword in that exact case. `kommen` qualifies; `haus` does not,
+ * because igerman98 lists it ONLYINCOMPOUND for building `Bauernhaus`.
+ *
+ * `licht` does get through, but `licht` is a real German adjective — a spell
+ * checker is right not to flag it.
+ */
+function withStandaloneHeadwords(
+  dict: SpellDict,
+  aff: string,
+  dic: string,
+): SpellDict {
+  const standalone = standaloneHeadwords(aff, dic);
+  return {
+    correct: (word) => dict.correct(word) || standalone.has(word),
+    suggest: (word) => dict.suggest(word),
+  };
+}
+
 function loadDict(dictName: string): SpellDict | null {
   const cached = cache.get(dictName);
   if (cached) return cached;
@@ -106,7 +176,7 @@ function loadDict(dictName: string): SpellDict | null {
       aff: string,
       dic: string,
     ) => SpellDict;
-    const instance = nspell(aff, dic);
+    const instance = withStandaloneHeadwords(nspell(aff, dic), aff, dic);
     cache.set(dictName, instance);
     return instance;
   } catch (err) {

@@ -21,6 +21,7 @@ import {
   getWordValidator,
   getSpellCorrections,
   stripMorphologicalFields,
+  standaloneHeadwords,
 } from "../src/spellcheck.ts";
 
 // ── the transform itself ────────────────────────────────────────────────────
@@ -89,5 +90,61 @@ test("a real Danish misspelling is still caught", () => {
   assert.ok(
     corrections.some((c) => c.original === "værkstd"),
     "a genuine misspelling must still be reported",
+  );
+});
+
+// ── German: nspell rejected a third of its own dictionary ───────────────────
+//
+// German capitalises every noun, so a nominalised verb or adjective collides
+// with itself: kommen/Kommen, recht/Recht, gut/Gut. 93,148 lowercase German
+// words also exist capitalised, and nspell keeps only one of each pair —
+// rejecting 87,955 of them. `kommen/DIVXW` is on line 179,634 of de_DE.dic and
+// correct("kommen") still answered false.
+//
+// The damage was indirect. The spell pass emitted a correction for every
+// rejected word, so real misspellings drowned in the noise: German scored 55%
+// misspelling recall against 85-97% for the other three, and its clean fixture
+// drew 43 flags.
+//
+// Danish rejects 1 of 1,240 such pairs and Spanish and English 0, which is why
+// only German suffered.
+
+test("common lowercase German words are known", () => {
+  const known = getWordValidator("de");
+  assert.ok(known, "the German dictionary should load");
+  for (const word of ["kommen", "recht", "gehen", "stand", "paar", "gut", "sagen"]) {
+    assert.ok(known!(word), `"${word}" must be a known German word`);
+  }
+});
+
+test("a lowercased German noun is still unknown, so capitalization is still caught", () => {
+  // The reason the rescue is narrow. Merging duplicate entries' flags — what
+  // Hunspell itself does — would also accept these, gutting the
+  // capitalization check German scores 79-86% on. igerman98 lists them
+  // ONLYINCOMPOUND, for building Bauernhaus.
+  const known = getWordValidator("de")!;
+  for (const word of ["haus", "werkstatt", "papier", "tisch", "buch"]) {
+    assert.equal(known(word), false, `lowercase "${word}" must stay unknown`);
+  }
+});
+
+test("standaloneHeadwords honours ONLYINCOMPOUND and NEEDAFFIX", () => {
+  const aff = "SET UTF-8\nONLYINCOMPOUND o\nNEEDAFFIX h\n";
+  const dic = ["4", "kommen/DIVXW", "haus/oSm", "stamm/h", "einfach"].join("\n");
+  const heads = standaloneHeadwords(aff, dic);
+  assert.ok(heads.has("kommen"), "a plain entry is standalone");
+  assert.ok(heads.has("einfach"), "a flagless entry is standalone");
+  assert.ok(!heads.has("haus"), "ONLYINCOMPOUND is not standalone");
+  assert.ok(!heads.has("stamm"), "NEEDAFFIX is not standalone");
+});
+
+test("a real German misspelling is still caught", () => {
+  // Lowercase on purpose: a capitalised word mid-sentence is protected as a
+  // proper noun by collectMidSentenceCapitals, so it would be skipped whatever
+  // the dictionary said.
+  const corrections = getSpellCorrections("Er gingg in die Werkstatt.", "de");
+  assert.ok(
+    corrections.some((c) => c.original === "gingg"),
+    "the fix must not turn the German pass into a no-op",
   );
 });
