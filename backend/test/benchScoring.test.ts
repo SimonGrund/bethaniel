@@ -245,9 +245,44 @@ test("classifyPlantedError: a missing comma is a comma error", () => {
   );
 });
 
-test("classifyPlantedError: a misspelling or confusable is a spelling error", () => {
+test("classifyPlantedError: without a dictionary, single-word swaps stay one bucket", () => {
   assert.equal(classifyPlantedError({ wrong: "modern atlus.", right: "modern atlas." }), "spelling");
   assert.equal(classifyPlantedError({ wrong: "by than,", right: "by then," }), "spelling");
+});
+
+// A single "spelling" number averaged three unrelated capabilities together
+// and described none of them: the deterministic Hunspell pass makes outright
+// misspellings a near-solved problem (100% on the 4B), while wrong-but-real
+// words sit near 50% because no dictionary can see them. Reporting 78% for
+// the pair told the reader nothing true about either.
+const CHECKS = {
+  isKnownWord: (w: string) => ["their", "there", "then", "than", "quite", "quiet"].includes(w),
+  isKnownInOtherDialect: (w: string) => ["colour", "realised", "grey"].includes(w),
+};
+
+test("classifyPlantedError: a word the dictionary rejects is a misspelling", () => {
+  assert.equal(classifyPlantedError({ wrong: "modern atlus.", right: "modern atlas." }, CHECKS), "misspelling");
+});
+
+test("classifyPlantedError: a real word in the wrong place is word choice, not spelling", () => {
+  assert.equal(classifyPlantedError({ wrong: "by than,", right: "by then," }, CHECKS), "wordChoice");
+  assert.equal(classifyPlantedError({ wrong: "spread their,", right: "spread there," }, CHECKS), "wordChoice");
+});
+
+test("classifyPlantedError: the other dialect's spelling is neither of those", () => {
+  assert.equal(classifyPlantedError({ wrong: "the colour of", right: "the color of" }, CHECKS), "dialect");
+  assert.equal(classifyPlantedError({ wrong: "rising grey and", right: "rising gray and" }, CHECKS), "dialect");
+});
+
+test("classifyPlantedError: word choice wins over dialect when both dictionaries know the word", () => {
+  // "grey" is listed in both stubs; the manuscript's own dialect decides.
+  const both = { isKnownWord: () => true, isKnownInOtherDialect: () => true };
+  assert.equal(classifyPlantedError({ wrong: "rising grey and", right: "rising gray and" }, both), "wordChoice");
+});
+
+test("classifyPlantedError: with no dialect check, everything unknown is a misspelling", () => {
+  const onlyOwn = { isKnownWord: (w: string) => w === "their" };
+  assert.equal(classifyPlantedError({ wrong: "the colour of", right: "the color of" }, onlyOwn), "misspelling");
 });
 
 test("classifyPlantedError: case is tested before punctuation", () => {

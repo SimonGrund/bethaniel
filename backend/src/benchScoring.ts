@@ -314,6 +314,21 @@ export function overallScore(f1: number, timeScoreValue: number): number {
 // changes — nothing is hand-labelled.
 
 export type PlantedErrorCategory =
+  /** The wrong token is not a word in any dialect — "notebok", "mension".
+   *  The deterministic Hunspell pass sees these, so recall should be ~100%
+   *  and a miss is a real defect rather than a limitation. */
+  | "misspelling"
+  /** The wrong token IS a correctly spelled word, just the wrong one —
+   *  "their"/"there", "past"/"passed", "quiet"/"quite". No dictionary can see
+   *  these; only the model can, and it is far weaker at them. */
+  | "wordChoice"
+  /** A correct spelling in the OTHER English dialect — "colour", "realised",
+   *  "grey". Not an error at all except relative to the chosen dialect, and
+   *  the copy-edit prompt converts them under a separate rule, so counting
+   *  them as misspellings flatters neither number. */
+  | "dialect"
+  /** The three above, unsplit — reported only when no dictionary was
+   *  available for the fixture's language. */
   | "spelling"
   | "comma"
   | "capitalization"
@@ -322,6 +337,9 @@ export type PlantedErrorCategory =
   | "other";
 
 const CATEGORY_ORDER: PlantedErrorCategory[] = [
+  "misspelling",
+  "wordChoice",
+  "dialect",
   "spelling",
   "comma",
   "capitalization",
@@ -329,6 +347,32 @@ const CATEGORY_ORDER: PlantedErrorCategory[] = [
   "punctuation",
   "other",
 ];
+
+/** Asks whether a token is a real word. `getWordValidator` in spellcheck.ts
+ *  returns exactly this shape. Injected rather than imported so this module
+ *  stays free of dictionary loading. */
+export type KnownWordCheck = (word: string) => boolean;
+
+export interface WordChecks {
+  /** Real word in the manuscript's own language and dialect. */
+  isKnownWord: KnownWordCheck;
+  /**
+   * Real word in the other English dialect. Omit for non-English fixtures,
+   * which have no dialect axis — they then split into misspelling/wordChoice
+   * only.
+   *
+   * Caveat: this is "the other dictionary accepts it", not "these two are a
+   * known dialect pair", so a rare real word can land here. In the stress100
+   * fixture "sailers" (a valid if archaic noun) is classed dialect rather
+   * than a typo for "sailors". One in nine, and it errs toward the harder
+   * bucket, so it understates rather than flatters.
+   */
+  isKnownInOtherDialect?: KnownWordCheck;
+}
+
+function bareToken(w: string): string {
+  return w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+}
 
 function collapseWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
@@ -354,7 +398,10 @@ function collapseRepeats(ws: string[]): string[] {
  * capitalization fix ("tuesday" → "Tuesday") is punctuation-identical and
  * would otherwise be filed as a punctuation error.
  */
-export function classifyPlantedError(err: PlantedError): PlantedErrorCategory {
+export function classifyPlantedError(
+  err: PlantedError,
+  checks?: WordChecks | null,
+): PlantedErrorCategory {
   const wrong = collapseWhitespace(err.wrong);
   const right = collapseWhitespace(err.right);
   if (!wrong || !right || wrong === right) return "other";
@@ -372,12 +419,25 @@ export function classifyPlantedError(err: PlantedError): PlantedErrorCategory {
     return "duplicateWord";
   }
 
-  // One word swapped for another, everything else identical: a misspelling or
-  // a confusable pair ("ceder"→"cedar", "than"→"then"). Anything touching more
-  // than one word is a rewrite, not a spelling fix.
+  // One word swapped for another, everything else identical. Anything touching
+  // more than one word is a rewrite, not a spelling fix.
   if (wrongWords.length === rightWords.length) {
-    const differing = wrongWords.filter((w, i) => w !== rightWords[i]).length;
-    if (differing === 1) return "spelling";
+    const differingAt = wrongWords
+      .map((w, i) => (w !== rightWords[i] ? i : -1))
+      .filter((i) => i >= 0);
+    if (differingAt.length === 1) {
+      if (!checks) return "spelling";
+      const token = bareToken(wrongWords[differingAt[0]]);
+      if (!token) return "misspelling";
+      // Three different capabilities, and the models score very differently
+      // on each: a real word in the wrong place ("their" for "there"), a
+      // correct spelling in the other dialect ("colour"), or something that
+      // is not a word at all ("notebok"). Only the last is visible to a
+      // spell checker.
+      if (checks.isKnownWord(token)) return "wordChoice";
+      if (checks.isKnownInOtherDialect?.(token)) return "dialect";
+      return "misspelling";
+    }
   }
   return "other";
 }
@@ -399,13 +459,14 @@ export interface CategoryRecall {
 export function recallByCategory(
   groundTruth: PlantedError[],
   missedErrors: PlantedError[],
+  checks?: WordChecks | null,
 ): CategoryRecall[] {
   const missed = new Set<PlantedError>(missedErrors);
   const planted = new Map<PlantedErrorCategory, number>();
   const caught = new Map<PlantedErrorCategory, number>();
 
   for (const err of groundTruth) {
-    const cat = classifyPlantedError(err);
+    const cat = classifyPlantedError(err, checks);
     planted.set(cat, (planted.get(cat) ?? 0) + 1);
     if (!missed.has(err)) caught.set(cat, (caught.get(cat) ?? 0) + 1);
   }

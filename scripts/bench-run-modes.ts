@@ -53,6 +53,9 @@ import {
   type PlantedError,
   type ScoredCorrection,
 } from "../backend/src/benchScoring.js";
+import { getWordValidator } from "../backend/src/spellcheck.js";
+import type { WordChecks } from "../backend/src/benchScoring.js";
+import { DEFAULT_COPY_EDIT_OPTIONS } from "../backend/src/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Overridable so a run can target a second backend on another port — the dev
@@ -66,6 +69,21 @@ const REPORT_PATH = join(SAMPLE_DIR, "run_mode_bench_results.txt");
 /** buildGroundTruth's default `mergeGapChars` — quoted in the report so the
  *  "other" category's contents are explicable rather than mysterious. */
 const MERGE_GAP_CHARS = 20;
+
+/** Splits the old single "spelling" bucket three ways: a real word in the
+ *  wrong place, a correct spelling in the other dialect, and something that is
+ *  not a word at all. Null when the language has no bundled dictionary, in
+ *  which case the report falls back to one combined row and says so rather
+ *  than guessing. All fixtures here are English. */
+const OTHER_DIALECT =
+  DEFAULT_COPY_EDIT_OPTIONS.englishDialect === "british" ? "american" : "british";
+const ownDict = getWordValidator("en", {
+  englishDialect: DEFAULT_COPY_EDIT_OPTIONS.englishDialect,
+});
+const otherDict = getWordValidator("en", { englishDialect: OTHER_DIALECT });
+const WORD_CHECKS: WordChecks | null = ownDict
+  ? { isKnownWord: ownDict, isKnownInOtherDialect: otherDict ?? undefined }
+  : null;
 
 const POLL_INTERVAL = 3000;
 const TASK_TIMEOUT = 3_600_000; // 1 hour — Max on the 9B can be slow
@@ -438,7 +456,11 @@ function buildReport(results: RunResult[]): string {
       if (measured.length > 0) {
         const perMode = measured.map((r) => ({
           runMode: r.runMode,
-          rows: recallByCategory(truth, scoreCorrections(r.corrections, truth).missedErrors),
+          rows: recallByCategory(
+            truth,
+            scoreCorrections(r.corrections, truth).missedErrors,
+            WORD_CHECKS,
+          ),
         }));
         lines.push(
           `\n  recall by error type${" ".repeat(6)}planted` +
@@ -455,6 +477,11 @@ function buildReport(results: RunResult[]): string {
         lines.push(
           `    (merged spans — two errors within ${MERGE_GAP_CHARS} characters — count once, under "other")`,
         );
+        if (!WORD_CHECKS) {
+          lines.push(
+            `    (no dictionary for this language — misspelling/word-choice/dialect are combined under "spelling")`,
+          );
+        }
       }
 
       // Clean-text false positives, if present.

@@ -1,5 +1,5 @@
 BETHANIEL RUN-MODE BENCHMARK (Speed vs Max; local models + opt-in cloud)
-Report generated: 2026-09-06T09:15:17.251Z
+Report generated: 2026-09-06T09:35:45.724Z
 ══════════════════════════════════════════════════════════════════════════════
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -11,7 +11,9 @@ MODEL: Baby Betty (Qwen3.5-4B-Q4_K_M.gguf)
   speed     57%    69%   63        21        5   225.6s    25.9        95       6%
 
   recall by error type      planted   speed
-    spelling                     41     80%
+    misspelling                  17    100%
+    wordChoice                   15     53%
+    dialect                       9     89%
     comma                        37     19%
     capitalization                7     43%
     duplicateWord                 2    100%
@@ -63,7 +65,9 @@ MODEL: Big Bad Betty (Qwen3.5-9B-Q4_K_M.gguf)
   speed     60%    69%   65        22        5   264.9s    16.3        85      17%
 
   recall by error type      planted   speed
-    spelling                     41     83%
+    misspelling                  17     94%
+    wordChoice                   15     60%
+    dialect                       9    100%
     comma                        37     27%
     capitalization                7     43%
     duplicateWord                 2    100%
@@ -115,7 +119,9 @@ MODEL: cloud:Qwen3.5-397B-A17B (cloud:Qwen3.5-397B-A17B)
   speed     35%    57%   43        20        6   352.2s    81.8        99       0%
 
   recall by error type      planted   speed
-    spelling                     41     54%
+    misspelling                  17     65%
+    wordChoice                   15     53%
+    dialect                       9     33%
     comma                        37      0%
     capitalization                7     86%
     duplicateWord                 2    100%
@@ -157,7 +163,9 @@ MODEL: cloud:gpt-oss-120b (cloud:gpt-oss-120b)
   speed     40%    80%   53         9        1   232.0s       -       100       0%
 
   recall by error type      planted   speed
-    spelling                     41     61%
+    misspelling                  17     94%
+    wordChoice                   15     47%
+    dialect                       9     22%
     comma                        37      0%
     capitalization                7     43%
     duplicateWord                 2    100%
@@ -178,7 +186,9 @@ MODEL: cloud:Qwen3.8-27B (cloud:Qwen3.8-27B)
   speed     27%    49%   35        22        6   225.7s    35.5        99       2%
 
   recall by error type      planted   speed
-    spelling                     41     54%
+    misspelling                  17     76%
+    wordChoice                   15     53%
+    dialect                       9     11%
     comma                        37      0%
     capitalization                7     14%
     duplicateWord                 2     50%
@@ -198,7 +208,9 @@ MODEL: cloud:Qwen3.5-9B (cloud:Qwen3.5-9B)
   speed     38%    86%   52         6        0   481.5s    39.6        98       2%
 
   recall by error type      planted   speed
-    spelling                     41     63%
+    misspelling                  17     88%
+    wordChoice                   15     53%
+    dialect                       9     33%
     comma                        37      8%
     capitalization                7     43%
     duplicateWord                 2    100%
@@ -218,7 +230,9 @@ MODEL: cloud:Meta-Llama-3_3-70B-Instruct (cloud:Meta-Llama-3_3-70B-Instruct)
   speed     56%    72%   63        18        4   174.6s    34.3        89      11%
 
   recall by error type      planted   speed
-    spelling                     41     78%
+    misspelling                  17     94%
+    wordChoice                   15     53%
+    dialect                       9     89%
     comma                        37     19%
     capitalization                7     71%
     duplicateWord                 2    100%
