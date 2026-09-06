@@ -52,11 +52,51 @@ test("matching is whole-word, not substring", () => {
   assert.ok(!sets.some((s) => s.includes("their")));
 });
 
-test("non-English manuscripts get nothing — the sets are English words", () => {
-  // "to" and "so" occur in Danish and German too, and English advice about
-  // them would be noise at best.
-  assert.equal(findConfusables("Det var to sole over byen.", "da").length, 0);
-  assert.equal(findConfusables("Er ist zu weit past.", "de").length, 0);
+test("a non-English manuscript never gets the English sets", () => {
+  // "to" and "past" occur in Danish and German too, and English advice about
+  // them would be noise at best. This was previously enforced by returning
+  // nothing at all for non-English; now each language has its own table, so
+  // the guarantee is that the ENGLISH words never leak across.
+  const da = findConfusables("Det var to sole over byen.", "da");
+  const de = findConfusables("Er ist zu weit past.", "de");
+  for (const sets of [da, de]) {
+    assert.ok(!sets.some((s) => s.includes("past")), "English set leaked");
+    assert.ok(!sets.some((s) => s.includes("too")), "English set leaked");
+  }
+});
+
+test("each language gets its own confusable sets", () => {
+  // The gap this closed: wrong-word recall was 12% in Danish against 53% in
+  // English, because nothing looked for nogen/nogle at all.
+  const da = findConfusables("Der var nogen der kom, og han gik ad trappen.", "da");
+  assert.ok(da.some((s) => s.includes("nogen") && s.includes("nogle")));
+  assert.ok(da.some((s) => s.includes("ad") && s.includes("af")));
+
+  const de = findConfusables("Er sagte, das er seit gestern hier war.", "de");
+  assert.ok(de.some((s) => s.includes("das") && s.includes("dass")));
+  assert.ok(de.some((s) => s.includes("seit") && s.includes("seid")));
+
+  const es = findConfusables("No se si el vino, mas tarde lo veremos.", "es");
+  assert.ok(es.some((s) => s.includes("si") && s.includes("sí")));
+  assert.ok(es.some((s) => s.includes("mas") && s.includes("más")));
+});
+
+test("a language with no table returns nothing rather than English advice", () => {
+  assert.deepEqual(findConfusables("Þetta er íslenskur texti.", "is"), []);
+});
+
+test("regional tags resolve to their base language", () => {
+  // manuscriptLang arrives as "da" here but "en_US"/"en-GB" elsewhere.
+  assert.ok(findConfusables("han gik ad trappen", "da-DK").length > 0);
+  assert.ok(findConfusables("their coat", "en_US").length > 0);
+  assert.ok(findConfusables("their coat", "en-GB").length > 0);
+});
+
+test("a multi-word member is matched on its first token", () => {
+  // "a ver" / "si no" cannot be found by whole-token lookup; noticing "a" or
+  // "si" is enough, because the editor agent reads the sentence anyway.
+  const es = findConfusables("Vamos a ver que pasa.", "es");
+  assert.ok(es.some((s) => s.includes("a ver")));
 });
 
 test("the number of sets is bounded so the prompt cannot grow without limit", () => {
