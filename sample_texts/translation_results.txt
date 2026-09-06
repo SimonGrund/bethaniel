@@ -1,21 +1,34 @@
 BETHANIEL TRANSLATION QUALITY BENCHMARK
-Report generated: 2026-09-02T15:22:32.256Z
-Judge model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf (self-judging caveat applies to its own rows)
-Source: C:\Users\simon\code\Bethaniel\sample_texts\english_correct.md
+Report generated: 2026-09-06T15:09:16.301Z
+Judge model: Qwen3.5-9B-Q4_K_M.gguf (self-judging caveat applies to its own rows)
+Source: C:\Users\simon\code\Bethaniel\sample_texts\translation_source_en.md
 ================================================================================
+
+SCORECARD — reference-based (deterministic, no judge model)
+================================================================================
+  Model                                         Lang       chrF  chrF++    len   leak
+  Qwen3.5-4B-Q4_K_M.gguf                        Danish     73.6    69.9  0.98x   0.3%
+  Qwen3.5-4B-Q4_K_M.gguf                        German     73.6    69.1  0.99x   0.3%
+  Qwen3.5-4B-Q4_K_M.gguf                        Spanish    74.8    70.3  1.02x   1.3%
+  Qwen3.5-9B-Q4_K_M.gguf                        Danish     75.9    72.7  0.97x   0.0%
+  Qwen3.5-9B-Q4_K_M.gguf                        German     76.5    72.1  0.96x   0.3%
+  Qwen3.5-9B-Q4_K_M.gguf                        Spanish    75.4    71.1  1.01x   1.7%
+
+  chrF/chrF++  0-100, higher is better. Similarity to the reference translation.
+  len          hypothesis length / reference length. Far from 1.00 means it
+               stopped early or padded — both can still score well on chrF.
+  leak         share of words left untranslated from the source. A reader
+               notices these immediately; chrF barely does.
 
 SCORECARD — judge confidence 1-5 per paragraph (rubric: fidelity + fluency)
 ================================================================================
   Model                                         Lang       Avg   Min   Flagged    Time
-  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf Danish     4.4     3      0/11     27s *
-  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf German     5.0     5      0/11     24s *
-  Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf Spanish    4.9     4      0/11     23s *
-  Qwen3.5-4B-Q4_K_M.gguf                        Danish     4.2     2      1/11     15s
-  Qwen3.5-4B-Q4_K_M.gguf                        German     4.5     2      1/11     15s
-  Qwen3.5-4B-Q4_K_M.gguf                        Spanish    4.5     3      0/11     14s
-  Qwen3.5-9B-Q4_K_M.gguf                        Danish     4.9     4      0/11     18s
-  Qwen3.5-9B-Q4_K_M.gguf                        German     5.0     5      0/11     17s
-  Qwen3.5-9B-Q4_K_M.gguf                        Spanish    4.9     4      0/11     17s
+  Qwen3.5-4B-Q4_K_M.gguf                        Danish     3.0     2      6/10     12s
+  Qwen3.5-4B-Q4_K_M.gguf                        German     4.0     2      1/10     12s
+  Qwen3.5-4B-Q4_K_M.gguf                        Spanish    4.8     4      0/10     11s
+  Qwen3.5-9B-Q4_K_M.gguf                        Danish     4.4     3      0/10     15s *
+  Qwen3.5-9B-Q4_K_M.gguf                        German     4.7     4      0/10     12s *
+  Qwen3.5-9B-Q4_K_M.gguf                        Spanish    4.9     4      0/10     11s *
 
   * this model judged its own translation — treat with extra skepticism
 
@@ -24,10 +37,15 @@ DETAIL — flagged paragraphs (confidence < 3) and judge reasoning
 ================================================================================
 
 [Qwen3.5-4B-Q4_K_M.gguf → Danish]:
-  [5] confidence 2: Problematic — significant meaning loss ('hans mor forlod ham' should be 'her mother had left')
+  [1] confidence 2: Contains garbled output ('fryset') and a significant meaning loss/typo ('krosset' instead of 'krydset').
+  [2] confidence 2: Contains a major hallucination ('Hans far' instead of 'Her father') and awkward phrasing ('stovene').
+  [5] confidence 2: Contains a hallucination ('Hendes fars' instead of 'Her father's') and mistranslation ('nævning' instead of 'mention').
+  [7] confidence 2: Contains a typo ('krosset') and awkward phrasing ('ingen hukommelse af det').
+  [8] confidence 2: Contains a hallucination ('den modsatte bred lyste tættere' instead of 'looked closer') and mistranslation ('ubemærket' instead of 'unmarked').
+  [9] confidence 2: Contains typos ('krosset'), awkward phrasing ('de sjove'), and a strange metaphor ('i sin hjerne').
 
 [Qwen3.5-4B-Q4_K_M.gguf → German]:
-  [7] confidence 2: Problematic — 'Algen kreisten langsam über dem Wasser' is nonsensical (should be 'Möwen')
+  [1] confidence 2: Significant meaning loss: 'thirty-one years' mistranslated as 'dreißehn' (thirteen), and 'crossed the ice' mistranslated as 'betreten den Eisgang' (entered the ice flow).
 
 
 ── END OF REPORT ──
