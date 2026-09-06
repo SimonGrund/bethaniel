@@ -1,5 +1,5 @@
-BETHANIEL RUN-MODE BENCHMARK (Speed vs Max, local models)
-Report generated: 2026-09-05T12:04:04.697Z
+BETHANIEL RUN-MODE BENCHMARK (Speed vs Max; local models + opt-in cloud)
+Report generated: 2026-09-06T09:15:17.251Z
 ══════════════════════════════════════════════════════════════════════════════
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -8,20 +8,29 @@ MODEL: Baby Betty (Qwen3.5-4B-Q4_K_M.gguf)
 
   copy_edit (stress100, 100 planted errors)
   mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
-  speed     60%    69%   64        24        4    19.4s   253.1       100       0%
-  max       61%    77%   68        15        4    60.3s   235.3       100       0%
+  speed     57%    69%   63        21        5   225.6s    25.9        95       6%
+
+  recall by error type      planted   speed
+    spelling                     41     80%
+    comma                        37     19%
+    capitalization                7     43%
+    duplicateWord                 2    100%
+    punctuation                   2    100%
+    other                        12     92%
+    (merged spans — two errors within 20 characters — count once, under "other")
 
   Clean-text false positives (should be 0):
-    speed  0 false positive(s) in 12.3s
-    max    0 false positive(s) in 42.3s
-
-  → Max vs Speed: +1.0pt recall, 3.1× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+    speed  0 false positive(s) in 66.3s
 
 
   line_edit (english fixture)
   mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
   speed     20%    50%   29         7        0     9.1s   258.8        85       8%
   max       20%    50%   29         7        0    18.1s   321.2        85       8%
+
+  recall by error type      planted   speed     max
+    other                        35     20%     20%
+    (merged spans — two errors within 20 characters — count once, under "other")
 
   Clean-text false positives (should be 0):
     speed  8 false positive(s) in 6.1s
@@ -51,20 +60,29 @@ MODEL: Big Bad Betty (Qwen3.5-9B-Q4_K_M.gguf)
 
   copy_edit (stress100, 100 planted errors)
   mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
-  speed     59%    67%   63        24        5    18.1s   184.6       n/a      n/a
-  max       59%    67%   63        24        5    57.3s   224.9       n/a      n/a
+  speed     60%    69%   65        22        5   264.9s    16.3        85      17%
+
+  recall by error type      planted   speed
+    spelling                     41     83%
+    comma                        37     27%
+    capitalization                7     43%
+    duplicateWord                 2    100%
+    punctuation                   2    100%
+    other                        12     83%
+    (merged spans — two errors within 20 characters — count once, under "other")
 
   Clean-text false positives (should be 0):
-    speed  0 false positive(s) in 12.2s
-    max    0 false positive(s) in 54.3s
-
-  → Max vs Speed: +0.0pt recall, 3.2× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+    speed  0 false positive(s) in 156.4s
 
 
   line_edit (english fixture)
   mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
   speed     11%    22%   15        12        2     9.1s   188.1        85      11%
   max       11%    22%   15        12        2    24.1s   228.8        85      11%
+
+  recall by error type      planted   speed     max
+    other                        35     11%     11%
+    (merged spans — two errors within 20 characters — count once, under "other")
 
   Clean-text false positives (should be 0):
     speed  10 false positive(s) in 6.1s
@@ -87,6 +105,149 @@ MODEL: Big Bad Betty (Qwen3.5-9B-Q4_K_M.gguf)
              "unmoored" → "uncured"
 
   → Max vs Speed: +0.0pt recall, 2.6× wall-clock, +0 hallucinated FP — Max's recall gain is within noise.
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: cloud:Qwen3.5-397B-A17B (cloud:Qwen3.5-397B-A17B)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     35%    57%   43        20        6   352.2s    81.8        99       0%
+
+  recall by error type      planted   speed
+    spelling                     41     54%
+    comma                        37      0%
+    capitalization                7     86%
+    duplicateWord                 2    100%
+    punctuation                   2      0%
+    other                        12     42%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  2 false positive(s) in 15.2s
+             "still damp from" → "still damps from"
+             "story were returning" → "story was returning"
+
+
+  line_edit (english fixture)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     34%    31%   32        26        1    15.1s    70.5        71      18%
+
+  recall by error type      planted   speed
+    other                        35     34%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  8 false positive(s) in 6.1s
+             "In a hand grown thin and shaky, he had written:" → "In a hand grown thin and shaky, he wrote:"
+             "Instead she felt only a quiet, surprising tenderness" → "Instead, she felt only a quiet, surprising tenderness"
+             "She thought she ought to feel angry, or betrayed, or unmoored." → "She expected to feel angry, betrayed, or unmoored."
+             "unmoored" → "uncured"
+             "tremble and she" → "tremble, and she"
+             "salt air pressed against the narrow windows like an old, insistent friend" → "salt air pressed against the narrow windows like an insistent friend"
+             "She set down her bag and ran a finger along the windowsill. No dust." → "She set down her bag and ran a finger along the windowsill. Dust-free."
+             "was a story that belonged to her and that she had only just begun to learn." → "was a story that belonged to her, one she had only just begun to learn."
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: cloud:gpt-oss-120b (cloud:gpt-oss-120b)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     40%    80%   53         9        1   232.0s       -       100       0%
+
+  recall by error type      planted   speed
+    spelling                     41     61%
+    comma                        37      0%
+    capitalization                7     43%
+    duplicateWord                 2    100%
+    punctuation                   2    100%
+    other                        12     67%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  1 false positive(s) in 102.3s
+             "story were returning" → "story was returning"
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: cloud:Qwen3.8-27B (cloud:Qwen3.8-27B)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     27%    49%   35        22        6   225.7s    35.5        99       2%
+
+  recall by error type      planted   speed
+    spelling                     41     54%
+    comma                        37      0%
+    capitalization                7     14%
+    duplicateWord                 2     50%
+    punctuation                   2      0%
+    other                        12     25%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  0 false positive(s) in 24.3s
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: cloud:Qwen3.5-9B (cloud:Qwen3.5-9B)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     38%    86%   52         6        0   481.5s    39.6        98       2%
+
+  recall by error type      planted   speed
+    spelling                     41     63%
+    comma                        37      8%
+    capitalization                7     43%
+    duplicateWord                 2    100%
+    punctuation                   2     50%
+    other                        12     25%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  0 false positive(s) in 162.6s
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL: cloud:Meta-Llama-3_3-70B-Instruct (cloud:Meta-Llama-3_3-70B-Instruct)
+──────────────────────────────────────────────────────────────────────────────
+
+  copy_edit (stress100, 100 planted errors)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     56%    72%   63        18        4   174.6s    34.3        89      11%
+
+  recall by error type      planted   speed
+    spelling                     41     78%
+    comma                        37     19%
+    capitalization                7     71%
+    duplicateWord                 2    100%
+    punctuation                   2     50%
+    other                        12     83%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  2 false positive(s) in 36.3s
+             "story were returning" → "story was returning"
+             "still damp from" → "still damps from"
+
+
+  line_edit (english fixture)
+  mode    recall   prec.     f1  wrongFix  halluc.     wall   tok/s  conf/100  flagged
+  speed     11%    20%   15        15        1    33.4s    34.4        90       5%
+
+  recall by error type      planted   speed
+    other                        35     11%
+    (merged spans — two errors within 20 characters — count once, under "other")
+
+  Clean-text false positives (should be 0):
+    speed  6 false positive(s) in 9.1s
+             "In a hand grown thin and shaky, he had written" → "He had written in a hand grown thin and shaky"
+             "tremble and she" → "tremble, and she"
+             "unmoored" → "uncured"
+             "she did not want to admit why" → "she did not wish to admit why"
+             "she ought to feel angry, or betrayed, or unmoored" → "she ought to feel angry, or betrayed, or feel unmoored"
+             "as though a door she had never noticed had opened in a familiar room" → "as if a door she had never noticed had opened in a familiar room"
 
 
 ── END OF REPORT ──

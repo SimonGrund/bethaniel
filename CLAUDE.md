@@ -141,7 +141,7 @@ Models are identified by `source` in `modelCatalog.ts`:
 
 ### Betty in the Cloud (pay-per-job cloud processing)
 
-The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over token cost) to run one job against OVHcloud AI Endpoints (Qwen3.5-397B-A17B) instead of locally or via their own key — no local hardware or BYO API key required. It reuses the `"api"` source's existing plumbing end-to-end; nothing in `queue.ts`/`llm.ts`'s core pipeline needed to change.
+The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over token cost) to run one job against OVHcloud AI Endpoints (Meta-Llama-3_3-70B-Instruct, picked by benchmark over four other OVHcloud models — see `worker/README.md`) instead of locally or via their own key — no local hardware or BYO API key required. It reuses the `"api"` source's existing plumbing end-to-end; nothing in `queue.ts`/`llm.ts`'s core pipeline needed to change.
 
 - `backend/src/cloudEstimate.ts` — pre-run token/cost estimator (`estimateCloudJob`), built on `llm.ts`'s `estimateTokens` heuristic and the real prompt builders in `prompts.ts`. Mirrors `routes.ts`'s `/queue/add` mode-merge logic (copy_edit+line_edit → combined_edit; any analysis mode selection → one combined_analysis task) so it never double-counts work the real job doesn't do.
 - `POST /api/cloud/estimate` and `POST /api/cloud/checkout` (`routes.ts`) — compute the estimate and proxy to the Cloudflare Worker's `/v1/quote` / `/v1/checkout`, keeping the Worker URL out of the renderer.

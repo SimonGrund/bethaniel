@@ -39,17 +39,30 @@ crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 # never appear here.
 # OVHcloud AI Endpoints: EU-sovereign, zero data retention by default (only
 # billing data is kept), and OpenAI-compatible — proxy.ts appends
-# /v1/chat/completions to the base below. Qwen3.5-397B-A17B is the flagship
-# (262K context), which is the point of the cloud option: a model no laptop
-# in the local catalog can run.
-PROVIDER_MODEL = "Qwen3.5-397B-A17B"
+# /v1/chat/completions to the base below.
+#
+# Llama-3.3-70B, not the bigger Qwen3.5-397B-A17B that was here first. All
+# five OVHcloud candidates were benchmarked against sample_texts/stress100
+# (100 planted errors) at the Speed preset; see
+# sample_texts/run_mode_bench_results.txt for the full table. Llama beat the
+# 397B on every axis at HALF the token price: 56% vs 35% recall, 78% vs 54%
+# on spelling specifically, 2x faster, and 2 vs 39 false positives on
+# already-clean prose. The 397B was in fact the second-worst model tested and
+# by far the most expensive — "flagship" and "largest context" turned out to
+# be the wrong things to select on for copy-editing.
+#
+# NOTE: switching models here is not enough on its own. `wrangler dev` does
+# NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
+# the old model while believing you changed it.
+PROVIDER_MODEL = "Meta-Llama-3_3-70B-Instruct"
 PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
-# Blended EUR cost per token across input+output, calibrated to Bethaniel's
-# actual input-heavy workload — the estimator puts a corrections job at 68.2%
-# input / 31.8% output, and OVHcloud lists Qwen3.5-397B-A17B at EUR 0.60/Mtok
-# in and EUR 3.60/Mtok out, so 0.682*0.60 + 0.318*3.60 = EUR 1.55/Mtok.
-# Revisit against a real invoice once usage data exists.
-BASE_COST_EUR_PER_TOKEN = "0.00000155"
+# EUR cost per token. OVHcloud prices Meta-Llama-3_3-70B-Instruct FLAT at
+# EUR 0.67/Mtok for input and output alike, so unlike the split-priced Qwen
+# models this needs no blend and carries no estimation error: the number is
+# exact whatever the input/output mix turns out to be. (The old figure was a
+# blend assuming 68.2% input; a real run measured 76.6%, which had made it
+# ~19% conservative.) Revisit against a real invoice all the same.
+BASE_COST_EUR_PER_TOKEN = "0.00000067"
 # Company markup — 3x the blended provider cost.
 MARKUP_MULTIPLIER = "3"
 # Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
@@ -65,8 +78,9 @@ CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
 # roughly EUR 187/hour at a representative Bethaniel chunk. These are
 # therefore the only real ceilings that exist. See src/globalMeter.ts.
 #
-# Worker-wide tokens per UTC day (~EUR 23 of upstream cost at the blended rate
-# above). Cloud jobs are forced to the Speed preset server-side
+# Worker-wide tokens per UTC day (~EUR 10 of upstream cost at the flat rate
+# above — it was ~EUR 23 on the old, dearer model; the token ceiling is left
+# where it was, so the euro exposure simply halved). Cloud jobs are forced to the Speed preset server-side
 # (cloudRunKnobs in backend/src/cloudEstimate.ts), so the largest single job
 # is bounded: a 400k-word manuscript is 4.98M tokens. This leaves room for
 # ~3 of those in a day, or a dozen ordinary 100k-word ones.
@@ -85,7 +99,10 @@ MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
 # buy (a 400k-word manuscript at Speed, 4.98M). An anti-nonsense bound, not a
 # product limit — real jobs must never reach it.
 MAX_QUOTE_TOKENS = "8000000"
-# "none" disables the model's chain-of-thought. Qwen3.5 reasons by default and
-# will burn the entire output budget thinking, returning empty content — see
-# the measurement in src/proxy.ts. "default" hands control back to the provider.
-PROVIDER_REASONING_EFFORT = "none"
+# "default" omits the field entirely, which is what a non-reasoning model
+# wants: Llama-3.3-70B has no chain-of-thought to switch off, and gpt-oss
+# rejects an explicit "none" outright with a 400. The knob still matters for
+# any Qwen model — those reason by default and will burn the whole output
+# budget thinking, returning empty content; see the measurement in
+# src/proxy.ts. Set it back to "none" if PROVIDER_MODEL ever returns to one.
+PROVIDER_REASONING_EFFORT = "default"

@@ -151,14 +151,17 @@ export async function handleChatCompletions(
     // shrink the accounting hold while the provider still generated the full
     // requested length.
     max_tokens: maxOutputTokens,
-    // Qwen3.5 is a reasoning model and thinks by default. Measured on a
-    // four-sentence copy-edit prompt: 102 input tokens produced 3,000
-    // completion tokens of pure reasoning, `finish_reason: "length"`, and an
-    // EMPTY content field — the app's JSON parser would have got nothing.
-    // With reasoning off the same prompt costs 209 completion tokens and
-    // returns the corrections array. That is both a >10x cost difference and
-    // the difference between working and not, so it is off unless someone
-    // deliberately sets PROVIDER_REASONING_EFFORT to something else.
+    // Whether this field may be sent at all is per-model, so it is config,
+    // not a constant. Three measured behaviours:
+    //   - Llama-3.3-70B (the current model) has no chain-of-thought; the
+    //     field must be OMITTED, which "default" does.
+    //   - Qwen3.5 reasons by default. On a four-sentence copy-edit prompt,
+    //     102 input tokens produced 3,000 completion tokens of pure reasoning,
+    //     `finish_reason: "length"`, and an EMPTY content field — the app's
+    //     JSON parser would have got nothing. "none" brought the same prompt
+    //     down to 209 completion tokens and a valid corrections array.
+    //   - gpt-oss REJECTS an explicit "none" with a 400.
+    // So: "none" for a Qwen model, "default" for everything else so far.
     ...(env.PROVIDER_REASONING_EFFORT === "default"
       ? {}
       : { reasoning_effort: env.PROVIDER_REASONING_EFFORT || "none" }),

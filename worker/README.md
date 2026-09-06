@@ -106,9 +106,23 @@ for the same thing) with an explicit "not currently supported", so
   (and only ever opt-in) set aside. Re-confirm those terms in the contract
   before launch, and check the region the Base API tier actually serves from:
   the product page notes worldwide (non-EU) availability for that tier.
-- `BASE_COST_EUR_PER_TOKEN` is derived from OVHcloud's list price for
-  `Qwen3.5-397B-A17B` (EUR 0.60/Mtok in, EUR 3.60/Mtok out) blended at the
-  68/32 input/output split the estimator predicts. Re-derive it against a real
-  invoice once usage data exists — the whole price scales linearly with it.
+- `BASE_COST_EUR_PER_TOKEN` is OVHcloud's list price for
+  `Meta-Llama-3_3-70B-Instruct`, which is FLAT at EUR 0.67/Mtok for input and
+  output alike — so the figure is exact rather than a blend, and does not move
+  with the input/output mix. Re-derive it against a real invoice once usage
+  data exists — the whole price scales linearly with it.
+- The model was chosen by benchmark, not by size. All five OVHcloud text
+  models were run against `sample_texts/stress100` at the Speed preset;
+  Llama-3.3-70B led on recall (56% vs 35% for the Qwen3.5-397B it replaced),
+  on spelling recall specifically (78% vs 54%), on wall-clock (~2x), and on
+  clean-text false positives (2 vs 39) — at half the token price. Full table
+  in `sample_texts/run_mode_bench_results.txt`. Caveat: one run per model, and
+  the 397B alone varied 35-41% across three runs, so treat the ranking as
+  indicative until it is repeated.
+- Two things that will waste your afternoon if you do not know them:
+  `wrangler dev` does NOT reload `[vars]` edits — restart it after changing
+  `PROVIDER_MODEL` or you will benchmark the old model. And
+  `PROVIDER_REASONING_EFFORT` is per-model: "none" for Qwen, "default"
+  (omit the field) for Llama, and gpt-oss 400s on an explicit "none".
 - `MARKUP_MULTIPLIER` is 3 — the user pays 3x the blended provider cost,
   before Stripe's cut is grossed up on top.

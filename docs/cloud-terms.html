@@ -1,0 +1,352 @@
+<title>Betty in the Cloud Terms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* Palette lifted from the app's own global.css — parchment ground, wood
+     rules, wine for caution. The dark set is a derived inverse, not a naive
+     flip: the ground darkens toward ink-on-board, the accent lightens so it
+     still carries on it. */
+  :root {
+    --ground:      #f6f1e4;
+    --panel:       #fdfaf0;
+    --panel-sunk:  #efe6d0;
+    --rule:        #c9b896;
+    --rule-soft:   #ded2b8;
+    --ink:         #2a2419;
+    --ink-soft:    #5a4f3f;
+    --muted:       #8b7355;
+    --accent:      #8a7050;
+    --caution:     #9b2335;
+    --caution-bg:  #f7e8e6;
+    --shadow:      rgba(42, 36, 25, 0.09);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #17130d;
+      --panel:       #211c14;
+      --panel-sunk:  #2b2419;
+      --rule:        #4a3f2c;
+      --rule-soft:   #382f21;
+      --ink:         #ece3d0;
+      --ink-soft:    #c3b79c;
+      --muted:       #9d8a6b;
+      --accent:      #c4a878;
+      --caution:     #e0808c;
+      --caution-bg:  #33191c;
+      --shadow:      rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #17130d;
+    --panel:       #211c14;
+    --panel-sunk:  #2b2419;
+    --rule:        #4a3f2c;
+    --rule-soft:   #382f21;
+    --ink:         #ece3d0;
+    --ink-soft:    #c3b79c;
+    --muted:       #9d8a6b;
+    --accent:      #c4a878;
+    --caution:     #e0808c;
+    --caution-bg:  #33191c;
+    --shadow:      rgba(0, 0, 0, 0.4);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 3rem 1.5rem 6rem;
+  }
+  .sheet { max-width: 46rem; margin: 0 auto; display: flex; flex-direction: column; gap: 2.75rem; }
+
+  /* ── Masthead ── */
+  .masthead { display: flex; flex-direction: column; gap: 0.6rem; }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.19em;
+    color: var(--muted);
+  }
+  h1 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(2.4rem, 6vw, 3.4rem); font-weight: 700;
+    line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: -0.01em;
+  }
+  .standfirst { color: var(--ink-soft); font-size: 1.06rem; max-width: 38rem; margin: 0; }
+
+  /* ── Draft warning — the single loudest thing on the page, deliberately ── */
+  .draft {
+    background: var(--caution-bg);
+    border: 1px solid var(--caution);
+    border-left-width: 4px;
+    border-radius: 3px;
+    padding: 1.1rem 1.3rem;
+    display: flex; flex-direction: column; gap: 0.45rem;
+  }
+  .draft-title {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--caution); font-weight: 500;
+  }
+  .draft p { margin: 0; font-size: 0.95rem; color: var(--ink); }
+
+  /* ── Summary panel ── */
+  .summary {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 1.6rem 1.75rem;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  .summary h2 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.6rem; font-weight: 600; margin: 0 0 0.4rem;
+  }
+  .summary .note { color: var(--muted); font-size: 0.86rem; margin: 0 0 1.1rem; font-style: italic; }
+  .summary ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .summary li { color: var(--ink-soft); }
+  .summary strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Clauses. Numbering is real here: terms get cited by number. ── */
+  section.clause { display: flex; flex-direction: column; gap: 0.7rem; }
+  .clause-head { display: flex; gap: 0.85rem; align-items: baseline; border-bottom: 1px solid var(--rule-soft); padding-bottom: 0.5rem; }
+  .clause-num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.85rem; color: var(--accent); font-weight: 500;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  h2.clause-title {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.55rem; font-weight: 600; margin: 0; line-height: 1.2; text-wrap: balance;
+  }
+  .clause p { margin: 0; }
+  .clause ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.45rem; }
+  .clause li::marker { color: var(--muted); }
+  strong { font-weight: 600; }
+
+  .subclause {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.75rem; color: var(--muted); letter-spacing: 0.04em;
+    text-transform: uppercase; margin-top: 0.35rem;
+  }
+
+  /* ── Data ── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.87rem; }
+  th, td { padding: 0.6rem 0.85rem; text-align: right; border-bottom: 1px solid var(--rule-soft); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); font-weight: 500; background: var(--panel-sunk);
+  }
+  tbody td { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  tbody td:first-child { color: var(--ink); }
+  tbody tr:last-child td { border-bottom: none; }
+  caption { caption-side: bottom; padding: 0.7rem 0.85rem; font-size: 0.8rem; color: var(--muted); text-align: left; font-style: italic; }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 0.15rem 0 0.15rem 1.1rem;
+    color: var(--ink-soft);
+  }
+
+  .open-items { background: var(--panel-sunk); border-radius: 4px; padding: 1.5rem 1.75rem; }
+  .open-items h2 { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.45rem; margin: 0 0 0.9rem; font-weight: 600; }
+  .open-items ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.55rem; color: var(--ink-soft); font-size: 0.94rem; }
+
+  footer { border-top: 1px solid var(--rule); padding-top: 1.2rem; color: var(--muted); font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.3rem; }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.87em; background: var(--panel-sunk); padding: 0.1em 0.35em; border-radius: 3px; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="eyebrow">Bethaniel · Terms for paid cloud processing</div>
+    <h1>Betty in the Cloud</h1>
+    <p class="standfirst">The terms that apply when you pay to run an editing job on Bethaniel's cloud service instead of on your own computer.</p>
+  </header>
+
+  <div class="draft">
+    <div class="draft-title">Draft — not yet reviewed by a lawyer</div>
+    <p>This document was drafted from the actual behaviour of the software and the verified configuration of the service. It is <strong>not legal advice</strong> and has not been reviewed by a qualified lawyer. Danish and EU consumer law imposes requirements — particularly around the right of withdrawal and pre-contract information — that a non-lawyer should not be the last word on. Have it reviewed before publishing. Section 16 lists the open questions.</p>
+  </div>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <p class="note">This summary is for orientation. The numbered terms below are what actually applies.</p>
+    <ul>
+      <li><strong>Your manuscript leaves your computer.</strong> Every other part of Bethaniel runs offline. This one does not. If that is not acceptable for your text, use a local model instead — the app works fully without ever paying us.</li>
+      <li><strong>You pay a fixed price per job,</strong> quoted and shown before you pay. There is no subscription and no stored card.</li>
+      <li><strong>Betty suggests; you decide.</strong> Nothing is changed in your manuscript unless you accept it. The service will miss real errors and will propose changes that are wrong.</li>
+      <li><strong>We store no part of your manuscript.</strong> Not the text, not the corrections, not a log of either.</li>
+      <li><strong>Four passes are available in the cloud:</strong> copy edit, line edit, final readthrough, and translation. Developmental editing and story analysis are local-only.</li>
+    </ul>
+  </div>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">1</span><h2 class="clause-title">What you are buying</h2></div>
+    <p>A single processing job, run once, on the manuscript and settings you selected at the moment of purchase. You are buying <em>the run</em>, not a result of any particular quality, length, or usefulness.</p>
+    <p>The price covers a fixed budget of processing capacity, measured in tokens, calculated from your manuscript's length and the passes you chose. That budget is shown to you before payment. If the job finishes under budget, the unused portion is not refundable — the quoted price is the price of the job, not a metered bill.</p>
+    <p class="callout">Cloud jobs run Bethaniel's standard quality settings. The advanced multi-pass options available for local runs are not offered in the cloud: benchmarking found they did not improve output enough to justify what they cost to run.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">2</span><h2 class="clause-title">Which passes are available</h2></div>
+    <p>The cloud service runs <strong>copy edit</strong>, <strong>line edit</strong>, <strong>final readthrough</strong>, and <strong>translation</strong>.</p>
+    <p><strong>Developmental editing</strong> and the <strong>story analysis</strong> passes (character catalogue, locations, timeline, evaluation, blurb) are deliberately not offered in the cloud. They have not been validated on the cloud model, and we would rather not sell a pass we have not tested. They remain available at no charge on your own hardware.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">3</span><h2 class="clause-title">Your manuscript leaves your computer</h2></div>
+    <p>This is the single most important term in this document, and it is the one place Bethaniel's normal promise does not apply.</p>
+    <p>Everywhere else, Bethaniel processes your writing entirely on your own machine and nothing is transmitted. When you choose Betty in the Cloud, <strong>the portions of your manuscript covered by the job are transmitted over the internet</strong> to Bethaniel's cloud service and from there to a third-party AI provider, which generates the suggested edits and returns them.</p>
+    <p>This happens only when you explicitly choose the cloud option and complete a payment. It never happens by default, and it never happens for any other feature.</p>
+    <div class="subclause">3.1 · Where it goes</div>
+    <p>Transmission is encrypted in transit. Processing happens on infrastructure located in the European Union.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">4</span><h2 class="clause-title">Who else processes your text</h2></div>
+    <p>Two third parties are involved in a cloud job:</p>
+    <ul>
+      <li><strong>OVHcloud</strong> (France) — runs the AI model that generates the edits. Your manuscript text passes through their AI Endpoints service. OVHcloud operates that service on a zero-data-retention basis: they state they keep only the data required for billing, and prompts and responses are not retained beyond generating the response.</li>
+      <li><strong>Stripe</strong> — handles payment. Stripe receives your payment details and email address. <strong>Stripe never receives any part of your manuscript.</strong> We never see or store your card details.</li>
+    </ul>
+    <p>Bethaniel's own cloud service runs on Cloudflare infrastructure. It relays your text to the AI provider without writing it to storage.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">5</span><h2 class="clause-title">What we store, and what we do not</h2></div>
+    <p><strong>We do not store your manuscript, the suggested edits, or any log of either.</strong> Text passes through our service in memory and is not written to any database or log file. This is a property of how the service is built, not merely a policy.</p>
+    <p>What we do store, for billing and support:</p>
+    <ul>
+      <li>The number of tokens quoted and the number consumed — counts only, never content.</li>
+      <li>A one-way hash of your job credential. The credential itself is never stored in a readable form.</li>
+      <li>Your Stripe payment reference and the email address you gave at checkout.</li>
+      <li>Timestamps for when the credential was issued, used, and expired.</li>
+    </ul>
+    <p>None of this can be used to reconstruct any part of your writing.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">6</span><h2 class="clause-title">What the editing does and does not do</h2></div>
+    <p>Betty is an assistive tool. It <strong>proposes</strong> changes, which you review and individually accept or reject. It does not alter your manuscript on its own, and the file you export contains only changes you accepted.</p>
+    <p>You should expect all of the following, because they are inherent to how the technology works, not defects:</p>
+    <ul>
+      <li><strong>Missed errors.</strong> A substantial proportion of genuine errors will not be found. Betty is not a substitute for a human proofreader.</li>
+      <li><strong>Wrong suggestions.</strong> Some proposed corrections will be incorrect, will misread your intent, or will "fix" something that was deliberate.</li>
+      <li><strong>Suggestions on clean text.</strong> Particularly for line editing, Betty will sometimes propose rewrites of sentences that were already correct.</li>
+      <li><strong>Occasional fabrication.</strong> Rarely, a suggestion may reference text that is not in your manuscript.</li>
+    </ul>
+    <p><strong>You are responsible for reviewing every suggestion before accepting it.</strong> We do not warrant that the output is accurate, complete, or fit for publication.</p>
+
+    <div class="subclause">6.1 · Measured performance</div>
+    <p>The figures below come from Bethaniel's own benchmark, run against fixtures containing a known number of deliberately planted errors. They were measured <strong>on the cloud model itself</strong>, through the same path a paid job takes, at the settings a paid job uses.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Pass</th><th>Errors found</th><th>Correct when it speaks</th><th>Wrong fixes</th><th>Flags on clean text</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Copy edit</td><td>56%</td><td>72%</td><td>18</td><td>2</td></tr>
+          <tr><td>Line edit</td><td>11%</td><td>20%</td><td>15</td><td>6</td></tr>
+        </tbody>
+        <caption>Copy edit: out of 100 planted errors across a 2,400-word fixture. Line edit: against a densely rewritten 550-word fixture. "Wrong fixes" are cases where an error was correctly located but the proposed replacement was wrong. "Flags on clean text" counts suggestions made against a version of the same text with no errors in it at all. Benchmark of 6 September 2026.</caption>
+      </table>
+    </div>
+    <p>A single "errors found" figure hides something you should know before buying, because Betty is far better at some kinds of error than others. Broken down by what the copy-edit pass was actually looking at:</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Kind of error</th><th>Planted</th><th>Found</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Misspellings, typos, confused word pairs</td><td>41</td><td><strong>78%</strong></td></tr>
+          <tr><td>Capitalisation</td><td>7</td><td>71%</td></tr>
+          <tr><td>Repeated words</td><td>2</td><td>100%</td></tr>
+          <tr><td>Missing commas</td><td>37</td><td><strong>19%</strong></td></tr>
+        </tbody>
+        <caption>Same copy-edit run as above, split by error type.</caption>
+      </table>
+    </div>
+    <p class="callout"><strong>Commas are Betty's weakest area by a wide margin.</strong> She finds roughly four out of five misspellings but fewer than one in five missing commas. If comma placement is what you need checked, this pass will not do it for you, and you should not buy it expecting otherwise. Spelling and typos are what it is genuinely good at.</p>
+    <p class="callout">Read the line-edit row carefully before buying that pass. Line editing is a matter of taste as much as correctness, and the numbers reflect that: it finds a small minority of what a human editor would, and a majority of what it proposes is not an improvement. It is best used as a source of suggestions to consider, not as a corrective pass to accept wholesale.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">7</span><h2 class="clause-title">Price and payment</h2></div>
+    <p>The price for each job is calculated before you pay and shown in euro, inclusive of our costs and payment fees. It is based on an estimate of the processing your job requires. You pay once, per job, through Stripe. We do not store your card details and there is no recurring charge.</p>
+    <p>If the estimate turns out to be low and your job exhausts its budget before completing, the job stops and you are told. You keep whatever was produced up to that point, and may purchase a further job to continue. We do not charge you more than the quoted price without your agreement.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">8</span><h2 class="clause-title">How long your purchase lasts</h2></div>
+    <p>A paid job credential is valid for <strong>7 days</strong> from purchase. It is intended to be used immediately, for the job you bought it for. After 7 days any unused balance expires and cannot be reclaimed or transferred.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">9</span><h2 class="clause-title">When something goes wrong</h2></div>
+    <p>If a job fails for a reason on our side — our service is unavailable, the AI provider fails, or a defect prevents the job running — contact us and we will re-run the job or refund it.</p>
+    <p>We do not refund a job because you are dissatisfied with the editorial suggestions it produced. Section 6 sets out plainly what the service does and does not do; that is the product you are buying. Buy a small job first if you want to judge the quality before committing a whole manuscript.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">10</span><h2 class="clause-title">Your right to cancel</h2></div>
+    <p>As a consumer in the EU you normally have 14 days to withdraw from a purchase of digital services. Because a cloud job begins immediately and is fully performed within minutes, that right cannot survive the job running.</p>
+    <p>By starting a job you expressly request that we begin performing it at once, and you acknowledge that you lose your right of withdrawal once the job has completed. Before a job starts, you may cancel and be refunded in full.</p>
+    <p class="callout">This clause in particular needs a lawyer's eye — see section 16.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">11</span><h2 class="clause-title">Your writing remains yours</h2></div>
+    <p>You keep all rights in your manuscript and in the edited result. We claim no licence over your text beyond what is technically necessary to run the job you paid for, and that necessity ends when the job ends.</p>
+    <p><strong>We do not use your writing to train any model,</strong> and our AI provider states that data sent through its API is not used for training.</p>
+    <p>You confirm that you have the right to submit the text you upload.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">12</span><h2 class="clause-title">Availability and limits</h2></div>
+    <p>The cloud service is offered as-available. We operate daily capacity limits, and if one is reached your job may be declined until capacity resets. If that happens before you pay, you simply cannot buy; if it happens mid-job, your remaining balance is untouched and you can resume later.</p>
+    <p>We may suspend access where use appears automated, abusive, or aimed at circumventing the limits.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">13</span><h2 class="clause-title">Limits on our liability</h2></div>
+    <p>Bethaniel is a writing tool. We are not liable for editorial decisions you make using it, for anything you publish, or for consequences arising from errors it failed to catch or wrongly introduced.</p>
+    <p>Where liability cannot lawfully be excluded, it is limited to the amount you paid for the job in question. Nothing here limits liability for death or personal injury caused by negligence, for fraud, or for anything else that cannot be limited under Danish law.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">14</span><h2 class="clause-title">Changes to these terms</h2></div>
+    <p>We may change these terms for future purchases. The terms that apply to your job are the ones published when you paid for it. Material changes will be shown before purchase, not applied retroactively.</p>
+  </section>
+
+  <section class="clause">
+    <div class="clause-head"><span class="clause-num">15</span><h2 class="clause-title">Law and contact</h2></div>
+    <p>These terms are governed by Danish law. If you are a consumer, you keep the protection of the mandatory law of your country of residence and may bring proceedings there.</p>
+    <p>Questions, refund requests, and data requests: <a href="https://www.bethaniel.eu/contact">bethaniel.eu/contact</a>.</p>
+  </section>
+
+  <div class="open-items">
+    <h2>Open items before this is published</h2>
+    <ol>
+      <li><strong>Repeat the benchmark.</strong> Section 6.1 is now measured on the cloud model itself, but on a single run per figure. One model in the same comparison varied by six points of recall across three runs, so these numbers should be re-measured a few times before they are published as a claim a buyer relies on.</li>
+      <li><strong>Right of withdrawal (section 10).</strong> The express-consent-and-acknowledgement construction needs checking against the Danish implementation of the Consumer Rights Directive, including whether the consent must be captured as a separate affirmative action at checkout rather than by acceptance of terms.</li>
+      <li><strong>Legal entity and VAT.</strong> The document does not yet name the contracting entity, its address, its CVR number, or its VAT treatment for EU and non-EU consumers. All are required pre-contract information.</li>
+      <li><strong>GDPR roles.</strong> Confirm the controller/processor analysis, whether a privacy policy needs to cross-reference this document, and whether OVHcloud's and Stripe's terms need to be linked directly.</li>
+      <li><strong>Retention claim.</strong> Section 4's description of OVHcloud's zero-retention position should be verified against the contract you actually sign with them, not their public marketing.</li>
+      <li><strong>Refusal to refund on quality (section 9).</strong> Check this against Danish consumer protection — a blanket "no refunds for dissatisfaction" can be unenforceable against consumers even when the limitation is disclosed.</li>
+    </ol>
+  </div>
+
+  <footer>
+    <div>Bethaniel · Betty in the Cloud · Draft terms, 6 September 2026</div>
+    <div>Drafted from the verified behaviour of the service. Requires legal review before publication.</div>
+  </footer>
+
+</div>
