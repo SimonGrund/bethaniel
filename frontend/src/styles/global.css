@@ -377,6 +377,15 @@ h4 {
   padding: 0.5rem 0 1rem 0;
   margin-bottom: 1rem;
   border-bottom: 1px solid #c9b896;
+  /* Above its siblings, which `.main-content > *` puts at z-index 1 to clear
+     the watermark. The Settings dropdown is absolutely positioned INSIDE this
+     element, so it is confined to this stacking context — raising the
+     dropdown's own z-index cannot lift it past a sibling section, and the
+     wizard panel wins the tie on DOM order. Measured: the menu at z-index
+     9999 still rendered behind the open task panel; the header at 10 fixes
+     it. Well below the modal layer (1000+), which should still cover it. */
+  position: relative;
+  z-index: 10;
 }
 
 .title-header .lang-toggle {
