@@ -44,6 +44,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
   buildGroundTruth,
+  recallByCategory,
   scoreCorrections,
   consistencyScore,
   timeScore as computeTimeScore,
@@ -51,11 +52,16 @@ import {
   overallScore,
   type PlantedError,
   type ScoredCorrection,
+  type WordChecks,
 } from "../backend/src/benchScoring.js";
+import { getWordValidator } from "../backend/src/spellcheck.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const API = "http://127.0.0.1:4000/api";
+// Overridable so a benchmark can target a second backend on another port —
+// the dev backend on 4000 is usually forked under the open Electron app, and
+// restarting it to pick up a change takes the app down with it.
+const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const RESULTS_PATH = join(SAMPLE_DIR, "benchmark_results.json");
 const REPORT_PATH = join(SAMPLE_DIR, "benchmark_results.txt");
@@ -936,6 +942,118 @@ function fmtScore(v: number | null): string {
   return v === null ? " n/a" : v.toFixed(0).padStart(4);
 }
 
+/** Dictionary checks for one fixture language, so the spelling bucket splits
+ *  into misspelling / word choice / dialect. Null when that language has no
+ *  bundled dictionary — the report then says so instead of guessing. */
+const wordChecksCache = new Map<string, WordChecks | null>();
+function wordChecksFor(language: string): WordChecks | null {
+  const cached = wordChecksCache.get(language);
+  if (cached !== undefined) return cached;
+  const code = LANG_CODE[language] ?? "en";
+  const own = getWordValidator(code, code === "en" ? { englishDialect: "american" } : undefined);
+  // The dialect axis is English-only; every other language splits two ways.
+  const other = code === "en" ? getWordValidator("en", { englishDialect: "british" }) : null;
+  const checks = own ? { isKnownWord: own, isKnownInOtherDialect: other ?? undefined } : null;
+  wordChecksCache.set(language, checks);
+  return checks;
+}
+
+/**
+ * Per-language breakdown. The headline scorecards average every language
+ * together, which hides the thing most worth knowing: the deterministic
+ * layers are not equally strong in every language. LanguageTool's Danish rule
+ * set is thin, and the comma and dialect rules in the copy-edit prompt are
+ * gated to English — so a low Danish comma number is not the same finding as
+ * a low English one, and averaging them says neither.
+ */
+function buildLanguageSection(results: TestResult[], models: string[]): string[] {
+  const lines: string[] = [];
+  const languages = [...new Set(results.map((r) => r.language))].sort();
+  const shortName = (m: string) => m.replace(/-Q\d.*$/, "").replace(/\.gguf$/, "");
+
+  lines.push(`\n${"═".repeat(80)}`);
+  lines.push(`BY LANGUAGE`);
+  lines.push(`${"═".repeat(80)}`);
+  lines.push(
+    `Averaged across languages, a weak deterministic layer in one of them is`,
+  );
+  lines.push(`invisible. Split out, it is the first thing you see.`);
+
+  for (const mode of ["copy_edit", "line_edit"] as const) {
+    const anyForMode = results.some((r) => r.mode === mode && r.errors.length === 0);
+    if (!anyForMode) continue;
+    lines.push(`\n${"─".repeat(80)}`);
+    lines.push(`${mode}`);
+    lines.push(`${"─".repeat(80)}`);
+
+    for (const language of languages) {
+      const truth = groundTruthFor(language, mode);
+      if (truth.length === 0) continue;
+      lines.push(`\n  ${language} — ${truth.length} planted errors`);
+      lines.push(
+        `    ${"model".padEnd(26)} ${"recall".padStart(7)} ${"prec.".padStart(7)} ${"clean flags".padStart(12)}`,
+      );
+
+      const present: string[] = [];
+      for (const model of models) {
+        const runs = results.filter(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant !== "correct" && r.errors.length === 0,
+        );
+        if (runs.length === 0) continue;
+        present.push(model);
+        const scored = runs.map((r) => scoreCorrections(r.corrections, truth));
+        const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+        const recall = avg(scored.map((s) => s.recall ?? 0));
+        const precision = avg(scored.map((s) => s.precision));
+        const cleanRuns = results.filter(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant === "correct" && r.errors.length === 0,
+        );
+        const cleanFlags = cleanRuns.length
+          ? avg(cleanRuns.map((r) => r.corrections.filter((c) => c.original !== c.corrected).length))
+          : null;
+        lines.push(
+          `    ${shortName(model).padEnd(26)} ${`${recall.toFixed(0)}%`.padStart(7)} ${`${precision.toFixed(0)}%`.padStart(7)} ` +
+            `${(cleanFlags === null ? "n/a" : cleanFlags.toFixed(1)).padStart(12)}`,
+        );
+      }
+
+      // Category split, copy_edit only — the line-edit fixtures are dense
+      // paraphrasing whose planted spans all merge into one bucket, so the
+      // breakdown there would be a single uninformative row.
+      if (mode !== "copy_edit" || present.length === 0) continue;
+      const checks = wordChecksFor(language);
+      const perModel = present.map((model) => {
+        const run = results.find(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant !== "correct" && r.errors.length === 0,
+        )!;
+        return {
+          model,
+          rows: recallByCategory(truth, scoreCorrections(run.corrections, truth).missedErrors, checks),
+        };
+      });
+      lines.push(
+        `    ${"recall by error type".padEnd(26)} ${"planted".padStart(7)}` +
+          perModel.map((m) => shortName(m.model).slice(-9).padStart(11)).join(""),
+      );
+      for (let i = 0; i < perModel[0].rows.length; i++) {
+        const { category, planted } = perModel[0].rows[i];
+        if (planted === 0) continue;
+        lines.push(
+          `      ${category.padEnd(24)} ${String(planted).padStart(7)}` +
+            perModel.map((m) => `${(m.rows[i].recall ?? 0).toFixed(0)}%`.padStart(11)).join(""),
+        );
+      }
+      if (!checks) {
+        lines.push(`      (no dictionary for ${language} — spelling is one combined row)`);
+      }
+    }
+  }
+  return lines;
+}
+
 function buildReport(results: TestResult[], models: string[]): string {
   const lines: string[] = [];
   const timestamp = new Date().toISOString();
@@ -1017,6 +1135,8 @@ function buildReport(results: TestResult[], models: string[]): string {
     }
     lines.push("");
   }
+
+  lines.push(...buildLanguageSection(results, models));
 
   // ── Ranked summary ──
   if (modelOveralls.length > 1) {
