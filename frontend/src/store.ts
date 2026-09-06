@@ -162,6 +162,11 @@ interface AppState {
   selectedModes: TaskMode[];
   toggleMode: (m: TaskMode) => void;
   setSelectedModes: (modes: TaskMode[]) => void;
+  /** Whether the Edit card includes the line pass. Remembered separately from
+   *  `selectedModes` so that switching to another card and back does not
+   *  silently re-arm a pass the user deliberately turned off. */
+  lineEditEnabled: boolean;
+  setLineEditEnabled: (on: boolean) => void;
   copyEditOptions: CopyEditOptions;
   setCopyEditOption: <K extends keyof CopyEditOptions>(
     key: K,
@@ -373,17 +378,6 @@ interface AppState {
   // DOCX export: how minor section breaks render ("hash" = Atticus-safe "#")
   minorBreakStyle: "blank" | "hash";
   setMinorBreakStyle: (s: "blank" | "hash") => void;
-  editSubOptionsOpen:
-    | "editing"
-    | "analysis"
-    | "translation"
-    | "feedback"
-    | "readthrough"
-    | null;
-  setEditSubOptionsOpen: (
-    cat: "editing" | "analysis" | "translation" | "feedback" | null,
-  ) => void;
-
   // Reset
   resetAll: () => void;
 
@@ -476,6 +470,8 @@ export const useStore = create<AppState>()(
         set((state) =>
           modes.length === 0 ? state : { selectedModes: [...modes] },
         ),
+      lineEditEnabled: true,
+      setLineEditEnabled: (lineEditEnabled) => set({ lineEditEnabled }),
       copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
       setCopyEditOption: (key, val) =>
         set((state) => ({
@@ -893,9 +889,6 @@ export const useStore = create<AppState>()(
       setQueueExpanded: (queueExpanded) => set({ queueExpanded }),
       minorBreakStyle: "blank",
       setMinorBreakStyle: (minorBreakStyle) => set({ minorBreakStyle }),
-      editSubOptionsOpen: null,
-      setEditSubOptionsOpen: (editSubOptionsOpen) =>
-        set({ editSubOptionsOpen }),
 
       resetAll: () =>
         set({
@@ -927,7 +920,6 @@ export const useStore = create<AppState>()(
           styleGuide: "",
           wizardStep: "upload",
           completedSteps: [],
-          editSubOptionsOpen: null,
           document: null,
           documentMd: "",
           tasks: {},
@@ -980,6 +972,7 @@ export const useStore = create<AppState>()(
         lang: state.lang,
         model: state.model,
         selectedModes: state.selectedModes,
+        lineEditEnabled: state.lineEditEnabled,
         copyEditOptions: state.copyEditOptions,
         lineEditOptions: state.lineEditOptions,
         targetLang: state.targetLang,
@@ -1013,7 +1006,6 @@ export const useStore = create<AppState>()(
         wizardStep: state.wizardStep,
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,
-        editSubOptionsOpen: state.editSubOptionsOpen,
         showEngineStatus: state.showEngineStatus,
         queueExpanded: state.queueExpanded,
         minorBreakStyle: state.minorBreakStyle,
