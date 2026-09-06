@@ -35,30 +35,40 @@ The single highest-value fix found, and it cost one line.
 **2. Danish and German — no wrong-word detection existed.** `findConfusables()`
 returned `[]` for anything but English, so nothing looked for `nogen`/`nogle`
 or `das`/`dass`. Danish wrong word **12% → 25%** (Baby) and **33% → 42%**
-(Big Bad); German 54% → 57%.
+(Big Bad); German **54% → 64%** (Baby) once measured alongside the dictionary
+fix. Spanish, already at 83% without help, reached **92%**.
 
 **3. Danish — the dictionary was broken.** 26,232 entries carried Hunspell
 morphological tags that nspell did not strip, so `den`, `havde`, `kom` were
 all unknown words. Clean-text false positives 34 → 3.
 
+**4. German — nspell rejected a third of its own dictionary.** Not a content
+gap: `kommen/DIVXW` is in `de_DE.dic` at line 179,634 and `correct("kommen")`
+answered false. German capitalises every noun, so 93,148 lowercase words
+collide with a capitalised twin and nspell keeps only one of each — rejecting
+87,955. Danish loses 1 of 1,240 such pairs, Spanish and English 0.
+
+Measured effect, and it is not the one predicted:
+
+| | before | after |
+|---|---|---|
+| Flags on clean German | 43 | **8** |
+| Precision (Baby / Big Bad) | 63 / 62 | **70 / 78** |
+| Clean-text false positives | 0 / 6 | 0 / **1** |
+| Wrong word | 54 / 57 | **64** / 57 |
+| Misspelling | 55 / 56 | **47 / 50** |
+| Overall recall | 60 / 68 | 61 / 66 |
+
+Misspelling recall went *down*. It is not a regression from the fix — the
+rescue accepts 3 of 44 planted misspellings, the same 3 it accepted before
+(`Maure`, `Fiele`, `Offen`, all real German words the fixture mis-plants). The
+old 55% was partly luck: with 43 bogus corrections in flight, some
+coincidentally covered a planted span and scored as a catch. The clean number
+is the honest one, and the fixture should drop those three plants.
+
 ## Next, in order
 
-### 1. German misspelling (55% vs 85–97% elsewhere) — dictionary content
-
-`de_DE.dic` lists `Kommen` but not `kommen`, `Recht` but not `recht`, and the
-same for `gehen`, `stand`, `paar`, `alter` — lowercase infinitives and
-adjectives sharing a stem with a capitalised noun. 43 words in the clean
-German fixture are flagged for this.
-
-Do **not** fix by loosening the case rule: that would accept `haus` for `Haus`
-and gut the capitalization row, which German scores 79–86% on. The fix is a
-fuller dictionary. Hunspell's `de_DE_frami` is the usual replacement and is
-LGPL. Verify with the ledger method in `scripts/plant-errors.ts`'s sibling
-check: count flags on all four clean fixtures before and after.
-
-Expected: misspelling 55% → 85%+, worth ~10 points of German recall.
-
-### 2. Spanish and Danish commas (5–16% and 26–27%)
+### 1. Spanish and Danish commas (5–16% and 26–27%)
 
 The largest planted category in both, and the weakest result. The prompt gate
 at `prompts.ts:462` sends comma directives only for English — but that is not
@@ -80,7 +90,7 @@ So the lever is per-language comma rules, in this order:
 Expected: Spanish +15 points of recall; Danish smaller and contingent on the
 style question.
 
-### 3. English capitalization (36/29%) — the odd one out
+### 2. English capitalization (36/29%) — the odd one out
 
 English scores *worst* of the four on capitalization (36/29% against 79–86%),
 which is backwards: it is the language with the most prompt support. Worth
@@ -93,7 +103,7 @@ touch, and the honest fix is to the fixture, not the code.
 
 Diagnose first. Do not "fix" a 36% that is measuring the wrong thing.
 
-### 4. English wrong word (53/67%) — the confusable list is English-first
+### 3. English wrong word (53/67%) — the confusable list is English-first
 
 English wrong-word recall is *below* Spanish (83%) despite having the largest
 confusable list. Spanish wins because its wrong words are dropped accents,
@@ -106,7 +116,7 @@ Cheapest lever: raise `maxSets` (currently 40) for English, or order the sets
 by observed miss rate rather than assumed frequency. Measure before changing —
 a longer hint block costs prompt budget on every chunk.
 
-### 5. Big Bad Betty is not worth its size except on wrong words
+### 4. Big Bad Betty is not worth its size except on wrong words
 
 Overall 47 vs 45 on the run scorecard; the 9B leads only on wrong word (Danish
 +21, English +14) and costs ~30% more time and twice the VRAM. If the default
