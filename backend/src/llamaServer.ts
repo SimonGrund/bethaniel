@@ -382,6 +382,13 @@ let activeRequests = 0;
  */
 let deliberateStop = false;
 let stopReason: StopReason = "reload";
+/**
+ * The stop currently in progress, if any. Concurrent killChild() callers join
+ * this rather than each firing their own signal — see killChild() for why a
+ * second caller must never assume a signalled process has already released its
+ * port.
+ */
+let stopPromise: Promise<void> | null = null;
 
 /**
  * Whether the running engine is actually using a GPU, parsed from its own
@@ -474,6 +481,26 @@ export function mayStopEngine(
 ): boolean {
   if (reason === "shutdown") return true;
   return !state.loadInFlight && state.activeRequests === 0;
+}
+
+/**
+ * Has this child actually exited and released its port?
+ *
+ * `killed` is the trap: Node sets it the moment a signal is *delivered*, not
+ * when the process dies. An engine mid-SIGTERM still owns its port for as long
+ * as it takes to tear down a multi-gigabyte model, so treating `killed` as
+ * "gone" lets the next spawn race it for the bind — the loser exits code 1 and
+ * every request in flight dies with it. Only an exit code or an exit signal is
+ * proof.
+ */
+export function childHasExited(
+  child: {
+    exitCode: number | null;
+    signalCode: NodeJS.Signals | null;
+  } | null,
+): boolean {
+  if (!child) return true;
+  return child.exitCode !== null || child.signalCode !== null;
 }
 
 function noteEngineDevice(next: "gpu" | "cpu"): void {
@@ -793,30 +820,70 @@ function onEngineOutput(text: string): void {
 // ── Kill helper ──
 
 function killChild(reason: StopReason = "reload"): Promise<void> {
+  // A stop is already running — join it instead of starting a second one.
+  //
+  // This is load-bearing for the "new job right after the last one" case. The
+  // idle-unloader fires SIGTERM and does not await the exit; a job arriving in
+  // that window calls doLoad(), which kills before spawning. The old guard
+  // treated `childProcess.killed` as "already gone", but that flag only means a
+  // signal was *delivered* — the process is still alive and still holding its
+  // port. So the second caller returned immediately, doLoad spawned at once,
+  // and the new engine lost the bind and exited code 1, taking every in-flight
+  // editor agent with it ("fetch failed" / "exited before startup finished").
+  if (stopPromise) return stopPromise;
+
   stopReason = reason;
-  return new Promise((resolve) => {
-    if (!childProcess || childProcess.killed) {
-      childProcess = null;
-      currentModel = null;
-      currentParallelSlots = null;
-      return resolve();
-    }
-    // Tell the exit handler this stop was ours. Without it, the SIGKILL below
-    // is indistinguishable from the OS OOM killer, and every idle unload was
-    // reported to the user as "Out of memory — pick a smaller model".
-    deliberateStop = true;
+
+  if (!childProcess) {
+    currentModel = null;
+    currentParallelSlots = null;
+    return Promise.resolve();
+  }
+
+  const dying = childProcess;
+
+  // Already exited, just not yet reaped: "exit" will never fire again, so
+  // waiting on it would hang forever.
+  if (childHasExited(dying)) {
+    childProcess = null;
+    currentModel = null;
+    currentParallelSlots = null;
+    return Promise.resolve();
+  }
+
+  // Tell the exit handler this stop was ours. Without it, the SIGKILL below
+  // is indistinguishable from the OS OOM killer, and every idle unload was
+  // reported to the user as "Out of memory — pick a smaller model".
+  deliberateStop = true;
+
+  stopPromise = new Promise<void>((resolve) => {
     const timeout = setTimeout(() => {
-      childProcess?.kill("SIGKILL");
+      try {
+        dying.kill("SIGKILL");
+      } catch {
+        /* already gone — the exit handler below settles it */
+      }
     }, 3000);
-    childProcess.once("exit", () => {
+    dying.once("exit", () => {
       clearTimeout(timeout);
-      childProcess = null;
-      currentModel = null;
-      currentParallelSlots = null;
+      // Only clear shared state if it still describes THIS child. By the time a
+      // slow SIGTERM lands, a newer engine may already own these fields, and
+      // nulling them would strand a healthy engine as "nothing loaded".
+      if (childProcess === dying) {
+        childProcess = null;
+        currentModel = null;
+        currentParallelSlots = null;
+      }
+      stopPromise = null;
       resolve();
     });
-    childProcess.kill("SIGTERM");
+    try {
+      dying.kill("SIGTERM");
+    } catch {
+      /* raced with its own exit — the handler above still fires */
+    }
   });
+  return stopPromise;
 }
 
 // ── Public API ──

@@ -2729,6 +2729,12 @@ async function processJob(job: JobData): Promise<void> {
 }
 
 function pump(): void {
+  // New work cancels a pending idle unload. Without this, a job submitted in
+  // the 2s window after the previous one finished would race the unloader:
+  // the engine gets torn down and immediately rebuilt for the job that was
+  // already arriving — pure latency at best, and before killChild() learned to
+  // serialize stops, a lost port bind at worst.
+  if (pending.length > 0) cancelIdleUnload();
   while (active < concurrency && pending.length > 0) {
     const job = pending.shift()!;
     active++;
@@ -2803,6 +2809,13 @@ let unloadTimer: NodeJS.Timeout | null = null;
  * Debounced so the synthesis spawn (which arrives moments after siblings
  * complete) doesn't trip a premature unload.
  */
+/** Call off a scheduled idle unload — work arrived before it fired. */
+function cancelIdleUnload(): void {
+  if (!unloadTimer) return;
+  clearTimeout(unloadTimer);
+  unloadTimer = null;
+}
+
 function scheduleIdleUnload(_jobId: string): void {
   if (unloadTimer) clearTimeout(unloadTimer);
   unloadTimer = setTimeout(() => {
@@ -2811,16 +2824,25 @@ function scheduleIdleUnload(_jobId: string): void {
   }, 2000);
 }
 
-async function maybeUnloadIdleModels(): Promise<void> {
-  // Anything still active? (queued or editing in any job)
-  if (active > 0 || pending.length > 0) return;
+/** True when no job is running, queued, or waiting to be dispatched. */
+function queueIsIdle(): boolean {
+  if (active > 0 || pending.length > 0) return false;
   for (const t of tasks.values()) {
-    if (t.status === "queued" || t.status === "editing") return;
+    if (t.status === "queued" || t.status === "editing") return false;
   }
+  return true;
+}
+
+async function maybeUnloadIdleModels(): Promise<void> {
+  if (!queueIsIdle()) return;
 
   try {
     const loaded = await listLoadedModels();
     if (loaded.length === 0) return;
+    // Re-check after the await: listLoadedModels() is a round-trip to the
+    // engine, and a job submitted during it would otherwise have its model
+    // pulled out from under it by a decision made before it existed.
+    if (!queueIsIdle()) return;
     console.log(
       `[Queue] no active jobs — unloading ${loaded.length} model(s): ${loaded.join(", ")}`,
     );
