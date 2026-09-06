@@ -90,11 +90,24 @@ const LANG_FLAGS: Record<string, string> = {
   "--da": "danish",
   "--de": "german",
   "--es": "spanish",
-  // Not a real language — a separate, larger English stress fixture
-  // (stress100_correct.md / stress100_copy_edit.md) with 100 planted
-  // copy-edit errors across every category the copy-edit prompt covers, for
-  // a higher-confidence recall read than the ~9-15-error standard fixtures.
+  // Not real languages — the large stress fixtures. Each is ~2,300 words with
+  // ~100 planted copy-edit errors spread across every category the copy-edit
+  // prompt covers, versus the 14-26 errors of the standard fixtures above. A
+  // category rate is only readable off these: the standard fixtures plant as
+  // few as one error of a given type, where a single catch swings the row by
+  // 100 points.
+  //
+  // Each language plants the mistakes ITS writers actually make rather than
+  // translating the English set — German lowercases nouns and drops the
+  // obligatory comma before a subordinate clause, Spanish loses accents
+  // (which usually leaves a different real word) and the opening ¿, Danish
+  // confuses nogen/nogle and ad/af. Built by scripts/plant-errors.ts, which
+  // refuses any edit that does not land as exactly one error of the intended
+  // category.
   "--stress": "stress100",
+  "--stress-da": "stress100da",
+  "--stress-de": "stress100de",
+  "--stress-es": "stress100es",
 };
 const SELECTED_LANGS = Object.entries(LANG_FLAGS)
   .filter(([flag]) => process.argv.includes(flag))
@@ -108,6 +121,9 @@ const LANG_CODE: Record<string, string> = {
   german: "de",
   spanish: "es",
   stress100: "en",
+  stress100da: "da",
+  stress100de: "de",
+  stress100es: "es",
 };
 
 function parseMaxSize(): number | null {

@@ -1,0 +1,627 @@
+[
+  {
+    "find": "Umschlag zweimal in den Händen, bevor sie ihn öffnete",
+    "replace": "Umschlag zweimal in den Händen bevor sie ihn öffnete",
+    "category": "comma"
+  },
+  {
+    "find": "Zeichnungen gefunden, die zu keinem Werk passten",
+    "replace": "Zeichnungen gefunden die zu keinem Werk passten",
+    "category": "comma"
+  },
+  {
+    "find": "zeigen, bevor er das Haus verkaufe",
+    "replace": "zeigen bevor er das Haus verkaufe",
+    "category": "comma"
+  },
+  {
+    "find": "kommen, wenn es ihr recht sei",
+    "replace": "kommen wenn es ihr recht sei",
+    "category": "comma"
+  },
+  {
+    "find": "Regen, der sich nicht entscheiden konnte",
+    "replace": "Regen der sich nicht entscheiden konnte",
+    "category": "comma"
+  },
+  {
+    "find": "als könnte sie fortlaufen, wenn er den Griff lockerte",
+    "replace": "als könnte sie fortlaufen wenn er den Griff lockerte",
+    "category": "comma"
+  },
+  {
+    "find": "Angewohnheit, sich vor jedem Satz zu räuspern",
+    "replace": "Angewohnheit sich vor jedem Satz zu räuspern",
+    "category": "comma"
+  },
+  {
+    "find": "nur gefunden, weil sich die Verkleidung löste",
+    "replace": "nur gefunden weil sich die Verkleidung löste",
+    "category": "comma"
+  },
+  {
+    "find": "Menschen, der schon tausend zerbrechliche",
+    "replace": "Menschen der schon tausend zerbrechliche",
+    "category": "comma"
+  },
+  {
+    "find": "weniger verblasst, als sie erwartet hatte",
+    "replace": "weniger verblasst als sie erwartet hatte",
+    "category": "comma"
+  },
+  {
+    "find": "auf Papier, das mit den Jahren weich",
+    "replace": "auf Papier das mit den Jahren weich",
+    "category": "comma"
+  },
+  {
+    "find": "Handschrift, die unverkennbar die ihres Vaters war",
+    "replace": "Handschrift die unverkennbar die ihres Vaters war",
+    "category": "comma"
+  },
+  {
+    "find": "eine einzelne Feder, die schlicht als",
+    "replace": "eine einzelne Feder die schlicht als",
+    "category": "comma"
+  },
+  {
+    "find": "Notizen, klein und dicht, die von Schwingungen",
+    "replace": "Notizen klein und dicht die von Schwingungen",
+    "category": "comma"
+  },
+  {
+    "find": "ein Rad, das nirgendwo hingehörte",
+    "replace": "ein Rad das nirgendwo hingehörte",
+    "category": "comma"
+  },
+  {
+    "find": "Es hing im Bild wie ein Wort in einer fremden Sprache",
+    "replace": "Es hing im Bild, wie ein Wort in einer fremden Sprache",
+    "category": "comma"
+  },
+  {
+    "find": "Erst da erkannte sie es",
+    "replace": "Erst da, erkannte sie es",
+    "category": "comma"
+  },
+  {
+    "find": "gezeichnet, und jedes Mal war das überflüssige Rad",
+    "replace": "gezeichnet und jedes Mal war das überflüssige Rad",
+    "category": "comma"
+  },
+  {
+    "find": "Positionen ab, mit dem Finger in der Luft, und ihr wurde kalt",
+    "replace": "Positionen ab mit dem Finger in der Luft und ihr wurde kalt",
+    "category": "comma"
+  },
+  {
+    "find": "Winkeln, die auf ein Zehntelgrad genau bestimmt waren",
+    "replace": "Winkeln die auf ein Zehntelgrad genau bestimmt waren",
+    "category": "comma"
+  },
+  {
+    "find": "Sätze, die nicht dorthin gehörten",
+    "replace": "Sätze die nicht dorthin gehörten",
+    "category": "comma"
+  },
+  {
+    "find": "so geredet, wenn er müde war",
+    "replace": "so geredet wenn er müde war",
+    "category": "comma"
+  },
+  {
+    "find": "Zeile, die sie am Nachmittag überlesen hatte",
+    "replace": "Zeile die sie am Nachmittag überlesen hatte",
+    "category": "comma"
+  },
+  {
+    "find": "überlesen hatte, weil sie am äußersten Rand stand",
+    "replace": "überlesen hatte weil sie am äußersten Rand stand",
+    "category": "comma"
+  },
+  {
+    "find": "sehr vorsichtig, als könnte die Tinte",
+    "replace": "sehr vorsichtig als könnte die Tinte",
+    "category": "comma"
+  },
+  {
+    "find": "beim zweiten Klingeln, als hätte er neben dem Apparat",
+    "replace": "beim zweiten Klingeln als hätte er neben dem Apparat",
+    "category": "comma"
+  },
+  {
+    "find": "Bögen, eng beschrieben mit Zahlenkolonnen, und über jeder",
+    "replace": "Bögen eng beschrieben mit Zahlenkolonnen und über jeder",
+    "category": "comma"
+  },
+  {
+    "find": "so gleichmäßig, dass es kein Fehler sein konnte",
+    "replace": "so gleichmäßig dass es kein Fehler sein konnte",
+    "category": "comma"
+  },
+  {
+    "find": "beobachtet, bis er nicht mehr konnte",
+    "replace": "beobachtet bis er nicht mehr konnte",
+    "category": "comma"
+  },
+  {
+    "find": "Ursache gesucht, die er längst gekannt hat",
+    "replace": "Ursache gesucht die er längst gekannt hat",
+    "category": "comma"
+  },
+  {
+    "find": "Gefühl, mit einem Werk zu ringen",
+    "replace": "Gefühl mit einem Werk zu ringen",
+    "category": "comma"
+  },
+  {
+    "find": "Werk zu ringen, das ihr nicht antworten wollte",
+    "replace": "Werk zu ringen das ihr nicht antworten wollte",
+    "category": "comma"
+  },
+  {
+    "find": "verwerfen, weil die Zähne nicht sauber standen",
+    "replace": "verwerfen weil die Zähne nicht sauber standen",
+    "category": "comma"
+  },
+  {
+    "find": "so kurz vor dem Ende, dass Konrad eine halbe Stunde",
+    "replace": "so kurz vor dem Ende dass Konrad eine halbe Stunde",
+    "category": "comma"
+  },
+  {
+    "find": "wusste, dass Trost dagegen nichts ausrichtete",
+    "replace": "wusste dass Trost dagegen nichts ausrichtete",
+    "category": "comma"
+  },
+  {
+    "find": "merkte auch, wie lange sie sich auf nichts mehr gefreut hatte",
+    "replace": "merkte auch wie lange sie sich auf nichts mehr gefreut hatte",
+    "category": "comma"
+  },
+  {
+    "find": "Frau, die inzwischen selbst alt geworden ist",
+    "replace": "Frau die inzwischen selbst alt geworden ist",
+    "category": "comma"
+  },
+  {
+    "find": "weiß, dass niemand sie beim ersten Mal glaubt",
+    "replace": "weiß dass niemand sie beim ersten Mal glaubt",
+    "category": "comma"
+  },
+  {
+    "find": "und schrieb, er sei der letzte Lehrling",
+    "replace": "und schrieb, dass er sei der letzte Lehrling",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Ich weiß nicht, was das ist",
+    "replace": "Ich weiß nicht, was dass ist",
+    "category": "wordChoice"
+  },
+  {
+    "find": "kann Ihnen sagen, dass dieses Werk nicht funktionieren sollte",
+    "replace": "kann Ihnen sagen, das dieses Werk nicht funktionieren sollte",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Es war eine einzige Uhr",
+    "replace": "Es war ein einzige Uhr",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Almut hörte zu und merkte, dass sie über ihren eigenen Vater",
+    "replace": "Almut hörte zu und merkte, das sie über ihren eigenen Vater",
+    "category": "wordChoice"
+  },
+  {
+    "find": "hatte Almut Weber seit elf Jahren",
+    "replace": "hatte Almut Weber seid elf Jahren",
+    "category": "wordChoice"
+  },
+  {
+    "find": "das seit elf Jahren zuverlässig",
+    "replace": "das seid elf Jahren zuverlässig",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Der Fehler ist die Absicht\", stand unter der dritten",
+    "replace": "Der Fehler ist die Absicht\", stand unter der dritte",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Er hob nie die Stimme",
+    "replace": "Er hob nie das Stimme",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Die Tinte war stellenweise verblasst",
+    "replace": "Der Tinte war stellenweise verblasst",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Der Staub lag dick auf jedem Regal",
+    "replace": "Das Staub lag dick auf jedem Regal",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Die Farben waren weniger verblasst",
+    "replace": "Das Farben waren weniger verblasst",
+    "category": "wordChoice"
+  },
+  {
+    "find": "und ging die Treppe hinunter",
+    "replace": "und ging der Treppe hinunter",
+    "category": "wordChoice"
+  },
+  {
+    "find": "roch nach Zedernholz und altem Regen",
+    "replace": "roch nach Zederholz und altem Regen",
+    "category": "misspelling"
+  },
+  {
+    "find": "hinter einer losen Wandverkleidung",
+    "replace": "hinter einer losen Wandverkliedung",
+    "category": "misspelling"
+  },
+  {
+    "find": "blasse Sonne schob sich hinter den Wolken hervor",
+    "replace": "blasse Sonne schob sich hinter den Wolcken hervor",
+    "category": "misspelling"
+  },
+  {
+    "find": "trug eine Ledermappe vor der Brust",
+    "replace": "trug eine Ledermapppe vor der Brust",
+    "category": "misspelling"
+  },
+  {
+    "find": "mit tintenfleckigen Fingern",
+    "replace": "mit tintenflekigen Fingern",
+    "category": "misspelling"
+  },
+  {
+    "find": "mit der besonderen Behutsamkeit",
+    "replace": "mit der besonderen Behutsamkiet",
+    "category": "misspelling"
+  },
+  {
+    "find": "die von Schwingungen, Temperaturen",
+    "replace": "die von Schwiungungen, Temperaturen",
+    "category": "misspelling"
+  },
+  {
+    "find": "doch die Linien selbst blieben scharf",
+    "replace": "doch die Linnien selbst blieben scharf",
+    "category": "misspelling"
+  },
+  {
+    "find": "Die Übersetzung ist falsch",
+    "replace": "Die Übersetztung ist falsch",
+    "category": "misspelling"
+  },
+  {
+    "find": "Die Zahnräder griffen ineinander",
+    "replace": "Die Zahnräder grifen ineinander",
+    "category": "misspelling"
+  },
+  {
+    "find": "Sie waren mit einem Band zusammengebunden",
+    "replace": "Sie waren mit einem Band zusammengebungen",
+    "category": "misspelling"
+  },
+  {
+    "find": "Es waren nicht sechs Entwürfe",
+    "replace": "Es waren nicht sechs Entwüfre",
+    "category": "misspelling"
+  },
+  {
+    "find": "eine schwere Messinglupe mit einem Sprung",
+    "replace": "eine schwere Messinglupe mit einem Spurng",
+    "category": "misspelling"
+  },
+  {
+    "find": "Angaben zu Legierungen, zu Härtegraden",
+    "replace": "Angaben zu Ligierungen, zu Härtegraden",
+    "category": "misspelling"
+  },
+  {
+    "find": "die Kunst bestehe darin",
+    "replace": "die Kunst besteh darin",
+    "category": "misspelling"
+  },
+  {
+    "find": "das Öl in den Lagern zäh wurde",
+    "replace": "das Öl in den Largen zäh wurde",
+    "category": "misspelling"
+  },
+  {
+    "find": "und von der Geduld des alten Mannes",
+    "replace": "und von der Gedult des alten Mannes",
+    "category": "misspelling"
+  },
+  {
+    "find": "halb verwischt: vierzig",
+    "replace": "halb verwsicht: vierzig",
+    "category": "misspelling"
+  },
+  {
+    "find": "weil ihre Beine sie nicht mehr trugen",
+    "replace": "weil ihre Beine sie nicht mehr trugne",
+    "category": "misspelling"
+  },
+  {
+    "find": "Konrad brachte Werkzeug mit",
+    "replace": "Konrad brachte Werkzueg mit",
+    "category": "misspelling"
+  },
+  {
+    "find": "aus Messing, mit siebzehn Zähnen",
+    "replace": "aus Messing, mit siebzhen Zähnen",
+    "category": "misspelling"
+  },
+  {
+    "find": "ein trockenes, überraschtes Lachen",
+    "replace": "ein trockenes, überaschtes Lachen",
+    "category": "misspelling"
+  },
+  {
+    "find": "ruhig und gleichmäßig",
+    "replace": "ruhig und gleichmässig",
+    "category": "misspelling"
+  },
+  {
+    "find": "zuverlässig und ohne jede Geschichte",
+    "replace": "zuverlässig und ohne jede Geschichtte",
+    "category": "misspelling"
+  },
+  {
+    "find": "Wer die Treppe hinaufsteigt",
+    "replace": "Wer die Treppe hinaufsteig",
+    "category": "misspelling"
+  },
+  {
+    "find": "und knipste die Lampe über der Werkbank an",
+    "replace": "und knipste die Lampe über der Werbank an",
+    "category": "misspelling"
+  },
+  {
+    "find": "indem er ihr Werkzeug in die Hand drückte",
+    "replace": "indem er ihr Werkzeug in die Hand drükte",
+    "category": "misspelling"
+  },
+  {
+    "find": "Es hatte sie als Kind zur Verzweiflung getrieben",
+    "replace": "Es hatte sie als Kind zur Verzweifelung getrieben",
+    "category": "misspelling"
+  },
+  {
+    "find": "Almut lehnte sich gegen den Türrahmen",
+    "replace": "Almut lehnte sich gegen den Türramen",
+    "category": "misspelling"
+  },
+  {
+    "find": "Darin lagen zwei Dutzend Bögen",
+    "replace": "Darin lagen zwei Dutzent Bögen",
+    "category": "misspelling"
+  },
+  {
+    "find": "geduldig und ohne eine einzige Lücke",
+    "replace": "geduldig und ohne eine einzige Lükce",
+    "category": "misspelling"
+  },
+  {
+    "find": "trieb ein loses Blech gegen die Mauer",
+    "replace": "trieb ein loses Blech gegen die Maure",
+    "category": "misspelling"
+  },
+  {
+    "find": "und einmal brach ein Zapfen unter der Feile",
+    "replace": "und einmal brach ein Zapfen unter der Fiele",
+    "category": "misspelling"
+  },
+  {
+    "find": "Der Ofen in der Ecke hielt den Raum knapp warm",
+    "replace": "Der Offen in der Ecke hielt den Raum knapp warm",
+    "category": "misspelling"
+  },
+  {
+    "find": "blank poliert, vollkommen nutzlos",
+    "replace": "blank polliert, vollkommen nutzlos",
+    "category": "misspelling"
+  },
+  {
+    "find": "in der Werkstatt ihres Vaters",
+    "replace": "in der werkstatt ihres Vaters",
+    "category": "capitalization"
+  },
+  {
+    "find": "Das Papier roch",
+    "replace": "Das papier roch",
+    "category": "capitalization"
+  },
+  {
+    "find": "Der Absender nannte sich",
+    "replace": "Der absender nannte sich",
+    "category": "capitalization"
+  },
+  {
+    "find": "legte ihn auf die Werkbank",
+    "replace": "legte ihn auf die werkbank",
+    "category": "capitalization"
+  },
+  {
+    "find": "Der Dienstag kam grau und windig",
+    "replace": "Der dienstag kam grau und windig",
+    "category": "capitalization"
+  },
+  {
+    "find": "legte die Mappe auf den Tisch",
+    "replace": "legte die Mappe auf den tisch",
+    "category": "capitalization"
+  },
+  {
+    "find": "hielt es gegen das Licht des Fensters",
+    "replace": "hielt es gegen das licht des Fensters",
+    "category": "capitalization"
+  },
+  {
+    "find": "Draußen schlug der Wind gegen die Scheiben",
+    "replace": "Draußen schlug der wind gegen die Scheiben",
+    "category": "capitalization"
+  },
+  {
+    "find": "Am Abend kochte sie Tee",
+    "replace": "Am Abend kochte sie tee",
+    "category": "capitalization"
+  },
+  {
+    "find": "Sie stand im Rathaus",
+    "replace": "Sie stand im rathaus",
+    "category": "capitalization"
+  },
+  {
+    "find": "holte die Lupe ihres Vaters aus der Schublade",
+    "replace": "holte die Lupe ihres Vaters aus der schublade",
+    "category": "capitalization"
+  },
+  {
+    "find": "Im Frühjahr stellten sie die Uhr",
+    "replace": "Im frühjahr stellten sie die Uhr",
+    "category": "capitalization"
+  },
+  {
+    "find": "Die Werkstatt gibt es noch",
+    "replace": "Die werkstatt gibt es noch",
+    "category": "capitalization"
+  },
+  {
+    "find": "er sei der letzte Lehrling ihres Vaters gewesen",
+    "replace": "er sei der der letzte Lehrling ihres Vaters gewesen",
+    "category": "duplicateWord"
+  },
+  {
+    "find": "Sie legte die sechs Zeichnungen nebeneinander",
+    "replace": "Sie legte die die sechs Zeichnungen nebeneinander",
+    "category": "duplicateWord"
+  },
+  {
+    "find": "Sie fanden die Zahl unter der Zeichnung",
+    "replace": "Sie fanden die Zahl unter unter der Zeichnung",
+    "category": "duplicateWord"
+  },
+  {
+    "find": "Wohin wandert es?",
+    "replace": "Wohin wandert es.",
+    "category": "punctuation"
+  },
+  {
+    "find": "Warum haben Sie aufgehört?",
+    "replace": "Warum haben Sie aufgehört",
+    "category": "punctuation"
+  },
+  {
+    "find": "Und hier lässt er es nicht weg.",
+    "replace": "Und hier lässt er es nicht weg..",
+    "category": "punctuation"
+  },
+  {
+    "find": "Sie strich mit dem Daumen darüber",
+    "replace": "Sie strich mit dem Damen darüber",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Sie ließ die Hand sinken.",
+    "replace": "Sie lies die Hand sinken.",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Sie dachte an die elf Monate, an die Nächte",
+    "replace": "Sie dachte an die elf Monaten, an die Nächte",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Es fehlt noch das Rad",
+    "replace": "Es fehlt noch der Rad",
+    "category": "wordChoice"
+  },
+  {
+    "find": "sagte er nicht, was falsch war",
+    "replace": "sagte er nicht, was falsch waren",
+    "category": "wordChoice"
+  },
+  {
+    "find": "Ihr Vater war kein Mann der großen Worte gewesen",
+    "replace": "Ihr Vater war kein Mann der großen Worte gewessen",
+    "category": "misspelling"
+  },
+  {
+    "find": "Erst viel später begriff sie",
+    "replace": "Erst viel später begrif sie",
+    "category": "misspelling"
+  },
+  {
+    "find": "Es sind keine Zeichnungen",
+    "replace": "Es sind keine Zeichungen",
+    "category": "misspelling"
+  },
+  {
+    "find": "Es waren Gangabweichungen",
+    "replace": "Es waren Gangabweichugen",
+    "category": "misspelling"
+  },
+  {
+    "find": "Jemand hatte über Jahrzehnte hinweg notiert",
+    "replace": "Jemand hatte über Jahrzente hinweg notiert",
+    "category": "misspelling"
+  },
+  {
+    "find": "Er stellte seine Tasse ab",
+    "replace": "Er stelte seine Tasse ab",
+    "category": "misspelling"
+  },
+  {
+    "find": "Draußen zog der Wind über den Hof",
+    "replace": "Draußen zog der Wind über den Hoff",
+    "category": "misspelling"
+  },
+  {
+    "find": "Die Arbeit ging langsamer voran",
+    "replace": "Die Arbeit ging langsammer voran",
+    "category": "misspelling"
+  },
+  {
+    "find": "Anfang November wurde es früh dunkel",
+    "replace": "Anfang november wurde es früh dunkel",
+    "category": "capitalization"
+  },
+  {
+    "find": "Das ist nicht dasselbe wie Verschwendung",
+    "replace": "Das ist nicht dasselbe wie verschwendung",
+    "category": "capitalization"
+  },
+  {
+    "find": "Sie fertigte das Rad am nächsten Dienstag",
+    "replace": "Sie fertigte das Rad am nächsten dienstag",
+    "category": "capitalization"
+  },
+  {
+    "find": "kleiner als die erste, die er auf den Tisch legte",
+    "replace": "kleiner als die Erste, die er auf den Tisch legte",
+    "category": "capitalization"
+  },
+  {
+    "find": "Ein Satz hätte gereicht.",
+    "replace": "Ein Satz hätte gereicht",
+    "category": "punctuation"
+  },
+  {
+    "find": "Almut legte die Feile aus der Hand.",
+    "replace": "Almut legte die Feile aus der Hand",
+    "category": "punctuation"
+  },
+  {
+    "find": "Über Jahre hinweg dieselbe Zahl",
+    "replace": "Über Jahre hinweg diesselbe Zahl",
+    "category": "misspelling"
+  }
+]
