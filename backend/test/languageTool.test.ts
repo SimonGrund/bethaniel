@@ -99,7 +99,11 @@ test("mapLangToLanguageTool returns null for unsupported free-text languages", (
 
 // ── disabledRules / introductory-comma gating ──
 
-import { buildCheckParams, INTRODUCTORY_COMMA_RULES } from "../src/languageTool.ts";
+import {
+  ALWAYS_DISABLED_RULES,
+  buildCheckParams,
+  INTRODUCTORY_COMMA_RULES,
+} from "../src/languageTool.ts";
 
 test("INTRODUCTORY_COMMA_RULES lists the LanguageTool intro-comma rule ids", () => {
   assert.ok(INTRODUCTORY_COMMA_RULES.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));
@@ -111,7 +115,6 @@ test("buildCheckParams sets text, language, and enabledOnly=false", () => {
   assert.equal(p.get("text"), "Hello there.");
   assert.equal(p.get("language"), "en-US");
   assert.equal(p.get("enabledOnly"), "false");
-  assert.equal(p.get("disabledRules"), null);
 });
 
 // Picky is LanguageTool's second rule tier and is almost all comma and
@@ -131,12 +134,36 @@ test("buildCheckParams asks for the picky rule level", () => {
 
 test("buildCheckParams passes disabledRules as a comma-joined list", () => {
   const p = buildCheckParams("x", "en-US", { disabledRules: INTRODUCTORY_COMMA_RULES });
-  assert.equal(
-    p.get("disabledRules"),
-    "MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE,SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
-  );
+  const sent = p.get("disabledRules")!.split(",");
+  assert.ok(sent.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));
+  assert.ok(sent.includes("SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA"));
 });
 
-test("buildCheckParams omits disabledRules when the list is empty", () => {
-  assert.equal(buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules"), null);
+// These rules found zero real errors and only misfired, and — unlike the LLM
+// editors — a deterministic correction never passes through the prompt, so
+// its DO-NOT-FLAG list cannot restrain them. A caller supplying its own
+// disabledRules must not be able to drop them by overwriting the parameter.
+test("the always-disabled rules are sent even when no options are passed", () => {
+  const sent = buildCheckParams("x", "en-US").get("disabledRules")!.split(",");
+  for (const rule of ALWAYS_DISABLED_RULES) assert.ok(sent.includes(rule), rule);
+});
+
+test("caller-supplied disabledRules are added to the always-disabled ones, not substituted", () => {
+  const sent = buildCheckParams("x", "en-US", { disabledRules: ["CUSTOM_RULE"] })
+    .get("disabledRules")!
+    .split(",");
+  assert.ok(sent.includes("CUSTOM_RULE"));
+  for (const rule of ALWAYS_DISABLED_RULES) assert.ok(sent.includes(rule), rule);
+});
+
+test("the subjunctive-breaking rule is one of them", () => {
+  // "as though the story were returning" -> "was" survived to the user with
+  // the reviewer endorsing it at confidence 5. Nothing else in the pipeline
+  // stops this one.
+  assert.ok(ALWAYS_DISABLED_RULES.includes("PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT"));
+});
+
+test("an empty caller list still leaves the always-disabled rules in place", () => {
+  const sent = buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules");
+  assert.ok(sent && sent.length > 0);
 });

@@ -42,6 +42,45 @@ export const INTRODUCTORY_COMMA_RULES = [
 ];
 
 /**
+ * Rules that never found a real error in the benchmark and only ever
+ * misfired. Deterministic corrections bypass the editor prompt entirely —
+ * they are injected straight into the correction set — so the prompt's
+ * DO-NOT-FLAG list cannot restrain them however well it is written. Two of
+ * these produce exactly the mistakes that list forbids by name.
+ *
+ * Measured per-rule on stress100 (errored + clean fixtures), after the
+ * parser's existing category filters:
+ *
+ *   rule                                       finds  misfires  on clean
+ *   PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT        0         2         2
+ *   NOUN_AROUND_IT                                 0         1         1
+ *   RB_RB_COMMA                                    0         1         0
+ *   BEEN_PART_AGREEMENT                            0         1         0
+ *
+ * Eight false positives removed, no true positives lost. The bar for adding
+ * to this list is that ledger: zero real errors found, at least one invented.
+ * A rule that misfires but also earns its keep stays on —
+ * MORFOLOGIK_RULE_EN_US misfires six times and finds thirty-seven, and
+ * disabling it would gut the grammar pass.
+ *
+ * What each one does when it fires:
+ *   - PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT breaks the subjunctive ("as
+ *     though the story were returning" -> "was") and misreads an adjective as
+ *     a verb ("his coat still damp from" -> "damps"). The copy-edit prompt
+ *     forbids the first in those words. Worse, the reviewer AGREED with it at
+ *     confidence 5, so nothing downstream catches it either.
+ *   - NOUN_AROUND_IT rewords correct prose ("the shop around her" -> "the
+ *     surrounding shop"), which the prompt also forbids by name.
+ *   - RB_RB_COMMA and BEEN_PART_AGREEMENT had no hits and one misfire each.
+ */
+export const ALWAYS_DISABLED_RULES = [
+  "PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT",
+  "NOUN_AROUND_IT",
+  "RB_RB_COMMA",
+  "BEEN_PART_AGREEMENT",
+];
+
+/**
  * Build the /v2/check request body. Extracted so it's unit-testable.
  *
  * `level=picky` turns on LanguageTool's second tier of rules, which is almost
@@ -71,8 +110,12 @@ export function buildCheckParams(
     enabledOnly: "false",
     level: "picky",
   });
-  if (opts?.disabledRules && opts.disabledRules.length > 0) {
-    params.set("disabledRules", opts.disabledRules.join(","));
+  // Merged rather than left to the caller: ALWAYS_DISABLED_RULES exists
+  // because those rules cannot be restrained any other way, so a caller
+  // that passes its own disabledRules must not drop them by accident.
+  const disabled = [...ALWAYS_DISABLED_RULES, ...(opts?.disabledRules ?? [])];
+  if (disabled.length > 0) {
+    params.set("disabledRules", disabled.join(","));
   }
   return params;
 }
