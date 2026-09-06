@@ -463,11 +463,12 @@ This is the largest task. It replaces lines 1–588 wholesale. Blocks that move 
 // row, never within the card element. Keeps all three the same shape however
 // much configuration hangs off one of them.
 
+import { useEffect } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import BetaFeatures from "./BetaFeatures";
 import { FRONT_CARD_MODES, frontCardFor } from "../types";
-import type { FrontCard, CopyEditOptions, LineEditOptions } from "../types";
+import type { FrontCard, TaskMode, CopyEditOptions, LineEditOptions } from "../types";
 
 // Declared here, not imported — it is a local constant in the current file
 // (line 64) and stays one. Step 3 reuses it in the manuscript-language row.
@@ -524,6 +525,8 @@ export default function ModeSelector() {
     manuscriptLang,
     setManuscriptLang,
     markStepComplete,
+    lineEditEnabled,
+    setLineEditEnabled,
   } = useStore();
   const t = useTranslation(lang);
 
@@ -534,17 +537,32 @@ export default function ModeSelector() {
   // line 90 and never called.
 
   const activeCard = frontCardFor(selectedModes);
+  // Truth for the current selection. `lineEditEnabled` is the remembered
+  // preference used when the Edit card is re-selected; while the card is
+  // active the selection itself is authoritative.
   const lineEditOn = selectedModes.includes("line_edit");
   const isEnglishManuscript = manuscriptLang === "en";
+
+  // Reconcile a selection saved before `lineEditEnabled` existed (or by an
+  // older UI): if the Edit card is showing copy-only, the remembered
+  // preference must say so too, or the next visit to this card silently turns
+  // the line pass back on. Runs once; the two agree from then on.
+  useEffect(() => {
+    if (activeCard === "edit" && lineEditOn !== lineEditEnabled) {
+      setLineEditEnabled(lineEditOn);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function selectCard(id: FrontCard) {
     // Re-clicking the active card is a no-op rather than a deselect: the step
     // must always have an answer, and "nothing selected" is not one.
     if (activeCard === id) return;
-    // The Edit card remembers whether the line pass was switched off.
-    const modes =
-      id === "edit" && !lineEditOn && selectedModes.includes("copy_edit")
-        ? ["copy_edit" as const]
+    // The Edit card restores the remembered line-edit preference, so turning
+    // the line pass off survives a trip to another card and back.
+    const modes: TaskMode[] =
+      id === "edit" && !lineEditEnabled
+        ? ["copy_edit"]
         : [...FRONT_CARD_MODES[id]];
     setSelectedModes(modes);
     markStepComplete("edits");
@@ -552,6 +570,7 @@ export default function ModeSelector() {
 
   function toggleLineEdit(on: boolean) {
     setSelectedModes(on ? ["copy_edit", "line_edit"] : ["copy_edit"]);
+    setLineEditEnabled(on);
     markStepComplete("edits");
   }
 ```
@@ -635,6 +654,36 @@ Three blocks are moved verbatim rather than reproduced here, because they are lo
 - **Line-edit option panel** — current lines 449–465 (the `{isSelected("line_edit") && (…)}` body). Keep its guard, changing `isSelected("line_edit")` to `lineEditOn`.
 
 Everything else in the old file is deleted: the five card buttons, `Category`, `CATEGORY_COLOR`, `EDITING_CHOICES`, `EDITING_CHOICE_MODES`, `EXCLUSIVE_CHOICES`, `toggleEditingChoice`, `selectCategory`, `openCat`, and the analysis, feedback, developmental and readthrough panels (the last of which had no controls at all).
+
+- [ ] **Step 4b: Add the remembered line-edit preference to the store**
+
+In `frontend/src/store.ts`, add to the state interface alongside
+`selectedModes`:
+
+```ts
+  /** Whether the Edit card includes the line pass. Remembered separately from
+   *  `selectedModes` so that switching to another card and back does not
+   *  silently re-arm a pass the user deliberately turned off. */
+  lineEditEnabled: boolean;
+  setLineEditEnabled: (on: boolean) => void;
+```
+
+and to the store body, next to `setSelectedModes`:
+
+```ts
+      lineEditEnabled: true,
+      setLineEditEnabled: (lineEditEnabled) => set({ lineEditEnabled }),
+```
+
+It must be persisted. Check how persistence is declared — if there is a
+`partialize` list, add `lineEditEnabled` to it; if persistence is
+opt-out, no change is needed. Verify with:
+
+```bash
+grep -n "partialize" -A 30 frontend/src/store.ts | grep -n "selectedModes"
+```
+
+If `selectedModes` appears there, `lineEditEnabled` must too.
 
 - [ ] **Step 5: Remove the now-dead store fields if nothing else uses them**
 
@@ -884,6 +933,9 @@ to:
       selectedModes: ["copy_edit", "line_edit"],
 ```
 
+`lineEditEnabled` was defaulted to `true` in Task 4 Step 4b; the two defaults
+must agree or the toggle contradicts the selection on a fresh profile.
+
 - [ ] **Step 2: Start the dev stack**
 
 ```bash
@@ -900,12 +952,12 @@ With a manuscript uploaded, on the task step:
 
 1. Edit card is selected on a fresh profile, line toggle on.
 2. Turning the line toggle off leaves the Edit card selected; the line-edit option panel disappears; the copy-edit options stay.
-3. Click Translate, then Edit again — the line toggle is still off. (This is the `selectCard` guard; a plain reset would flip it back on.)
+3. Click Translate, then Edit again — the line toggle is **still off**, and the line-edit option panel is still hidden. This is `lineEditEnabled` doing its job; deriving the toggle from the selection alone would flip it back on here.
 4. Final readthrough selects and shows only the manuscript-language row.
 5. The Experimental disclosure is collapsed, opens on click, and its three groups select correctly.
 6. Selecting an analysis mode clears the front card; selecting a card clears the Beta selection.
 7. Analysis allows more than one mode; developmental and feedback replace the selection.
-8. Reload the page — the selection and the toggle state survive.
+8. Reload the page — the selection and the toggle state survive. Then, with line edit off, quit and reopen the app: still off (this is what the persisted preference buys over a component-local one).
 9. Switch the interface language to Danish and confirm no raw keys (`card_edit_title`) render.
 10. Narrow the window below 900px — the cards stack.
 
