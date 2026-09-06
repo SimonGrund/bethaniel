@@ -142,6 +142,27 @@ export function buildSpellHintBlock(suspectWords: string[]): string {
   );
 }
 
+/**
+ * Confusable-word hint block, the word-choice counterpart to
+ * {@link buildSpellHintBlock}. `findConfusables` (confusables.ts) says which
+ * sets are present in the chunk; the model decides in context which member
+ * belongs. Returns "" for an empty list so callers can append unconditionally.
+ *
+ * The closing sentence is load-bearing, not padding. Every word on this list
+ * is correctly spelled and usually correct in place, so a prompt that merely
+ * draws attention to them invites edits to prose that was already right —
+ * the same failure the comma rules produced. It states the bar positively and
+ * shows no wrong form for the model to copy.
+ */
+export function buildConfusableHintBlock(sets: readonly string[][]): string {
+  if (!sets || sets.length === 0) return "";
+  return (
+    "\n\nCONFUSABLE WORDS — the sets below all appear in this text. Both (or all) members of each set are correctly spelled, so no spell-checker can tell them apart; only the sentence can. Check every occurrence of these words in context and decide whether the right member is used:\n" +
+    sets.map((set) => `- ${set.join(" / ")}`).join("\n") +
+    "\nFlag one ONLY where the wrong member is genuinely used. Most occurrences are already correct and need no comment. Appearing on this list is not itself a reason to change a word."
+  );
+}
+
 const REWRITE_OUTPUT_RULES = `
 OUTPUT RULES — ABSOLUTE:
 1. Output ONLY the corrected Markdown. No preamble, no commentary, no "Here is...".

@@ -62,6 +62,7 @@ import {
   buildPrecisionPassPrompt,
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
+  buildConfusableHintBlock,
   buildCopyEditCorrectionsPrompt,
   buildTranslationUpgradePrompt,
   buildFluencyReviewerPrompt,
@@ -1635,6 +1636,26 @@ async function processJob(job: JobData): Promise<void> {
                 });
                 if (suspectWords.length > 0) {
                   chunkPrompt = prompt + buildSpellHintBlock(suspectWords);
+                }
+
+                // Word choice, not spelling: "their" for "there", "past" for
+                // "passed". Every layer above is blind to these because both
+                // members are real words, so this is the only place they can
+                // be caught. Detection only — the editor agent decides which
+                // member the sentence wants, and the reviewer scores it, the
+                // same division of labour as the spell hints above.
+                //
+                // Deliberately inside the spellCheck gate: this is the same
+                // kind of layer (automated word-level detection handed to the
+                // model to adjudicate), so one switch governs both rather than
+                // adding a second toggle that means almost the same thing.
+                const { findConfusables } = await import("./confusables.js");
+                const confusableSets = findConfusables(
+                  chunk.body,
+                  job.manuscriptLang ?? "en",
+                );
+                if (confusableSets.length > 0) {
+                  chunkPrompt += buildConfusableHintBlock(confusableSets);
                 }
               }
 
