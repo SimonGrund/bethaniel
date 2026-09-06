@@ -68,27 +68,40 @@ is the honest one, and the fixture should drop those three plants.
 
 ## Next, in order
 
-### 1. Spanish and Danish commas (5–16% and 26–27%)
+### 1. Spanish and Danish commas — PROMPT LEVER TESTED AND DISPROVEN
 
-The largest planted category in both, and the weakest result. The prompt gate
-at `prompts.ts:462` sends comma directives only for English — but that is not
-the whole story, because **German scores best of the four (55/72%) with no
-prompt help at all**, carried by LanguageTool's German rules. What predicts
-comma recall is LanguageTool coverage, not the prompt.
+Spanish comma directives were written (RAE convention, in Spanish, not a
+translation of the English rules — those are opposite on the serial comma) and
+measured. The result:
 
-So the lever is per-language comma rules, in this order:
+| Spanish | comma recall | overall recall | precision | clean-text FPs |
+|---|---|---|---|---|
+| Baby | 5 → **3** | 61 → 57 | 66 → **81** | 0 → 0 |
+| Big Bad | 11 → **11** | 62 → 63 | 69 → **78** | 1 → **0** |
 
-- **Spanish** (5/16%) — LanguageTool's Spanish comma coverage is thin. Add the
-  two directives the English prompt already has, translated to Spanish
-  convention (Spanish does not take the serial comma; it does take the comma
-  before `pero`/`sino` and after a fronted adverbial).
-- **Danish** (26/27%) — Danish has two competing comma systems (grammatisk and
-  nyt komma), and which one applies is the author's choice. Enforcing the
-  wrong one is worse than enforcing neither, so this needs a style-guide
-  option before it needs a prompt rule. Rank it after Spanish for that reason.
+**Comma recall did not move.** The directives made the model more conservative
+instead, which bought 12-15 points of precision and took clean-text false
+positives to zero. Worth keeping on that basis, and kept — but it is a
+precision fix, not the comma fix it was written as, and it should not be
+described as one.
 
-Expected: Spanish +15 points of recall; Danish smaller and contingent on the
-style question.
+This is the second independent result pointing the same way. German scores
+best of the four on commas with no directive at all, carried by LanguageTool;
+Spanish now has directives and still scores 3-11%. **Comma recall tracks
+deterministic rule coverage, and a prompt cannot substitute for it.** A 4B or
+9B model does not reliably act on a comma rule it is told about, however
+concretely it is phrased.
+
+So the remaining lever for Spanish commas is LanguageTool's Spanish rule set,
+not the prompt: either enabling more of its comma rules (measured against the
+ledger bar, since picky-tier Spanish rules are where COMILLAS_TIPOGRAFICAS
+came from) or supplying rules of our own. That is a bigger piece of work than
+a prompt edit, and it should be costed before it is started.
+
+Danish stays where it was, and for the same reason as before: two competing
+comma systems, and enforcing the wrong one is worse than enforcing neither.
+The Spanish result makes it less attractive still — a prompt rule is unlikely
+to move it even once the style question is settled.
 
 ### 2. English capitalization (36/29%) — DIAGNOSED: the metric, not the product
 
