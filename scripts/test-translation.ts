@@ -33,9 +33,13 @@ import { readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { buildTranslationReviewerPrompt } from "../backend/src/prompts.js";
+import { scoreTranslation, type TranslationScore } from "../backend/src/translationQuality.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const API = "http://127.0.0.1:4000/api";
+// Overridable like test-models.ts's BENCH_API — the dev backend on 4000 is
+// usually forked under the open Electron app, and a benchmark should be able
+// to target a second backend without taking the app down.
+const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const OUT_PATH = join(SAMPLE_DIR, "translation_results.txt");
 
@@ -222,7 +226,25 @@ async function main() {
   console.log(`Judge model: ${judgeModel}`);
   console.log(`Target languages: ${TARGET_LANGS.join(", ")}\n`);
 
-  const sourcePath = SOURCE_OVERRIDE ?? join(SAMPLE_DIR, "english_correct.md");
+  // The parallel corpus: one source with a human reference per target. Falls
+  // back to the old source when --source is passed, in which case there are no
+  // references and only the judge scores run.
+  const sourcePath = SOURCE_OVERRIDE ?? join(SAMPLE_DIR, "translation_source_en.md");
+  const REF_FILE: Record<string, string> = {
+    Danish: "translation_ref_da.md",
+    German: "translation_ref_de.md",
+    Spanish: "translation_ref_es.md",
+  };
+  const references = new Map<string, string>();
+  if (!SOURCE_OVERRIDE) {
+    for (const [lang, file] of Object.entries(REF_FILE)) {
+      try {
+        references.set(lang, readFileSync(join(SAMPLE_DIR, file), "utf-8"));
+      } catch {
+        console.warn(`  ! no reference translation for ${lang} (${file})`);
+      }
+    }
+  }
   const sourceText = readFileSync(sourcePath, "utf-8");
   const sourceFilename = sourcePath.split(/[/\\]/).pop()!;
   console.log(`Source: ${sourcePath} (${sourceText.split(/\s+/).length} words)\n`);
@@ -233,6 +255,8 @@ async function main() {
     translatedText?: string;
     errors: string[];
     scores: JudgeScore[];
+    /** Reference-based, deterministic. Undefined when no reference exists. */
+    quality?: TranslationScore;
     elapsedMs: number;
   }
   const results: Result[] = [];
@@ -271,12 +295,25 @@ async function main() {
           : 0;
         console.log(`  Judged: avg ${avg.toFixed(1)}/5 across ${scores.length} paragraphs`);
 
+        const reference = references.get(targetLang);
+        const quality =
+          reference && outcome.editedText
+            ? scoreTranslation(outcome.editedText, sourceText, reference)
+            : undefined;
+        if (quality) {
+          console.log(
+            `  chrF ${quality.chrf.toFixed(1)}  chrF++ ${quality.chrfPlusPlus.toFixed(1)}  ` +
+              `len ${quality.lengthRatio.toFixed(2)}x  leak ${(quality.sourceLeakage * 100).toFixed(1)}%`,
+          );
+        }
+
         results.push({
           model,
           targetLang,
           translatedText: outcome.editedText,
           errors: outcome.errors,
           scores,
+          quality,
           elapsedMs,
         });
       } catch (err) {
@@ -294,6 +331,43 @@ async function main() {
   lines.push(`Judge model: ${judgeModel} (self-judging caveat applies to its own rows)`);
   lines.push(`Source: ${sourcePath}`);
   lines.push("=".repeat(80) + "\n");
+
+  // ── Reference-based scorecard ──
+  //
+  // First, because it is the number to trust. The judge scorecard below it
+  // saturates: on the previous run every model landed between 4.2 and 5.0,
+  // three of nine rows at a flat 5.0, and the largest model judged its own
+  // output. These figures are pure functions of the text — same answer every
+  // run, no model in the loop.
+  //
+  // chrF is character n-gram F-score (the WMT standard, and the right choice
+  // for Danish and German morphology, where a different-but-correct inflection
+  // costs a word-level metric everything). A reference is ONE valid rendering,
+  // so read these for ranking models against each other, never as an absolute
+  // "this translation is 62% correct".
+  const scored = results.filter((r) => r.quality);
+  if (scored.length > 0) {
+    lines.push("SCORECARD — reference-based (deterministic, no judge model)");
+    lines.push("=".repeat(80));
+    lines.push(
+      `  ${"Model".padEnd(45)} ${"Lang".padEnd(8)} ${"chrF".padStart(6)} ${"chrF++".padStart(7)} ${"len".padStart(6)} ${"leak".padStart(6)}`,
+    );
+    for (const r of scored) {
+      const q = r.quality!;
+      lines.push(
+        `  ${r.model.padEnd(45)} ${r.targetLang.padEnd(8)} ` +
+          `${q.chrf.toFixed(1).padStart(6)} ${q.chrfPlusPlus.toFixed(1).padStart(7)} ` +
+          `${(q.lengthRatio.toFixed(2) + "x").padStart(6)} ${((q.sourceLeakage * 100).toFixed(1) + "%").padStart(6)}`,
+      );
+    }
+    lines.push("");
+    lines.push("  chrF/chrF++  0-100, higher is better. Similarity to the reference translation.");
+    lines.push("  len          hypothesis length / reference length. Far from 1.00 means it");
+    lines.push("               stopped early or padded — both can still score well on chrF.");
+    lines.push("  leak         share of words left untranslated from the source. A reader");
+    lines.push("               notices these immediately; chrF barely does.");
+    lines.push("");
+  }
 
   lines.push("SCORECARD — judge confidence 1-5 per paragraph (rubric: fidelity + fluency)");
   lines.push("=".repeat(80));
