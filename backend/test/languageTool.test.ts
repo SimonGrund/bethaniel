@@ -163,6 +163,20 @@ test("the subjunctive-breaking rule is one of them", () => {
   assert.ok(ALWAYS_DISABLED_RULES.includes("PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT"));
 });
 
+test("the Spanish quote-conversion rule is one of them", () => {
+  // COMILLAS_TIPOGRAFICAS rewrites every straight quote to an angle quote
+  // (" -> «»). On a Spanish fixture full of dialogue that is one flag per
+  // quotation mark: 124 on a single clean file, 248 across the corpus, and
+  // not one of them on a planted error. It held Spanish copy-edit precision
+  // at 31% while the other three languages sat at 63-79%.
+  //
+  // It is also a house-style question rather than an error, and quoteRepair.ts
+  // already owns quotation marks — LanguageTool must not overrule that pass.
+  assert.ok(ALWAYS_DISABLED_RULES.includes("COMILLAS_TIPOGRAFICAS"));
+  const sent = buildCheckParams("x", "es").get("disabledRules");
+  assert.ok(sent?.includes("COMILLAS_TIPOGRAFICAS"), "must be sent for Spanish");
+});
+
 test("an empty caller list still leaves the always-disabled rules in place", () => {
   const sent = buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules");
   assert.ok(sent && sent.length > 0);

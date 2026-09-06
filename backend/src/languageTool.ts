@@ -72,12 +72,28 @@ export const INTRODUCTORY_COMMA_RULES = [
  *   - NOUN_AROUND_IT rewords correct prose ("the shop around her" -> "the
  *     surrounding shop"), which the prompt also forbids by name.
  *   - RB_RB_COMMA and BEEN_PART_AGREEMENT had no hits and one misfire each.
+ *   - COMILLAS_TIPOGRAFICAS converts every straight quote in Spanish to an
+ *     angle quote (" -> «»). Ledger across all eight fixtures: 248 invented,
+ *     0 real errors found — the worst offender in the list by two orders of
+ *     magnitude. It fired 124 times on a single clean Spanish fixture, once
+ *     per quotation mark, which for a novel means every line of dialogue.
+ *     That alone put Spanish copy-edit precision at 31% against 63-79% for
+ *     the other three languages.
+ *
+ *     It went unnoticed because it is a picky-tier rule and the old Spanish
+ *     fixture had almost no dialogue; the measurement above recorded "0 flags
+ *     on clean text" in good faith. It is also not an error in the first
+ *     place: « » versus " " is a house style, which this codebase already
+ *     treats as one — quoteRepair.ts normalises quotation marks
+ *     deterministically, and a style guide is where a publisher asks for
+ *     angle quotes. LanguageTool should not be overruling that pass.
  */
 export const ALWAYS_DISABLED_RULES = [
   "PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT",
   "NOUN_AROUND_IT",
   "RB_RB_COMMA",
   "BEEN_PART_AGREEMENT",
+  "COMILLAS_TIPOGRAFICAS",
 ];
 
 /**
