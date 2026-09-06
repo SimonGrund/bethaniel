@@ -29,10 +29,18 @@
  * Usage:
  *   npx tsx scripts/bench-run-modes.ts                 # full grid (2 models × 2 task modes × speed/max)
  *   npx tsx scripts/bench-run-modes.ts --model 4b       # Baby Betty only
+ *   npx tsx scripts/bench-run-modes.ts --model cloud --run-mode speed
  *   npx tsx scripts/bench-run-modes.ts --task line_edit # line_edit only
  *   npx tsx scripts/bench-run-modes.ts --skip-clean     # skip the clean-text FP runs (half the calls)
  *   npx tsx scripts/bench-run-modes.ts --clean          # wipe previous results, start fresh
  *   npx tsx scripts/bench-run-modes.ts --report-only    # recompute + reprint from saved results
+ *
+ * BETTY IN THE CLOUD: the "cloud" model is opt-in (`--model cloud`) and never
+ * part of the default grid, because every run of it spends real money at
+ * OVHcloud. It needs the backend configured with a cloud credential and only
+ * makes sense with `--run-mode speed` — cloud jobs are forced to the Speed
+ * preset server-side (`cloudRunKnobs` in backend/src/cloudEstimate.ts), so a
+ * "max" leg would silently be a second Speed run charged twice.
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -40,16 +48,24 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
   buildGroundTruth,
+  recallByCategory,
   scoreCorrections,
   type PlantedError,
   type ScoredCorrection,
 } from "../backend/src/benchScoring.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const API = "http://127.0.0.1:4000/api";
+// Overridable so a run can target a second backend on another port — the dev
+// backend is usually forked under the open Electron app, and restarting it to
+// pick up a prompt change would take the app down with it.
+const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const RESULTS_PATH = join(SAMPLE_DIR, "run_mode_bench_results.json");
 const REPORT_PATH = join(SAMPLE_DIR, "run_mode_bench_results.txt");
+
+/** buildGroundTruth's default `mergeGapChars` — quoted in the report so the
+ *  "other" category's contents are explicable rather than mysterious. */
+const MERGE_GAP_CHARS = 20;
 
 const POLL_INTERVAL = 3000;
 const TASK_TIMEOUT = 3_600_000; // 1 hour — Max on the 9B can be slow
@@ -64,18 +80,36 @@ function parseFlag(name: string): string | null {
 }
 const MODEL_FILTER = parseFlag("--model")?.toLowerCase() ?? null;
 const TASK_FILTER = parseFlag("--task") as "copy_edit" | "line_edit" | null;
+const RUN_MODE_FILTER = parseFlag("--run-mode")?.toLowerCase() ?? null;
 
 interface ModelSpec {
   fileName: string;
   label: string;
+  /** Costs real money per run, so it is never in the default grid — you have
+   *  to name it with --model. */
+  optIn?: boolean;
 }
 const ALL_MODELS: ModelSpec[] = [
   { fileName: "Qwen3.5-4B-Q4_K_M.gguf", label: "Baby Betty" },
   { fileName: "Qwen3.5-9B-Q4_K_M.gguf", label: "Big Bad Betty" },
+  {
+    // The catalog fileName for the "bethaniel-cloud" entry — an `source:"api"`
+    // pseudo-model, so nothing needs to be installed locally. What it actually
+    // reaches is whatever baseUrl the backend's api-config.json has for that
+    // entry (the Worker), which is what makes this measure the shipped path
+    // and not a direct provider call.
+    fileName: "custom:bethaniel-cloud",
+    label: "Betty in the Cloud",
+    optIn: true,
+  },
 ];
 const MODELS = MODEL_FILTER
-  ? ALL_MODELS.filter((m) => m.fileName.toLowerCase().includes(MODEL_FILTER))
-  : ALL_MODELS;
+  ? ALL_MODELS.filter(
+      (m) =>
+        m.fileName.toLowerCase().includes(MODEL_FILTER) ||
+        m.label.toLowerCase().includes(MODEL_FILTER),
+    )
+  : ALL_MODELS.filter((m) => !m.optIn);
 
 interface TaskSpec {
   mode: "copy_edit" | "line_edit";
@@ -103,8 +137,11 @@ const ALL_TASKS: TaskSpec[] = [
 ];
 const TASKS = TASK_FILTER ? ALL_TASKS.filter((t) => t.mode === TASK_FILTER) : ALL_TASKS;
 
-const RUN_MODES = ["speed", "max"] as const;
-type RunModeName = (typeof RUN_MODES)[number];
+const ALL_RUN_MODES = ["speed", "max"] as const;
+type RunModeName = (typeof ALL_RUN_MODES)[number];
+const RUN_MODES: readonly RunModeName[] = RUN_MODE_FILTER
+  ? ALL_RUN_MODES.filter((m) => m === RUN_MODE_FILTER)
+  : ALL_RUN_MODES;
 
 interface RunResult {
   model: string;
@@ -207,7 +244,7 @@ function fmtMs(ms: number): string {
 
 // ── Main ──
 async function main() {
-  console.log("=== Bethaniel Run-Mode Benchmark (Speed vs Max, local models) ===\n");
+  console.log("=== Bethaniel Run-Mode Benchmark ===\n");
 
   if (REPORT_ONLY) {
     const results = loadResults();
@@ -224,7 +261,7 @@ async function main() {
   try {
     await fetch(`${API.replace("/api", "")}/health`);
   } catch {
-    console.error("ERROR: Backend not reachable at http://127.0.0.1:4000. Start it with `npm run dev` in backend/.");
+    console.error(`ERROR: Backend not reachable at ${API}. Start it with \`npm run dev\` in backend/, or set BENCH_API.`);
     process.exit(1);
   }
 
@@ -330,7 +367,7 @@ function avg(xs: number[]): number {
 
 function buildReport(results: RunResult[]): string {
   const lines: string[] = [];
-  lines.push("BETHANIEL RUN-MODE BENCHMARK (Speed vs Max, local models)");
+  lines.push("BETHANIEL RUN-MODE BENCHMARK (Speed vs Max; local models + opt-in cloud)");
   lines.push(`Report generated: ${new Date().toISOString()}`);
   lines.push("═".repeat(78) + "\n");
 
@@ -348,12 +385,19 @@ function buildReport(results: RunResult[]): string {
       if (!task) continue;
       const truth = groundTruthFor(task);
 
-      const speedErr = results.find(
-        (r) => r.model === model && r.taskMode === taskMode && r.runMode === "speed" && r.variant === "errored",
-      );
-      const maxErr = results.find(
-        (r) => r.model === model && r.taskMode === taskMode && r.runMode === "max" && r.variant === "errored",
-      );
+      // Which legs exist is a property of the saved results, not of this
+      // run's flags — --report-only has to print a file that may hold more
+      // (or fewer) modes than the last invocation asked for.
+      const erroredFor = (runMode: RunModeName) =>
+        results.find(
+          (r) =>
+            r.model === model &&
+            r.taskMode === taskMode &&
+            r.runMode === runMode &&
+            r.variant === "errored",
+        );
+      const speedErr = erroredFor("speed");
+      const maxErr = erroredFor("max");
       if (!speedErr && !maxErr) continue;
 
       lines.push(`\n  ${task.label}`);
@@ -362,10 +406,9 @@ function buildReport(results: RunResult[]): string {
       );
 
       for (const r of [speedErr, maxErr]) {
-        if (!r) {
-          lines.push(`  (no result)`);
-          continue;
-        }
+        // A missing leg is normal now that Max is gone and cloud runs are
+        // Speed-only — say nothing rather than printing an empty row.
+        if (!r) continue;
         if (r.errors.length > 0 && r.corrections.length === 0) {
           lines.push(`  ${r.runMode.padEnd(6)} ERROR: ${r.errors.join("; ")}`);
           continue;
@@ -383,6 +426,34 @@ function buildReport(results: RunResult[]): string {
           `  ${r.runMode.padEnd(6)} ${fmtPct(scored.recall)} ${fmtPct(scored.precision)} ${fmtNum(scored.f1)} ` +
             `${String(scored.falsePositiveBreakdown.wrongFix.length).padStart(9)} ${String(scored.falsePositiveBreakdown.hallucination.length).padStart(8)} ` +
             `${fmtMs(r.wallMs).padStart(8)} ${(r.tokPerSec ?? "-").padStart(7)} ${fmtNum(avgConf).padStart(9)} ${fmtPctPlain(flaggedRate).padStart(8)}`,
+        );
+      }
+
+      // Recall split by what KIND of error was missed. The headline number
+      // hides the difference between a model that cannot spell and one that
+      // cannot punctuate, and those are not the same product problem.
+      const measured = [speedErr, maxErr].filter(
+        (r): r is RunResult => !!r && r.corrections.length > 0,
+      );
+      if (measured.length > 0) {
+        const perMode = measured.map((r) => ({
+          runMode: r.runMode,
+          rows: recallByCategory(truth, scoreCorrections(r.corrections, truth).missedErrors),
+        }));
+        lines.push(
+          `\n  recall by error type${" ".repeat(6)}planted` +
+            perMode.map((m) => m.runMode.padStart(8)).join(""),
+        );
+        for (let i = 0; i < perMode[0].rows.length; i++) {
+          const { category, planted } = perMode[0].rows[i];
+          if (planted === 0) continue; // this fixture plants none of these
+          lines.push(
+            `    ${category.padEnd(24)}${String(planted).padStart(7)}` +
+              perMode.map((m) => fmtPctPlain(m.rows[i].recall).padStart(8)).join(""),
+          );
+        }
+        lines.push(
+          `    (merged spans — two errors within ${MERGE_GAP_CHARS} characters — count once, under "other")`,
         );
       }
 
@@ -405,7 +476,8 @@ function buildReport(results: RunResult[]): string {
         }
       }
 
-      // Verdict: is Max's recall gain worth its time cost?
+      // Verdict: is Max's recall gain worth its time cost? Only meaningful
+      // when both legs were actually run.
       if (speedErr && maxErr && speedErr.corrections && maxErr.corrections) {
         const sScore = scoreCorrections(speedErr.corrections, truth);
         const mScore = scoreCorrections(maxErr.corrections, truth);

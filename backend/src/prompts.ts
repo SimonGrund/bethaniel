@@ -108,7 +108,13 @@ function punctuationRecallDirective(opts: CopyEditOptions, langName: string | nu
 
 PUNCTUATION RECALL — the same "catch every one" standard as spelling applies to these three comma rules specifically, because they are OBJECTIVE grammar, not style:
 ${examples.join("\n")}
-These are NOT judgment calls — the "when in doubt, leave it alone" caution does not apply to them. If a sentence matches one of these patterns, flag it, even if the sentence reads fine aloud without the comma. Scan for these three patterns as deliberately as you scan for misspellings; do not rely on noticing them incidentally while looking for something else.`;
+These are NOT judgment calls — the "when in doubt, leave it alone" caution does not apply to them. If a sentence matches one of these patterns, flag it, even if the sentence reads fine aloud without the comma. Scan for these three patterns as deliberately as you scan for misspellings; do not rely on noticing them incidentally while looking for something else.
+
+These three patterns are the ONLY commas this directive licenses. The following look superficially similar and are NOT missing commas — inserting one there INTRODUCES an error into correct prose:
+- Between the final adjective and its noun. The comma goes only BETWEEN adjectives: "a long, jagged shore" is finished and correct; "a long, jagged, shore" is wrong.
+- Before "and"/"or" joining two adjectives, two nouns or two verbs that share one subject: "formidable and private", "boots and nets", "she turned and left" — all correct as they stand.
+- Anywhere in a list that already separates every item with a comma and has one before the final "and"/"or". That list is finished — return it untouched. The only edit this directive ever licenses on a list is ADDING the one missing comma before the final conjunction; never remove one, never move one.
+Before flagging any comma, name which of the three licensed patterns it is. If it is none of them, do not flag it.`;
 }
 
 // Rewrite-mode counterpart of SPELLING_RECALL_DIRECTIVE: the whole-chunk
@@ -433,9 +439,9 @@ export function buildCopyEditCorrectionsPrompt(
     // were the single largest recall gap in benchmarking.
     if (!langName) {
       p +=
-        '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma).\n';
+        '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma). NEVER put a comma between the LAST adjective and the noun itself: "a long, jagged shore" is correct and complete — "a long, jagged, shore" is an error.\n';
       p +=
-        '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule.\n';
+        '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule. NEVER put a comma before "and" when it joins two adjectives, two nouns or two verbs instead of two clauses ("a formidable and private woman", "quills and brushes", "she set it down and left") — those take no comma at all.\n';
     }
   }
   if (opts.capitalization)
@@ -451,7 +457,7 @@ export function buildCopyEditCorrectionsPrompt(
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (!langName && opts.oxfordComma)
     p +=
-      '- Lists of three+ items missing the OXFORD COMMA — add it ("boots, nets and rope" → "boots, nets, and rope")\n';
+      '- Lists of three+ items missing the OXFORD COMMA — add the missing comma immediately BEFORE the final "and"/"or" ("boots, nets and rope" → "boots, nets, and rope"). This rule can only ever ADD one comma to a list. Every comma already in the list is correct: keep all of them, exactly where they are. If your corrected list would contain fewer commas than the original, or a comma in a different place, the correction is wrong — discard it.\n';
   if (opts.dialogueTags)
     p +=
       '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';
@@ -686,7 +692,12 @@ export function buildCombinedEditPrompt(
     p +=
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (!langName && copyOpts.oxfordComma)
-    p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
+    // Terser than the copy-edit-only prompt's version (this one has no
+    // PUNCTUATION RECALL block pushing for commas), but it still has to say
+    // WHERE the comma goes — "and," with the comma after the conjunction was
+    // a real benchmark failure, not a hypothetical one.
+    p +=
+      '- Lists of three+ items missing the OXFORD COMMA — add the missing comma immediately BEFORE the final "and"/"or". This can only ever ADD one comma: keep every comma the list already has, exactly where it is.\n';
   if (copyOpts.dialogueTags)
     p +=
       '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';

@@ -10,7 +10,9 @@ import { fileURLToPath } from "url";
 
 import {
   buildGroundTruth,
+  classifyPlantedError,
   correctionCatchesError,
+  recallByCategory,
   scoreCorrections,
   consistencyScore,
   timeScore,
@@ -224,4 +226,74 @@ test("overallScore: weights quality (F1) at 80% and time at 20%", () => {
   assert.equal(overallScore(100, 100), 100);
   assert.equal(overallScore(100, 0), 80);
   assert.equal(overallScore(0, 100), 20);
+});
+
+// ── Error categories ──
+//
+// A headline recall number said the cloud model was "worse at copy-editing"
+// when what it was actually worse at was commas specifically, while being
+// fine at spelling. These keep that split honest.
+
+test("classifyPlantedError: a missing comma is a comma error", () => {
+  assert.equal(
+    classifyPlantedError({ wrong: "yellowed brittle", right: "yellowed, brittle" }),
+    "comma",
+  );
+  assert.equal(
+    classifyPlantedError({ wrong: "nets and rope", right: "nets, and rope" }),
+    "comma",
+  );
+});
+
+test("classifyPlantedError: a misspelling or confusable is a spelling error", () => {
+  assert.equal(classifyPlantedError({ wrong: "modern atlus.", right: "modern atlas." }), "spelling");
+  assert.equal(classifyPlantedError({ wrong: "by than,", right: "by then," }), "spelling");
+});
+
+test("classifyPlantedError: case is tested before punctuation", () => {
+  // "tuesday" → "Tuesday" is punctuation-identical; without the ordering it
+  // would be filed as a punctuation error.
+  assert.equal(classifyPlantedError({ wrong: "tuesday came", right: "Tuesday came" }), "capitalization");
+});
+
+test("classifyPlantedError: a repeated word is its own category", () => {
+  assert.equal(classifyPlantedError({ wrong: "at at all.", right: "at all." }), "duplicateWord");
+  assert.equal(classifyPlantedError({ wrong: "the the last", right: "the last" }), "duplicateWord");
+});
+
+test("classifyPlantedError: non-comma punctuation stays separate from commas", () => {
+  assert.equal(classifyPlantedError({ wrong: "with it's shadow", right: "with its shadow" }), "punctuation");
+});
+
+test("classifyPlantedError: a multi-word rewrite is not a spelling fix", () => {
+  assert.equal(
+    classifyPlantedError({ wrong: "she recognised a long jagged", right: "she recognized a long, jagged" }),
+    "other",
+  );
+});
+
+test("recallByCategory: rows add up to the headline recall", () => {
+  const truth = [
+    { wrong: "yellowed brittle", right: "yellowed, brittle" },
+    { wrong: "small careful", right: "small, careful" },
+    { wrong: "modern atlus.", right: "modern atlas." },
+  ];
+  // Caught one comma error and the spelling one; missed the other comma.
+  const missed = [truth[1]];
+  const rows = recallByCategory(truth, missed);
+  const comma = rows.find((r) => r.category === "comma")!;
+  const spelling = rows.find((r) => r.category === "spelling")!;
+  assert.equal(comma.planted, 2);
+  assert.equal(comma.caught, 1);
+  assert.equal(comma.recall, 50);
+  assert.equal(spelling.planted, 1);
+  assert.equal(spelling.recall, 100);
+  const totalCaught = rows.reduce((n, r) => n + r.caught, 0);
+  assert.equal(totalCaught, truth.length - missed.length);
+});
+
+test("recallByCategory: a category the fixture never planted reports null, not 0%", () => {
+  const rows = recallByCategory([{ wrong: "a b", right: "a, b" }], []);
+  assert.equal(rows.find((r) => r.category === "spelling")!.recall, null);
+  assert.equal(rows.find((r) => r.category === "comma")!.recall, 100);
 });

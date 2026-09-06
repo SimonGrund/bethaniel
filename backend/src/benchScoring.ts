@@ -303,3 +303,116 @@ export function falsePositiveCleanScore(fpCount: number): number {
 export function overallScore(f1: number, timeScoreValue: number): number {
   return Math.round(0.8 * f1 + 0.2 * timeScoreValue);
 }
+
+// ── Error categories ──
+//
+// A single recall number hides which KIND of error a model misses, and those
+// call for completely different fixes: missed spelling is a detection
+// problem, missed commas are a prompt-comprehension problem, and a model can
+// look identical on both while being unusable for one of them. The categories
+// are derived from the fixture pair itself, so they stay honest if a fixture
+// changes — nothing is hand-labelled.
+
+export type PlantedErrorCategory =
+  | "spelling"
+  | "comma"
+  | "capitalization"
+  | "duplicateWord"
+  | "punctuation"
+  | "other";
+
+const CATEGORY_ORDER: PlantedErrorCategory[] = [
+  "spelling",
+  "comma",
+  "capitalization",
+  "duplicateWord",
+  "punctuation",
+  "other",
+];
+
+function collapseWhitespace(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function withoutCommas(s: string): string {
+  return collapseWhitespace(s.replace(/,/g, ""));
+}
+
+function withoutPunctuation(s: string): string {
+  return collapseWhitespace(s.replace(/[^\p{L}\p{N}\s]/gu, ""));
+}
+
+/** Collapse runs of the same word ("the the last" → "the last"). */
+function collapseRepeats(ws: string[]): string[] {
+  return ws.filter((w, i) => i === 0 || w !== ws[i - 1]);
+}
+
+/**
+ * What kind of error a planted (wrong → right) pair represents.
+ *
+ * Order matters. Case is tested before punctuation because a pure
+ * capitalization fix ("tuesday" → "Tuesday") is punctuation-identical and
+ * would otherwise be filed as a punctuation error.
+ */
+export function classifyPlantedError(err: PlantedError): PlantedErrorCategory {
+  const wrong = collapseWhitespace(err.wrong);
+  const right = collapseWhitespace(err.right);
+  if (!wrong || !right || wrong === right) return "other";
+
+  if (wrong.toLowerCase() === right.toLowerCase()) return "capitalization";
+  if (withoutCommas(wrong) === withoutCommas(right)) return "comma";
+  if (withoutPunctuation(wrong) === withoutPunctuation(right)) return "punctuation";
+
+  const wrongWords = wrong.toLowerCase().split(" ").filter(Boolean);
+  const rightWords = right.toLowerCase().split(" ").filter(Boolean);
+  if (
+    wrongWords.length > rightWords.length &&
+    collapseRepeats(wrongWords).join(" ") === collapseRepeats(rightWords).join(" ")
+  ) {
+    return "duplicateWord";
+  }
+
+  // One word swapped for another, everything else identical: a misspelling or
+  // a confusable pair ("ceder"→"cedar", "than"→"then"). Anything touching more
+  // than one word is a rewrite, not a spelling fix.
+  if (wrongWords.length === rightWords.length) {
+    const differing = wrongWords.filter((w, i) => w !== rightWords[i]).length;
+    if (differing === 1) return "spelling";
+  }
+  return "other";
+}
+
+export interface CategoryRecall {
+  category: PlantedErrorCategory;
+  planted: number;
+  caught: number;
+  /** 0-100, or null when the fixture planted none of this category. */
+  recall: number | null;
+}
+
+/**
+ * Per-category recall, derived from a `scoreCorrections` result rather than
+ * re-matching. Reusing its `missedErrors` (the same object references it was
+ * handed) guarantees the category rows always add up to the headline recall —
+ * a second, independently-greedy matching pass would not.
+ */
+export function recallByCategory(
+  groundTruth: PlantedError[],
+  missedErrors: PlantedError[],
+): CategoryRecall[] {
+  const missed = new Set<PlantedError>(missedErrors);
+  const planted = new Map<PlantedErrorCategory, number>();
+  const caught = new Map<PlantedErrorCategory, number>();
+
+  for (const err of groundTruth) {
+    const cat = classifyPlantedError(err);
+    planted.set(cat, (planted.get(cat) ?? 0) + 1);
+    if (!missed.has(err)) caught.set(cat, (caught.get(cat) ?? 0) + 1);
+  }
+
+  return CATEGORY_ORDER.map((category) => {
+    const p = planted.get(category) ?? 0;
+    const c = caught.get(category) ?? 0;
+    return { category, planted: p, caught: c, recall: p > 0 ? (c / p) * 100 : null };
+  });
+}
