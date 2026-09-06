@@ -90,18 +90,36 @@ So the lever is per-language comma rules, in this order:
 Expected: Spanish +15 points of recall; Danish smaller and contingent on the
 style question.
 
-### 2. English capitalization (36/29%) — the odd one out
+### 2. English capitalization (36/29%) — DIAGNOSED: the metric, not the product
 
-English scores *worst* of the four on capitalization (36/29% against 79–86%),
-which is backwards: it is the language with the most prompt support. Worth
-diagnosing before fixing — the likely cause is that the English fixture plants
-mid-sentence proper-noun errors (`scarface` → `Scarface`) while the other three
-plant sentence-initial ones, and `collectMidSentenceCapitals()` in
-`spellcheck.ts` deliberately protects mid-sentence capitals to avoid mangling
-names. If so the fixture is testing the one case the code is designed not to
-touch, and the honest fix is to the fixture, not the code.
+Do not fix this. It is a fixture artifact, and the mechanism is now known.
 
-Diagnose first. Do not "fix" a 36% that is measuring the wrong thing.
+The pipeline finds these errors. On the English fixture it emits **seven**
+case-only corrections — `constance`, `tuesday`, `elias`, `thaddeus` via the
+spell pass and three sentence-initial ones via LanguageTool casing — and
+LanguageTool alone covers **76%** of the planted case spans (10 of 13). Danish
+and Spanish sit at 100%, German 92%.
+
+The 36% comes from how the plants are counted, not from what is caught.
+`buildGroundTruth` merges planted errors that sit within ~20 characters of each
+other, and a merged span is multi-word, so `classifyPlantedError` files it under
+`other`. Six of the English fixture's 13 case plants merge away, which is why
+English is the only fixture with a non-zero `other` count (12) and why its
+capitalization row reads n=7 for 13 planted.
+
+Two things this also disproves, both worth recording because they were the
+obvious guesses:
+
+- It is NOT `collectMidSentenceCapitals` protecting proper nouns. Nine of the
+  13 plants are sentence-initial, and the four proper-noun ones are all caught
+  and emitted anyway.
+- It is NOT a downstream filter dropping detections. The corrections are in the
+  run output.
+
+The fix is to the fixture: re-space the English case plants so they stop
+merging, the way `scripts/plant-errors.ts` guarantees for the three newer
+fixtures (all three carry zero `other`). Until then English capitalization is
+not comparable with the other three and should not be read as a defect.
 
 ### 3. English wrong word (53/67%) — the confusable list is English-first
 
