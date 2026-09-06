@@ -451,11 +451,11 @@ export const useStore = create<AppState>()(
         set({ runMode, ...RUN_MODE_PRESETS[runMode] });
       },
 
-      // Both passes: the Edit card is pre-selected and means what its label
-      // says. Turning the line pass off is a visible toggle, not a default.
-      // Must agree with lineEditEnabled's default, or the toggle contradicts
-      // the selection on a fresh profile.
-      selectedModes: ["copy_edit", "line_edit"],
+      // Empty on purpose: the task step asks "I want to…" and arrives with
+      // that question unanswered, so no card is selected and no controls
+      // panel is open. EditTrigger and StepBar both already treat an empty
+      // selection as "not ready" rather than as an error.
+      selectedModes: [],
       toggleMode: (m) =>
         set((state) => {
           const has = state.selectedModes.includes(m);
@@ -913,10 +913,9 @@ export const useStore = create<AppState>()(
           styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
           extraPass: DEFAULT_KNOBS.extraPass,
           parallel: DEFAULT_PARALLEL,
-          // Reset together: lineEditEnabled is the Edit card's toggle state,
-          // and a reset that left them disagreeing would show the toggle on
-          // while the selection said otherwise.
-          selectedModes: ["copy_edit", "line_edit"],
+          // Back to an unanswered question, same as a fresh profile.
+          // lineEditEnabled resets to its own default for when Edit is picked.
+          selectedModes: [],
           lineEditEnabled: true,
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
           lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },

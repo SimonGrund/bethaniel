@@ -11,7 +11,6 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import BetaFeatures from "./BetaFeatures";
 import { FRONT_CARD_MODES, frontCardFor } from "../types";
 import type {
   FrontCard,
@@ -321,8 +320,6 @@ export default function ModeSelector() {
       </div>
 
       {activeCard && <div className="task-controls">{renderControls()}</div>}
-
-      <BetaFeatures />
     </section>
   );
 }
