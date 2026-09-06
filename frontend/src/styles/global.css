@@ -4911,10 +4911,33 @@ summary.review-source::before {
   max-width: 100%;
   margin-left: 0;
   max-height: none;
-  /* Pin the newest lines to the bottom, next to the divider; older lines fill
-     upward toward the label and fade out via the mask. */
-  justify-content: flex-end;
+  /* Start the log at the top of the dock, level with the ENGINE label. When
+     the log is short, bottom alignment left it floating against the session
+     divider with a gap under its own heading. Once the log overflows this
+     changes nothing: the list is scrolled to the newest line either way. */
+  justify-content: flex-start;
   font-size: 0.68rem;
+  /* The shared feed's fade mask is unconditional. Bottom-aligned it only ever
+     dimmed history that had scrolled off; top-aligned it would wash out the
+     FIRST line whenever there are few of them. Swap it for the same scroll
+     shadows the setup block uses — `local` covers ride the content and
+     `scroll` shadows stay pinned, so each edge shows only while there really
+     is more in that direction. */
+  mask-image: none;
+  -webkit-mask-image: none;
+  background:
+    linear-gradient(#efe6d0 30%, rgba(239, 230, 208, 0)) top / 100% 12px
+      no-repeat local,
+    linear-gradient(rgba(239, 230, 208, 0), #efe6d0 70%) bottom / 100% 12px
+      no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(42, 36, 25, 0.16), transparent)
+      top / 100% 6px no-repeat scroll,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        rgba(42, 36, 25, 0.16),
+        transparent
+      )
+      bottom / 100% 6px no-repeat scroll;
 }
 
 /* Big Start Run button, sized to fit under the four step cards in the rail. */
