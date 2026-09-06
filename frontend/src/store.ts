@@ -451,7 +451,11 @@ export const useStore = create<AppState>()(
         set({ runMode, ...RUN_MODE_PRESETS[runMode] });
       },
 
-      selectedModes: ["copy_edit"],
+      // Both passes: the Edit card is pre-selected and means what its label
+      // says. Turning the line pass off is a visible toggle, not a default.
+      // Must agree with lineEditEnabled's default, or the toggle contradicts
+      // the selection on a fresh profile.
+      selectedModes: ["copy_edit", "line_edit"],
       toggleMode: (m) =>
         set((state) => {
           const has = state.selectedModes.includes(m);
@@ -909,7 +913,11 @@ export const useStore = create<AppState>()(
           styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
           extraPass: DEFAULT_KNOBS.extraPass,
           parallel: DEFAULT_PARALLEL,
-          selectedModes: ["copy_edit"],
+          // Reset together: lineEditEnabled is the Edit card's toggle state,
+          // and a reset that left them disagreeing would show the toggle on
+          // while the selection said otherwise.
+          selectedModes: ["copy_edit", "line_edit"],
+          lineEditEnabled: true,
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
           lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
           targetLang: DEFAULT_TARGET_LANG,
