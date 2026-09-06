@@ -110,7 +110,7 @@ Sie wollte sofort antworten und tat es nicht. Sie dachte an die elf Monaten, an 
 
 "Er hat es Ihnen nicht gesagt, weil Sie es selbst finden sollten. Wie immer." Konrad legte die Hand flach auf die Rechnungen. "Nur ist er gestorben, bevor Sie so weit waren, und danach hat es Ihnen niemand mehr erklären können."
 
-Draußen zog der Wind über den Hoff und trieb ein loses Blech gegen die Maure. Almut hörte eine Weile zu.
+Draußen zog der Wind über den Hoff und trieb ein loses Blech gegen die Mauwer. Almut hörte eine Weile zu.
 
 "Dann bauen wir es", sagte sie.
 
@@ -118,7 +118,7 @@ Draußen zog der Wind über den Hoff und trieb ein loses Blech gegen die Maure. 
 
 Die Arbeit ging langsammer voran, als Almut erwartet hatte. Zweimal mussten sie ein Rad verwerfen weil die Zähne nicht sauber standen, und einmal brach ein Zapfen unter der Feile, so kurz vor dem Ende dass Konrad eine halbe Stunde lang wortlos am Fenster stand. Almut ließ ihn stehen. Sie kannte das Gefühl, und sie wusste dass Trost dagegen nichts ausrichtete.
 
-Anfang november wurde es früh dunkel, und sie arbeiteten bei Lampenlicht. Der Ofen in der Ecke hielt den Raum knapp warm. Konrad hatte angefangen, mittags Brot mitzubringen, und sie aßen im Stehen, zwischen den Werkzeugen, ohne viel zu reden. Almut merkte, dass sie sich auf die Dienstage freute, und sie merkte auch wie lange sie sich auf nichts mehr gefreut hatte.
+Anfang november wurde es früh dunkel, und sie arbeiteten bei Lampenlicht. Der Ofehn in der Ecke hielt den Raum knapp warm. Konrad hatte angefangen, mittags Brot mitzubringen, und sie aßen im Stehen, zwischen den Werkzeugen, ohne viel zu reden. Almut merkte, dass sie sich auf die Dienstage freute, und sie merkte auch wie lange sie sich auf nichts mehr gefreut hatte.
 
 "Es fehlt noch der Rad", sagte Konrad an einem dieser Abende.
 

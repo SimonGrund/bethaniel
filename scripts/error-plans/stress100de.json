@@ -411,17 +411,17 @@
   },
   {
     "find": "trieb ein loses Blech gegen die Mauer",
-    "replace": "trieb ein loses Blech gegen die Maure",
+    "replace": "trieb ein loses Blech gegen die Mauwer",
     "category": "misspelling"
   },
   {
     "find": "und einmal brach ein Zapfen unter der Feile",
-    "replace": "und einmal brach ein Zapfen unter der Fiele",
+    "replace": "und einmal brach ein Zapfen unter der Feule",
     "category": "misspelling"
   },
   {
     "find": "Der Ofen in der Ecke hielt den Raum knapp warm",
-    "replace": "Der Offen in der Ecke hielt den Raum knapp warm",
+    "replace": "Der Ofehn in der Ecke hielt den Raum knapp warm",
     "category": "misspelling"
   },
   {
