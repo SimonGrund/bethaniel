@@ -41,13 +41,36 @@ export const INTRODUCTORY_COMMA_RULES = [
   "SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
 ];
 
-/** Build the /v2/check request body. Extracted so it's unit-testable. */
+/**
+ * Build the /v2/check request body. Extracted so it's unit-testable.
+ *
+ * `level=picky` turns on LanguageTool's second tier of rules, which is almost
+ * entirely comma and confusion rules — exactly where recall was weakest.
+ * Measured on all five bundled fixtures (LanguageTool alone, no model):
+ *
+ *   fixture              recall default -> picky   flags on clean text
+ *   English stress100            56% -> 60%              4 -> 4
+ *   English standard             21% -> 21%              2 -> 2
+ *   Danish                        4% ->  4%              0 -> 0
+ *   German                       31% -> 31%              1 -> 1
+ *   Spanish                      40% -> 40%              0 -> 0
+ *
+ * Comma recall specifically went 19% -> 30% on stress100. Nothing regressed
+ * and picky added no false positives on any clean fixture, which is what
+ * makes it safe to leave on: the usual objection to picky is noise, and on
+ * this corpus there is none.
+ */
 export function buildCheckParams(
   text: string,
   language: string,
   opts?: { disabledRules?: string[] },
 ): URLSearchParams {
-  const params = new URLSearchParams({ text, language, enabledOnly: "false" });
+  const params = new URLSearchParams({
+    text,
+    language,
+    enabledOnly: "false",
+    level: "picky",
+  });
   if (opts?.disabledRules && opts.disabledRules.length > 0) {
     params.set("disabledRules", opts.disabledRules.join(","));
   }

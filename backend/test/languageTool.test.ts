@@ -114,6 +114,21 @@ test("buildCheckParams sets text, language, and enabledOnly=false", () => {
   assert.equal(p.get("disabledRules"), null);
 });
 
+// Picky is LanguageTool's second rule tier and is almost all comma and
+// confusion rules — the categories the benchmark showed as weakest. Measured
+// across all five bundled fixtures it raised comma recall 19% -> 30% on
+// stress100, changed nothing on the other four, and added no false positives
+// on any clean text. Dropping this parameter silently gives back that recall,
+// so it is asserted rather than left to a comment.
+test("buildCheckParams asks for the picky rule level", () => {
+  assert.equal(buildCheckParams("x", "en-US").get("level"), "picky");
+  assert.equal(
+    buildCheckParams("x", "da-DK", { disabledRules: ["FOO"] }).get("level"),
+    "picky",
+    "picky must not be dropped when other options are passed",
+  );
+});
+
 test("buildCheckParams passes disabledRules as a comma-joined list", () => {
   const p = buildCheckParams("x", "en-US", { disabledRules: INTRODUCTORY_COMMA_RULES });
   assert.equal(
