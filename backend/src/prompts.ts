@@ -192,6 +192,38 @@ export function manuscriptLangName(lang?: string): string | null {
 }
 
 /** Hard never-translate block placed near the top of editor prompts. */
+/**
+ * Comma directives for a non-English manuscript.
+ *
+ * Comma is the largest planted category in every non-English fixture and the
+ * weakest result — but the cause is not the English-only gate above, and the
+ * benchmark says so plainly. German scores BEST of the four (55/72%) with no
+ * comma directive at all, carried by LanguageTool's German rule set; Spanish,
+ * which LanguageTool barely covers, scores 5/16%. What predicts comma recall
+ * is whether a deterministic layer already handles that language.
+ *
+ * So this fills the gap where there is one, per language, rather than
+ * translating the English rules wholesale — they would be actively wrong.
+ * English wants a serial comma; Spanish forbids it.
+ *
+ * Only Spanish is here. German needs nothing (LanguageTool has it). Danish is
+ * deliberately absent: it has two competing comma systems, grammatisk komma
+ * and nyt komma, and which one applies is the author's choice — enforcing the
+ * wrong one is worse than enforcing neither, so it needs a style-guide option
+ * before it needs a prompt rule.
+ */
+function commaDirectivesFor(manuscriptLang?: string): string {
+  const code = manuscriptLang?.toLowerCase().split(/[-_]/)[0];
+  if (code !== "es") return "";
+  return (
+    '- Falta una coma que aísle un inciso o una aposición explicativa. Un inciso va entre comas POR AMBOS LADOS: "Era un hombre viejo y cuidadoso, con las manos manchadas de tinta, y nunca levantaba la voz". Si el inciso termina la oración, basta la coma de apertura.\n' +
+    '- Falta una coma entre los elementos de una enumeración: "la fecha, el pasajero, el pasaje y el tiempo". OJO: en español NO se pone coma antes de la "y" o la "o" final de la enumeración — "pan, vino, y queso" es un error. Ésta es la diferencia con el inglés y no debe importarse.\n' +
+    '- Falta una coma después de un complemento circunstancial largo colocado al principio de la oración: "Aquella noche, bajó al taller". Con un complemento muy breve ("Ayer llegó") la coma es opcional; no la añadas.\n' +
+    '- Falta una coma antes de una conjunción adversativa (pero, sino, aunque, mas): "Lo leyó dos veces, pero no lo entendió".\n' +
+    '- NUNCA pongas una coma entre el sujeto y su verbo. "La carta, llegó un jueves" es un error, por larga que sea la frase del sujeto. Éste es el error de coma más común en español y añadirlo es peor que no corregir nada.\n'
+  );
+}
+
 function buildManuscriptLanguageBlock(langName: string): string {
   return `
 ═══ MANUSCRIPT LANGUAGE: ${langName} ═══
@@ -463,6 +495,8 @@ export function buildCopyEditCorrectionsPrompt(
         '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma). NEVER put a comma between the LAST adjective and the noun itself: "a long, jagged shore" is correct and complete — "a long, jagged, shore" is an error.\n';
       p +=
         '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule. NEVER put a comma before "and" when it joins two adjectives, two nouns or two verbs instead of two clauses ("a formidable and private woman", "quills and brushes", "she set it down and left") — those take no comma at all.\n';
+    } else {
+      p += commaDirectivesFor(manuscriptLang);
     }
   }
   if (opts.capitalization)
