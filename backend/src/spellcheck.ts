@@ -64,6 +64,30 @@ function detectDictEncoding(affBuffer: Buffer): BufferEncoding {
   return /^UTF-?8$/.test(charset) ? "utf-8" : "latin1";
 }
 
+/**
+ * Drop Hunspell morphological fields from a .dic, keeping `word/flags`.
+ *
+ * Hunspell lets a dictionary entry carry analysis tags after the word —
+ * `den al:dens`, `havde st:have` (`al:` alternate form, `st:` stem, `po:`
+ * part of speech, and friends). nspell does not strip them, so it indexes the
+ * ENTIRE line as the word: "den al:dens" becomes a known word and plain "den"
+ * does not.
+ *
+ * That is not a rare corner. da_DK.dic tags 26,232 entries this way, and they
+ * are exactly the high-frequency ones — pronouns, auxiliaries, irregular verb
+ * forms: den, sin, havde, kom, nogen, nogle, lagde. The Danish spell pass
+ * therefore reported the commonest words in the language as misspellings and
+ * "corrected" them into nonsense (den → gen, kom → gom, havde → hævde).
+ * de_DE.dic and the English dictionaries carry no such fields, which is why
+ * only Danish was affected.
+ *
+ * Only a trailing run of `xx:value` tags is removed, so a legitimate entry
+ * containing a space is left alone.
+ */
+export function stripMorphologicalFields(dic: string): string {
+  return dic.replace(/^(\S+)(?:[ \t]+\w\w:\S+)+$/gm, "$1");
+}
+
 function loadDict(dictName: string): SpellDict | null {
   const cached = cache.get(dictName);
   if (cached) return cached;
@@ -75,7 +99,7 @@ function loadDict(dictName: string): SpellDict | null {
     const affRaw = fs.readFileSync(affPath);
     const encoding = detectDictEncoding(affRaw);
     const aff = affRaw.toString(encoding);
-    const dic = fs.readFileSync(dicPath, encoding);
+    const dic = stripMorphologicalFields(fs.readFileSync(dicPath, encoding));
     // Dynamic import of nspell — avoids requiring it at import time
     // (keeps startup fast when spell-check is disabled).
     const nspell = _require("nspell") as (
