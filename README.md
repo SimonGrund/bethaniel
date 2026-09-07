@@ -165,6 +165,20 @@ Three things are measured, because the three editing modes fail differently:
 Current per-language results, what they mean, and what is being worked on next
 are in [`docs/language-quality-roadmap.md`](docs/language-quality-roadmap.md).
 
+**A regression guard runs in CI.** Five bugs have been found by these fixtures,
+and they are the same bug five times: a heuristic correct in English, silently
+wrong in exactly one other language, invisible until a large fixture in that
+language existed. `backend/test/languageRegression.test.ts` computes the
+numbers that would have caught all five — in eleven seconds, with no model, no
+GPU and no network. It bounds the deterministic layer from both sides per
+language: a **ceiling** on flags against the clean fixture (catches a checker
+that started inventing) and a **floor** on flags against the errored one
+(catches a checker that stopped looking, which is the side the German
+proper-noun bug came in on and a noise-only guard would have missed). Each of
+the four fixed bugs was reintroduced and confirmed to fail it. The
+LanguageTool leg needs a live server, so it skips unless `LANGUAGETOOL_JAR` is
+set.
+
 ## First-Time Install
 
 ```bash

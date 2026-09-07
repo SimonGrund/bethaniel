@@ -231,6 +231,40 @@ model choice is ever revisited, that is the trade — and it argues for
 improving the deterministic layers, which help both models equally, over
 recommending the larger one.
 
+## The guard against the next one
+
+Five bugs have now been found here, and they are the same bug five times: a
+heuristic correct in English, silently wrong in exactly one other language,
+invisible until a large fixture in that language existed. Each was found weeks
+late by reading benchmark output by hand.
+
+`backend/test/languageRegression.test.ts` computes the numbers that would have
+caught them, in eleven seconds, with no model, no GPU and no network. It
+asserts the deterministic layer from **both** sides, per language:
+
+| | catches |
+|---|---|
+| ceiling on the clean fixture | a checker that started inventing |
+| floor on the errored fixture | a checker that stopped looking |
+| confusable sets non-empty | a language with no wrong-word detection at all |
+| LanguageTool ceiling on clean text | a rule that started firing on house style |
+
+Only the two-sided form covers all five. The Spanish quote rule, the Danish
+tags and the German case collision all blow the clean ceiling. The German
+proper-noun guard does not move the clean column by a single flag — it is a
+pure recall loss, which is why it hid longest, and only the errored floor sees
+it. Each of the four was reintroduced and confirmed to fail the guard before
+it was committed.
+
+The LanguageTool leg needs a live server, so it skips unless `LANGUAGETOOL_JAR`
+is set — green locally, skipped in CI. The other twelve assertions run
+everywhere.
+
+Bounds are ~3× the measured noise and ~0.75× the measured detections. They are
+not a quality target; tightening them buys nothing. They exist to catch the
+10–30× swing every one of these bugs actually produced without flapping when a
+dictionary is updated.
+
 ## Method note
 
 Every number above came from `scripts/test-models.ts` against the ~100-error

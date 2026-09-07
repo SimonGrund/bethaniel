@@ -31,6 +31,9 @@
  *   npx tsx scripts/test-models.ts --repeat 1  # Skip the consistency re-run (faster, no consistency score)
  *   npx tsx scripts/test-models.ts --report-only  # Recompute + reprint the report from saved results, no new runs
  *   npx tsx scripts/test-models.ts --mode line_edit  # Only run line_edit (skips *_copy_edit.md entirely)
+ *   npx tsx scripts/test-models.ts --api        # ALSO run API models that have a credential
+ *                                               # (External Betty, Betty in the Cloud). Opt-in:
+ *                                               # every run of one spends real money.
  */
 
 import {
@@ -55,6 +58,7 @@ import {
   type WordChecks,
 } from "../backend/src/benchScoring.js";
 import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
+import { MODEL_CATALOG } from "../backend/src/modelCatalog.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -142,6 +146,11 @@ function parseModel(): string | null {
 // Case-insensitive substring match against the catalog fileName — lets you
 // pass a short name ("4b", "9b") instead of the full .gguf filename.
 const MODEL_FILTER = parseModel();
+
+// API-source models (External Betty, Betty in the Cloud) are opt-in: every run
+// of one spends real money at a provider, so they must never join the default
+// grid by accident.
+const INCLUDE_API = process.argv.includes("--api");
 
 function parseMaxParallel(): number | null {
   const idx = process.argv.indexOf("--max-parallel");
@@ -437,6 +446,35 @@ async function main() {
       .map((c) => [c.fileName, c.sizeBytes / 1024 ** 3]),
   );
   let models = modelData.models.filter((m) => catalogFileNames.has(m));
+
+  // API-source catalog entries (External Betty, Betty in the Cloud) are never
+  // in /models — nothing is installed on disk for them. They are "installed"
+  // when a credential exists for that entry, which is what /models/installed
+  // reports. Opt in with --api, because a cloud run spends real money and the
+  // default grid must not.
+  if (INCLUDE_API) {
+    const apiEntries = new Set(
+      MODEL_CATALOG.filter((e) => e.source === "api").map((e) => e.fileName),
+    );
+    const installed = (await api("GET", "/models/installed")) as {
+      installed: { fileName: string; name: string }[];
+    };
+    const ready = installed.installed.filter((e) => apiEntries.has(e.fileName));
+    if (ready.length === 0) {
+      console.error(
+        "ERROR: --api given but no API model has a credential configured. " +
+          `Configure one first: PUT /api/models/custom/config with an entryId of ${
+            MODEL_CATALOG.filter((e) => e.source === "api").map((e) => e.id).join(" or ")
+          }.`,
+      );
+      process.exit(1);
+    }
+    for (const e of ready) {
+      if (!models.includes(e.fileName)) models.push(e.fileName);
+      console.log(`  API model available: ${e.name} (${e.fileName})`);
+    }
+  }
+
   if (models.length === 0) {
     console.error("ERROR: No catalog models found in backend/models/");
     process.exit(1);
