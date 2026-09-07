@@ -149,7 +149,21 @@ merging, the way `scripts/plant-errors.ts` guarantees for the three newer
 fixtures (all three carry zero `other`). Until then English capitalization is
 not comparable with the other three and should not be read as a defect.
 
-### 3. English wrong word (53/67%) — the confusable list is English-first
+### 3. German misspelling (49%) — CONFIRMED a dictionary limit
+
+The swap to real Hunspell settles this. With a correct engine — one that knows
+`kommen`, handles compounds, and needs none of the old workarounds — German
+misspelling moved 48% → 49%. Everything else in German moved with it (comma
+46 → 57, recall 55 → 59), so the engine was not the constraint here; the
+dictionary's contents are.
+
+igerman98 is the largest of the four bundled dictionaries at 258k entries, so
+this is not about size. It is that the fixture's planted misspellings are
+mostly inflected or compound forms the dictionary does not derive. A fuller
+German dictionary (hunspell-de_DE_frami is the usual replacement, LGPL) is the
+lever; measure it with the clean-fixture flag count before and after.
+
+### 4. English wrong word (53/67%) — the confusable list is English-first
 
 English wrong-word recall is *below* Spanish (83%) despite having the largest
 confusable list. Spanish wins because its wrong words are dropped accents,
@@ -162,7 +176,7 @@ Cheapest lever: raise `maxSets` (currently 40) for English, or order the sets
 by observed miss rate rather than assumed frequency. Measure before changing —
 a longer hint block costs prompt budget on every chunk.
 
-### 4. Big Bad Betty is not worth its size except on wrong words
+### 5. Big Bad Betty is not worth its size except on wrong words
 
 Overall 47 vs 45 on the run scorecard; the 9B leads only on wrong word (Danish
 +21, English +14) and costs ~30% more time and twice the VRAM. If the default
