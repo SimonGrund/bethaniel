@@ -175,10 +175,18 @@ export function applyPrecisionPass(
   cs: Correction[],
   scoreMaps: Map<number, { confidence: number; reason: string }>[],
   threshold: number,
-): { kept: Correction[]; removed: Correction[]; spared: number } {
+  /**
+   * Confidence below which a surviving correction is FLAGGED. Deleting and
+   * doubting are different acts: a correction this pass is unsure of should
+   * still reach the author, but wearing the doubt. Defaults to the delete
+   * threshold, which flags nothing extra.
+   */
+  flagBelow: number = threshold,
+): { kept: Correction[]; removed: Correction[]; spared: number; doubted: number } {
   const kept: Correction[] = [];
   const removed: Correction[] = [];
   let spared = 0;
+  let doubted = 0;
 
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
@@ -216,9 +224,17 @@ export function applyPrecisionPass(
         removed.push(c);
       }
     } else {
+      // Survived the delete cut, but the pass still doubts it. Mark it so the
+      // author reads it as a suggestion rather than a finding — the noise a
+      // lower delete threshold lets through is then visible as noise.
+      if (Number.isFinite(minConfidence) && minConfidence < flagBelow) {
+        c.flagged = true;
+        c.reviewReason ??= "A second reviewer thought this may not need fixing.";
+        doubted++;
+      }
       kept.push(c);
     }
   }
 
-  return { kept, removed, spared };
+  return { kept, removed, spared, doubted };
 }

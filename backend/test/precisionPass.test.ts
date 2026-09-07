@@ -135,3 +135,47 @@ test("applyPrecisionPass: a DOWNGRADED spell correction is spared, not dropped",
   assert.equal(removed.length, 1);
   assert.equal(removed[0].corrected, "ambled");
 });
+
+// Deleting and doubting are different acts. Below the delete threshold a
+// correction is removed; between it and the reviewer's flag threshold it
+// survives wearing the doubt, so the noise a lower delete cut lets through
+// reaches the author as a suggestion rather than a finding. Measured on the
+// four stress fixtures, moving the delete cut from 3 to 2 took Baby Betty's
+// recall 54% -> 58% and clean-text flags 12 -> 20, but 18 of those 20 arrive
+// marked: unmarked noise on clean text stayed at 2 either way.
+test("applyPrecisionPass: a doubted correction above the delete cut is flagged, not dropped", () => {
+  const cs: Correction[] = [
+    { original: "a b", corrected: "a c", reason: "worth a look" },   // conf 2 — doubted
+    { original: "d e", corrected: "d f", reason: "unforced" },        // conf 1 — deleted
+    { original: "g h", corrected: "g i", reason: "solid" },           // conf 5 — untouched
+  ];
+  const scores = new Map([
+    [0, { confidence: 2, reason: "may not need fixing" }],
+    [1, { confidence: 1, reason: "unforced rewording" }],
+    [2, { confidence: 5, reason: "clear error" }],
+  ]);
+
+  // delete below 2, flag below 3
+  const { kept, removed, doubted } = applyPrecisionPass(cs, [scores], 2, 3);
+
+  assert.equal(removed.length, 1);
+  assert.equal(removed[0].corrected, "d f");
+  assert.equal(kept.length, 2);
+  assert.equal(doubted, 1);
+
+  const survivor = kept.find((c) => c.corrected === "a c")!;
+  assert.equal(survivor.flagged, true);
+  assert.match(survivor.reviewReason!, /may not need fixing/i);
+
+  // The confident one is left alone entirely.
+  const confident = kept.find((c) => c.corrected === "g i")!;
+  assert.equal(confident.flagged, undefined);
+});
+
+test("applyPrecisionPass: flagBelow defaults to the delete threshold, flagging nothing extra", () => {
+  const cs: Correction[] = [{ original: "a b", corrected: "a c", reason: "x" }];
+  const scores = new Map([[0, { confidence: 4, reason: "fine" }]]);
+  const { kept, doubted } = applyPrecisionPass(cs, [scores], 3);
+  assert.equal(doubted, 0);
+  assert.equal(kept[0].flagged, undefined);
+});

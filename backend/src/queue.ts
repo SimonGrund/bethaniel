@@ -1515,11 +1515,22 @@ async function processJob(job: JobData): Promise<void> {
             // points of recall for none, and on English it gained 3 for none.
             // Math.min so a user who lowers reviewerThreshold to keep more
             // still gets a pass no more eager than they asked for.
-            const { kept, removed, spared } = applyPrecisionPass(
+            const { kept, removed, spared, doubted } = applyPrecisionPass(
               pr.cs,
               [precisionScores],
               Math.min(threshold, PRECISION_PASS_DELETE_THRESHOLD),
+              threshold,
             );
+
+            if (doubted > 0) {
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Precision pass doubted ${doubted} correction(s) in chunk ${pr.chunkLabel} without deleting them; flagged so the author reads them as suggestions rather than findings.`,
+                model,
+              });
+            }
             if (spared > 0) {
               appendLog({
                 level: "info",
