@@ -1451,11 +1451,20 @@ async function processJob(job: JobData): Promise<void> {
               agentLabel: "Precision pass",
             });
             const precisionScores = parseReviewScores(precisionOutput);
-            const { kept, removed } = applyPrecisionPass(
+            const { kept, removed, spared } = applyPrecisionPass(
               pr.cs,
               [precisionScores],
               threshold,
             );
+            if (spared > 0) {
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Precision pass doubted ${spared} deterministic correction(s) in chunk ${pr.chunkLabel} (spell-check, grammar or dialect); kept and flagged for review rather than dropped.`,
+                model,
+              });
+            }
             if (removed.length > 0) {
               appendLog({
                 level: "info",

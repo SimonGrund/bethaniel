@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 
 import { buildPrecisionPassPrompt } from "../src/prompts.ts";
 import { parseReviewScores } from "../src/llm.ts";
+import { applyPrecisionPass } from "../src/reviewResilience.ts";
+import type { Correction } from "../src/types.ts";
 
 test("buildPrecisionPassPrompt asks whether a fix was needed, not whether it's well-formed", () => {
   const p = buildPrecisionPassPrompt();
@@ -42,4 +44,68 @@ test("buildPrecisionPassPrompt includes the manuscript language block when given
 test("buildPrecisionPassPrompt includes the style guide when given one", () => {
   const p = buildPrecisionPassPrompt("Character names: Wren, Constance.");
   assert.match(p, /Wren, Constance/);
+});
+
+// ── Deterministic corrections survive the precision pass ──
+//
+// Regression: the pass deleted anything it scored below threshold, including
+// Hunspell and LanguageTool findings. Measured on the German stress fixture,
+// that cost misspelling recall 68% -> 30% and comma recall 68% -> 5% — it was
+// removing roughly four sound corrections for every unsound one. A dictionary
+// is not an opinion the model gets to out-vote, so these are kept and flagged.
+
+test("applyPrecisionPass: a doubted spell-check fix is kept and flagged, not dropped", () => {
+  const cs: Correction[] = [
+    { original: "recieve", corrected: "receive", reason: "spell-check" },
+  ];
+  const scores = new Map([[0, { confidence: 1, reason: "unnecessary" }]]);
+  const r = applyPrecisionPass(cs, [scores], 3);
+  assert.equal(r.removed.length, 0);
+  assert.equal(r.kept.length, 1);
+  assert.equal(r.kept[0].flagged, true);
+  assert.equal(r.spared, 1);
+  assert.ok(r.kept[0].reviewReason);
+});
+
+test("applyPrecisionPass: LanguageTool, retext and dialect findings are spared too", () => {
+  const cs: Correction[] = [
+    { original: "a apple", corrected: "an apple", reason: "retext:indefinite-article" },
+    { original: "haus", corrected: "Haus", reason: "grammar:typos" },
+    { original: "colour", corrected: "color", reason: "dialect" },
+  ];
+  const scores = new Map([
+    [0, { confidence: 1, reason: "x" }],
+    [1, { confidence: 2, reason: "x" }],
+    [2, { confidence: 1, reason: "x" }],
+  ]);
+  const r = applyPrecisionPass(cs, [scores], 3);
+  assert.equal(r.removed.length, 0);
+  assert.equal(r.spared, 3);
+  for (const k of r.kept) assert.equal(k.flagged, true);
+});
+
+test("applyPrecisionPass: an LLM-authored correction is still dropped", () => {
+  const cs: Correction[] = [
+    { original: "the old house", corrected: "the ancient house" },
+    { original: "she walked", corrected: "she strode", reason: "reads better" },
+  ];
+  const scores = new Map([
+    [0, { confidence: 1, reason: "unforced rewording" }],
+    [1, { confidence: 1, reason: "unforced rewording" }],
+  ]);
+  const r = applyPrecisionPass(cs, [scores], 3);
+  assert.equal(r.removed.length, 2);
+  assert.equal(r.kept.length, 0);
+  assert.equal(r.spared, 0);
+});
+
+test("applyPrecisionPass: a well-scored deterministic correction is not flagged", () => {
+  const cs: Correction[] = [
+    { original: "recieve", corrected: "receive", reason: "spell-check" },
+  ];
+  const scores = new Map([[0, { confidence: 5, reason: "real typo" }]]);
+  const r = applyPrecisionPass(cs, [scores], 3);
+  assert.equal(r.kept.length, 1);
+  assert.equal(r.kept[0].flagged, undefined);
+  assert.equal(r.spared, 0);
 });

@@ -36,6 +36,25 @@ const ALWAYS_BLOCKING_REASONS = new Set([
  * with no word added, removed, or changed — case-sensitive, so a real
  * capitalization fix ("took" → "Took") still counts as a content change.
  */
+/**
+ * Did a deterministic checker produce this correction, rather than a model?
+ *
+ * Hunspell, LanguageTool, the retext rules and the dialect check all tag their
+ * output through `reason`; an LLM-authored correction carries no reason (or a
+ * free-text one the model wrote). The distinction matters wherever a model is
+ * asked to pass judgement on a correction: a dictionary saying a word does not
+ * exist is not an opinion to be out-voted.
+ */
+export function isDeterministicCorrection(c: Correction): boolean {
+  const reason = c.reason ?? "";
+  return (
+    reason === "spell-check" ||
+    reason === "dialect" ||
+    reason.startsWith("grammar:") ||
+    reason.startsWith("retext:")
+  );
+}
+
 export function isPunctuationOnlyChange(original: string, corrected: string): boolean {
   const stripped = (s: string) =>
     s.replace(/[^\p{L}\p{N}\s]+/gu, " ").replace(/\s+/g, " ").trim();
