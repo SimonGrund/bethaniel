@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-09-07T06:54:01.911Z
+Report generated: 2026-09-07T08:29:12.321Z
 ════════════════════════════════════════════════════════════════════════════════
 
 SCORECARDS
@@ -7,6 +7,19 @@ SCORECARDS
 Weighting: overall = 80% F1(recall, precision) + 20% time score.
 False-positive-clean and consistency are reported separately, not folded
 into "overall" — they're diagnostic, not part of the headline number.
+
+────────────────────────────────────────────────────────────────────────────────
+MODEL: custom:bethaniel-cloud
+────────────────────────────────────────────────────────────────────────────────
+  Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
+  copy_edit    33%   78%   43   32        91        71       41
+             false positives: avg 6.1 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 1.7 hallucinated (no error there at all)
+             reviewer quality: 89/100 avg confidence, 8% of SCORED flagged (27% went unscored — reviewer didn't get to them)
+  line_edit     9%   18%   12  100         0        37       30
+             false positives: avg 11.4 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.3 hallucinated (no error there at all)
+             reviewer quality: 83/100 avg confidence, 11% of SCORED flagged (27% went unscored — reviewer didn't get to them)
+  ────────────────────────────────────────────────────────────────────────────
+  MODEL OVERALL (mean of the modes above): 36
 
 ────────────────────────────────────────────────────────────────────────────────
 MODEL: Qwen3.5-4B-Q4_K_M.gguf
@@ -28,8 +41,8 @@ MODEL: Qwen3.5-9B-Q4_K_M.gguf
   copy_edit    43%   66%   50   74        87        77       55
              false positives: avg 7.1 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 3.0 hallucinated (no error there at all)
              reviewer quality: 99/100 avg confidence, 0% of SCORED flagged (72% went unscored — reviewer didn't get to them)
-  line_edit    19%   32%   23   92         0        37       37
-             false positives: avg 12.4 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.4 hallucinated (no error there at all)
+  line_edit    18%   31%   23   92         0        37       36
+             false positives: avg 12.6 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 0.4 hallucinated (no error there at all)
              reviewer quality: 85/100 avg confidence, 7% of SCORED flagged
   ────────────────────────────────────────────────────────────────────────────
   MODEL OVERALL (mean of the modes above): 46
@@ -47,115 +60,127 @@ copy_edit
 
   danish — 25 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud          4%    100%          3.0
     Qwen3.5-4B                      2%     25%          0.0
     Qwen3.5-9B                      0%      0%          1.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      wordChoice                     5         0%         0%
-      comma                         18         0%         0%
-      punctuation                    1         0%         0%
-      other                          1         0%         0%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      wordChoice                     5         0%         0%         0%
+      comma                         18         0%         0%         0%
+      punctuation                    1         0%         0%         0%
+      other                          1       100%         0%         0%
 
   english — 14 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         21%     21%          0.0
     Qwen3.5-4B                     18%     63%          0.0
     Qwen3.5-9B                     25%     70%          1.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                    2         0%        50%
-      wordChoice                     4        75%        75%
-      comma                          7         0%         0%
-      punctuation                    1         0%         0%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                    2         0%         0%        50%
+      wordChoice                     4        75%        75%        75%
+      comma                          7         0%         0%         0%
+      punctuation                    1         0%         0%         0%
 
   german — 26 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         31%     89%          0.0
     Qwen3.5-4B                     12%    100%          0.0
     Qwen3.5-9B                     37%     95%          0.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                    3        67%        67%
-      wordChoice                     1       100%       100%
-      comma                         19         0%        26%
-      capitalization                 2         0%        50%
-      punctuation                    1         0%         0%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                    3        67%        67%        67%
+      wordChoice                     1       100%       100%       100%
+      comma                         19        21%         0%        26%
+      capitalization                 2        50%         0%        50%
+      punctuation                    1         0%         0%         0%
 
   spanish — 15 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         40%     86%          0.0
     Qwen3.5-4B                     33%     83%          1.0
     Qwen3.5-9B                     43%     51%          0.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                    7        71%        71%
-      wordChoice                     3         0%         0%
-      comma                          5         0%        20%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                    7        71%        71%        71%
+      wordChoice                     3        33%         0%         0%
+      comma                          5         0%         0%        20%
 
   stress100 — 101 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         41%     59%          1.0
     Qwen3.5-4B                     56%     71%          1.0
     Qwen3.5-9B                     60%     72%          1.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   17        94%        94%
-      wordChoice                    15        60%        67%
-      dialect                        9        89%        67%
-      comma                         37        30%        30%
-      capitalization                 7        29%        71%
-      duplicateWord                  2       100%       100%
-      punctuation                    2        50%        50%
-      other                         12        75%        75%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                   17        94%        94%        94%
+      wordChoice                    15        40%        60%        67%
+      dialect                        9        67%        89%        67%
+      comma                         37        27%        30%        30%
+      capitalization                 7        43%        29%        71%
+      duplicateWord                  2       100%       100%       100%
+      punctuation                    2         0%        50%        50%
+      other                         12        58%        75%        75%
 
   stress100da — 101 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         20%     94%          0.0
     Qwen3.5-4B                     42%     80%          0.0
     Qwen3.5-9B                     41%     77%          2.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   26        81%        81%
-      wordChoice                    13        46%        23%
-      comma                         47        21%        17%
-      capitalization                10        80%        70%
-      duplicateWord                  3        67%        67%
-      punctuation                    2         0%         0%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                   26        62%        81%        81%
+      wordChoice                    13        15%        46%        23%
+      comma                         47         0%        21%        17%
+      capitalization                10        30%        80%        70%
+      duplicateWord                  3        33%        67%        67%
+      punctuation                    2         0%         0%         0%
 
   stress100de — 106 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         53%     85%          1.0
     Qwen3.5-4B                     67%     70%          0.0
     Qwen3.5-9B                     72%     82%          1.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   34        68%        68%
-      wordChoice                    13        54%        62%
-      comma                         37        54%        68%
-      capitalization                14        79%        93%
-      duplicateWord                  3       100%       100%
-      punctuation                    5        80%        80%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                   34        85%        68%        68%
+      wordChoice                    13        54%        54%        62%
+      comma                         37        41%        54%        68%
+      capitalization                14        86%        79%        93%
+      duplicateWord                  3       100%       100%       100%
+      punctuation                    5        80%        80%        80%
 
   stress100es — 109 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         54%     87%          0.0
     Qwen3.5-4B                     59%     78%          3.0
     Qwen3.5-9B                     63%     79%          1.0
-    recall by error type       planted  wen3.5-4B  wen3.5-9B
-      misspelling                   43        91%        95%
-      wordChoice                    12        92%        92%
-      comma                         38         3%         5%
-      capitalization                10        80%       100%
-      duplicateWord                  4       100%       100%
-      punctuation                    2         0%        50%
+    recall by error type       planted  iel-cloud  wen3.5-4B  wen3.5-9B
+      misspelling                   43        86%        91%        95%
+      wordChoice                    12        83%        92%        92%
+      comma                         38         0%         3%         5%
+      capitalization                10        80%        80%       100%
+      duplicateWord                  4       100%       100%       100%
+      punctuation                    2         0%         0%        50%
 
 ────────────────────────────────────────────────────────────────────────────────
 line_edit
 ────────────────────────────────────────────────────────────────────────────────
 
-  danish — 30 planted errors
+  danish — 29 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud          0%      0%          3.0
     Qwen3.5-4B                     17%     24%          6.0
-    Qwen3.5-9B                     18%     27%          1.0
+    Qwen3.5-9B                     16%     22%          1.0
 
   english — 35 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         14%     24%          5.0
     Qwen3.5-4B                     23%     55%         14.0
     Qwen3.5-9B                     20%     30%          2.0
 
   german — 31 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud         13%     25%          8.0
     Qwen3.5-4B                     13%     16%         15.0
     Qwen3.5-9B                     15%     34%         11.0
 
   spanish — 32 planted errors
     model                       recall   prec.  clean flags
+    custom:bethaniel-cloud          9%     22%          2.0
     Qwen3.5-4B                     19%     27%         13.0
     Qwen3.5-9B                     22%     39%          6.0
 ════════════════════════════════════════════════════════════════════════════════
@@ -163,10 +188,265 @@ RANKED — model overall score, highest first
 ════════════════════════════════════════════════════════════════════════════════
     46  Qwen3.5-4B-Q4_K_M.gguf
     46  Qwen3.5-9B-Q4_K_M.gguf
+    36  custom:bethaniel-cloud
 
 ════════════════════════════════════════════════════════════════════════════════
 DETAIL — missed planted errors and false positives (run 1 of each task)
 ════════════════════════════════════════════════════════════════════════════════
+
+[custom:bethaniel-cloud] danish_copy_edit.md (copy_edit):
+  MISSED:  "støvler og" → "støvler, og"
+  MISSED:  "gammel påtrængende" → "gammel, påtrængende"
+  MISSED:  "årtier og" → "årtier, og"
+  MISSED:  "begravelse var" → "begravelse, var"
+  MISSED:  "præcis som" → "præcis, som"
+  MISSED:  "for nyligt." → "for nylig."
+  MISSED:  "navn skreven på" → "navn skrevet på"
+  MISSED:  "sig før" → "sig, før"
+  MISSED:  "ryste og" → "ryste, og"
+  MISSED:  ""Mara, begyndte" → ""Mara," begyndte"
+  …and 14 more missed
+
+[custom:bethaniel-cloud] english_copy_edit.md (copy_edit):
+  MISSED:  "old insistent" → "old, insistent"
+  MISSED:  "decades and" → "decades, and"
+  MISSED:  "funeral the" → "funeral, the"
+  MISSED:  "top the" → "top, the"
+  MISSED:  "name writen on" → "name written on"
+  MISSED:  ""Mara, the" → ""Mara," the"
+  MISSED:  ""You was three" → ""You were three"
+  MISSED:  "water and" → "water, and"
+  MISSED:  "quiet surprising" → "quiet, surprising"
+  MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
+  …and 1 more missed
+  WRONG-FIX:    "writen" → "write" (right spot, wrong guess)
+  WRONG-FIX:    "shakey" → "shake" (right spot, wrong guess)
+  WRONG-FIX:    "and shakey," → "and Shaka," (right spot, wrong guess)
+  WRONG-FIX:    "her name writen" → "her name written" (right spot, wrong guess)
+  WRONG-FIX:    "her knees had began" → "her knees had begun" (right spot, wrong guess)
+  WRONG-FIX:    "then I have finally ran" → "then I have finally run" (right spot, wrong guess)
+  WRONG-FIX:    "You was three years old" → "You were three years old" (right spot, wrong guess)
+  WRONG-FIX:    "she had only just begun too learn" → "she had only just begun to learn" (right spot, wrong guess)
+  HALLUCINATED: "unmoored" → "unarmored" (no error there)
+  HALLUCINATED: "tremble and she" → "tremble, and she" (no error there)
+  HALLUCINATED: "a hand grown thin and shakey" → "a hand grown thin and shaky" (no error there)
+
+[custom:bethaniel-cloud] german_copy_edit.md (copy_edit):
+  MISSED:  "Stiefeln und" → "Stiefeln, und"
+  MISSED:  "alter beharrlicher" → "alter, beharrlicher"
+  MISSED:  "geführt und" → "geführt, und"
+  MISSED:  "Beerdigung war" → "Beerdigung, war"
+  MISSED:  "so wie" → "so, wie"
+  MISSED:  "sich bevor" → "sich, bevor"
+  MISSED:  "begonnen und" → "begonnen, und"
+  MISSED:  "eingestehen warum.
+
+„Mara," → "eingestehen, warum.
+
+„Mara","
+  MISSED:  "die Warheit selbst" → "die Wahrheit selbst"
+  MISSED:  "Nacht in" → "Nacht, in"
+  …and 8 more missed
+  WRONG-FIX:    "eine Tür die sie" → "eine Tür, die sie" (right spot, wrong guess)
+
+[custom:bethaniel-cloud] spanish_copy_edit.md (copy_edit):
+  MISSED:  "botas y" → "botas, y"
+  MISSED:  "funeral la" → "funeral, la"
+  MISSED:  "el alfeizar." → "el alféizar."
+  MISSED:  "las escusas para" → "las excusas para"
+  MISSED:  "agua y" → "agua, y"
+  MISSED:  "sorprendente como" → "sorprendente, como"
+  MISSED:  "temblorosa, habia escrito: «viento ligero" → "temblorosa, había escrito: «Viento ligero"
+  MISSED:  "indiferente y" → "indiferente, y"
+  MISSED:  "apenas habia comenzado" → "apenas había comenzado"
+  HALLUCINATED: "temblarle" → "temblare" (no error there)
+
+[custom:bethaniel-cloud] stress100_copy_edit.md (copy_edit):
+  MISSED:  "spidery uncertain hand and it smelled faintly of ceder and" → "spidery, uncertain hand, and it smelled faintly of cedar and"
+  MISSED:  "rare and" → "rare, and"
+  MISSED:  "yellowed brittle" → "yellowed, brittle"
+  MISSED:  "small careful" → "small, careful"
+  MISSED:  "tall weathered" → "tall, weathered"
+  MISSED:  "down and" → "down, and"
+  MISSED:  "by than," → "by then,"
+  MISSED:  "decide weather it" → "decide whether it"
+  MISSED:  "old careful" → "old, careful"
+  MISSED:  "shelf and" → "shelf, and"
+  …and 41 more missed
+  WRONG-FIX:    "was a a joke" → "was a joke" (right spot, wrong guess)
+  WRONG-FIX:    "constance made tea without being asked" → "Constance made tea without being asked" (right spot, wrong guess)
+  WRONG-FIX:    "against the the front" → "against the front" (right spot, wrong guess)
+  WRONG-FIX:    "constance would say nothing more about it that day" → "Constance would say nothing more about it that day" (right spot, wrong guess)
+  WRONG-FIX:    "surveyd" → "surveys" (right spot, wrong guess)
+  WRONG-FIX:    "constance watched her carefully" → "Constance watched her carefully" (right spot, wrong guess)
+  WRONG-FIX:    "was clutered with" → "was clustered with" (right spot, wrong guess)
+  WRONG-FIX:    "any mension of" → "any mansion of" (right spot, wrong guess)
+  WRONG-FIX:    "streets, buildings and even" → "streets, buildings, and even" (right spot, wrong guess)
+  WRONG-FIX:    "a long jagged shore" → "a long, jagged shore" (right spot, wrong guess)
+  …and 12 more wrong-fix
+
+[custom:bethaniel-cloud] stress100da_copy_edit.md (copy_edit):
+  MISSED:  "ikke ikke bundet" → "ikke bundet"
+  MISSED:  "vendte konvoluten to" → "vendte konvolutten to"
+  MISSED:  "af cedertræe og" → "af cedertræ og"
+  MISSED:  "skrev at" → "skrev, at"
+  MISSED:  "fortalte at" → "fortalte, at"
+  MISSED:  "ark der" → "ark, der"
+  MISSED:  "bog han" → "bog, han"
+  MISSED:  "til nogle," → "til nogen,"
+  MISSED:  "tirsdag skrev" → "tirsdag, skrev"
+  MISSED:  "op og" → "op, og"
+  …and 69 more missed
+  WRONG-FIX:    "hændene" → "hængene" (right spot, wrong guess)
+  WRONG-FIX:    "hørgardn" → "hørkard" (right spot, wrong guess)
+  WRONG-FIX:    "passset" → "passede" (right spot, wrong guess)
+
+[custom:bethaniel-cloud] stress100de_copy_edit.md (copy_edit):
+  MISSED:  "Händen bevor" → "Händen, bevor"
+  MISSED:  "zeigen bevor" → "zeigen, bevor"
+  MISSED:  "Regen der" → "Regen, der"
+  MISSED:  "Angewohnheit sich" → "Angewohnheit, sich"
+  MISSED:  "Menschen der" → "Menschen, der"
+  MISSED:  "verblasst als" → "verblasst, als"
+  MISSED:  "Papier das" → "Papier, das"
+  MISSED:  "Feder die" → "Feder, die"
+  MISSED:  "Notizen klein und dicht die" → "Notizen, klein und dicht, die"
+  MISSED:  "hatte. Der Tinte" → "hatte. Die Tinte"
+  …and 26 more missed
+  WRONG-FIX:    "grifen" → "greifen" (right spot, wrong guess)
+  WRONG-FIX:    "Largen" → "Lagen" (right spot, wrong guess)
+  WRONG-FIX:    "stelte" → "stete" (right spot, wrong guess)
+  WRONG-FIX:    "Werbank" → "Wehrbank" (right spot, wrong guess)
+  WRONG-FIX:    "Band zusammengebungen." → "Band Zusammengebungen." (right spot, wrong guess)
+  WRONG-FIX:    "den Largen zäh" → "den Lärchen zäh" (right spot, wrong guess)
+  WRONG-FIX:    "gereicht"
+
+Konrad" → "gereicht".
+
+Konrad" (right spot, wrong guess)
+  WRONG-FIX:    "die Mauwer." → "die Mau wer." (right spot, wrong guess)
+  WRONG-FIX:    "seid elf Jahren" → "seit elf Jahren" (right spot, wrong guess)
+  WRONG-FIX:    "trugne" → "trug" (right spot, wrong guess)
+  …and 1 more wrong-fix
+  HALLUCINATED: "Rothenfels" → "Rotgenfels" (no error there)
+  HALLUCINATED: "tintenfleckigen" → "grünfleckigen" (no error there)
+  HALLUCINATED: "Zehntelgrad" → "Zehntelegrad" (no error there)
+  HALLUCINATED: "mit tintenfleckigen Fingern" → "mit binde-fleckigen Fingern" (no error there)
+  HALLUCINATED: "las sie sie nicht" → "las sie nicht" (no error there)
+
+[custom:bethaniel-cloud] stress100es_copy_edit.md (copy_edit):
+  MISSED:  "el taler de" → "el taller de"
+  MISSED:  "de tapaz mudas," → "de tapas mudas,"
+  MISSED:  "conociera. Queria enseñárselos" → "conociera. Quería enseñárselos"
+  MISSED:  "decía, sí a" → "decía, si a"
+  MISSED:  "veces la" → "veces, la"
+  MISSED:  "ventoso con" → "ventoso, con"
+  MISSED:  "cuidadoso con" → "cuidadoso, con"
+  MISSED:  "admitió dejando" → "admitió, dejando"
+  MISSED:  "pliegos cada" → "pliegos, cada"
+  MISSED:  "era inconfundibemente la" → "era inconfundiblemente la"
+  …and 40 more missed
+  WRONG-FIX:    "taler" → "telar" (right spot, wrong guess)
+  WRONG-FIX:    "gargarta" → "gargarea" (right spot, wrong guess)
+  WRONG-FIX:    "lus" → "lis" (right spot, wrong guess)
+  WRONG-FIX:    "la lus de" → "la las de" (right spot, wrong guess)
+  HALLUCINATED: "responderle" → "responderla" (no error there)
+  HALLUCINATED: "responderle" → "respondió" (no error there)
+  HALLUCINATED: "se rió," → "se rio," (no error there)
+
+[custom:bethaniel-cloud] danish_line_edit.md (line_edit):
+  MISSED:  "for allerførste gang i tyve lange år. Jerntrinene lavede en knagende lyd under" → "for første gang i tyve år. Jerntrinene knagede under"
+  MISSED:  "luft med salt i pressede sig mod de smalle vinduer på en måde, der var ligesom en gammel," → "luft pressede sig mod de smalle vinduer som en gammel,"
+  MISSED:  "bedstefar, som var hendes bedstefar, havde" → "bedstefar havde"
+  MISSED:  "i en periode på fire" → "i fire"
+  MISSED:  "endelig til sidst overgået" → "endelig overgået"
+  MISSED:  "præcis sådan, som hun huskede, at det var:" → "præcis, som hun huskede det:"
+  MISSED:  "pudset op til" → "pudset til"
+  MISSED:  "linse, der var tavs og vågen, og en logbog, der lå" → "linse lå tavs og vågen, og en logbog lå"
+  MISSED:  "sig der og" → "sig og"
+  MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
+  …and 19 more missed
+  WRONG-FIX:    "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, som hun aldrig nogensinde før havde lagt mærke til, var gået op i et velkendt rum, som hun kendte godt" → "I stedet følte hun kun en stille, overraskende ømhed, næsten som om en dør, som hun aldrig havde lagt mærke til før, var gået op i et velkendt rum, som hun kendte godt" (right spot, wrong guess)
+  WRONG-FIX:    "Hun tænkte ved sig selv, at hun virkelig burde føle sig vred, eller forrådt, eller forladt på en eller anden måde" → "Hun tænkte, at hun virkelig burde føle sig vred, eller forrådt, eller forladt på en eller anden måde" (right spot, wrong guess)
+  WRONG-FIX:    "Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre" → "Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste, hvad den kostede mig at gøre" (right spot, wrong guess)
+  WRONG-FIX:    "Han skrev om den nat, hendes mor var rejst, og han skrev om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten" → "Han skrev om den nat, hendes mor var rejst, og om stormen, der havde drevet en lille fiskerbåd ind på klipperne neden for skrænten" (right spot, wrong guess)
+  WRONG-FIX:    "for hendes knæ var begyndt at starte med at ryste" → "for hendes knæ var begyndt at ryste" (right spot, wrong guess)
+  WRONG-FIX:    "hans begravelse, var skødet endelig til sidst overgået til hende" → "hans begravelse var skødet endelig til sidst overgået til hende" (right spot, wrong guess)
+  WRONG-FIX:    "år. Jerntrinene lavede" → "år. Jernringene lavede" (right spot, wrong guess)
+  WRONG-FIX:    "Nogen havde været der på det sted for nylig" → "Nogle havde været der på det sted for nylig" (right spot, wrong guess)
+  WRONG-FIX:    "Hun lukkede bogen i en lukkende bevægelse" → "Hun lukkede bogen med en lukkende bevægelse" (right spot, wrong guess)
+
+[custom:bethaniel-cloud] english_line_edit.md (line_edit):
+  MISSED:  "Mara went up the" → "Mara climbed the"
+  MISSED:  "the very first time in twenty long years. The iron steps made a groaning sound beneath her boots, and the salty salt" → "the first time in twenty years. The iron steps groaned beneath her boots, and salt"
+  MISSED:  "windows in a way that was like" → "windows like"
+  MISSED:  "grandfather, who was her grandfather, had" → "grandfather had"
+  MISSED:  "remembered it to be:" → "remembered:"
+  MISSED:  "logbook that was open" → "logbook open"
+  MISSED:  "logbook, with her" → "logbook, her"
+  MISSED:  "front of it in her grandfather's careful handwriting hand. Mara sat herself down before she opened it up," → "front in her grandfather's careful hand. Mara sat down before she opened it,"
+  MISSED:  "begun the process of trembling and she did not really want to admit to herself why this was happening." → "begun to tremble and she did not want to admit why."
+  MISSED:  "began to say," → "began,"
+  …and 20 more missed
+  WRONG-FIX:    "somewhere out there, she now understood at this point, was a story that belonged to her and that she had only just barely begun to learn about" → "somewhere out there, she now understood, was a story that belonged to her, one she'd only just begun to learn about" (right spot, wrong guess)
+  WRONG-FIX:    "The sea stretched away in every single direction" → "The sea stretched away in every direction" (right spot, wrong guess)
+  WRONG-FIX:    "She closed the book in a closing motion" → "She closed the book" (right spot, wrong guess)
+  WRONG-FIX:    "Instead, she felt only a quiet, surprising tenderness, almost as though a door that she had never noticed before had opened up in a familiar room that she knew well" → "Instead, she felt a quiet, surprising tenderness, as if a door she'd never noticed had opened in a familiar room" (right spot, wrong guess)
+  WRONG-FIX:    "She thought to herself that she really ought to feel angry, or betrayed, or unmoored in some way" → "She thought she ought to feel angry, betrayed, or unmoored" (right spot, wrong guess)
+  WRONG-FIX:    "You were three years old at the time" → "You were three when this happened" (right spot, wrong guess)
+  WRONG-FIX:    "He wrote about the choice that he had made to keep her secret, and he wrote about the daughter that that woman had left behind in his care to look after" → "He wrote about his decision to keep her secret and the daughter she'd left behind in his care" (right spot, wrong guess)
+  WRONG-FIX:    "He wrote about the night her mother had left, and he wrote about the storm that had driven a small fishing boat onto the rocks below the cliff, and he wrote about the woman that he had pulled from the surf and carried up these very stairs" → "He wrote about the night her mother left, the storm that drove a small fishing boat onto the rocks below the cliff, and the woman he'd pulled from the surf and carried up these stairs" (right spot, wrong guess)
+  WRONG-FIX:    "Please forgive an old man for his cowardice" → "Please forgive my cowardice" (right spot, wrong guess)
+  WRONG-FIX:    "because her knees had begun the process of trembling and she did not really want to admit to herself why this was happening" → "because her knees had begun to tremble, and she didn't want to admit why" (right spot, wrong guess)
+  …and 5 more wrong-fix
+  HALLUCINATED: "You called me Grandfather because that is what I asked you to call me" → "You called me Grandfather because I asked you to" (no error there)
+
+[custom:bethaniel-cloud] german_line_edit.md (line_edit):
+  MISSED:  "zum allerersten Mal seit zwanzig langen Jahren" → "zum ersten Mal seit zwanzig Jahren"
+  MISSED:  "Stufen machten ein ächzendes Geräusch unter" → "Stufen ächzten unter"
+  MISSED:  "Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie" → "Luft drückte gegen die schmalen Fenster wie"
+  MISSED:  "in ihrer Erinnerung in Erinnerung hatte: die Messingbeschläge, die zu" → "in Erinnerung hatte: die Messingbeschläge zu"
+  MISSED:  "poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag. Sie stellte ihre Tasche dort ab" → "poliert, die große Linse still und wachsam, ein Logbuch aufgeschlagen auf dem kleinen Eichentisch. Sie stellte ihre Tasche ab"
+  MISSED:  "die Kante der Fensterbank gleiten. Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen."
+  MISSED:  "Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war. Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete, denn ihre Knie hatten begonnen, anzufangen zu zittern, und sie wollte sich selbst nicht wirklich eingestehen, warum das geschah." → "Vorderseite, geschrieben in der sorgfältigen Handschrift ihres Großvaters. Mara setzte sich, bevor sie es öffnete, denn ihre Knie hatten zu zittern begonnen, und sie wollte sich nicht eingestehen, warum."
+  MISSED:  "Brief zu sagen, „wenn du diesen Brief gerade liest," → "Brief, „wenn du dies liest,"
+  MISSED:  "Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine" → "Wahrheit selbst zu sagen. Vergib einem alten Mann seine"
+  MISSED:  "langsam und sorgfältig." → "langsam."
+  …and 17 more missed
+  WRONG-FIX:    "Sie stellte ihre Tasche dort ab und ließ einen Finger über die Kante der Fensterbank gleiten" → "Sie stellte ihre Tasche ab und ließ einen Finger über die Kante der Fensterbank gleiten" (right spot, wrong guess)
+  WRONG-FIX:    "Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen" → "Es gab dort keinen Staub. Jemand war vor Kurzem dort gewesen" (right spot, wrong guess)
+  WRONG-FIX:    "mit ihrem Namen auf der Vorderseite davon, der in der sorgfältigen Handschrifthand ihres Großvaters geschrieben war" → "mit ihrem Namen auf der Vorderseite, der in der sorgfältigen Handschrift ihres Großvaters geschrieben war" (right spot, wrong guess)
+  WRONG-FIX:    "Mara setzte sich selbst hin, bevor sie es aufmachte und öffnete" → "Mara setzte sich hin, bevor sie es aufmachte und öffnete" (right spot, wrong guess)
+  WRONG-FIX:    "denn ihre Knie hatten begonnen, anzufangen zu zittern" → "denn ihre Knie hatten begonnen zu zittern" (right spot, wrong guess)
+  WRONG-FIX:    "„wenn du diesen Brief gerade liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich selbst zu sagen" → "„wenn du diesen Brief liest, sind mir endlich die Ausreden ausgegangen, dir die Wahrheit persönlich zu sagen" (right spot, wrong guess)
+  WRONG-FIX:    "Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und er schrieb über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte, damit er auf sie aufpasste" → "Er schrieb über die Entscheidung, die er getroffen hatte, ihr Geheimnis zu bewahren, und über die Tochter, die jene Frau in seiner Obhut zurückgelassen hatte, damit er auf sie aufpasste" (right spot, wrong guess)
+  WRONG-FIX:    "„Du warst damals zu jenem Zeitpunkt drei Jahre alt" → "„Du warst damals drei Jahre alt" (right spot, wrong guess)
+  WRONG-FIX:    "„Es tut mir sehr leid darüber. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger, und vielleicht ein ganz kleines bisschen mehr, weil ich gut wusste, was sie mich kostete zu tun" → "„Es tut mir leid. Ich liebte dich um die Lüge, die ich erzählte, nicht weniger, und vielleicht ein bisschen mehr, weil ich wusste, was sie mich kostete" (right spot, wrong guess)
+  WRONG-FIX:    "Sie dachte bei sich selbst, dass sie wirklich wütend, oder verraten, oder verloren auf irgendeine Art und Weise empfinden sollte" → "Sie dachte, sie sollte wirklich wütend, oder verraten, oder verloren empfinden" (right spot, wrong guess)
+  …and 3 more wrong-fix
+
+[custom:bethaniel-cloud] spanish_line_edit.md (line_edit):
+  MISSED:  "subió por la" → "subió la"
+  MISSED:  "por la primera vez en veinte largos años. Los peldaños de hierro hicieron un sonido de gemido bajo" → "por primera vez en veinte años. Los peldaños de hierro gimieron bajo"
+  MISSED:  "salado y con sal se" → "salado se"
+  MISSED:  "estrechas de una manera que era como" → "estrechas como"
+  MISSED:  "abuelo, que era su abuelo, había cuidado este faro durante un período de cuatro décadas, y" → "abuelo había cuidado este faro durante cuatro décadas y"
+  MISSED:  "pasado finalmente por" → "pasado por"
+  MISSED:  "exactamente tal y como ella la recordaba que era:" → "exactamente como ella la recordaba:"
+  MISSED:  "hasta llegar a un" → "hasta un"
+  MISSED:  "bitácora que estaba abierto" → "bitácora abierto"
+  MISSED:  "bolso allí y" → "bolso y"
+  …and 21 more missed
+  WRONG-FIX:    "Por la mañana, encendería la lámpara hacia arriba" → "Por la mañana, encendería la lámpara" (right spot, wrong guess)
+  WRONG-FIX:    "que apenas había comenzado a empezar a aprender" → "que apenas había comenzado a aprender" (right spot, wrong guess)
+  WRONG-FIX:    "en todas y cada una de las direcciones" → "en todas direcciones" (right spot, wrong guess)
+  WRONG-FIX:    "casi como si una puerta que ella nunca antes había notado se hubiera abierto" → "casi como si una puerta que nunca había notado se hubiera abierto" (right spot, wrong guess)
+  WRONG-FIX:    "a un viejo hombre por su cobardía" → "a un viejo por su cobardía" (right spot, wrong guess)
+  WRONG-FIX:    "Mara se sentó a sí misma" → "Mara se sentó" (right spot, wrong guess)
+  WRONG-FIX:    "la escritura había pasado finalmente por fin a sus manos" → "la escritura había pasado finalmente a sus manos" (right spot, wrong guess)
+  WRONG-FIX:    "el aire salado y con sal" → "el aire salado" (right spot, wrong guess)
+  WRONG-FIX:    "por mí mismo" → "por mí" (right spot, wrong guess)
+  WRONG-FIX:    "Ella conocía bien" → "conocía bien" (right spot, wrong guess)
 
 [Qwen3.5-4B-Q4_K_M.gguf] danish_copy_edit.md (copy_edit):
   MISSED:  "støvler og" → "støvler, og"
@@ -356,8 +636,12 @@ Konrad" (right spot, wrong guess)
   MISSED:  "sig der og" → "sig og"
   MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
   MISSED:  "forsiden af det med bedstefarens omhyggelige håndskriftshånd. Mara satte sig selv ned, før hun åbnede det op," → "forsiden i bedstefarens omhyggelige håndskrift. Mara satte sig, før hun åbnede det,"
-  MISSED:  "at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "at ryste, og hun ville ikke indrømme hvorfor."
-  …and 15 more missed
+  MISSED:  "at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor.
+
+"Mara," begyndte brevet at sige, "hvis du læser dette brev," → "at ryste, og hun ville ikke indrømme hvorfor.
+
+"Mara," begyndte brevet, "hvis du læser dette,"
+  …and 14 more missed
   WRONG-FIX:    "Havet strakte sig i hver eneste retning, og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "Havet strakte sig i hver eneste retning, og et sted derude lå en historie, der tilhørte hende, og som hun lige netop havde begyndt at lære om." (right spot, wrong guess)
   WRONG-FIX:    "Hun rejste sig op, gik hen til den store linse og lagde sin håndflade fladt mod det kølige glas på den." → "Hun rejste sig, gik hen til den store linse og lagde sin håndflade fladt mod det kølige glas." (right spot, wrong guess)
   WRONG-FIX:    "Hun lukkede bogen i en lukkende bevægelse." → "Hun lukkede bogen." (right spot, wrong guess)
@@ -629,9 +913,13 @@ Konrad" (right spot, wrong guess)
   MISSED:  "linse, der var tavs og vågen, og en logbog, der lå" → "linse lå tavs og vågen, og en logbog lå"
   MISSED:  "langs vindueskarmens kant. Der var intet støv der. Nogen havde været der på det sted for" → "langs vindueskarmen. Intet støv. Nogen havde været her for"
   MISSED:  "forsiden af det med bedstefarens omhyggelige håndskriftshånd. Mara satte sig selv ned, før hun åbnede det op," → "forsiden i bedstefarens omhyggelige håndskrift. Mara satte sig, før hun åbnede det,"
+  MISSED:  "at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor.
+
+"Mara," begyndte brevet at sige, "hvis du læser dette brev," → "at ryste, og hun ville ikke indrømme hvorfor.
+
+"Mara," begyndte brevet, "hvis du læser dette,"
   MISSED:  "sandheden personligt selv. Vær venlig at tilgive en gammel mand for hans" → "sandheden selv. Tilgiv en gammel mand hans"
-  MISSED:  "langsomt og forsigtigt." → "langsomt."
-  …and 12 more missed
+  …and 13 more missed
   WRONG-FIX:    "I morgen ville hun tænde lampen op." → "I morgen ville hun tænde lyset." (right spot, wrong guess)
   WRONG-FIX:    "Havet strakte sig i hver eneste retning, og et sted derude, det forstod hun nu på dette tidspunkt, lå en historie, der tilhørte hende, og som hun lige netop kun var begyndt at starte med at lære om." → "Havet strakte sig i alle retninger. Et sted derude lå en historie, der tilhørte hende, og som hun lige nu først begyndte at lære om." (right spot, wrong guess)
   WRONG-FIX:    "Hun lukkede bogen i en lukkende bevægelse." → "Hun lukkede bogen." (right spot, wrong guess)
@@ -639,10 +927,10 @@ Konrad" (right spot, wrong guess)
   WRONG-FIX:    "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre." → "Jeg er meget ked af det. Jeg elskede dig ikke mindre for den løgn, jeg fortalte, og måske endda lidt mere, fordi jeg vidste, hvad den kostede mig." (right spot, wrong guess)
   WRONG-FIX:    ""Du var tre år gammel dengang på det tidspunkt," skrev han i sin skrivning." → ""Du var tre år gammel dengang," skrev han." (right spot, wrong guess)
   WRONG-FIX:    "Han skrev om det valg, som han havde truffet om at bevare hendes hemmelighed, og han skrev om datteren, som den kvinde havde efterladt i hans varetægt for at passe på." → "Han skrev om det valg han havde truffet om at bevare hendes hemmelighed, og om datteren den kvinde havde efterladt i hans varetægt." (right spot, wrong guess)
+  WRONG-FIX:    ""Mara," begyndte brevet at sige, "hvis du læser dette brev, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden personligt selv. Vær venlig at tilgive en gammel mand for hans fejhed."" → ""Mara," begyndte brevet, "hvis du læser dette, er jeg endelig løbet tør for undskyldninger for at fortælle dig sandheden. Vær venlig at tilgive en gammel mand for hans fejhed."" (right spot, wrong guess)
+  WRONG-FIX:    "Mara satte sig selv ned, før hun åbnede det op, for hendes knæ var begyndt at starte med at ryste, og hun ville ikke rigtig indrømme over for sig selv hvorfor." → "Mara satte sig ned, før hun åbnede det op, for hendes knæ begyndte at ryste, og hun ville ikke indrømme hvorfor." (right spot, wrong guess)
   WRONG-FIX:    "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden af det med bedstefarens omhyggelige håndskriftshånd." → "Et foldet ark papir lå skjult under logbogen, med hendes navn skrevet på forsiden med bedstefarens omhyggelige håndskrift." (right spot, wrong guess)
-  WRONG-FIX:    "Der var intet støv der. Nogen havde været der på det sted for nylig." → "Der var intet støv. Nogen havde været her for nylig." (right spot, wrong guess)
-  WRONG-FIX:    "Øverst oppe var lanternerummet præcis sådan, som hun huskede, at det var: messingbeslagene var pudset op til en blød glans, den store linse, der var tavs og vågen, og en logbog, der lå opslået på det lille egetræsskrivebord." → "Øverst oppe var lanternerummet præcis sådan, som hun huskede: messingbeslagene var pudset op til en blød glans, den store linse var tavs og vågen, og en logbog lå opslået på det lille egetræsskrivebord." (right spot, wrong guess)
-  …and 3 more wrong-fix
+  …and 5 more wrong-fix
 
 [Qwen3.5-9B-Q4_K_M.gguf] english_line_edit.md (line_edit):
   MISSED:  "Mara went up the" → "Mara climbed the"
