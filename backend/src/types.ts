@@ -39,6 +39,19 @@ export interface CopyEditOptions {
   /** Insert a comma after an introductory word/adverb/phrase ("Finally, she…").
    *  Off by default — many fiction authors omit it for flow. */
   introductoryComma: boolean;
+  /**
+   * Which Danish comma system the manuscript follows.
+   *
+   * Danish is the one bundled language with two competing, both-correct comma
+   * conventions. Grammatisk komma ("grammatical comma") puts a comma before
+   * every subordinate clause; nyt komma ("new comma") mostly does not. Retsk-
+   * rivningsordbogen sanctions both, and which one a manuscript uses is the
+   * author's choice — so enforcing either without asking would be wrong half
+   * the time, which is why Danish comma recall was left alone until this
+   * existed. Same shape as the Oxford-comma and dialect options: the author
+   * tells us the house style, and only then do we enforce it.
+   */
+  danishComma: "grammatisk" | "nyt";
   dialogueTags: boolean;
 }
 
@@ -61,6 +74,9 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   englishDialect: "american",
   oxfordComma: true,
   introductoryComma: false,
+  // Grammatisk komma is the more common default in Danish fiction and is what
+  // a reader is most likely to expect; nyt komma is the deliberate choice.
+  danishComma: "grammatisk",
   dialogueTags: false,
 };
 

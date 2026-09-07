@@ -1951,6 +1951,26 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Einleitungskomma",
     es: "Coma introductoria",
   },
+  opt_danishComma: {
+    en: "Danish comma system",
+    da: "Kommasystem",
+    de: "Dänisches Kommasystem",
+    es: "Sistema de comas danés",
+  },
+  opt_grammatiskKomma: {
+    // Not translated: these are the names of the two systems in Danish, and a
+    // Danish author knows them by these names and no other.
+    en: "Grammatisk",
+    da: "Grammatisk",
+    de: "Grammatisk",
+    es: "Grammatisk",
+  },
+  opt_nytKomma: {
+    en: "Nyt",
+    da: "Nyt",
+    de: "Nyt",
+    es: "Nyt",
+  },
   opt_yes: {
     en: "Yes",
     da: "Ja",

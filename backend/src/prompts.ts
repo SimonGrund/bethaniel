@@ -212,8 +212,37 @@ export function manuscriptLangName(lang?: string): string | null {
  * wrong one is worse than enforcing neither, so it needs a style-guide option
  * before it needs a prompt rule.
  */
-function commaDirectivesFor(manuscriptLang?: string): string {
+function commaDirectivesFor(
+  manuscriptLang?: string,
+  opts?: CopyEditOptions,
+): string {
   const code = manuscriptLang?.toLowerCase().split(/[-_]/)[0];
+
+  // Danish sanctions two comma systems and the author picks one, so this only
+  // fires once they have. Grammatisk komma is the default; nyt komma is the
+  // deliberate choice, and under it the subordinate-clause comma is WRONG —
+  // which is why enforcing a single rule set would have been wrong half the
+  // time, and why Danish went unaddressed until the option existed.
+  //
+  // LanguageTool covers no Danish comma rule at all (0 of 50 planted spans on
+  // the stress fixture), so unlike German there is nothing underneath to build
+  // on: whatever the model does here is all there is.
+  if (code === "da") {
+    if (opts?.danishComma === "nyt") {
+      return (
+        "- Manuskriptet bruger NYT KOMMA. Sæt IKKE komma foran ledsætninger, der indledes med at, som, fordi, hvis, da, når eller der. \"Han sagde at han ville komme\" er korrekt og skal stå. Tilføj aldrig et sådant komma.\n" +
+        "- Sæt derimod komma mellem to helsætninger, der forbindes med og, men, eller, for eller så: \"Hun vendte sig, og hun gik.\" Begge sider skal have eget subjekt og udsagnsled.\n" +
+        "- Sæt komma omkring et indskud eller en apposition: \"Ejnar, som havde været lærling hos hendes mor, kom om tirsdagen.\" Indskuddet får komma på BEGGE sider.\n"
+      );
+    }
+    return (
+      "- Manglende komma foran en ledsætning. I grammatisk komma sættes der komma foran enhver ledsætning, uanset hvad den indledes med — at, som, fordi, hvis, da, når, der: \"Han sagde, at han ville komme.\" \"Bogen, som lå på bordet, var hendes mors.\"\n" +
+      "- Manglende komma mellem to helsætninger forbundet med og, men, eller, for eller så: \"Hun vendte sig, og hun gik.\" Begge sider skal have eget subjekt og udsagnsled. \"Hun vendte sig og gik\" har kun ét subjekt og skal IKKE have komma.\n" +
+      "- Manglende komma omkring et indskud eller en apposition: indskuddet får komma på BEGGE sider, ikke kun det ene.\n" +
+      "- Sæt ALDRIG komma mellem grundled og udsagnsled. \"Manden, gik hjem\" er forkert, uanset hvor langt grundleddet er.\n"
+    );
+  }
+
   if (code !== "es") return "";
   return (
     '- Falta una coma que aísle un inciso o una aposición explicativa. Un inciso va entre comas POR AMBOS LADOS: "Era un hombre viejo y cuidadoso, con las manos manchadas de tinta, y nunca levantaba la voz". Si el inciso termina la oración, basta la coma de apertura.\n' +
@@ -496,7 +525,7 @@ export function buildCopyEditCorrectionsPrompt(
       p +=
         '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule. NEVER put a comma before "and" when it joins two adjectives, two nouns or two verbs instead of two clauses ("a formidable and private woman", "quills and brushes", "she set it down and left") — those take no comma at all.\n';
     } else {
-      p += commaDirectivesFor(manuscriptLang);
+      p += commaDirectivesFor(manuscriptLang, opts);
     }
   }
   if (opts.capitalization)

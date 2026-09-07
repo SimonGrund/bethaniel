@@ -121,6 +121,9 @@ export interface CopyEditOptions {
   englishDialect: "american" | "british";
   oxfordComma: boolean;
   introductoryComma: boolean;
+  /** Which Danish comma system the manuscript follows. Danish sanctions two,
+   *  and which one applies is the author's choice — see backend/src/types.ts. */
+  danishComma: "grammatisk" | "nyt";
   dialogueTags: boolean;
 }
 
@@ -132,6 +135,9 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   englishDialect: "american",
   oxfordComma: true,
   introductoryComma: false,
+  // Grammatisk komma is the more common default in Danish fiction and is what
+  // a reader is most likely to expect; nyt komma is the deliberate choice.
+  danishComma: "grammatisk",
   dialogueTags: false,
 };
 

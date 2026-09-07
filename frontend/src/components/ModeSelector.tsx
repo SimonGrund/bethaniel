@@ -121,6 +121,9 @@ export default function ModeSelector() {
 
   const isKnownManuscriptLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
   const isEnglishManuscript = manuscriptLang === "en";
+  // Danish sanctions two comma systems and the author picks one — see the
+  // danishComma note in types.ts. Only Danish manuscripts see this.
+  const isDanishManuscript = manuscriptLang === "da";
 
   // Shared by every panel whose output depends on the manuscript's language:
   // edits stay in it, and the reports (developmental, writing, story overview)
@@ -273,6 +276,31 @@ export default function ModeSelector() {
                   }
                 >
                   {t("opt_no")}
+                </button>
+              </div>
+            </div>
+          )}
+          {isDanishManuscript && (
+            <div className="option-toggle-row">
+              <span className="option-toggle-label">
+                {t("opt_danishComma")}
+              </span>
+              <div className="option-toggle-group">
+                <button
+                  type="button"
+                  className={`toggle-btn${copyEditOptions.danishComma === "grammatisk" ? " active" : ""}`}
+                  onClick={() =>
+                    setCopyEditOption("danishComma", "grammatisk")
+                  }
+                >
+                  {t("opt_grammatiskKomma")}
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn${copyEditOptions.danishComma === "nyt" ? " active" : ""}`}
+                  onClick={() => setCopyEditOption("danishComma", "nyt")}
+                >
+                  {t("opt_nytKomma")}
                 </button>
               </div>
             </div>
