@@ -24,7 +24,8 @@
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
  *   npx tsx scripts/test-models.ts --model 9b     # Only run models whose filename contains "9b" (case-insensitive)
- *   npx tsx scripts/test-models.ts --max-parallel 1  # Cap concurrent task dispatch (avoids batched-decode variance/reload contention)
+ *   npx tsx scripts/test-models.ts --max-parallel 2  # Cap concurrent task dispatch (default is 1 — see MAX_PARALLEL)
+ *   npx tsx scripts/test-models.ts --parallel-auto   # Use the backend's recommended slots: faster, but not reproducible
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
  *   npx tsx scripts/test-models.ts --en        # Only run English texts
  *   npx tsx scripts/test-models.ts --da --de   # Only Danish and German
@@ -83,10 +84,15 @@ function parseRepeat(): number {
   const val = parseInt(process.argv[idx + 1], 10);
   return Number.isFinite(val) && val >= 1 ? val : 2;
 }
-// Repeat >1 is what makes the consistency score possible — the seeding work
-// (deriveSeed in llm.ts) should make local models converge on the SAME
-// corrections across repeats; a low consistency score here means the
-// quality numbers above it were a lucky/unlucky roll, not something to trust.
+// Repeat >1 is what makes the consistency score possible. Read it only for
+// line_edit: copy-edit corrections are decoded greedily (temperature 0), so at
+// the default one slot every repeat is bit-identical and the score is always
+// 100 — it says nothing about the model. Five DIFFERENT seeds on the German
+// fixture also produced identical corrections, confirming the seed is inert
+// at temperature 0; it still governs line_edit, which rewrites at the model's
+// configured temperature. Any copy-edit spread the score used to report was
+// batched-decode noise from running several slots, not the model disagreeing
+// with itself.
 const REPEAT = TEST_MODE ? 1 : parseRepeat();
 
 const LANG_FLAGS: Record<string, string> = {
@@ -161,7 +167,17 @@ function parseMaxParallel(): number | null {
 // Caps concurrent submissions below the backend's own recommendation — useful
 // if a heavier model (e.g. a 24B model) is crashing/becoming unreachable
 // under the backend's recommended parallel slot count on this machine.
-const MAX_PARALLEL = parseMaxParallel();
+// Defaults to 1, and that default is what makes a run reproducible.
+// Corrections are decoded greedily (temperature 0 in llm.ts), so a benchmark
+// ought to be repeatable — but with several slots in flight llama.cpp batches
+// them together, and the batch composition changes the floating-point
+// arithmetic. Measured on the German stress fixture: four same-seed repeats at
+// one slot came back bit-identical, while the same config at three slots
+// ranged 50%-71% recall. Every effect worth chasing is smaller than that.
+// Pass --parallel-auto for the backend's own recommendation (faster, and what
+// a real run uses) when throughput matters more than a comparable number.
+const MAX_PARALLEL =
+  parseMaxParallel() ?? (process.argv.includes("--parallel-auto") ? null : 1);
 
 function parseModeFilter(): "copy_edit" | "line_edit" | null {
   const idx = process.argv.indexOf("--mode");
