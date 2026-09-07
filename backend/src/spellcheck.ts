@@ -211,6 +211,149 @@ function isValidInflection(word: string, dict: SpellDict): boolean {
   return bases.some((b) => dict.correct(b));
 }
 
+
+/**
+ * Levenshtein distance, abandoned once it exceeds `max` — callers only ever
+ * ask "is this close enough", never "how far exactly".
+ */
+function boundedDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (cur[j] < best) best = cur[j];
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Does an unknown word at least *begin* with a real word, in a language that
+ * compounds? `siebzehnzähnige` is siebzehn + zähnig: the head is plainly a
+ * word, the tail an adjective form the dictionary never lists. Full
+ * decomposition fails, so the word is still reported — but it is far more
+ * likely a coinage than a typo, and the suggestion for it (`siebzehnjährige`,
+ * two edits away and a different meaning entirely) must not be offered with
+ * the confidence of a fix for "teh".
+ */
+export function hasKnownCompoundHead(
+  word: string,
+  lang: string,
+  dict: Pick<SpellDict, "correct">,
+): boolean {
+  if (!COMPOUNDING_LANGS.has(lang.slice(0, 2).toLowerCase())) return false;
+  const w = word.toLowerCase();
+  if (w.length < 8) return false;
+  for (let i = 4; i <= w.length - 4; i++) {
+    const head = w.slice(0, i);
+    if (dict.correct(head) || dict.correct(head[0].toUpperCase() + head.slice(1))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Is a Hunspell suggestion close enough to propose as a fix?
+ *
+ * Hunspell's suggest() is built for a human choosing from a list; taking the
+ * first entry and presenting it as the correction turned unknown-but-valid
+ * words into confident, wrong substitutions. Measured on the clean German
+ * fixture: siebzehnzähnige -> siebzehnjährige (seventeen-TOOTHED becoming
+ * seventeen-YEAR-OLD), tintenfleckigen -> grünfleckigen, Zehntelgrad ->
+ * Zehntelegrad. Flagging those words is defensible — the dictionary really
+ * does not know them. Rewriting them is not.
+ *
+ * Two things disqualify a suggestion:
+ *
+ *  - It splits the word where every part is itself a real word of 3+
+ *    characters. That is a coined compound the dictionary has not enumerated
+ *    ("woodsmoke", "inconfundiblemente"), not a typo. The 3-character floor
+ *    keeps genuine fixes like "alot" -> "a lot", where "a" is no morpheme.
+ *  - It is too far away to be a slip of the fingers. Real typos sit within an
+ *    edit or two; the tolerance grows a little with length so long compounds
+ *    are not judged more harshly than short words, but never below 2.
+ */
+export function isConfidentSuggestion(
+  original: string,
+  suggestion: string,
+  dict: Pick<SpellDict, "correct">,
+): boolean {
+  if (!suggestion || suggestion === original) return false;
+
+  const splitsWord = /[\s\u00a0-]/.test(suggestion) && !/[\s\u00a0-]/.test(original);
+  if (splitsWord) {
+    const parts = suggestion.split(/[\s\u00a0-]+/).filter(Boolean);
+    const everyPartIsAWord =
+      parts.length >= 2 &&
+      parts.every((p) => p.length >= 3 && dict.correct(p.toLowerCase()));
+    if (everyPartIsAWord) return false;
+  }
+
+  const tolerance = Math.max(2, Math.floor(original.length * 0.2));
+  return (
+    boundedDistance(original.toLowerCase(), suggestion.toLowerCase(), tolerance) <=
+    tolerance
+  );
+}
+
+/**
+ * Languages that build new words by gluing existing ones together, where a
+ * dictionary miss is the normal case rather than a signal. Hunspell's own
+ * COMPOUNDRULE covers much of this, but never every coinage an author invents.
+ */
+const COMPOUNDING_LANGS = new Set(["de", "da", "nl", "sv", "no", "nb", "nn", "fi"]);
+
+/**
+ * Does this unknown word decompose into real words — i.e. is it a coined
+ * compound rather than a misspelling?
+ *
+ * The distance guard cannot answer this. On the clean German fixture
+ * `Zehntelgrad` -> `Zehntelegrad` is one edit away and `siebzehnzähnige` ->
+ * `siebzehnjährige` is two, so both read as ordinary typos while actually
+ * rewriting "tenth of a degree" and "seventeen-toothed" into something else.
+ * What they have in common is not distance, it is that the original is a
+ * perfectly good compound the dictionary never enumerated.
+ *
+ * Restricted to compounding languages, and to parts of 3+ characters, so an
+ * English missing-space typo ("in the", "there is") is still caught — those
+ * split on a part far too short to be a compound element.
+ */
+export function isValidCompound(word: string, lang: string, dict: SpellDict): boolean {
+  if (!COMPOUNDING_LANGS.has(lang.slice(0, 2).toLowerCase())) return false;
+  const w = word.toLowerCase();
+  if (w.length < 8) return false;
+
+  // German capitalises every noun, so a compound's parts live in the
+  // dictionary capitalised — `Zehntel`, `Grad`, `Tinte` — while the compound
+  // itself is lowercased mid-word. Checking only the lowercase form finds
+  // nothing at all in exactly the language this matters most for.
+  const known = (part: string) =>
+    dict.correct(part) || dict.correct(part[0].toUpperCase() + part.slice(1));
+
+  // Linking morphemes ("Fugenlaute") glue German and Danish compounds
+  // together and belong to neither part: Tinte|n|fleckig, Arbeit|s|tag.
+  const LINKERS = ["", "s", "n", "en", "es", "er"];
+
+  for (let i = 3; i <= w.length - 3; i++) {
+    const head = w.slice(0, i);
+    if (!known(head)) continue;
+    for (const link of LINKERS) {
+      const tail = w.slice(i);
+      if (!tail.startsWith(link)) continue;
+      const rest = tail.slice(link.length);
+      if (rest.length >= 3 && known(rest)) return true;
+    }
+  }
+  return false;
+}
+
 /** Dictionaries and SKIP_WORDS use the straight apostrophe; manuscripts
  *  usually use ’. Normalize before any lookup. */
 function normalizeApostrophes(word: string): string {
@@ -599,14 +742,32 @@ export function getSpellCorrections(
       // between "iron-clad" and "ironclad" is style, not correctness.
       if (isValidHyphenCompound(norm, dict)) continue;
 
+      // Prefer a suggestion we can stand behind. Where none qualifies the word
+      // is still reported — an unrecognised word is worth the author's eye —
+      // but the substitution is a guess, so it carries the low-confidence tag
+      // rather than being offered with the same authority as a plain typo fix.
       const suggestions = dict.suggest(norm);
-      const corrected = suggestions.length > 0 ? suggestions[0] : word;
+      const confident = suggestions.find((sg) =>
+        isConfidentSuggestion(norm, sg, dict),
+      );
+      const corrected = confident ?? suggestions[0] ?? word;
       const correction: Correction = { original: word, corrected };
+      // An unhyphenated coinage in a compounding language is still worth
+      // reporting — `Zederholz` is a real slip for `Zedernholz` — but it must
+      // not carry the authority of a fix for "teh". Decomposable words and
+      // words that merely start with one are downgraded, not skipped: the
+      // flag is defensible, the rewrite is not.
+      const unverifiedSuggestion =
+        (!confident && corrected !== word) ||
+        isValidCompound(norm, lang, dict) ||
+        hasKnownCompoundHead(norm, lang, dict);
       // Tagged distinctly (not the plain "spell-check" reason) so it's
       // surfaced as a minor suggestion rather than a publication blocker —
       // an unrecognized-but-plausible inflection is a much weaker signal
       // than an outright non-word like "amd" or "whe".
-      if (isValidInflection(norm, dict)) correction.reason = "spell-check-uncommon";
+      if (isValidInflection(norm, dict) || unverifiedSuggestion) {
+        correction.reason = "spell-check-uncommon";
+      }
       corrections.push(correction);
       if (corrections.length >= maxHints) break;
     }
