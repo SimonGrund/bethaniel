@@ -85,9 +85,15 @@ planted English commas, 13 of 40 German, and **0 of 50 Danish and 0 of 41
 Spanish**.
 
 **Two prompt interventions were run, and the contrast between them is the
-finding.** Danish comma directives (behind the new comma-system toggle) moved
-comma recall 9 → 19 and 23 → 28. Spanish directives moved nothing: 5 → 3 and
-11 → 11.
+finding.** On the canonical two-repeat run, Danish comma directives (behind the
+new comma-system toggle) moved Big Bad Betty 9 → 20; Baby Betty went 23 → 20,
+which is inside the noise. Spanish directives moved nothing on either model:
+5 → 4 and 11 → 8.
+
+Read that honestly: it is one model gaining eleven points on one category, and
+the total missed-comma pool only fell from 116.5 to 114.5. A real effect, and a
+small one. The single-repeat run that first showed it reported 9 → 19 and
+23 → 28 — better than the truth, which is what one repeat buys you.
 
 The difference is not the language, it is the shape of the rule:
 
