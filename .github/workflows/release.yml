@@ -1,6 +1,7 @@
 name: Release
 
-# Triggered when a PR is merged to main (or any direct push to main).
+# Triggered when a PR is merged to main (or any direct push to main),
+# unless the push only touches documentation (see paths-ignore below).
 # Computes the next semver, bumps package.json, commits, tags, and pushes.
 # The v* tag push then triggers build.yml to produce release artifacts.
 #
@@ -23,6 +24,18 @@ on:
     push:
         branches:
             - main
+        # A docs-only push must not cut a release. Publishing the two site
+        # pages to main took v1.33.0 -> v1.33.1: package.json bumped, a tag
+        # pushed, build.yml woke up and shipped mac/win/linux installers plus
+        # the latest*.yml auto-updater manifests, so every existing install
+        # offered an update whose only difference was two HTML files.
+        #
+        # paths-ignore skips the run only when EVERY changed file matches, so
+        # a commit touching docs AND code still releases normally. Only a push
+        # that is nothing but documentation is filtered out.
+        paths-ignore:
+            - "docs/**"
+            - "**.md"
 
 permissions:
     contents: write
