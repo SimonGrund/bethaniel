@@ -30,6 +30,8 @@ import {
   parseJsonResponse,
   reviewCorrectionsStream,
   parseReviewScores,
+  planReviewBatches,
+  type ReviewScore,
   listLoadedModels,
   unloadModel,
   estimateTokens,
@@ -189,7 +191,7 @@ const REVIEWER_MAX_ATTEMPTS = 3;
  * falls short, the output with the most parsed scores is kept and the
  * still-unscored corrections are flagged downstream by aggregateReviewScores.
  */
-function runReviewerAgentWithRetry(opts: {
+async function runReviewerAgentWithRetry(opts: {
   model: string;
   chunkText: string;
   cs: Correction[];
@@ -198,40 +200,79 @@ function runReviewerAgentWithRetry(opts: {
   taskId: string;
   chunkLabel: string;
   agentLabel: string;
-}): Promise<string> {
-  return runWithRetry(
-    async (attempt) => {
-      let acc = "";
-      const seed = deriveSeed(opts.chunkLabel, opts.agentLabel, attempt);
-      for await (const tok of reviewCorrectionsStream(
-        opts.model,
-        opts.chunkText,
-        opts.cs,
-        opts.reviewerPrompt,
-        opts.signal,
-        seed,
-      )) {
-        acc += tok;
-      }
-      return acc;
-    },
-    {
-      maxAttempts: REVIEWER_MAX_ATTEMPTS,
-      backoffMs: (attempt, err) => retryWaitMs(err, attempt),
-      isValid: (out) => parseReviewScores(out).size > 0,
-      isAborted: () => opts.signal.aborted,
-      keepBest: (a, b) =>
-        parseReviewScores(a).size >= parseReviewScores(b).size ? a : b,
-      onRetry: (attempt, why) =>
-        appendLog({
-          level: "warn",
-          source: "engine",
-          taskId: opts.taskId,
-          message: `${opts.agentLabel} retry ${attempt}/${REVIEWER_MAX_ATTEMPTS} for chunk ${opts.chunkLabel}: ${why}`,
-          model: opts.model,
-        }),
-    },
+}): Promise<Map<number, ReviewScore>> {
+  // One call per batch rather than one call for the chunk. Asking a model to
+  // score more corrections than its context can answer about does not produce
+  // a shorter answer, it produces a truncated one — and the corrections past
+  // the cut are indistinguishable from ones the reviewer chose not to flag.
+  // See planReviewBatches for what that cost.
+  const batches = planReviewBatches(
+    opts.model,
+    opts.chunkText,
+    opts.cs,
+    opts.reviewerPrompt,
   );
+  const merged = new Map<number, ReviewScore>();
+
+  for (const [start, end] of batches) {
+    const slice = opts.cs.slice(start, end);
+    const label =
+      batches.length > 1
+        ? `${opts.agentLabel} (${start + 1}-${end} of ${opts.cs.length})`
+        : opts.agentLabel;
+
+    const raw = await runWithRetry(
+      async (attempt) => {
+        let acc = "";
+        const seed = deriveSeed(opts.chunkLabel, label, attempt);
+        for await (const tok of reviewCorrectionsStream(
+          opts.model,
+          opts.chunkText,
+          slice,
+          opts.reviewerPrompt,
+          opts.signal,
+          seed,
+        )) {
+          acc += tok;
+        }
+        return acc;
+      },
+      {
+        maxAttempts: REVIEWER_MAX_ATTEMPTS,
+        backoffMs: (attempt, err) => retryWaitMs(err, attempt),
+        isValid: (out) => parseReviewScores(out).size > 0,
+        isAborted: () => opts.signal.aborted,
+        keepBest: (a, b) =>
+          parseReviewScores(a).size >= parseReviewScores(b).size ? a : b,
+        onRetry: (attempt, why) =>
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId: opts.taskId,
+            message: `${label} retry ${attempt}/${REVIEWER_MAX_ATTEMPTS} for chunk ${opts.chunkLabel}: ${why}`,
+            model: opts.model,
+          }),
+      },
+    ).catch((err) => {
+      if (opts.signal.aborted) throw err;
+      // One batch failing must not cost the verdicts of every other batch.
+      appendLog({
+        level: "warn",
+        source: "engine",
+        taskId: opts.taskId,
+        message: `${label} failed for chunk ${opts.chunkLabel}; its corrections stay unvetted: ${err instanceof Error ? err.message : String(err)}`,
+        model: opts.model,
+      });
+      return "";
+    });
+
+    // The model numbers its answers from 0 within the batch it was shown.
+    for (const [i, score] of parseReviewScores(raw)) {
+      if (i >= 0 && i < slice.length) merged.set(start + i, score);
+    }
+  }
+
+  return merged;
 }
 
 interface JobData {
@@ -1386,7 +1427,7 @@ async function processJob(job: JobData): Promise<void> {
       editorToks: number;
       editorStart: number;
       editorFirstTokenAt: number;
-      promise: Promise<string[]>;
+      promise: Promise<Map<number, ReviewScore>[]>;
     } | null = null;
 
     async function collectPendingReview(): Promise<void> {
@@ -1401,7 +1442,7 @@ async function processJob(job: JobData): Promise<void> {
         // each correction gets the MINIMUM confidence across reviewers.
         // If ANY reviewer flags it, it gets flagged. Corrections no reviewer
         // scored are flagged as unvetted rather than passed through.
-        const allScores = reviewOutputs.map((output) => parseReviewScores(output));
+        const allScores = reviewOutputs;
         const { flaggedCount, unscoredCount } = aggregateReviewScores(
           pr.cs,
           allScores,
@@ -1440,7 +1481,7 @@ async function processJob(job: JobData): Promise<void> {
               job.styleGuide,
               job.manuscriptLang,
             );
-            const precisionOutput = await runReviewerAgentWithRetry({
+            const precisionScores = await runReviewerAgentWithRetry({
               model,
               chunkText: pr.chunk.body,
               cs: pr.cs,
@@ -1450,7 +1491,6 @@ async function processJob(job: JobData): Promise<void> {
               chunkLabel: pr.chunkLabel,
               agentLabel: "Precision pass",
             });
-            const precisionScores = parseReviewScores(precisionOutput);
             const { kept, removed, spared } = applyPrecisionPass(
               pr.cs,
               [precisionScores],
@@ -2178,9 +2218,11 @@ async function processJob(job: JobData): Promise<void> {
               const results = await Promise.allSettled(
                 Array.from({ length: rCount }, () => runOne()),
               );
-              const outputs: string[] = [];
+              const outputs: Map<number, ReviewScore>[] = [];
               for (const r of results) {
-                if (r.status === "fulfilled" && r.value) outputs.push(r.value);
+                if (r.status === "fulfilled" && r.value.size > 0) {
+                  outputs.push(r.value);
+                }
               }
               if (outputs.length === 0)
                 throw new Error(
@@ -2316,9 +2358,9 @@ async function processJob(job: JobData): Promise<void> {
                 const reviewResults = await Promise.allSettled(
                   Array.from({ length: rCount }, () => runOne()),
                 );
-                const reviewOutputs: string[] = [];
+                const reviewOutputs: Map<number, ReviewScore>[] = [];
                 for (const r of reviewResults) {
-                  if (r.status === "fulfilled" && r.value)
+                  if (r.status === "fulfilled" && r.value.size > 0)
                     reviewOutputs.push(r.value);
                 }
                 if (reviewOutputs.length > 0 && reviewOutputs.length < rCount) {
@@ -2332,9 +2374,7 @@ async function processJob(job: JobData): Promise<void> {
                 }
 
                 if (reviewOutputs.length > 0) {
-                  const allScores = reviewOutputs.map((o) =>
-                    parseReviewScores(o),
-                  );
+                  const allScores = reviewOutputs;
                   const threshold = job.reviewerThreshold ?? 3;
 
                   const flagged: { idx: number; conf: number; reason: string }[] =
@@ -2483,7 +2523,6 @@ async function processJob(job: JobData): Promise<void> {
                     chunkLabel,
                     agentLabel: "Fluency-reviewer agent",
                   }),
-                parseScores: parseReviewScores,
                 log: (level, message) =>
                   appendLog({ level, source: "engine", taskId, message, model }),
                 setPhase: (phase) => updateTask(taskId, { phase }),

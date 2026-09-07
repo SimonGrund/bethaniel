@@ -437,6 +437,9 @@ function buildSystemMessage(model: string, taskPrompt: string): string {
  * with "Context size has been exceeded." Estimate prompt tokens via the shared
  * CHARS_PER_TOKEN ratio and reserve 256 tokens for chat-template/role overhead.
  */
+/** Output tokens one reviewer verdict costs: an index, a 1-5 score, a short reason. */
+const REVIEW_TOKENS_PER_CORRECTION = 50;
+
 function slotSafeMaxTokens(
   model: string,
   systemMsg: string,
@@ -1119,7 +1122,7 @@ function buildReviewerUserMessage(
   return msg;
 }
 
-interface ReviewScore {
+export interface ReviewScore {
   confidence: number;
   reason: string;
 }
@@ -1170,6 +1173,67 @@ export function parseReviewScores(raw: string): Map<number, ReviewScore> {
  * Simple one-shot LLM call for character identity resolution.
  * Collects the full (non-streamed) response and returns the trimmed text.
  */
+
+/**
+ * Split a chunk's corrections into batches the reviewer can actually answer.
+ *
+ * The reviewer is asked for one JSONL line per correction, so the output it
+ * needs grows with the correction count while the space available shrinks by
+ * the same prompt that lists them. Above a certain density the two cross and
+ * `slotSafeMaxTokens` truncates the reply — the model then physically cannot
+ * score the tail, and those corrections fall through as "unvetted".
+ *
+ * That was not a rare edge: on a dense chunk the bundled 8k-context models
+ * could only ever cover about two thirds of ~95 corrections, and measured
+ * coverage was lower still because a small model asked for 95 ordered JSONL
+ * lines stops early on its own. A 128k-context cloud model covered all of
+ * them, which is why review looked like a model-quality difference when it
+ * was really a budget one.
+ *
+ * Batching removes the dependency on context size entirely: every batch is
+ * sized so its own request fits, so coverage is a property of the pipeline
+ * rather than of the machine it happens to run on. Smaller batches also read
+ * better to a small model than one long enumeration.
+ *
+ * Returns [start, end) index pairs covering every correction exactly once.
+ */
+export function planReviewBatches(
+  model: string,
+  chunkText: string,
+  corrections: Correction[],
+  systemPrompt: string,
+): [number, number][] {
+  if (corrections.length === 0) return [];
+
+  const cfg = getActiveConfig(model);
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  // Everything the reviewer must read before it can answer about ANY batch.
+  const fixedPrompt = estimateTokens(systemMsg + chunkText) + 256;
+  const budget = cfg.num_ctx - fixedPrompt;
+
+  const batches: [number, number][] = [];
+  let start = 0;
+  while (start < corrections.length) {
+    let end = start;
+    let listed = 0;
+    while (end < corrections.length) {
+      const c = corrections[end];
+      const listedNext = listed + estimateTokens(`[${end}] "${c.original}" → "${c.corrected}"`);
+      // Each correction costs its line in the prompt AND ~50 tokens of answer.
+      const need = listedNext + (end - start + 1) * REVIEW_TOKENS_PER_CORRECTION + 512;
+      if (need > budget && end > start) break;
+      listed = listedNext;
+      end++;
+    }
+    // A single correction that cannot fit still gets its own call — better a
+    // truncated answer about one than a silent gap.
+    if (end === start) end = start + 1;
+    batches.push([start, end]);
+    start = end;
+  }
+  return batches;
+}
+
 export async function* reviewCorrectionsStream(
   model: string,
   chunkText: string,
@@ -1184,7 +1248,7 @@ export async function* reviewCorrectionsStream(
     model,
     systemMsg,
     userMsg,
-    Math.max(256, corrections.length * 50 + 512),
+    Math.max(256, corrections.length * REVIEW_TOKENS_PER_CORRECTION + 512),
   );
   yield* chatStream(
     model,

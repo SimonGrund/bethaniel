@@ -45,8 +45,12 @@ export interface UpgradeDeps {
   /** Accumulate a full completion for `text` under `systemPrompt`. */
   editStream: (text: string, systemPrompt: string) => Promise<string>;
   /** Run one fluency-reviewer agent; resolves to its raw JSONL output. */
-  runReviewer: (draftChunk: string, pairs: Correction[]) => Promise<string>;
-  parseScores: (raw: string) => Map<number, FluencyScore>;
+  /** Returns each reviewer's verdicts keyed by paragraph index. The runner
+   *  batches internally, so a dense chunk is covered rather than truncated. */
+  runReviewer: (
+    draftChunk: string,
+    pairs: Correction[],
+  ) => Promise<Map<number, { confidence: number; reason: string }>>;
   log: (level: "info" | "warn", message: string) => void;
   setPhase: (phase: string) => void;
 }
@@ -104,9 +108,9 @@ export async function runTranslationUpgrade(
         deps.runReviewer(draft, pairs),
       ),
     );
-    const outputs: string[] = [];
+    const outputs: Map<number, { confidence: number; reason: string }>[] = [];
     for (const r of results)
-      if (r.status === "fulfilled" && r.value) outputs.push(r.value);
+      if (r.status === "fulfilled" && r.value.size > 0) outputs.push(r.value);
 
     if (outputs.length === 0) {
       deps.log(
@@ -121,7 +125,7 @@ export async function runTranslationUpgrade(
         `Only ${outputs.length}/${opts.reviewerCount} fluency reviewers contributed for chunk ${chunkLabel}; scoring on survivors.`,
       );
 
-    const allScores = outputs.map((o) => deps.parseScores(o));
+    const allScores = outputs;
     const flagged: { idx: number; conf: number; reason: string }[] = [];
     for (let i = 0; i < n; i++) {
       let minConf = 5;
