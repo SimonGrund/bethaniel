@@ -36,7 +36,7 @@ import {
   type PlantedErrorCategory,
   type WordChecks,
 } from "../backend/src/benchScoring.js";
-import { getWordValidator } from "../backend/src/spellcheck.js";
+import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
@@ -85,7 +85,10 @@ function distribution(
 const total = (m: Map<PlantedErrorCategory, number>) =>
   [...m.values()].reduce((a, b) => a + b, 0);
 
-function main(): void {
+async function main(): Promise<void> {
+  // Hunspell is WebAssembly; the load is async and everything below is not.
+  await initSpellchecker();
+
   const lang = process.argv[2];
   const dryRun = process.argv.includes("--dry");
   if (!lang) {
@@ -172,4 +175,4 @@ function main(): void {
   console.log(`\n  wrote ${dst}`);
 }
 
-main();
+void main();

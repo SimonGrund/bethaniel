@@ -8,10 +8,18 @@
 // verbatim. These three are mechanically detectable with no risk of dropping
 // a real fix, so they're caught here as a deterministic backstop.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { parseCorrectionsJson } from "../src/llm.ts";
+import { initSpellchecker } from "../src/spellcheck.ts";
+
+// parseCorrectionsJson's hygiene checks consult the dictionary (a correction
+// that splits a real compound, or renames a proper noun, is dropped). Hunspell
+// is WebAssembly, so that dictionary does not exist until this resolves.
+before(async () => {
+  await initSpellchecker();
+});
 
 test("drops a correction that only prepends an invented connective word", () => {
   const raw = '{"original": "forever. He would", "corrected": "forever. Furthermore, he would"}';

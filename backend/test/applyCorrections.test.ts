@@ -5,19 +5,34 @@
 // word into a non-word, plus the word-boundary, proper-noun, and real-word-swap
 // safeguards added on top of it.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { applyCorrections, isRealWordSwap } from "../src/llm.ts";
-import { getWordValidator } from "../src/spellcheck.ts";
+import { getWordValidator,
+  initSpellchecker,
+} from "../src/spellcheck.ts";
 
-const isAcceptableWord = getWordValidator("en", { englishDialect: "american" });
-assert.equal(
-  typeof isAcceptableWord,
-  "function",
-  "English validator should load (dictionaries present)",
-);
-const validate = isAcceptableWord!;
+// Hunspell is WebAssembly, so loading it is async while every spell-check call
+// below is synchronous. Production does this once at startup (index.ts).
+before(async () => {
+  await initSpellchecker();
+});
+
+
+// Resolved per call, not at module scope: the dictionary does not exist until
+// the before() hook above has awaited the WebAssembly load, and module bodies
+// run before hooks.
+const validate = (word: string): boolean =>
+  getWordValidator("en", { englishDialect: "american" })!(word);
+
+test("the English validator loads", () => {
+  assert.equal(
+    typeof getWordValidator("en", { englishDialect: "american" }),
+    "function",
+    "English validator should load (dictionaries present)",
+  );
+});
 
 test("rejects the reported corruption (real word → non-word)", () => {
   const text = "Apparently, Aaron's foul mood didn't bother him.";

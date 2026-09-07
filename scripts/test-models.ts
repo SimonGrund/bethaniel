@@ -54,7 +54,7 @@ import {
   type ScoredCorrection,
   type WordChecks,
 } from "../backend/src/benchScoring.js";
-import { getWordValidator } from "../backend/src/spellcheck.js";
+import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -384,6 +384,9 @@ function groundTruthFor(
 // ── Main ──
 
 async function main() {
+  // Hunspell is WebAssembly; the load is async and the scoring below is not.
+  await initSpellchecker();
+
   console.log("=== Bethaniel Model Benchmark ===\n");
 
   if (REPORT_ONLY) {

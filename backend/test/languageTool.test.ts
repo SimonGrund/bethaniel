@@ -2,7 +2,7 @@
 // LanguageTool /v2/check response into context-anchored Corrections, without
 // needing a live server. Fiction-noisy categories are filtered out.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -104,6 +104,14 @@ import {
   buildCheckParams,
   INTRODUCTORY_COMMA_RULES,
 } from "../src/languageTool.ts";
+import { initSpellchecker } from "../src/spellcheck.ts";
+
+// Mapping a LanguageTool match to a Correction consults the dictionary — a
+// 'typos' match that renames a proper noun's letters is dropped. Hunspell is
+// WebAssembly, so that dictionary does not exist until this resolves.
+before(async () => {
+  await initSpellchecker();
+});
 
 test("INTRODUCTORY_COMMA_RULES lists the LanguageTool intro-comma rule ids", () => {
   assert.ok(INTRODUCTORY_COMMA_RULES.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));

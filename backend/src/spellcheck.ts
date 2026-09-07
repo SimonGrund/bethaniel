@@ -1,16 +1,49 @@
-// ── Deterministic spell-checker (Hunspell via nspell) ──
+// ── Deterministic spell-checker (Hunspell, compiled to WebAssembly) ──
 // Runs alongside the LLM editor. Can either feed suspect words as hints
 // or directly generate Correction[] objects using Hunspell suggestions.
+//
+// This used nspell, a reimplementation of Hunspell in JavaScript, and paid for
+// it twice in bugs that only showed up in one language each:
+//
+//   - Danish lost 26,232 entries, because nspell does not strip the
+//     morphological tags Hunspell allows after a headword, so `den al:dens`
+//     was indexed whole and plain `den` was unknown.
+//   - German lost 87,955, because nspell keeps only one of a lowercase/
+//     capitalised pair and German capitalises every noun, so `kommen` collided
+//     with `Kommen` and lost.
+//
+// Both were worked around here. Neither workaround is needed now, and a third
+// limitation could not have been worked around at all: nspell does not
+// implement COMPOUNDRULE, so every novel compound in a compounding language
+// was reported as a misspelling — `messinglup`, `rådhusarkivet`,
+// `Werkstattfenster`. That is not an edge case in Danish or German, it is how
+// the languages build words.
+//
+// hunspell-asm is Hunspell itself compiled to WebAssembly: same engine, same
+// .aff/.dic semantics, no native module to build per platform. Measured on the
+// clean stress fixtures, unique words wrongly flagged:
+//
+//   language   nspell (with both workarounds)   hunspell
+//   English                                 3          3
+//   Danish                                  3          0
+//   German                                 71          5
+//   Spanish                                 4          4
+//
+// The remaining flags are invented proper nouns and coined compounds, which a
+// dictionary is right not to know.
+//
+// One constraint comes with it: Hunspell reads a dictionary's encoding from its
+// own `SET` line and expects words in that encoding, so de_DE was converted
+// from ISO-8859-1 to UTF-8 (SET line included) rather than decoded at load.
+// Every bundled dictionary is now UTF-8.
 
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { createRequire } from "module";
 
 import type { Correction } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const _require = createRequire(import.meta.url);
 const DICT_DIR = path.resolve(
   process.env.DICTIONARIES_DIR ?? path.resolve(__dirname, "../dictionaries"),
 );
@@ -47,136 +80,93 @@ interface SpellDict {
 const cache = new Map<string, SpellDict>();
 
 /**
- * Hunspell .aff/.dic pairs declare their own byte encoding via a `SET`
- * directive — most bundled dictionaries (en_US, en_GB, da_DK, es_ES) are
- * UTF-8, but de_DE's is `SET ISO8859-1` (inherited from the igerman98
- * source). Reading it as UTF-8 regardless — the previous behavior — silently
- * mangled every non-ASCII German letter (ä/ö/ü/ß) into a run of U+FFFD
- * replacement characters, which then surfaced as garbled "spell-check"
- * suggestions like "über" → "�ber". `latin1` is Node's byte-identical decode
- * for the classic single-byte Hunspell charsets (ISO8859-1, CP1252, etc.);
- * `SET` lines that name anything else fall back to `utf-8`.
+ * The WebAssembly module, once loaded.
+ *
+ * Loading it is the only async step; creating a dictionary from it is
+ * synchronous, so `initSpellchecker()` runs once at startup and every caller
+ * below keeps the synchronous API it always had. If startup never ran, or the
+ * module failed to load, `loadDict` returns null and the spell pass degrades
+ * to a no-op exactly as it already does for a missing dictionary.
  */
-function detectDictEncoding(affBuffer: Buffer): BufferEncoding {
-  const header = affBuffer.toString("latin1").slice(0, 512);
-  const m = header.match(/^SET\s+(\S+)/im);
-  const charset = m?.[1]?.toUpperCase() ?? "UTF-8";
-  return /^UTF-?8$/.test(charset) ? "utf-8" : "latin1";
-}
-
-/**
- * Drop Hunspell morphological fields from a .dic, keeping `word/flags`.
- *
- * Hunspell lets a dictionary entry carry analysis tags after the word —
- * `den al:dens`, `havde st:have` (`al:` alternate form, `st:` stem, `po:`
- * part of speech, and friends). nspell does not strip them, so it indexes the
- * ENTIRE line as the word: "den al:dens" becomes a known word and plain "den"
- * does not.
- *
- * That is not a rare corner. da_DK.dic tags 26,232 entries this way, and they
- * are exactly the high-frequency ones — pronouns, auxiliaries, irregular verb
- * forms: den, sin, havde, kom, nogen, nogle, lagde. The Danish spell pass
- * therefore reported the commonest words in the language as misspellings and
- * "corrected" them into nonsense (den → gen, kom → gom, havde → hævde).
- * de_DE.dic and the English dictionaries carry no such fields, which is why
- * only Danish was affected.
- *
- * Only a trailing run of `xx:value` tags is removed, so a legitimate entry
- * containing a space is left alone.
- */
-export function stripMorphologicalFields(dic: string): string {
-  return dic.replace(/^(\S+)(?:[ \t]+\w\w:\S+)+$/gm, "$1");
-}
-
-/**
- * Every headword the dictionary lists as usable on its own.
- *
- * A Hunspell entry may be flagged ONLYINCOMPOUND (valid only inside a
- * compound) or NEEDAFFIX (valid only once an affix is attached). Everything
- * else is a word a writer may type as it stands.
- */
-export function standaloneHeadwords(aff: string, dic: string): Set<string> {
-  const onlyInCompound = aff.match(/^ONLYINCOMPOUND\s+(\S)/m)?.[1];
-  const needAffix = aff.match(/^NEEDAFFIX\s+(\S)/m)?.[1];
-
-  const out = new Set<string>();
-  const lines = dic.split(/\r?\n/);
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    const slash = line.indexOf("/");
-    const word = slash === -1 ? line : line.slice(0, slash);
-    if (!word) continue;
-    const flags = slash === -1 ? "" : line.slice(slash + 1);
-    if (onlyInCompound && flags.includes(onlyInCompound)) continue;
-    if (needAffix && flags.includes(needAffix)) continue;
-    out.add(word);
-  }
-  return out;
-}
-
-/**
- * Accept a word the dictionary lists outright, even when nspell does not.
- *
- * German spellcheck rejected a third of its own dictionary. 93,148 lowercase
- * German words also exist capitalised — because German capitalises every noun,
- * so a nominalised verb or adjective collides with itself (`kommen`/`Kommen`,
- * `recht`/`Recht`, `gut`/`Gut`) — and nspell keeps only one of the pair,
- * rejecting 87,955 of them. `kommen/DIVXW` sits in de_DE.dic at line 179,634
- * and `correct("kommen")` still answers false.
- *
- * The other three dictionaries are untouched by this: Danish rejects 1 of
- * 1,240 such pairs, Spanish and English 0. Only German has enough collisions
- * for it to matter, which is why it went unnoticed.
- *
- * The damage was indirect and worse than the missing words. The spell pass
- * emitted a correction for every one of those rejected words, so a German
- * chunk arrived at the reviewer carrying dozens of bogus corrections, and real
- * misspellings drowned in them: German scored 55% on misspelling recall
- * against 85-97% for the other three languages, while its clean fixture drew
- * 43 flags.
- *
- * Merging duplicate entries' flags — the obvious fix, and what Hunspell itself
- * does — was tried and made things worse: it also accepted `haus` for `Haus`,
- * which would gut the capitalization check German scores 79-86% on. So the
- * rescue is narrower. A word is accepted only if the dictionary lists it as a
- * STANDALONE headword in that exact case. `kommen` qualifies; `haus` does not,
- * because igerman98 lists it ONLYINCOMPOUND for building `Bauernhaus`.
- *
- * `licht` does get through, but `licht` is a real German adjective — a spell
- * checker is right not to flag it.
- */
-function withStandaloneHeadwords(
-  dict: SpellDict,
-  aff: string,
-  dic: string,
-): SpellDict {
-  const standalone = standaloneHeadwords(aff, dic);
-  return {
-    correct: (word) => dict.correct(word) || standalone.has(word),
-    suggest: (word) => dict.suggest(word),
+let hunspellFactory: {
+  mountBuffer: (contents: Uint8Array, fileName?: string) => string;
+  unmount: (path: string) => void;
+  create: (affPath: string, dictPath: string) => {
+    spell: (word: string) => boolean;
+    suggest: (word: string) => string[];
+    dispose: () => void;
   };
+} | null = null;
+
+/**
+ * Load the Hunspell WebAssembly module. Call once, at startup, before any
+ * spell-checking. Safe to call twice; the second call is a no-op.
+ */
+export async function initSpellchecker(): Promise<boolean> {
+  if (hunspellFactory) return true;
+  try {
+    const mod = (await import("hunspell-asm")) as unknown as {
+      loadModule: () => Promise<typeof hunspellFactory>;
+      default?: { loadModule: () => Promise<typeof hunspellFactory> };
+    };
+    const loadModule = mod.loadModule ?? mod.default?.loadModule;
+    if (!loadModule) throw new Error("hunspell-asm exposes no loadModule");
+    hunspellFactory = await loadModule();
+    return true;
+  } catch (err) {
+    console.warn("[spellcheck] Hunspell failed to load; spell-check is off:", err);
+    hunspellFactory = null;
+    return false;
+  }
 }
+
+/** Whether the spell pass can run. False if the WebAssembly module failed. */
+export function isSpellcheckReady(): boolean {
+  return hunspellFactory !== null;
+}
+
+// Initialising on import would be tidier — the module would own its own
+// readiness and no caller could get the order wrong. It is not available:
+// top-level await forces the module async, and tsx transforms these files to
+// CJS for the benchmark scripts, which then fails outright with
+// ERR_REQUIRE_ASYNC_MODULE. So initialisation stays explicit, and the guard
+// below makes a missed call loud instead of silent.
+
+/** Warn once, not once per word, if someone forgot to initialise. */
+let warnedUninitialised = false;
 
 function loadDict(dictName: string): SpellDict | null {
   const cached = cache.get(dictName);
   if (cached) return cached;
+  if (!hunspellFactory) {
+    // Every function in this file is synchronous and silently returns "no
+    // problems found" without a dictionary, so a missed initSpellchecker()
+    // would look exactly like clean prose. Say so instead.
+    if (!warnedUninitialised) {
+      warnedUninitialised = true;
+      console.warn(
+        "[spellcheck] Not initialised — every spell check will find nothing. " +
+          "Call `await initSpellchecker()` at startup before editing.",
+      );
+    }
+    return null;
+  }
 
   const affPath = path.join(DICT_DIR, `${dictName}.aff`);
   const dicPath = path.join(DICT_DIR, `${dictName}.dic`);
 
   try {
-    const affRaw = fs.readFileSync(affPath);
-    const encoding = detectDictEncoding(affRaw);
-    const aff = affRaw.toString(encoding);
-    const dic = stripMorphologicalFields(fs.readFileSync(dicPath, encoding));
-    // Dynamic import of nspell — avoids requiring it at import time
-    // (keeps startup fast when spell-check is disabled).
-    const nspell = _require("nspell") as (
-      aff: string,
-      dic: string,
-    ) => SpellDict;
-    const instance = withStandaloneHeadwords(nspell(aff, dic), aff, dic);
+    // Hunspell parses the .aff and .dic itself, encoding included — the bytes
+    // go in untouched. Both stay mounted for the process lifetime because the
+    // instance reads from them lazily; unmounting would pull the dictionary
+    // out from under it.
+    const aff = hunspellFactory.mountBuffer(fs.readFileSync(affPath), `${dictName}.aff`);
+    const dic = hunspellFactory.mountBuffer(fs.readFileSync(dicPath), `${dictName}.dic`);
+    const h = hunspellFactory.create(aff, dic);
+    const instance: SpellDict = {
+      correct: (word) => h.spell(word),
+      suggest: (word) => h.suggest(word),
+    };
     cache.set(dictName, instance);
     return instance;
   } catch (err) {
