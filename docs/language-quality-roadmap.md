@@ -68,40 +68,49 @@ is the honest one, and the fixture should drop those three plants.
 
 ## Next, in order
 
-### 1. Spanish and Danish commas — PROMPT LEVER TESTED AND DISPROVEN
+### 1. Commas — 63% of everything missed, and now partly explained
 
-Spanish comma directives were written (RAE convention, in Spanish, not a
-translation of the English rules — those are opposite on the serial comma) and
-measured. The result:
+Commas are where the misses are. Counting planted errors that neither model
+caught, across all four fixtures:
 
-| Spanish | comma recall | overall recall | precision | clean-text FPs |
-|---|---|---|---|---|
-| Baby | 5 → **3** | 61 → 57 | 66 → **81** | 0 → 0 |
-| Big Bad | 11 → **11** | 62 → 63 | 69 → **78** | 1 → **0** |
+| category | missed | share |
+|---|---|---|
+| **comma** | **116.5** | **62.6%** |
+| misspelling | 25.8 | 13.8% |
+| wrong word | 21.0 | 11.3% |
+| capitalization | 13.0 | 7.0% |
 
-**Comma recall did not move.** The directives made the model more conservative
-instead, which bought 12-15 points of precision and took clean-text false
-positives to zero. Worth keeping on that basis, and kept — but it is a
-precision fix, not the comma fix it was written as, and it should not be
-described as one.
+And almost nothing deterministic is looking. LanguageTool covers 5 of 47
+planted English commas, 13 of 40 German, and **0 of 50 Danish and 0 of 41
+Spanish**.
 
-This is the second independent result pointing the same way. German scores
-best of the four on commas with no directive at all, carried by LanguageTool;
-Spanish now has directives and still scores 3-11%. **Comma recall tracks
-deterministic rule coverage, and a prompt cannot substitute for it.** A 4B or
-9B model does not reliably act on a comma rule it is told about, however
-concretely it is phrased.
+**Two prompt interventions were run, and the contrast between them is the
+finding.** Danish comma directives (behind the new comma-system toggle) moved
+comma recall 9 → 19 and 23 → 28. Spanish directives moved nothing: 5 → 3 and
+11 → 11.
 
-So the remaining lever for Spanish commas is LanguageTool's Spanish rule set,
-not the prompt: either enabling more of its comma rules (measured against the
-ledger bar, since picky-tier Spanish rules are where COMILLAS_TIPOGRAFICAS
-came from) or supplying rules of our own. That is a bigger piece of work than
-a prompt edit, and it should be costed before it is started.
+The difference is not the language, it is the shape of the rule:
 
-Danish stays where it was, and for the same reason as before: two competing
-comma systems, and enforcing the wrong one is worse than enforcing neither.
-The Spanish result makes it less attractive still — a prompt rule is unlikely
-to move it even once the style question is settled.
+- The Danish rules name a **closed set of trigger words** — put a comma before
+  `at`, `som`, `fordi`, `hvis`, `da`, `når`, `der`. A model can pattern-match
+  that.
+- The Spanish rules describe a **syntactic relation** — bracket an inciso,
+  separate an apposition. There is no lexical marker to match on.
+
+The fixtures confirm it: **1 of 30** Spanish missing-comma plants sits before a
+trigger word; the other 29 are incisos, appositions and enumerations. Danish's
+are all before conjunctions.
+
+So the rule for anyone adding comma rules to a new language: **name the trigger
+words or expect nothing.** Where the comma depends on recognising a
+parenthetical, a 4B-9B will not find it however the instruction is phrased, and
+that is not a prompt-engineering problem to keep retrying.
+
+That leaves Spanish commas (36 missed, the single largest remaining pool) with
+no cheap lever. The options are a real LanguageTool Spanish rule set, or a
+deterministic apposition detector of our own — both substantial, and both
+needing to clear the ledger bar before shipping, because a comma rule that
+misfires on clean prose is the failure mode this pipeline is most sensitive to.
 
 ### 2. English capitalization (36/29%) — DIAGNOSED: the metric, not the product
 
