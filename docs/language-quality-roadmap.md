@@ -149,21 +149,37 @@ merging, the way `scripts/plant-errors.ts` guarantees for the three newer
 fixtures (all three carry zero `other`). Until then English capitalization is
 not comparable with the other three and should not be read as a defect.
 
-### 3. German misspelling (49%) — CONFIRMED a dictionary limit
+### 3. German misspelling — FIXED, and the dictionary was never the problem
 
-The swap to real Hunspell settles this. With a correct engine — one that knows
-`kommen`, handles compounds, and needs none of the old workarounds — German
-misspelling moved 48% → 49%. Everything else in German moved with it (comma
-46 → 57, recall 55 → 59), so the engine was not the constraint here; the
-dictionary's contents are.
+Resolved, and the route there is worth recording because the obvious answer was
+wrong twice.
 
-igerman98 is the largest of the four bundled dictionaries at 258k entries, so
-this is not about size. It is that the fixture's planted misspellings are
-mostly inflected or compound forms the dictionary does not derive. A fuller
-German dictionary (hunspell-de_DE_frami is the usual replacement, LGPL) is the
-lever; measure it with the clean-fixture flag count before and after.
+**The dictionaries are all already current.** Fetched and compared against
+upstream: German is already hunspell-de_DE_frami, byte-for-byte; Danish is
+already Stavekontrolden 2.9.101; Spanish and English match their upstream
+entry counts exactly. There is no dictionary upgrade available in any language,
+and the earlier recommendation here to try frami was simply wrong.
 
-### 4. English wrong word (53/67%) — the confusable list is English-first
+**The dictionary rejected all 44 planted German misspellings.** Detection was
+never the problem. `getSpellCorrections` protects a mid-sentence capital
+outright as a probable proper noun — true in English, Danish and Spanish, and
+in German a description of every noun in the language. It discarded 27 of 27
+capitalised planted misspellings before the dictionary was consulted.
+
+Fixed by changing the signal for noun-capitalising languages: a mid-sentence
+capital is protected only from its second occurrence, since a character name
+recurs and a typo does not. Measured, Baby Betty:
+
+| | before | after |
+|---|---|---|
+| German misspelling | 49% | **68%** |
+| German wrong word | 54% | 58% |
+| German recall | 59% | **67%** |
+| German clean-text FPs | 0 | 0 |
+
+No other language moved, which is what a German-only fix should look like.
+
+### 4. English wrong word### 4. English wrong word (53/67%) — the confusable list is English-first
 
 English wrong-word recall is *below* Spanish (83%) despite having the largest
 confusable list. Spanish wins because its wrong words are dropped accents,
