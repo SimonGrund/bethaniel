@@ -316,6 +316,24 @@
     <p>The paragraph-level fluency reviewer that runs inside the real translation pass is scored separately, by a model judging translated paragraphs 1–5. It flagged six of ten paragraphs on the smaller model's Danish output — garbled words, an invented "his father" for "her father" — and none on the larger model's. That reviewer's job in production is to catch exactly those and re-translate them.</p>
   </section>
 
+  <section>
+    <h2>Betty in the Cloud, and what is not measured</h2>
+    <p>Everything above is the two bundled local models. The paid cloud option runs a much larger model — Meta-Llama-3.3-70B on OVHcloud AI Endpoints — through the same pipeline, and it has <strong>not</strong> been through this four-language benchmark. It has been measured once, on English only, as part of choosing which model to run.</p>
+    <div class="table-wrap">
+      <table>
+        <caption>English stress fixture, one run, Speed preset. Alongside the local models on the same fixture for scale.</caption>
+        <thead><tr><th>Model</th><th>Recall</th><th>Prec.</th><th>Misspelling</th><th>Wrong word</th><th>Comma</th><th>Clean flags</th></tr></thead>
+        <tbody>
+          <tr><td>Baby Betty — 4B, local</td><td>56%</td><td>71%</td><td>94%</td><td>60%</td><td>30%</td><td>1</td></tr>
+          <tr><td>Big Bad Betty — 9B, local</td><td>60%</td><td>72%</td><td>94%</td><td>67%</td><td>30%</td><td>1</td></tr>
+          <tr><td>Betty in the Cloud — 70B</td><td>56%</td><td>72%</td><td>94%</td><td>53%</td><td>19%</td><td>2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A seventy-billion-parameter model scoring level with a four-billion one is the result, and it is worth sitting with rather than explaining away. The categories say why: the deterministic layer does the spelling in both cases, and commas — the largest remaining pool — are not a capacity problem. The 70B was still the right choice among the five cloud models tested; it led the next best on recall by twenty-one points and on clean-text false positives by a factor of twenty, at half the token price. It just does not lead the local models by anything like its size.</p>
+    <p class="callout">Read that row as indicative, not settled. It is <strong>one run, one language</strong>, against the two-repeat four-language numbers everywhere else on this page — and one model in that same comparison varied by six points of recall across three runs. Running the cloud model through the full four-language benchmark is straightforward (<code>scripts/test-models.ts --api</code>) and costs well under a euro in tokens; it has not been done because the hosted service is not deployed yet.</p>
+  </section>
+
   <section id="fixed">
     <h2>What was fixed, and what it teaches</h2>
     <p>Four bugs found by this benchmark, listed because they share a shape worth recognising: <em>a heuristic that is correct in English, silently wrong in one other language, and invisible until a large fixture exists in that language.</em></p>

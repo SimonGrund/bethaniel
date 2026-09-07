@@ -46,7 +46,7 @@ else about a job changes with the choice.
 | **Big Bad Betty** — Qwen3.5 9B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~6 GB disk, 16 GB RAM (12 GB on Apple Silicon) |
 | **Custom Betty** | Your machine | Any GGUF file you point it at |
 | **External Betty** | DeepSeek, or any OpenAI-compatible endpoint | Your own API key |
-| **Betty in the Cloud** | Bethaniel's hosted service | A card — pay per job |
+| **Betty in the Cloud** — Llama-3.3 70B | Bethaniel's hosted service | A card — pay per job |
 
 The two local models are the default and the only ones that keep the manuscript
 on the machine. On the four-language benchmark the two score level overall (46
@@ -59,7 +59,7 @@ it is *worse* than the 4B on Danish wrong words. See
 
 - **External Betty** — Connect to DeepSeek (or any OpenAI-compatible endpoint) via a local API key stored on your machine. No key leaves your device. Select "External Betty" as the model in the wizard to bypass local inference and use cloud-hosted models instead.
 
-- **Betty in the Cloud** — For a machine that cannot run a local model and a user who does not want to obtain an API key. Pay per job through Stripe; the manuscript is processed by Bethaniel's hosted service and the credential the app stores afterwards is a scoped, prepaid token for that service, never a provider key. A pre-run estimate (`POST /api/cloud/estimate`) prices the job before any money moves, and a per-credential ledger hard-caps total spend. The cloud path reuses the same `"api"` plumbing as External Betty — the editing pipeline itself is identical. See [`worker/README.md`](worker/README.md) for the deployable side and [`docs/cloud-terms.html`](docs/cloud-terms.html) for the terms.
+- **Betty in the Cloud** — Runs Meta-Llama-3.3-70B on OVHcloud AI Endpoints, chosen by benchmark over four other cloud models (it led the next best by 21 points of recall and by a factor of twenty on clean-text false positives, at half the token price — full table in `sample_texts/run_mode_bench_results.txt`). Note that on the one English fixture where all three have been compared it scores *level* with the local 4B; the deterministic layer does the spelling either way, and commas are not a capacity problem. It has not been through the four-language benchmark, because the hosted service is not deployed yet. For a machine that cannot run a local model and a user who does not want to obtain an API key. Pay per job through Stripe; the manuscript is processed by Bethaniel's hosted service and the credential the app stores afterwards is a scoped, prepaid token for that service, never a provider key. A pre-run estimate (`POST /api/cloud/estimate`) prices the job before any money moves, and a per-credential ledger hard-caps total spend. The cloud path reuses the same `"api"` plumbing as External Betty — the editing pipeline itself is identical. See [`worker/README.md`](worker/README.md) for the deployable side and [`docs/cloud-terms.html`](docs/cloud-terms.html) for the terms.
 
 ### Multi-Agent Orchestration
 
