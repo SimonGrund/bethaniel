@@ -184,6 +184,18 @@ function isTransientFetchError(err: unknown): boolean {
 const REVIEWER_MAX_ATTEMPTS = 3;
 
 /**
+ * Confidence below which the PRECISION PASS deletes a correction outright.
+ *
+ * Deliberately lower than the reviewer threshold that governs flagging
+ * (job.reviewerThreshold, default 3). Flagging asks the author to look;
+ * deleting decides for them, and the evidence needed is not the same. The
+ * scores are also not comparable across languages: a reviewer rates a
+ * correction it is merely unsure of the same 2 it gives one it doubts, and it
+ * is least sure in the languages whose deterministic layer is thinnest.
+ */
+const PRECISION_PASS_DELETE_THRESHOLD = 2;
+
+/**
  * One reviewer agent call with retries. Local inference fails via OOM, slot
  * exhaustion, and garbage output — not just network — so any error except
  * abort is retried. An output that parses to zero review scores (truncated,
@@ -1491,10 +1503,22 @@ async function processJob(job: JobData): Promise<void> {
               chunkLabel: pr.chunkLabel,
               agentLabel: "Precision pass",
             });
+            // The reviewer above FLAGS at this threshold; the precision pass
+            // DELETES, and those two questions do not deserve the same cutoff.
+            // A model scoring a correction 2 is usually reporting an absence of
+            // a verdict rather than a verdict — most often in the languages it
+            // knows least well, which are exactly the languages where the
+            // deterministic layer is thinnest and the model is the only source
+            // of a wrong-word catch. Measured on the Danish fixture, deleting
+            // the 2s cost recall 59% -> 38% (commas 45% -> 2%, wrong words 23%
+            // -> 15%) and bought 5 points of precision; on German it cost 2
+            // points of recall for none, and on English it gained 3 for none.
+            // Math.min so a user who lowers reviewerThreshold to keep more
+            // still gets a pass no more eager than they asked for.
             const { kept, removed, spared } = applyPrecisionPass(
               pr.cs,
               [precisionScores],
-              threshold,
+              Math.min(threshold, PRECISION_PASS_DELETE_THRESHOLD),
             );
             if (spared > 0) {
               appendLog({
