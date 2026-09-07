@@ -377,6 +377,15 @@ h4 {
   padding: 0.5rem 0 1rem 0;
   margin-bottom: 1rem;
   border-bottom: 1px solid #c9b896;
+  /* Above its siblings, which `.main-content > *` puts at z-index 1 to clear
+     the watermark. The Settings dropdown is absolutely positioned INSIDE this
+     element, so it is confined to this stacking context — raising the
+     dropdown's own z-index cannot lift it past a sibling section, and the
+     wizard panel wins the tie on DOM order. Measured: the menu at z-index
+     9999 still rendered behind the open task panel; the header at 10 fixes
+     it. Well below the modal layer (1000+), which should still cover it. */
+  position: relative;
+  z-index: 10;
 }
 
 .title-header .lang-toggle {
@@ -2667,11 +2676,19 @@ summary.review-source::before {
   color: #8b7355;
 }
 
-/* ── Experimental disclosure ── */
+/* ── Experimental disclosure ──
+   Its own container, a sibling of .wizard-content rather than a block inside
+   it. Nested in the step panel it read as a sub-option of whichever card was
+   selected, which is the opposite of what it is: the three cards are the paid
+   product and this is the drawer of things that are not. Same surface and
+   radius as the step panel so it belongs to the page, with a real gap so it
+   is plainly a separate box. */
 .beta-features {
-  margin-top: 1.1rem;
-  border-top: 1px solid #ded2b8;
-  padding-top: 0.8rem;
+  margin-top: 0.85rem;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  padding: 0.85rem 1.5rem;
 }
 
 .beta-disclosure {
@@ -2705,7 +2722,9 @@ summary.review-source::before {
 }
 
 .beta-panel {
-  margin-top: 0.7rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #ede4d0;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -4492,6 +4511,14 @@ summary.review-source::before {
 
 /* Folded wizard leaves the flow entirely — no orphaned flex gaps above the
    run/results area. (The visible open animation is wizard-page-in on mount.) */
+/* The task step is short — three cards, and controls only once one is picked.
+   Left to `flex: 1` it stretched to the full column and left a large empty
+   field under the cards. Upload and Style still fill: their drop zone and
+   editor want the height. */
+.wizard-content-tasks {
+  flex: 0 0 auto;
+}
+
 .wizard-content-collapsed {
   display: none;
 }
