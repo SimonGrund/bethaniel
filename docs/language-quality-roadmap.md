@@ -11,8 +11,9 @@ larger but speculative one.
 
 ## Baseline
 
-Copy-edit recall by error type, ~100 planted errors per language, Baby Betty /
-Big Bad Betty:
+The first four-language stress run, before any of the fixes below. Copy-edit
+recall by error type, ~100 planted errors per language, Baby Betty / Big Bad
+Betty:
 
 | Error type | English | Danish | German | Spanish |
 |---|---|---|---|---|
@@ -23,6 +24,36 @@ Big Bad Betty:
 | Duplicated word | 100 / 100 | 100 / 67 | 100 / 100 | 100 / 100 |
 
 Headline: recall 47–68%, precision 31–79%, clean-text false positives 0–131.
+
+## Where it stands now
+
+Same fixtures, same two repeats, after every fix in **Done** below —
+including the Hunspell swap and the German proper-noun fix.
+
+| Error type | English | Danish | German | Spanish |
+|---|---|---|---|---|
+| Misspelling | 94 / 94 | 81 / 81 | 68 / 68 | 91 / 95 |
+| Wrong word | 60 / 67 | 46 / **23** | 54 / 62 | 92 / 92 |
+| Comma | **30 / 30** | **21 / 17** | 54 / 68 | **3 / 5** |
+| Capitalization | 29 / 71 | 80 / 70 | 79 / 93 | 80 / 100 |
+| Duplicated word | 100 / 100 | 67 / 67 | 100 / 100 | 100 / 100 |
+| **Recall** | 56 / 60 | 42 / 41 | 67 / 72 | 59 / 63 |
+| **Precision** | 71 / 72 | 80 / 77 | 70 / 82 | 78 / 79 |
+| **Clean-text FPs** | 1 / 1 | 0 / 2 | 0 / 1 | 3 / 1 |
+
+Run scorecard: **46 for both models**. Precision is now 70–82% in every
+language against 31–79% at baseline, and clean-text false positives are 0–3
+against 0–131. The remaining missed-error pool is 176, of which **115 (65%)
+are commas**.
+
+Two results in that table are worth naming rather than averaging away:
+
+- **Big Bad Betty is worse than Baby Betty at Danish wrong words** — 46 → 23,
+  the only place either model halves the other. It is also ahead on
+  capitalization in three languages and on German commas. A single headline
+  number hides both directions, which is the argument for keeping this split.
+- **English capitalization (29/71)** is still the fixture artifact documented
+  under §2 below, not a defect. It has not been re-planted.
 
 ## Done
 
@@ -179,7 +210,7 @@ recurs and a typo does not. Measured, Baby Betty:
 
 No other language moved, which is what a German-only fix should look like.
 
-### 4. English wrong word### 4. English wrong word (53/67%) — the confusable list is English-first
+### 4. English wrong word (53/67%) — the confusable list is English-first
 
 English wrong-word recall is *below* Spanish (83%) despite having the largest
 confusable list. Spanish wins because its wrong words are dropped accents,

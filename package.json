@@ -37,10 +37,17 @@
     "body-parser": "^1.20.6",
     "tar": "^7.5.20",
     "js-yaml": "^4.3.0",
-    "@napi-rs/canvas": "file:./vendor/napi-rs-canvas-stub"
+    "@napi-rs/canvas": "file:./vendor/napi-rs-canvas-stub",
+    "hunspell-asm": {
+      "nanoid": "$nanoid"
+    },
+    "emscripten-wasm-loader": {
+      "nanoid": "$nanoid"
+    }
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "nanoid": "file:./vendor/nanoid-stub"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
