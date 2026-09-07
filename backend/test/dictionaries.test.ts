@@ -114,8 +114,8 @@ test("novel compounds are accepted in the compounding languages", () => {
 test("a real misspelling is still caught in every language", () => {
   const cases: [string, string, string][] = [
     ["da", "Hun stod i sin mors værkstd.", "værkstd"],
-    // Lowercase on purpose: a capitalised word mid-sentence is protected as a
-    // proper noun by collectMidSentenceCapitals, whatever the dictionary says.
+    // Lowercase keeps this test about the dictionary rather than the
+    // proper-noun guard; the German capitalised case has its own tests below.
     ["de", "Er gingg in die Werkstatt.", "gingg"],
     ["es", "He encuardenado libros durante treinta años.", "encuardenado"],
     ["en_US", "She kept a notebok in her coat.", "notebok"],
@@ -132,4 +132,42 @@ test("every bundled dictionary loads", () => {
   for (const lang of ["da", "de", "es", "en_US", "en_GB"]) {
     assert.ok(getWordValidator(lang), `${lang} should load`);
   }
+});
+
+// ── German capitalises every noun, and that broke the proper-noun guard ─────
+//
+// getSpellCorrections protects mid-sentence capitals outright, reading them as
+// proper nouns. That holds in English, Danish and Spanish. In German it
+// describes every noun in the language, so it hid 27 of the 27 capitalised
+// misspellings planted in the German stress fixture — Zederholz, Wolcken,
+// Übersetztung — while the dictionary itself rejected all 44. Most of why
+// German misspelling recall sat at 49%.
+//
+// For a noun-capitalising language the signal has to be recurrence instead: a
+// character name comes back, a typo is a one-off.
+
+test("a capitalised German misspelling is reported, not protected as a name", () => {
+  const text = "Sie öffnete die Mappe und roch Zederholz und alten Regen.";
+  assert.ok(
+    getSpellCorrections(text, "de").some((c) => c.original === "Zederholz"),
+    "a one-off capitalised non-word must be flagged in German",
+  );
+});
+
+test("a recurring capitalised German word is still protected as a name", () => {
+  // The replacement signal. Almut is not in any dictionary, but it comes back,
+  // so it reads as a character name rather than a typo.
+  const text =
+    "Almut stand in der Werkstatt. Konrad sah Almut an, und Almut nickte.";
+  const flagged = getSpellCorrections(text, "de").map((c) => c.original);
+  assert.ok(!flagged.includes("Almut"), `Almut must stay protected, got ${flagged}`);
+});
+
+test("English still protects a mid-sentence capital on first sight", () => {
+  // English has no noun-capitalisation, so one appearance is enough to read as
+  // a name — the original rule, unchanged.
+  const text = "She wrote to Thaddeus about the charts.";
+  assert.ok(
+    !getSpellCorrections(text, "en_US").map((c) => c.original).includes("Thaddeus"),
+  );
 });

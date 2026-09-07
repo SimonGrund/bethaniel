@@ -282,21 +282,58 @@ function isSentenceInitial(text: string, index: number): boolean {
 }
 
 /**
+ * Languages that capitalise every common noun, not just proper nouns.
+ *
+ * German is the one bundled here. Luxembourgish does it too; Danish stopped in
+ * 1948 and Swedish in the 1900s, so neither belongs.
+ */
+const NOUN_CAPITALISING_LANGS = new Set(["de", "de_DE", "lb"]);
+
+/** Does this language capitalise common nouns, not just proper ones? */
+function capitalisesNouns(lang?: string): boolean {
+  const base = lang?.toLowerCase().split(/[-_]/)[0];
+  return !!base && NOUN_CAPITALISING_LANGS.has(base);
+}
+
+/**
  * Words that appear capitalized somewhere OTHER than a sentence start are
  * treated as proper nouns everywhere (returned lowercased). This lets a
  * character name that also happens to open a sentence stay protected, while a
  * capitalized misspelling that only ever appears at a sentence start remains a
  * correction candidate.
+ *
+ * German breaks the premise. The heuristic reads "capitalised mid-sentence" as
+ * "probably a name", which holds in English, Danish and Spanish — and in German
+ * describes every noun in the language. Measured on the German stress fixture,
+ * it skipped 27 of 27 capitalised planted misspellings: `Zederholz`,
+ * `Wolcken`, `Übersetztung` and the rest were all read as names and never
+ * flagged, which is most of why German misspelling recall sat at 49% while the
+ * dictionary itself rejected all 44 planted words.
+ *
+ * So for a noun-capitalising language the signal has to be something else, and
+ * recurrence is the honest one: a character name comes back — Almut, Konrad,
+ * Rothenfels appear throughout — while a typo is almost always a one-off. Two
+ * or more occurrences protects the names and exposes the typos. Everywhere
+ * else the original rule stands, because there capitalisation really is the
+ * signal.
  */
-function collectMidSentenceCapitals(text: string): Set<string> {
-  const names = new Set<string>();
+function collectMidSentenceCapitals(text: string, lang?: string): Set<string> {
+  const minOccurrences = capitalisesNouns(lang) ? 2 : 1;
+
+  const counts = new Map<string, number>();
   WORD_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = WORD_RE.exec(text)) !== null) {
     const w = m[0];
     if (!isCapitalized(w)) continue;
     if (isSentenceInitial(text, m.index)) continue;
-    names.add(normalizeApostrophes(w).toLowerCase());
+    const key = normalizeApostrophes(w).toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const names = new Set<string>();
+  for (const [word, n] of counts) {
+    if (n >= minOccurrences) names.add(word);
   }
   return names;
 }
@@ -520,7 +557,9 @@ export function getSpellCorrections(
   );
 
   // Proper nouns to protect everywhere (see collectMidSentenceCapitals).
-  const nameSet = collectMidSentenceCapitals(text);
+  // The language matters: in German a mid-sentence capital is every noun.
+  const nameSet = collectMidSentenceCapitals(text, lang);
+  const nounCapitalising = capitalisesNouns(lang);
 
   const corrections: Correction[] = [];
   const seen = new Set<string>();
@@ -539,8 +578,16 @@ export function getSpellCorrections(
     // Capitalized words are usually proper nouns. A capital MID-sentence is
     // protected outright; a capital at a SENTENCE START is a candidate typo
     // ("Teh cat…") unless the same word is used as a name elsewhere.
+    //
+    // "Usually proper nouns" is what German breaks: there a mid-sentence
+    // capital is every common noun, so protecting them outright hid 27 of the
+    // 27 capitalised misspellings planted in the German fixture — Zederholz,
+    // Wolcken, Übersetztung — even though the dictionary rejected all of them.
+    // For a noun-capitalising language the recurrence check in
+    // collectMidSentenceCapitals carries the protection instead: a name comes
+    // back, a typo does not.
     if (isCapitalized(word)) {
-      if (!isSentenceInitial(text, match.index)) continue;
+      if (!nounCapitalising && !isSentenceInitial(text, match.index)) continue;
       if (nameSet.has(lower)) continue;
     }
 
