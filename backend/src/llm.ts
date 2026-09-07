@@ -745,7 +745,30 @@ function isProperNounLetterChange(
     if (ow === cw) continue;
     if (ow.toLowerCase() === cw.toLowerCase()) continue; // pure case change — fine
     if (!isCapWord(ow) || !isCapWord(cw)) continue;
+    // Lowercased deliberately: a dictionary lists real proper nouns too, and
+    // asking about "Thaddeus" rather than "thaddeus" would let exactly the
+    // names this rule protects skip straight past it.
     if (isValidWord(ow.toLowerCase())) continue; // a real word, not a name
+    // If the REPLACEMENT is a real word, this is a spelling fix, not a name
+    // being mangled: "Werkzueg" -> "Werkzeug", "Recieve" -> "Receive". Without
+    // this the rule drops every sentence-initial misspelling in any language,
+    // and in German — where every noun is capitalized — nearly every noun typo
+    // fix the editor or LanguageTool produces. Measured on the German stress
+    // fixture, that was 10 of 10 correct typo fixes discarded.
+    // A spelling fix keeps the start of the word — "Recieve" -> "Receive",
+    // "Zeichungen" -> "Zeichnungen". Swapping a surname for an unrelated real
+    // word does not: "Okafor" -> "Orator" shares one letter. Both tests are
+    // needed, since the replacement being a real word is what tells a fix from
+    // a mangling, and the shared prefix is what stops a real word being used
+    // to rename someone. The dictionary is tried as written as well as
+    // lowercased: German stores every noun capitalized, so asking only about
+    // "zeichnungen" finds nothing in exactly the language this rule hurts most.
+    const replacementIsAWord = isValidWord(cw) || isValidWord(cw.toLowerCase());
+    let shared = 0;
+    const a = ow.toLowerCase();
+    const b = cw.toLowerCase();
+    while (shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+    if (replacementIsAWord && shared >= 3) continue;
     return true;
   }
   return false;
