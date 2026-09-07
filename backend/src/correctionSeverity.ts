@@ -49,6 +49,13 @@ export function isDeterministicCorrection(c: Correction): boolean {
   const reason = c.reason ?? "";
   return (
     reason === "spell-check" ||
+    // A downgraded spell correction (spellcheck.ts tags an unrecognised
+    // word whose suggestion it will not vouch for) is still the dictionary
+    // talking, not a model. Leaving it out here handed it straight back to
+    // the precision pass to delete — the very thing this guard exists to
+    // stop. The tag records lower confidence in the FIX, not doubt about
+    // who produced it.
+    reason === "spell-check-uncommon" ||
     reason === "dialect" ||
     reason.startsWith("grammar:") ||
     reason.startsWith("retext:")

@@ -109,3 +109,29 @@ test("applyPrecisionPass: a well-scored deterministic correction is not flagged"
   assert.equal(r.kept[0].flagged, undefined);
   assert.equal(r.spared, 0);
 });
+
+// A downgraded spell correction is still the dictionary talking. spellcheck.ts
+// tags an unrecognised word whose suggestion it will not vouch for as
+// "spell-check-uncommon"; if that tag falls outside isDeterministicCorrection,
+// the downgrade quietly hands the correction back to the precision pass to
+// delete — undoing this guard for exactly the words it was written to protect.
+test("applyPrecisionPass: a DOWNGRADED spell correction is spared, not dropped", () => {
+  const cs: Correction[] = [
+    { original: "Werkzueg", corrected: "Werkzeug", reason: "spell-check-uncommon" },
+    { original: "walked slowly", corrected: "ambled", reason: "tightens the prose" },
+  ];
+  const scores = new Map([
+    [0, { confidence: 1, reason: "the original may be a coined compound" }],
+    [1, { confidence: 1, reason: "unforced rewording" }],
+  ]);
+
+  const { kept, removed, spared } = applyPrecisionPass(cs, [scores], 3);
+
+  assert.equal(spared, 1);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].original, "Werkzueg");
+  assert.equal(kept[0].flagged, true);
+  // The model-authored rewrite is still dropped — that is what the pass is for.
+  assert.equal(removed.length, 1);
+  assert.equal(removed[0].corrected, "ambled");
+});
