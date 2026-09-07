@@ -45,6 +45,7 @@ import {
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import {
   sanitizeQuoteCorrections,
+  narrowCorrectionSpans,
   foldContainedCorrections,
   collapseIntroducedPunctuationPairs,
   reconcileSpellWithEditor,
@@ -2058,10 +2059,28 @@ async function processJob(job: JobData): Promise<void> {
             });
           }
 
+          // ── Span narrowing ──
+          // Tighten a sentence-wide "original" down to the words that actually
+          // changed, splitting it where it carries several independent edits.
+          // Cloud-served models return these far more than local ones, and a
+          // whole-sentence span forces the author to take or leave the entire
+          // sentence to fix one comma. Runs before folding so the fold below
+          // sees surgical spans and has less to absorb.
+          const narrow = narrowCorrectionSpans(chunk.body, quoteSan.kept);
+          if (narrow.narrowed > 0) {
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: ${narrow.narrowed} wide correction(s) narrowed to the changed words (${narrow.split} split into separate corrections).`,
+              model,
+            });
+          }
+
           // ── Contained-correction folding ──
           // A word fix inside a sentence rewrite would collide with it at
           // apply time; merge it into the rewrite and drop the duplicate.
-          const fold = foldContainedCorrections(chunk.body, quoteSan.kept);
+          const fold = foldContainedCorrections(chunk.body, narrow.kept);
           const editorCs = fold.kept;
           if (fold.dropped.length > 0 || fold.folded > 0) {
             skipped.push(...fold.dropped);
