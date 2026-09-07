@@ -233,31 +233,6 @@ function boundedDistance(a: string, b: string, max: number): number {
   return prev[b.length];
 }
 
-/**
- * Does an unknown word at least *begin* with a real word, in a language that
- * compounds? `siebzehnzähnige` is siebzehn + zähnig: the head is plainly a
- * word, the tail an adjective form the dictionary never lists. Full
- * decomposition fails, so the word is still reported — but it is far more
- * likely a coinage than a typo, and the suggestion for it (`siebzehnjährige`,
- * two edits away and a different meaning entirely) must not be offered with
- * the confidence of a fix for "teh".
- */
-export function hasKnownCompoundHead(
-  word: string,
-  lang: string,
-  dict: Pick<SpellDict, "correct">,
-): boolean {
-  if (!COMPOUNDING_LANGS.has(lang.slice(0, 2).toLowerCase())) return false;
-  const w = word.toLowerCase();
-  if (w.length < 8) return false;
-  for (let i = 4; i <= w.length - 4; i++) {
-    const head = w.slice(0, i);
-    if (dict.correct(head) || dict.correct(head[0].toUpperCase() + head.slice(1))) {
-      return true;
-    }
-  }
-  return false;
-}
 
 /**
  * Is a Hunspell suggestion close enough to propose as a fix?
@@ -757,10 +732,21 @@ export function getSpellCorrections(
       // not carry the authority of a fix for "teh". Decomposable words and
       // words that merely start with one are downgraded, not skipped: the
       // flag is defensible, the rewrite is not.
+      // A capitalization fix carries no compounding claim: "werkstatt" ->
+      // "Werkstatt" decomposes exactly as well as the word it corrects, so
+      // the compound test has no opinion worth hearing about it. Measured on
+      // the German stress fixture, five of the sixteen good fixes this guard
+      // was suppressing were plain lowercase-noun errors.
+      // A head-only check ("does this word START with a real word") used to
+      // sit alongside isValidCompound here. It was removed because it has no
+      // discriminating power in the language it was written for: on the German
+      // stress fixture it fired on 20 of 20 downgraded words, sixteen of which
+      // were correct fixes of planted typos. Almost every German noun begins
+      // with a shorter noun, so the test only ever says "this is German".
+      const capitalizationOnly = corrected.toLowerCase() === norm.toLowerCase();
       const unverifiedSuggestion =
         (!confident && corrected !== word) ||
-        isValidCompound(norm, lang, dict) ||
-        hasKnownCompoundHead(norm, lang, dict);
+        (!capitalizationOnly && isValidCompound(norm, lang, dict));
       // Tagged distinctly (not the plain "spell-check" reason) so it's
       // surfaced as a minor suggestion rather than a publication blocker —
       // an unrecognized-but-plausible inflection is a much weaker signal

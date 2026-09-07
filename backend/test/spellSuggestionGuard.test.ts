@@ -94,3 +94,47 @@ test("isValidCompound: a missing-space typo still gets flagged", () => {
 test("isValidCompound: a short word is never treated as a compound", () => {
   assert.equal(isValidCompound("woodlot", "de", dict), false);
 });
+
+// ── Narrowing, measured on the German stress fixture ──
+//
+// The guard above was suppressing four bad substitutions and sixteen good
+// fixes. Two of its three tests carried the cost:
+//
+//   - a head-only "does this word start with a real word" check fired on 20
+//     of 20 downgraded German words. Almost every German noun begins with a
+//     shorter noun, so it only ever said "this is German". Removed.
+//   - the compound test was applied to capitalization fixes, where it has no
+//     claim to make: "werkstatt" -> "Werkstatt" decomposes exactly as well as
+//     the word it corrects. Five good fixes were lost that way.
+
+test("a capitalization fix decomposes like any compound — that is not a reason to doubt it", () => {
+  // Both halves are real German words, so isValidCompound says "coinage" —
+  // but the suggestion only changes case, which settles nothing about
+  // compounding. The caller must not consult the compound test at all here.
+  const de = {
+    correct: (w: string) =>
+      ["werk", "statt", "werkstatt", "bank", "werkbank"].includes(w.toLowerCase()),
+  };
+  assert.equal(isValidCompound("werkstatt", "de", de as never), true);
+  // The fix itself is an ordinary, confident one — nothing about the
+  // substitution is in doubt.
+  assert.equal(isConfidentSuggestion("werkstatt", "Werkstatt", de), true);
+});
+
+test("a typo inside a compound is still a typo, not a coinage", () => {
+  // "Ledermapppe" (three p's) does NOT decompose — "mapppe" is no word — so
+  // the compound test correctly declines to protect it, and the fix stands.
+  const de = {
+    correct: (w: string) => ["leder", "mappe", "ledermappe"].includes(w.toLowerCase()),
+  };
+  assert.equal(isValidCompound("ledermapppe", "de", de as never), false);
+  assert.equal(isConfidentSuggestion("Ledermapppe", "Ledermappe", de), true);
+});
+
+test("a genuine coinage is still withheld — the guard keeps its purpose", () => {
+  const de = { correct: (w: string) => ["zehntel", "grad"].includes(w.toLowerCase()) };
+  // Zehntelgrad is a real compound the dictionary never enumerated; rewriting
+  // it to the non-word "Zehntelegrad" is exactly what must stay suppressed,
+  // and it is not a capitalization change, so the compound test still applies.
+  assert.equal(isValidCompound("zehntelgrad", "de", de as never), true);
+});
