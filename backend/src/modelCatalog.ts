@@ -145,9 +145,19 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     // process.env.BETHANIEL_CLOUD_BASE_URL until the production Worker is live.
     defaultBaseUrl:
       process.env.BETHANIEL_CLOUD_BASE_URL || "https://cloud.bethaniel.eu",
-    // Provider rate limits, not local hardware, bound concurrency here too —
-    // tune once the Worker's real OVHcloud rate limits are known.
-    recommendedParallel: 3,
+    // Provider rate limits, not local hardware, bound concurrency here — a
+    // cloud job holds no VRAM, so the 3 that a local model is capped at buys
+    // nothing here. Chapters are the unit that parallelises: chunks inside one
+    // chapter run sequentially (queue.ts), so this only helps a multi-chapter
+    // book, and there it is close to a linear win on wall-clock.
+    //
+    // 12 is bounded by the credential ledger's 120 requests/min, not by the
+    // provider: one chapter issues 3 upstream calls per chunk at the Speed
+    // preset, so 12 chapters burst to ~36, or ~72 if a second chunk lands in
+    // the same window. OVHcloud's own ceiling is 400/min per project per
+    // model, shared across all customers — see the sizing note in
+    // worker/src/ledger.ts for how the two interact.
+    recommendedParallel: 12,
     defaults: {
       ...COMMON_DEFAULTS,
       num_ctx: 128000,
