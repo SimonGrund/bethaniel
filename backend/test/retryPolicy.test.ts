@@ -12,6 +12,8 @@ import {
   MAX_AUTO_ATTEMPTS,
   isRetryableHint,
   shouldAutoRetry,
+  isRateLimitError,
+  retryWaitMs,
 } from "../src/retryPolicy.ts";
 
 test("transient engine faults are retryable", () => {
@@ -81,4 +83,40 @@ test("a port conflict is retried — the holder may just have been slow to die",
     false,
     "it must still give up rather than loop on a port another app owns",
   );
+});
+
+// ── API rate limits ──
+//
+// Regression: a 429 from Betty in the Cloud used to be classified as a
+// permanent failure, so the chunk died on the first attempt with no retry.
+
+test("isRateLimitError: recognises a 429 however the provider phrases it", () => {
+  assert.equal(
+    isRateLimitError(new Error('API error 429: {"error":{"message":"Too many requests"}}')),
+    true,
+  );
+  assert.equal(isRateLimitError(new Error("Too Many Requests")), true);
+  assert.equal(isRateLimitError("429"), true);
+});
+
+test("isRateLimitError: leaves other failures alone", () => {
+  assert.equal(isRateLimitError(new Error("fetch failed")), false);
+  assert.equal(isRateLimitError(new Error("API error 402: Insufficient Balance")), false);
+  assert.equal(isRateLimitError(null), false);
+  assert.equal(isRateLimitError(undefined), false);
+});
+
+test("retryWaitMs: a rate limit waits long enough to outlast the window", () => {
+  // The cloud ledger's window is 60s. Four retries on the ordinary ladder
+  // span ~7s and would all land inside it; the rate-limit ladder spans ~50s.
+  const ordinary = [1, 2, 3, 4].reduce((n, a) => n + retryWaitMs(new Error("fetch failed"), a), 0);
+  const limited = [1, 2, 3, 4].reduce((n, a) => n + retryWaitMs(new Error("429"), a), 0);
+  assert.equal(ordinary, 7500);
+  assert.equal(limited, 50000);
+  assert.ok(limited > 45_000, "must span most of the 60s window");
+});
+
+test("retryWaitMs: grows with the attempt number", () => {
+  assert.ok(retryWaitMs(new Error("429"), 2) > retryWaitMs(new Error("429"), 1));
+  assert.ok(retryWaitMs(new Error("boom"), 2) > retryWaitMs(new Error("boom"), 1));
 });

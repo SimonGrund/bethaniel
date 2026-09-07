@@ -5,7 +5,8 @@ import type { Correction } from "./types.js";
 
 export interface RetryOptions<T> {
   maxAttempts: number;
-  backoffMs: (attempt: number) => number;
+  /** `err` is the failure being backed off from — a rate limit wants longer. */
+  backoffMs: (attempt: number, err: unknown) => number;
   /** An attempt whose result fails this check is retried like an error. */
   isValid: (value: T) => boolean;
   isAborted?: () => boolean;
@@ -58,7 +59,7 @@ export async function runWithRetry<T>(
         attempt,
         lastErr instanceof Error ? lastErr.message : String(lastErr),
       );
-      const wait = opts.backoffMs(attempt);
+      const wait = opts.backoffMs(attempt, lastErr);
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     }
   }

@@ -99,7 +99,12 @@ import {
 } from "./db.js";
 import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
 import { estimateTaskOutputTokens } from "./cloudEstimate.js";
-import { shouldAutoRetry, MAX_AUTO_ATTEMPTS } from "./retryPolicy.js";
+import {
+  shouldAutoRetry,
+  MAX_AUTO_ATTEMPTS,
+  isRateLimitError,
+  retryWaitMs,
+} from "./retryPolicy.js";
 import { liveJobProgress, computeRuntime } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
 
@@ -155,6 +160,10 @@ function isTransientFetchError(err: unknown): boolean {
   if (!err) return false;
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   if (msg.includes("cancelled") || msg.includes("aborted")) return false;
+  // A rate limit is the most retryable failure there is — it says "later",
+  // not "no", and matches none of the network signatures below. See
+  // isRateLimitError in retryPolicy.ts for why that mattered.
+  if (isRateLimitError(err)) return true;
   return (
     msg.includes("fetch failed") ||
     msg.includes("econnreset") ||
@@ -207,7 +216,7 @@ function runReviewerAgentWithRetry(opts: {
     },
     {
       maxAttempts: REVIEWER_MAX_ATTEMPTS,
-      backoffMs: (attempt) => 750 * attempt,
+      backoffMs: (attempt, err) => retryWaitMs(err, attempt),
       isValid: (out) => parseReviewScores(out).size > 0,
       isAborted: () => opts.signal.aborted,
       keepBest: (a, b) =>
@@ -704,7 +713,7 @@ async function processSynthesisJob(
         errors.push(msg);
         break;
       }
-      const waitMs = 750 * attempt;
+      const waitMs = retryWaitMs(err, attempt);
       console.warn(
         `[Queue] synthesis attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
       );
@@ -764,7 +773,7 @@ function makeStoryLlm(job: JobData, ac: AbortController): LlmCall {
         return acc;
       } catch (err) {
         if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) throw err;
-        const waitMs = 750 * attempt;
+        const waitMs = retryWaitMs(err, attempt);
         console.warn(
           `[Queue] story-analysis call attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)}); retrying in ${waitMs}ms`,
         );
@@ -2013,7 +2022,7 @@ async function processJob(job: JobData): Promise<void> {
             if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
               throw err;
             }
-            const waitMs = 750 * attempt;
+            const waitMs = retryWaitMs(err, attempt);
             console.warn(
               `[Queue] chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
             );

@@ -94,6 +94,19 @@ export async function handleChatCompletions(
       // duplicated in what the user sees.
       return openAiError("Insufficient Balance: this cloud job's paid token budget is used up.", 402);
     }
+    if (reserveRes.status === 429) {
+      // The ledger's own per-credential rate limit, not a problem with the
+      // credential. It must NOT arrive as 401/402/403: backend/src/llm.ts
+      // treats those three as ApiAccountError and refuses to retry, so a
+      // burst of the app's own parallel editor+reviewer agents would fail the
+      // chunk outright and tell the user to go check Model settings, where
+      // there is nothing to find. Any other status is retryable there, and a
+      // rate limit is exactly the case where retrying is the right answer.
+      return openAiError(
+        "Too many requests for this credential — please retry in a moment.",
+        429,
+      );
+    }
     return openAiError("This credential is not currently usable", 403);
   }
   const { reservationId } = (await reserveRes.json()) as { reservationId: string };
