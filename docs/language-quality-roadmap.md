@@ -231,82 +231,55 @@ merging, the way `scripts/plant-errors.ts` guarantees for the three newer
 fixtures (all three carry zero `other`). Until then English capitalization is
 not comparable with the other three and should not be read as a defect.
 
-### 3. German misspelling — REGRESSED, and quantisation is the new suspect
+### 3. German misspelling — FIXED, and it was a third proper-noun guard
 
-This section used to say FIXED and record 68 / 68. Both halves need correcting.
+German misspelling recall went **47% to 88% (4B) and 85% (9B)**, and overall
+German recall 58% to 71% and 63% to 75%. Flags on clean text did not move in
+any language and precision rose where it moved, so nothing was traded for it.
+German has stopped being the outlier it was in every earlier measurement.
 
-**The 68 was inflated by the harness.** It came from a run with several
-requests in flight, where batching moved the same German fixture between 50%
-and 71% on consecutive repeats. Measured one-at-a-time against the commit
-before the spellcheck guard (1fec295), German misspelling recall was **50%
-(4B) and 62% (9B)** — never 68 on both.
+The cause was `altersProperNoun` in `llm.ts`, which refuses a correction that
+changes or drops a capitalised word the dictionary does not know — looking the
+word up **lowercased**. German stores its nouns capitalised, so `übersetzung`
+is absent for the correctly spelled noun and the typo alike, and every German
+noun read as a name. LanguageTool's own corrections for `Übersetztung`,
+`Entwüfre` and `Lükce` were all discarded as name changes.
 
-**Against that honest baseline there is still a real regression**, measured
-the same way on both builds:
+This predates the branch. German had been losing these corrections all along;
+the spellcheck guard added to an existing wound rather than opening it, which
+is why the pre-guard baseline was only 50% / 62% rather than the 68% an older
+noisy run had reported.
 
-| | 4B | 9B |
+**It is the third place the same assumption was encoded** — *capitalised and
+absent from the dictionary means a name*, true in English and false in German:
+
+| | where | how it was fixed |
 |---|---|---|
-| before the guard (1fec295) | 50% | 62% |
-| today | 47% | 47% |
+| 1 | `collectMidSentenceCapitals` (spellcheck.ts) | recurrence instead of capitalisation, for noun-capitalising languages |
+| 2 | `isProperNounLetterChange` (llm.ts) | the replacement must be a real word AND share a prefix |
+| 3 | `altersProperNoun` (llm.ts) | the replacement must be a real word a typo's distance away |
 
-Three points off the small model and **fifteen off the large one**. Overall
-German recall fell 60→58 and 70→63.
+A sweep found no fourth. `consistency.ts`'s proper-noun check is recurrence
+based already, and `introducedBadWord` looks words up as written, so neither
+ever had it.
 
-The cause is the spellcheck suggestion guard (bee4caa) and the proper-noun
-filter around it. Both were right to exist — the guard stopped `siebzehn-
-zähnige` being rewritten to `siebzehnjährige` on clean prose, and the filter
-was discarding every capitalised misspelling in the language — and both were
-narrowed once already (aa905bd, 6a82614), which recovered most of what the
-first version cost. What remains is the residue.
+**The standing risk is that there is no single place that answers "is this
+token a name".** Three independent implementations existed, one language-aware
+(`NOUN_CAPITALISING_LANGS`) and two not. The two in `llm.ts` are now
+dictionary-driven rather than language-list-driven, which generalises to a
+language nobody has listed — but a fourth implementation would be just as easy
+to write as the third was.
 
-**The tell is that the two models now agree exactly.** Before the guard they
-differed by twelve points; today both sit at 47%, which is what the
-deterministic layer alone produces. Whatever the model knew about German
-spelling is no longer reaching the author.
+Two things were ruled out along the way and are worth not re-testing:
 
-**Quantisation was suspected and has been ruled out — measured, not argued.**
-The suspicion came from the cloud Qwen3.5-9B scoring 88% on German
-misspellings against the local models' 47%. Two things were wrong with that.
-The 88% came from a run that still had the reasoning misconfiguration in it
-(after the fix the same cloud model scores **35%**, below the local models),
-and local-versus-cloud changes quantisation, serving stack and reasoning all
-at once, so it could not have isolated precision even had the number held.
-
-The controlled test holds everything constant but the weights — the same
-Qwen3.5-9B as a Q8_0 GGUF against the shipped Q4_K_M, both on llama.cpp, one
-request at a time:
-
-| | typos | wrong word | comma | recall | precision | flags on clean |
-|---|---|---|---|---|---|---|
-| German Q4_K_M | 47% | 46% | 70% | 63% | 77% | 11 |
-| German Q8_0 | **44%** | 69% | 65% | 63% | 77% | **66** |
-| English Q4_K_M | 94% | 73% | 38% | 67% | 74% | 3 |
-| English Q8_0 | **76%** | 67% | 46% | 67% | 67% | 3 |
-
-German misspelling does not improve — 47% to 44%, with identical overall
-recall — and English misspelling gets materially *worse*. Whatever pins German
-spelling at 47%, it is not 4-bit quantisation.
-
-The Q8's 66 flags on clean German are worth recording as a second finding: 59
-of the 66 were model-authored and degenerate rather than merely wrong —
-`ihrem` → `ALMUTS`, `reparieren konnte` → `reparieren KONNTE`, words shouted in
-capitals and pronouns replaced by a character's name. 65 of the 66 arrived
-flagged as uncertain, so the flag-rather-than-delete change did its job on
-output no rule anticipated.
-
-Reasoning was tested on its own too, since it was the other thing that differed
-between those cloud runs: the same model and fixture with chain-of-thought
-enabled and 32k of headroom did not finish one German chapter inside the
-harness's one-hour per-task ceiling. It is not a lever at any quality.
-
-So German misspelling has a known cause — the spellcheck guard and the
-proper-noun filter, both since narrowed — and two eliminated suspects. It is
-not the dictionary, and it is not the quantisation.
-
-**The dictionary was never the problem**, and that part of the old section
-stands: all four dictionaries were checked against upstream and are current;
-the German one rejected all 44 planted misspellings. Detection was never the
-weak link. What is fragile is everything between detection and the author.
+- **Not the dictionary.** All four are current against upstream; German
+  rejected all 44 planted misspellings. Detection was never the weak link.
+- **Not the quantisation.** The same Qwen3.5-9B as Q8_0 against the shipped
+  Q4_K_M, both on llama.cpp: German 47% → 44%, English 94% → 76%. No gain, and
+  a real loss in English. (The Q8 also produced 66 flags on clean German
+  against the Q4's 11, 59 of them degenerate — words shouted in capitals,
+  pronouns replaced by a character's name. 65 of the 66 arrived flagged, which
+  is the flag-rather-than-delete design catching output no rule anticipated.)
 
 ### 4. English wrong word (53/67%) — the confusable list is English-first
 
