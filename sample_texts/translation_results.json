@@ -2,7 +2,7 @@
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
     "targetLang": "Danish",
-    "translatedText": "# Færgeførerens regnskab\n\nFærgestoppen i oktober, og i november var floden fryset så fast, at man kunne gå på isen. Ilse Rasmussen havde boet på den modsatte bred i tredive år, og i alt den tid havde hun aldrig én gang krosset isen.\n\nHans far var druknet under den, da hun var ni år gammel. Han havde været færgerenseren dengang, som hans mor før ham, og regnskabet han holdt – hver overgang, hvert gebyr, hvert navn – lå på hylden ovenover stovene, hvor han havde ladet det ligge. Ilse havde ikke åbnet det siden begravelsen.\n\nBrevet kom på en torsdag, bragt af en dreng, der havde gået den lange vej om via broen. Det var fra amtet, og det sagde, at færge-lisensen ville udløbe i slutningen af året, hvis ingen tog den. Der var et formulark til at underskrive. Der var en boks til at krydse.\n\nHun læste det to gange, lagde det på bordet, og kiggede på regnskabet.\n\nPå aftenen tog hun det ned. Ryggen knækkede, da hun åbnede det, og et trykt blad faldt ud mellem to sider, brunt og sprødt som papir. Hendes fars håndskrift løb ned i kolonnerne med en lille, forsigtig hånd: dato, passager, fare, vejr. Intet andet. Ingen kommentar, ingen klage, ingen nævning af kulden.\n\nHun vendte sig til den sidste side, han havde skrevet. Den sidste indlæggelse var dateret dagen før hans død, og den beskrev en enkelt krydsning, udført ved solnedgang, uden at nogen passagergebyr blev betalt. I passagersøjlen havde han skrevet ét ord: *Ilse.*\n\nHun havde ingen hukommelse af det. Hun var ni år gammel, og hun havde krosset floden med sin far på sidste aften af hans liv, og hun huskede ikke et øjeblik af det.\n\nNæste morgen gik hun ned til landingsstedet. Isen var grå og ubemærket, og den modsatte bred lyste tættere end den nogensinde havde set fra båden. Hun stod der, indtil hendes hænder smertede af kulden, og så gik hun tilbage op til huset og underskrev formularen.\n\nHun har beholdt regnskabet siden. Der er nu en ny kolonne i det, skrevet af hendes egen hånd, og den optegner de samme fire ting, som hendes far optegned, og ingenting mere. Folk, der krosset, fortæller hende, at hun bør skrive ned, hvad de siger – de mærkelige tingene og de sjove – og hun svarer, at hun ikke er en sådan bådmand. Så smiler hun, for det er ikke helt sandt, og hun bærer fortællingerne hjem i sin hjerne i stedet.",
+    "translatedText": "# Færgeførerens regnskab\n\nFærgeflåden standsede i oktober, og i november var floden fryset så fast, at man kunne gå på isen. Ilse Rasmussen havde boet på den modsatte bred i tredive år, og i alt den tid havde hun aldrig én gang krosset isen.\n\nHans far var druknet under den, da hun var ni år gammel. Han havde været færgereder som moren før ham, og regnskabet han havde ført – hver overgang, hvert gebyr, hvert navn – lå på hylden ovenover stovene, hvor han havde ladet det ligge. Ilse havde ikke åbnet det siden begravelsen.\n\nBrevet kom på en torsdag, bragt af en dreng, der havde gået den lange vej rundt via broen. Det var fra amtet, og det sagde, at færge-lisensen ville udløbe i slutningen af året, hvis nogen ikke tog den. Der var et formulark til at underskrive. Der var en boks til at krydse.\n\nHun læste det to gange, lagde det på bordet og kiggede på regnskabet.\n\nDen aften tog hun det ned. Ryggen knækkede, da hun åbnede det, og et trykt blad faldt ud mellem to sider, brunt og sprødt som papir. Hendes fars håndskrift løb ned i kolonnerne med en lille, forsigtig hånd: dato, passager, fare, vejr. Intet andet. Ingen kommentar, ingen klage, ingen nævning af kulden.\n\nHun vendte til den sidste side han havde skrevet. Den sidste indgang var dateret dagen før han døde, og den optog en enkelt krog, lavet ved skumringen, uden at nogen fare blev taget. I passager-kolonnen havde han skrevet ét ord: *Ilse.*\n\nHun havde ingen hukommelse af det. Hun var ni år gammel, og hun havde krosset floden med sin far på den sidste aften af hans liv, og hun huskede ikke et øjeblik af det.\n\nNæste morgen gik hun ned til landingsstedet. Isen var grå og ubemærket, og den modsatte bred så tættere ud end den nogensinde havde set fra båden. Hun stod der, indtil hendes hænder smertede af kulden, og så gik hun tilbage op til huset og underskrev formularen.\n\nHun har beholdt regnskabet siden. Der er nu en ny kolonne i det, skrevet af hendes egen hånd, og den optager de samme fire ting, som faderen optog, og ingenting mere. Folk, der krosset, fortæller hende, at hun bør skrive ned, hvad de siger – de mærkelige ting og de sjove. Hun svarer dem, at hun ikke er den slags færger. Så smiler hun, for det er ikke helt sandt, og hun bærer fortællingerne hjem i hovedet i stedet.",
     "errors": [],
     "scores": [
       {
@@ -13,126 +13,126 @@
       {
         "index": 1,
         "confidence": 2,
-        "reason": "Contains garbled output ('fryset') and a significant meaning loss/typo ('krosset' instead of 'krydset')."
+        "reason": "Contains garbled output with nonsensical phrases like 'Færgeflåden standsede' (The ferry fleet stopped) instead of 'The ferry stopped', and 'krosset' is a misspelling."
       },
       {
         "index": 2,
-        "confidence": 2,
-        "reason": "Contains a major hallucination ('Hans far' instead of 'Her father') and awkward phrasing ('stovene')."
+        "confidence": 1,
+        "reason": "Completely wrong meaning; translates 'Her father had drowned' as 'Hans far var druknet' (His father was drowned), reversing the subject entirely."
       },
       {
         "index": 3,
         "confidence": 4,
-        "reason": "Good translation overall, though 'færge-lisensen' is slightly clunky and 'krydse' is a bit literal for 'tick'."
+        "reason": "Good translation with minor awkward phrasing ('færge-lisensen') and a typo ('formulark'), but meaning is preserved."
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Fluent and accurate translation."
+        "reason": "Flawless translation — fluent and accurate."
       },
       {
         "index": 5,
-        "confidence": 2,
-        "reason": "Contains a hallucination ('Hendes fars' instead of 'Her father's') and mistranslation ('nævning' instead of 'mention')."
+        "confidence": 3,
+        "reason": "Acceptable but stilted; 'nævning' is an archaic/incorrect word choice for 'mention', and 'trykt blad' (printed leaf) misses the nuance of a pressed flower/leaf."
       },
       {
         "index": 6,
-        "confidence": 4,
-        "reason": "Good translation, though 'indlæggelse' is an unusual choice for 'entry' and 'passagergebyr' is slightly heavy."
+        "confidence": 2,
+        "reason": "Problematic translation with significant meaning loss: 'krog' (hook/corner) instead of 'crossing', and 'fare blev taget' (fee was taken) instead of 'no fare taken'."
       },
       {
         "index": 7,
-        "confidence": 2,
-        "reason": "Contains a typo ('krosset') and awkward phrasing ('ingen hukommelse af det')."
+        "confidence": 4,
+        "reason": "Good translation; 'hukommelse af det' is slightly stiff but conveys the meaning accurately."
       },
       {
         "index": 8,
-        "confidence": 2,
-        "reason": "Contains a hallucination ('den modsatte bred lyste tættere' instead of 'looked closer') and mistranslation ('ubemærket' instead of 'unmarked')."
+        "confidence": 5,
+        "reason": "Fluent and accurate translation with natural flow."
       },
       {
         "index": 9,
-        "confidence": 2,
-        "reason": "Contains typos ('krosset'), awkward phrasing ('de sjove'), and a strange metaphor ('i sin hjerne')."
+        "confidence": 4,
+        "reason": "Good translation; 'krosset' is a typo for 'kroset', but the overall meaning and tone are well preserved."
       }
     ],
     "quality": {
-      "chrf": 73.59951952253753,
-      "chrfPlusPlus": 69.9375171714556,
-      "lengthRatio": 0.9798456260720412,
-      "sourceLeakage": 0.003134796238244514
+      "chrf": 74.6854937825324,
+      "chrfPlusPlus": 71.2368632846002,
+      "lengthRatio": 0.9678387650085764,
+      "sourceLeakage": 0.006211180124223602
     },
-    "elapsedMs": 12264
+    "elapsedMs": 12293
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
     "targetLang": "German",
-    "translatedText": "# Das Tagebuch des Fährgespanns\n\nDer Fährenverkehr hatte im Oktober eingestellt; bis November war der Fluss so stark gefroren, dass man darauf gehen konnte. Ilse Rasmussen hatte seit dreißehn Jahren am anderen Ufer gewohnt und in all dieser Zeit den Eisgang nie betreten.\n\nIhr Vater war unter ihm ertrunken, als sie neun Jahre alt war. Damals hatte er wie seine Mutter zuvor die Fähre gefahren, und das Buch, das er geführt hatte – jede Überfahrt, jedes Geldstück, jeder Name – stand auf dem Regal über dem Herd, wo er es gelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr geöffnet.\n\nDer Brief kam an einem Donnerstag, getragen von einem Jungen, der den langen Weg um die Brücke gegangen war. Er kam vom Kreis und sagte, die Fährgenehmigung würde am Jahresende auslaufen, es sei denn, jemand würde sie beanspruchen. Es gab ein Formular zum Unterschreiben. Es gab ein Kästchen zum Ankreuzen.\n\nSie las es zweimal, legte es auf den Tisch und blickte auf das Heft.\n\nAm Abend nahm sie es herunter. Der Rücken knisterte, als sie es öffnete, und ein gepresstes Blatt fiel zwischen zwei Seiten heraus, braun und spröde wie Papier. Ihr Vaters Handschrift lief in den Spalten in einer kleinen, sorgfältigen Schrift: das Datum, der Passagier, das Fahren, das Wetter. Nichts anderes. Kein Kommentar, keine Beschwerde, kein Hinweis auf die Kälte.\n\nSie drehte sich zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war vom Tag vor seinem Tod datiert und notierte eine einzige Überfahrt, die bei Dämmerung unternommen wurde, ohne dass ein Fahren genommen wurde. In der Spalte für den Passagier hatte er nur ein Wort geschrieben: *Ilse.*\n\nSie erinnerte sich daran nicht. Sie war neun Jahre alt und hatte den Fluss mit ihrem Vater an dem letzten Abend seines Lebens überquert; sie erinnerte sich an keinen Moment davon.\n\nAm nächsten Morgen ging sie hinab zum Ufer. Der Eis war grau und unmarkiert, und das andere Ufer schien näher zu sein als je zuvor von der Fähre aus gesehen. Sie stand dort, bis ihre Hände von der Kälte schmerzten, und dann ging sie wieder hinauf zum Haus und unterschrieb das Formular.\n\nSie führt das Buch seitdem fort. Es hat nun eine neue Spalte, geschrieben von ihrer eigenen Hand, und sie notiert dieselben vier Dinge, die ihr Vater notiert hatte – und nichts mehr. Wer vorbeikommt, mahnt sie an, alles aufzuschreiben, was sie sagt: die seltsamen Geschichten und die lustigen. Doch sie entgegnet, dass sie kein solcher Fährmann sei. Dann lächelt sie, denn das ist nicht ganz wahr, und sie trägt die Geschichten heimlich in sich.",
+    "translatedText": "# Das Heft des Fährgängers\n\nIm Oktober hatte die Fähre ihren Betrieb eingestellt; im November war der Fluss so stark gefroren, dass man darauf laufen konnte. Ilse Rasmussen hatte seit dreißehn Jahren am anderen Ufer gewohnt und in all dieser Zeit den Eisgang nie betreten.\n\nIhr Vater war unter ihm ertrunken, als sie neun Jahre alt war. Er war damals der Fährgänger gewesen, wie sein Vater zuvor, und das Heft, das er geführt hatte – jede Überfahrt, jedes Fahren, jeder Name – stand auf dem Regal über dem Ofen, wo er es gelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr geöffnet.\n\nDer Brief kam an einem Donnerstag, getragen von einem Jungen, der den langen Weg um die Brücke gegangen war. Er kam vom Landkreis und meldete, dass die Fährgenehmigkeit zum Jahresende ausläuft, es sei denn, jemand beanspruche sie. Es gab ein Formular zum Unterschreiben. Es gab ein Kästchen zum Ankreuzen.\n\nSie las es zweimal, legte es auf den Tisch und blickte auf das Heft.\n\nAm Abend nahm sie es herunter. Der Rücken knackte, als sie es öffnete, und ein gepresstes Blatt fiel zwischen zwei Seiten heraus, braun und spröde wie Papier. In ihrer Vaters Handschrift lief in kleinen, sorgfältigen Buchstaben durch die Spalten: das Datum, der Passagier, das Fahren, das Wetter. Nichts anderes. Kein Kommentar, keine Beschwerde, kein Hinweis auf den Kälte.\n\nSie wandte sich zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war vom Tag vor seinem Tod datiert und verzeichnet eine einzige Überfahrt, die bei Dämmerung unentgeltlich unternommen worden war. In der Spalte für Passagiere hatte er nur ein Wort geschrieben: *Ilse.*\n\nSie erinnerte sich daran nicht. Sie war neun Jahre alt gewesen und hatte den Fluss mit ihrem Vater an dem letzten Abend seines Lebens überquert, und sie erinnerte sich an keinen Moment davon.\n\nAm nächsten Morgen ging sie zum Ufer hinab. Der Eis war grau und unmarkiert, und das andere Ufer schien näher zu liegen als je zuvor vom Boot aus gesehen. Sie stand dort, bis ihre Hände von der Kälte schmerzten, und dann ging sie wieder nach oben zum Haus und unterschrieb das Formular.\n\nSie hat das Heft seitdem bewahrt. Es gibt nun eine neue Spalte in ihrem eigenen Hand, und sie verzeichnet dieselben vier Dinge, die ihr Vater verzeichnet hatte, und nichts mehr. Die Leute, die überqueren, sagen ihr, sie solle aufschreiben, was sie sagen, die seltsamen Dinge und die lustigen, und sie sagt ihnen, sie sei kein solcher Fährgänger. Dann lächelt sie, denn es ist nicht ganz wahr, und sie trägt die Geschichten in ihrem Kopf nach Hause mit.",
     "errors": [],
     "scores": [
       {
         "index": 0,
         "confidence": 5,
-        "reason": "Title translated accurately and naturally into German."
+        "reason": "Flawless translation — title accurately conveys the meaning and tone in German"
       },
       {
         "index": 1,
         "confidence": 2,
-        "reason": "Significant meaning loss: 'thirty-one years' mistranslated as 'dreißehn' (thirteen), and 'crossed the ice' mistranslated as 'betreten den Eisgang' (entered the ice flow)."
+        "reason": "Significant meaning loss and awkward phrasing: 'dreißehn' is a typo for 'dreizehn', 'Eisgang' is an incorrect term for ice, and 'nie betreten' sounds unnatural"
       },
       {
         "index": 2,
-        "confidence": 4,
-        "reason": "Minor awkward phrasing ('unter ihm ertrunken' is slightly clunky) but meaning is largely preserved."
+        "confidence": 3,
+        "reason": "Acceptable but with noticeable issues: 'unter ihm ertrunken' is awkward phrasing for 'drowned under it', and 'Fahren' is a poor choice for 'fare' (should be 'Gebühr')"
       },
       {
         "index": 3,
-        "confidence": 5,
-        "reason": "Fluent and accurate translation of the letter's content and context."
+        "confidence": 4,
+        "reason": "Good translation — minor awkwardness with 'Fährgenehmigkeit' instead of 'Fährenlizenz' but meaning is fully preserved"
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Natural phrasing that accurately conveys the original actions."
+        "reason": "Flawless translation — concise and natural German phrasing"
       },
       {
         "index": 5,
         "confidence": 3,
-        "reason": "Acceptable but slightly stilted; 'das Fahren' for 'fare' is a literal translation that sounds unnatural in German context."
+        "reason": "Acceptable but with issues: 'In ihrer Vaters Handschrift' is grammatically incorrect (should be 'ihres Vaters'), and 'Hinweis auf den Kälte' is ungrammatical ('der Kälte')"
       },
       {
         "index": 6,
-        "confidence": 4,
-        "reason": "Good translation with minor awkwardness in 'ohne dass ein Fahren genommen wurde' instead of 'ohne Gebühr'."
+        "confidence": 5,
+        "reason": "Flawless translation — accurately captures the nuance of 'unentgeltlich' for 'no fare taken'"
       },
       {
         "index": 7,
         "confidence": 5,
-        "reason": "Fluent and accurate translation preserving the emotional weight."
+        "reason": "Flawless translation — natural flow and accurate meaning preservation"
       },
       {
         "index": 8,
         "confidence": 4,
-        "reason": "Good translation; 'von der Fähre aus gesehen' is a natural way to convey 'from the boat' in this context."
+        "reason": "Good translation — minor stylistic awkwardness with 'vom Boot aus gesehen' but meaning is intact"
       },
       {
         "index": 9,
         "confidence": 3,
-        "reason": "Acceptable but loses nuance: 'heimlich in sich' (secretly in herself) changes the meaning of 'carries... home in her head'."
+        "reason": "Acceptable but with issues: 'in ihrem eigenen Hand' is grammatically incorrect (should be 'Hand'), and 'Die Leute, die überqueren' is slightly stilted"
       }
     ],
     "quality": {
-      "chrf": 73.63688955386603,
-      "chrfPlusPlus": 69.07043893082599,
-      "lengthRatio": 0.9926098794243485,
-      "sourceLeakage": 0.002564102564102564
+      "chrf": 76.4855588408093,
+      "chrfPlusPlus": 72.05120842585526,
+      "lengthRatio": 0.9933877868533645,
+      "sourceLeakage": 0.0025575447570332483
     },
-    "elapsedMs": 12199
+    "elapsedMs": 12218
   },
   {
     "model": "Qwen3.5-4B-Q4_K_M.gguf",
     "targetLang": "Spanish",
-    "translatedText": "# El Libro del Barquero\n\nEl ferry dejó de funcionar en octubre, y para noviembre el río había helado lo suficiente como para caminar sobre él. Ilse Rasmussen había vivido en la orilla opuesta durante treinta y un años, y en todo ese tiempo nunca había cruzado el hielo.\n\nSu padre se ahogó bajo él cuando ella tenía nueve años. Él había sido el barquero entonces, al igual que su madre antes que él, y el libro de cuentas que mantenía —cada travesía, cada tarifa, cada nombre— descansaba sobre la estantería encima del fogón donde lo había dejado. Ilse no había abierto ese libro desde el funeral.\n\nLa carta llegó un jueves, llevada por un niño que había recorrido el largo camino alrededor por el puente. Venía del condado y decía que la licencia del ferry caducaría al final del año si alguien no reclamaba su derecho. Había un formulario para firmar. Había una casilla para marcar.\n\nLa leyó dos veces, se la puso sobre la mesa y miró el libro.\n\nEsa misma noche lo bajó. La costura se rompió al abrirlo, y una hoja prensada cayó entre dos páginas, marrón y frágil como papel. La caligrafía de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, la tarifa, el clima. Nada más. Sin comentario, sin queja, sin mención del frío.\n\nVolvió a la última página que él había escrito. El último registro estaba fechado el día anterior a su muerte y registraba una sola travesía, realizada al atardecer, sin cobrar tarifa. En la columna de pasajeros había escrito una sola palabra: *Ilse*.\n\nNo tenía memoria de ello. Tenía nueve años y había cruzado el río con su padre en la última noche de su vida, pero no recordaba ningún momento de eso.\n\nAl día siguiente caminó hasta la orilla. El hielo era gris y sin marcas, y la orilla opuesta parecía más cercana de lo que nunca lo había parecido desde el bote. Se quedó allí hasta que sus manos ardían del frío, y luego subió de nuevo a la casa y firmó el formulario.\n\nHa mantenido el libro desde entonces. Ahora hay una nueva columna en él, en su propia mano, y registra los mismos cuatro datos que registraba su padre y nada más. Las personas que cruzan le dicen que debería anotar lo que dicen, las cosas extrañas y graciles, y ella les dice que no es ese tipo de barquero. Luego sonríe, porque no es del todo cierto, y lleva las historias a casa en su mente en su lugar.",
+    "translatedText": "# El Libro del Barquero\n\nEl ferry dejó de operar en octubre, y para noviembre el río había helado lo suficiente como para caminar sobre él. Ilse Rasmussen había vivido en la orilla opuesta durante treinta y un años, y en todo ese tiempo nunca había cruzado el hielo.\n\nSu padre se ahogó bajo él cuando ella tenía nueve años. Él había sido el barquero entonces, al igual que su madre antes que él, y el libro de cuentas que mantenía —cada travesía, cada tarifa, cada nombre— descansaba sobre la estantería encima del fogón donde lo había dejado. Ilse no había abierto ese libro desde el funeral.\n\nLa carta llegó un jueves, llevada por un niño que había recorrido el largo camino alrededor por el puente. Venía del condado y decía que la licencia del ferry caducaría al final del año si alguien no reclamaba su derecho. Había un formulario para firmar. Había una casilla para marcar.\n\nLa leyó dos veces, se la puso sobre la mesa y miró el libro de cuentas.\n\nEsa misma noche lo bajó. La costura se rompió al abrirlo, y una hoja prensada cayó entre dos páginas, marrón y frágil como papel. La caligrafía de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, la tarifa, el clima. Nada más. Sin comentario, sin queja, sin mención del frío.\n\nVolvió a la última página que él había escrito. El último registro estaba fechado el día anterior a su muerte y registraba una sola travesía, realizada al atardecer, sin cobrar tarifa. En la columna de pasajeros había escrito una sola palabra: *Ilse*.\n\nNo tenía memoria de ello. Tenía nueve años y había cruzado el río con su padre en la última noche de su vida, pero no recordaba ningún momento de eso.\n\nAl día siguiente caminó hasta el muelle. El hielo era gris y sin marcas, y la orilla opuesta parecía más cercana de lo que nunca lo había parecido desde el barco. Se quedó allí hasta que sus manos ardían con el frío, y luego subió de nuevo a la casa y firmó el formulario.\n\nLo ha mantenido desde entonces. Ahora hay una nueva columna en él, en su propia mano, y registra las mismas cuatro cosas que registraba su padre y nada más. La gente que cruza le dice que debería anotar lo que dicen, las cosas extrañas y las divertidas, y ella les responde que no es ese tipo de barquero. Luego sonríe, porque no es del todo cierto, y lleva las historias a casa en su mente en su lugar.",
     "errors": [],
     "scores": [
       {
@@ -148,121 +148,121 @@
       {
         "index": 2,
         "confidence": 5,
-        "reason": "Accurate translation with natural phrasing; 'book of accounts' correctly conveys 'ledger' in context."
+        "reason": "Accurate translation with natural phrasing for the backstory and family history."
       },
       {
         "index": 3,
-        "confidence": 4,
-        "reason": "Good translation; 'recibiera su derecho' is slightly wordy for 'claimed it' but meaning is fully preserved."
+        "confidence": 5,
+        "reason": "Clear and idiomatic translation of the letter's content and context."
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Concise and accurate translation of the short sentence."
+        "reason": "Concise and accurate rendering of her reaction to the letter."
       },
       {
         "index": 5,
         "confidence": 5,
-        "reason": "Excellent translation capturing the texture of the original (e.g., 'hoja prensada' for pressed leaf)."
+        "reason": "Excellent translation capturing the tactile details and emotional weight of the ledger."
       },
       {
         "index": 6,
         "confidence": 5,
-        "reason": "Accurate and natural rendering of the emotional climax of the scene."
+        "reason": "Precise translation of the pivotal moment regarding the father's final entry."
       },
       {
         "index": 7,
         "confidence": 5,
-        "reason": "Fluent translation that maintains the melancholic tone and clarity."
+        "reason": "Natural flow that conveys the protagonist's lack of memory effectively."
       },
       {
         "index": 8,
         "confidence": 5,
-        "reason": "Strong translation; 'ardían del frío' effectively conveys the pain of cold hands."
+        "reason": "Strong imagery preserved in the translation of her decision to cross the ice."
       },
       {
         "index": 9,
-        "confidence": 4,
-        "reason": "Good translation overall; 'graciles' is a slightly awkward neologism for 'funny ones' but contextually understandable."
+        "confidence": 5,
+        "reason": "Faithful and natural conclusion that captures the subtle irony of the ending."
       }
     ],
     "quality": {
-      "chrf": 74.77931622449289,
-      "chrfPlusPlus": 70.33515663748635,
-      "lengthRatio": 1.0241122314774223,
+      "chrf": 76.08921177942547,
+      "chrfPlusPlus": 71.90768398544542,
+      "lengthRatio": 1.0284962735642262,
       "sourceLeakage": 0.013201320132013201
     },
-    "elapsedMs": 10695
+    "elapsedMs": 10710
   },
   {
     "model": "Qwen3.5-9B-Q4_K_M.gguf",
     "targetLang": "Danish",
-    "translatedText": "# Ferjemandens regnskab\n\nFærgeren stoppede i oktober, og i november var floden så fastfrosset, at man kunne gå på den. Ilse Rasmussen havde boet på den yderste bred i tyve ét år, og i alt den tid havde hun aldrig én gang krydset isen.\n\nHendes far druknede under den, da hun var ni år gammel. Han havde været ferjemand dengang, ligesom hans mor før ham, og regnskabet, han holdt — hver krydsning, hver billet, hvert navn — lå på hylden over ildstedet, hvor han havde efterladt det. Ilse havde ikke åbnet det siden begravelsen.\n\nBrevet kom torsdag, bragt af en dreng, der havde gået den lange omvej via broen. Det var fra amtet, og det stod, at færgerlicensen udløb i årets udgang, medmindre nogen påtog sig den. Der var et skema til underskrift. Der var et felt til kryds.\n\nHun læste det to gange, lagde det på bordet og kiggede på regnskabet.\n\nDen aften tog hun den ned. Ryggen sprækkede, da hun åbnede den, og et trykt blad faldt ud mellem to sider, brunt og sprødt som papir. Hendes faders håndskrift løb ned i kolonnerne med en lille, omhyggelig skrift: dato, passageren, billetprisen, vejrforholdene. Intet andet. Ingen kommentar, ingen klage, ingen nævning af kulden.\n\nHun vendte til den sidste side, han havde skrevet på. Den sidste post dateres dagen før han døde, og den registrerede en enkelt krydsning, foretaget ved solnedgang, uden at nogen billet blev taget. I kolonnen for passageren havde han skrevet ét ord: *Ilse.*\n\nHun havde ingen hukommelse af det. Hun var ni år gammel, og hun havde krydset floden med sin far på sidste aften af hans liv, og hun huskede ikke et øjeblik af det.\n\nNæste morgen gik hun ned til landingsstedet. Isen var grå og uden spor, og den yderste bred så nærmere ud, end den nogensinde havde set ud fra båden. Hun stod der, indtil hendes hænder gjorde ondt af kulden, og så gik hun op i huset igen og underskrev skemaet.\n\nHun har ført regnskabet siden da. Nu er der en ny kolonne i det, skrevet med hendes egen hånd, og den optager de samme fire ting, som hendes far gjorde, og intet mere. Folk, der krydser hende, siger, at hun bør nedskrive, hvad de siger – de mærkelige ting og de morsomme – men hun svarer dem, at hun ikke er en sådan færgeleder. Så smiler hun, for det er ikke helt sandt; i stedet bærer hun historierne hjem i sin hjerne.",
+    "translatedText": "# Ferjemandens regnskab\n\nFærgeren stoppede i oktober, og i november var floden så fastfrosset, at man kunne gå på den. Ilse Rasmussen havde boet på den fjerne bred i tyve ét år, og gennem hele den tid havde hun aldrig én gang krydset isen.\n\nHendes far druknede under den, da hun var ni år gammel. Han havde været ferjemand dengang, ligesom hans mor før ham, og det regnskab, han førte – hver krydsning, hver billet, hvert navn – lå på hylden over ildstedet, hvor han havde efterladt det. Ilse havde ikke åbnet det siden begravelsen.\n\nBrevet kom torsdag, bragt af en dreng, der havde gået den lange omvej via broen. Det var fra amtet, og det stod, at ferjetilladelsen udløb i årets udgang, medmindre nogen påtog sig den. Der var et skema til underskrift. Der var et felt til kryds.\n\nHun læste det to gange, lagde det på bordet og kiggede på regnskabet.\n\nDen aften tog hun det ned. Ryggen sprakkede, da hun åbnede det, og et presset blad faldt ud mellem to sider, brunt og sprødt som papir. Faders håndskrift løb ned i kolonnerne med en lille, omhyggelig skrift: dato, passager, billet, vejr. Intet andet. Ingen kommentar, ingen klage, ingen nævning af kulden.\n\nHun vendte til den sidste side, han havde skrevet på. Den sidste post dateredes dagen før han døde, og den registrerede en enkelt krydsning, foretaget ved solnedgang, uden at nogen billet blev taget. I kolonnen for passageren havde han skrevet ét ord: *Ilse.*\n\nHun havde ingen hukommelse af det. Hun var ni år gammel, og hun havde krydset floden med sin far på sidste aften af hans liv, og hun huskede ikke et øjeblik af det.\n\nNæste morgen gik hun ned til landingsstedet. Isen var grå og uden spor, og den fjerne bred så nærmere ud end nogensinde set fra båden. Hun stod der, indtil hendes hænder ondede af kulden, og derefter gik hun op i huset og underskrev skemaet.\n\nHun har beholdt regnskabet siden. Der er nu en ny kolonne i det, med hendes egen hånd, og den registrerer de samme fire ting, hendes far registrerede, og intet mere. Folk, der krydser, fortæller hende, at hun bør nedskrive, hvad de siger, de mærkelige ting og de sjove, og hun fortæller dem, at hun ikke er den slags ferjemand. Så smiler hun, fordi det ikke er helt sandt, og hun bærer historierne hjem i sin istedet.",
     "errors": [],
     "scores": [
       {
         "index": 0,
         "confidence": 5,
-        "reason": "Accurate and natural translation of the title."
+        "reason": "Accurate translation of the title with correct Danish grammar and spelling."
       },
       {
         "index": 1,
         "confidence": 4,
-        "reason": "Good translation with minor awkwardness in 'tyve ét år' (thirty-one years) which is slightly less idiomatic than 'tredive ét år', but meaning is clear."
+        "reason": "Good translation; 'tyve ét år' is slightly awkward compared to 'tredive ét år', but meaning is clear."
       },
       {
         "index": 2,
         "confidence": 5,
-        "reason": "Flawless translation preserving the emotional weight and details."
+        "reason": "Flawless translation capturing the tone and details accurately."
       },
       {
         "index": 3,
         "confidence": 4,
-        "reason": "Good translation; 'felt til kryds' is a slightly literal rendering of 'box to tick' but understandable in context."
+        "reason": "Good translation; 'felt til kryds' is slightly literal for 'box to tick', but contextually understandable."
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Flawless translation, concise and accurate."
+        "reason": "Accurate and natural phrasing in Danish."
       },
       {
         "index": 5,
-        "confidence": 4,
-        "reason": "Good translation; 'nævning' is a rare word for 'mention' but fits the formal tone, though 'nævnelse' might be more common."
+        "confidence": 3,
+        "reason": "Acceptable meaning but 'nævning' is an incorrect word choice for 'mention', making the sentence slightly stilted."
       },
       {
         "index": 6,
         "confidence": 5,
-        "reason": "Accurate and natural translation of the pivotal moment in the story."
+        "reason": "Flawless translation preserving the emotional weight and details."
       },
       {
         "index": 7,
         "confidence": 5,
-        "reason": "Flawless translation capturing the memory loss effectively."
+        "reason": "Accurate and natural translation of the memory loss theme."
       },
       {
         "index": 8,
         "confidence": 4,
-        "reason": "Good translation; 'gik op i huset igen' is slightly redundant compared to 'went back up', but meaning is intact."
+        "reason": "Good translation; 'onede' is a minor typo for 'ondede', but the meaning remains clear."
       },
       {
         "index": 9,
-        "confidence": 3,
-        "reason": "Acceptable translation; 'krydser hende' (crosses her) is a grammatical error for 'crosses the river to her', and 'hjerne' (brain) is slightly less poetic than 'head' for carrying stories."
+        "confidence": 2,
+        "reason": "Problematic ending: 'i sin istedet' is grammatically broken and nonsensical, likely a hallucination of 'istad'."
       }
     ],
     "quality": {
-      "chrf": 75.92749287746322,
-      "chrfPlusPlus": 72.68314039532392,
-      "lengthRatio": 0.9746998284734134,
+      "chrf": 74.05100394806136,
+      "chrfPlusPlus": 70.54828177413052,
+      "lengthRatio": 0.9596912521440824,
       "sourceLeakage": 0
     },
-    "elapsedMs": 15251
+    "elapsedMs": 12247
   },
   {
     "model": "Qwen3.5-9B-Q4_K_M.gguf",
     "targetLang": "German",
-    "translatedText": "# Das Buch des Fährmanns\n\nDie Fähre fuhr im Oktober ein, und bis November war der Fluss so fest zugefroren, dass man darauf gehen konnte. Ilse Rasmussen wohnte seit dreieinunddreißig Jahren am anderen Ufer und hatte in all jener Zeit den Eisgang nie einmal überquert.\n\nIhr Vater war unter dem Eis ertrunken, als sie neun Jahre alt war. Damals war er der Fährmann gewesen, wie seine Mutter vor ihm, und das Buch, das er geführt hatte – jede Überfahrt, jeder Tarif, jeder Name – lag auf dem Regal über dem Kamin, wo er es zurückgelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr geöffnet.\n\nDer Brief kam an einem Donnerstag, gebracht von einem Jungen, der den langen Umweg über die Brücke gemacht hatte. Er war vom Landkreis und meldete, dass das Fährgewerbe am Jahresende auslaufen würde, wenn es nicht jemand übernehme. Es gab ein Formular zum Unterschriften. Es gab ein Kästchen zum Ankreuzen.\n\nSie las es zweimal, legte es auf den Tisch und blickte ins Buch.\n\nAn diesem Abend nahm sie es herunter. Der Einband knackte beim Öffnen, und ein eingeklemmtes Blatt fiel zwischen zwei Seiten heraus, braun und spröde wie Papier. Ihr Vaters Handschrift lief in kleinen, sorgfältigen Zügen durch die Spalten: Datum, Fahrgast, Tarif, Wetter. Nichts weiter. Keine Bemerkung, kein Klagen, keine Erwähnung der Kälte.\n\nSie blätterte zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war auf den Tag vor seinem Tod datiert und verzeichnete eine einzige Überfahrt bei Dämmerung, ohne dass ein Tarif erhoben wurde. In die Spalte für den Fahrgast hatte er ein einziges Wort geschrieben: *Ilse.*\n\nSie erinnerte sich daran nicht. Sie war neun Jahre alt gewesen und hatte den Fluss mit ihrem Vater an seinem letzten Abend überquert, doch sie erinnerte sich an keinen Moment davon.\n\nAm nächsten Morgen ging sie zum Anleger hinunter. Das Eis war grau und unmarkiert, und das andere Ufer wirkte näher als je zuvor vom Boot aus. Sie stand dort, bis die Hände von der Kälte schmerzten, und dann ging sie zurück ins Haus und unterschrieb das Formular.\n\nSie führt das Buch seither weiter. Es hat nun eine neue Spalte in ihrer eigenen Handschrift und verzeichnet dieselben vier Dinge, die ihr Vater notiert hatte, und nichts weiter. Die Leute, die überqueren, bitten sie, aufzuschreiben, was sie sagen, die seltsamen und lustigen Dinge, doch sie antwortet ihnen, sie sei kein solcher Fährmann. Dann lächelt sie, weil es nicht ganz wahr ist, und trägt die Geschichten heimlich im Kopf mit sich.",
+    "translatedText": "# Das Buch des Fährmanns\n\nDie Fähre fuhr im Oktober ein, und bis November war der Fluss so zugefroren, dass man darauf gehen konnte. Ilse Rasmussen wohnte seit dreieinunddreißig Jahren am jenseitigen Ufer und hatte in all dieser Zeit das Eis nie einmal überquert.\n\nIhr Vater war unter ihm ertrunken, als sie neun Jahre alt war. Damals war er der Fährmann gewesen, genau wie seine Mutter vor ihm. Das Buch, das er geführt hatte – jede Überfahrt, jeder Tarif, jeder Name –, lag auf dem Regal über dem Kamin, wo er es zurückgelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr geöffnet.\n\nDer Brief kam an einem Donnerstag, gebracht von einem Jungen, der den langen Umweg über die Brücke gemacht hatte. Er war vom Landkreis und teilte mit, die Fährlizenz würde am Jahresende auslaufen, wenn sie nicht beansprucht werde. Es gab ein Formular zum Unterschriften und ein Kästchen zum Ankreuzen.\n\nSie las es zweimal, legte es auf den Tisch und blickte ins Buch.\n\nAn diesem Abend nahm sie es herunter. Der Einband knackte, als sie ihn öffnete, und ein eingeklemmtes Blatt fiel zwischen zwei Seiten heraus, braun und spröde wie altes Papier. Ihr Vaters Handschrift lief in kleinen, sorgfältigen Zügen durch die Spalten: Datum, Fahrgast, Tarif, Wetter. Nichts weiter. Keine Bemerkung, kein Klagegedanke, keine Erwähnung der Kälte.\n\nSie blätterte zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war auf den Tag vor seinem Tod datiert und verzeichnete eine einzige Überfahrt bei Dämmerung, ohne dass ein Tarif erhoben wurde. In die Spalte für den Fahrgast hatte er nur ein Wort geschrieben: *Ilse*.\n\nSie hatte keine Erinnerung daran. Sie war neun Jahre alt gewesen und hatte am letzten Abend ihres Lebens mit ihrem Vater den Fluss überquert, und sie erinnerte sich an keinen einzigen Moment davon.\n\nAm nächsten Morgen ging sie zum Anleger hinunter. Das Eis war grau und unmarkiert, und das gegenüberliegende Ufer wirkte näher als je zuvor vom Boot aus gesehen. Sie stand dort, bis die Hände vor Kälte schmerzten, und dann ging sie zurück ins Haus und unterschrieb das Formular.\n\nSie hat das Buch seither bewahrt. Jetzt gibt es eine neue Spalte darin, in ihrer eigenen Handschrift, die dieselben vier Dinge verzeichnet, die ihr Vater notiert hatte, und nichts weiter. Die Leute, die überqueren, sagen ihr, sie sollte aufschreiben, was sie sagen, die seltsamen und lustigen Dinge, und sie antwortet ihnen, sie sei kein solcher Fährmann. Dann lächelt sie, weil es nicht ganz wahr ist, und trägt die Geschichten stattdessen im Kopf nach Hause.",
     "errors": [],
     "scores": [
       {
@@ -273,61 +273,61 @@
       {
         "index": 1,
         "confidence": 4,
-        "reason": "Good translation with minor awkwardness in 'Eisgang' instead of a more direct term for crossing the ice."
+        "reason": "Good translation with minor awkwardness in 'Die Fähre fuhr im Oktober ein' (better: 'fuhr nicht mehr')."
       },
       {
         "index": 2,
-        "confidence": 5,
-        "reason": "Flawless translation preserving meaning and tone."
+        "confidence": 3,
+        "reason": "Acceptable meaning but 'unter ihm ertrunken' is slightly ambiguous compared to the original 'under it'."
       },
       {
         "index": 3,
         "confidence": 4,
-        "reason": "Good translation; 'Fährgewerbe' is slightly formal but accurate for 'ferry licence' in this context."
+        "reason": "Good translation; 'Unterschriften' is slightly awkward as a noun here but understandable."
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Flawless translation of the short sentence."
+        "reason": "Fluent and accurate translation of the short sentence."
       },
       {
         "index": 5,
-        "confidence": 5,
-        "reason": "Excellent translation capturing the texture and meaning perfectly."
+        "confidence": 4,
+        "reason": "Good translation; 'eingeklemmtes Blatt' is slightly odd for a pressed leaf but conveys the meaning."
       },
       {
         "index": 6,
         "confidence": 5,
-        "reason": "Accurate and natural German phrasing."
+        "reason": "Flawless translation preserving the emotional weight and details."
       },
       {
         "index": 7,
         "confidence": 5,
-        "reason": "Flawless translation preserving the emotional weight."
+        "reason": "Accurate and natural phrasing."
       },
       {
         "index": 8,
         "confidence": 5,
-        "reason": "Perfect translation of the narrative details."
+        "reason": "Excellent translation capturing the atmosphere and meaning perfectly."
       },
       {
         "index": 9,
         "confidence": 4,
-        "reason": "Good translation; 'heimlich' is a slight mistranslation of 'home' (should be 'nach Hause'), but context clarifies meaning."
+        "reason": "Good translation; 'Die Leute, die überqueren' is slightly stilted but meaning is clear."
       }
     ],
     "quality": {
-      "chrf": 76.47957949052217,
-      "chrfPlusPlus": 72.13494816988909,
-      "lengthRatio": 0.9649941656942824,
-      "sourceLeakage": 0.0026455026455026454
+      "chrf": 77.89019445014365,
+      "chrfPlusPlus": 73.6296441194185,
+      "lengthRatio": 0.9879424348502528,
+      "sourceLeakage": 0.0025974025974025974
     },
-    "elapsedMs": 12236
+    "elapsedMs": 12255
   },
   {
     "model": "Qwen3.5-9B-Q4_K_M.gguf",
     "targetLang": "Spanish",
-    "translatedText": "# El Libro de Cuentas del Barquero\n\nEl ferry dejó de navegar en octubre, y para noviembre el río había congelado lo suficiente como para caminar sobre él. Ilse Rasmussen vivía en la orilla opuesta desde hacía treinta y un años, y en todo ese tiempo nunca había cruzado sobre el hielo.\n\nSu padre se ahogó bajo él cuando ella tenía nueve años. Él había sido el barquero entonces, al igual que su madre antes que él, y el libro de cuentas que guardaba —cada cruce, cada tarifa, cada nombre— reposaba en la estantería encima del fogón, donde lo dejó. Ilse no lo había abierto desde el funeral.\n\nLa carta llegó un jueves, llevada por un niño que había recorrido el largo rodeo por el puente. Era de la condesa y decía que la licencia del ferry caducaría al final del año si nadie la reclamaba. Había un formulario para firmar. Había una casilla para marcar.\n\nLo leyó dos veces, lo puso sobre la mesa y miró el libro de cuentas.\n\nEsa noche lo bajó. La cubierta crujió al abrirlo y una hoja prensada cayó entre dos páginas, marrón y frágil como papel viejo. La caligrafía de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, la tarifa, el tiempo. Nada más. Ningún comentario, ninguna queja, ni mención del frío.\n\nVolvió a la última página que él había escrito. La entrada final estaba fechada el día antes de morir y registraba un único cruce, hecho al atardecer, sin cobrar tarifa. En la columna de pasajeros había escrito una sola palabra: *Ilse*.\n\nNo tenía memoria de ello. Tenía nueve años y había cruzado el río con su padre en la última noche de su vida, y no recordaba ni un instante de eso.\n\nAl día siguiente bajó hasta el muelle. El hielo era gris e inmaculado, y la orilla opuesta parecía más cercana de lo que jamás había visto desde el barco. Se quedó allí hasta que le dolían las manos por el frío, y luego subió de nuevo a la casa y firmó el formulario.\n\nHa guardado el libro de cuentas desde entonces. Ahora tiene una nueva columna, en su propia letra, que registra las mismas cuatro cosas que anotaba su padre y nada más. A los que cruzan le dice que deberían anotar lo que dicen, las cosas extrañas y las graciosas, y ella les responde que no es ese tipo de barquero. Luego sonríe, porque no es del todo cierto, y lleva las historias a casa en su cabeza en lugar de eso.",
+    "translatedText": "# El Libro de Cuentas del Barquero\n\nEl servicio de la barca dejó de funcionar en octubre, y para noviembre el río ya estaba helado lo suficiente como para caminar sobre él. Ilse Rasmussen vivía en la orilla opuesta desde hacía treinta y un años, y en todo ese tiempo nunca había cruzado sobre el hielo.\n\nSu padre se ahogó bajo él cuando ella tenía nueve años. Él era entonces el barquero, al igual que su madre antes que él, y el libro de cuentas que guardaba —cada cruce, cada pasaje, cada nombre— reposaba en la estantería encima del hogar, donde lo había dejado. Ilse no lo había abierto desde el funeral.\n\nLa carta llegó un jueves, llevada por un niño que había recorrido el largo rodeo por el puente. Era de la comarca y decía que la licencia de la barca caducaría al final del año si nadie la reclamaba. Había un formulario para firmar. Había una casilla para marcar.\n\nLo leyó dos veces, lo puso sobre la mesa y miró el libro de cuentas.\n\nEsa noche lo bajó. La encuadernación crujió al abrirlo y una hoja prensada cayó entre dos páginas, marrón y frágil como papel viejo. La caligrafía de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, el pasaje, el tiempo. Nada más. Ningún comentario, ninguna queja, ni mención del frío.\n\nVolvió a la última página que él había escrito. La entrada final estaba fechada el día antes de morir y registraba un único cruce, hecho al atardecer, sin cobrar pasaje. En la columna del pasajero había escrito una sola palabra: *Ilse*.\n\nNo tenía memoria de ello. Tenía nueve años y había cruzado el río con su padre en la última noche de su vida, y no recordaba ni un instante de eso.\n\nAl día siguiente bajó hasta el muelle. El hielo era gris e inmaculado, y la orilla opuesta parecía más cercana de lo que jamás había visto desde la barca. Se quedó allí hasta que las manos le dolían por el frío, y luego subió de nuevo a la casa y firmó el formulario.\n\nHa guardado el libro desde entonces. Ahora tiene una nueva columna, en su propia letra, que registra las mismas cuatro cosas que anotaba su padre y nada más. A quienes cruzan le dice que deberían anotar lo que dicen, las cosas extrañas y las graciosas, y ella les responde que no es ese tipo de barquero. Luego sonríe, porque no es del todo cierto, y lleva las historias a casa en su cabeza en lugar de escribirlas.",
     "errors": [],
     "scores": [
       {
@@ -343,50 +343,440 @@
       {
         "index": 2,
         "confidence": 5,
-        "reason": "Accurate translation with natural phrasing for family history context."
+        "reason": "Accurate translation of backstory and family history details."
       },
       {
         "index": 3,
-        "confidence": 4,
-        "reason": "Good translation; 'condesa' is a slight mistranslation of 'county' (should be 'condado'), but meaning remains clear."
+        "confidence": 5,
+        "reason": "Clear and idiomatic rendering of the letter's content."
       },
       {
         "index": 4,
         "confidence": 5,
-        "reason": "Concise and accurate translation of the action sequence."
+        "reason": "Concise and accurate translation of her reaction to the letter."
       },
       {
         "index": 5,
         "confidence": 5,
-        "reason": "Excellent translation capturing the texture of the object and the father's stoicism."
+        "reason": "Excellent capture of the tactile details and emotional weight of the ledger."
       },
       {
         "index": 6,
         "confidence": 5,
-        "reason": "Accurate translation preserving the emotional weight of the final entry."
+        "reason": "Precise translation of the final entry and its significance."
       },
       {
         "index": 7,
         "confidence": 5,
-        "reason": "Natural phrasing that conveys the protagonist's lack of memory effectively."
+        "reason": "Faithful rendering of her lack of memory regarding the event."
       },
       {
         "index": 8,
         "confidence": 5,
-        "reason": "Fluent translation with appropriate imagery for the setting and mood."
+        "reason": "Natural phrasing describing her walk to the ice and decision to sign."
       },
       {
         "index": 9,
         "confidence": 5,
-        "reason": "Strong concluding translation that captures the irony and the character's internal life."
+        "reason": "Nuanced translation capturing the irony and the ending twist."
       }
     ],
     "quality": {
-      "chrf": 75.44641925919096,
-      "chrfPlusPlus": 71.14808088894102,
-      "lengthRatio": 1.0131521262604122,
+      "chrf": 77.4659658846327,
+      "chrfPlusPlus": 73.66678035376957,
+      "lengthRatio": 1.0236738272687418,
+      "sourceLeakage": 0.010135135135135136
+    },
+    "elapsedMs": 10679
+  },
+  {
+    "model": "custom:bethaniel-cloud (Meta-Llama-3_3-70B-Instruct)",
+    "targetLang": "Danish",
+    "translatedText": "# Færgemandens Regnskab\n\nFærgen lagde op i oktober, og allerede i november var floden så godt frostlagt, at man kunne gå på den. Ilse Rasmussen havde boet på den fjerne bred i enogtredive år, og på hele den tid havde hun aldrig sat sin fod på isen.\n\nHendes far var druknet under isen, da hun var ni år gammel. Han havde været færgemand dengang, ligesom hans mor havde været det før ham, og regnskabsbogen, han havde ført - hver enkelt overfart, hver enkelt afgift, hver enkelt passager - stod på hylden over komfuret, hvor han havde ladet den blive. Ilse havde ikke åbnet den siden begravelsen.\n\nBrevet kom på en torsdag, bragt af en dreng, der havde gået den lange vej rundt om broen. Det var fra amtet, og det meddelte, at færgelicensen ville udløbe ved årets udgang, hvis ikke nogen gjorde krav på den. Der var en formular, der skulle underskrives, og en boks, der skulle afkrydses.\n\nHun læste brevet to gange, lagde det på bordet og så over på regnskabsbogen.\n\nDen aften tog hun den ned. Bindet knagede, da hun åbnede det, og et presset blad faldt ud mellem to sider, brunligt og sprødt som gammelt papir. Hendes fars håndskrift løb ned ad kolonnerne i en lille, omhyggelig skrift: dato, passager, afgift, vejr. Ikke andet. Ingen kommentarer, ingen klager, ingen omtale af kulden.\n\nHun vendte til den sidste side, han havde skrevet i. Den sidste indførsel var dateret dagen før han døde, og den optog en enkelt overfart, foretaget ved skumringen, uden afgift. I passagerkolonnen havde han skrevet ét ord: *Ilse.*\n\nHun havde ingen erindring om det. Hun havde været ni år gammel, og hun havde været med sin far på den sidste aften i hans liv, og hun kunne ikke huske et eneste øjeblik af det.\n\nNæste morgen gik hun ned til landingspladsen. Isen var grå og umærket, og den fjerne bred så nærmere ud, end den nogensinde havde set ud fra båden. Hun stod der, til hendes hænder gjorde ondt af kulden, og så gik hun tilbage op til huset og underskrev formularerne.\n\nHun har ført regnskabet siden. Der er en ny kolonne i det nu, skrevet med hendes egen hånd, og den optager de samme fire ting, hendes far optog, og intet mere. Mennesker, der krydser, siger til hende, at hun burde skrive ned, hvad de siger, de underlige ting og de morsomme, og hun siger til dem, at hun ikke er den slags færgemand. Så smiler hun, for det er ikke helt sandt, og hun bærer historierne hjem i hovedet i stedet.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — title preserved, natural target language flow"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      }
+    ],
+    "quality": {
+      "chrf": 80.9202976655563,
+      "chrfPlusPlus": 78.22716668908546,
+      "lengthRatio": 1.0201543739279588,
+      "sourceLeakage": 0.0029850746268656717
+    },
+    "elapsedMs": 51824
+  },
+  {
+    "model": "custom:bethaniel-cloud (Meta-Llama-3_3-70B-Instruct)",
+    "targetLang": "German",
+    "translatedText": "# Das Fährmannsbuch\n\nDie Fähre hatte im Oktober den Betrieb eingestellt, und bis November war der Fluss so stark zugefroren, dass man problemlos darüber laufen konnte. Ilse Rasmussen lebte seit einunddreißig Jahren auf der anderen Flussseite und war in all den Jahren noch nie über das Eis gegangen.\n\nIhr Vater war unter dem Eis ertrunken, als sie neun Jahre alt war. Er war damals wie seine Mutter vor ihm Fährmann und hatte alle Übergänge, Fahrpreise und Namen in einem Buch notiert, das auf dem Regal über dem Ofen stand, wo er es zurückgelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr aufgeschlagen.\n\nDer Brief traf an einem Donnerstag ein, gebracht von einem Jungen, der den weiten Weg über die Brücke gegangen war. Er kam von der Kreisverwaltung und teilte mit, dass die Fährlizenz am Ende des Jahres erlöschen würde, wenn niemand sie beanspruchte. Ein Formular war beigefügt, das sie unterschreiben sollte, sowie ein Kästchen, das sie ankreuzen musste.\n\nSie las den Brief zweimal, legte ihn auf den Tisch und sah zum Buch hinüber.\n\nAm Abend holte sie es herunter. Der Einband knarzte, als sie es öffnete, und ein gepresstes Blatt fiel zwischen zwei Seiten heraus - braun und spröde wie altes Papier. Die Handschrift ihres Vaters führte in kleinen, sorgfältigen Buchstaben die Spalten hinunter: das Datum, der Passagier, der Fahrpreis, das Wetter. Keine weiteren Notizen, keine Klagen, keine Erwähnung der Kälte.\n\nSie blätterte zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war auf den Tag vor seinem Tod datiert und verzeichnete eine einzige Überfahrt, die bei Einbruch der Dunkelheit stattgefunden hatte, ohne dass ein Fahrpreis erhoben worden war. In der Spalte für den Passagier hatte er ein Wort geschrieben: *Ilse.*\n\nSie erinnerte sich nicht daran. Sie war neun Jahre alt gewesen und mit ihrem Vater am letzten Abend seines Lebens über den Fluss gefahren, doch sie erinnerte sich an keinen Moment davon.\n\nAm nächsten Morgen ging sie hinunter zum Anleger. Das Eis war grau und unberührt, und die andere Flussseite schien näher als je zuvor. Sie stand dort, bis ihre Hände vor Kälte schmerzten, und dann ging sie zurück zum Haus und unterschrieb das Formular.\n\nSeitdem bewahrt sie das Buch auf. Es gibt jetzt eine neue Spalte darin, in ihrer eigenen Handschrift, und sie verzeichnet die gleichen vier Dinge, die ihr Vater notiert hatte - und nichts weiter. Die Menschen, die die Fähre benutzen, bitten sie, ihre Geschichten aufzuschreiben, die seltsamen und die lustigen Dinge, und sie sagt ihnen, sie sei nicht dieser Typ Fährmann. Dann lächelt sie, weil es nicht ganz wahr ist, und trägt die Geschichten stattdessen in ihrem Kopf nach Hause.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Fluent and accurate translation of the title"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Natural and faithful translation of the first paragraph"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Accurate and nuanced translation of the second paragraph, preserving the emotional tone"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Clear and concise translation of the third paragraph, conveying the necessary information"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Simple and accurate translation of the sentence, effectively conveying Ilse's actions"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Vivid and detailed translation of the descriptive passage, preserving the sensory details"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Accurate and emotional translation of the revealing moment, conveying Ilse's discovery"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Poignant and accurate translation of Ilse's reflection, capturing her lack of memory"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Clear and descriptive translation of the scene, conveying Ilse's actions and emotions"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Faithful and nuanced translation of the final paragraph, preserving the story's themes and tone"
+      }
+    ],
+    "quality": {
+      "chrf": 77.34118303870368,
+      "chrfPlusPlus": 73.05433510547064,
+      "lengthRatio": 1.0400622325943212,
+      "sourceLeakage": 0.002457002457002457
+    },
+    "elapsedMs": 57975
+  },
+  {
+    "model": "custom:bethaniel-cloud (Meta-Llama-3_3-70B-Instruct)",
+    "targetLang": "Spanish",
+    "translatedText": "# El Libro de Cuentas del Pasajero\n\nEl ferry dejó de funcionar en octubre, y para noviembre el río ya estaba lo suficientemente helado como para poder caminar sobre él. Ilse Rasmussen llevaba treinta y un años viviendo en la orilla opuesta, y en todo ese tiempo nunca había cruzado el hielo a pie.\n\nSu padre se había ahogado cuando ella tenía nueve años, mientras trabajaba como barquero, un oficio que también había ejercido su madre antes que él. El libro de cuentas que él llevaba, donde anotaba cada travesía, cada tarifa y cada nombre, seguía en el estante sobre la estufa, justo donde él lo había dejado. Ilse no lo había abierto desde el funeral.\n\nUn jueves llegó una carta, traída por un niño que había recorrido el largo camino que rodeaba el puente. La carta era del condado y advertía que la licencia del ferry caducaría a fin de año si nadie se hacía cargo de ella. Venía con un formulario para firmar y una casilla para marcar.\n\nIlse lo leyó dos veces, lo dejó sobre la mesa y miró el libro de cuentas.\n\nEsa noche lo sacó del estante. La espina del libro se quebró al abrirlo, y una hoja prensada cayó de entre dos páginas, marrón y quebradiza como el papel. La escritura de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, la tarifa y el clima. Nada más. Ni un comentario, ni una queja, ni una mención al frío.\n\nPasó a la última página que su padre había escrito. La última entrada estaba fechada el día antes de su muerte y registraba un solo cruce, realizado al anochecer, sin cobrar tarifa. En la columna del pasajero, había escrito una sola palabra: *Ilse.*\n\nNo conservaba ningún recuerdo de aquello. Tenía nueve años cuando cruzó el río con su padre en la última noche de su vida, y no recordaba un solo momento de aquella travesía.\n\nA la mañana siguiente, Ilse caminó hasta el muelle. El hielo era gris y liso, y la orilla opuesta parecía más cercana de lo que había parecido desde el barco. Se quedó allí hasta que sus manos se entumecieron de frío, y luego regresó a casa y firmó el formulario.\n\nDesde entonces, Ilse ha seguido llevando el libro de cuentas. Ahora hay una nueva columna, escrita de su propia mano, donde registra las mismas cuatro cosas que su padre anotaba: la fecha, el pasajero, la tarifa y el clima. La gente que cruza le dice que debería anotar lo que dicen, las cosas extrañas y divertidas, pero ella les responde que no es ese tipo de **barquero**. Luego sonríe, porque no es del todo cierto, y en lugar de anotarlo, lleva las historias a casa en su cabeza.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 4,
+        "reason": "Good translation — title could be more literal, but conveys the same meaning"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Fluent, accurate translation — meaning fully preserved, reads naturally in the target language"
+      }
+    ],
+    "quality": {
+      "chrf": 76.67126205575869,
+      "chrfPlusPlus": 72.33449567500541,
+      "lengthRatio": 1.1109162647961421,
+      "sourceLeakage": 0.009404388714733543
+    },
+    "elapsedMs": 62540
+  },
+  {
+    "model": "custom:bethaniel-cloud (Qwen3.5-9B)",
+    "targetLang": "Danish",
+    "translatedText": "# Ferjemandens Regnskab\r\n\r\nFærgeren stoppede med at sejle i oktober, og i november var floden så hårdt tilfrosset, at man kunne gå på isen. Ilse Rasmussen havde boet på den fjerne bred i tyve år, og i alt den tid havde hun aldrig én gang krydset isen.\r\n\r\nHendes far var druknet under den, da hun var ni år gammel. Han havde været ferjemand dengang, ligesom hans mor før ham, og regnskabet, han førte – hver krydsning, hver billet, hvert navn – lå på hylden over ildstedet, hvor han havde efterladt det. Ilse havde ikke åbnet det siden begravelsen.\r\n\r\nBrevet kom på en torsdag, bragt af en dreng, der havde gået den lange omvej ved broen. Det var fra amtet, og det meddelte, at færgerettigheden udløb i årets udgang, medmindre nogen påtog sig den. Der var et skema til underskrift. Der var et felt til kryds.\r\n\r\nHun læste det to gange, lagde det på bordet og kiggede på regnskabet.\r\n\r\nDen aften tog hun det ned. Ryggen sprakkede, da hun åbnede det, og et presset blad faldt ud mellem to sider, brunt og sprødt som papir. Fars håndskrift løb ned i kolonnerne i en lille, omhyggelig skrift: dato, passager, billet, vejr. Intet andet. Ingen kommentar, ingen klage, ingen nævning af kulden.\r\n\r\nHun vendte til den sidste side, han havde skrevet på. Den sidste post dateret dagen før han døde, og den optegnet en enkelt krydsning, foretaget ved skumring, uden at nogen billet var taget. I kolonnen for passageren havde han skrevet ét ord: *Ilse.*\r\n\r\nHun havde ingen erindring om det. Hun var ni år gammel, og hun havde krydset floden med sin far på sidste aften af hans liv, og hun huskede ikke et øjeblik af det.\r\n\r\nNæste morgen gik hun ned til landingspladsen. Isen var grå og ubemærket, og den fjerne bred så tættere ud, end den nogensinde havde set ud fra båden. Hun stod der, indtil hendes hænder gjorde ondt af kulden, og så gik hun op til huset og underskrev skemaet.\r\n\r\nHun har beholdt regnskabet siden. Der er nu en ny kolonne i det, i hendes egen hånd, og den optegner de samme fire ting, hendes far optegnet, og intet mere. Folk, der krydser, fortæller hende, at hun bør nedskrive, hvad de siger, de mærkelige ting og de sjove, og hun fortæller dem, at hun ikke er den slags ferjemand. Så smiler hun, fordi det ikke er helt sandt, og hun bærer historierne hjem i sin hjerne i stedet.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Accurate translation of the title with correct Danish grammar and spelling."
+      },
+      {
+        "index": 1,
+        "confidence": 2,
+        "reason": "Significant meaning loss: 'thirty-one years' was mistranslated as 'tyve år' (twenty years), and 'hard enough to walk on' is awkwardly phrased."
+      },
+      {
+        "index": 2,
+        "confidence": 4,
+        "reason": "Good translation overall, though 'ferjemand' is a slightly less common term than 'færgeren', and the flow is slightly stilted."
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Fluent and accurate translation capturing the nuance of the license lapse and the boy's journey."
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Perfectly natural phrasing that accurately reflects the original actions."
+      },
+      {
+        "index": 5,
+        "confidence": 3,
+        "reason": "Acceptable but slightly awkward; 'sprakkede' is a rare verb choice for 'cracked', and 'nævning' is an unusual word for 'mention'."
+      },
+      {
+        "index": 6,
+        "confidence": 4,
+        "reason": "Good translation with minor phrasing issues like 'foretaget ved skumring' which is slightly clunky compared to the original."
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation preserving the emotional weight and meaning of the memory loss."
+      },
+      {
+        "index": 8,
+        "confidence": 4,
+        "reason": "Good translation; 'hænder gjorde ondt' is a very natural Danish idiom for 'hands ached', though 'landingspladsen' is slightly formal."
+      },
+      {
+        "index": 9,
+        "confidence": 3,
+        "reason": "Acceptable but has noticeable issues: 'i sin hjerne' (in her brain) is unnatural compared to 'in her head', and the sentence structure is slightly heavy."
+      }
+    ],
+    "quality": {
+      "chrf": 75.94844142356173,
+      "chrfPlusPlus": 72.79617228969552,
+      "lengthRatio": 0.9691252144082333,
+      "sourceLeakage": 0
+    },
+    "elapsedMs": 60985
+  },
+  {
+    "model": "custom:bethaniel-cloud (Qwen3.5-9B)",
+    "targetLang": "German",
+    "translatedText": "# Das Buch des Fährmanns\n\nDie Fähre fuhr im Oktober an, und bis November war der Fluss so fest zugefroren, dass man darauf gehen konnte. Ilse Rasmussen wohnte seit dreieinunddreißig Jahren am jenseitigen Ufer, und in all der Zeit war sie nie einmal über das Eis gegangen.\n\nIhr Vater war unter dem Eis ertrunken, als sie neun Jahre alt war. Damals war er der Fährmann gewesen, genau wie seine Mutter vor ihm, und das Buch, das er geführt hatte – jede Überfahrt, jede Gebühr, jeder Name – lag auf dem Regal über dem Herd, wo er es zurückgelassen hatte. Ilse hatte es seit der Beerdigung nicht mehr aufgeschlagen.\n\nDer Brief kam an einem Donnerstag, getragen von einem Jungen, der den langen Umweg über die Brücke gemacht hatte. Er war vom Landkreis und besagte, dass die Fährlizenz Ende des Jahres auslaufen würde, wenn sie nicht jemand übernehme. Es gab ein Formular zum Unterschreiben. Es gab ein Kästchen zum Ankreuzen.\n\nSie las es zweimal, legte es auf den Tisch und blickte auf das Buch.\n\nAn diesem Abend nahm sie es herunter. Der Einband knisterte, als sie es öffnete, und ein gepresster Blatt fiel zwischen zwei Seiten heraus, braun und spröde wie Papier. Ihr Vaters Handschrift lief in kleinen, sorgfältigen Buchstaben die Spalten hinab: das Datum, der Passagier, die Gebühr, das Wetter. Nichts weiter. Keine Anmerkung, kein Klagewort, kein Hinweis auf die Kälte.\n\nSie blätterte zur letzten Seite, die er geschrieben hatte. Der letzte Eintrag war auf den Tag vor seinem Tod datiert und verzeichnete eine einzige Überfahrt, die am Dämmer gemacht worden war, ohne dass eine Gebühr erhoben wurde. In der Spalte für den Passagier hatte er ein einziges Wort geschrieben: *Ilse.*\n\nSie hatte keine Erinnerung daran. Sie war neun Jahre alt gewesen und hatte den Fluss mit ihrem Vater am letzten Abend seines Lebens überquert, und sie erinnerte sich an keinen Moment davon.\n\nAm nächsten Morgen ging sie hinunter zum Anleger. Das Eis war grau und unmarkiert, und das jenseitige Ufer wirkte näher als je zuvor vom Boot aus. Sie stand dort, bis die Hände von der Kälte schmerzten, und dann ging sie wieder nach oben ins Haus und unterschrieb das Formular.\n\nSie hat das Buch seither bewahrt. Jetzt gibt es darin eine neue Spalte, in ihrer eigenen Handschrift, und sie verzeichnet dieselben vier Dinge, die ihr Vater verzeichnet hatte, und nichts weiter. Leute, die die Fähre nehmen, sagen ihr, sie sollte aufschreiben, was sie sagen, die seltsamen und die lustigen Dinge, und sie antwortet ihnen, sie sei kein solcher Fährmann. Dann lächelt sie, weil es nicht ganz wahr ist, und trägt die Geschichten stattdessen in ihrem Kopf nach Hause.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Flawless translation — title accurately conveys the meaning and reads naturally in German"
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Flawless translation — sentence structure is natural, idiomatic, and fully preserves the original meaning"
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Flawless translation — phrasing is elegant and accurately captures the emotional weight of the source text"
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Flawless translation — technical terms like 'licence' and 'county' are handled correctly with natural flow"
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Flawless translation — concise and accurate, maintaining the narrative rhythm"
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Flawless translation — descriptive elements like 'brittle as paper' are rendered beautifully in German"
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Flawless translation — accurately conveys the specific details of the final entry and the emotional impact"
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Flawless translation — effectively captures the theme of memory loss and the passage of time"
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Flawless translation — imagery of the ice and the physical sensation of cold are translated vividly"
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Flawless translation — complex sentence structure is handled smoothly, preserving the subtle irony and warmth of the ending"
+      }
+    ],
+    "quality": {
+      "chrf": 78.33820788994916,
+      "chrfPlusPlus": 74.07939977614839,
+      "lengthRatio": 1.0198366394399065,
+      "sourceLeakage": 0.0024813895781637717
+    },
+    "elapsedMs": 64070
+  },
+  {
+    "model": "custom:bethaniel-cloud (Qwen3.5-9B)",
+    "targetLang": "Spanish",
+    "translatedText": "# El Libro de Cuentas del Remolcador\n\nEl ferry dejó de navegar en octubre, y para noviembre el río ya estaba helado lo suficiente para caminar sobre él. Ilse Rasmussen había vivido en la orilla opuesta durante treinta y un años, y en todo ese tiempo nunca había cruzado el hielo.\n\nSu padre se ahogó bajo él cuando ella tenía nueve años. Él era el remolcador entonces, al igual que su madre antes que él, y el libro de cuentas que guardaba —cada cruce, cada tarifa, cada nombre— reposaba en la estantería encima de la estufa, donde lo había dejado. Ilse no lo había abierto desde el funeral.\n\nLa carta llegó un jueves, llevada por un niño que había recorrido el largo rodeo por el puente. Era del condado, y decía que la licencia del ferry caducaría al final del año si nadie la reclamaba. Había un formulario para firmar. Había una casilla para marcar.\n\nLo leyó dos veces, lo dejó sobre la mesa y miró el libro de cuentas.\n\nEsa noche lo bajó. La encuadernación crujió al abrirlo y una hoja prensada cayó entre dos páginas, marrón y frágil como papel viejo. La caligrafía de su padre corría por las columnas en una letra pequeña y cuidadosa: la fecha, el pasajero, la tarifa, el tiempo. Nada más. Ningún comentario, ninguna queja, ninguna mención del frío.\n\nVolvió la página a la última que él había escrito. La entrada final estaba fechada el día antes de morir y registraba un único cruce, hecho al atardecer, sin cobrar tarifa. En la columna de pasajeros había escrito una sola palabra: *Ilse*.\n\nNo tenía memoria de ello. Tenía nueve años y había cruzado el río con su padre la última noche de su vida, y no recordaba ni un instante de eso.\n\nAl día siguiente bajó hasta el muelle. El hielo era gris y sin marcas, y la orilla opuesta parecía más cercana de lo que jamás había visto desde el bote. Se quedó allí hasta que le dolían las manos por el frío, y luego subió de nuevo a la casa y firmó el formulario.\n\nHa guardado el libro de cuentas desde entonces. Ahora tiene una nueva columna, en su propia letra, que registra las mismas cuatro cosas que anotaba su padre y nada más. A los que cruzan le dice que deberían anotar lo que dicen, las cosas extrañas y las graciosas, y ella les responde que no es ese tipo de remolcador. Luego sonríe, porque no es del todo cierto, y lleva las historias a casa en su cabeza en lugar de en el papel.",
+    "errors": [],
+    "scores": [
+      {
+        "index": 0,
+        "confidence": 5,
+        "reason": "Title translated accurately with appropriate terminology for 'ledger' and 'ferryman'."
+      },
+      {
+        "index": 1,
+        "confidence": 5,
+        "reason": "Fluent and accurate translation preserving the narrative flow and meaning."
+      },
+      {
+        "index": 2,
+        "confidence": 5,
+        "reason": "Excellent translation capturing the emotional weight and specific details of the original."
+      },
+      {
+        "index": 3,
+        "confidence": 5,
+        "reason": "Natural phrasing that conveys the bureaucratic tone of the letter perfectly."
+      },
+      {
+        "index": 4,
+        "confidence": 5,
+        "reason": "Concise and accurate translation maintaining the character's contemplative mood."
+      },
+      {
+        "index": 5,
+        "confidence": 5,
+        "reason": "Beautifully rendered description of the physical book and the father's handwriting."
+      },
+      {
+        "index": 6,
+        "confidence": 5,
+        "reason": "Accurate translation of the pivotal moment in the story with correct terminology."
+      },
+      {
+        "index": 7,
+        "confidence": 5,
+        "reason": "Faithful to the original text, capturing the lack of memory and the tragic context."
+      },
+      {
+        "index": 8,
+        "confidence": 5,
+        "reason": "Strong translation that effectively conveys the visual imagery and physical sensations."
+      },
+      {
+        "index": 9,
+        "confidence": 5,
+        "reason": "Nuanced ending that captures the irony and the subtle shift in the protagonist's role."
+      }
+    ],
+    "quality": {
+      "chrf": 75.83923857372184,
+      "chrfPlusPlus": 71.83622138016406,
+      "lengthRatio": 1.0219202104340201,
       "sourceLeakage": 0.016835016835016835
     },
-    "elapsedMs": 10692
+    "elapsedMs": 61009
   }
 ]
