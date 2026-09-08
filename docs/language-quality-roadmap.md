@@ -264,25 +264,44 @@ differed by twelve points; today both sit at 47%, which is what the
 deterministic layer alone produces. Whatever the model knew about German
 spelling is no longer reaching the author.
 
-**A quantisation lead was raised here and is now withdrawn.** It rested on the
-cloud Qwen3.5-9B scoring 88% on German misspellings against the local models'
-47%, and on reading that as full precision beating 4-bit. The 88% came from a
-run with the reasoning misconfiguration still present. Measured after that fix,
-the same cloud model scores **35%** — below the quantised local models, not
-above them. There is no evidence that quantisation is the constraint.
+**Quantisation was suspected and has been ruled out — measured, not argued.**
+The suspicion came from the cloud Qwen3.5-9B scoring 88% on German
+misspellings against the local models' 47%. Two things were wrong with that.
+The 88% came from a run that still had the reasoning misconfiguration in it
+(after the fix the same cloud model scores **35%**, below the local models),
+and local-versus-cloud changes quantisation, serving stack and reasoning all
+at once, so it could not have isolated precision even had the number held.
 
-What the two runs actually differed on was chain-of-thought, so that was tested
-directly: the same model and fixture with reasoning enabled and 32k of
-headroom did not finish a single German chapter inside the harness's one-hour
-per-task ceiling. Reasoning is not a lever here — at any quality it is too slow
-to ship, which is why `reasoning_effort: "none"` stands.
+The controlled test holds everything constant but the weights — the same
+Qwen3.5-9B as a Q8_0 GGUF against the shipped Q4_K_M, both on llama.cpp, one
+request at a time:
 
-So German misspelling is a regression with a known cause (the spellcheck guard
-and proper-noun filter, both since narrowed) and no cheap remedy identified.
-The next thing worth trying is a straight precision comparison that holds the
-serving stack constant — the same Q8 GGUF against the Q4 locally, on llama.cpp
-both times. The cloud comparison could never have answered it, because
-quantisation, serving stack and reasoning all changed at once.
+| | typos | wrong word | comma | recall | precision | flags on clean |
+|---|---|---|---|---|---|---|
+| German Q4_K_M | 47% | 46% | 70% | 63% | 77% | 11 |
+| German Q8_0 | **44%** | 69% | 65% | 63% | 77% | **66** |
+| English Q4_K_M | 94% | 73% | 38% | 67% | 74% | 3 |
+| English Q8_0 | **76%** | 67% | 46% | 67% | 67% | 3 |
+
+German misspelling does not improve — 47% to 44%, with identical overall
+recall — and English misspelling gets materially *worse*. Whatever pins German
+spelling at 47%, it is not 4-bit quantisation.
+
+The Q8's 66 flags on clean German are worth recording as a second finding: 59
+of the 66 were model-authored and degenerate rather than merely wrong —
+`ihrem` → `ALMUTS`, `reparieren konnte` → `reparieren KONNTE`, words shouted in
+capitals and pronouns replaced by a character's name. 65 of the 66 arrived
+flagged as uncertain, so the flag-rather-than-delete change did its job on
+output no rule anticipated.
+
+Reasoning was tested on its own too, since it was the other thing that differed
+between those cloud runs: the same model and fixture with chain-of-thought
+enabled and 32k of headroom did not finish one German chapter inside the
+harness's one-hour per-task ceiling. It is not a lever at any quality.
+
+So German misspelling has a known cause — the spellcheck guard and the
+proper-noun filter, both since narrowed — and two eliminated suspects. It is
+not the dictionary, and it is not the quantisation.
 
 **The dictionary was never the problem**, and that part of the old section
 stands: all four dictionaries were checked against upstream and are current;
