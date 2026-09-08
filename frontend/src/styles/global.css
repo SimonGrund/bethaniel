@@ -6315,3 +6315,47 @@ summary.review-source::before {
   background: #fdfbf6;
   font-style: italic;
 }
+
+/* ── Cloud promo code ──
+   Sits under the Run-in-Cloud button rather than beside it: a code is optional
+   and most authors will never type one, so it must not compete with the action
+   it discounts. Feedback is a line of text, never a blocking error — an
+   unrecognised code still leaves a runnable job at full price. */
+.cloud-code {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: #8a7a5c;
+}
+.cloud-code-label {
+  white-space: nowrap;
+}
+.cloud-code-input {
+  width: 9rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 4px;
+  background: #fdfaf0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2a2419;
+}
+.cloud-code-input:focus-visible {
+  outline: 2px solid #b08830;
+  outline-offset: 1px;
+}
+.cloud-code-note {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.76rem;
+}
+.cloud-code-ok {
+  color: #2a8a7a;
+}
+.cloud-code-warn {
+  color: #b08830;
+}

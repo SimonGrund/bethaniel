@@ -2124,6 +2124,10 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     const quote = (await quoteRes.json()) as {
       quoteId: string;
       priceEurCents: number;
+      fullPriceEurCents?: number;
+      appliedCode?: string;
+      codeRejectedReason?: string;
+      codeUnknown?: boolean;
     };
     res.json({
       estimatedTotalTokens: estimate.estimatedTotalTokens,
@@ -2133,6 +2137,13 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       quoteId: quote.quoteId,
       priceCents: quote.priceEurCents,
       currency: "EUR",
+      // Passed through so the app can show the saving, or say why a code did
+      // not apply. The Worker decides all of this; the backend never judges a
+      // code itself.
+      fullPriceCents: quote.fullPriceEurCents,
+      appliedCode: quote.appliedCode,
+      codeRejectedReason: quote.codeRejectedReason,
+      codeUnknown: quote.codeUnknown,
     });
   } catch {
     res.status(502).json({ error: "Could not reach the cloud service" });

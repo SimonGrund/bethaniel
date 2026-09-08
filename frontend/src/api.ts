@@ -488,6 +488,8 @@ export interface CloudEstimateRequest {
   extraPass: boolean;
   styleGuide?: string;
   manuscriptLang?: string;
+  /** A promo code the author typed. Validated by the Worker, not here. */
+  code?: string;
 }
 
 export interface CloudEstimateResponse {
@@ -498,6 +500,14 @@ export interface CloudEstimateResponse {
   quoteId: string;
   priceCents: number;
   currency: string;
+  /** Price before a code was applied, so the saving can be shown. */
+  fullPriceCents?: number;
+  /** The code that was accepted, echoed back. */
+  appliedCode?: string;
+  /** Set when a code was typed but does not cover a job this size. */
+  codeRejectedReason?: string;
+  /** Set when a code was typed and matched nothing. */
+  codeUnknown?: boolean;
 }
 
 /** Ask the backend (which asks the Cloudflare Worker) what this job would

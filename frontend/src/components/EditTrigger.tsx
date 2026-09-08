@@ -175,6 +175,10 @@ export default function EditTrigger() {
     null,
   );
   const [cloudEstimateError, setCloudEstimateError] = useState<string | null>(null);
+  // Typed by the author, validated by the Worker. Kept out of the persisted
+  // store on purpose: a code is single-use, so remembering it across sessions
+  // would show a discount that no longer exists.
+  const [promoCode, setPromoCode] = useState("");
   const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
   const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -208,6 +212,7 @@ export default function EditTrigger() {
         extraPass,
         styleGuide: styleGuide || undefined,
         manuscriptLang,
+        code: promoCode.trim() || undefined,
       })
         .then((est) => {
           setCloudEstimate(est);
@@ -230,6 +235,7 @@ export default function EditTrigger() {
     selectedChapters.join(","),
     firstNWords,
     selectedModes.join(","),
+    promoCode,
     wordsPerChunk,
     runMode,
     reviewMode,
@@ -498,7 +504,17 @@ export default function EditTrigger() {
               "lower_bound"
                 ? "≥"
                 : "≈"}
-              €{(cloudEstimate.priceCents / 100).toFixed(2)}
+              {cloudEstimate.priceCents === 0 ? (
+                <strong>{t("cloud_free", "Free")}</strong>
+              ) : cloudEstimate.fullPriceCents &&
+                cloudEstimate.fullPriceCents > cloudEstimate.priceCents ? (
+                <>
+                  <s>€{(cloudEstimate.fullPriceCents / 100).toFixed(2)}</s>{" "}
+                  <strong>€{(cloudEstimate.priceCents / 100).toFixed(2)}</strong>
+                </>
+              ) : (
+                <>€{(cloudEstimate.priceCents / 100).toFixed(2)}</>
+              )}
             </span>
           )}
           {cloudEstimateError && !cloudEstimate && (
@@ -508,6 +524,41 @@ export default function EditTrigger() {
           )}
         </button>
       )}
+        {/* A code is optional and rarely used, so it sits under the button
+            rather than competing with it. Feedback is inline: an unknown or
+            unusable code never blocks the run, it just does not discount it. */}
+        <label className="cloud-code">
+          <span className="cloud-code-label">
+            {t("cloud_code_label", "Have a code?")}
+          </span>
+          <input
+            type="text"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value)}
+            placeholder={t("cloud_code_placeholder", "e.g. LAUNCH50")}
+            spellCheck={false}
+            autoCapitalize="characters"
+            className="cloud-code-input"
+          />
+        </label>
+        {cloudEstimate?.appliedCode && (
+          <span className="cloud-code-note cloud-code-ok">
+            {t(
+              "cloud_code_applied",
+              `${cloudEstimate.appliedCode} applied`,
+            )}
+          </span>
+        )}
+        {cloudEstimate?.codeRejectedReason && (
+          <span className="cloud-code-note cloud-code-warn">
+            {cloudEstimate.codeRejectedReason}
+          </span>
+        )}
+        {cloudEstimate?.codeUnknown && (
+          <span className="cloud-code-note cloud-code-warn">
+            {t("cloud_code_unknown", "That code was not recognised.")}
+          </span>
+        )}
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}
