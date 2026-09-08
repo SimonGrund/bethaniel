@@ -157,9 +157,31 @@ export async function handleChatCompletions(
     ]);
   };
 
+  // ── Which model serves this call ──
+  //
+  // The app sends X-Bethaniel-Pass naming the editing pass. It is a HINT: it
+  // selects from models configured here and can never name one itself, so a
+  // wrong or hostile value costs a different allowlisted model for that call
+  // and nothing else. Absent, everything gets PROVIDER_MODEL.
+  //
+  // Translation keeps the large model that copy edit and line edit no longer
+  // need — measured 8 September 2026, it leads chrF by 1.6 overall and 5.0 on
+  // Danish, while being the WORST of four models at line edit. It costs more
+  // per token, which is why it is priced separately.
+  const pass = request.headers.get("X-Bethaniel-Pass");
+  const isTranslate = pass === "translate";
+  const upstreamModel =
+    isTranslate && env.PROVIDER_MODEL_TRANSLATE
+      ? env.PROVIDER_MODEL_TRANSLATE
+      : env.PROVIDER_MODEL;
+  // Only PROVIDER_MODEL is known to reason. The translate model is a Llama,
+  // which rejects nothing but has no chain-of-thought to switch off, so the
+  // field must be omitted for it exactly as it was before this split.
+  const reasoningEffort = isTranslate ? "default" : env.PROVIDER_REASONING_EFFORT;
+
   const upstreamBody = {
     ...body,
-    model: env.PROVIDER_MODEL,
+    model: upstreamModel,
     // Send the clamped cap, not the client's — otherwise the clamp would only
     // shrink the accounting hold while the provider still generated the full
     // requested length.
@@ -175,9 +197,9 @@ export async function handleChatCompletions(
     //     down to 209 completion tokens and a valid corrections array.
     //   - gpt-oss REJECTS an explicit "none" with a 400.
     // So: "none" for a Qwen model, "default" for everything else so far.
-    ...(env.PROVIDER_REASONING_EFFORT === "default"
+    ...(reasoningEffort === "default"
       ? {}
-      : { reasoning_effort: env.PROVIDER_REASONING_EFFORT || "none" }),
+      : { reasoning_effort: reasoningEffort || "none" }),
     // Without this, a streamed OpenAI-compatible response never carries a
     // token-usage figure at all — the trailing usage chunk is opt-in.
     stream_options: body.stream ? { include_usage: true } : undefined,

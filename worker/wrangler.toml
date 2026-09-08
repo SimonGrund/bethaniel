@@ -41,28 +41,64 @@ crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 # billing data is kept), and OpenAI-compatible — proxy.ts appends
 # /v1/chat/completions to the base below.
 #
-# Llama-3.3-70B, not the bigger Qwen3.5-397B-A17B that was here first. All
-# five OVHcloud candidates were benchmarked against sample_texts/stress100
-# (100 planted errors) at the Speed preset; see
-# sample_texts/run_mode_bench_results.txt for the full table. Llama beat the
-# 397B on every axis at HALF the token price: 56% vs 35% recall, 78% vs 54%
-# on spelling specifically, 2x faster, and 2 vs 39 false positives on
-# already-clean prose. The 397B was in fact the second-worst model tested and
-# by far the most expensive — "flagship" and "largest context" turned out to
-# be the wrong things to select on for copy-editing.
+# Qwen3.5-9B, not the Llama-3.3-70B that was here before, and not the
+# Qwen3.5-397B-A17B before that. Each swap came from the same finding: for
+# copy-editing, size is close to irrelevant and the money goes on nothing.
+#
+# Measured 8 September 2026, all four models on ONE harness at identical
+# settings (one editor, one reviewer, one request at a time), four languages
+# of ~100 planted errors each:
+#
+#                       copy edit   line edit   translation (chrF)
+#   Baby Betty 4B          60%         52%           75.8
+#   Big Bad Betty 9B       60%         49%           76.5
+#   Llama-3.3-70B          60%         24%           78.3
+#   Qwen3.5-9B             59%         52%           76.7
+#
+# Copy edit is a four-way tie inside one point. On LINE edit the 70B was the
+# worst of the four by a wide margin — less than half the free bundled model —
+# and the 9B ties the best. The 70B leads only translation, by 1.6 chrF
+# overall and 5.0 on Danish, which is the one thing lost by this change.
+#
+# Qwen3.5-9B is a REASONING model on this endpoint: left alone it spends every
+# completion token on hidden chain-of-thought and returns content: null. llm.ts
+# sends reasoning_effort: "none" for models observed to do that, which is what
+# makes it usable here at all — see the note there before changing it.
 #
 # NOTE: switching models here is not enough on its own. `wrangler dev` does
 # NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
 # the old model while believing you changed it.
-PROVIDER_MODEL = "Meta-Llama-3_3-70B-Instruct"
+PROVIDER_MODEL = "Qwen3.5-9B"
+# Translation is the one pass where size still pays, so it keeps the model the
+# rest of the product no longer needs. Measured 8 September 2026, chrF against
+# human reference translations: Llama-3.3-70B 78.3 against Qwen3.5-9B's 76.7
+# overall, and 80.9 against 75.9 on Danish — a five-point gap in the language
+# where the 70B is otherwise the WORST model of the four. Copy edit and line
+# edit see no such gain, which is why they moved.
+#
+# Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
+PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
 PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
-# EUR cost per token. OVHcloud prices Meta-Llama-3_3-70B-Instruct FLAT at
-# EUR 0.67/Mtok for input and output alike, so unlike the split-priced Qwen
-# models this needs no blend and carries no estimation error: the number is
-# exact whatever the input/output mix turns out to be. (The old figure was a
-# blend assuming 68.2% input; a real run measured 76.6%, which had made it
-# ~19% conservative.) Revisit against a real invoice all the same.
+# !!! STALE — THIS IS STILL THE Llama-3.3-70B PRICE !!!
+#
+# EUR 0.67/Mtok was OVHcloud's FLAT rate for Meta-Llama-3_3-70B-Instruct,
+# input and output alike. Qwen3.5-9B is a much smaller model and OVHcloud
+# prices the Qwen family SPLIT — different input and output rates — so this
+# number is both too high and the wrong shape: it needs a blend over the real
+# input/output mix (a real run measured 76.6% input), not a single flat rate.
+#
+# Left deliberately unchanged rather than guessed at, because this constant
+# is what a customer is charged: MARKUP_MULTIPLIER is applied on top of it.
+# Too high only overcharges rather than losing money, which is why shipping
+# the swap with a stale price is survivable for a moment and not acceptable
+# for a release. Set it from OVHcloud's published Qwen3.5-9B rates before
+# deploying, and verify against a real invoice.
 BASE_COST_EUR_PER_TOKEN = "0.00000067"
+# The translation model's rate. Meta-Llama-3_3-70B-Instruct is priced FLAT by
+# OVHcloud at EUR 0.67/Mtok, input and output alike, so this one IS exact —
+# it is the figure the line above used to be before the model beneath it
+# changed.
+BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.00000067"
 # Company markup — 3x the blended provider cost.
 MARKUP_MULTIPLIER = "3"
 # Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
@@ -99,10 +135,17 @@ MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
 # buy (a 400k-word manuscript at Speed, 4.98M). An anti-nonsense bound, not a
 # product limit — real jobs must never reach it.
 MAX_QUOTE_TOKENS = "8000000"
-# "default" omits the field entirely, which is what a non-reasoning model
-# wants: Llama-3.3-70B has no chain-of-thought to switch off, and gpt-oss
-# rejects an explicit "none" outright with a 400. The knob still matters for
-# any Qwen model — those reason by default and will burn the whole output
-# budget thinking, returning empty content; see the measurement in
-# src/proxy.ts. Set it back to "none" if PROVIDER_MODEL ever returns to one.
-PROVIDER_REASONING_EFFORT = "default"
+# "none" because PROVIDER_MODEL is a Qwen model, which reasons by default and
+# will otherwise burn the whole output budget thinking and return empty
+# content — measured in src/proxy.ts, and measured again on 8 September 2026
+# when the same behaviour reached a paid line-edit run through the direct API
+# path and cost it every LLM correction.
+#
+# "default" omits the field, which is what a non-reasoning model wants:
+# Llama-3.3-70B has no chain-of-thought to switch off, and gpt-oss rejects an
+# explicit "none" with a 400. Set it back to "default" if PROVIDER_MODEL ever
+# returns to a non-reasoning model.
+#
+# PROVIDER_MODEL_TRANSLATE is exempt: it is a Llama model and is sent without
+# the field, handled in src/proxy.ts.
+PROVIDER_REASONING_EFFORT = "none"

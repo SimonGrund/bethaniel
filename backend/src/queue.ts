@@ -2078,6 +2078,7 @@ async function processJob(job: JobData): Promise<void> {
                 prompt,
                 ac.signal,
                 deriveSeed(mode, job.name, j, "rewrite", attempt),
+                mode,
               )) {
                 acc += tok;
                 tokCount++;
@@ -2456,6 +2457,7 @@ async function processJob(job: JobData): Promise<void> {
                           rePrompt,
                           ac.signal,
                           deriveSeed(mode, job.name, j, "retranslate", f.idx),
+                          "translate",
                         )) reAcc += tok;
                         const reTranslated = reAcc.trim();
                         if (reTranslated) {
@@ -2529,6 +2531,7 @@ async function processJob(job: JobData): Promise<void> {
                       systemPrompt,
                       ac.signal,
                       deriveSeed(mode, job.name, j, "upgrade", callIndex++),
+                      "translate",
                     )) {
                       out += tok;
                       upgradeToks++;

@@ -323,6 +323,14 @@ export class ApiAccountError extends Error {
 // ── Core streaming chat via OpenAI-compatible API ──
 
 export interface ChatStreamOptions {
+  /**
+   * Which editing pass this call serves, sent to Betty in the Cloud so the
+   * Worker can route to a model chosen per pass. Translation keeps the large
+   * model that copy edit and line edit no longer need — measured, it leads
+   * chrF by 1.6 overall and 5.0 on Danish, where it is otherwise the weakest
+   * model available. Ignored by every other provider.
+   */
+  pass?: string;
   temperature?: number;
   top_p?: number;
   top_k?: number;
@@ -429,6 +437,10 @@ async function* chatStream(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiConfig.apiKey}`,
+          // A hint, not an instruction: the Worker maps it onto its own
+          // allowlisted models, so a wrong or absent value costs a worse
+          // model for that call and can never select something unpriced.
+          ...(options.pass ? { "X-Bethaniel-Pass": options.pass } : {}),
         },
         body: JSON.stringify(apiBody),
         signal: watchdog.signal,
@@ -532,6 +544,9 @@ export async function* editChunkStream(
   systemPrompt: string,
   signal?: AbortSignal,
   seed?: number,
+  /** Which pass this serves. Betty in the Cloud routes translation to a
+   *  larger model; every other provider ignores it. */
+  pass?: string,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
   const systemMsg = buildSystemMessage(model, systemPrompt);
@@ -542,7 +557,7 @@ export async function* editChunkStream(
       { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
-    { max_tokens: cap, seed },
+    { max_tokens: cap, seed, pass },
     signal,
   );
 }
