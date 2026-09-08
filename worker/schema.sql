@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   id TEXT PRIMARY KEY,
   estimated_tokens INTEGER NOT NULL,
   price_eur_cents INTEGER NOT NULL,
+  -- The code this quote was priced with, so /v1/checkout redeems exactly what
+  -- the author was shown rather than trusting the client to resend it.
+  promo_code TEXT,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
@@ -67,7 +70,3 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_campaign ON promo_codes(campaign);
-
--- The code a quote was priced with, so /v1/checkout redeems exactly what the
--- author was shown rather than trusting the client to resend it.
-ALTER TABLE quotes ADD COLUMN promo_code TEXT;

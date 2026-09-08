@@ -124,19 +124,22 @@ for the same thing) with an explicit "not currently supported", so
 - **Two models, chosen per pass by benchmark.** `PROVIDER_MODEL` is
   Qwen3.5-9B for copy and line edit; `PROVIDER_MODEL_TRANSLATE` keeps
   Meta-Llama-3.3-70B for translation alone. Measured 8 September 2026, all
-  models on one harness at identical settings, four languages of ~100 planted
-  errors, one request at a time:
+  four models on one harness at identical settings (one editor, one reviewer,
+  one request at a time), four languages of ~100 planted errors each:
 
-  |                    | copy edit | line edit | translation (chrF) |
+  |                     | copy edit | line edit | translation (chrF) |
   |---|---|---|---|
-  | Baby Betty (local) | 64% | 52% | 75.8 |
-  | Big Bad Betty (local) | 64% | 49% | 76.5 |
-  | Cloud (9B / 70B) | 56% | 56% | 78.3 |
+  | Baby Betty 4B       | 60% | 52% | 75.8 |
+  | Big Bad Betty 9B    | 60% | 49% | 76.5 |
+  | Llama-3.3-70B       | 60% | **24%** | **78.3** |
+  | Qwen3.5-9B (cloud)  | 59% | 52% | 76.7 |
 
-  Size buys nothing for copy editing — the local models are ahead — and the
-  70B was the WORST of the four at line editing while leading translation.
-  Hence the split. Read `docs/language-quality-roadmap.md` before changing
-  either model.
+  Copy edit is a four-way tie inside one point — a 4B on a laptop matches a
+  70B that costs per token. Line edit is where they differ, and there the 70B
+  is the worst of the four by a wide margin, less than half the free bundled
+  model. Only translation rewards size, and it does so consistently: 78.3
+  against 76.7 overall and five points on Danish. Hence the split. Read
+  `docs/language-quality-roadmap.md` §5 before changing either model.
 - **Pricing is flat word bands, not cost-plus.** `PRICE_TIER_WORDS` (100,000)
   costs `PRICE_TIER_EUR_CENTS` (EUR 5); two bands cost double, and so on. A
   100,000-word novel and a 3,000-word story both sit in band one and pay the

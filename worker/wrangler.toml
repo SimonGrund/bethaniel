@@ -12,7 +12,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bethaniel-cloud"
-database_id = "REPLACE_WITH_D1_DATABASE_ID" # `wrangler d1 create bethaniel-cloud`
+database_id = "5a1f9f20-d04b-47a7-9679-d637266e4859" # `wrangler d1 create bethaniel-cloud`
 
 [[durable_objects.bindings]]
 name = "CREDENTIAL_LEDGER"
@@ -141,7 +141,12 @@ MIN_CHARGE_EUR_CENTS = "200"
 # mid-manuscript. The global daily ceiling still bounds total exposure.
 TOKEN_BUDGET_HEADROOM = "1.5"
 CREDENTIAL_EXPIRY_DAYS = "7"
-CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
+# The Worker's OWN origin — it hosts /v1/success, which is where Stripe sends
+# the buyer and where the bethaniel:// credential handoff happens. Must change
+# in lockstep with the `routes` line at the top: point that at a real domain
+# and leave this on workers.dev, and every paid checkout dead-ends on a page
+# the deployed Worker no longer answers.
+CHECKOUT_SUCCESS_URL_BASE = "https://bethaniel-cloud.cloudwatcher.workers.dev"
 
 # ── Safety limits ──
 # OVHcloud offers budget *alerts* but no hard spending cap, and an
