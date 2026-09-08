@@ -1739,15 +1739,96 @@ const PROPER_NOUN_RE = /[A-Z\p{Lu}][\p{Ll}'’-]*\p{Ll}/gu;
  * (this lets ordinary sentence-initial words like "Apparently" through, since
  * "apparently" is a real word, while protecting "Aaron").
  */
+/**
+ * Levenshtein distance, abandoned once it passes `max`. Only the question
+ * "is this within a typo's reach" matters here, not the exact figure.
+ */
+function boundedEditDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const v = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      row[j] = v;
+      if (v < best) best = v;
+    }
+    if (best > max) return max + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/** Is `b` `a` with one adjacent pair swapped — the commonest typo there is? */
+function isAdjacentTransposition(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const diffs: number[] = [];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diffs.push(i);
+  if (diffs.length !== 2) return false;
+  const [i, j] = diffs;
+  return j === i + 1 && a[i] === b[j] && a[j] === b[i];
+}
+
+/**
+ * Does this correction change or drop a proper noun?
+ *
+ * A capitalized word absent from the dictionary reads as a name — which is
+ * true in English and false in German, where the orthography capitalizes every
+ * noun. Two things keep the rule honest there:
+ *
+ * The rescue is the REPLACEMENT, not the original. A replacement that is
+ * itself a real word and sits a typo's distance away is a spelling fix rather
+ * than a rename — and the dictionary is asked about it as written as well as
+ * lowercased, because German stores its nouns capitalized and asking only
+ * about "übersetzung" finds nothing.
+ *
+ * The original stays a lowercase-only lookup, which is the asymmetry that
+ * makes this work: a dictionary lists real names too, so asking about `Aaron`
+ * as written would hand every name an exemption.
+ *
+ * What counts as a typo's distance is the edit's SHAPE, not its size. `Lükce`
+ * -> `Lücke` and `Okafor` -> `Orator` are both two edits to a real word; the
+ * first is an adjacent transposition and the second two unrelated
+ * substitutions keeping only the initial letter.
+ *
+ * Measured: without these, LanguageTool's own corrections for `Übersetztung`,
+ * `Entwüfre` and `Lükce` were all discarded as name changes, which is most of
+ * what German misspelling recall lost.
+ */
 function altersProperNoun(
   original: string,
   corrected: string,
   isAcceptable: (word: string) => boolean,
 ): string | null {
-  const correctedTokens = new Set(corrected.match(WORD_TOKEN_RE) ?? []);
+  const correctedTokens = corrected.match(WORD_TOKEN_RE) ?? [];
+  const correctedSet = new Set(correctedTokens);
+  const known = (w: string) => isAcceptable(w) || isAcceptable(w.toLowerCase());
   for (const token of original.match(PROPER_NOUN_RE) ?? []) {
-    if (isAcceptable(token.toLowerCase())) continue; // ordinary capitalized word
-    if (!correctedTokens.has(token)) return token; // name altered or dropped
+    // Lowercased deliberately, and asymmetrically with the replacement test
+    // below: a dictionary lists real names too, so asking about `Aaron` rather
+    // than `aaron` would let exactly the names this rule guards walk past it.
+    if (isAcceptable(token.toLowerCase())) continue; // an ordinary word
+    if (correctedSet.has(token)) continue; // survived the correction untouched
+    // What separates a typo fix from a rename is the SHAPE of the edit, not
+    // its size: `Lükce` -> `Lücke` and `Okafor` -> `Orator` are both two edits
+    // to a real word, and only the first is a correction. A single edit, or an
+    // adjacent transposition, or a long shared prefix is a slip of the fingers;
+    // two independent substitutions that keep only the first letter is a
+    // different name.
+    const lower = token.toLowerCase();
+    const fixesSpelling = correctedTokens.some((cand) => {
+      if (!known(cand)) return false;
+      const c = cand.toLowerCase();
+      if (boundedEditDistance(lower, c, 1) <= 1) return true;
+      if (isAdjacentTransposition(lower, c)) return true;
+      let shared = 0;
+      while (shared < lower.length && shared < c.length && lower[shared] === c[shared]) shared++;
+      return shared >= 3 && boundedEditDistance(lower, c, 2) <= 2;
+    });
+    if (fixesSpelling) continue;
+    return token; // name altered or dropped
   }
   return null;
 }
