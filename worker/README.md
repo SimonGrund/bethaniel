@@ -24,11 +24,15 @@ the deploy checklist.
    `STRIPE_WEBHOOK_SECRET` comes from the Stripe Dashboard once you've added
    an endpoint pointed at `https://<your-worker-domain>/webhooks/stripe`
    listening for `checkout.session.completed`.
-4. Point a real domain at it (uncomment the `routes` line in `wrangler.toml`
+4. `npm run deploy`. With `routes` still commented out this lands on
+   `bethaniel-cloud.<your-subdomain>.workers.dev`, which is the right place to
+   walk the checkout flow the first time — a real card, a real webhook, and a
+   URL nothing in production points at yet.
+5. Point a real domain at it (uncomment the `routes` line in `wrangler.toml`
    once DNS is set up), and update the `bethaniel-cloud` catalog entry's
    `defaultBaseUrl` in `backend/src/modelCatalog.ts` (or set
-   `BETHANIEL_CLOUD_BASE_URL` in the app's environment) to match.
-5. `npm run deploy`
+   `BETHANIEL_CLOUD_BASE_URL` in the app's environment) to match. Until then
+   the app cannot reach the Worker: the catalog points at `cloud.bethaniel.eu`.
 
 ## Local development
 
@@ -60,6 +64,7 @@ ones that exist, and they live here rather than at the provider.
 | `DAILY_TOKEN_CEILING` | 15,000,000 | Worker-wide tokens per UTC day (~EUR 23 upstream). Enforced by the `GlobalMeter` DO. **Fails closed** if unset or unparseable. |
 | `MAX_OUTPUT_TOKENS_PER_REQUEST` | 8,192 | Caps one call's generation however large a `max_tokens` it asks for. |
 | `MAX_QUOTE_TOKENS` | 8,000,000 | Upper bound on an unauthenticated `/v1/quote`. Clamped at runtime to `min(MAX_QUOTE_TOKENS, DAILY_TOKEN_CEILING)` so we can never sell a job the ceiling would refuse. |
+| `TOKEN_BUDGET_HEADROOM` | 1.5 | Multiplier on the estimate when minting a credential's ledger budget. The estimator is a heuristic; a job that runs 20% over its quote must still finish, or the user has paid for a truncated edit. Raising it loosens the per-user cap; lowering it risks a job dying mid-manuscript. |
 | `PROVIDER_REASONING_EFFORT` | `none` | See below. |
 
 `CredentialLedger` caps what one *paying user* can spend; `GlobalMeter` caps
@@ -106,23 +111,64 @@ for the same thing) with an explicit "not currently supported", so
   (and only ever opt-in) set aside. Re-confirm those terms in the contract
   before launch, and check the region the Base API tier actually serves from:
   the product page notes worldwide (non-EU) availability for that tier.
-- `BASE_COST_EUR_PER_TOKEN` is OVHcloud's list price for
-  `Meta-Llama-3_3-70B-Instruct`, which is FLAT at EUR 0.67/Mtok for input and
-  output alike — so the figure is exact rather than a blend, and does not move
-  with the input/output mix. Re-derive it against a real invoice once usage
-  data exists — the whole price scales linearly with it.
-- The model was chosen by benchmark, not by size. All five OVHcloud text
-  models were run against `sample_texts/stress100` at the Speed preset;
-  Llama-3.3-70B led on recall (56% vs 35% for the Qwen3.5-397B it replaced),
-  on spelling recall specifically (78% vs 54%), on wall-clock (~2x), and on
-  clean-text false positives (2 vs 39) — at half the token price. Full table
-  in `sample_texts/run_mode_bench_results.txt`. Caveat: one run per model, and
-  the 397B alone varied 35-41% across three runs, so treat the ranking as
-  indicative until it is repeated.
+- **`BASE_COST_EUR_PER_TOKEN` no longer sets any price**, and is knowingly the
+  wrong model's rate. Pricing moved to flat word bands (see below), so this
+  figure now only feeds globalMeter.ts's reading of the daily ceiling in money.
+  It is Llama-3.3-70B's flat EUR 0.67/Mtok, while the editing model is
+  Qwen3.5-9B, which OVHcloud prices lower and SPLIT (input and output at
+  different rates). Kept high deliberately: over-estimating the cost makes the
+  ceiling bite EARLIER than real spend warrants, which is the safe direction
+  for a bound whose job is to stop runaway spending. Replace it with the
+  blended Qwen rate when the real numbers are to hand, and the ceiling becomes
+  accurate rather than merely safe.
+- **Two models, chosen per pass by benchmark.** `PROVIDER_MODEL` is
+  Qwen3.5-9B for copy and line edit; `PROVIDER_MODEL_TRANSLATE` keeps
+  Meta-Llama-3.3-70B for translation alone. Measured 8 September 2026, all
+  models on one harness at identical settings, four languages of ~100 planted
+  errors, one request at a time:
+
+  |                    | copy edit | line edit | translation (chrF) |
+  |---|---|---|---|
+  | Baby Betty (local) | 64% | 52% | 75.8 |
+  | Big Bad Betty (local) | 64% | 49% | 76.5 |
+  | Cloud (9B / 70B) | 56% | 56% | 78.3 |
+
+  Size buys nothing for copy editing — the local models are ahead — and the
+  70B was the WORST of the four at line editing while leading translation.
+  Hence the split. Read `docs/language-quality-roadmap.md` before changing
+  either model.
+- **Pricing is flat word bands, not cost-plus.** `PRICE_TIER_WORDS` (100,000)
+  costs `PRICE_TIER_EUR_CENTS` (EUR 5); two bands cost double, and so on. A
+  100,000-word novel and a 3,000-word story both sit in band one and pay the
+  same — band one is the floor, which is the deliberate trade for a price
+  anyone can work out in their head. Cost-plus was abandoned because the costs
+  are too small to bill: 100,000 words is ~1.07M tokens for a copy edit, about
+  EUR 0.16 on the editing model. `MARKUP_MULTIPLIER` survives only for the
+  cost model in globalMeter.ts and sets no price.
+- **Promo codes are the only route to a discount or a free run.** A code
+  carries a percentage, an absolute discount, or both, plus a use count, an
+  expiry and optionally a word cap. Quoting never spends one; the use is taken
+  atomically at `/v1/checkout`. A code that brings the price to zero skips
+  Stripe entirely and mints the credential inline, keyed to a synthetic session
+  id so a replay is idempotent. There is no admin endpoint yet, so mint one
+  by hand — a code good for one free job of up to 5,000 words:
+
+  ```
+  npx wrangler d1 execute bethaniel-cloud --remote --command \
+    "INSERT INTO promo_codes (code, campaign, discount_pct, max_uses, max_words,
+                              created_at, expires_at)
+     VALUES ('LAUNCH100', 'launch', 100, 1, 5000,
+             '2026-09-08T00:00:00Z', '2026-12-31T00:00:00Z')"
+  ```
+
+  Dates are ISO-8601 strings, not epoch seconds — they are compared as text,
+  so a `Z`-suffixed UTC timestamp is the only safe form. `discount_cents`
+  takes an absolute EUR-cent discount instead of, or alongside, `discount_pct`.
+  Codes are matched case-insensitively and stored uppercase. `max_uses` is
+  total across all users, not per user — there are no user accounts to key it
+  to, so a code that leaks is spent by whoever finds it first.
 - Two things that will waste your afternoon if you do not know them:
   `wrangler dev` does NOT reload `[vars]` edits — restart it after changing
   `PROVIDER_MODEL` or you will benchmark the old model. And
   `PROVIDER_REASONING_EFFORT` is per-model: "none" for Qwen, "default"
   (omit the field) for Llama, and gpt-oss 400s on an explicit "none".
-- `MARKUP_MULTIPLIER` is 3 — the user pays 3x the blended provider cost,
-  before Stripe's cut is grossed up on top.
