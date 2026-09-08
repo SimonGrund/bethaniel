@@ -33,12 +33,23 @@ test("crossing a band costs another band", () => {
   assert.equal(priceJob(env, { estimatedTokens: 1, words: 200_001 }).priceEurCents, 1500);
 });
 
-test("the price does not depend on the token estimate", () => {
+test("the price does not depend on the token estimate, within the plausible range", () => {
+  // Both of these are ratios a real job produces (0.2 and 16 tokens per
+  // word), so the word count alone decides the price.
   const cheap = priceJob(env, { estimatedTokens: 10_000, words: 50_000 });
-  const dear = priceJob(env, { estimatedTokens: 5_000_000, words: 50_000 });
+  const dear = priceJob(env, { estimatedTokens: 800_000, words: 50_000 });
   assert.equal(cheap.priceEurCents, dear.priceEurCents);
   // The estimate is still carried, because it sizes the credential's ceiling.
-  assert.equal(dear.tokens, 5_000_000);
+  assert.equal(dear.tokens, 800_000);
+});
+
+test("beyond that range the estimate does move the price, deliberately", () => {
+  // This test previously asserted the opposite, and that was the bug: an
+  // estimate no word count could justify has to be paid for, or it is a free
+  // credential. 5M tokens needs at least 125,000 words, which is two bands.
+  const absurd = priceJob(env, { estimatedTokens: 5_000_000, words: 50_000 });
+  assert.equal(absurd.tiers, 2);
+  assert.equal(absurd.priceEurCents, 1000);
 });
 
 test("an app that sends no word count falls back to the cheapest band", () => {
@@ -85,4 +96,42 @@ test("no code leaves the band price untouched", () => {
   const q = priceJob(env, { estimatedTokens: 1e6, words: 50_000 }, null);
   assert.equal(q.priceEurCents, q.fullPriceEurCents);
   assert.equal(q.appliedCode, undefined);
+});
+
+// ── Cross-checking the two client-supplied numbers ──
+//
+// `words` sets the price and `estimatedTokens` sets the credential ceiling.
+// Both come from an unauthenticated caller, so trusting them independently
+// let one be minimised while the other was maximised. Found by review, 8
+// September 2026.
+
+test("under-reported words cannot buy an oversized credential cheaply", () => {
+  // The attack: one word, eight million tokens. Previously band one, EUR 5.
+  const q = priceJob(env, { estimatedTokens: 8_000_000, words: 1 });
+  assert.ok(
+    q.priceEurCents > 500,
+    `expected more than the band-one minimum, got ${q.priceEurCents}`,
+  );
+  // 8M / 40 = 200,000 implied words = two bands.
+  assert.equal(q.tiers, 2);
+  assert.equal(q.priceEurCents, 1000);
+});
+
+test("omitting words entirely is the same loophole, and is closed too", () => {
+  const q = priceJob(env, { estimatedTokens: 8_000_000, words: 0 });
+  assert.equal(q.tiers, 2);
+});
+
+test("an honest job is never repriced — the word count dominates", () => {
+  // 100,000 words at the estimator's heaviest real setting (translation,
+  // 16.14 tok/word) still sits comfortably inside band one.
+  const q = priceJob(env, { estimatedTokens: 1_614_000, words: 100_000 });
+  assert.equal(q.tiers, 1);
+  assert.equal(q.priceEurCents, 500);
+});
+
+test("a copy edit quoted from tokens alone lands in the right band", () => {
+  // A client too old to send `words`: 100k words is ~1.07M tokens.
+  const q = priceJob(env, { estimatedTokens: 1_070_000, words: 0 });
+  assert.equal(q.tiers, 1);
 });

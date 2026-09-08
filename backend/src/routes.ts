@@ -137,7 +137,12 @@ import {
   setConcurrency,
   getConcurrency,
 } from "./queue.js";
-import { resolveRunMode, RUN_MODE_PRESETS, DEFAULT_RUN_KNOBS } from "./runModePresets.js";
+import {
+  resolveRunMode,
+  RUN_MODE_PRESETS,
+  DEFAULT_RUN_KNOBS,
+  type RunModeKnobs,
+} from "./runModePresets.js";
 import {
   getStorageUsage,
   purge,
@@ -456,6 +461,20 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // caller's own settings win exactly as before.
     const forced = cloudRunKnobs(model);
 
+    /**
+     * One knob, resolved forced -> explicit -> preset -> default.
+     *
+     * `??` and not `||` throughout: every knob here is a boolean or a number,
+     * and `false` and `0` are meaningful values a caller can send. The
+     * generic ties the key to its value type, so a knob cannot be resolved
+     * against the wrong default.
+     */
+    const resolveKnob = <K extends keyof RunModeKnobs>(
+      key: K,
+      explicit: RunModeKnobs[K] | undefined,
+    ): RunModeKnobs[K] =>
+      forced?.[key] ?? explicit ?? preset?.[key] ?? DEFAULT_RUN_KNOBS[key];
+
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
@@ -771,30 +790,19 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           manuscriptLang:
             currentMode === "translate" ? undefined : manuscriptLang,
-          // Every knob resolves forced -> explicit -> preset -> DEFAULT_RUN_KNOBS.
-          // The last link is a named constant rather than a literal so a default
-          // cannot drift from the presets it is compared against.
-          reviewMode:
-            forced?.reviewMode ?? reviewMode ?? preset?.reviewMode ?? DEFAULT_RUN_KNOBS.reviewMode,
-          reviewerThreshold:
-            forced?.reviewerThreshold ??
-            reviewerThreshold ??
-            preset?.reviewerThreshold ??
-            DEFAULT_RUN_KNOBS.reviewerThreshold,
-          spellCheck:
-            forced?.spellCheck ?? spellCheck ?? preset?.spellCheck ?? DEFAULT_RUN_KNOBS.spellCheck,
-          retextCheck:
-            forced?.retextCheck ?? retextCheck ?? preset?.retextCheck ?? DEFAULT_RUN_KNOBS.retextCheck,
-          grammarCheck:
-            forced?.grammarCheck ??
-            grammarCheck ??
-            preset?.grammarCheck ??
-            DEFAULT_RUN_KNOBS.grammarCheck,
-          styleComplianceAgent:
-            forced?.styleComplianceAgent ??
-            styleComplianceAgent ??
-            preset?.styleComplianceAgent ??
-            DEFAULT_RUN_KNOBS.styleComplianceAgent,
+          // Every knob resolves forced -> explicit -> preset -> DEFAULT_RUN_KNOBS,
+          // through one helper rather than six copies of the chain: a seventh
+          // knob, or a change to the precedence, is then a single edit instead
+          // of six that have to stay in lock-step.
+          reviewMode: resolveKnob("reviewMode", reviewMode),
+          reviewerThreshold: resolveKnob("reviewerThreshold", reviewerThreshold),
+          spellCheck: resolveKnob("spellCheck", spellCheck),
+          retextCheck: resolveKnob("retextCheck", retextCheck),
+          grammarCheck: resolveKnob("grammarCheck", grammarCheck),
+          styleComplianceAgent: resolveKnob(
+            "styleComplianceAgent",
+            styleComplianceAgent,
+          ),
           // Off unless the client asks or a preset opts in: the UI always
           // sends it explicitly; headless/API callers that omit both shouldn't
           // get surprise 2× runs. A cloud job can never turn it on.

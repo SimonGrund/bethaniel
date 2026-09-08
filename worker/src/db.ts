@@ -258,6 +258,24 @@ export async function findPromo(env: Env, code: string): Promise<PromoRow | null
  * checkouts racing on the last use of a code cannot both win: D1 applies the
  * UPDATE serially and the loser matches zero rows.
  */
+/**
+ * Hand a use back after a redemption that led nowhere.
+ *
+ * Redemption has to happen before the thing it pays for exists — a code
+ * cannot be spent atomically with a Stripe call on another machine. So when
+ * that call then fails, the author is left holding a spent single-use code
+ * and nothing to show for it, and retrying answers "already used". This puts
+ * it back.
+ *
+ * Guarded so it can only ever undo: `uses > 0` means a lost race or a double
+ * call cannot push the counter below zero and mint free redemptions.
+ */
+export async function releasePromo(env: Env, code: string): Promise<void> {
+  await env.DB.prepare(`UPDATE promo_codes SET uses = uses - 1 WHERE code = ? AND uses > 0`)
+    .bind(code.trim().toUpperCase())
+    .run();
+}
+
 export async function redeemPromo(env: Env, code: string): Promise<boolean> {
   const res = await env.DB.prepare(
     `UPDATE promo_codes SET uses = uses + 1
