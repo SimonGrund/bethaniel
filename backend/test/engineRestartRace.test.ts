@@ -27,6 +27,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  childHasExited,
   describeStop,
   engineSatisfies,
   mayStopEngine,
@@ -168,4 +169,43 @@ test("an idle unload still says it is reclaiming memory", () => {
 
 test("shutdown says so", () => {
   assert.match(describeStop("shutdown"), /shut/i);
+});
+
+// ── childHasExited: a signalled process is not a stopped process ────────────
+//
+// The second act of the same story. With the restart loop above fixed, a
+// two-model benchmark still lost 12 of 56 task-runs, every failure landing at
+// a model swap or an idle-unload boundary:
+//
+//   [Queue] no active jobs — unloading 1 model(s): Qwen3.5-9B-Q4_K_M.gguf
+//   [llama-server] Starting: ...llama-server.exe -m ...Qwen3.5-9B... --port 8012
+//   [llama-server] exited with code 1 signal null
+//   chunk 1/1: editor agent 1/2 failed after retries — fetch failed
+//
+// The idle-unloader fires SIGTERM and does not await the exit. A job arriving
+// in that window calls doLoad(), which kills before spawning — but killChild()
+// short-circuited on `childProcess.killed`, nulled the handle and returned at
+// once. doLoad() then spawned against a port the dying engine still held; the
+// newcomer lost the bind, exited code 1, and took the agents with it.
+//
+// `killed` answers "did we send a signal?", never "is it gone?".
+
+test("a child that was signalled but has not exited is still running", () => {
+  assert.equal(
+    childHasExited({ exitCode: null, signalCode: null }),
+    false,
+    "SIGTERM delivered, process still tearing down a multi-GB model — it owns its port",
+  );
+});
+
+test("a child is exited once it reports a code or a signal", () => {
+  assert.equal(childHasExited({ exitCode: 0, signalCode: null }), true);
+  assert.equal(childHasExited({ exitCode: 1, signalCode: null }), true);
+  assert.equal(childHasExited({ exitCode: null, signalCode: "SIGTERM" }), true);
+});
+
+test("no child at all counts as exited", () => {
+  // Nothing to wait for; killChild() must resolve rather than hang on an
+  // "exit" event that can never arrive.
+  assert.equal(childHasExited(null), true);
 });

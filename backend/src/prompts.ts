@@ -108,7 +108,13 @@ function punctuationRecallDirective(opts: CopyEditOptions, langName: string | nu
 
 PUNCTUATION RECALL — the same "catch every one" standard as spelling applies to these three comma rules specifically, because they are OBJECTIVE grammar, not style:
 ${examples.join("\n")}
-These are NOT judgment calls — the "when in doubt, leave it alone" caution does not apply to them. If a sentence matches one of these patterns, flag it, even if the sentence reads fine aloud without the comma. Scan for these three patterns as deliberately as you scan for misspellings; do not rely on noticing them incidentally while looking for something else.`;
+These are NOT judgment calls — the "when in doubt, leave it alone" caution does not apply to them. If a sentence matches one of these patterns, flag it, even if the sentence reads fine aloud without the comma. Scan for these three patterns as deliberately as you scan for misspellings; do not rely on noticing them incidentally while looking for something else.
+
+These three patterns are the ONLY commas this directive licenses. The following look superficially similar and are NOT missing commas — inserting one there INTRODUCES an error into correct prose:
+- Between the final adjective and its noun. The comma goes only BETWEEN adjectives: "a long, jagged shore" is finished and correct; "a long, jagged, shore" is wrong.
+- Before "and"/"or" joining two adjectives, two nouns or two verbs that share one subject: "formidable and private", "boots and nets", "she turned and left" — all correct as they stand.
+- Anywhere in a list that already separates every item with a comma and has one before the final "and"/"or". That list is finished — return it untouched. The only edit this directive ever licenses on a list is ADDING the one missing comma before the final conjunction; never remove one, never move one.
+Before flagging any comma, name which of the three licensed patterns it is. If it is none of them, do not flag it.`;
 }
 
 // Rewrite-mode counterpart of SPELLING_RECALL_DIRECTIVE: the whole-chunk
@@ -133,6 +139,27 @@ export function buildSpellHintBlock(suspectWords: string[]): string {
   return (
     "\n\nSPELL-CHECK HINTS — an automated spell-checker flagged these words as likely misspellings. Check EACH one: if it is genuinely misspelled, CORRECT it (do not skip it); only leave it if it is a correct proper noun, character name, or intentional dialect. Words:\n" +
     suspectWords.join(", ")
+  );
+}
+
+/**
+ * Confusable-word hint block, the word-choice counterpart to
+ * {@link buildSpellHintBlock}. `findConfusables` (confusables.ts) says which
+ * sets are present in the chunk; the model decides in context which member
+ * belongs. Returns "" for an empty list so callers can append unconditionally.
+ *
+ * The closing sentence is load-bearing, not padding. Every word on this list
+ * is correctly spelled and usually correct in place, so a prompt that merely
+ * draws attention to them invites edits to prose that was already right —
+ * the same failure the comma rules produced. It states the bar positively and
+ * shows no wrong form for the model to copy.
+ */
+export function buildConfusableHintBlock(sets: readonly string[][]): string {
+  if (!sets || sets.length === 0) return "";
+  return (
+    "\n\nCONFUSABLE WORDS — the sets below all appear in this text. Both (or all) members of each set are correctly spelled, so no spell-checker can tell them apart; only the sentence can. Check every occurrence of these words in context and decide whether the right member is used:\n" +
+    sets.map((set) => `- ${set.join(" / ")}`).join("\n") +
+    "\nFlag one ONLY where the wrong member is genuinely used. Most occurrences are already correct and need no comment. Appearing on this list is not itself a reason to change a word."
   );
 }
 
@@ -165,6 +192,67 @@ export function manuscriptLangName(lang?: string): string | null {
 }
 
 /** Hard never-translate block placed near the top of editor prompts. */
+/**
+ * Comma directives for a non-English manuscript.
+ *
+ * Comma is the largest planted category in every non-English fixture and the
+ * weakest result — but the cause is not the English-only gate above, and the
+ * benchmark says so plainly. German scores BEST of the four (55/72%) with no
+ * comma directive at all, carried by LanguageTool's German rule set; Spanish,
+ * which LanguageTool barely covers, scores 5/16%. What predicts comma recall
+ * is whether a deterministic layer already handles that language.
+ *
+ * So this fills the gap where there is one, per language, rather than
+ * translating the English rules wholesale — they would be actively wrong.
+ * English wants a serial comma; Spanish forbids it.
+ *
+ * Only Spanish is here. German needs nothing (LanguageTool has it). Danish is
+ * deliberately absent: it has two competing comma systems, grammatisk komma
+ * and nyt komma, and which one applies is the author's choice — enforcing the
+ * wrong one is worse than enforcing neither, so it needs a style-guide option
+ * before it needs a prompt rule.
+ */
+function commaDirectivesFor(
+  manuscriptLang?: string,
+  opts?: CopyEditOptions,
+): string {
+  const code = manuscriptLang?.toLowerCase().split(/[-_]/)[0];
+
+  // Danish sanctions two comma systems and the author picks one, so this only
+  // fires once they have. Grammatisk komma is the default; nyt komma is the
+  // deliberate choice, and under it the subordinate-clause comma is WRONG —
+  // which is why enforcing a single rule set would have been wrong half the
+  // time, and why Danish went unaddressed until the option existed.
+  //
+  // LanguageTool covers no Danish comma rule at all (0 of 50 planted spans on
+  // the stress fixture), so unlike German there is nothing underneath to build
+  // on: whatever the model does here is all there is.
+  if (code === "da") {
+    if (opts?.danishComma === "nyt") {
+      return (
+        "- Manuskriptet bruger NYT KOMMA. Sæt IKKE komma foran ledsætninger, der indledes med at, som, fordi, hvis, da, når eller der. \"Han sagde at han ville komme\" er korrekt og skal stå. Tilføj aldrig et sådant komma.\n" +
+        "- Sæt derimod komma mellem to helsætninger, der forbindes med og, men, eller, for eller så: \"Hun vendte sig, og hun gik.\" Begge sider skal have eget subjekt og udsagnsled.\n" +
+        "- Sæt komma omkring et indskud eller en apposition: \"Ejnar, som havde været lærling hos hendes mor, kom om tirsdagen.\" Indskuddet får komma på BEGGE sider.\n"
+      );
+    }
+    return (
+      "- Manglende komma foran en ledsætning. I grammatisk komma sættes der komma foran enhver ledsætning, uanset hvad den indledes med — at, som, fordi, hvis, da, når, der: \"Han sagde, at han ville komme.\" \"Bogen, som lå på bordet, var hendes mors.\"\n" +
+      "- Manglende komma mellem to helsætninger forbundet med og, men, eller, for eller så: \"Hun vendte sig, og hun gik.\" Begge sider skal have eget subjekt og udsagnsled. \"Hun vendte sig og gik\" har kun ét subjekt og skal IKKE have komma.\n" +
+      "- Manglende komma omkring et indskud eller en apposition: indskuddet får komma på BEGGE sider, ikke kun det ene.\n" +
+      "- Sæt ALDRIG komma mellem grundled og udsagnsled. \"Manden, gik hjem\" er forkert, uanset hvor langt grundleddet er.\n"
+    );
+  }
+
+  if (code !== "es") return "";
+  return (
+    '- Falta una coma que aísle un inciso o una aposición explicativa. Un inciso va entre comas POR AMBOS LADOS: "Era un hombre viejo y cuidadoso, con las manos manchadas de tinta, y nunca levantaba la voz". Si el inciso termina la oración, basta la coma de apertura.\n' +
+    '- Falta una coma entre los elementos de una enumeración: "la fecha, el pasajero, el pasaje y el tiempo". OJO: en español NO se pone coma antes de la "y" o la "o" final de la enumeración — "pan, vino, y queso" es un error. Ésta es la diferencia con el inglés y no debe importarse.\n' +
+    '- Falta una coma después de un complemento circunstancial largo colocado al principio de la oración: "Aquella noche, bajó al taller". Con un complemento muy breve ("Ayer llegó") la coma es opcional; no la añadas.\n' +
+    '- Falta una coma antes de una conjunción adversativa (pero, sino, aunque, mas): "Lo leyó dos veces, pero no lo entendió".\n' +
+    '- NUNCA pongas una coma entre el sujeto y su verbo. "La carta, llegó un jueves" es un error, por larga que sea la frase del sujeto. Éste es el error de coma más común en español y añadirlo es peor que no corregir nada.\n'
+  );
+}
+
 function buildManuscriptLanguageBlock(langName: string): string {
   return `
 ═══ MANUSCRIPT LANGUAGE: ${langName} ═══
@@ -433,9 +521,11 @@ export function buildCopyEditCorrectionsPrompt(
     // were the single largest recall gap in benchmarking.
     if (!langName) {
       p +=
-        '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma).\n';
+        '- Missing comma between two or more COORDINATE adjectives that each independently modify the same noun ("an old insistent friend" → "an old, insistent friend"). Test: if you can swap their order or put "and" between them and it still reads naturally, they are coordinate and need a comma. Do NOT add a comma when the first adjective modifies the phrase that follows rather than the noun alone (a "bright red dress" — "bright" describes "red", not "dress" — no comma). NEVER put a comma between the LAST adjective and the noun itself: "a long, jagged shore" is correct and complete — "a long, jagged, shore" is an error.\n';
       p +=
-        '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule.\n';
+        '- Missing comma before a coordinating conjunction (and, but, or, so, yet) that joins two INDEPENDENT clauses — each side must have its own subject and verb. "She turned and left" has one subject — no comma. "She turned, and she left" has two — comma required. Skip short, tightly-connected pairs where a comma would feel officious (e.g. "He shouted and he ran" said in the same breath) — use judgment as a careful copy editor would, not a mechanical rule. NEVER put a comma before "and" when it joins two adjectives, two nouns or two verbs instead of two clauses ("a formidable and private woman", "quills and brushes", "she set it down and left") — those take no comma at all.\n';
+    } else {
+      p += commaDirectivesFor(manuscriptLang, opts);
     }
   }
   if (opts.capitalization)
@@ -451,7 +541,7 @@ export function buildCopyEditCorrectionsPrompt(
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (!langName && opts.oxfordComma)
     p +=
-      '- Lists of three+ items missing the OXFORD COMMA — add it ("boots, nets and rope" → "boots, nets, and rope")\n';
+      '- Lists of three+ items missing the OXFORD COMMA — add the missing comma immediately BEFORE the final "and"/"or" ("boots, nets and rope" → "boots, nets, and rope"). This rule can only ever ADD one comma to a list. Every comma already in the list is correct: keep all of them, exactly where they are. If your corrected list would contain fewer commas than the original, or a comma in a different place, the correction is wrong — discard it.\n';
   if (opts.dialogueTags)
     p +=
       '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';
@@ -686,7 +776,12 @@ export function buildCombinedEditPrompt(
     p +=
       "- American spellings — convert to BRITISH ENGLISH (colour, honour, centre, grey, etc.). Only change known pairs — never invent spellings.\n";
   if (!langName && copyOpts.oxfordComma)
-    p += "- Lists of three+ items missing the OXFORD COMMA — add it\n";
+    // Terser than the copy-edit-only prompt's version (this one has no
+    // PUNCTUATION RECALL block pushing for commas), but it still has to say
+    // WHERE the comma goes — "and," with the comma after the conjunction was
+    // a real benchmark failure, not a hypothetical one.
+    p +=
+      '- Lists of three+ items missing the OXFORD COMMA — add the missing comma immediately BEFORE the final "and"/"or". This can only ever ADD one comma: keep every comma the list already has, exactly where it is.\n';
   if (copyOpts.dialogueTags)
     p +=
       '- Dialogue tag punctuation (e.g. "Hello." She said → "Hello," she said)\n';

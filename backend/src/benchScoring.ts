@@ -303,3 +303,177 @@ export function falsePositiveCleanScore(fpCount: number): number {
 export function overallScore(f1: number, timeScoreValue: number): number {
   return Math.round(0.8 * f1 + 0.2 * timeScoreValue);
 }
+
+// ── Error categories ──
+//
+// A single recall number hides which KIND of error a model misses, and those
+// call for completely different fixes: missed spelling is a detection
+// problem, missed commas are a prompt-comprehension problem, and a model can
+// look identical on both while being unusable for one of them. The categories
+// are derived from the fixture pair itself, so they stay honest if a fixture
+// changes — nothing is hand-labelled.
+
+export type PlantedErrorCategory =
+  /** The wrong token is not a word in any dialect — "notebok", "mension".
+   *  The deterministic Hunspell pass sees these, so recall should be ~100%
+   *  and a miss is a real defect rather than a limitation. */
+  | "misspelling"
+  /** The wrong token IS a correctly spelled word, just the wrong one —
+   *  "their"/"there", "past"/"passed", "quiet"/"quite". No dictionary can see
+   *  these; only the model can, and it is far weaker at them. */
+  | "wordChoice"
+  /** A correct spelling in the OTHER English dialect — "colour", "realised",
+   *  "grey". Not an error at all except relative to the chosen dialect, and
+   *  the copy-edit prompt converts them under a separate rule, so counting
+   *  them as misspellings flatters neither number. */
+  | "dialect"
+  /** The three above, unsplit — reported only when no dictionary was
+   *  available for the fixture's language. */
+  | "spelling"
+  | "comma"
+  | "capitalization"
+  | "duplicateWord"
+  | "punctuation"
+  | "other";
+
+const CATEGORY_ORDER: PlantedErrorCategory[] = [
+  "misspelling",
+  "wordChoice",
+  "dialect",
+  "spelling",
+  "comma",
+  "capitalization",
+  "duplicateWord",
+  "punctuation",
+  "other",
+];
+
+/** Asks whether a token is a real word. `getWordValidator` in spellcheck.ts
+ *  returns exactly this shape. Injected rather than imported so this module
+ *  stays free of dictionary loading. */
+export type KnownWordCheck = (word: string) => boolean;
+
+export interface WordChecks {
+  /** Real word in the manuscript's own language and dialect. */
+  isKnownWord: KnownWordCheck;
+  /**
+   * Real word in the other English dialect. Omit for non-English fixtures,
+   * which have no dialect axis — they then split into misspelling/wordChoice
+   * only.
+   *
+   * Caveat: this is "the other dictionary accepts it", not "these two are a
+   * known dialect pair", so a rare real word can land here. In the stress100
+   * fixture "sailers" (a valid if archaic noun) is classed dialect rather
+   * than a typo for "sailors". One in nine, and it errs toward the harder
+   * bucket, so it understates rather than flatters.
+   */
+  isKnownInOtherDialect?: KnownWordCheck;
+}
+
+function bareToken(w: string): string {
+  return w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+}
+
+function collapseWhitespace(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function withoutCommas(s: string): string {
+  return collapseWhitespace(s.replace(/,/g, ""));
+}
+
+function withoutPunctuation(s: string): string {
+  return collapseWhitespace(s.replace(/[^\p{L}\p{N}\s]/gu, ""));
+}
+
+/** Collapse runs of the same word ("the the last" → "the last"). */
+function collapseRepeats(ws: string[]): string[] {
+  return ws.filter((w, i) => i === 0 || w !== ws[i - 1]);
+}
+
+/**
+ * What kind of error a planted (wrong → right) pair represents.
+ *
+ * Order matters. Case is tested before punctuation because a pure
+ * capitalization fix ("tuesday" → "Tuesday") is punctuation-identical and
+ * would otherwise be filed as a punctuation error.
+ */
+export function classifyPlantedError(
+  err: PlantedError,
+  checks?: WordChecks | null,
+): PlantedErrorCategory {
+  const wrong = collapseWhitespace(err.wrong);
+  const right = collapseWhitespace(err.right);
+  if (!wrong || !right || wrong === right) return "other";
+
+  if (wrong.toLowerCase() === right.toLowerCase()) return "capitalization";
+  if (withoutCommas(wrong) === withoutCommas(right)) return "comma";
+  if (withoutPunctuation(wrong) === withoutPunctuation(right)) return "punctuation";
+
+  const wrongWords = wrong.toLowerCase().split(" ").filter(Boolean);
+  const rightWords = right.toLowerCase().split(" ").filter(Boolean);
+  if (
+    wrongWords.length > rightWords.length &&
+    collapseRepeats(wrongWords).join(" ") === collapseRepeats(rightWords).join(" ")
+  ) {
+    return "duplicateWord";
+  }
+
+  // One word swapped for another, everything else identical. Anything touching
+  // more than one word is a rewrite, not a spelling fix.
+  if (wrongWords.length === rightWords.length) {
+    const differingAt = wrongWords
+      .map((w, i) => (w !== rightWords[i] ? i : -1))
+      .filter((i) => i >= 0);
+    if (differingAt.length === 1) {
+      if (!checks) return "spelling";
+      const token = bareToken(wrongWords[differingAt[0]]);
+      if (!token) return "misspelling";
+      // Three different capabilities, and the models score very differently
+      // on each: a real word in the wrong place ("their" for "there"), a
+      // correct spelling in the other dialect ("colour"), or something that
+      // is not a word at all ("notebok"). Only the last is visible to a
+      // spell checker.
+      if (checks.isKnownWord(token)) return "wordChoice";
+      if (checks.isKnownInOtherDialect?.(token)) return "dialect";
+      return "misspelling";
+    }
+  }
+  return "other";
+}
+
+export interface CategoryRecall {
+  category: PlantedErrorCategory;
+  planted: number;
+  caught: number;
+  /** 0-100, or null when the fixture planted none of this category. */
+  recall: number | null;
+}
+
+/**
+ * Per-category recall, derived from a `scoreCorrections` result rather than
+ * re-matching. Reusing its `missedErrors` (the same object references it was
+ * handed) guarantees the category rows always add up to the headline recall —
+ * a second, independently-greedy matching pass would not.
+ */
+export function recallByCategory(
+  groundTruth: PlantedError[],
+  missedErrors: PlantedError[],
+  checks?: WordChecks | null,
+): CategoryRecall[] {
+  const missed = new Set<PlantedError>(missedErrors);
+  const planted = new Map<PlantedErrorCategory, number>();
+  const caught = new Map<PlantedErrorCategory, number>();
+
+  for (const err of groundTruth) {
+    const cat = classifyPlantedError(err, checks);
+    planted.set(cat, (planted.get(cat) ?? 0) + 1);
+    if (!missed.has(err)) caught.set(cat, (caught.get(cat) ?? 0) + 1);
+  }
+
+  return CATEGORY_ORDER.map((category) => {
+    const p = planted.get(category) ?? 0;
+    const c = caught.get(category) ?? 0;
+    return { category, planted: p, caught: c, recall: p > 0 ? (c / p) * 100 : null };
+  });
+}

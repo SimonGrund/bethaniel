@@ -33,16 +33,36 @@ export type RunMode = "speed" | "custom";
 /** The pipeline knobs a preset controls. Deterministic checks are always on. */
 export interface RunModeKnobs {
   reviewMode: boolean;
-  reviewerCount: number;
   reviewerThreshold: number;
   spellCheck: boolean;
   retextCheck: boolean;
   grammarCheck: boolean;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
 }
+
+/**
+ * What a job runs when nobody says otherwise.
+ *
+ * This is the single source of truth for the pipeline's shape. routes.ts
+ * resolves every knob as `forced ?? explicit ?? preset ?? DEFAULT_RUN_KNOBS`,
+ * so a knob's default lives here and nowhere else.
+ *
+ * It used to live here AND as hardcoded literals at the end of that chain,
+ * which let the two drift: a cloud job is forced to the speed preset, and
+ * `dualEditor` was false there and true in the literals, so cloud and local
+ * ran different pipelines while every benchmark on the site compared them as
+ * though they did not.
+ */
+export const DEFAULT_RUN_KNOBS: RunModeKnobs = {
+  reviewMode: true,
+  reviewerThreshold: 3,
+  spellCheck: true,
+  retextCheck: true,
+  grammarCheck: true,
+  styleComplianceAgent: true,
+  extraPass: false,
+};
 
 export const RUN_MODE_PRESETS: Record<
   Exclude<RunMode, "custom">,
@@ -50,13 +70,10 @@ export const RUN_MODE_PRESETS: Record<
 > = {
   speed: {
     reviewMode: true,
-    reviewerCount: 1,
     reviewerThreshold: 3,
     spellCheck: true,
     retextCheck: true,
     grammarCheck: true,
-    dualEditor: false,
-    dualCount: 2,
     styleComplianceAgent: true,
     extraPass: false,
   },

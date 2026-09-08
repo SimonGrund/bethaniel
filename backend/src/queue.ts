@@ -30,6 +30,8 @@ import {
   parseJsonResponse,
   reviewCorrectionsStream,
   parseReviewScores,
+  planReviewBatches,
+  type ReviewScore,
   listLoadedModels,
   unloadModel,
   estimateTokens,
@@ -45,6 +47,7 @@ import {
 import { mergeAnalysisParts } from "./analysisMerge.js";
 import {
   sanitizeQuoteCorrections,
+  narrowCorrectionSpans,
   foldContainedCorrections,
   collapseIntroducedPunctuationPairs,
   reconcileSpellWithEditor,
@@ -62,6 +65,7 @@ import {
   buildPrecisionPassPrompt,
   buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
+  buildConfusableHintBlock,
   buildCopyEditCorrectionsPrompt,
   buildTranslationUpgradePrompt,
   buildFluencyReviewerPrompt,
@@ -98,7 +102,12 @@ import {
 } from "./db.js";
 import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
 import { estimateTaskOutputTokens } from "./cloudEstimate.js";
-import { shouldAutoRetry, MAX_AUTO_ATTEMPTS } from "./retryPolicy.js";
+import {
+  shouldAutoRetry,
+  MAX_AUTO_ATTEMPTS,
+  isRateLimitError,
+  retryWaitMs,
+} from "./retryPolicy.js";
 import { liveJobProgress, computeRuntime } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
 
@@ -154,6 +163,10 @@ function isTransientFetchError(err: unknown): boolean {
   if (!err) return false;
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   if (msg.includes("cancelled") || msg.includes("aborted")) return false;
+  // A rate limit is the most retryable failure there is — it says "later",
+  // not "no", and matches none of the network signatures below. See
+  // isRateLimitError in retryPolicy.ts for why that mattered.
+  if (isRateLimitError(err)) return true;
   return (
     msg.includes("fetch failed") ||
     msg.includes("econnreset") ||
@@ -171,6 +184,26 @@ function isTransientFetchError(err: unknown): boolean {
 const REVIEWER_MAX_ATTEMPTS = 3;
 
 /**
+ * Confidence below which the PRECISION PASS deletes a correction outright.
+ *
+ * Scores run 1-5, so at 1 the pass deletes nothing: it annotates. That is
+ * deliberate. Bethaniel is used with a human reading every suggestion before
+ * accepting it, which makes deletion the only irreversible act in the
+ * pipeline — a deleted correction is one the author can never see, while a
+ * surviving wrong one costs them a glance and a dismissal. Those are not the
+ * same magnitude of mistake, and the threshold should not pretend they are.
+ *
+ * Measured on the four stress fixtures, Baby Betty, one slot: moving the cut
+ * 3 -> 2 -> 1 took recall 54% -> 58% -> 60% and clean-text flags 12 -> 20 ->
+ * 26. But 24 of those 26 arrive flagged, and the UNMARKED count — the one
+ * that costs an author trust — is flat at 2 across all three settings.
+ *
+ * Flagging still happens at job.reviewerThreshold (default 3), so everything
+ * this pass doubts reaches the author wearing the doubt.
+ */
+const PRECISION_PASS_DELETE_THRESHOLD = 1;
+
+/**
  * One reviewer agent call with retries. Local inference fails via OOM, slot
  * exhaustion, and garbage output — not just network — so any error except
  * abort is retried. An output that parses to zero review scores (truncated,
@@ -178,7 +211,7 @@ const REVIEWER_MAX_ATTEMPTS = 3;
  * falls short, the output with the most parsed scores is kept and the
  * still-unscored corrections are flagged downstream by aggregateReviewScores.
  */
-function runReviewerAgentWithRetry(opts: {
+async function runReviewerAgentWithRetry(opts: {
   model: string;
   chunkText: string;
   cs: Correction[];
@@ -187,40 +220,79 @@ function runReviewerAgentWithRetry(opts: {
   taskId: string;
   chunkLabel: string;
   agentLabel: string;
-}): Promise<string> {
-  return runWithRetry(
-    async (attempt) => {
-      let acc = "";
-      const seed = deriveSeed(opts.chunkLabel, opts.agentLabel, attempt);
-      for await (const tok of reviewCorrectionsStream(
-        opts.model,
-        opts.chunkText,
-        opts.cs,
-        opts.reviewerPrompt,
-        opts.signal,
-        seed,
-      )) {
-        acc += tok;
-      }
-      return acc;
-    },
-    {
-      maxAttempts: REVIEWER_MAX_ATTEMPTS,
-      backoffMs: (attempt) => 750 * attempt,
-      isValid: (out) => parseReviewScores(out).size > 0,
-      isAborted: () => opts.signal.aborted,
-      keepBest: (a, b) =>
-        parseReviewScores(a).size >= parseReviewScores(b).size ? a : b,
-      onRetry: (attempt, why) =>
-        appendLog({
-          level: "warn",
-          source: "engine",
-          taskId: opts.taskId,
-          message: `${opts.agentLabel} retry ${attempt}/${REVIEWER_MAX_ATTEMPTS} for chunk ${opts.chunkLabel}: ${why}`,
-          model: opts.model,
-        }),
-    },
+}): Promise<Map<number, ReviewScore>> {
+  // One call per batch rather than one call for the chunk. Asking a model to
+  // score more corrections than its context can answer about does not produce
+  // a shorter answer, it produces a truncated one — and the corrections past
+  // the cut are indistinguishable from ones the reviewer chose not to flag.
+  // See planReviewBatches for what that cost.
+  const batches = planReviewBatches(
+    opts.model,
+    opts.chunkText,
+    opts.cs,
+    opts.reviewerPrompt,
   );
+  const merged = new Map<number, ReviewScore>();
+
+  for (const [start, end] of batches) {
+    const slice = opts.cs.slice(start, end);
+    const label =
+      batches.length > 1
+        ? `${opts.agentLabel} (${start + 1}-${end} of ${opts.cs.length})`
+        : opts.agentLabel;
+
+    const raw = await runWithRetry(
+      async (attempt) => {
+        let acc = "";
+        const seed = deriveSeed(opts.chunkLabel, label, attempt);
+        for await (const tok of reviewCorrectionsStream(
+          opts.model,
+          opts.chunkText,
+          slice,
+          opts.reviewerPrompt,
+          opts.signal,
+          seed,
+        )) {
+          acc += tok;
+        }
+        return acc;
+      },
+      {
+        maxAttempts: REVIEWER_MAX_ATTEMPTS,
+        backoffMs: (attempt, err) => retryWaitMs(err, attempt),
+        isValid: (out) => parseReviewScores(out).size > 0,
+        isAborted: () => opts.signal.aborted,
+        keepBest: (a, b) =>
+          parseReviewScores(a).size >= parseReviewScores(b).size ? a : b,
+        onRetry: (attempt, why) =>
+          appendLog({
+            level: "warn",
+            source: "engine",
+            taskId: opts.taskId,
+            message: `${label} retry ${attempt}/${REVIEWER_MAX_ATTEMPTS} for chunk ${opts.chunkLabel}: ${why}`,
+            model: opts.model,
+          }),
+      },
+    ).catch((err) => {
+      if (opts.signal.aborted) throw err;
+      // One batch failing must not cost the verdicts of every other batch.
+      appendLog({
+        level: "warn",
+        source: "engine",
+        taskId: opts.taskId,
+        message: `${label} failed for chunk ${opts.chunkLabel}; its corrections stay unvetted: ${err instanceof Error ? err.message : String(err)}`,
+        model: opts.model,
+      });
+      return "";
+    });
+
+    // The model numbers its answers from 0 within the batch it was shown.
+    for (const [i, score] of parseReviewScores(raw)) {
+      if (i >= 0 && i < slice.length) merged.set(start + i, score);
+    }
+  }
+
+  return merged;
 }
 
 interface JobData {
@@ -240,14 +312,10 @@ interface JobData {
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
-  reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
   retextCheck?: boolean;
   grammarCheck?: boolean;
-  dualEditor?: boolean;
-  dualCount?: number;
-  characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   /** Thorough mode: run a second copy-edit pass over the edited text. */
   extraPass?: boolean;
@@ -703,7 +771,7 @@ async function processSynthesisJob(
         errors.push(msg);
         break;
       }
-      const waitMs = 750 * attempt;
+      const waitMs = retryWaitMs(err, attempt);
       console.warn(
         `[Queue] synthesis attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
       );
@@ -763,7 +831,7 @@ function makeStoryLlm(job: JobData, ac: AbortController): LlmCall {
         return acc;
       } catch (err) {
         if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) throw err;
-        const waitMs = 750 * attempt;
+        const waitMs = retryWaitMs(err, attempt);
         console.warn(
           `[Queue] story-analysis call attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)}); retrying in ${waitMs}ms`,
         );
@@ -1330,9 +1398,6 @@ async function processJob(job: JobData): Promise<void> {
         wordsPerChunk: wpc,
         runMode: job.runMode === "speed" ? "speed" : "custom",
         reviewMode: !!job.reviewMode,
-        reviewerCount: job.reviewerCount ?? 1,
-        dualEditor: !!job.dualEditor,
-        dualCount: job.dualCount ?? 2,
         styleComplianceAgent: !!job.styleComplianceAgent,
         extraPass: job.extraPass === true,
         numPredict: getModelByFileName(model)?.defaults.num_predict ?? 4096,
@@ -1375,7 +1440,7 @@ async function processJob(job: JobData): Promise<void> {
       editorToks: number;
       editorStart: number;
       editorFirstTokenAt: number;
-      promise: Promise<string[]>;
+      promise: Promise<Map<number, ReviewScore>[]>;
     } | null = null;
 
     async function collectPendingReview(): Promise<void> {
@@ -1390,7 +1455,7 @@ async function processJob(job: JobData): Promise<void> {
         // each correction gets the MINIMUM confidence across reviewers.
         // If ANY reviewer flags it, it gets flagged. Corrections no reviewer
         // scored are flagged as unvetted rather than passed through.
-        const allScores = reviewOutputs.map((output) => parseReviewScores(output));
+        const allScores = reviewOutputs;
         const { flaggedCount, unscoredCount } = aggregateReviewScores(
           pr.cs,
           allScores,
@@ -1429,7 +1494,7 @@ async function processJob(job: JobData): Promise<void> {
               job.styleGuide,
               job.manuscriptLang,
             );
-            const precisionOutput = await runReviewerAgentWithRetry({
+            const precisionScores = await runReviewerAgentWithRetry({
               model,
               chunkText: pr.chunk.body,
               cs: pr.cs,
@@ -1439,12 +1504,43 @@ async function processJob(job: JobData): Promise<void> {
               chunkLabel: pr.chunkLabel,
               agentLabel: "Precision pass",
             });
-            const precisionScores = parseReviewScores(precisionOutput);
-            const { kept, removed } = applyPrecisionPass(
+            // The reviewer above FLAGS at this threshold; the precision pass
+            // DELETES, and those two questions do not deserve the same cutoff.
+            // A model scoring a correction 2 is usually reporting an absence of
+            // a verdict rather than a verdict — most often in the languages it
+            // knows least well, which are exactly the languages where the
+            // deterministic layer is thinnest and the model is the only source
+            // of a wrong-word catch. Measured on the Danish fixture, deleting
+            // the 2s cost recall 59% -> 38% (commas 45% -> 2%, wrong words 23%
+            // -> 15%) and bought 5 points of precision; on German it cost 2
+            // points of recall for none, and on English it gained 3 for none.
+            // Math.min so a user who lowers reviewerThreshold to keep more
+            // still gets a pass no more eager than they asked for.
+            const { kept, removed, spared, doubted } = applyPrecisionPass(
               pr.cs,
               [precisionScores],
+              Math.min(threshold, PRECISION_PASS_DELETE_THRESHOLD),
               threshold,
             );
+
+            if (doubted > 0) {
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Precision pass doubted ${doubted} correction(s) in chunk ${pr.chunkLabel} without deleting them; flagged so the author reads them as suggestions rather than findings.`,
+                model,
+              });
+            }
+            if (spared > 0) {
+              appendLog({
+                level: "info",
+                source: "engine",
+                taskId,
+                message: `Precision pass doubted ${spared} deterministic correction(s) in chunk ${pr.chunkLabel} (spell-check, grammar or dialect); kept and flagged for review rather than dropped.`,
+                model,
+              });
+            }
             if (removed.length > 0) {
               appendLog({
                 level: "info",
@@ -1636,6 +1732,26 @@ async function processJob(job: JobData): Promise<void> {
                 if (suspectWords.length > 0) {
                   chunkPrompt = prompt + buildSpellHintBlock(suspectWords);
                 }
+
+                // Word choice, not spelling: "their" for "there", "past" for
+                // "passed". Every layer above is blind to these because both
+                // members are real words, so this is the only place they can
+                // be caught. Detection only — the editor agent decides which
+                // member the sentence wants, and the reviewer scores it, the
+                // same division of labour as the spell hints above.
+                //
+                // Deliberately inside the spellCheck gate: this is the same
+                // kind of layer (automated word-level detection handed to the
+                // model to adjudicate), so one switch governs both rather than
+                // adding a second toggle that means almost the same thing.
+                const { findConfusables } = await import("./confusables.js");
+                const confusableSets = findConfusables(
+                  chunk.body,
+                  job.manuscriptLang ?? "en",
+                );
+                if (confusableSets.length > 0) {
+                  chunkPrompt += buildConfusableHintBlock(confusableSets);
+                }
               }
 
               // ── retext: deterministic prose checks (a/an, contractions,
@@ -1767,21 +1883,23 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
-              // ── Run editor(s) — single or multi ──
-              // The normal editor prompt runs `baseEditorCount` times; when a
-              // style sheet is present and the toggle is on, one extra agent runs
-              // the dedicated style-compliance pass. Its corrections merge into
-              // the same union-deduped set as the regular editors.
-              const baseEditorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+              // ── Run editor(s) ──
+              // One normal editor pass. Running the SAME prompt N times used to
+              // be an option ("dual editor"); it was removed because corrections
+              // decode greedily at temperature 0, so every extra agent returned a
+              // byte-identical answer that the union-dedupe then collapsed —
+              // measured across four languages and three models, output was
+              // identical and the run was 15-20% slower.
+              //
+              // The multi-prompt machinery below stays, because the
+              // style-compliance agent runs a DIFFERENT prompt and so genuinely
+              // can differ. Its corrections merge into the same union-deduped set.
               const styleAgentActive = !!(
                 job.styleComplianceAgent &&
                 job.styleGuide &&
                 job.styleGuide.trim()
               );
-              const editorPrompts: string[] = Array.from(
-                { length: baseEditorCount },
-                () => chunkPrompt,
-              );
+              const editorPrompts: string[] = [chunkPrompt];
               if (styleAgentActive) {
                 editorPrompts.push(
                   buildStyleCompliancePrompt(
@@ -1960,6 +2078,7 @@ async function processJob(job: JobData): Promise<void> {
                 prompt,
                 ac.signal,
                 deriveSeed(mode, job.name, j, "rewrite", attempt),
+                mode,
               )) {
                 acc += tok;
                 tokCount++;
@@ -1992,7 +2111,7 @@ async function processJob(job: JobData): Promise<void> {
             if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
               throw err;
             }
-            const waitMs = 750 * attempt;
+            const waitMs = retryWaitMs(err, attempt);
             console.warn(
               `[Queue] chunk ${chunkLabel} attempt ${attempt} failed (${msg}); retrying in ${waitMs}ms`,
             );
@@ -2028,10 +2147,28 @@ async function processJob(job: JobData): Promise<void> {
             });
           }
 
+          // ── Span narrowing ──
+          // Tighten a sentence-wide "original" down to the words that actually
+          // changed, splitting it where it carries several independent edits.
+          // Cloud-served models return these far more than local ones, and a
+          // whole-sentence span forces the author to take or leave the entire
+          // sentence to fix one comma. Runs before folding so the fold below
+          // sees surgical spans and has less to absorb.
+          const narrow = narrowCorrectionSpans(chunk.body, quoteSan.kept);
+          if (narrow.narrowed > 0) {
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: ${narrow.narrowed} wide correction(s) narrowed to the changed words (${narrow.split} split into separate corrections).`,
+              model,
+            });
+          }
+
           // ── Contained-correction folding ──
           // A word fix inside a sentence rewrite would collide with it at
           // apply time; merge it into the rewrite and drop the duplicate.
-          const fold = foldContainedCorrections(chunk.body, quoteSan.kept);
+          const fold = foldContainedCorrections(chunk.body, narrow.kept);
           const editorCs = fold.kept;
           if (fold.dropped.length > 0 || fold.folded > 0) {
             skipped.push(...fold.dropped);
@@ -2103,7 +2240,10 @@ async function processJob(job: JobData): Promise<void> {
               mode,
               job.manuscriptLang,
             );
-            const rCount = job.reviewerCount ?? 1;
+            // One reviewer. N of them ran the same prompt with the same seed at
+            // temperature 0, so they could only ever return identical scores; the
+            // min-confidence aggregation below was averaging a value with itself.
+            const rCount = 1;
 
             const reviewPromise = (async () => {
               const runOne = () =>
@@ -2120,9 +2260,11 @@ async function processJob(job: JobData): Promise<void> {
               const results = await Promise.allSettled(
                 Array.from({ length: rCount }, () => runOne()),
               );
-              const outputs: string[] = [];
+              const outputs: Map<number, ReviewScore>[] = [];
               for (const r of results) {
-                if (r.status === "fulfilled" && r.value) outputs.push(r.value);
+                if (r.status === "fulfilled" && r.value.size > 0) {
+                  outputs.push(r.value);
+                }
               }
               if (outputs.length === 0)
                 throw new Error(
@@ -2243,7 +2385,7 @@ async function processJob(job: JobData): Promise<void> {
                 });
 
                 const reviewerPrompt = buildTranslationReviewerPrompt(job.styleGuide);
-                const rCount = job.reviewerCount ?? 1;
+                const rCount = 1; // see the note on the copy-edit reviewer above
                 const runOne = () =>
                   runReviewerAgentWithRetry({
                     model,
@@ -2258,9 +2400,9 @@ async function processJob(job: JobData): Promise<void> {
                 const reviewResults = await Promise.allSettled(
                   Array.from({ length: rCount }, () => runOne()),
                 );
-                const reviewOutputs: string[] = [];
+                const reviewOutputs: Map<number, ReviewScore>[] = [];
                 for (const r of reviewResults) {
-                  if (r.status === "fulfilled" && r.value)
+                  if (r.status === "fulfilled" && r.value.size > 0)
                     reviewOutputs.push(r.value);
                 }
                 if (reviewOutputs.length > 0 && reviewOutputs.length < rCount) {
@@ -2274,9 +2416,7 @@ async function processJob(job: JobData): Promise<void> {
                 }
 
                 if (reviewOutputs.length > 0) {
-                  const allScores = reviewOutputs.map((o) =>
-                    parseReviewScores(o),
-                  );
+                  const allScores = reviewOutputs;
                   const threshold = job.reviewerThreshold ?? 3;
 
                   const flagged: { idx: number; conf: number; reason: string }[] =
@@ -2317,6 +2457,7 @@ async function processJob(job: JobData): Promise<void> {
                           rePrompt,
                           ac.signal,
                           deriveSeed(mode, job.name, j, "retranslate", f.idx),
+                          "translate",
                         )) reAcc += tok;
                         const reTranslated = reAcc.trim();
                         if (reTranslated) {
@@ -2365,7 +2506,6 @@ async function processJob(job: JobData): Promise<void> {
                   job.styleGuide,
                 ),
                 reviewMode: !!job.reviewMode,
-                reviewerCount: job.reviewerCount ?? 1,
                 reviewerThreshold: job.reviewerThreshold ?? 3,
                 chunkLabel,
                 signal: ac.signal,
@@ -2391,6 +2531,7 @@ async function processJob(job: JobData): Promise<void> {
                       systemPrompt,
                       ac.signal,
                       deriveSeed(mode, job.name, j, "upgrade", callIndex++),
+                      "translate",
                     )) {
                       out += tok;
                       upgradeToks++;
@@ -2425,7 +2566,6 @@ async function processJob(job: JobData): Promise<void> {
                     chunkLabel,
                     agentLabel: "Fluency-reviewer agent",
                   }),
-                parseScores: parseReviewScores,
                 log: (level, message) =>
                   appendLog({ level, source: "engine", taskId, message, model }),
                 setPhase: (phase) => updateTask(taskId, { phase }),
@@ -2708,6 +2848,12 @@ async function processJob(job: JobData): Promise<void> {
 }
 
 function pump(): void {
+  // New work cancels a pending idle unload. Without this, a job submitted in
+  // the 2s window after the previous one finished would race the unloader:
+  // the engine gets torn down and immediately rebuilt for the job that was
+  // already arriving — pure latency at best, and before killChild() learned to
+  // serialize stops, a lost port bind at worst.
+  if (pending.length > 0) cancelIdleUnload();
   while (active < concurrency && pending.length > 0) {
     const job = pending.shift()!;
     active++;
@@ -2782,6 +2928,13 @@ let unloadTimer: NodeJS.Timeout | null = null;
  * Debounced so the synthesis spawn (which arrives moments after siblings
  * complete) doesn't trip a premature unload.
  */
+/** Call off a scheduled idle unload — work arrived before it fired. */
+function cancelIdleUnload(): void {
+  if (!unloadTimer) return;
+  clearTimeout(unloadTimer);
+  unloadTimer = null;
+}
+
 function scheduleIdleUnload(_jobId: string): void {
   if (unloadTimer) clearTimeout(unloadTimer);
   unloadTimer = setTimeout(() => {
@@ -2790,16 +2943,25 @@ function scheduleIdleUnload(_jobId: string): void {
   }, 2000);
 }
 
-async function maybeUnloadIdleModels(): Promise<void> {
-  // Anything still active? (queued or editing in any job)
-  if (active > 0 || pending.length > 0) return;
+/** True when no job is running, queued, or waiting to be dispatched. */
+function queueIsIdle(): boolean {
+  if (active > 0 || pending.length > 0) return false;
   for (const t of tasks.values()) {
-    if (t.status === "queued" || t.status === "editing") return;
+    if (t.status === "queued" || t.status === "editing") return false;
   }
+  return true;
+}
+
+async function maybeUnloadIdleModels(): Promise<void> {
+  if (!queueIsIdle()) return;
 
   try {
     const loaded = await listLoadedModels();
     if (loaded.length === 0) return;
+    // Re-check after the await: listLoadedModels() is a round-trip to the
+    // engine, and a job submitted during it would otherwise have its model
+    // pulled out from under it by a decision made before it existed.
+    if (!queueIsIdle()) return;
     console.log(
       `[Queue] no active jobs — unloading ${loaded.length} model(s): ${loaded.join(", ")}`,
     );
@@ -2892,14 +3054,10 @@ export async function submitTask(
       manuscriptLang: data.manuscriptLang,
       reviewMode: data.reviewMode,
       reviewerThreshold: data.reviewerThreshold,
-      reviewerCount: data.reviewerCount,
       styleGuide: data.styleGuide,
       spellCheck: data.spellCheck,
       retextCheck: data.retextCheck,
       grammarCheck: data.grammarCheck,
-      dualEditor: data.dualEditor,
-      dualCount: data.dualCount,
-      characterDedup: data.characterDedup,
       styleComplianceAgent: data.styleComplianceAgent,
       extraPass: data.extraPass,
       runMode: data.runMode,
@@ -3054,14 +3212,10 @@ export async function retryTask(id: string): Promise<string> {
     manuscriptLang: spec.manuscriptLang,
     reviewMode: spec.reviewMode,
     reviewerThreshold: spec.reviewerThreshold,
-    reviewerCount: spec.reviewerCount,
     styleGuide: spec.styleGuide,
     spellCheck: spec.spellCheck,
     retextCheck: spec.retextCheck,
     grammarCheck: spec.grammarCheck,
-    dualEditor: spec.dualEditor,
-    dualCount: spec.dualCount,
-    characterDedup: spec.characterDedup,
     styleComplianceAgent: spec.styleComplianceAgent,
     extraPass: spec.extraPass,
     units: spec.units,

@@ -41,15 +41,97 @@ export const INTRODUCTORY_COMMA_RULES = [
   "SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
 ];
 
-/** Build the /v2/check request body. Extracted so it's unit-testable. */
+/**
+ * Rules that never found a real error in the benchmark and only ever
+ * misfired. Deterministic corrections bypass the editor prompt entirely —
+ * they are injected straight into the correction set — so the prompt's
+ * DO-NOT-FLAG list cannot restrain them however well it is written. Two of
+ * these produce exactly the mistakes that list forbids by name.
+ *
+ * Measured per-rule on stress100 (errored + clean fixtures), after the
+ * parser's existing category filters:
+ *
+ *   rule                                       finds  misfires  on clean
+ *   PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT        0         2         2
+ *   NOUN_AROUND_IT                                 0         1         1
+ *   RB_RB_COMMA                                    0         1         0
+ *   BEEN_PART_AGREEMENT                            0         1         0
+ *
+ * Eight false positives removed, no true positives lost. The bar for adding
+ * to this list is that ledger: zero real errors found, at least one invented.
+ * A rule that misfires but also earns its keep stays on —
+ * MORFOLOGIK_RULE_EN_US misfires six times and finds thirty-seven, and
+ * disabling it would gut the grammar pass.
+ *
+ * What each one does when it fires:
+ *   - PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT breaks the subjunctive ("as
+ *     though the story were returning" -> "was") and misreads an adjective as
+ *     a verb ("his coat still damp from" -> "damps"). The copy-edit prompt
+ *     forbids the first in those words. Worse, the reviewer AGREED with it at
+ *     confidence 5, so nothing downstream catches it either.
+ *   - NOUN_AROUND_IT rewords correct prose ("the shop around her" -> "the
+ *     surrounding shop"), which the prompt also forbids by name.
+ *   - RB_RB_COMMA and BEEN_PART_AGREEMENT had no hits and one misfire each.
+ *   - COMILLAS_TIPOGRAFICAS converts every straight quote in Spanish to an
+ *     angle quote (" -> «»). Ledger across all eight fixtures: 248 invented,
+ *     0 real errors found — the worst offender in the list by two orders of
+ *     magnitude. It fired 124 times on a single clean Spanish fixture, once
+ *     per quotation mark, which for a novel means every line of dialogue.
+ *     That alone put Spanish copy-edit precision at 31% against 63-79% for
+ *     the other three languages.
+ *
+ *     It went unnoticed because it is a picky-tier rule and the old Spanish
+ *     fixture had almost no dialogue; the measurement above recorded "0 flags
+ *     on clean text" in good faith. It is also not an error in the first
+ *     place: « » versus " " is a house style, which this codebase already
+ *     treats as one — quoteRepair.ts normalises quotation marks
+ *     deterministically, and a style guide is where a publisher asks for
+ *     angle quotes. LanguageTool should not be overruling that pass.
+ */
+export const ALWAYS_DISABLED_RULES = [
+  "PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT",
+  "NOUN_AROUND_IT",
+  "RB_RB_COMMA",
+  "BEEN_PART_AGREEMENT",
+  "COMILLAS_TIPOGRAFICAS",
+];
+
+/**
+ * Build the /v2/check request body. Extracted so it's unit-testable.
+ *
+ * `level=picky` turns on LanguageTool's second tier of rules, which is almost
+ * entirely comma and confusion rules — exactly where recall was weakest.
+ * Measured on all five bundled fixtures (LanguageTool alone, no model):
+ *
+ *   fixture              recall default -> picky   flags on clean text
+ *   English stress100            56% -> 60%              4 -> 4
+ *   English standard             21% -> 21%              2 -> 2
+ *   Danish                        4% ->  4%              0 -> 0
+ *   German                       31% -> 31%              1 -> 1
+ *   Spanish                      40% -> 40%              0 -> 0
+ *
+ * Comma recall specifically went 19% -> 30% on stress100. Nothing regressed
+ * and picky added no false positives on any clean fixture, which is what
+ * makes it safe to leave on: the usual objection to picky is noise, and on
+ * this corpus there is none.
+ */
 export function buildCheckParams(
   text: string,
   language: string,
   opts?: { disabledRules?: string[] },
 ): URLSearchParams {
-  const params = new URLSearchParams({ text, language, enabledOnly: "false" });
-  if (opts?.disabledRules && opts.disabledRules.length > 0) {
-    params.set("disabledRules", opts.disabledRules.join(","));
+  const params = new URLSearchParams({
+    text,
+    language,
+    enabledOnly: "false",
+    level: "picky",
+  });
+  // Merged rather than left to the caller: ALWAYS_DISABLED_RULES exists
+  // because those rules cannot be restrained any other way, so a caller
+  // that passes its own disabledRules must not drop them by accident.
+  const disabled = [...ALWAYS_DISABLED_RULES, ...(opts?.disabledRules ?? [])];
+  if (disabled.length > 0) {
+    params.set("disabledRules", disabled.join(","));
   }
   return params;
 }

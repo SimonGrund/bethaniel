@@ -10,6 +10,7 @@ import Sidebar from "./components/Sidebar";
 import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
+import BetaFeatures from "./components/BetaFeatures";
 import ModeSelector from "./components/ModeSelector";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
@@ -37,7 +38,10 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
 // Friendly title + one-line intro shown at the top of each open setup menu.
 const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
   upload: { nameKey: "step_name_upload", briefKey: "upload_step_brief" },
-  edits: { nameKey: "step_name_edits", briefKey: "edits_step_brief" },
+  // `edits` deliberately absent: the task step asks its own question ("I want
+  // to…") and a second heading above it just said the same thing twice. The
+  // render is already guarded on the key existing.
+  //   edits: { nameKey: "step_name_edits", briefKey: "edits_step_brief" },
   model: { nameKey: "step_name_model", briefKey: "model_step_brief" },
   style: { nameKey: "step_name_style", briefKey: "style_step_brief" },
 };
@@ -360,7 +364,9 @@ export default function App() {
             {/* The collapsible step menu is only mounted while a step is open,
                 so no empty box lingers on the idle dashboard. */}
             {menuOpen && (
-              <div className="wizard-content">
+              <div
+                className={`wizard-content${wizardStep === "edits" ? " wizard-content-tasks" : ""}`}
+              >
                 <button
                   type="button"
                   className="btn-close-step"
@@ -397,6 +403,11 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {/* Experimental modes sit OUTSIDE the cream step panel on purpose.
+                Inside it they read as a sub-option of whichever card is
+                selected — which is exactly what they are not. */}
+            {menuOpen && wizardStep === "edits" && <BetaFeatures />}
 
             {/* Idle dashboard — no menu open, nothing running: the app-wide
                 logo watermark (`.main-content::before`) is the only mark. */}

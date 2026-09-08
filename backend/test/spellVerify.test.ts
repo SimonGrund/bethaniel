@@ -1,11 +1,13 @@
 // Tests for the post-apply spell safety net: findNewSuspectWords (introduced
 // misspellings only) and applyCorrectionsVerified (revert + flag offenders).
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { applyCorrectionsVerified } from "../src/llm.ts";
-import { findNewSuspectWords } from "../src/spellcheck.ts";
+import { findNewSuspectWords,
+  initSpellchecker,
+} from "../src/spellcheck.ts";
 
 const spellOpts = { englishDialect: "american" };
 const findNewSuspects = (before: string, after: string) =>
@@ -238,6 +240,13 @@ test("unsupported free-text language: spell-check is skipped, not English-checke
 //    /verify-corrections export check) ──
 
 import { attributeSuspects } from "../src/llm.ts";
+
+// Hunspell is WebAssembly, so loading it is async while every spell-check call
+// below is synchronous. Production does this once at startup (index.ts).
+before(async () => {
+  await initSpellchecker();
+});
+
 
 test("attributeSuspects: maps suspect to the correction containing it", () => {
   const cs = [

@@ -87,13 +87,10 @@ const DEFAULT_RUN_MODE: RunMode = "speed";
 
 interface RunModeKnobs {
   reviewMode: boolean;
-  reviewerCount: number;
   reviewerThreshold: number;
   spellCheck: boolean;
   retextCheck: boolean;
   grammarCheck: boolean;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
 }
@@ -102,13 +99,10 @@ const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
   // The only preset: 1 editor + style agent + 1 reviewer. No thorough 2nd pass.
   speed: {
     reviewMode: true,
-    reviewerCount: 1,
     reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
     spellCheck: true,
     retextCheck: true,
     grammarCheck: true,
-    dualEditor: false,
-    dualCount: DEFAULT_DUAL_COUNT,
     styleComplianceAgent: true,
     extraPass: false,
   },
@@ -134,20 +128,12 @@ interface AppState {
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
   setReviewerThreshold: (n: number) => void;
-  reviewerCount: number;
-  setReviewerCount: (n: number) => void;
   spellCheck: boolean;
   setSpellCheck: (b: boolean) => void;
   retextCheck: boolean;
   setRetextCheck: (b: boolean) => void;
   grammarCheck: boolean;
   setGrammarCheck: (b: boolean) => void;
-  dualEditor: boolean;
-  setDualEditor: (b: boolean) => void;
-  dualCount: number;
-  setDualCount: (n: number) => void;
-  characterDedup: boolean;
-  setCharacterDedup: (b: boolean) => void;
   styleComplianceAgent: boolean;
   setStyleComplianceAgent: (b: boolean) => void;
   extraPass: boolean;
@@ -162,6 +148,11 @@ interface AppState {
   selectedModes: TaskMode[];
   toggleMode: (m: TaskMode) => void;
   setSelectedModes: (modes: TaskMode[]) => void;
+  /** Whether the Edit card includes the line pass. Remembered separately from
+   *  `selectedModes` so that switching to another card and back does not
+   *  silently re-arm a pass the user deliberately turned off. */
+  lineEditEnabled: boolean;
+  setLineEditEnabled: (on: boolean) => void;
   copyEditOptions: CopyEditOptions;
   setCopyEditOption: <K extends keyof CopyEditOptions>(
     key: K,
@@ -373,17 +364,6 @@ interface AppState {
   // DOCX export: how minor section breaks render ("hash" = Atticus-safe "#")
   minorBreakStyle: "blank" | "hash";
   setMinorBreakStyle: (s: "blank" | "hash") => void;
-  editSubOptionsOpen:
-    | "editing"
-    | "analysis"
-    | "translation"
-    | "feedback"
-    | "readthrough"
-    | null;
-  setEditSubOptionsOpen: (
-    cat: "editing" | "analysis" | "translation" | "feedback" | null,
-  ) => void;
-
   // Reset
   resetAll: () => void;
 
@@ -423,9 +403,6 @@ export const useStore = create<AppState>()(
       reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
       setReviewerThreshold: (reviewerThreshold) =>
         set({ reviewerThreshold, runMode: "custom" }),
-      reviewerCount: DEFAULT_KNOBS.reviewerCount,
-      setReviewerCount: (reviewerCount) =>
-        set({ reviewerCount, runMode: "custom" }),
       spellCheck: DEFAULT_KNOBS.spellCheck,
       setSpellCheck: (spellCheck) => set({ spellCheck, runMode: "custom" }),
       retextCheck: DEFAULT_KNOBS.retextCheck,
@@ -433,12 +410,6 @@ export const useStore = create<AppState>()(
       grammarCheck: DEFAULT_KNOBS.grammarCheck,
       setGrammarCheck: (grammarCheck) =>
         set({ grammarCheck, runMode: "custom" }),
-      dualEditor: DEFAULT_KNOBS.dualEditor,
-      setDualEditor: (dualEditor) => set({ dualEditor, runMode: "custom" }),
-      dualCount: DEFAULT_KNOBS.dualCount,
-      setDualCount: (dualCount) => set({ dualCount, runMode: "custom" }),
-      characterDedup: false,
-      setCharacterDedup: (characterDedup) => set({ characterDedup }),
       styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
       setStyleComplianceAgent: (styleComplianceAgent) =>
         set({ styleComplianceAgent, runMode: "custom" }),
@@ -457,7 +428,11 @@ export const useStore = create<AppState>()(
         set({ runMode, ...RUN_MODE_PRESETS[runMode] });
       },
 
-      selectedModes: ["copy_edit"],
+      // Empty on purpose: the task step asks "I want to…" and arrives with
+      // that question unanswered, so no card is selected and no controls
+      // panel is open. EditTrigger and StepBar both already treat an empty
+      // selection as "not ready" rather than as an error.
+      selectedModes: [],
       toggleMode: (m) =>
         set((state) => {
           const has = state.selectedModes.includes(m);
@@ -476,6 +451,8 @@ export const useStore = create<AppState>()(
         set((state) =>
           modes.length === 0 ? state : { selectedModes: [...modes] },
         ),
+      lineEditEnabled: true,
+      setLineEditEnabled: (lineEditEnabled) => set({ lineEditEnabled }),
       copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
       setCopyEditOption: (key, val) =>
         set((state) => ({
@@ -893,9 +870,6 @@ export const useStore = create<AppState>()(
       setQueueExpanded: (queueExpanded) => set({ queueExpanded }),
       minorBreakStyle: "blank",
       setMinorBreakStyle: (minorBreakStyle) => set({ minorBreakStyle }),
-      editSubOptionsOpen: null,
-      setEditSubOptionsOpen: (editSubOptionsOpen) =>
-        set({ editSubOptionsOpen }),
 
       resetAll: () =>
         set({
@@ -906,17 +880,16 @@ export const useStore = create<AppState>()(
           runMode: DEFAULT_RUN_MODE,
           reviewMode: DEFAULT_KNOBS.reviewMode,
           reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
-          reviewerCount: DEFAULT_KNOBS.reviewerCount,
           spellCheck: DEFAULT_KNOBS.spellCheck,
           retextCheck: DEFAULT_KNOBS.retextCheck,
           grammarCheck: DEFAULT_KNOBS.grammarCheck,
-          dualEditor: DEFAULT_KNOBS.dualEditor,
-          dualCount: DEFAULT_KNOBS.dualCount,
-          characterDedup: false,
           styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
           extraPass: DEFAULT_KNOBS.extraPass,
           parallel: DEFAULT_PARALLEL,
-          selectedModes: ["copy_edit"],
+          // Back to an unanswered question, same as a fresh profile.
+          // lineEditEnabled resets to its own default for when Edit is picked.
+          selectedModes: [],
+          lineEditEnabled: true,
           copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
           lineEditOptions: { ...DEFAULT_LINE_EDIT_OPTIONS },
           targetLang: DEFAULT_TARGET_LANG,
@@ -927,7 +900,6 @@ export const useStore = create<AppState>()(
           styleGuide: "",
           wizardStep: "upload",
           completedSteps: [],
-          editSubOptionsOpen: null,
           document: null,
           documentMd: "",
           tasks: {},
@@ -965,7 +937,8 @@ export const useStore = create<AppState>()(
       // Bumped when "max" run mode was removed: a persisted install that had
       // "max" selected (including every External Betty user — it used to be
       // the auto-selected default there) would otherwise keep max-shaped
-      // knobs (dualEditor, reviewerCount: 2, extraPass, …) forever, since
+      // knobs (extraPass and the since-removed editor/reviewer fan-out)
+      // forever, since
       // those are persisted independently of the runMode label itself.
       version: 1,
       migrate: (persisted, version) => {
@@ -980,6 +953,7 @@ export const useStore = create<AppState>()(
         lang: state.lang,
         model: state.model,
         selectedModes: state.selectedModes,
+        lineEditEnabled: state.lineEditEnabled,
         copyEditOptions: state.copyEditOptions,
         lineEditOptions: state.lineEditOptions,
         targetLang: state.targetLang,
@@ -989,13 +963,9 @@ export const useStore = create<AppState>()(
         runMode: state.runMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
-        reviewerCount: state.reviewerCount,
         spellCheck: state.spellCheck,
         retextCheck: state.retextCheck,
         grammarCheck: state.grammarCheck,
-        dualEditor: state.dualEditor,
-        dualCount: state.dualCount,
-        characterDedup: state.characterDedup,
         styleComplianceAgent: state.styleComplianceAgent,
         extraPass: state.extraPass,
         parallel: state.parallel,
@@ -1013,7 +983,6 @@ export const useStore = create<AppState>()(
         wizardStep: state.wizardStep,
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,
-        editSubOptionsOpen: state.editSubOptionsOpen,
         showEngineStatus: state.showEngineStatus,
         queueExpanded: state.queueExpanded,
         minorBreakStyle: state.minorBreakStyle,

@@ -37,3 +37,34 @@ export function shouldAutoRetry(opts: {
   if (!isRetryableHint(opts.hintKey)) return false;
   return (opts.attempts ?? 0) < MAX_AUTO_ATTEMPTS;
 }
+
+// ── API rate limits ──
+
+/**
+ * HTTP 429 from an API model — "slow down", not "stop".
+ *
+ * It matches none of the network signatures queue.ts retries on (the message
+ * carries an HTTP status, not a socket fault), so before this existed a rate
+ * limit was classified as permanent and failed the chunk on the first
+ * attempt. Betty in the Cloud's ledger allows 30 requests/minute per
+ * credential, and the app's own parallel editor + reviewer agents exceed that
+ * on an ordinary job.
+ */
+export function isRateLimitError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes("429") || msg.includes("too many requests");
+}
+
+/**
+ * How long to wait before the next attempt.
+ *
+ * Rate limits get a far longer backoff than network blips: the cloud ledger's
+ * window is 60 seconds, and the ordinary 750ms x attempt ladder spends all
+ * five attempts inside ~7 seconds — every one of them in the same window, so
+ * all five fail. The 5s ladder spans ~50s over four retries instead, and the
+ * window drains continuously, so capacity returns partway through.
+ */
+export function retryWaitMs(err: unknown, attempt: number): number {
+  return isRateLimitError(err) ? 5000 * attempt : 750 * attempt;
+}

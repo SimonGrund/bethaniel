@@ -377,6 +377,15 @@ h4 {
   padding: 0.5rem 0 1rem 0;
   margin-bottom: 1rem;
   border-bottom: 1px solid #c9b896;
+  /* Above its siblings, which `.main-content > *` puts at z-index 1 to clear
+     the watermark. The Settings dropdown is absolutely positioned INSIDE this
+     element, so it is confined to this stacking context — raising the
+     dropdown's own z-index cannot lift it past a sibling section, and the
+     wizard panel wins the tie on DOM order. Measured: the menu at z-index
+     9999 still rendered behind the open task panel; the header at 10 fixes
+     it. Well below the modal layer (1000+), which should still cover it. */
+  position: relative;
+  z-index: 10;
 }
 
 .title-header .lang-toggle {
@@ -2579,6 +2588,182 @@ summary.review-source::before {
   margin-bottom: 1rem;
 }
 
+/* ── Task step v2: three cards, one intent ──
+   Borders, radius and surface deliberately match .mode-cat-card / .mode-sub-panel
+   below — this is a structure change, not a restyle. What differs is the
+   treatment: left-aligned, no resting scale/grayscale, snappier transitions. */
+.tasks-heading {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: #2a2419;
+}
+
+/* Equal columns, so no card reads as the default by being wider. */
+.task-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 1.1rem 1.2rem;
+  border: 2px solid #d4c9b0;
+  border-radius: 12px;
+  background: #faf8f4;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.task-card:hover {
+  border-color: #8a7050;
+}
+
+.task-card-active {
+  border-color: #8a7050;
+  background: #fdfaf0;
+  box-shadow: 0 1px 4px rgba(42, 36, 25, 0.14);
+}
+
+.task-card-title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2a2419;
+  line-height: 1.2;
+}
+
+.task-card-desc {
+  font-size: 0.82rem;
+  color: #5a4f3f;
+}
+
+.task-controls {
+  margin-top: 0.9rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d4c9b0;
+  border-radius: 10px;
+  background: #faf8f4;
+  animation: panel-slide-in 0.25s ease-out;
+}
+
+.line-edit-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.5rem;
+  align-items: baseline;
+  cursor: pointer;
+  margin-bottom: 0.8rem;
+}
+
+.line-edit-toggle-label {
+  font-weight: 600;
+  color: #2a2419;
+}
+
+.line-edit-toggle-hint {
+  grid-column: 2;
+  font-size: 0.8rem;
+  color: #8b7355;
+}
+
+/* ── Experimental disclosure ──
+   Its own container, a sibling of .wizard-content rather than a block inside
+   it. Nested in the step panel it read as a sub-option of whichever card was
+   selected, which is the opposite of what it is: the three cards are the paid
+   product and this is the drawer of things that are not. Same surface and
+   radius as the step panel so it belongs to the page, with a real gap so it
+   is plainly a separate box. */
+.beta-features {
+  margin-top: 0.85rem;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  padding: 0.85rem 1.5rem;
+}
+
+.beta-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8b7355;
+  letter-spacing: 0.02em;
+}
+
+.beta-chevron {
+  font-size: 0.7rem;
+}
+
+.beta-active-badge {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #e8dfc8;
+  color: #4a3f2f;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.beta-panel {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #ede4d0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: panel-slide-in 0.25s ease-out;
+}
+
+.beta-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8b7355;
+  max-width: 44rem;
+}
+
+.beta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.beta-group-name {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8b7355;
+}
+
+.beta-group-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Narrow windows: the three cards stack rather than squeezing. */
+@media (max-width: 900px) {
+  .task-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mode-cat-cards {
   display: flex;
   gap: 0.75rem;
@@ -4326,6 +4511,14 @@ summary.review-source::before {
 
 /* Folded wizard leaves the flow entirely — no orphaned flex gaps above the
    run/results area. (The visible open animation is wizard-page-in on mount.) */
+/* The task step is short — three cards, and controls only once one is picked.
+   Left to `flex: 1` it stretched to the full column and left a large empty
+   field under the cards. Upload and Style still fill: their drop zone and
+   editor want the height. */
+.wizard-content-tasks {
+  flex: 0 0 auto;
+}
+
 .wizard-content-collapsed {
   display: none;
 }
@@ -4911,10 +5104,33 @@ summary.review-source::before {
   max-width: 100%;
   margin-left: 0;
   max-height: none;
-  /* Pin the newest lines to the bottom, next to the divider; older lines fill
-     upward toward the label and fade out via the mask. */
-  justify-content: flex-end;
+  /* Start the log at the top of the dock, level with the ENGINE label. When
+     the log is short, bottom alignment left it floating against the session
+     divider with a gap under its own heading. Once the log overflows this
+     changes nothing: the list is scrolled to the newest line either way. */
+  justify-content: flex-start;
   font-size: 0.68rem;
+  /* The shared feed's fade mask is unconditional. Bottom-aligned it only ever
+     dimmed history that had scrolled off; top-aligned it would wash out the
+     FIRST line whenever there are few of them. Swap it for the same scroll
+     shadows the setup block uses — `local` covers ride the content and
+     `scroll` shadows stay pinned, so each edge shows only while there really
+     is more in that direction. */
+  mask-image: none;
+  -webkit-mask-image: none;
+  background:
+    linear-gradient(#efe6d0 30%, rgba(239, 230, 208, 0)) top / 100% 12px
+      no-repeat local,
+    linear-gradient(rgba(239, 230, 208, 0), #efe6d0 70%) bottom / 100% 12px
+      no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(42, 36, 25, 0.16), transparent)
+      top / 100% 6px no-repeat scroll,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        rgba(42, 36, 25, 0.16),
+        transparent
+      )
+      bottom / 100% 6px no-repeat scroll;
 }
 
 /* Big Start Run button, sized to fit under the four step cards in the rail. */
@@ -6098,4 +6314,80 @@ summary.review-source::before {
   border-radius: 4px;
   background: #fdfbf6;
   font-style: italic;
+}
+
+/* ── Cloud promo code ──
+   Sits under the Run-in-Cloud button rather than beside it: a code is optional
+   and most authors will never type one, so it must not compete with the action
+   it discounts. Feedback is a line of text, never a blocking error — an
+   unrecognised code still leaves a runnable job at full price. */
+.cloud-code {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: #8a7a5c;
+}
+.cloud-code-label {
+  white-space: nowrap;
+}
+.cloud-code-input {
+  width: 9rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 4px;
+  background: #fdfaf0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2a2419;
+}
+.cloud-code-input:focus-visible {
+  outline: 2px solid #b08830;
+  outline-offset: 1px;
+}
+.cloud-code-note {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.76rem;
+}
+.cloud-code-ok {
+  color: #2a8a7a;
+}
+.cloud-code-warn {
+  color: #b08830;
+}
+
+/* ── Cloud expectations ──
+   Collapsed by default so it does not shout at someone who has already decided,
+   but it sits before payment rather than after it. The first line is the one a
+   buyer would otherwise assume wrongly: paying does not buy a better edit. */
+.cloud-expect {
+  margin-top: 0.5rem;
+  font-size: 0.79rem;
+  color: #8a7a5c;
+  max-width: 34rem;
+}
+.cloud-expect summary {
+  cursor: pointer;
+  padding: 0.15rem 0;
+  color: #7a6a4c;
+}
+.cloud-expect summary:focus-visible {
+  outline: 2px solid #b08830;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.cloud-expect-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.5;
+}
+.cloud-expect-list li::marker {
+  color: #c9b896;
 }

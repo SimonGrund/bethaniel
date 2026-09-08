@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   id TEXT PRIMARY KEY,
   estimated_tokens INTEGER NOT NULL,
   price_eur_cents INTEGER NOT NULL,
+  -- The code this quote was priced with, so /v1/checkout redeems exactly what
+  -- the author was shown rather than trusting the client to resend it.
+  promo_code TEXT,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
@@ -23,7 +26,15 @@ CREATE TABLE IF NOT EXISTS credentials (
   status TEXT NOT NULL DEFAULT 'active', -- active | expired | void
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
-  customer_email TEXT
+  customer_email TEXT,
+  -- What to reverse if the job never ran. Captured from the webhook,
+  -- because a Checkout Session id alone cannot be refunded.
+  stripe_payment_intent TEXT,
+  -- NULL until the expiry sweep rules on it, then:
+  --   refunded  — paid, expired unused, money returned automatically
+  --   review    — partly used; a human decides (see src/refund.ts)
+  --   failed    — a refund was attempted and Stripe refused
+  refund_status TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_credentials_expiry ON credentials(status, expires_at);
@@ -39,3 +50,31 @@ CREATE TABLE IF NOT EXISTS pending_claims (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+-- ── Promo codes ──
+--
+-- A code is the only way to get a discounted or free run. There is no login and
+-- no free tier: a free tier gated on nothing but an install id would draw on the
+-- same DAILY_TOKEN_CEILING that serves paying customers, so abusing it would not
+-- cost money — it would exhaust the ceiling and hand paying users a 503. Issuing
+-- N codes bounds the whole campaign to N runs by construction.
+--
+-- discount_pct and discount_cents are alternatives: pct for "half price", cents
+-- for "EUR 5 off", 100 pct for a comp. Whichever is set wins; pct is applied
+-- first if both are.
+CREATE TABLE IF NOT EXISTS promo_codes (
+  code TEXT PRIMARY KEY,             -- compared case-insensitively, stored upper
+  campaign TEXT,                     -- free-text label, so redemptions attribute
+  discount_pct INTEGER,              -- 0-100
+  discount_cents INTEGER,            -- absolute, in EUR cents
+  max_uses INTEGER NOT NULL DEFAULT 1,
+  uses INTEGER NOT NULL DEFAULT 0,
+  -- A code may cap the size it will pay for, so "free trial" can mean
+  -- "free up to 5,000 words" without minting an unbounded credential.
+  max_words INTEGER,
+  created_at TEXT NOT NULL,
+  expires_at TEXT,                   -- NULL = never
+  status TEXT NOT NULL DEFAULT 'active'  -- active | void
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_campaign ON promo_codes(campaign);

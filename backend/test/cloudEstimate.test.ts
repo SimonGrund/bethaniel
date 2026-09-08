@@ -1,21 +1,25 @@
 // Tests for estimateTaskOutputTokens — the per-task output-token budget the
 // local progress bar divides real tokens-generated-so-far by (see queue.ts's
-// runCorrectionPass). Scoped to this one function; estimateCloudJob itself
-// (the whole-job cloud-pricing estimator it's built from) has no prior test
-// coverage and backfilling that is out of scope here.
+// runCorrectionPass), plus the rule that a Betty in the Cloud job always runs
+// the Speed preset — that one guards what Bethaniel pays upstream, so it is
+// asserted rather than assumed.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { estimateTaskOutputTokens } from "../src/cloudEstimate.ts";
+import {
+  estimateTaskOutputTokens,
+  estimateCloudJob,
+  cloudRunKnobs,
+  partitionCloudModes,
+} from "../src/cloudEstimate.ts";
+import { MODEL_CATALOG } from "../src/modelCatalog.ts";
+import { RUN_MODE_PRESETS } from "../src/runModePresets.ts";
 
 const baseOpts = {
   wordsPerChunk: 2000,
   runMode: "custom" as const,
   reviewMode: true,
-  reviewerCount: 1,
-  dualEditor: false,
-  dualCount: 2,
   styleComplianceAgent: false,
   extraPass: false,
   numPredict: 4096,
@@ -35,15 +39,6 @@ test("estimateTaskOutputTokens scales up with word count", () => {
   assert.ok(large > small * 4, "10x the words (5x the chunks) should need meaningfully more output budget");
 });
 
-test("estimateTaskOutputTokens: dual editor increases the estimate over a single editor", () => {
-  const single = estimateTaskOutputTokens("copy_edit", 4000, baseOpts);
-  const dual = estimateTaskOutputTokens("copy_edit", 4000, {
-    ...baseOpts,
-    dualEditor: true,
-    dualCount: 2,
-  });
-  assert.ok(dual > single, "two parallel editor agents should budget more output tokens than one");
-});
 
 test("estimateTaskOutputTokens: reviewMode adds reviewer-call budget", () => {
   const withoutReview = estimateTaskOutputTokens("copy_edit", 4000, {
@@ -87,4 +82,95 @@ test("estimateTaskOutputTokens: translate budgets more than a plain copy_edit fo
   const copy = estimateTaskOutputTokens("copy_edit", 4000, baseOpts);
   const translate = estimateTaskOutputTokens("translate", 4000, baseOpts);
   assert.ok(translate > copy);
+});
+
+// ── Cloud jobs always run Speed ──
+// Betty in the Cloud is Bethaniel's spend, not the user's. "custom" still
+// exposes 4 editors + style agent + 4 reviewers + a second pass, which costs
+// ~6x upstream for output the run-mode benchmarks found no better — so a
+// cloud job must never be able to select it, whatever the client sends.
+
+test("cloudRunKnobs forces the Speed preset for the cloud model", () => {
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud")!;
+  const knobs = cloudRunKnobs(cloudEntry.fileName);
+  assert.ok(knobs, "cloud model must get forced knobs");
+  assert.equal(knobs.extraPass, false, "the 2x second pass must be off");
+  assert.deepEqual(knobs, RUN_MODE_PRESETS.speed);
+});
+
+test("cloudRunKnobs leaves every other model alone", () => {
+  // Local and BYO-key runs spend the user's own compute — not ours to clamp.
+  for (const m of ["Qwen3.5-9B.gguf", "custom:deepseek", "custom:gguf:/tmp/x.gguf", "", undefined]) {
+    assert.equal(cloudRunKnobs(m), null, `${String(m)} must be untouched`);
+  }
+});
+
+test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
+  // The knobs a hostile or stale client might send.
+  const greedy = {
+    reviewMode: true, styleComplianceAgent: true, extraPass: true,
+  };
+  const units = Array.from({ length: 30 }, () => ({ wordCount: 3333 }));
+  const base = {
+    units, modes: ["copy_edit", "line_edit"], wordsPerChunk: 2500,
+    numPredict: 8192, manuscriptLang: "en",
+  } as const;
+
+  const asSent = estimateCloudJob({ ...base, runMode: "custom", ...greedy });
+  const forced = estimateCloudJob({
+    ...base, runMode: "speed", ...RUN_MODE_PRESETS.speed,
+  });
+
+  // extraPass is now the ONLY lever this clamp has. The editor and reviewer
+  // fan-out knobs it used to override were removed once they were measured to
+  // be no-ops — every agent ran the same prompt at temperature 0 and returned
+  // the same answer — so the ceiling this test guards is a clean 2x, not the
+  // several-fold it was when a stale client could ask for four of everything.
+  assert.ok(
+    forced.estimatedTotalTokens * 2 <= asSent.estimatedTotalTokens,
+    `forcing Speed must at least halve the cost (got ${forced.estimatedTotalTokens} vs ${asSent.estimatedTotalTokens})`,
+  );
+  // 100k words is the headline case; Speed must stay well inside the Worker's
+  // MAX_QUOTE_TOKENS (25M) and DAILY_TOKEN_CEILING, with the greedy variant
+  // being the thing that would have blown through them.
+  assert.ok(forced.estimatedTotalTokens < 2_000_000);
+});
+
+// ── Only tested passes may run in the cloud ──
+// Developmental editing and story analysis are long-context whole-book passes
+// whose cloud cost and quality have not been validated, so they must not be
+// sellable — selling an untested pass is worse than not offering it.
+
+test("the cloud allowlist covers exactly the tested passes", () => {
+  for (const m of ["copy_edit", "line_edit", "combined_edit", "translate"]) {
+    assert.deepEqual(partitionCloudModes([m]).rejected, [], `${m} must be allowed`);
+  }
+  // "Final readthrough" is one button in the UI but two modes underneath
+  // (FINAL_READTHROUGH_MODES in frontend/src/types.ts); both must pass or the
+  // selection breaks for a reason nobody would guess. Spelled out rather than
+  // imported — the backend does not otherwise depend on frontend types.
+  assert.deepEqual(
+    partitionCloudModes(["proofread", "publication_scan"]).rejected, [],
+  );
+});
+
+test("developmental edit and story analysis are refused", () => {
+  const blocked = [
+    "developmental_edit", "character_catalog", "location_catalog",
+    "timeline", "combined_analysis", "analysis_summary", "blurb",
+    "text_evaluator",
+  ];
+  for (const m of blocked) {
+    assert.deepEqual(
+      partitionCloudModes([m]).allowed, [], `${m} must not be sellable`,
+    );
+  }
+});
+
+test("a mixed selection reports precisely which passes are refused", () => {
+  const { allowed, rejected } = partitionCloudModes([
+    "copy_edit", "developmental_edit", "translate", "timeline",
+  ]);
+  assert.deepEqual(allowed, ["copy_edit", "translate"]);
+  assert.deepEqual(rejected, ["developmental_edit", "timeline"]);
 });

@@ -5,19 +5,34 @@
 // word into a non-word, plus the word-boundary, proper-noun, and real-word-swap
 // safeguards added on top of it.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { applyCorrections, isRealWordSwap } from "../src/llm.ts";
-import { getWordValidator } from "../src/spellcheck.ts";
+import { getWordValidator,
+  initSpellchecker,
+} from "../src/spellcheck.ts";
 
-const isAcceptableWord = getWordValidator("en", { englishDialect: "american" });
-assert.equal(
-  typeof isAcceptableWord,
-  "function",
-  "English validator should load (dictionaries present)",
-);
-const validate = isAcceptableWord!;
+// Hunspell is WebAssembly, so loading it is async while every spell-check call
+// below is synchronous. Production does this once at startup (index.ts).
+before(async () => {
+  await initSpellchecker();
+});
+
+
+// Resolved per call, not at module scope: the dictionary does not exist until
+// the before() hook above has awaited the WebAssembly load, and module bodies
+// run before hooks.
+const validate = (word: string): boolean =>
+  getWordValidator("en", { englishDialect: "american" })!(word);
+
+test("the English validator loads", () => {
+  assert.equal(
+    typeof getWordValidator("en", { englishDialect: "american" }),
+    "function",
+    "English validator should load (dictionaries present)",
+  );
+});
 
 test("rejects the reported corruption (real word → non-word)", () => {
   const text = "Apparently, Aaron's foul mood didn't bother him.";
@@ -251,4 +266,72 @@ test("a legitimate fix inside text that already contains '.,' is not blocked", (
     { original: "in haste", corrected: "in a hurry" },
   ]);
   assert.equal(out, "He packed socks, etc., and left in a hurry.");
+});
+
+// ── Proper-noun protection must not swallow German nouns ──
+//
+// altersProperNoun refuses a correction that changes or drops a capitalized word
+// the dictionary does not know, on the theory that such a word is a name. That
+// holds in English and fails completely in German, whose orthography capitalizes
+// EVERY noun — and which stores them capitalized, so asking the dictionary about
+// the lowercased form finds nothing for correct and incorrect nouns alike.
+//
+// Measured on the German stress fixture: LanguageTool's own corrections for
+// Übersetztung, Entwüfre and Lükce were all discarded as name changes. Fixing it
+// took German misspelling recall from 47% to 88% (4B) and 85% (9B) with no
+// change at all in flags on clean text.
+
+test("a German noun typo is corrected, not protected as a name", () => {
+  const de = getWordValidator("de")!;
+  const cases: [string, string, string][] = [
+    ["Die Übersetztung ist alt.", "Übersetztung", "Übersetzung"],
+    ["Er zeigte sechs Entwüfre vor.", "Entwüfre", "Entwürfe"],
+    ["Es blieb eine einzige Lükce.", "Lükce", "Lücke"],
+  ];
+  for (const [text, wrong, right] of cases) {
+    const [out, applied, skipped] = applyCorrections(
+      text,
+      [{ original: wrong, corrected: right }],
+      { isAcceptableWord: de },
+    );
+    assert.equal(applied.length, 1, `${wrong} → ${right} should apply`);
+    assert.equal(skipped.length, 0, `${wrong} was skipped: ${skipped[0]?.reason}`);
+    assert.ok(out.includes(right));
+  }
+});
+
+test("a real name is still protected from being altered", () => {
+  const en = getWordValidator("en", { englishDialect: "american" })!;
+  // "Orator" is a real word, which is exactly why the replacement-is-a-word test
+  // alone is not enough — three edits from "Okafor" is a rename, not a typo fix.
+  const [, applied, skipped] = applyCorrections(
+    "Thaddeus Okafor waited.",
+    [{ original: "Thaddeus Okafor", corrected: "Thaddeus Orator" }],
+    { isAcceptableWord: en },
+  );
+  assert.equal(applied.length, 0);
+  assert.equal(skipped.length, 1);
+  assert.match(skipped[0].reason ?? "", /proper noun/i);
+});
+
+test("a capitalized English misspelling is corrected, not treated as a name", () => {
+  const en = getWordValidator("en", { englishDialect: "american" })!;
+  const [out, applied, skipped] = applyCorrections(
+    "Recieve the parcel today.",
+    [{ original: "Recieve", corrected: "Receive" }],
+    { isAcceptableWord: en },
+  );
+  assert.equal(applied.length, 1, `skipped: ${skipped[0]?.reason}`);
+  assert.ok(out.startsWith("Receive"));
+});
+
+test("a name dropped entirely is still caught", () => {
+  const en = getWordValidator("en", { englishDialect: "american" })!;
+  const [, applied, skipped] = applyCorrections(
+    "Almut walked in.",
+    [{ original: "Almut walked", corrected: "walked" }],
+    { isAcceptableWord: en },
+  );
+  assert.equal(applied.length, 0);
+  assert.match(skipped[0]?.reason ?? "", /proper noun/i);
 });

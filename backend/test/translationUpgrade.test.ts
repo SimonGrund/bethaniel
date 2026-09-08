@@ -85,7 +85,6 @@ function mkOpts(overrides: Partial<UpgradeOptions> = {}): UpgradeOptions {
     draft: DRAFT,
     upgradePrompt: "UPGRADE-PROMPT",
     reviewMode: false,
-    reviewerCount: 1,
     reviewerThreshold: 3,
     chunkLabel: "1/1",
     signal: new AbortController().signal,
@@ -96,8 +95,7 @@ function mkOpts(overrides: Partial<UpgradeOptions> = {}): UpgradeOptions {
 function mkDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
   return {
     editStream: async () => POLISHED,
-    runReviewer: async () => "",
-    parseScores: () => new Map(),
+    runReviewer: async () => new Map(),
     log: () => {},
     setPhase: () => {},
     ...overrides,
@@ -149,8 +147,7 @@ test("orchestrator: reviewMode with no flags returns polished text", async () =>
   const out = await runTranslationUpgrade(
     mkOpts({ reviewMode: true }),
     mkDeps({
-      runReviewer: async () => "scores",
-      parseScores: () =>
+      runReviewer: async () =>
         new Map([
           [0, { confidence: 5, reason: "" }],
           [1, { confidence: 4, reason: "" }],
@@ -170,8 +167,7 @@ test("orchestrator: flagged paragraph is re-polished from the DRAFT paragraph", 
         editCalls.push({ text, prompt });
         return editCalls.length === 1 ? POLISHED : "Para two re-polished sentence.";
       },
-      runReviewer: async () => "scores",
-      parseScores: () => new Map([[1, { confidence: 2, reason: "stiff phrasing" }]]),
+      runReviewer: async () => new Map([[1, { confidence: 2, reason: "stiff phrasing" }]]),
     }),
   );
   assert.equal(
@@ -190,8 +186,7 @@ test("orchestrator: empty re-polish keeps the DRAFT paragraph", async () => {
     mkOpts({ reviewMode: true }),
     mkDeps({
       editStream: async () => (++calls === 1 ? POLISHED : "   "),
-      runReviewer: async () => "scores",
-      parseScores: () => new Map([[1, { confidence: 1, reason: "garbled" }]]),
+      runReviewer: async () => new Map([[1, { confidence: 1, reason: "garbled" }]]),
     }),
   );
   assert.equal(
@@ -209,8 +204,7 @@ test("orchestrator: re-polish throwing keeps the DRAFT paragraph", async () => {
         if (++calls === 1) return POLISHED;
         throw new Error("boom");
       },
-      runReviewer: async () => "scores",
-      parseScores: () => new Map([[0, { confidence: 1, reason: "garbled" }]]),
+      runReviewer: async () => new Map([[0, { confidence: 1, reason: "garbled" }]]),
     }),
   );
   assert.equal(
@@ -222,7 +216,7 @@ test("orchestrator: re-polish throwing keeps the DRAFT paragraph", async () => {
 test("orchestrator: all reviewers failing accepts the polish unreviewed", async () => {
   const warnings: string[] = [];
   const out = await runTranslationUpgrade(
-    mkOpts({ reviewMode: true, reviewerCount: 2 }),
+    mkOpts({ reviewMode: true }),
     mkDeps({
       runReviewer: async () => {
         throw new Error("reviewer died");
@@ -240,24 +234,27 @@ test("orchestrator: unparsable reviewer output accepts the polish as-is", async 
   const out = await runTranslationUpgrade(
     mkOpts({ reviewMode: true }),
     mkDeps({
-      runReviewer: async () => "<think>hmm</think> not json at all",
-      parseScores: () => new Map(), // parseReviewScores finds nothing
+      // Unparsable reviewer output reaches the orchestrator as an empty map.
+      runReviewer: async () => new Map(),
     }),
   );
   assert.equal(out, POLISHED);
 });
 
-test("orchestrator: multiple reviewers — the minimum score wins", async () => {
+// The fluency reviewer runs exactly once. Asking for more used to fan out N
+// identical calls: same prompt, same seed, temperature 0. The min-score
+// aggregation below still exists and still works — there is simply never more
+// than one score to take the minimum of.
+test("orchestrator: one reviewer runs, and its score decides", async () => {
   let reviewer = 0;
-  const outputs = ["lenient", "strict"];
+  const outputs = ["strict", "lenient"];
   let editCalls = 0;
   const out = await runTranslationUpgrade(
-    mkOpts({ reviewMode: true, reviewerCount: 2 }),
+    mkOpts({ reviewMode: true }),
     mkDeps({
       editStream: async () => (++editCalls === 1 ? POLISHED : "Para one re-polished sentence."),
-      runReviewer: async () => outputs[reviewer++],
-      parseScores: (raw) =>
-        raw === "strict"
+      runReviewer: async () =>
+        outputs[reviewer++] === "strict"
           ? new Map([[0, { confidence: 2, reason: "calqued idiom" }]])
           : new Map([[0, { confidence: 5, reason: "fine" }]]),
     }),

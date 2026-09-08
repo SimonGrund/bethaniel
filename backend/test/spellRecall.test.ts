@@ -5,10 +5,19 @@
 //  - mid-sentence capitalized words, and names seen capitalized mid-sentence
 //    anywhere in the text, are still protected (never auto-"corrected")
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { getSpellCorrections } from "../src/spellcheck.ts";
+import { getSpellCorrections,
+  initSpellchecker,
+} from "../src/spellcheck.ts";
+
+// Hunspell is WebAssembly, so loading it is async while every spell-check call
+// below is synchronous. Production does this once at startup (index.ts).
+before(async () => {
+  await initSpellchecker();
+});
+
 
 test("getSpellCorrections: no per-chunk cap — flags far more than 30 misspellings", () => {
   // 33 distinct lowercase non-words — just past the old hard cap of 30.

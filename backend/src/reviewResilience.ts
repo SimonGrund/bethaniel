@@ -2,10 +2,12 @@
 // calls and score aggregation that treats unscored corrections as unvetted.
 
 import type { Correction } from "./types.js";
+import { isDeterministicCorrection } from "./correctionSeverity.js";
 
 export interface RetryOptions<T> {
   maxAttempts: number;
-  backoffMs: (attempt: number) => number;
+  /** `err` is the failure being backed off from — a rate limit wants longer. */
+  backoffMs: (attempt: number, err: unknown) => number;
   /** An attempt whose result fails this check is retried like an error. */
   isValid: (value: T) => boolean;
   isAborted?: () => boolean;
@@ -58,7 +60,7 @@ export async function runWithRetry<T>(
         attempt,
         lastErr instanceof Error ? lastErr.message : String(lastErr),
       );
-      const wait = opts.backoffMs(attempt);
+      const wait = opts.backoffMs(attempt, lastErr);
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     }
   }
@@ -173,9 +175,18 @@ export function applyPrecisionPass(
   cs: Correction[],
   scoreMaps: Map<number, { confidence: number; reason: string }>[],
   threshold: number,
-): { kept: Correction[]; removed: Correction[] } {
+  /**
+   * Confidence below which a surviving correction is FLAGGED. Deleting and
+   * doubting are different acts: a correction this pass is unsure of should
+   * still reach the author, but wearing the doubt. Defaults to the delete
+   * threshold, which flags nothing extra.
+   */
+  flagBelow: number = threshold,
+): { kept: Correction[]; removed: Correction[]; spared: number; doubted: number } {
   const kept: Correction[] = [];
   const removed: Correction[] = [];
+  let spared = 0;
+  let doubted = 0;
 
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
@@ -195,11 +206,35 @@ export function applyPrecisionPass(
     }
 
     if (Number.isFinite(minConfidence) && minConfidence < threshold) {
-      removed.push(c);
+      // A deterministic checker's finding is never deleted on a model's say-so.
+      // Hunspell reporting a word as absent from the dictionary, or
+      // LanguageTool reporting a missing comma, is not a judgement the
+      // precision pass gets to overturn — measured, doing so cost German
+      // misspelling recall 68% -> 30% and German comma recall 68% -> 5%,
+      // because the pass deleted roughly four sound corrections for every
+      // unsound one. The doubt is still worth showing, so the correction is
+      // kept and flagged rather than silently dropped: the author sees it
+      // marked for review instead of never seeing it at all.
+      if (isDeterministicCorrection(c)) {
+        c.flagged = true;
+        c.reviewReason ??= "A second reviewer thought this may not need fixing.";
+        spared++;
+        kept.push(c);
+      } else {
+        removed.push(c);
+      }
     } else {
+      // Survived the delete cut, but the pass still doubts it. Mark it so the
+      // author reads it as a suggestion rather than a finding — the noise a
+      // lower delete threshold lets through is then visible as noise.
+      if (Number.isFinite(minConfidence) && minConfidence < flagBelow) {
+        c.flagged = true;
+        c.reviewReason ??= "A second reviewer thought this may not need fixing.";
+        doubted++;
+      }
       kept.push(c);
     }
   }
 
-  return { kept, removed };
+  return { kept, removed, spared, doubted };
 }

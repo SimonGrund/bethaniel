@@ -4,10 +4,19 @@
 // confidence as an outright non-word ("amd", "teh") produces bad-looking
 // "corrections" a reviewer can end up confidently endorsing.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { getSpellCorrections } from "../src/spellcheck.ts";
+import { getSpellCorrections,
+  initSpellchecker,
+} from "../src/spellcheck.ts";
+
+// Hunspell is WebAssembly, so loading it is async while every spell-check call
+// below is synchronous. Production does this once at startup (index.ts).
+before(async () => {
+  await initSpellchecker();
+});
+
 
 test("a valid hyphenated compound is not flagged at all", () => {
   const text = "He gripped it with his iron-clad hands.";

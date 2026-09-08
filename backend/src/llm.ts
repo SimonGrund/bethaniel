@@ -180,6 +180,7 @@ export async function* parseSSE(
   const decoder = new TextDecoder();
   let buffer = "";
   let dropped = 0;
+  let sawContent = false;
 
   try {
     while (true) {
@@ -200,10 +201,26 @@ export async function* parseSSE(
         if (payload === "[DONE]") return;
         try {
           const parsed = JSON.parse(payload) as {
-            choices?: { delta?: { content?: string } }[];
+            choices?: {
+              delta?: {
+                content?: string;
+                reasoning_content?: string;
+                reasoning?: string;
+              };
+            }[];
           };
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) yield content;
+          const delta = parsed.choices?.[0]?.delta;
+          // A model streaming reasoning_content spends max_tokens thinking
+          // before it says anything visible. Remember it, so the NEXT call
+          // gets chain-of-thought headroom whatever the model is called.
+          if (model && (delta?.reasoning_content || delta?.reasoning)) {
+            noteReasoningModel(model);
+          }
+          const content = delta?.content;
+          if (content) {
+            sawContent = true;
+            yield content;
+          }
         } catch {
           // Malformed SSE line — count it so a fully-garbled stream (which
           // otherwise surfaces only as "0 content tokens") is diagnosable.
@@ -213,6 +230,12 @@ export async function* parseSSE(
     }
   } finally {
     reader.releaseLock();
+    // A stream that produced no visible text at all is the symptom of a
+    // reasoning model with no headroom, whether or not the provider labelled
+    // the thinking as reasoning_content. Record it so the retry gets room;
+    // granting headroom to a model that failed for some other reason costs
+    // nothing but a larger cap.
+    if (model && !sawContent && !dropped) noteReasoningModel(model);
     if (dropped > 0) {
       appendLog({
         level: "warn",
@@ -232,8 +255,40 @@ export async function* parseSSE(
  * headroom on top of the requested visible-output cap, within DeepSeek's
  * 65536 output-token limit.
  */
-export function apiMaxTokens(requested: number, apiModelName: string): number {
-  if (!/reason|think|\br1\b/i.test(apiModelName)) return requested;
+/**
+ * Models observed to emit chain-of-thought. Populated at runtime from the
+ * stream, because naming does not identify them: Qwen3.5-9B reasons and is
+ * called none of `reason`, `think` or `r1`. Measured — served through
+ * OVHcloud it returned content: null, 120 of 120 completion tokens in
+ * reasoning_content, and finish_reason "length", which reached the pipeline
+ * as "0 content tokens" and cost a paid line-edit run every one of its LLM
+ * corrections.
+ */
+const observedReasoningModels = new Set<string>();
+
+/** Record that a model reasons, so its next call gets CoT headroom. */
+export function noteReasoningModel(model: string): void {
+  observedReasoningModels.add(model);
+}
+
+/** Has this model been seen emitting chain-of-thought? */
+export function isKnownReasoningModel(model: string): boolean {
+  return observedReasoningModels.has(model);
+}
+
+export function apiMaxTokens(
+  requested: number,
+  apiModelName: string,
+  modelKey?: string,
+): number {
+  // The name is only a first guess for a model never seen before; observation
+  // decides, because a name-only test silently misclassifies every reasoning
+  // model that is not marketed as one.
+  const reasons =
+    /reason|think|\br1\b/i.test(apiModelName) ||
+    observedReasoningModels.has(apiModelName) ||
+    (modelKey ? observedReasoningModels.has(modelKey) : false);
+  if (!reasons) return requested;
   return Math.min(65536, requested + 32768);
 }
 
@@ -268,6 +323,14 @@ export class ApiAccountError extends Error {
 // ── Core streaming chat via OpenAI-compatible API ──
 
 export interface ChatStreamOptions {
+  /**
+   * Which editing pass this call serves, sent to Betty in the Cloud so the
+   * Worker can route to a model chosen per pass. Translation keeps the large
+   * model that copy edit and line edit no longer need — measured, it leads
+   * chrF by 1.6 overall and 5.0 on Danish, where it is otherwise the weakest
+   * model available. Ignored by every other provider.
+   */
+  pass?: string;
   temperature?: number;
   top_p?: number;
   top_k?: number;
@@ -340,8 +403,26 @@ async function* chatStream(
       stream: true,
       temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? cfg.top_p,
-      max_tokens: apiMaxTokens(options.max_tokens ?? cfg.num_predict, apiModel),
+      max_tokens: apiMaxTokens(options.max_tokens ?? cfg.num_predict, apiModel, model),
     };
+
+    // Ask a reasoning model not to think.
+    //
+    // Finding an error or rewriting a sentence is not a task chain-of-thought
+    // improves, and paying for it is the whole cost: served through OVHcloud,
+    // Qwen3.5-9B spent every one of its completion tokens reasoning and
+    // returned `content: null`, so a line-edit run produced nothing but
+    // deterministic corrections while being billed in full. Giving it CoT
+    // headroom instead would work and would make every chunk slow and dear;
+    // `reasoning_effort: "none"` returns the answer directly (measured: same
+    // prompt, `finish_reason` "length" with no content becomes "stop" with the
+    // rewrite).
+    //
+    // Sent only for models actually observed to reason, because a provider
+    // that does not know the field rejects the whole request with a 400.
+    if (isKnownReasoningModel(apiModel) || isKnownReasoningModel(model)) {
+      apiBody.reasoning_effort = "none";
+    }
     if (options.top_k != null) apiBody.top_k = options.top_k ?? cfg.top_k;
     if (options.repeat_penalty != null) {
       apiBody.frequency_penalty =
@@ -356,6 +437,10 @@ async function* chatStream(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiConfig.apiKey}`,
+          // A hint, not an instruction: the Worker maps it onto its own
+          // allowlisted models, so a wrong or absent value costs a worse
+          // model for that call and can never select something unpriced.
+          ...(options.pass ? { "X-Bethaniel-Pass": options.pass } : {}),
         },
         body: JSON.stringify(apiBody),
         signal: watchdog.signal,
@@ -437,6 +522,9 @@ function buildSystemMessage(model: string, taskPrompt: string): string {
  * with "Context size has been exceeded." Estimate prompt tokens via the shared
  * CHARS_PER_TOKEN ratio and reserve 256 tokens for chat-template/role overhead.
  */
+/** Output tokens one reviewer verdict costs: an index, a 1-5 score, a short reason. */
+const REVIEW_TOKENS_PER_CORRECTION = 50;
+
 function slotSafeMaxTokens(
   model: string,
   systemMsg: string,
@@ -456,6 +544,9 @@ export async function* editChunkStream(
   systemPrompt: string,
   signal?: AbortSignal,
   seed?: number,
+  /** Which pass this serves. Betty in the Cloud routes translation to a
+   *  larger model; every other provider ignores it. */
+  pass?: string,
 ): AsyncGenerator<string> {
   const cfg = getActiveConfig(model);
   const systemMsg = buildSystemMessage(model, systemPrompt);
@@ -466,7 +557,7 @@ export async function* editChunkStream(
       { role: "system", content: systemMsg },
       { role: "user", content: chunkText },
     ],
-    { max_tokens: cap, seed },
+    { max_tokens: cap, seed, pass },
     signal,
   );
 }
@@ -742,7 +833,30 @@ function isProperNounLetterChange(
     if (ow === cw) continue;
     if (ow.toLowerCase() === cw.toLowerCase()) continue; // pure case change — fine
     if (!isCapWord(ow) || !isCapWord(cw)) continue;
+    // Lowercased deliberately: a dictionary lists real proper nouns too, and
+    // asking about "Thaddeus" rather than "thaddeus" would let exactly the
+    // names this rule protects skip straight past it.
     if (isValidWord(ow.toLowerCase())) continue; // a real word, not a name
+    // If the REPLACEMENT is a real word, this is a spelling fix, not a name
+    // being mangled: "Werkzueg" -> "Werkzeug", "Recieve" -> "Receive". Without
+    // this the rule drops every sentence-initial misspelling in any language,
+    // and in German — where every noun is capitalized — nearly every noun typo
+    // fix the editor or LanguageTool produces. Measured on the German stress
+    // fixture, that was 10 of 10 correct typo fixes discarded.
+    // A spelling fix keeps the start of the word — "Recieve" -> "Receive",
+    // "Zeichungen" -> "Zeichnungen". Swapping a surname for an unrelated real
+    // word does not: "Okafor" -> "Orator" shares one letter. Both tests are
+    // needed, since the replacement being a real word is what tells a fix from
+    // a mangling, and the shared prefix is what stops a real word being used
+    // to rename someone. The dictionary is tried as written as well as
+    // lowercased: German stores every noun capitalized, so asking only about
+    // "zeichnungen" finds nothing in exactly the language this rule hurts most.
+    const replacementIsAWord = isValidWord(cw) || isValidWord(cw.toLowerCase());
+    let shared = 0;
+    const a = ow.toLowerCase();
+    const b = cw.toLowerCase();
+    while (shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+    if (replacementIsAWord && shared >= 3) continue;
     return true;
   }
   return false;
@@ -1119,7 +1233,7 @@ function buildReviewerUserMessage(
   return msg;
 }
 
-interface ReviewScore {
+export interface ReviewScore {
   confidence: number;
   reason: string;
 }
@@ -1170,6 +1284,67 @@ export function parseReviewScores(raw: string): Map<number, ReviewScore> {
  * Simple one-shot LLM call for character identity resolution.
  * Collects the full (non-streamed) response and returns the trimmed text.
  */
+
+/**
+ * Split a chunk's corrections into batches the reviewer can actually answer.
+ *
+ * The reviewer is asked for one JSONL line per correction, so the output it
+ * needs grows with the correction count while the space available shrinks by
+ * the same prompt that lists them. Above a certain density the two cross and
+ * `slotSafeMaxTokens` truncates the reply — the model then physically cannot
+ * score the tail, and those corrections fall through as "unvetted".
+ *
+ * That was not a rare edge: on a dense chunk the bundled 8k-context models
+ * could only ever cover about two thirds of ~95 corrections, and measured
+ * coverage was lower still because a small model asked for 95 ordered JSONL
+ * lines stops early on its own. A 128k-context cloud model covered all of
+ * them, which is why review looked like a model-quality difference when it
+ * was really a budget one.
+ *
+ * Batching removes the dependency on context size entirely: every batch is
+ * sized so its own request fits, so coverage is a property of the pipeline
+ * rather than of the machine it happens to run on. Smaller batches also read
+ * better to a small model than one long enumeration.
+ *
+ * Returns [start, end) index pairs covering every correction exactly once.
+ */
+export function planReviewBatches(
+  model: string,
+  chunkText: string,
+  corrections: Correction[],
+  systemPrompt: string,
+): [number, number][] {
+  if (corrections.length === 0) return [];
+
+  const cfg = getActiveConfig(model);
+  const systemMsg = buildSystemMessage(model, systemPrompt);
+  // Everything the reviewer must read before it can answer about ANY batch.
+  const fixedPrompt = estimateTokens(systemMsg + chunkText) + 256;
+  const budget = cfg.num_ctx - fixedPrompt;
+
+  const batches: [number, number][] = [];
+  let start = 0;
+  while (start < corrections.length) {
+    let end = start;
+    let listed = 0;
+    while (end < corrections.length) {
+      const c = corrections[end];
+      const listedNext = listed + estimateTokens(`[${end}] "${c.original}" → "${c.corrected}"`);
+      // Each correction costs its line in the prompt AND ~50 tokens of answer.
+      const need = listedNext + (end - start + 1) * REVIEW_TOKENS_PER_CORRECTION + 512;
+      if (need > budget && end > start) break;
+      listed = listedNext;
+      end++;
+    }
+    // A single correction that cannot fit still gets its own call — better a
+    // truncated answer about one than a silent gap.
+    if (end === start) end = start + 1;
+    batches.push([start, end]);
+    start = end;
+  }
+  return batches;
+}
+
 export async function* reviewCorrectionsStream(
   model: string,
   chunkText: string,
@@ -1184,7 +1359,7 @@ export async function* reviewCorrectionsStream(
     model,
     systemMsg,
     userMsg,
-    Math.max(256, corrections.length * 50 + 512),
+    Math.max(256, corrections.length * REVIEW_TOKENS_PER_CORRECTION + 512),
   );
   yield* chatStream(
     model,
@@ -1564,15 +1739,96 @@ const PROPER_NOUN_RE = /[A-Z\p{Lu}][\p{Ll}'’-]*\p{Ll}/gu;
  * (this lets ordinary sentence-initial words like "Apparently" through, since
  * "apparently" is a real word, while protecting "Aaron").
  */
+/**
+ * Levenshtein distance, abandoned once it passes `max`. Only the question
+ * "is this within a typo's reach" matters here, not the exact figure.
+ */
+function boundedEditDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const v = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      row[j] = v;
+      if (v < best) best = v;
+    }
+    if (best > max) return max + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/** Is `b` `a` with one adjacent pair swapped — the commonest typo there is? */
+function isAdjacentTransposition(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const diffs: number[] = [];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diffs.push(i);
+  if (diffs.length !== 2) return false;
+  const [i, j] = diffs;
+  return j === i + 1 && a[i] === b[j] && a[j] === b[i];
+}
+
+/**
+ * Does this correction change or drop a proper noun?
+ *
+ * A capitalized word absent from the dictionary reads as a name — which is
+ * true in English and false in German, where the orthography capitalizes every
+ * noun. Two things keep the rule honest there:
+ *
+ * The rescue is the REPLACEMENT, not the original. A replacement that is
+ * itself a real word and sits a typo's distance away is a spelling fix rather
+ * than a rename — and the dictionary is asked about it as written as well as
+ * lowercased, because German stores its nouns capitalized and asking only
+ * about "übersetzung" finds nothing.
+ *
+ * The original stays a lowercase-only lookup, which is the asymmetry that
+ * makes this work: a dictionary lists real names too, so asking about `Aaron`
+ * as written would hand every name an exemption.
+ *
+ * What counts as a typo's distance is the edit's SHAPE, not its size. `Lükce`
+ * -> `Lücke` and `Okafor` -> `Orator` are both two edits to a real word; the
+ * first is an adjacent transposition and the second two unrelated
+ * substitutions keeping only the initial letter.
+ *
+ * Measured: without these, LanguageTool's own corrections for `Übersetztung`,
+ * `Entwüfre` and `Lükce` were all discarded as name changes, which is most of
+ * what German misspelling recall lost.
+ */
 function altersProperNoun(
   original: string,
   corrected: string,
   isAcceptable: (word: string) => boolean,
 ): string | null {
-  const correctedTokens = new Set(corrected.match(WORD_TOKEN_RE) ?? []);
+  const correctedTokens = corrected.match(WORD_TOKEN_RE) ?? [];
+  const correctedSet = new Set(correctedTokens);
+  const known = (w: string) => isAcceptable(w) || isAcceptable(w.toLowerCase());
   for (const token of original.match(PROPER_NOUN_RE) ?? []) {
-    if (isAcceptable(token.toLowerCase())) continue; // ordinary capitalized word
-    if (!correctedTokens.has(token)) return token; // name altered or dropped
+    // Lowercased deliberately, and asymmetrically with the replacement test
+    // below: a dictionary lists real names too, so asking about `Aaron` rather
+    // than `aaron` would let exactly the names this rule guards walk past it.
+    if (isAcceptable(token.toLowerCase())) continue; // an ordinary word
+    if (correctedSet.has(token)) continue; // survived the correction untouched
+    // What separates a typo fix from a rename is the SHAPE of the edit, not
+    // its size: `Lükce` -> `Lücke` and `Okafor` -> `Orator` are both two edits
+    // to a real word, and only the first is a correction. A single edit, or an
+    // adjacent transposition, or a long shared prefix is a slip of the fingers;
+    // two independent substitutions that keep only the first letter is a
+    // different name.
+    const lower = token.toLowerCase();
+    const fixesSpelling = correctedTokens.some((cand) => {
+      if (!known(cand)) return false;
+      const c = cand.toLowerCase();
+      if (boundedEditDistance(lower, c, 1) <= 1) return true;
+      if (isAdjacentTransposition(lower, c)) return true;
+      let shared = 0;
+      while (shared < lower.length && shared < c.length && lower[shared] === c[shared]) shared++;
+      return shared >= 3 && boundedEditDistance(lower, c, 2) <= 2;
+    });
+    if (fixesSpelling) continue;
+    return token; // name altered or dropped
   }
   return null;
 }

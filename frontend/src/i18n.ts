@@ -741,18 +741,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Vertrauensschwelle (1-5). Korrekturen unter diesem Wert werden standardmäßig ausgeblendet. 3 = ausgewogen, 4 = streng, 2 = nachsichtig.",
     es: "Umbral de confianza (1-5). Correcciones por debajo se ocultan por defecto. 3 = equilibrado, 4 = estricto, 2 = permisivo.",
   },
-  reviewer_count: {
-    en: "Reviewer agents",
-    da: "Reviewer-agenter",
-    de: "Prüfer-Agenten",
-    es: "Agentes revisores",
-  },
-  reviewer_count_help: {
-    en: "Number of parallel reviewer passes per chunk. More agents = fewer false positives pass through, but proportionally slower. 1-2 is a good balance.",
-    da: "Antal parallelle reviewer-gennemløb pr. chunk. Flere agenter = færre falske positiver slipper igennem, men proportionelt langsommere. 1-2 er en god balance.",
-    de: "Anzahl paralleler Prüfer-Durchläufe pro Abschnitt. Mehr Agenten = weniger falsch-positive Ergebnisse, aber proportional langsamer. 1-2 ist eine gute Balance.",
-    es: "Número de pasadas paralelas del revisor por fragmento. Más agentes = menos falsos positivos, pero proporcionalmente más lento. 1-2 es un buen equilibrio.",
-  },
   show_all_suggestions: {
     en: "Show all suggestions",
     da: "Vis alle forslag",
@@ -813,30 +801,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Tiefe Grammatik-/Zeichensetzungsprüfung über einen lokalen LanguageTool-Server. Wird stillschweigend übersprungen, wenn LanguageTool nicht installiert ist.",
     es: "Gramática/puntuación profunda mediante un servidor LanguageTool local. Se omite silenciosamente si LanguageTool no está instalado.",
   },
-  dual_editor: {
-    en: "Dual editor",
-    da: "Dobbelt editor",
-    de: "Doppel-Editor",
-    es: "Editor dual",
-  },
-  dual_editor_help: {
-    en: "Run two editor passes in parallel and union their corrections (maximizes recall). Disable if running single-slot to avoid 2× time.",
-    da: "Kør to editor-gennemløb parallelt og foren deres rettelser (maksimerer recall). Deaktiver ved enkelt-slot for at undgå 2× tid.",
-    de: "Zwei Editor-Durchläufe parallel und vereinigt ihre Korrekturen (maximiert Recall). Bei Single-Slot deaktivieren, um 2× Zeit zu vermeiden.",
-    es: "Ejecuta dos pasadas del editor en paralelo y une sus correcciones (maximiza recall). Desactivar con un solo slot para evitar 2× tiempo.",
-  },
-  dual_count: {
-    en: "Editor agents",
-    da: "Editor-agenter",
-    de: "Editor-Agenten",
-    es: "Agentes editores",
-  },
-  dual_count_help: {
-    en: "Number of parallel editor passes per chunk. More agents = better recall but proportionally slower. 2-3 is a good balance for most models.",
-    da: "Antal parallelle editor-gennemløb pr. chunk. Flere agenter = bedre recall men proportionelt langsommere. 2-3 er en god balance for de fleste modeller.",
-    de: "Anzahl paralleler Editor-Durchläufe pro Abschnitt. Mehr Agenten = bessere Abdeckung, aber proportional langsamer. 2-3 ist eine gute Balance.",
-    es: "Número de pasadas de editor en paralelo por fragmento. Más agentes = mejor cobertura pero proporcionalmente más lento. 2-3 es un buen equilibrio.",
-  },
   export_check_title: {
     en: "Export spell check",
     da: "Stavekontrol ved eksport",
@@ -872,18 +836,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Efter første gennemløb køres endnu et korrektur-gennemløb over den redigerede tekst for at fange resterende fejl. Cirka dobbelt køretid; gælder korrektur.",
     de: "Nach dem ersten Durchlauf wird ein zweiter Korrektur-Durchlauf über den bearbeiteten Text ausgeführt, um Restfehler zu finden. Etwa doppelte Laufzeit; gilt für das Korrektorat.",
     es: "Tras la primera pasada, ejecuta una segunda pasada de corrección sobre el texto editado para detectar errores restantes. Aproximadamente duplica el tiempo; aplica a la corrección.",
-  },
-  character_dedup: {
-    en: "AI character deduplication",
-    da: "AI-deduplikering af karakterer",
-    de: "KI-Charakter-Deduplizierung",
-    es: "Deduplicación de personajes con IA",
-  },
-  character_dedup_help: {
-    en: "After analysis, the model reviews character pairs and merges entries that refer to the same person. Improves catalog accuracy but adds ~10-30s latency per analysis job.",
-    da: "Efter analyse gennemgår modellen karakterpar og fletter indgange, der refererer til samme person. Forbedrer katalognøjagtighed men tilføjer ~10-30s ekstra pr. analysejob.",
-    de: "Nach der Analyse prüft das Modell Charakterpaare und führt Einträge zusammen, die sich auf dieselbe Person beziehen. Verbessert die Genauigkeit, fügt aber ~10-30s pro Analysejob hinzu.",
-    es: "Tras el análisis, el modelo revisa pares de personajes y fusiona entradas que se refieren a la misma persona. Mejora la precisión pero añade ~10-30s por trabajo de análisis.",
   },
   show_engine_status: {
     en: "Show engine diagnostics",
@@ -1354,6 +1306,91 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Arbejdsgang",
     de: "Arbeitsablauf",
     es: "Flujo de trabajo",
+  },
+  // ââ Task step v2: "I want toâ¦" heading, three cards, Beta disclosure ââ
+  tasks_heading: {
+    en: "I want to…",
+    da: "Jeg vil gerne…",
+    de: "Ich möchte…",
+    es: "Quiero…",
+  },
+  card_edit_title: {
+    en: "Edit my manuscript",
+    da: "Redigere mit manuskript",
+    de: "Mein Manuskript bearbeiten",
+    es: "Editar mi manuscrito",
+  },
+  card_edit_desc: {
+    en: "Copy and line edit",
+    da: "Korrektur og stilredigering",
+    de: "Korrektur und Stilbearbeitung",
+    es: "Corrección de texto y de estilo",
+  },
+  card_readthrough_title: {
+    en: "Final readthrough",
+    da: "Sidste gennemlæsning",
+    de: "Letzter Durchgang",
+    es: "Lectura final",
+  },
+  card_readthrough_desc: {
+    en: "A last surface pass before publishing",
+    da: "Et sidste overfladisk tjek før udgivelse",
+    de: "Ein letzter Oberflächencheck vor der Veröffentlichung",
+    es: "Una última revisión superficial antes de publicar",
+  },
+  card_translate_title: {
+    en: "Translate my manuscript",
+    da: "Oversætte mit manuskript",
+    de: "Mein Manuskript übersetzen",
+    es: "Traducir mi manuscrito",
+  },
+  card_translate_desc: {
+    en: "Into another language",
+    da: "Til et andet sprog",
+    de: "In eine andere Sprache",
+    es: "A otro idioma",
+  },
+  opt_also_line_edit: {
+    en: "Also run a line edit",
+    da: "Kør også en stilredigering",
+    de: "Auch eine Stilbearbeitung durchführen",
+    es: "Ejecutar también una edición de estilo",
+  },
+  opt_also_line_edit_hint: {
+    en: "Rewrites for flow and phrasing. Slower, and more of what it suggests is a matter of taste.",
+    da: "Omskrivninger for flow og formuleringer. Langsommere, og mere af det er en smagssag.",
+    de: "Umformulierungen für Fluss und Ausdruck. Langsamer, und vieles davon ist Geschmackssache.",
+    es: "Reescrituras de fluidez y expresión. Más lento, y más sujeto al gusto personal.",
+  },
+  beta_disclosure: {
+    en: "Experimental — less tested",
+    da: "Eksperimentelt — mindre testet",
+    de: "Experimentell — weniger getestet",
+    es: "Experimental — menos probado",
+  },
+  beta_disclosure_hint: {
+    en: "These passes work, but they have had far less benchmarking than the three above. Expect rougher results.",
+    da: "Disse funktioner virker, men de er testet langt mindre end de tre ovenfor. Forvent grovere resultater.",
+    de: "Diese Durchgänge funktionieren, wurden aber weit weniger getestet als die drei oben. Erwarte gröbere Ergebnisse.",
+    es: "Estas funciones sirven, pero se han probado mucho menos que las tres anteriores. Espera resultados más bastos.",
+  },
+  beta_group_developmental: {
+    en: "Developmental edit",
+    da: "Strukturredigering",
+    de: "Strukturlektorat",
+    es: "Edición de desarrollo",
+  },
+  beta_group_analysis: {
+    en: "Analysis",
+    da: "Analyse",
+    de: "Analyse",
+    es: "Análisis",
+  },
+  beta_group_feedback: {
+    en: "Feedback",
+    da: "Feedback",
+    de: "Feedback",
+    es: "Comentarios",
   },
   mode_copy_edit: {
     en: "Copy edit",
@@ -1865,6 +1902,26 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Indledende komma",
     de: "Einleitungskomma",
     es: "Coma introductoria",
+  },
+  opt_danishComma: {
+    en: "Danish comma system",
+    da: "Kommasystem",
+    de: "Dänisches Kommasystem",
+    es: "Sistema de comas danés",
+  },
+  opt_grammatiskKomma: {
+    // Not translated: these are the names of the two systems in Danish, and a
+    // Danish author knows them by these names and no other.
+    en: "Grammatisk",
+    da: "Grammatisk",
+    de: "Grammatisk",
+    es: "Grammatisk",
+  },
+  opt_nytKomma: {
+    en: "Nyt",
+    da: "Nyt",
+    de: "Nyt",
+    es: "Nyt",
   },
   opt_yes: {
     en: "Yes",

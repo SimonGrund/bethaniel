@@ -8,10 +8,18 @@
 // verbatim. These three are mechanically detectable with no risk of dropping
 // a real fix, so they're caught here as a deterministic backstop.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { parseCorrectionsJson } from "../src/llm.ts";
+import { initSpellchecker } from "../src/spellcheck.ts";
+
+// parseCorrectionsJson's hygiene checks consult the dictionary (a correction
+// that splits a real compound, or renames a proper noun, is dropped). Hunspell
+// is WebAssembly, so that dictionary does not exist until this resolves.
+before(async () => {
+  await initSpellchecker();
+});
 
 test("drops a correction that only prepends an invented connective word", () => {
   const raw = '{"original": "forever. He would", "corrected": "forever. Furthermore, he would"}';
@@ -73,4 +81,39 @@ test("without a lang argument, English is assumed and all three checks still app
 
   const split = '{"original": "It was daytime outside.", "corrected": "It was day time outside."}';
   assert.deepEqual(parseCorrectionsJson(split), []);
+});
+
+// ── A capitalized misspelling is not a name ──
+//
+// The proper-noun rule fires on a capitalized token that is not a dictionary
+// word. That describes every name it was written to protect — and also every
+// sentence-initial typo, and in German, where the orthography capitalizes all
+// nouns, very nearly every noun typo there is. Measured on the German stress
+// fixture, it discarded 10 of 10 correct typo fixes the editor and
+// LanguageTool had produced.
+//
+// What separates the two is the REPLACEMENT: "Werkzeug" and "Receive" are real
+// words, so the correction is a spelling fix; "Thaddeous" and "Constanse" are
+// not, so it is a name being mangled.
+
+test("keeps a sentence-initial misspelling — capitalized is not the same as a name", () => {
+  const raw = '{"original": "Recieve the parcel", "corrected": "Receive the parcel"}';
+  const cs = parseCorrectionsJson(raw, "en");
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].corrected, "Receive the parcel");
+});
+
+test("keeps a German noun typo fix — the dictionary stores the fix capitalized", () => {
+  // "zeichnungen" is absent from the dictionary; "Zeichnungen" is there. Asking
+  // only about the lowercase form finds nothing in the language this rule hurts
+  // most, so the replacement is tried both ways.
+  const raw = '{"original": "keine Zeichungen", "corrected": "keine Zeichnungen"}';
+  const cs = parseCorrectionsJson(raw, "de");
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].corrected, "keine Zeichnungen");
+});
+
+test("still drops a name corruption in German", () => {
+  const raw = '{"original": "Elias kam", "corrected": "Elios kam"}';
+  assert.deepEqual(parseCorrectionsJson(raw, "de"), []);
 });

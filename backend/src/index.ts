@@ -20,6 +20,7 @@ import { closeDb } from "./db.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
 import { shutdownLanguageTool } from "./languageToolServer.js";
 import { setLogIo, getLogSnapshot, appendLog } from "./logBus.js";
+import { initSpellchecker } from "./spellcheck.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -85,6 +86,10 @@ async function ensureDirs() {
 async function start() {
   await ensureDirs();
   await setupStaticFrontend();
+  // Hunspell is WebAssembly: the module load is the one async step, and every
+  // spell-check call downstream is synchronous, so it has to happen here.
+  // A failure is not fatal — the pass degrades to a no-op and logs why.
+  await initSpellchecker();
   initQueue(io, 1);
 
   httpServer.listen(PORT, HOST, () => {

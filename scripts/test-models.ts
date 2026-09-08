@@ -24,13 +24,17 @@
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
  *   npx tsx scripts/test-models.ts --model 9b     # Only run models whose filename contains "9b" (case-insensitive)
- *   npx tsx scripts/test-models.ts --max-parallel 1  # Cap concurrent task dispatch (avoids batched-decode variance/reload contention)
+ *   npx tsx scripts/test-models.ts --max-parallel 2  # Cap concurrent task dispatch (default is 1 — see MAX_PARALLEL)
+ *   npx tsx scripts/test-models.ts --parallel-auto   # Use the backend's recommended slots: faster, but not reproducible
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
  *   npx tsx scripts/test-models.ts --en        # Only run English texts
  *   npx tsx scripts/test-models.ts --da --de   # Only Danish and German
  *   npx tsx scripts/test-models.ts --repeat 1  # Skip the consistency re-run (faster, no consistency score)
  *   npx tsx scripts/test-models.ts --report-only  # Recompute + reprint the report from saved results, no new runs
  *   npx tsx scripts/test-models.ts --mode line_edit  # Only run line_edit (skips *_copy_edit.md entirely)
+ *   npx tsx scripts/test-models.ts --api        # ALSO run API models that have a credential
+ *                                               # (External Betty, Betty in the Cloud). Opt-in:
+ *                                               # every run of one spends real money.
  */
 
 import {
@@ -44,6 +48,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
   buildGroundTruth,
+  recallByCategory,
   scoreCorrections,
   consistencyScore,
   timeScore as computeTimeScore,
@@ -51,11 +56,17 @@ import {
   overallScore,
   type PlantedError,
   type ScoredCorrection,
+  type WordChecks,
 } from "../backend/src/benchScoring.js";
+import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
+import { MODEL_CATALOG } from "../backend/src/modelCatalog.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const API = "http://127.0.0.1:4000/api";
+// Overridable so a benchmark can target a second backend on another port —
+// the dev backend on 4000 is usually forked under the open Electron app, and
+// restarting it to pick up a change takes the app down with it.
+const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const RESULTS_PATH = join(SAMPLE_DIR, "benchmark_results.json");
 const REPORT_PATH = join(SAMPLE_DIR, "benchmark_results.txt");
@@ -73,10 +84,15 @@ function parseRepeat(): number {
   const val = parseInt(process.argv[idx + 1], 10);
   return Number.isFinite(val) && val >= 1 ? val : 2;
 }
-// Repeat >1 is what makes the consistency score possible — the seeding work
-// (deriveSeed in llm.ts) should make local models converge on the SAME
-// corrections across repeats; a low consistency score here means the
-// quality numbers above it were a lucky/unlucky roll, not something to trust.
+// Repeat >1 is what makes the consistency score possible. Read it only for
+// line_edit: copy-edit corrections are decoded greedily (temperature 0), so at
+// the default one slot every repeat is bit-identical and the score is always
+// 100 — it says nothing about the model. Five DIFFERENT seeds on the German
+// fixture also produced identical corrections, confirming the seed is inert
+// at temperature 0; it still governs line_edit, which rewrites at the model's
+// configured temperature. Any copy-edit spread the score used to report was
+// batched-decode noise from running several slots, not the model disagreeing
+// with itself.
 const REPEAT = TEST_MODE ? 1 : parseRepeat();
 
 const LANG_FLAGS: Record<string, string> = {
@@ -84,11 +100,24 @@ const LANG_FLAGS: Record<string, string> = {
   "--da": "danish",
   "--de": "german",
   "--es": "spanish",
-  // Not a real language — a separate, larger English stress fixture
-  // (stress100_correct.md / stress100_copy_edit.md) with 100 planted
-  // copy-edit errors across every category the copy-edit prompt covers, for
-  // a higher-confidence recall read than the ~9-15-error standard fixtures.
+  // Not real languages — the large stress fixtures. Each is ~2,300 words with
+  // ~100 planted copy-edit errors spread across every category the copy-edit
+  // prompt covers, versus the 14-26 errors of the standard fixtures above. A
+  // category rate is only readable off these: the standard fixtures plant as
+  // few as one error of a given type, where a single catch swings the row by
+  // 100 points.
+  //
+  // Each language plants the mistakes ITS writers actually make rather than
+  // translating the English set — German lowercases nouns and drops the
+  // obligatory comma before a subordinate clause, Spanish loses accents
+  // (which usually leaves a different real word) and the opening ¿, Danish
+  // confuses nogen/nogle and ad/af. Built by scripts/plant-errors.ts, which
+  // refuses any edit that does not land as exactly one error of the intended
+  // category.
   "--stress": "stress100",
+  "--stress-da": "stress100da",
+  "--stress-de": "stress100de",
+  "--stress-es": "stress100es",
 };
 const SELECTED_LANGS = Object.entries(LANG_FLAGS)
   .filter(([flag]) => process.argv.includes(flag))
@@ -102,6 +131,9 @@ const LANG_CODE: Record<string, string> = {
   german: "de",
   spanish: "es",
   stress100: "en",
+  stress100da: "da",
+  stress100de: "de",
+  stress100es: "es",
 };
 
 function parseMaxSize(): number | null {
@@ -121,6 +153,11 @@ function parseModel(): string | null {
 // pass a short name ("4b", "9b") instead of the full .gguf filename.
 const MODEL_FILTER = parseModel();
 
+// API-source models (External Betty, Betty in the Cloud) are opt-in: every run
+// of one spends real money at a provider, so they must never join the default
+// grid by accident.
+const INCLUDE_API = process.argv.includes("--api");
+
 function parseMaxParallel(): number | null {
   const idx = process.argv.indexOf("--max-parallel");
   if (idx === -1 || idx + 1 >= process.argv.length) return null;
@@ -130,7 +167,20 @@ function parseMaxParallel(): number | null {
 // Caps concurrent submissions below the backend's own recommendation — useful
 // if a heavier model (e.g. a 24B model) is crashing/becoming unreachable
 // under the backend's recommended parallel slot count on this machine.
-const MAX_PARALLEL = parseMaxParallel();
+// Defaults to 1, and that default is what makes a run reproducible.
+// Corrections are decoded greedily (temperature 0 in llm.ts), so a benchmark
+// ought to be repeatable — but with several slots in flight llama.cpp batches
+// them together, and the batch composition changes the floating-point
+// arithmetic. Measured on the German stress fixture: four same-seed repeats at
+// one slot came back bit-identical, while the same config at three slots
+// ranged 50%-71% recall. Every effect worth chasing is smaller than that.
+// Pass --parallel-auto for the backend's own recommendation (faster, and what
+// a real run uses) when throughput matters more than a comparable number.
+// The raw flag, before the local-only default is applied. API models ignore
+// the default but still honour an explicit --max-parallel.
+const EXPLICIT_MAX_PARALLEL = parseMaxParallel();
+const MAX_PARALLEL =
+  parseMaxParallel() ?? (process.argv.includes("--parallel-auto") ? null : 1);
 
 function parseModeFilter(): "copy_edit" | "line_edit" | null {
   const idx = process.argv.indexOf("--mode");
@@ -203,6 +253,29 @@ async function api(
     throw new Error(`${method} ${path} failed (${res.status}): ${text}`);
   }
   return res.json();
+}
+
+/**
+ * How a model should be NAMED in the results.
+ *
+ * An API catalog entry keeps one id (custom:bethaniel-cloud) whatever model it
+ * is pointed at, so two runs against different upstream models were
+ * indistinguishable in the saved results and the second silently replaced the
+ * first. The configured model name is appended so they stay separate rows.
+ */
+async function modelLabel(model: string): Promise<string> {
+  if (!model.startsWith("custom:")) return model;
+  const entryId = model.slice("custom:".length);
+  try {
+    const cfg = (await api(
+      "GET",
+      `/models/custom/config?entryId=${encodeURIComponent(entryId)}`,
+    )) as { model?: string };
+    return cfg?.model ? `${model} (${cfg.model})` : model;
+  } catch {
+    // The label is cosmetic; never fail a benchmark over it.
+    return model;
+  }
 }
 
 async function uploadText(filename: string, content: string): Promise<string> {
@@ -362,6 +435,9 @@ function groundTruthFor(
 // ── Main ──
 
 async function main() {
+  // Hunspell is WebAssembly; the load is async and the scoring below is not.
+  await initSpellchecker();
+
   console.log("=== Bethaniel Model Benchmark ===\n");
 
   if (REPORT_ONLY) {
@@ -412,6 +488,35 @@ async function main() {
       .map((c) => [c.fileName, c.sizeBytes / 1024 ** 3]),
   );
   let models = modelData.models.filter((m) => catalogFileNames.has(m));
+
+  // API-source catalog entries (External Betty, Betty in the Cloud) are never
+  // in /models — nothing is installed on disk for them. They are "installed"
+  // when a credential exists for that entry, which is what /models/installed
+  // reports. Opt in with --api, because a cloud run spends real money and the
+  // default grid must not.
+  if (INCLUDE_API) {
+    const apiEntries = new Set(
+      MODEL_CATALOG.filter((e) => e.source === "api").map((e) => e.fileName),
+    );
+    const installed = (await api("GET", "/models/installed")) as {
+      installed: { fileName: string; name: string }[];
+    };
+    const ready = installed.installed.filter((e) => apiEntries.has(e.fileName));
+    if (ready.length === 0) {
+      console.error(
+        "ERROR: --api given but no API model has a credential configured. " +
+          `Configure one first: PUT /api/models/custom/config with an entryId of ${
+            MODEL_CATALOG.filter((e) => e.source === "api").map((e) => e.id).join(" or ")
+          }.`,
+      );
+      process.exit(1);
+    }
+    for (const e of ready) {
+      if (!models.includes(e.fileName)) models.push(e.fileName);
+      console.log(`  API model available: ${e.name} (${e.fileName})`);
+    }
+  }
+
   if (models.length === 0) {
     console.error("ERROR: No catalog models found in backend/models/");
     process.exit(1);
@@ -543,8 +648,13 @@ async function main() {
   let skipped = 0;
 
   for (const model of models) {
+    // What goes in the results. Same as `model` for a local GGUF; for an API
+    // entry it carries the configured upstream model too, so two runs against
+    // different upstream models are separate rows rather than one overwriting
+    // the other.
+    const label = await modelLabel(model);
     console.log(`\n${"─".repeat(60)}`);
-    console.log(`MODEL: ${model}`);
+    console.log(`MODEL: ${label}`);
     console.log(`${"─".repeat(60)}`);
 
     // Fetch recommended parallel slots for this model from the backend
@@ -558,8 +668,20 @@ async function main() {
     } catch {
       // Fallback to 1 if endpoint unavailable
     }
-    if (MAX_PARALLEL !== null && MAX_PARALLEL < recommendedParallel) {
+    // The one-slot default exists to stop llama.cpp batching several local
+    // requests into one decode, which changes the floating-point arithmetic
+    // and made the same fixture score 50% and 71% on consecutive repeats.
+    // None of that applies to an API model: the provider batches on its own
+    // side whatever we do, so capping it to one slot buys no reproducibility
+    // and costs an order of magnitude in wall time (the backend recommends 12
+    // for API entries, limited by rate limits rather than hardware).
+    const isApiModel = model.startsWith("custom:");
+    if (!isApiModel && MAX_PARALLEL !== null && MAX_PARALLEL < recommendedParallel) {
       recommendedParallel = MAX_PARALLEL;
+    } else if (isApiModel && EXPLICIT_MAX_PARALLEL !== null && EXPLICIT_MAX_PARALLEL < recommendedParallel) {
+      // An explicit --max-parallel is still honoured for API models, so a
+      // provider's rate limit can be respected on purpose.
+      recommendedParallel = EXPLICIT_MAX_PARALLEL;
     }
     console.log(`  Parallel slots: ${recommendedParallel}`);
 
@@ -588,7 +710,7 @@ async function main() {
         // run is enough to measure its false-positive rate.
         const repeats = file.variant === "correct" ? 1 : REPEAT;
         for (let repeatIndex = 1; repeatIndex <= repeats; repeatIndex++) {
-          const key = resultKey(model, file.filename, mode, repeatIndex);
+          const key = resultKey(label, file.filename, mode, repeatIndex);
           if (completedKeys.has(key)) {
             skipped++;
             continue;
@@ -724,7 +846,7 @@ async function main() {
         }
 
         const result: TestResult = {
-          model,
+          model: label,
           file: br.task.file.filename,
           language: br.task.file.language,
           variant: br.task.file.variant,
@@ -739,7 +861,7 @@ async function main() {
 
         results.push(result);
         completedKeys.add(
-          resultKey(model, br.task.file.filename, br.task.mode, br.task.repeatIndex),
+          resultKey(label, br.task.file.filename, br.task.mode, br.task.repeatIndex),
         );
 
         // Clean up the uploaded doc (nothing to clean up if submission
@@ -936,6 +1058,118 @@ function fmtScore(v: number | null): string {
   return v === null ? " n/a" : v.toFixed(0).padStart(4);
 }
 
+/** Dictionary checks for one fixture language, so the spelling bucket splits
+ *  into misspelling / word choice / dialect. Null when that language has no
+ *  bundled dictionary — the report then says so instead of guessing. */
+const wordChecksCache = new Map<string, WordChecks | null>();
+function wordChecksFor(language: string): WordChecks | null {
+  const cached = wordChecksCache.get(language);
+  if (cached !== undefined) return cached;
+  const code = LANG_CODE[language] ?? "en";
+  const own = getWordValidator(code, code === "en" ? { englishDialect: "american" } : undefined);
+  // The dialect axis is English-only; every other language splits two ways.
+  const other = code === "en" ? getWordValidator("en", { englishDialect: "british" }) : null;
+  const checks = own ? { isKnownWord: own, isKnownInOtherDialect: other ?? undefined } : null;
+  wordChecksCache.set(language, checks);
+  return checks;
+}
+
+/**
+ * Per-language breakdown. The headline scorecards average every language
+ * together, which hides the thing most worth knowing: the deterministic
+ * layers are not equally strong in every language. LanguageTool's Danish rule
+ * set is thin, and the comma and dialect rules in the copy-edit prompt are
+ * gated to English — so a low Danish comma number is not the same finding as
+ * a low English one, and averaging them says neither.
+ */
+function buildLanguageSection(results: TestResult[], models: string[]): string[] {
+  const lines: string[] = [];
+  const languages = [...new Set(results.map((r) => r.language))].sort();
+  const shortName = (m: string) => m.replace(/-Q\d.*$/, "").replace(/\.gguf$/, "");
+
+  lines.push(`\n${"═".repeat(80)}`);
+  lines.push(`BY LANGUAGE`);
+  lines.push(`${"═".repeat(80)}`);
+  lines.push(
+    `Averaged across languages, a weak deterministic layer in one of them is`,
+  );
+  lines.push(`invisible. Split out, it is the first thing you see.`);
+
+  for (const mode of ["copy_edit", "line_edit"] as const) {
+    const anyForMode = results.some((r) => r.mode === mode && r.errors.length === 0);
+    if (!anyForMode) continue;
+    lines.push(`\n${"─".repeat(80)}`);
+    lines.push(`${mode}`);
+    lines.push(`${"─".repeat(80)}`);
+
+    for (const language of languages) {
+      const truth = groundTruthFor(language, mode);
+      if (truth.length === 0) continue;
+      lines.push(`\n  ${language} — ${truth.length} planted errors`);
+      lines.push(
+        `    ${"model".padEnd(26)} ${"recall".padStart(7)} ${"prec.".padStart(7)} ${"clean flags".padStart(12)}`,
+      );
+
+      const present: string[] = [];
+      for (const model of models) {
+        const runs = results.filter(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant !== "correct" && r.errors.length === 0,
+        );
+        if (runs.length === 0) continue;
+        present.push(model);
+        const scored = runs.map((r) => scoreCorrections(r.corrections, truth));
+        const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+        const recall = avg(scored.map((s) => s.recall ?? 0));
+        const precision = avg(scored.map((s) => s.precision));
+        const cleanRuns = results.filter(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant === "correct" && r.errors.length === 0,
+        );
+        const cleanFlags = cleanRuns.length
+          ? avg(cleanRuns.map((r) => r.corrections.filter((c) => c.original !== c.corrected).length))
+          : null;
+        lines.push(
+          `    ${shortName(model).padEnd(26)} ${`${recall.toFixed(0)}%`.padStart(7)} ${`${precision.toFixed(0)}%`.padStart(7)} ` +
+            `${(cleanFlags === null ? "n/a" : cleanFlags.toFixed(1)).padStart(12)}`,
+        );
+      }
+
+      // Category split, copy_edit only — the line-edit fixtures are dense
+      // paraphrasing whose planted spans all merge into one bucket, so the
+      // breakdown there would be a single uninformative row.
+      if (mode !== "copy_edit" || present.length === 0) continue;
+      const checks = wordChecksFor(language);
+      const perModel = present.map((model) => {
+        const run = results.find(
+          (r) => r.model === model && r.language === language && r.mode === mode &&
+            r.variant !== "correct" && r.errors.length === 0,
+        )!;
+        return {
+          model,
+          rows: recallByCategory(truth, scoreCorrections(run.corrections, truth).missedErrors, checks),
+        };
+      });
+      lines.push(
+        `    ${"recall by error type".padEnd(26)} ${"planted".padStart(7)}` +
+          perModel.map((m) => shortName(m.model).slice(-9).padStart(11)).join(""),
+      );
+      for (let i = 0; i < perModel[0].rows.length; i++) {
+        const { category, planted } = perModel[0].rows[i];
+        if (planted === 0) continue;
+        lines.push(
+          `      ${category.padEnd(24)} ${String(planted).padStart(7)}` +
+            perModel.map((m) => `${(m.rows[i].recall ?? 0).toFixed(0)}%`.padStart(11)).join(""),
+        );
+      }
+      if (!checks) {
+        lines.push(`      (no dictionary for ${language} — spelling is one combined row)`);
+      }
+    }
+  }
+  return lines;
+}
+
 function buildReport(results: TestResult[], models: string[]): string {
   const lines: string[] = [];
   const timestamp = new Date().toISOString();
@@ -1017,6 +1251,8 @@ function buildReport(results: TestResult[], models: string[]): string {
     }
     lines.push("");
   }
+
+  lines.push(...buildLanguageSection(results, models));
 
   // ── Ranked summary ──
   if (modelOveralls.length > 1) {

@@ -620,7 +620,11 @@ async function claimCloudCredential(url: string): Promise<void> {
 
   const token = parsed.searchParams.get("token");
   if (!token) return;
-  const model = parsed.searchParams.get("model") || "mistral-large-latest";
+  // The Worker always sends its own PROVIDER_MODEL, so the fallback only
+  // fires if that is missing. It must therefore name a model the Worker can
+  // actually serve — a stale default here silently configures a paid
+  // credential to request something the proxy will reject.
+  const model = parsed.searchParams.get("model") || "Qwen3.5-9B";
 
   try {
     await fetch(`http://127.0.0.1:${backendPort}/api/models/custom/config`, {

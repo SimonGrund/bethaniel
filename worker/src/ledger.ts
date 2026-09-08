@@ -30,7 +30,32 @@ interface Reservation {
 }
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 30;
+// Per-credential burst ceiling, sized for a real multi-chapter job.
+//
+// This is NOT the spend control — `budgetTotal` is, and it is absolute: a
+// credential can only ever spend what was paid for however fast it asks. This
+// limit only shapes burst behaviour, which is why it can be generous.
+//
+// Sizing: one chapter at the Speed preset issues 3 upstream calls per chunk
+// (editor + style agent + reviewer), and a chunk takes 80-240s against
+// OVHcloud's measured ~38 tok/s. So P concurrent chapters produce ~3P calls
+// per burst, or ~6P in the worst case where a second chunk lands inside the
+// same 60s window. At the catalog's recommendedParallel of 12 that is 36-72,
+// and 120 leaves real headroom above it.
+//
+// At 30 this was the binding constraint rather than a backstop: a routine job
+// at only 3 parallel chapters tripped it, and because the Worker mapped the
+// refusal to a 403 the app treated it as a dead credential and failed the
+// chunk outright. Both halves of that are fixed; this is the sizing half.
+//
+// Aggregate check: OVHcloud allows 400 requests/min per project per model,
+// shared across every Bethaniel customer. Three concurrent jobs at this limit
+// is 360 — under it. A fourth can push past, and the provider's own 429 is
+// now retried with backoff rather than failing the chunk, so it degrades
+// instead of breaking. A Worker-wide request-rate guard would make that
+// aggregate explicit; GlobalMeter today bounds tokens per day, not calls per
+// minute.
+const RATE_LIMIT_MAX_REQUESTS = 120;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

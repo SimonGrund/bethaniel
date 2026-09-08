@@ -27,15 +27,21 @@
  *   npx tsx scripts/test-translation.ts --judge 9b        # override judge model (default: largest installed)
  *   npx tsx scripts/test-translation.ts --source path.md  # override source text (default: sample_texts/english_correct.md)
  *   npx tsx scripts/test-translation.ts --model qwen      # only benchmark models whose filename contains "qwen"
+ *   npx tsx scripts/test-translation.ts --api             # ALSO benchmark API models that have a
+ *                                                         # credential. Opt-in: every run spends real money.
  */
 
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { buildTranslationReviewerPrompt } from "../backend/src/prompts.js";
+import { scoreTranslation, type TranslationScore } from "../backend/src/translationQuality.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const API = "http://127.0.0.1:4000/api";
+// Overridable like test-models.ts's BENCH_API — the dev backend on 4000 is
+// usually forked under the open Electron app, and a benchmark should be able
+// to target a second backend without taking the app down.
+const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const OUT_PATH = join(SAMPLE_DIR, "translation_results.txt");
 
@@ -54,6 +60,10 @@ function parseArg(flag: string): string | null {
 const JUDGE_FILTER = parseArg("--judge");
 const SOURCE_OVERRIDE = parseArg("--source");
 const MODEL_FILTER = parseArg("--model");
+// API-source models are opt-in for the same reason as in test-models.ts:
+// every run of one spends real money at a provider, so they must never join
+// the default grid by accident.
+const INCLUDE_API = process.argv.includes("--api");
 
 function isTransientError(msg: string): boolean {
   const m = msg.toLowerCase();
@@ -155,6 +165,24 @@ interface JudgeScore {
   reason: string;
 }
 
+/**
+ * How a model should be NAMED in the results. An API catalog entry keeps one
+ * id whatever model it points at, so without the configured model name two
+ * runs against different upstream models overwrite each other.
+ */
+async function modelLabel(model: string): Promise<string> {
+  if (!model.startsWith("custom:")) return model;
+  try {
+    const cfg = (await api(
+      "GET",
+      `/models/custom/config?entryId=${encodeURIComponent(model.slice("custom:".length))}`,
+    )) as { model?: string };
+    return cfg?.model ? `${model} (${cfg.model})` : model;
+  } catch {
+    return model;
+  }
+}
+
 async function judgeTranslation(
   judgeModel: string,
   sourceText: string,
@@ -192,6 +220,21 @@ async function main() {
   const catalogFileNames = new Set(catalogData.catalog.map((c) => c.fileName));
   const sizeByFile = new Map(catalogData.catalog.map((c) => [c.fileName, c.sizeBytes]));
   let models = modelData.models.filter((m) => catalogFileNames.has(m));
+
+  // API entries are never in /models — nothing is installed on disk for them.
+  // They are 'installed' when a credential exists, which is what
+  // /models/installed reports.
+  if (INCLUDE_API) {
+    const installed = (await api("GET", "/models/installed")) as {
+      installed: { fileName: string; name: string }[];
+    };
+    for (const e of installed.installed) {
+      if (!e.fileName.startsWith("custom:")) continue;
+      if (!models.includes(e.fileName)) models.push(e.fileName);
+      console.log(`  API model available: ${e.name} (${e.fileName})`);
+    }
+  }
+
   if (models.length === 0) {
     console.error("ERROR: No catalog models found in backend/models/");
     process.exit(1);
@@ -222,7 +265,25 @@ async function main() {
   console.log(`Judge model: ${judgeModel}`);
   console.log(`Target languages: ${TARGET_LANGS.join(", ")}\n`);
 
-  const sourcePath = SOURCE_OVERRIDE ?? join(SAMPLE_DIR, "english_correct.md");
+  // The parallel corpus: one source with a human reference per target. Falls
+  // back to the old source when --source is passed, in which case there are no
+  // references and only the judge scores run.
+  const sourcePath = SOURCE_OVERRIDE ?? join(SAMPLE_DIR, "translation_source_en.md");
+  const REF_FILE: Record<string, string> = {
+    Danish: "translation_ref_da.md",
+    German: "translation_ref_de.md",
+    Spanish: "translation_ref_es.md",
+  };
+  const references = new Map<string, string>();
+  if (!SOURCE_OVERRIDE) {
+    for (const [lang, file] of Object.entries(REF_FILE)) {
+      try {
+        references.set(lang, readFileSync(join(SAMPLE_DIR, file), "utf-8"));
+      } catch {
+        console.warn(`  ! no reference translation for ${lang} (${file})`);
+      }
+    }
+  }
   const sourceText = readFileSync(sourcePath, "utf-8");
   const sourceFilename = sourcePath.split(/[/\\]/).pop()!;
   console.log(`Source: ${sourcePath} (${sourceText.split(/\s+/).length} words)\n`);
@@ -233,11 +294,14 @@ async function main() {
     translatedText?: string;
     errors: string[];
     scores: JudgeScore[];
+    /** Reference-based, deterministic. Undefined when no reference exists. */
+    quality?: TranslationScore;
     elapsedMs: number;
   }
   const results: Result[] = [];
 
   for (const model of models) {
+    const modelName = await modelLabel(model);
     for (const targetLang of TARGET_LANGS) {
       const label = `${model} → ${targetLang}`;
       console.log(`Translating: ${label}`);
@@ -260,7 +324,7 @@ async function main() {
 
         if (outcome.status !== "done" || !outcome.editedText) {
           console.log(`  FAILED (${(elapsedMs / 1000).toFixed(1)}s): ${outcome.errors.join("; ") || "no output"}`);
-          results.push({ model, targetLang, errors: outcome.errors, scores: [], elapsedMs });
+          results.push({ model: modelName, targetLang, errors: outcome.errors, scores: [], elapsedMs });
           continue;
         }
 
@@ -271,12 +335,25 @@ async function main() {
           : 0;
         console.log(`  Judged: avg ${avg.toFixed(1)}/5 across ${scores.length} paragraphs`);
 
+        const reference = references.get(targetLang);
+        const quality =
+          reference && outcome.editedText
+            ? scoreTranslation(outcome.editedText, sourceText, reference)
+            : undefined;
+        if (quality) {
+          console.log(
+            `  chrF ${quality.chrf.toFixed(1)}  chrF++ ${quality.chrfPlusPlus.toFixed(1)}  ` +
+              `len ${quality.lengthRatio.toFixed(2)}x  leak ${(quality.sourceLeakage * 100).toFixed(1)}%`,
+          );
+        }
+
         results.push({
-          model,
+          model: modelName,
           targetLang,
           translatedText: outcome.editedText,
           errors: outcome.errors,
           scores,
+          quality,
           elapsedMs,
         });
       } catch (err) {
@@ -288,12 +365,67 @@ async function main() {
   }
 
   // ── Report ──
+  // Merge with any previous run before rendering. A run only covers the models
+  // it was asked for — `--api` benchmarks the cloud entry alone — so both the
+  // report and the JSON must show the accumulated picture, not just this
+  // invocation. Keyed by model + target language; a fresh row wins.
+  const rawPath = join(SAMPLE_DIR, "translation_results.json");
+  const rowKey = (r: { model: string; targetLang: string }) => `${r.model}::${r.targetLang}`;
+  const mergedRows = new Map<string, (typeof results)[number]>();
+  if (existsSync(rawPath)) {
+    try {
+      for (const r of JSON.parse(readFileSync(rawPath, "utf-8")) as typeof results)
+        mergedRows.set(rowKey(r), r);
+    } catch {
+      // An unreadable or half-written file is not worth failing a finished run over.
+    }
+  }
+  for (const r of results) mergedRows.set(rowKey(r), r);
+  const allResults = [...mergedRows.values()];
+
   const lines: string[] = [];
   lines.push("BETHANIEL TRANSLATION QUALITY BENCHMARK");
   lines.push(`Report generated: ${new Date().toISOString()}`);
   lines.push(`Judge model: ${judgeModel} (self-judging caveat applies to its own rows)`);
   lines.push(`Source: ${sourcePath}`);
   lines.push("=".repeat(80) + "\n");
+
+  // ── Reference-based scorecard ──
+  //
+  // First, because it is the number to trust. The judge scorecard below it
+  // saturates: on the previous run every model landed between 4.2 and 5.0,
+  // three of nine rows at a flat 5.0, and the largest model judged its own
+  // output. These figures are pure functions of the text — same answer every
+  // run, no model in the loop.
+  //
+  // chrF is character n-gram F-score (the WMT standard, and the right choice
+  // for Danish and German morphology, where a different-but-correct inflection
+  // costs a word-level metric everything). A reference is ONE valid rendering,
+  // so read these for ranking models against each other, never as an absolute
+  // "this translation is 62% correct".
+  const scored = allResults.filter((r) => r.quality);
+  if (scored.length > 0) {
+    lines.push("SCORECARD — reference-based (deterministic, no judge model)");
+    lines.push("=".repeat(80));
+    lines.push(
+      `  ${"Model".padEnd(45)} ${"Lang".padEnd(8)} ${"chrF".padStart(6)} ${"chrF++".padStart(7)} ${"len".padStart(6)} ${"leak".padStart(6)}`,
+    );
+    for (const r of scored) {
+      const q = r.quality!;
+      lines.push(
+        `  ${r.model.padEnd(45)} ${r.targetLang.padEnd(8)} ` +
+          `${q.chrf.toFixed(1).padStart(6)} ${q.chrfPlusPlus.toFixed(1).padStart(7)} ` +
+          `${(q.lengthRatio.toFixed(2) + "x").padStart(6)} ${((q.sourceLeakage * 100).toFixed(1) + "%").padStart(6)}`,
+      );
+    }
+    lines.push("");
+    lines.push("  chrF/chrF++  0-100, higher is better. Similarity to the reference translation.");
+    lines.push("  len          hypothesis length / reference length. Far from 1.00 means it");
+    lines.push("               stopped early or padded — both can still score well on chrF.");
+    lines.push("  leak         share of words left untranslated from the source. A reader");
+    lines.push("               notices these immediately; chrF barely does.");
+    lines.push("");
+  }
 
   lines.push("SCORECARD — judge confidence 1-5 per paragraph (rubric: fidelity + fluency)");
   lines.push("=".repeat(80));
@@ -336,9 +468,17 @@ async function main() {
   console.log(report);
 
   // Also save raw translated texts for manual spot-checking.
-  const rawPath = join(SAMPLE_DIR, "translation_results.json");
-  writeFileSync(rawPath, JSON.stringify(results, null, 2), "utf-8");
-  console.log(`Raw translations + scores saved to: ${rawPath}`);
+  //
+  // Merged, not overwritten. A run only ever covers the models it was asked
+  // for — `--api` benchmarks the cloud entry alone — so writing `results`
+  // straight out silently discarded every row from the previous run. That
+  // cost a full local pass once: the cloud run replaced three local models'
+  // worth of translations with its own three rows. A row is identified by
+  // model + target language, and a fresh one wins.
+  writeFileSync(rawPath, JSON.stringify(allResults, null, 2), "utf-8");
+  console.log(
+    `Raw translations + scores saved to: ${rawPath} (${results.length} from this run, ${allResults.length} total)`,
+  );
 }
 
 main().catch((err) => {

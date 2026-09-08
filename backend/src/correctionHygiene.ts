@@ -673,3 +673,212 @@ export function dedupeChapterCorrections(
 
   return subsumeFree;
 }
+
+// ── Span narrowing ──
+//
+// A model may return a whole rewritten sentence to fix one comma inside it.
+// That is bad for the author — they must accept or reject the entire sentence
+// rather than the one thing that was wrong — and it collides with every other
+// correction touching the same sentence at apply time.
+//
+// Measured, this is overwhelmingly a cloud-serving artefact rather than a model
+// one: on the same fixture the same Qwen3.5-9B produced a median span of 3
+// words locally and 15 through an OpenAI-compatible endpoint, with 58% of its
+// corrections over 8 words against 11% locally. The prompt already asks for the
+// shortest unique span (CORRECTIONS_JSON_FORMAT rule 3); this enforces it
+// deterministically instead, so it holds for every model and provider.
+
+/** Spans this short are already surgical — nothing to gain from splitting. */
+const ALREADY_MINIMAL_WORDS = 6;
+/** Unchanged text shorter than this does not separate two edits. */
+const MIN_GAP_CHARS = 12;
+/** Context words added per side while hunting for a unique span. */
+const MAX_EXPAND_WORDS = 8;
+/** A single correction should never explode into more than this many. */
+const MAX_PIECES = 8;
+
+export interface NarrowResult {
+  kept: Correction[];
+  /** Corrections whose span was tightened. */
+  narrowed: number;
+  /** Corrections that became more than one correction. */
+  split: number;
+}
+
+function markerCounts(s: string): string {
+  const n = (re: RegExp) => (s.match(re) ?? []).length;
+  return `${n(/\*/g)}:${n(/_/g)}:${n(/`/g)}`;
+}
+
+function wordCount(s: string): number {
+  return s.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Split one correction into the minimal edits it actually contains.
+ *
+ * Returns null when the correction cannot be narrowed safely — no unchanged
+ * anchor to split on, a piece that is not verbatim or not unique in the
+ * surrounding text, or one that would unbalance markdown markers. The caller
+ * keeps the original correction in that case: a wide span is worse than a
+ * narrow one, but a span that will not apply is worse than both.
+ */
+function narrowOne(
+  contextText: string,
+  c: Correction,
+): Correction[] | null {
+  const parts = diffWordsWithSpace(c.original, c.corrected);
+
+  // Walk the diff, recording each part's offsets in both strings.
+  interface Seg {
+    changed: boolean;
+    oStart: number;
+    oEnd: number;
+    nStart: number;
+    nEnd: number;
+  }
+  const segs: Seg[] = [];
+  let o = 0;
+  let n = 0;
+  for (const p of parts) {
+    const inOld = !p.added;
+    const inNew = !p.removed;
+    const seg: Seg = {
+      changed: Boolean(p.added || p.removed),
+      oStart: o,
+      oEnd: inOld ? o + p.value.length : o,
+      nStart: n,
+      nEnd: inNew ? n + p.value.length : n,
+    };
+    segs.push(seg);
+    if (inOld) o += p.value.length;
+    if (inNew) n += p.value.length;
+  }
+
+  // Group changed segments separated by only a short run of unchanged text.
+  const groups: { oStart: number; oEnd: number; nStart: number; nEnd: number }[] =
+    [];
+  for (const s of segs) {
+    if (!s.changed) continue;
+    const last = groups[groups.length - 1];
+    if (last && s.oStart - last.oEnd < MIN_GAP_CHARS) {
+      last.oEnd = Math.max(last.oEnd, s.oEnd);
+      last.nEnd = Math.max(last.nEnd, s.nEnd);
+    } else {
+      groups.push({ oStart: s.oStart, oEnd: s.oEnd, nStart: s.nStart, nEnd: s.nEnd });
+    }
+  }
+  if (groups.length === 0 || groups.length > MAX_PIECES) return null;
+
+  const out: Correction[] = [];
+  for (const g of groups) {
+    let piece: Correction | null = null;
+    // Grow outward a word at a time until the span is verbatim-unique in the
+    // chunk. Starting tight and expanding keeps the common case minimal.
+    // Start from whole words: a diff boundary often falls mid-whitespace, and
+    // a span like " and dark" is both ugly in the UI and needlessly brittle.
+    const oS0 = snapStart(c.original, g.oStart);
+    const oE0 = snapEnd(c.original, g.oEnd);
+    const nS0 = snapStart(c.corrected, g.nStart);
+    const nE0 = snapEnd(c.corrected, g.nEnd);
+    for (let expand = 0; expand <= MAX_EXPAND_WORDS; expand++) {
+      const oS = expandLeft(c.original, oS0, expand);
+      const oE = expandRight(c.original, oE0, expand);
+      const nS = expandLeft(c.corrected, nS0, expand);
+      const nE = expandRight(c.corrected, nE0, expand);
+      const origPiece = c.original.slice(oS, oE);
+      const corrPiece = c.corrected.slice(nS, nE);
+      if (!origPiece.trim() || origPiece === corrPiece) continue;
+      if (markerCounts(origPiece) !== markerCounts(corrPiece)) continue;
+      if (boundaryOccurrences(contextText, origPiece).length !== 1) continue;
+      piece = { ...c, original: origPiece, corrected: corrPiece };
+      break;
+    }
+    if (!piece) return null;
+    out.push(piece);
+  }
+
+  // Splitting must not lose or alter the edit: replaying the pieces over the
+  // original span has to reproduce the model's own corrected text.
+  let replay = c.original;
+  for (const p of out) {
+    if (!replay.includes(p.original)) return null;
+    replay = replay.replace(p.original, p.corrected);
+  }
+  if (replay !== c.corrected) return null;
+
+  return out;
+}
+
+/** Move back to the start of the word containing `at` (then past any space). */
+function snapStart(s: string, at: number): number {
+  let i = Math.min(at, s.length);
+  while (i > 0 && !/\s/.test(s[i - 1])) i--;
+  while (i < s.length && /\s/.test(s[i])) i++;
+  return i;
+}
+
+/** Move forward to the end of the word containing `at` (then back off space). */
+function snapEnd(s: string, at: number): number {
+  let i = Math.max(at, 0);
+  while (i < s.length && !/\s/.test(s[i])) i++;
+  while (i > 0 && /\s/.test(s[i - 1])) i--;
+  return i;
+}
+
+function expandLeft(s: string, at: number, words: number): number {
+  let i = at;
+  for (let w = 0; w < words; w++) {
+    let j = i;
+    while (j > 0 && /\s/.test(s[j - 1])) j--;
+    while (j > 0 && !/\s/.test(s[j - 1])) j--;
+    if (j === i) break;
+    i = j;
+  }
+  return i;
+}
+
+function expandRight(s: string, at: number, words: number): number {
+  let i = at;
+  for (let w = 0; w < words; w++) {
+    let j = i;
+    while (j < s.length && /\s/.test(s[j])) j++;
+    while (j < s.length && !/\s/.test(s[j])) j++;
+    if (j === i) break;
+    i = j;
+  }
+  return i;
+}
+
+/**
+ * Tighten every correction to the words that actually changed, splitting a
+ * rewrite that contains several independent edits into one correction each.
+ * Anything that cannot be narrowed safely is passed through untouched.
+ */
+export function narrowCorrectionSpans(
+  contextText: string,
+  corrections: Correction[],
+): NarrowResult {
+  const kept: Correction[] = [];
+  let narrowed = 0;
+  let split = 0;
+
+  for (const c of corrections) {
+    if (wordCount(c.original) <= ALREADY_MINIMAL_WORDS) {
+      kept.push(c);
+      continue;
+    }
+    const pieces = narrowOne(contextText, c);
+    if (!pieces) {
+      kept.push(c);
+      continue;
+    }
+    const changed =
+      pieces.length > 1 || pieces[0].original.length < c.original.length;
+    if (changed) narrowed++;
+    if (pieces.length > 1) split++;
+    kept.push(...pieces);
+  }
+
+  return { kept, narrowed, split };
+}

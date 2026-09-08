@@ -2,7 +2,7 @@
 // LanguageTool /v2/check response into context-anchored Corrections, without
 // needing a live server. Fiction-noisy categories are filtered out.
 
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -99,7 +99,19 @@ test("mapLangToLanguageTool returns null for unsupported free-text languages", (
 
 // ── disabledRules / introductory-comma gating ──
 
-import { buildCheckParams, INTRODUCTORY_COMMA_RULES } from "../src/languageTool.ts";
+import {
+  ALWAYS_DISABLED_RULES,
+  buildCheckParams,
+  INTRODUCTORY_COMMA_RULES,
+} from "../src/languageTool.ts";
+import { initSpellchecker } from "../src/spellcheck.ts";
+
+// Mapping a LanguageTool match to a Correction consults the dictionary — a
+// 'typos' match that renames a proper noun's letters is dropped. Hunspell is
+// WebAssembly, so that dictionary does not exist until this resolves.
+before(async () => {
+  await initSpellchecker();
+});
 
 test("INTRODUCTORY_COMMA_RULES lists the LanguageTool intro-comma rule ids", () => {
   assert.ok(INTRODUCTORY_COMMA_RULES.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));
@@ -111,17 +123,69 @@ test("buildCheckParams sets text, language, and enabledOnly=false", () => {
   assert.equal(p.get("text"), "Hello there.");
   assert.equal(p.get("language"), "en-US");
   assert.equal(p.get("enabledOnly"), "false");
-  assert.equal(p.get("disabledRules"), null);
+});
+
+// Picky is LanguageTool's second rule tier and is almost all comma and
+// confusion rules — the categories the benchmark showed as weakest. Measured
+// across all five bundled fixtures it raised comma recall 19% -> 30% on
+// stress100, changed nothing on the other four, and added no false positives
+// on any clean text. Dropping this parameter silently gives back that recall,
+// so it is asserted rather than left to a comment.
+test("buildCheckParams asks for the picky rule level", () => {
+  assert.equal(buildCheckParams("x", "en-US").get("level"), "picky");
+  assert.equal(
+    buildCheckParams("x", "da-DK", { disabledRules: ["FOO"] }).get("level"),
+    "picky",
+    "picky must not be dropped when other options are passed",
+  );
 });
 
 test("buildCheckParams passes disabledRules as a comma-joined list", () => {
   const p = buildCheckParams("x", "en-US", { disabledRules: INTRODUCTORY_COMMA_RULES });
-  assert.equal(
-    p.get("disabledRules"),
-    "MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE,SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA",
-  );
+  const sent = p.get("disabledRules")!.split(",");
+  assert.ok(sent.includes("MISSING_COMMA_AFTER_INTRODUCTORY_PHRASE"));
+  assert.ok(sent.includes("SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA"));
 });
 
-test("buildCheckParams omits disabledRules when the list is empty", () => {
-  assert.equal(buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules"), null);
+// These rules found zero real errors and only misfired, and — unlike the LLM
+// editors — a deterministic correction never passes through the prompt, so
+// its DO-NOT-FLAG list cannot restrain them. A caller supplying its own
+// disabledRules must not be able to drop them by overwriting the parameter.
+test("the always-disabled rules are sent even when no options are passed", () => {
+  const sent = buildCheckParams("x", "en-US").get("disabledRules")!.split(",");
+  for (const rule of ALWAYS_DISABLED_RULES) assert.ok(sent.includes(rule), rule);
+});
+
+test("caller-supplied disabledRules are added to the always-disabled ones, not substituted", () => {
+  const sent = buildCheckParams("x", "en-US", { disabledRules: ["CUSTOM_RULE"] })
+    .get("disabledRules")!
+    .split(",");
+  assert.ok(sent.includes("CUSTOM_RULE"));
+  for (const rule of ALWAYS_DISABLED_RULES) assert.ok(sent.includes(rule), rule);
+});
+
+test("the subjunctive-breaking rule is one of them", () => {
+  // "as though the story were returning" -> "was" survived to the user with
+  // the reviewer endorsing it at confidence 5. Nothing else in the pipeline
+  // stops this one.
+  assert.ok(ALWAYS_DISABLED_RULES.includes("PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT"));
+});
+
+test("the Spanish quote-conversion rule is one of them", () => {
+  // COMILLAS_TIPOGRAFICAS rewrites every straight quote to an angle quote
+  // (" -> «»). On a Spanish fixture full of dialogue that is one flag per
+  // quotation mark: 124 on a single clean file, 248 across the corpus, and
+  // not one of them on a planted error. It held Spanish copy-edit precision
+  // at 31% while the other three languages sat at 63-79%.
+  //
+  // It is also a house-style question rather than an error, and quoteRepair.ts
+  // already owns quotation marks — LanguageTool must not overrule that pass.
+  assert.ok(ALWAYS_DISABLED_RULES.includes("COMILLAS_TIPOGRAFICAS"));
+  const sent = buildCheckParams("x", "es").get("disabledRules");
+  assert.ok(sent?.includes("COMILLAS_TIPOGRAFICAS"), "must be sent for Spanish");
+});
+
+test("an empty caller list still leaves the always-disabled rules in place", () => {
+  const sent = buildCheckParams("x", "en-US", { disabledRules: [] }).get("disabledRules");
+  assert.ok(sent && sent.length > 0);
 });
