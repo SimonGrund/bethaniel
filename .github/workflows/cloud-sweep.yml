@@ -1,0 +1,73 @@
+name: Cloud maintenance sweep
+
+# Betty in the Cloud's hourly maintenance — credential expiry, quote-table
+# cleanup, and the automatic refund of credentials that expired unused.
+#
+# This exists because Cloudflare Cron Triggers do not fire on the account the
+# Worker is deployed to. Registered, shown in the dashboard, never invoked;
+# reproduced on a four-line Worker with no bindings. See
+# docs/cron-investigation.md. The Worker's own `crons` entry is left in place
+# for whenever that is fixed — running the sweep twice is harmless, since every
+# step is a conditional UPDATE or DELETE and each credential's refund decision
+# is guarded by refund_status.
+#
+# The refund half is not optional housekeeping: the checkout success page tells
+# customers in writing that unused credit is refunded automatically. Something
+# has to keep that promise.
+
+on:
+    schedule:
+        # Hourly. GitHub's scheduler is best-effort and can run late under
+        # load, which is fine — nothing here is time-critical to the minute.
+        - cron: "17 * * * *"
+    # So it can be run by hand from the Actions tab without waiting an hour.
+    workflow_dispatch:
+
+# Two sweeps at once would race on the same rows. Harmless (the guards hold),
+# but there is no reason to allow it.
+concurrency:
+    group: cloud-sweep
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    sweep:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Run the maintenance sweep
+              env:
+                  ADMIN_TOKEN: ${{ secrets.CLOUD_ADMIN_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  if [ -z "${ADMIN_TOKEN:-}" ]; then
+                    echo "::error::CLOUD_ADMIN_TOKEN is not set — the sweep cannot run."
+                    exit 1
+                  fi
+
+                  # --fail-with-body so a non-2xx is an error AND we still see
+                  # what the Worker said. Without it a 404 (which is what a bad
+                  # token returns, deliberately) would look like success.
+                  response=$(curl --silent --show-error --fail-with-body \
+                    --max-time 120 \
+                    -X POST "https://bethaniel-cloud.cloudwatcher.workers.dev/admin/sweep" \
+                    -H "Authorization: Bearer ${ADMIN_TOKEN}")
+
+                  echo "$response"
+
+                  # Surface the refund numbers in the run summary, so the
+                  # Actions tab answers "did anyone get their money back?"
+                  # without opening the logs.
+                  echo "### Cloud sweep" >> "$GITHUB_STEP_SUMMARY"
+                  echo '```json' >> "$GITHUB_STEP_SUMMARY"
+                  echo "$response" >> "$GITHUB_STEP_SUMMARY"
+                  echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+                  # A sweep that reports failure has tried and failed to refund
+                  # someone. Fail the run so it is visible rather than buried.
+                  case "$response" in
+                    *'"ok":true'*) ;;
+                    *) echo "::error::Sweep did not report ok:true"; exit 1 ;;
+                  esac
