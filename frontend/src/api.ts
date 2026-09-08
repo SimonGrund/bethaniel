@@ -494,6 +494,8 @@ export interface CloudEstimateRequest {
 
 export interface CloudEstimateResponse {
   estimatedTotalTokens: number;
+  /** Words in the job — the unit the price is banded by. */
+  totalWords?: number;
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
   confidence: "estimate" | "lower_bound";

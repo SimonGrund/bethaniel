@@ -499,11 +499,12 @@ export default function EditTrigger() {
           </span>
           {cloudEstimate && !cloudCheckoutPending && (
             <span className="btn-run-meta">
-              ≈{cloudEstimate.estimatedTotalTokens.toLocaleString()}{" "}
-              {t("cloud_tokens", "tokens")} · {cloudEstimate.confidence ===
-              "lower_bound"
-                ? "≥"
-                : "≈"}
+              {/* Words, not tokens: the price is a flat band of words, so a
+                  token count described the job by a number that has nothing
+                  to do with what is charged. Both the word count and the
+                  price are exact, so neither carries an approximation mark. */}
+              {(cloudEstimate.totalWords ?? 0).toLocaleString()}{" "}
+              {t("cloud_words", "words")} ·{" "}
               {cloudEstimate.priceCents === 0 ? (
                 <strong>{t("cloud_free", "Free")}</strong>
               ) : cloudEstimate.fullPriceCents &&

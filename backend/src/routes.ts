@@ -2131,6 +2131,10 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     };
     res.json({
       estimatedTotalTokens: estimate.estimatedTotalTokens,
+      // What the price is actually a function of. Tokens are still returned
+      // because they size the credential's ceiling, but they no longer bear
+      // on what anyone is charged.
+      totalWords: estimate.totalWords,
       estimatedInputTokens: estimate.estimatedInputTokens,
       estimatedOutputTokens: estimate.estimatedOutputTokens,
       confidence: estimate.confidence,
