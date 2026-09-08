@@ -186,14 +186,22 @@ const REVIEWER_MAX_ATTEMPTS = 3;
 /**
  * Confidence below which the PRECISION PASS deletes a correction outright.
  *
- * Deliberately lower than the reviewer threshold that governs flagging
- * (job.reviewerThreshold, default 3). Flagging asks the author to look;
- * deleting decides for them, and the evidence needed is not the same. The
- * scores are also not comparable across languages: a reviewer rates a
- * correction it is merely unsure of the same 2 it gives one it doubts, and it
- * is least sure in the languages whose deterministic layer is thinnest.
+ * Scores run 1-5, so at 1 the pass deletes nothing: it annotates. That is
+ * deliberate. Bethaniel is used with a human reading every suggestion before
+ * accepting it, which makes deletion the only irreversible act in the
+ * pipeline — a deleted correction is one the author can never see, while a
+ * surviving wrong one costs them a glance and a dismissal. Those are not the
+ * same magnitude of mistake, and the threshold should not pretend they are.
+ *
+ * Measured on the four stress fixtures, Baby Betty, one slot: moving the cut
+ * 3 -> 2 -> 1 took recall 54% -> 58% -> 60% and clean-text flags 12 -> 20 ->
+ * 26. But 24 of those 26 arrive flagged, and the UNMARKED count — the one
+ * that costs an author trust — is flat at 2 across all three settings.
+ *
+ * Flagging still happens at job.reviewerThreshold (default 3), so everything
+ * this pass doubts reaches the author wearing the doubt.
  */
-const PRECISION_PASS_DELETE_THRESHOLD = 2;
+const PRECISION_PASS_DELETE_THRESHOLD = 1;
 
 /**
  * One reviewer agent call with retries. Local inference fails via OOM, slot
