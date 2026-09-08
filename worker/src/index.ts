@@ -32,6 +32,7 @@ import {
 } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
 import { refundVerdict } from "./refund";
+import { isAdminRequest } from "./admin";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
 
@@ -113,6 +114,37 @@ async function reimburseUnusedCredentials(
   return { refunded, flagged };
 }
 
+interface MaintenanceSummary {
+  expiredCredentials: number;
+  expiredClaims: number;
+  expiredQuotes: number;
+  refunded: number;
+  flagged: number;
+}
+
+/**
+ * Everything the hourly cron does, in one function so that the cron and
+ * POST /admin/sweep cannot drift apart. Running it twice is harmless: every
+ * sweep is a conditional UPDATE or DELETE, and the refund pass rules on each
+ * credential exactly once (refund_status is the guard).
+ */
+async function runMaintenance(env: Env): Promise<MaintenanceSummary> {
+  const expiredCredentials = await sweepExpiredCredentials(env);
+  const expiredClaims = await sweepExpiredPendingClaims(env);
+  // Quotes were never swept — /v1/quote is unauthenticated, so the table
+  // grew by one row per price check forever, paid or not.
+  const expiredQuotes = await sweepExpiredQuotes(env);
+  const { refunded, flagged } = await reimburseUnusedCredentials(env);
+  return { expiredCredentials, expiredClaims, expiredQuotes, refunded, flagged };
+}
+
+function describeMaintenance(s: MaintenanceSummary): string {
+  return (
+    `expired ${s.expiredCredentials} credential(s), swept ${s.expiredClaims} stale pending claim(s), ` +
+    `${s.expiredQuotes} expired quote(s), refunded ${s.refunded}, flagged ${s.flagged} for review`
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -120,6 +152,28 @@ export default {
     try {
       if (url.pathname === "/v1/health") {
         return json({ status: "ok" });
+      }
+
+      // ── Operator surface ──
+      //
+      // Everything under /admin/* answers 404 unless the request carries the
+      // operator secret — the same answer an unconfigured deployment gives,
+      // so probing this public URL cannot tell the two apart, or learn that
+      // the prefix means anything at all.
+      if (url.pathname.startsWith("/admin/")) {
+        if (!isAdminRequest(request, env)) return json({ error: "Not found" }, 404);
+
+        // Run the maintenance pass now. Exists because the hourly cron is a
+        // scheduler we do not control: if it stops firing, credential expiry,
+        // quote cleanup and refunds all stop silently with it. This is the
+        // hand crank.
+        if (url.pathname === "/admin/sweep" && request.method === "POST") {
+          const summary = await runMaintenance(env);
+          console.log(`[admin] sweep: ${describeMaintenance(summary)}`);
+          return json({ ok: true, ...summary });
+        }
+
+        return json({ error: "Not found" }, 404);
       }
 
       // Everything below /v1/health is either credential-gated (the ledger
@@ -395,15 +449,8 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       (async () => {
-        const expiredCredentials = await sweepExpiredCredentials(env);
-        const expiredClaims = await sweepExpiredPendingClaims(env);
-        // Quotes were never swept — /v1/quote is unauthenticated, so the table
-        // grew by one row per price check forever, paid or not.
-        const expiredQuotes = await sweepExpiredQuotes(env);
-        const { refunded, flagged } = await reimburseUnusedCredentials(env);
-        console.log(
-          `[cron] expired ${expiredCredentials} credential(s), swept ${expiredClaims} stale pending claim(s), ${expiredQuotes} expired quote(s), refunded ${refunded}, flagged ${flagged} for review`,
-        );
+        const summary = await runMaintenance(env);
+        console.log(`[cron] ${describeMaintenance(summary)}`);
       })(),
     );
   },

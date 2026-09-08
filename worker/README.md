@@ -81,9 +81,16 @@ reviewers + a second pass — 21.3M tokens for 300k words, several times these
 ceilings.
 
 **What GlobalMeter does not cover:** a stolen `PROVIDER_API_KEY`. That key is
-used directly against OVHcloud and never passes through this Worker. The only
-controls there are the provider account's funding and key rotation — which is
-why it belongs on a separate, lightly-funded OVHcloud project.
+used directly against OVHcloud and never passes through this Worker, so none
+of the ceilings above apply to it — they bound what this Worker spends, not
+what the key can. The only controls are the provider account's funding and
+key rotation.
+
+Confirmed 8 September 2026: the key's OVHcloud Public Cloud project is
+dedicated to AI Endpoints, shares no other infrastructure, and is funded to a
+deliberately small ceiling. That containment IS the control — re-check it if
+the project is ever reused, because a leaked key then bills against whatever
+else lives there.
 
 ### Reasoning must stay off
 

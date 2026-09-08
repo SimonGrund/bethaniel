@@ -38,6 +38,17 @@ export interface Env {
   ALLOW_LIVE_PAYMENTS?: string;
 
   /**
+   * Operator secret for /admin/*. A SECRET, never a var — set with
+   * `wrangler secret put ADMIN_TOKEN`.
+   *
+   * Optional, and its absence disables the admin surface entirely rather
+   * than opening it: see isAdminRequest in admin.ts. Must be at least 16
+   * characters, so a placeholder cannot accidentally become a live
+   * credential.
+   */
+  ADMIN_TOKEN?: string;
+
+  /**
    * Per-IP rate limiter for the endpoints that need no credential.
    *
    * Bethaniel is open source, so this Worker's URL is published in
