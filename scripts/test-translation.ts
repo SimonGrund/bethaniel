@@ -301,7 +301,7 @@ async function main() {
   const results: Result[] = [];
 
   for (const model of models) {
-    const label = await modelLabel(model);
+    const modelName = await modelLabel(model);
     for (const targetLang of TARGET_LANGS) {
       const label = `${model} → ${targetLang}`;
       console.log(`Translating: ${label}`);
@@ -324,7 +324,7 @@ async function main() {
 
         if (outcome.status !== "done" || !outcome.editedText) {
           console.log(`  FAILED (${(elapsedMs / 1000).toFixed(1)}s): ${outcome.errors.join("; ") || "no output"}`);
-          results.push({ model: label, targetLang, errors: outcome.errors, scores: [], elapsedMs });
+          results.push({ model: modelName, targetLang, errors: outcome.errors, scores: [], elapsedMs });
           continue;
         }
 
@@ -348,7 +348,7 @@ async function main() {
         }
 
         results.push({
-          model: label,
+          model: modelName,
           targetLang,
           translatedText: outcome.editedText,
           errors: outcome.errors,
