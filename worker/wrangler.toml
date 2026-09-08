@@ -30,6 +30,19 @@ new_sqlite_classes = ["CredentialLedger"]
 tag = "v2"
 new_sqlite_classes = ["GlobalMeter"]
 
+# Per-IP limiter for /v1/quote and /v1/checkout — the two endpoints that take
+# no credential yet write to D1 and call Stripe. This repo is public, so the
+# URL below is too; without a limit, a loop against it exhausts the daily D1
+# write quota. 30/minute is far above any real author and far below a script.
+#
+# namespace_id is an arbitrary label scoped to this Worker, not an account
+# resource to create — changing it resets the counters.
+[[unsafe.bindings]]
+name = "IP_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+
 [triggers]
 crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 

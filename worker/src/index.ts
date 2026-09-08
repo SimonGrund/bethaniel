@@ -21,13 +21,17 @@ import {
   findPendingClaim,
   sweepExpiredPendingClaims,
   sweepExpiredQuotes,
+  findUnruledExpiredCredentials,
+  setRefundStatus,
 } from "./db";
 import {
   assertPaymentsAllowed,
   createCheckoutSession,
+  refundPayment,
   verifyAndParseStripeWebhook,
 } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
+import { refundVerdict } from "./refund";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
 
@@ -45,6 +49,70 @@ function html(body: string, status = 200): Response {
   return new Response(body, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
+/**
+ * True if this request may proceed. Fails OPEN when the binding is absent,
+ * because a deployment without it (local Miniflare, an older wrangler) must
+ * still work — an unavailable limiter is a config gap, not an attack, and
+ * refusing every request would take the paid service down to prevent abuse
+ * that may not be happening.
+ *
+ * Keyed on CF-Connecting-IP, which Cloudflare sets at the edge and a client
+ * cannot forge. Absent that (it should never be), everything shares one
+ * bucket rather than each getting its own.
+ */
+async function rateLimitOk(request: Request, env: Env): Promise<boolean> {
+  if (!env.IP_RATE_LIMITER) return true;
+  const key = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  try {
+    const { success } = await env.IP_RATE_LIMITER.limit({ key });
+    return success;
+  } catch (err) {
+    console.error("[ratelimit] limiter threw, allowing:", err);
+    return true;
+  }
+}
+
+/**
+ * Give back the money for credentials that expired without doing any work.
+ *
+ * Runs on the hourly cron, immediately after the expiry sweep. Each row is
+ * ruled on exactly once — the refund_status write is what makes it so, and
+ * it happens whatever the verdict, so a 'none' is not reconsidered forever.
+ *
+ * A Stripe failure marks the row 'failed' rather than leaving it NULL: a row
+ * that keeps retrying every hour against a permanently-rejecting payment is
+ * noise that would bury the rows a human still needs to see.
+ */
+async function reimburseUnusedCredentials(
+  env: Env,
+): Promise<{ refunded: number; flagged: number }> {
+  let refunded = 0;
+  let flagged = 0;
+  for (const row of await findUnruledExpiredCredentials(env)) {
+    const verdict = refundVerdict(row);
+    if (verdict.action === "refund" && row.stripe_payment_intent) {
+      try {
+        await refundPayment(env, row.stripe_payment_intent);
+        await setRefundStatus(env, row.id, "refunded");
+        refunded++;
+        console.log(`[refund] ${row.stripe_session_id}: ${verdict.reason}`);
+      } catch (err) {
+        await setRefundStatus(env, row.id, "failed");
+        console.error(`[refund] ${row.stripe_session_id} FAILED:`, err);
+      }
+      continue;
+    }
+    if (verdict.action === "review") {
+      await setRefundStatus(env, row.id, "review");
+      flagged++;
+      console.log(`[refund] ${row.stripe_session_id} needs a human: ${verdict.reason}`);
+      continue;
+    }
+    await setRefundStatus(env, row.id, "none");
+  }
+  return { refunded, flagged };
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -52,6 +120,18 @@ export default {
     try {
       if (url.pathname === "/v1/health") {
         return json({ status: "ok" });
+      }
+
+      // Everything below /v1/health is either credential-gated (the ledger
+      // does its own per-credential limiting) or one of these two, which
+      // anyone can call. Stripe's webhook is exempt: it is signature-gated,
+      // and throttling Stripe's retries would drop paid credentials.
+      if (
+        (url.pathname === "/v1/quote" || url.pathname === "/v1/checkout") &&
+        request.method === "POST" &&
+        !(await rateLimitOk(request, env))
+      ) {
+        return json({ error: "Too many requests — please slow down." }, 429);
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
@@ -184,6 +264,10 @@ export default {
             tokenHash,
             stripeSessionId: syntheticSessionId,
             tokenBudget,
+            // Nothing was charged, so there is nothing to reverse. The
+            // expiry sweep also skips promo_ sessions outright — see
+            // refundVerdict — but the column stays honest either way.
+            stripePaymentIntent: null,
             expiresAt,
             customerEmail: null,
           });
@@ -260,6 +344,7 @@ export default {
           tokenBudget: event.tokenBudget,
           expiresAt,
           customerEmail: event.customerEmail,
+          stripePaymentIntent: event.paymentIntent,
         });
 
         const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);
@@ -315,8 +400,9 @@ export default {
         // Quotes were never swept — /v1/quote is unauthenticated, so the table
         // grew by one row per price check forever, paid or not.
         const expiredQuotes = await sweepExpiredQuotes(env);
+        const { refunded, flagged } = await reimburseUnusedCredentials(env);
         console.log(
-          `[cron] expired ${expiredCredentials} credential(s), swept ${expiredClaims} stale pending claim(s), ${expiredQuotes} expired quote(s)`,
+          `[cron] expired ${expiredCredentials} credential(s), swept ${expiredClaims} stale pending claim(s), ${expiredQuotes} expired quote(s), refunded ${refunded}, flagged ${flagged} for review`,
         );
       })(),
     );

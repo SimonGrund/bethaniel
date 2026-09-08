@@ -85,12 +85,37 @@ export async function createCheckoutSession(
   return { id: session.id, url: session.url };
 }
 
+/**
+ * Reverse a payment in full.
+ *
+ * Idempotency-Key is keyed on the payment intent, so the same refund can
+ * never be issued twice however many times the cron retries — which matters
+ * because the sweep marks the row only after Stripe answers, and a timeout
+ * in between would otherwise refund again on the next run.
+ */
+export async function refundPayment(env: Env, paymentIntentId: string): Promise<void> {
+  const res = await fetch(`${STRIPE_API_BASE}/refunds`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": `refund_${paymentIntentId}`,
+    },
+    body: formEncode({ payment_intent: paymentIntentId, reason: "requested_by_customer" }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Stripe refund failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+}
+
 export interface StripeCheckoutCompletedEvent {
   id: string;
   sessionId: string;
   customerEmail: string | null;
   quoteId: string;
   tokenBudget: number;
+  paymentIntent: string | null;
 }
 
 /** Verify the Stripe-Signature header and, if valid and the event is a
@@ -145,6 +170,7 @@ export async function verifyAndParseStripeWebhook(
         customer_details?: { email?: string | null };
         metadata?: Record<string, string>;
         payment_status?: string;
+        payment_intent?: string | null;
       };
     };
   };
@@ -165,6 +191,7 @@ export async function verifyAndParseStripeWebhook(
     customerEmail: session.customer_details?.email ?? null,
     quoteId,
     tokenBudget,
+    paymentIntent: session.payment_intent ?? null,
   };
 }
 

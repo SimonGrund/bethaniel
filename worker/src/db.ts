@@ -71,12 +71,14 @@ export async function insertCredential(
     tokenBudget: number;
     expiresAt: string;
     customerEmail: string | null;
+    stripePaymentIntent: string | null;
   },
 ): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO credentials
-       (id, token_hash, stripe_session_id, token_budget, reserved, spent, status, created_at, expires_at, customer_email)
-     VALUES (?, ?, ?, ?, 0, 0, 'active', ?, ?, ?)`,
+       (id, token_hash, stripe_session_id, token_budget, reserved, spent, status,
+        created_at, expires_at, customer_email, stripe_payment_intent)
+     VALUES (?, ?, ?, ?, 0, 0, 'active', ?, ?, ?, ?)`,
   )
     .bind(
       opts.id,
@@ -86,7 +88,49 @@ export async function insertCredential(
       new Date().toISOString(),
       opts.expiresAt,
       opts.customerEmail,
+      opts.stripePaymentIntent,
     )
+    .run();
+}
+
+/**
+ * Credentials that just expired and might be owed money back.
+ *
+ * Read AFTER sweepExpiredCredentials has flipped them to 'expired', and
+ * only those not yet ruled on, so a refund is decided exactly once however
+ * often the cron runs.
+ */
+export async function findUnruledExpiredCredentials(env: Env): Promise<
+  {
+    id: string;
+    stripe_session_id: string;
+    stripe_payment_intent: string | null;
+    token_budget: number;
+    spent: number;
+  }[]
+> {
+  const { results } = await env.DB.prepare(
+    `SELECT id, stripe_session_id, stripe_payment_intent, token_budget, spent
+       FROM credentials
+      WHERE status = 'expired' AND refund_status IS NULL
+      LIMIT 100`,
+  ).all<{
+    id: string;
+    stripe_session_id: string;
+    stripe_payment_intent: string | null;
+    token_budget: number;
+    spent: number;
+  }>();
+  return results ?? [];
+}
+
+export async function setRefundStatus(
+  env: Env,
+  id: string,
+  status: "refunded" | "review" | "failed" | "none",
+): Promise<void> {
+  await env.DB.prepare(`UPDATE credentials SET refund_status = ? WHERE id = ?`)
+    .bind(status, id)
     .run();
 }
 

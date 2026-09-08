@@ -37,6 +37,21 @@ export interface Env {
    */
   ALLOW_LIVE_PAYMENTS?: string;
 
+  /**
+   * Per-IP rate limiter for the endpoints that need no credential.
+   *
+   * Bethaniel is open source, so this Worker's URL is published in
+   * wrangler.toml for anyone to read. /v1/quote writes a D1 row per call and
+   * /v1/checkout calls Stripe per call, and neither asks for a credential —
+   * so without this, a loop against a URL sitting in a public repo is enough
+   * to exhaust the daily D1 write quota.
+   *
+   * Optional so the type still describes a deployment without the binding
+   * (Miniflare, an older wrangler); callers must treat its absence as
+   * "allowed" rather than crash — see rateLimitOk in index.ts.
+   */
+  IP_RATE_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
+
   // ── Safety limits ──
   // The provider offers budget alerts but no hard spending cap, so these are
   // the only real ceilings that exist. See globalMeter.ts.

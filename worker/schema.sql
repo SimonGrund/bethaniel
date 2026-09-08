@@ -26,7 +26,15 @@ CREATE TABLE IF NOT EXISTS credentials (
   status TEXT NOT NULL DEFAULT 'active', -- active | expired | void
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
-  customer_email TEXT
+  customer_email TEXT,
+  -- What to reverse if the job never ran. Captured from the webhook,
+  -- because a Checkout Session id alone cannot be refunded.
+  stripe_payment_intent TEXT,
+  -- NULL until the expiry sweep rules on it, then:
+  --   refunded  — paid, expired unused, money returned automatically
+  --   review    — partly used; a human decides (see src/refund.ts)
+  --   failed    — a refund was attempted and Stripe refused
+  refund_status TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_credentials_expiry ON credentials(status, expires_at);
