@@ -85,7 +85,6 @@ function mkOpts(overrides: Partial<UpgradeOptions> = {}): UpgradeOptions {
     draft: DRAFT,
     upgradePrompt: "UPGRADE-PROMPT",
     reviewMode: false,
-    reviewerCount: 1,
     reviewerThreshold: 3,
     chunkLabel: "1/1",
     signal: new AbortController().signal,
@@ -217,7 +216,7 @@ test("orchestrator: re-polish throwing keeps the DRAFT paragraph", async () => {
 test("orchestrator: all reviewers failing accepts the polish unreviewed", async () => {
   const warnings: string[] = [];
   const out = await runTranslationUpgrade(
-    mkOpts({ reviewMode: true, reviewerCount: 2 }),
+    mkOpts({ reviewMode: true }),
     mkDeps({
       runReviewer: async () => {
         throw new Error("reviewer died");
@@ -242,12 +241,16 @@ test("orchestrator: unparsable reviewer output accepts the polish as-is", async 
   assert.equal(out, POLISHED);
 });
 
-test("orchestrator: multiple reviewers — the minimum score wins", async () => {
+// The fluency reviewer runs exactly once. Asking for more used to fan out N
+// identical calls: same prompt, same seed, temperature 0. The min-score
+// aggregation below still exists and still works — there is simply never more
+// than one score to take the minimum of.
+test("orchestrator: one reviewer runs, and its score decides", async () => {
   let reviewer = 0;
-  const outputs = ["lenient", "strict"];
+  const outputs = ["strict", "lenient"];
   let editCalls = 0;
   const out = await runTranslationUpgrade(
-    mkOpts({ reviewMode: true, reviewerCount: 2 }),
+    mkOpts({ reviewMode: true }),
     mkDeps({
       editStream: async () => (++editCalls === 1 ? POLISHED : "Para one re-polished sentence."),
       runReviewer: async () =>

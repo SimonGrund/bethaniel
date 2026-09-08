@@ -99,9 +99,6 @@ export interface CloudEstimateInput {
   wordsPerChunk: number;
   runMode: "speed" | "custom";
   reviewMode: boolean;
-  reviewerCount: number;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
   /** Model's configured output cap — drives the assumed-output-fraction math. */
@@ -120,12 +117,12 @@ export interface CloudEstimateResult {
 
 /** Editor calls per chunk for the corrections modes, mirroring runModePresets.ts. */
 function editorCallsPerChunk(input: CloudEstimateInput): number {
-  const base = input.dualEditor ? Math.max(1, input.dualCount) : 1;
+  const base = 1; // one editor pass; see the note in queue.ts
   return base + (input.styleComplianceAgent ? 1 : 0);
 }
 
 function reviewerCallsPerChunk(input: CloudEstimateInput): number {
-  return input.reviewMode ? Math.max(0, input.reviewerCount) : 0;
+  return input.reviewMode ? 1 : 0; // one reviewer agent
 }
 
 function correctionsModeSystemPromptTokens(

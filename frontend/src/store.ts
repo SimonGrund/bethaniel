@@ -87,13 +87,10 @@ const DEFAULT_RUN_MODE: RunMode = "speed";
 
 interface RunModeKnobs {
   reviewMode: boolean;
-  reviewerCount: number;
   reviewerThreshold: number;
   spellCheck: boolean;
   retextCheck: boolean;
   grammarCheck: boolean;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
 }
@@ -102,13 +99,10 @@ const RUN_MODE_PRESETS: Record<Exclude<RunMode, "custom">, RunModeKnobs> = {
   // The only preset: 1 editor + style agent + 1 reviewer. No thorough 2nd pass.
   speed: {
     reviewMode: true,
-    reviewerCount: 1,
     reviewerThreshold: DEFAULT_REVIEWER_THRESHOLD,
     spellCheck: true,
     retextCheck: true,
     grammarCheck: true,
-    dualEditor: false,
-    dualCount: DEFAULT_DUAL_COUNT,
     styleComplianceAgent: true,
     extraPass: false,
   },
@@ -134,20 +128,12 @@ interface AppState {
   setReviewMode: (b: boolean) => void;
   reviewerThreshold: number;
   setReviewerThreshold: (n: number) => void;
-  reviewerCount: number;
-  setReviewerCount: (n: number) => void;
   spellCheck: boolean;
   setSpellCheck: (b: boolean) => void;
   retextCheck: boolean;
   setRetextCheck: (b: boolean) => void;
   grammarCheck: boolean;
   setGrammarCheck: (b: boolean) => void;
-  dualEditor: boolean;
-  setDualEditor: (b: boolean) => void;
-  dualCount: number;
-  setDualCount: (n: number) => void;
-  characterDedup: boolean;
-  setCharacterDedup: (b: boolean) => void;
   styleComplianceAgent: boolean;
   setStyleComplianceAgent: (b: boolean) => void;
   extraPass: boolean;
@@ -417,9 +403,6 @@ export const useStore = create<AppState>()(
       reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
       setReviewerThreshold: (reviewerThreshold) =>
         set({ reviewerThreshold, runMode: "custom" }),
-      reviewerCount: DEFAULT_KNOBS.reviewerCount,
-      setReviewerCount: (reviewerCount) =>
-        set({ reviewerCount, runMode: "custom" }),
       spellCheck: DEFAULT_KNOBS.spellCheck,
       setSpellCheck: (spellCheck) => set({ spellCheck, runMode: "custom" }),
       retextCheck: DEFAULT_KNOBS.retextCheck,
@@ -427,12 +410,6 @@ export const useStore = create<AppState>()(
       grammarCheck: DEFAULT_KNOBS.grammarCheck,
       setGrammarCheck: (grammarCheck) =>
         set({ grammarCheck, runMode: "custom" }),
-      dualEditor: DEFAULT_KNOBS.dualEditor,
-      setDualEditor: (dualEditor) => set({ dualEditor, runMode: "custom" }),
-      dualCount: DEFAULT_KNOBS.dualCount,
-      setDualCount: (dualCount) => set({ dualCount, runMode: "custom" }),
-      characterDedup: false,
-      setCharacterDedup: (characterDedup) => set({ characterDedup }),
       styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
       setStyleComplianceAgent: (styleComplianceAgent) =>
         set({ styleComplianceAgent, runMode: "custom" }),
@@ -903,13 +880,9 @@ export const useStore = create<AppState>()(
           runMode: DEFAULT_RUN_MODE,
           reviewMode: DEFAULT_KNOBS.reviewMode,
           reviewerThreshold: DEFAULT_KNOBS.reviewerThreshold,
-          reviewerCount: DEFAULT_KNOBS.reviewerCount,
           spellCheck: DEFAULT_KNOBS.spellCheck,
           retextCheck: DEFAULT_KNOBS.retextCheck,
           grammarCheck: DEFAULT_KNOBS.grammarCheck,
-          dualEditor: DEFAULT_KNOBS.dualEditor,
-          dualCount: DEFAULT_KNOBS.dualCount,
-          characterDedup: false,
           styleComplianceAgent: DEFAULT_KNOBS.styleComplianceAgent,
           extraPass: DEFAULT_KNOBS.extraPass,
           parallel: DEFAULT_PARALLEL,
@@ -964,7 +937,8 @@ export const useStore = create<AppState>()(
       // Bumped when "max" run mode was removed: a persisted install that had
       // "max" selected (including every External Betty user — it used to be
       // the auto-selected default there) would otherwise keep max-shaped
-      // knobs (dualEditor, reviewerCount: 2, extraPass, …) forever, since
+      // knobs (extraPass and the since-removed editor/reviewer fan-out)
+      // forever, since
       // those are persisted independently of the runMode label itself.
       version: 1,
       migrate: (persisted, version) => {
@@ -989,13 +963,9 @@ export const useStore = create<AppState>()(
         runMode: state.runMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
-        reviewerCount: state.reviewerCount,
         spellCheck: state.spellCheck,
         retextCheck: state.retextCheck,
         grammarCheck: state.grammarCheck,
-        dualEditor: state.dualEditor,
-        dualCount: state.dualCount,
-        characterDedup: state.characterDedup,
         styleComplianceAgent: state.styleComplianceAgent,
         extraPass: state.extraPass,
         parallel: state.parallel,

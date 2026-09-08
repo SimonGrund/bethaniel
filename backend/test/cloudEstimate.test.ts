@@ -20,9 +20,6 @@ const baseOpts = {
   wordsPerChunk: 2000,
   runMode: "custom" as const,
   reviewMode: true,
-  reviewerCount: 1,
-  dualEditor: false,
-  dualCount: 2,
   styleComplianceAgent: false,
   extraPass: false,
   numPredict: 4096,
@@ -42,15 +39,6 @@ test("estimateTaskOutputTokens scales up with word count", () => {
   assert.ok(large > small * 4, "10x the words (5x the chunks) should need meaningfully more output budget");
 });
 
-test("estimateTaskOutputTokens: dual editor increases the estimate over a single editor", () => {
-  const single = estimateTaskOutputTokens("copy_edit", 4000, baseOpts);
-  const dual = estimateTaskOutputTokens("copy_edit", 4000, {
-    ...baseOpts,
-    dualEditor: true,
-    dualCount: 2,
-  });
-  assert.ok(dual > single, "two parallel editor agents should budget more output tokens than one");
-});
 
 test("estimateTaskOutputTokens: reviewMode adds reviewer-call budget", () => {
   const withoutReview = estimateTaskOutputTokens("copy_edit", 4000, {
@@ -107,8 +95,6 @@ test("cloudRunKnobs forces the Speed preset for the cloud model", () => {
   const knobs = cloudRunKnobs(cloudEntry.fileName);
   assert.ok(knobs, "cloud model must get forced knobs");
   assert.equal(knobs.extraPass, false, "the 2x second pass must be off");
-  assert.equal(knobs.dualEditor, false, "no multi-editor fan-out");
-  assert.equal(knobs.reviewerCount, 1);
   assert.deepEqual(knobs, RUN_MODE_PRESETS.speed);
 });
 
@@ -122,8 +108,7 @@ test("cloudRunKnobs leaves every other model alone", () => {
 test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
   // The knobs a hostile or stale client might send.
   const greedy = {
-    reviewMode: true, reviewerCount: 4, dualEditor: true, dualCount: 4,
-    styleComplianceAgent: true, extraPass: true,
+    reviewMode: true, styleComplianceAgent: true, extraPass: true,
   };
   const units = Array.from({ length: 30 }, () => ({ wordCount: 3333 }));
   const base = {
@@ -136,9 +121,14 @@ test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
     ...base, runMode: "speed", ...RUN_MODE_PRESETS.speed,
   });
 
+  // extraPass is now the ONLY lever this clamp has. The editor and reviewer
+  // fan-out knobs it used to override were removed once they were measured to
+  // be no-ops — every agent ran the same prompt at temperature 0 and returned
+  // the same answer — so the ceiling this test guards is a clean 2x, not the
+  // several-fold it was when a stale client could ask for four of everything.
   assert.ok(
-    forced.estimatedTotalTokens * 4 < asSent.estimatedTotalTokens,
-    `forcing Speed must cut cost several-fold (got ${forced.estimatedTotalTokens} vs ${asSent.estimatedTotalTokens})`,
+    forced.estimatedTotalTokens * 2 <= asSent.estimatedTotalTokens,
+    `forcing Speed must at least halve the cost (got ${forced.estimatedTotalTokens} vs ${asSent.estimatedTotalTokens})`,
   );
   // 100k words is the headline case; Speed must stay well inside the Worker's
   // MAX_QUOTE_TOKENS (25M) and DAILY_TOKEN_CEILING, with the greedy variant

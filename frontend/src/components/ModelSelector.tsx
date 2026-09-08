@@ -58,20 +58,12 @@ export default function ModelSelector() {
     setReviewMode,
     reviewerThreshold,
     setReviewerThreshold,
-    reviewerCount,
-    setReviewerCount,
     spellCheck,
     setSpellCheck,
     retextCheck,
     setRetextCheck,
     grammarCheck,
     setGrammarCheck,
-    dualEditor,
-    setDualEditor,
-    dualCount,
-    setDualCount,
-    characterDedup,
-    setCharacterDedup,
     styleComplianceAgent,
     setStyleComplianceAgent,
     extraPass,
@@ -725,22 +717,6 @@ export default function ModelSelector() {
                   </span>
                 </div>
               )}
-              {reviewMode && (
-                <div className="field">
-                  <label>
-                    {t("reviewer_count")}: {reviewerCount}
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={4}
-                    step={1}
-                    value={reviewerCount}
-                    onChange={(e) => setReviewerCount(Number(e.target.value))}
-                  />
-                  <span className="help-text">{t("reviewer_count_help")}</span>
-                </div>
-              )}
 
               <div className="field">
                 <label className="option-check">
@@ -778,34 +754,6 @@ export default function ModelSelector() {
                 <span className="help-text">{t("grammar_check_help")}</span>
               </div>
 
-              <div className="field">
-                <label className="option-check">
-                  <input
-                    type="checkbox"
-                    checked={dualEditor}
-                    onChange={(e) => setDualEditor(e.target.checked)}
-                  />{" "}
-                  {t("dual_editor")}
-                </label>
-                <span className="help-text">{t("dual_editor_help")}</span>
-              </div>
-
-              {dualEditor && (
-                <div className="field">
-                  <label>
-                    {t("dual_count")}: {dualCount}
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={4}
-                    step={1}
-                    value={dualCount}
-                    onChange={(e) => setDualCount(Number(e.target.value))}
-                  />
-                  <span className="help-text">{t("dual_count_help")}</span>
-                </div>
-              )}
 
               <div className="field">
                 <label className="option-check">
@@ -839,17 +787,6 @@ export default function ModelSelector() {
                 </span>
               </div>
 
-              <div className="field">
-                <label className="option-check">
-                  <input
-                    type="checkbox"
-                    checked={characterDedup}
-                    onChange={(e) => setCharacterDedup(e.target.checked)}
-                  />{" "}
-                  {t("character_dedup")}
-                </label>
-                <span className="help-text">{t("character_dedup_help")}</span>
-              </div>
 
               <div className="field">
                 <label className="option-check">

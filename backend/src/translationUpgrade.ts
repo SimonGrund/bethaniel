@@ -59,7 +59,6 @@ export interface UpgradeOptions {
   draft: string;
   upgradePrompt: string;
   reviewMode: boolean;
-  reviewerCount: number;
   reviewerThreshold: number;
   chunkLabel: string;
   signal: AbortSignal;
@@ -103,11 +102,9 @@ export async function runTranslationUpgrade(
       corrected: polishedParas[i],
     }));
 
-    const results = await Promise.allSettled(
-      Array.from({ length: opts.reviewerCount }, () =>
-        deps.runReviewer(draft, pairs),
-      ),
-    );
+    // One reviewer. Running N of them issued the same prompt with the same
+    // seed at temperature 0, so they could only ever return identical scores.
+    const results = await Promise.allSettled([deps.runReviewer(draft, pairs)]);
     const outputs: Map<number, { confidence: number; reason: string }>[] = [];
     for (const r of results)
       if (r.status === "fulfilled" && r.value.size > 0) outputs.push(r.value);
@@ -119,11 +116,6 @@ export async function runTranslationUpgrade(
       );
       return polished;
     }
-    if (outputs.length < opts.reviewerCount)
-      deps.log(
-        "warn",
-        `Only ${outputs.length}/${opts.reviewerCount} fluency reviewers contributed for chunk ${chunkLabel}; scoring on survivors.`,
-      );
 
     const allScores = outputs;
     const flagged: { idx: number; conf: number; reason: string }[] = [];

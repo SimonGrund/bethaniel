@@ -137,7 +137,7 @@ import {
   setConcurrency,
   getConcurrency,
 } from "./queue.js";
-import { resolveRunMode, RUN_MODE_PRESETS } from "./runModePresets.js";
+import { resolveRunMode, RUN_MODE_PRESETS, DEFAULT_RUN_KNOBS } from "./runModePresets.js";
 import {
   getStorageUsage,
   purge,
@@ -436,13 +436,9 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       manuscriptLang,
       reviewMode,
       reviewerThreshold,
-      reviewerCount,
       spellCheck,
       retextCheck,
       grammarCheck,
-      dualEditor,
-      dualCount,
-      characterDedup,
       styleComplianceAgent,
       extraPass,
       runMode,
@@ -480,7 +476,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     }
 
     console.log(
-      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} runMode=${runMode ?? "custom"} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true} dual=${dualEditor ?? true}`,
+      `[API] POST /queue/add docId=${docId} modes=${modeList.join(",")} units=${(units as EditUnit[])?.length} model=${model} runMode=${runMode ?? "custom"} review=${reviewMode ?? true} spellcheck=${spellCheck ?? true}`,
     );
 
     if (!units || !Array.isArray(units) || units.length === 0) {
@@ -775,22 +771,30 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           targetLang: currentMode === "translate" ? targetLang : undefined,
           manuscriptLang:
             currentMode === "translate" ? undefined : manuscriptLang,
-          reviewMode: forced?.reviewMode ?? reviewMode ?? preset?.reviewMode ?? true,
+          // Every knob resolves forced -> explicit -> preset -> DEFAULT_RUN_KNOBS.
+          // The last link is a named constant rather than a literal so a default
+          // cannot drift from the presets it is compared against.
+          reviewMode:
+            forced?.reviewMode ?? reviewMode ?? preset?.reviewMode ?? DEFAULT_RUN_KNOBS.reviewMode,
           reviewerThreshold:
-            forced?.reviewerThreshold ?? reviewerThreshold ?? preset?.reviewerThreshold ?? 3,
-          reviewerCount:
-            forced?.reviewerCount ?? reviewerCount ?? preset?.reviewerCount ?? 1,
-          spellCheck: forced?.spellCheck ?? spellCheck ?? preset?.spellCheck ?? true,
-          retextCheck: forced?.retextCheck ?? retextCheck ?? preset?.retextCheck ?? true,
-          grammarCheck: forced?.grammarCheck ?? grammarCheck ?? preset?.grammarCheck ?? true,
-          dualEditor: forced?.dualEditor ?? dualEditor ?? preset?.dualEditor ?? true,
-          dualCount: forced?.dualCount ?? dualCount ?? preset?.dualCount ?? 2,
-          characterDedup: characterDedup ?? false,
+            forced?.reviewerThreshold ??
+            reviewerThreshold ??
+            preset?.reviewerThreshold ??
+            DEFAULT_RUN_KNOBS.reviewerThreshold,
+          spellCheck:
+            forced?.spellCheck ?? spellCheck ?? preset?.spellCheck ?? DEFAULT_RUN_KNOBS.spellCheck,
+          retextCheck:
+            forced?.retextCheck ?? retextCheck ?? preset?.retextCheck ?? DEFAULT_RUN_KNOBS.retextCheck,
+          grammarCheck:
+            forced?.grammarCheck ??
+            grammarCheck ??
+            preset?.grammarCheck ??
+            DEFAULT_RUN_KNOBS.grammarCheck,
           styleComplianceAgent:
             forced?.styleComplianceAgent ??
             styleComplianceAgent ??
             preset?.styleComplianceAgent ??
-            true,
+            DEFAULT_RUN_KNOBS.styleComplianceAgent,
           // Off unless the client asks or a preset opts in: the UI always
           // sends it explicitly; headless/API callers that omit both shouldn't
           // get surprise 2× runs. A cloud job can never turn it on.
@@ -2084,9 +2088,6 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     // and the work disagree in one direction or the other.
     runMode: "speed",
     reviewMode: cloudKnobs.reviewMode,
-    reviewerCount: cloudKnobs.reviewerCount,
-    dualEditor: cloudKnobs.dualEditor,
-    dualCount: cloudKnobs.dualCount,
     styleComplianceAgent: cloudKnobs.styleComplianceAgent,
     extraPass: cloudKnobs.extraPass,
     numPredict: cloudEntry?.defaults.num_predict ?? 8192,

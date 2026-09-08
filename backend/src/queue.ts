@@ -312,14 +312,10 @@ interface JobData {
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
-  reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
   retextCheck?: boolean;
   grammarCheck?: boolean;
-  dualEditor?: boolean;
-  dualCount?: number;
-  characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   /** Thorough mode: run a second copy-edit pass over the edited text. */
   extraPass?: boolean;
@@ -1402,9 +1398,6 @@ async function processJob(job: JobData): Promise<void> {
         wordsPerChunk: wpc,
         runMode: job.runMode === "speed" ? "speed" : "custom",
         reviewMode: !!job.reviewMode,
-        reviewerCount: job.reviewerCount ?? 1,
-        dualEditor: !!job.dualEditor,
-        dualCount: job.dualCount ?? 2,
         styleComplianceAgent: !!job.styleComplianceAgent,
         extraPass: job.extraPass === true,
         numPredict: getModelByFileName(model)?.defaults.num_predict ?? 4096,
@@ -1890,21 +1883,23 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
-              // ── Run editor(s) — single or multi ──
-              // The normal editor prompt runs `baseEditorCount` times; when a
-              // style sheet is present and the toggle is on, one extra agent runs
-              // the dedicated style-compliance pass. Its corrections merge into
-              // the same union-deduped set as the regular editors.
-              const baseEditorCount = job.dualEditor ? (job.dualCount ?? 2) : 1;
+              // ── Run editor(s) ──
+              // One normal editor pass. Running the SAME prompt N times used to
+              // be an option ("dual editor"); it was removed because corrections
+              // decode greedily at temperature 0, so every extra agent returned a
+              // byte-identical answer that the union-dedupe then collapsed —
+              // measured across four languages and three models, output was
+              // identical and the run was 15-20% slower.
+              //
+              // The multi-prompt machinery below stays, because the
+              // style-compliance agent runs a DIFFERENT prompt and so genuinely
+              // can differ. Its corrections merge into the same union-deduped set.
               const styleAgentActive = !!(
                 job.styleComplianceAgent &&
                 job.styleGuide &&
                 job.styleGuide.trim()
               );
-              const editorPrompts: string[] = Array.from(
-                { length: baseEditorCount },
-                () => chunkPrompt,
-              );
+              const editorPrompts: string[] = [chunkPrompt];
               if (styleAgentActive) {
                 editorPrompts.push(
                   buildStyleCompliancePrompt(
@@ -2244,7 +2239,10 @@ async function processJob(job: JobData): Promise<void> {
               mode,
               job.manuscriptLang,
             );
-            const rCount = job.reviewerCount ?? 1;
+            // One reviewer. N of them ran the same prompt with the same seed at
+            // temperature 0, so they could only ever return identical scores; the
+            // min-confidence aggregation below was averaging a value with itself.
+            const rCount = 1;
 
             const reviewPromise = (async () => {
               const runOne = () =>
@@ -2386,7 +2384,7 @@ async function processJob(job: JobData): Promise<void> {
                 });
 
                 const reviewerPrompt = buildTranslationReviewerPrompt(job.styleGuide);
-                const rCount = job.reviewerCount ?? 1;
+                const rCount = 1; // see the note on the copy-edit reviewer above
                 const runOne = () =>
                   runReviewerAgentWithRetry({
                     model,
@@ -2506,7 +2504,6 @@ async function processJob(job: JobData): Promise<void> {
                   job.styleGuide,
                 ),
                 reviewMode: !!job.reviewMode,
-                reviewerCount: job.reviewerCount ?? 1,
                 reviewerThreshold: job.reviewerThreshold ?? 3,
                 chunkLabel,
                 signal: ac.signal,
@@ -3054,14 +3051,10 @@ export async function submitTask(
       manuscriptLang: data.manuscriptLang,
       reviewMode: data.reviewMode,
       reviewerThreshold: data.reviewerThreshold,
-      reviewerCount: data.reviewerCount,
       styleGuide: data.styleGuide,
       spellCheck: data.spellCheck,
       retextCheck: data.retextCheck,
       grammarCheck: data.grammarCheck,
-      dualEditor: data.dualEditor,
-      dualCount: data.dualCount,
-      characterDedup: data.characterDedup,
       styleComplianceAgent: data.styleComplianceAgent,
       extraPass: data.extraPass,
       runMode: data.runMode,
@@ -3216,14 +3209,10 @@ export async function retryTask(id: string): Promise<string> {
     manuscriptLang: spec.manuscriptLang,
     reviewMode: spec.reviewMode,
     reviewerThreshold: spec.reviewerThreshold,
-    reviewerCount: spec.reviewerCount,
     styleGuide: spec.styleGuide,
     spellCheck: spec.spellCheck,
     retextCheck: spec.retextCheck,
     grammarCheck: spec.grammarCheck,
-    dualEditor: spec.dualEditor,
-    dualCount: spec.dualCount,
-    characterDedup: spec.characterDedup,
     styleComplianceAgent: spec.styleComplianceAgent,
     extraPass: spec.extraPass,
     units: spec.units,

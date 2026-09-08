@@ -223,16 +223,12 @@ export interface TaskRetrySpec {
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
-  reviewerCount?: number;
   styleGuide?: string;
   spellCheck?: boolean;
   /** Deterministic retext prose checks (a/an, contractions, doubled words…). */
   retextCheck?: boolean;
   /** LanguageTool grammar/punctuation checks (local server; degrades if absent). */
   grammarCheck?: boolean;
-  dualEditor?: boolean;
-  dualCount?: number;
-  characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
   /** Run-mode preset the concrete knobs were resolved from (logging only). */
@@ -272,13 +268,9 @@ export interface QueueAddRequest {
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
-  reviewerCount?: number;
   spellCheck?: boolean;
   retextCheck?: boolean;
   grammarCheck?: boolean;
-  dualEditor?: boolean;
-  dualCount?: number;
-  characterDedup?: boolean;
   extraPass?: boolean;
 }
 

@@ -160,13 +160,9 @@ export async function addToQueue(params: {
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
-  reviewerCount?: number;
   spellCheck?: boolean;
   retextCheck?: boolean;
   grammarCheck?: boolean;
-  dualEditor?: boolean;
-  dualCount?: number;
-  characterDedup?: boolean;
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
   runMode?: string;
@@ -488,9 +484,6 @@ export interface CloudEstimateRequest {
   wordsPerChunk: number;
   runMode: "speed" | "custom";
   reviewMode: boolean;
-  reviewerCount: number;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
   styleGuide?: string;
