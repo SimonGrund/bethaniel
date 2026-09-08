@@ -10,6 +10,7 @@ export interface QuoteRow {
   id: string;
   estimated_tokens: number;
   price_eur_cents: number;
+  promo_code: string | null;
   created_at: string;
   expires_at: string;
 }
@@ -34,14 +35,23 @@ export async function insertQuote(
   id: string,
   estimatedTokens: number,
   priceEurCents: number,
+  /** The code this price was computed with, redeemed at checkout. */
+  promoCode?: string | null,
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS);
   await env.DB.prepare(
-    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, promo_code, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, estimatedTokens, priceEurCents, now.toISOString(), expiresAt.toISOString())
+    .bind(
+      id,
+      estimatedTokens,
+      priceEurCents,
+      promoCode ?? null,
+      now.toISOString(),
+      expiresAt.toISOString(),
+    )
     .run();
 }
 
@@ -167,4 +177,50 @@ export async function sweepExpiredQuotes(env: Env): Promise<number> {
     .bind(new Date().toISOString())
     .run();
   return result.meta.changes ?? 0;
+}
+
+
+// ── Promo codes ──
+
+export interface PromoRow {
+  code: string;
+  campaign: string | null;
+  discount_pct: number | null;
+  discount_cents: number | null;
+  max_uses: number;
+  uses: number;
+  max_words: number | null;
+  created_at: string;
+  expires_at: string | null;
+  status: string;
+}
+
+/** Look a code up without consuming it. Quoting must not spend a use. */
+export async function findPromo(env: Env, code: string): Promise<PromoRow | null> {
+  const row = await env.DB.prepare(`SELECT * FROM promo_codes WHERE code = ?`)
+    .bind(code.trim().toUpperCase())
+    .first<PromoRow>();
+  if (!row) return null;
+  if (row.status !== "active") return null;
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
+  if (row.uses >= row.max_uses) return null;
+  return row;
+}
+
+/**
+ * Consume one use, atomically.
+ *
+ * The WHERE clause carries the guard rather than a prior SELECT, so two
+ * checkouts racing on the last use of a code cannot both win: D1 applies the
+ * UPDATE serially and the loser matches zero rows.
+ */
+export async function redeemPromo(env: Env, code: string): Promise<boolean> {
+  const res = await env.DB.prepare(
+    `UPDATE promo_codes SET uses = uses + 1
+      WHERE code = ? AND status = 'active' AND uses < max_uses
+        AND (expires_at IS NULL OR expires_at > ?)`,
+  )
+    .bind(code.trim().toUpperCase(), new Date().toISOString())
+    .run();
+  return (res.meta?.changes ?? 0) > 0;
 }

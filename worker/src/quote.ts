@@ -2,11 +2,25 @@
 
 import type { Env } from "./env";
 
+/** The parts of a promo code that bear on price. */
+export interface PromoTerms {
+  code: string;
+  discountPct?: number | null;
+  discountCents?: number | null;
+  maxWords?: number | null;
+}
+
 export interface PriceQuote {
   tokens: number;
   words: number;
   tiers: number;
   priceEurCents: number;
+  /** Price before any code was applied, so the app can show the saving. */
+  fullPriceEurCents: number;
+  /** The code that was applied, if one was and it was valid. */
+  appliedCode?: string;
+  /** Set when a code was offered but does not cover a job this size. */
+  codeRejectedReason?: string;
 }
 
 /**
@@ -32,6 +46,7 @@ export interface PriceQuote {
 export function priceJob(
   env: Env,
   input: { estimatedTokens: number; words: number },
+  promo?: PromoTerms | null,
 ): PriceQuote {
   const tokens = Math.max(1, Math.round(input.estimatedTokens));
   const words = Math.max(1, Math.round(input.words));
@@ -41,7 +56,34 @@ export function priceJob(
 
   // Bands are whole: 1 word and 100,000 words are both one band.
   const tiers = Math.max(1, Math.ceil(words / bandWords));
-  const priceEurCents = tiers * bandCents;
+  const fullPriceEurCents = tiers * bandCents;
 
-  return { tokens, words, tiers, priceEurCents };
+  if (!promo) {
+    return { tokens, words, tiers, priceEurCents: fullPriceEurCents, fullPriceEurCents };
+  }
+
+  // A code may cap the size it will pay for, so "free trial" can mean "free up
+  // to 5,000 words" without minting an unbounded credential. Over the cap the
+  // code simply does not apply — the author still gets a price rather than an
+  // error, and is told why.
+  if (promo.maxWords != null && words > promo.maxWords) {
+    return {
+      tokens, words, tiers,
+      priceEurCents: fullPriceEurCents,
+      fullPriceEurCents,
+      codeRejectedReason: `${promo.code} covers up to ${promo.maxWords.toLocaleString("en")} words; this job is ${words.toLocaleString("en")}.`,
+    };
+  }
+
+  let cents = fullPriceEurCents;
+  if (promo.discountPct != null) {
+    const pct = Math.min(100, Math.max(0, promo.discountPct));
+    cents = Math.round(cents * (1 - pct / 100));
+  }
+  if (promo.discountCents != null) cents -= promo.discountCents;
+  const priceEurCents = Math.max(0, cents);
+
+  return {
+    tokens, words, tiers, priceEurCents, fullPriceEurCents, appliedCode: promo.code,
+  };
 }

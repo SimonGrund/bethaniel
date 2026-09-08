@@ -2109,6 +2109,8 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         estimatedTokens: estimate.estimatedTotalTokens,
+        // Priced by size; the code (if any) is validated Worker-side.
+        code: typeof req.body?.code === "string" ? req.body.code : undefined,
         // The cloud prices by manuscript size; tokens now only size the ledger.
         words: estimate.totalWords,
       }),

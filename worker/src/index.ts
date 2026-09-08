@@ -11,6 +11,8 @@ import type { Env } from "./env";
 import { priceJob } from "./quote";
 import {
   insertQuote,
+  findPromo,
+  redeemPromo,
   findQuote,
   insertCredential,
   findCredentialByStripeSession,
@@ -49,9 +51,10 @@ export default {
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
-        const { estimatedTokens, words } = (await request.json()) as {
+        const { estimatedTokens, words, code } = (await request.json()) as {
           estimatedTokens: number;
           words?: number;
+          code?: string;
         };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
           return json({ error: "estimatedTokens must be a positive number" }, 400);
@@ -87,15 +90,43 @@ export default {
             413,
           );
         }
-        const quote = priceJob(env, { estimatedTokens, words: words ?? 1 });
+        // A code is looked up but NOT consumed here: quoting a price must not
+        // spend a single-use code, or an author who asks twice loses it. The
+        // use is taken at /v1/checkout, atomically.
+        const promoRow = code ? await findPromo(env, code) : null;
+        const quote = priceJob(
+          env,
+          { estimatedTokens, words: words ?? 1 },
+          promoRow
+            ? {
+                code: promoRow.code,
+                discountPct: promoRow.discount_pct,
+                discountCents: promoRow.discount_cents,
+                maxWords: promoRow.max_words,
+              }
+            : null,
+        );
         const quoteId = crypto.randomUUID();
-        await insertQuote(env, quoteId, quote.tokens, quote.priceEurCents);
+        await insertQuote(
+          env,
+          quoteId,
+          quote.tokens,
+          quote.priceEurCents,
+          quote.appliedCode ?? null,
+        );
         return json({
           quoteId,
           tokens: quote.tokens,
           words: quote.words,
           tiers: quote.tiers,
           priceEurCents: quote.priceEurCents,
+          fullPriceEurCents: quote.fullPriceEurCents,
+          appliedCode: quote.appliedCode,
+          // Set when a code was offered and does not cover a job this size.
+          // The author still gets a price; this says why it is not discounted.
+          codeRejectedReason: quote.codeRejectedReason,
+          // A code that was sent but matched nothing at all.
+          codeUnknown: code && !promoRow ? true : undefined,
         });
       }
 
@@ -103,15 +134,88 @@ export default {
         const { quoteId } = (await request.json()) as { quoteId: string };
         const quote = await findQuote(env, quoteId);
         if (!quote) return json({ error: "Quote not found or expired — get a new price" }, 404);
+
+        // The ceiling, computed once and shared by both paths below.
+        const tokenBudget = Math.ceil(
+          quote.estimated_tokens * (Number(env.TOKEN_BUDGET_HEADROOM) || 1.5),
+        );
+
+        // A code that brings the price to zero skips Stripe entirely: there is
+        // no payment to take, and Stripe will not create a session for zero.
+        // The credential is minted here instead of in the webhook, which is the
+        // only place these two paths differ.
+        if (quote.price_eur_cents === 0) {
+          // Redeem FIRST. The UPDATE carries its own guard, so two requests
+          // racing on the last use of a code cannot both mint: the loser
+          // matches no rows and is told the code is spent.
+          const redeemed = quote.promo_code
+            ? await redeemPromo(env, quote.promo_code)
+            : false;
+          if (!redeemed) {
+            return json(
+              {
+                error:
+                  "That code has already been used, or expired while you were deciding. Ask for a new price.",
+              },
+              409,
+            );
+          }
+
+          const token = generateCredentialToken();
+          const tokenHash = await hashToken(token);
+          const expiresAt = new Date(
+            Date.now() + Number(env.CREDENTIAL_EXPIRY_DAYS) * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          // No Stripe session exists, but the column is UNIQUE and NOT NULL and
+          // is what makes webhook delivery idempotent. A synthetic id keyed to
+          // the quote preserves both: replaying this endpoint with the same
+          // quote collides instead of minting twice.
+          const syntheticSessionId = `promo_${quote.id}`;
+          const already = await findCredentialByStripeSession(env, syntheticSessionId);
+          if (already) {
+            return json({ error: "This quote has already been claimed" }, 409);
+          }
+          await insertCredential(env, {
+            id: crypto.randomUUID(),
+            tokenHash,
+            stripeSessionId: syntheticSessionId,
+            tokenBudget,
+            expiresAt,
+            customerEmail: null,
+          });
+          const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);
+          const ledger = env.CREDENTIAL_LEDGER.get(ledgerId);
+          await ledger.fetch("https://ledger/init", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ budgetTotal: tokenBudget, expiresAt }),
+          });
+          await insertPendingClaim(env, syntheticSessionId, token, tokenBudget);
+          // Same shape the app already handles after a paid checkout.
+          return json({
+            checkoutUrl: `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/success?session_id=${syntheticSessionId}`,
+            free: true,
+          });
+        }
+
+        // A partial discount still goes through Stripe at the reduced amount,
+        // and the code is spent only once that session is created.
+        if (quote.promo_code) {
+          const redeemed = await redeemPromo(env, quote.promo_code);
+          if (!redeemed) {
+            return json(
+              {
+                error:
+                  "That code has already been used, or expired while you were deciding. Ask for a new price.",
+              },
+              409,
+            );
+          }
+        }
+
         const session = await createCheckoutSession(env, {
           quoteId: quote.id,
-          // Sized from the ESTIMATE, with headroom, and no longer related to
-          // what was paid. Under cost-plus the two moved together; under band
-          // pricing they do not, so an under-estimate would otherwise cut a
-          // paid job off partway with no larger budget to fall back on.
-          tokenBudget: Math.ceil(
-            quote.estimated_tokens * (Number(env.TOKEN_BUDGET_HEADROOM) || 1.5),
-          ),
+          tokenBudget,
           amountCents: quote.price_eur_cents,
         });
         return json({ checkoutUrl: session.url });
