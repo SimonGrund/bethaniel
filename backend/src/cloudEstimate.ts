@@ -14,6 +14,8 @@
 // than this formula assumes.
 
 import { estimateTokens } from "./llm.js";
+import { MODEL_CATALOG } from "./modelCatalog.js";
+import { RUN_MODE_PRESETS, type RunModeKnobs } from "./runModePresets.js";
 import {
   buildCopyEditCorrectionsPrompt,
   buildLineEditCorrectionsPrompt,
@@ -97,9 +99,6 @@ export interface CloudEstimateInput {
   wordsPerChunk: number;
   runMode: "speed" | "custom";
   reviewMode: boolean;
-  reviewerCount: number;
-  dualEditor: boolean;
-  dualCount: number;
   styleComplianceAgent: boolean;
   extraPass: boolean;
   /** Model's configured output cap — drives the assumed-output-fraction math. */
@@ -112,18 +111,20 @@ export interface CloudEstimateResult {
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
   estimatedTotalTokens: number;
+  /** Words across every unit. The cloud prices by size, not by tokens. */
+  totalWords: number;
   confidence: "estimate" | "lower_bound";
   perMode: Record<string, { inputTokens: number; outputTokens: number }>;
 }
 
 /** Editor calls per chunk for the corrections modes, mirroring runModePresets.ts. */
 function editorCallsPerChunk(input: CloudEstimateInput): number {
-  const base = input.dualEditor ? Math.max(1, input.dualCount) : 1;
+  const base = 1; // one editor pass; see the note in queue.ts
   return base + (input.styleComplianceAgent ? 1 : 0);
 }
 
 function reviewerCallsPerChunk(input: CloudEstimateInput): number {
-  return input.reviewMode ? Math.max(0, input.reviewerCount) : 0;
+  return input.reviewMode ? 1 : 0; // one reviewer agent
 }
 
 function correctionsModeSystemPromptTokens(
@@ -354,7 +355,61 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     estimatedInputTokens,
     estimatedOutputTokens,
     estimatedTotalTokens: estimatedInputTokens + estimatedOutputTokens,
+    totalWords: input.units.reduce((sum, u) => sum + u.wordCount, 0),
     confidence,
     perMode,
   };
+}
+
+/** Betty in the Cloud always runs the Speed preset.
+ *
+ *  The Max preset was retired because benchmarking showed it did not earn its
+ *  cost, but "custom" still exposes 4 editors + a style agent + 4 reviewers +
+ *  a second pass. On a cloud job those knobs are not the user's to spend:
+ *  they multiply what Bethaniel pays upstream ~6x (a 100k-word manuscript
+ *  goes from 1.2M tokens to 7.1M) for output the benchmarks say is no better.
+ *
+ *  Forced here rather than in the UI because this is the only place both the
+ *  price quote and the actual run pass through — a client that sent its own
+ *  knobs could otherwise be quoted a Speed price and then run a custom job.
+ *  Returns null for every other model, leaving local/BYO-key runs untouched:
+ *  there the compute is the user's own to spend however they like. */
+export function cloudRunKnobs(model: unknown): RunModeKnobs | null {
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  return model === cloudEntry?.fileName ? RUN_MODE_PRESETS.speed : null;
+}
+
+// ── What Betty in the Cloud is allowed to run ──
+//
+// Only the modes whose cloud behaviour has actually been tested. Developmental
+// editing and the story-analysis family are deliberately excluded: they are
+// long-context, whole-book passes whose output quality and token cost have not
+// been validated against a cloud model, and selling an untested pass is worse
+// than not offering it. Widen this list once each has been benchmarked.
+//
+// "Final readthrough" is a two-mode selection in the UI (proofread +
+// publication_scan), so both are listed; publication_scan is deterministic and
+// costs no tokens, but it must not be *rejected* when it arrives alongside a
+// proofread.
+export const CLOUD_ALLOWED_MODES: readonly string[] = [
+  "copy_edit",
+  "line_edit",
+  "combined_edit",
+  "proofread",
+  "publication_scan",
+  "translate",
+];
+
+/** Split a mode selection into what the cloud will run and what it will not.
+ *  Returns `rejected` empty when everything is allowed. */
+export function partitionCloudModes(modes: readonly string[]): {
+  allowed: string[];
+  rejected: string[];
+} {
+  const allowed: string[] = [];
+  const rejected: string[] = [];
+  for (const m of modes) {
+    (CLOUD_ALLOWED_MODES.includes(m) ? allowed : rejected).push(m);
+  }
+  return { allowed, rejected };
 }

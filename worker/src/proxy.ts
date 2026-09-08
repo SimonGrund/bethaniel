@@ -1,6 +1,6 @@
 // ── Metering proxy: /v1/chat/completions ──
 //
-// Bearer-authed by a credential this Worker issued (never a raw Mistral
+// Bearer-authed by a credential this Worker issued (never a raw upstream
 // key). Mirrors the OpenAI-compatible shape Bethaniel's `llm.ts` already
 // speaks to External Betty, so no protocol changes are needed on the app
 // side — only the base URL and credential differ.
@@ -65,7 +65,14 @@ export async function handleChatCompletions(
   // Never trust the client's requested model for billing/routing purposes —
   // always proxy to the one model this credential was priced against.
   const estimatedInputTokens = estimateTokensRough(JSON.stringify(body.messages ?? []));
-  const maxOutputTokens = typeof body.max_tokens === "number" ? body.max_tokens : 4096;
+  // The client's max_tokens is a request, not a promise. Clamped so one call
+  // cannot reserve (and then burn) an arbitrary slice of the daily ceiling.
+  const requestedOutputTokens =
+    typeof body.max_tokens === "number" && body.max_tokens > 0
+      ? body.max_tokens
+      : 4096;
+  const outputCap = Number(env.MAX_OUTPUT_TOKENS_PER_REQUEST) || 8192;
+  const maxOutputTokens = Math.min(requestedOutputTokens, outputCap);
   // Worst-case hold: full estimated input plus the request's own output cap.
   // Sized this way, the sum of all live holds can never exceed the purchased
   // budget — this is what makes the cap real, not probabilistic.
@@ -87,20 +94,112 @@ export async function handleChatCompletions(
       // duplicated in what the user sees.
       return openAiError("Insufficient Balance: this cloud job's paid token budget is used up.", 402);
     }
+    if (reserveRes.status === 429) {
+      // The ledger's own per-credential rate limit, not a problem with the
+      // credential. It must NOT arrive as 401/402/403: backend/src/llm.ts
+      // treats those three as ApiAccountError and refuses to retry, so a
+      // burst of the app's own parallel editor+reviewer agents would fail the
+      // chunk outright and tell the user to go check Model settings, where
+      // there is nothing to find. Any other status is retryable there, and a
+      // rate limit is exactly the case where retrying is the right answer.
+      return openAiError(
+        "Too many requests for this credential — please retry in a moment.",
+        429,
+      );
+    }
     return openAiError("This credential is not currently usable", 403);
   }
   const { reservationId } = (await reserveRes.json()) as { reservationId: string };
 
-  const releaseHold = () =>
-    ledger.fetch("https://ledger/release", {
+  // Second gate: the Worker-wide daily ceiling. The per-credential ledger
+  // above says "this buyer has budget left"; this says "Bethaniel has not
+  // spent more upstream today than it is willing to" — the backstop against
+  // our own runaway loops and against systematic under-pricing. It cannot see
+  // a stolen provider key (that one is used directly against OVHcloud); see
+  // globalMeter.ts for what this does and does not cover.
+  const meter = env.GLOBAL_METER.get(env.GLOBAL_METER.idFromName("global"));
+  const meterRes = await meter.fetch("https://meter/reserve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ holdTokens }),
+  });
+  if (!meterRes.ok) {
+    const detail = (await meterRes.json().catch(() => ({}))) as { reason?: string };
+    // Release the credential's hold — the buyer did nothing wrong and must
+    // not lose budget to our own circuit breaker.
+    await ledger.fetch("https://ledger/release", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reservationId }),
     });
+    console.error(`[proxy] global ceiling refused a request: ${detail.reason}`);
+    // 503, not 402: nothing is wrong with this credential, and a 402 would
+    // tell the user to top up when topping up would not help.
+    return openAiError(
+      "Bethaniel's cloud service has hit its safety limit for today. Your paid budget is untouched — please try again later.",
+      503,
+    );
+  }
+  const { holdId } = (await meterRes.json()) as { holdId: string };
+
+  const releaseHold = async () => {
+    await Promise.all([
+      ledger.fetch("https://ledger/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId }),
+      }),
+      meter.fetch("https://meter/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ holdId }),
+      }),
+    ]);
+  };
+
+  // ── Which model serves this call ──
+  //
+  // The app sends X-Bethaniel-Pass naming the editing pass. It is a HINT: it
+  // selects from models configured here and can never name one itself, so a
+  // wrong or hostile value costs a different allowlisted model for that call
+  // and nothing else. Absent, everything gets PROVIDER_MODEL.
+  //
+  // Translation keeps the large model that copy edit and line edit no longer
+  // need — measured 8 September 2026, it leads chrF by 1.6 overall and 5.0 on
+  // Danish, while being the WORST of four models at line edit. It costs more
+  // per token, which is why it is priced separately.
+  const pass = request.headers.get("X-Bethaniel-Pass");
+  const isTranslate = pass === "translate";
+  const upstreamModel =
+    isTranslate && env.PROVIDER_MODEL_TRANSLATE
+      ? env.PROVIDER_MODEL_TRANSLATE
+      : env.PROVIDER_MODEL;
+  // Only PROVIDER_MODEL is known to reason. The translate model is a Llama,
+  // which rejects nothing but has no chain-of-thought to switch off, so the
+  // field must be omitted for it exactly as it was before this split.
+  const reasoningEffort = isTranslate ? "default" : env.PROVIDER_REASONING_EFFORT;
 
   const upstreamBody = {
     ...body,
-    model: env.MISTRAL_MODEL,
+    model: upstreamModel,
+    // Send the clamped cap, not the client's — otherwise the clamp would only
+    // shrink the accounting hold while the provider still generated the full
+    // requested length.
+    max_tokens: maxOutputTokens,
+    // Whether this field may be sent at all is per-model, so it is config,
+    // not a constant. Three measured behaviours:
+    //   - Llama-3.3-70B (the current model) has no chain-of-thought; the
+    //     field must be OMITTED, which "default" does.
+    //   - Qwen3.5 reasons by default. On a four-sentence copy-edit prompt,
+    //     102 input tokens produced 3,000 completion tokens of pure reasoning,
+    //     `finish_reason: "length"`, and an EMPTY content field — the app's
+    //     JSON parser would have got nothing. "none" brought the same prompt
+    //     down to 209 completion tokens and a valid corrections array.
+    //   - gpt-oss REJECTS an explicit "none" with a 400.
+    // So: "none" for a Qwen model, "default" for everything else so far.
+    ...(reasoningEffort === "default"
+      ? {}
+      : { reasoning_effort: reasoningEffort || "none" }),
     // Without this, a streamed OpenAI-compatible response never carries a
     // token-usage figure at all — the trailing usage chunk is opt-in.
     stream_options: body.stream ? { include_usage: true } : undefined,
@@ -108,11 +207,11 @@ export async function handleChatCompletions(
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${env.MISTRAL_API_BASE}/v1/chat/completions`, {
+    upstream = await fetch(`${env.PROVIDER_API_BASE}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
+        Authorization: `Bearer ${env.PROVIDER_API_KEY}`,
       },
       body: JSON.stringify(upstreamBody),
     });
@@ -134,7 +233,9 @@ export async function handleChatCompletions(
       usage?: { total_tokens?: number };
     } | null;
     const actualTokens = json?.usage?.total_tokens ?? holdTokens;
-    ctx.waitUntil(commitUsage(env, ledger, tokenHash, reservationId, actualTokens));
+    ctx.waitUntil(
+      commitUsage(env, ledger, meter, tokenHash, reservationId, holdId, actualTokens),
+    );
     return new Response(JSON.stringify(json), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -148,7 +249,7 @@ export async function handleChatCompletions(
 
   ctx.waitUntil(
     meterStreamedUsage(accountingStream, holdTokens).then((actualTokens) =>
-      commitUsage(env, ledger, tokenHash, reservationId, actualTokens),
+      commitUsage(env, ledger, meter, tokenHash, reservationId, holdId, actualTokens),
     ),
   );
 
@@ -204,10 +305,19 @@ async function meterStreamedUsage(
 async function commitUsage(
   env: Env,
   ledger: DurableObjectStub,
+  meter: DurableObjectStub,
   tokenHash: string,
   reservationId: string,
+  holdId: string,
   actualTokens: number,
 ): Promise<void> {
+  // Settle the daily ceiling too, or its `reserved` would grow monotonically
+  // and the cap would tighten toward zero over the day.
+  await meter.fetch("https://meter/commit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ holdId, actualTokens }),
+  });
   await ledger.fetch("https://ledger/commit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

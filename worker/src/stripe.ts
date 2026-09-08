@@ -20,10 +20,35 @@ export interface CheckoutSessionResult {
   url: string;
 }
 
+/**
+ * Refuse to charge a real card unless the deployment says so out loud.
+ *
+ * Test and live Stripe keys differ by four characters, both mint sessions
+ * that look alike, and this repo is public — so the natural mistake is to
+ * paste the key sitting at the top of the dashboard (which is the live one)
+ * while walking the flow, and only notice at the payment page. The cost of
+ * that mistake is somebody's actual money.
+ *
+ * The check is deliberately a fail-closed default rather than a warning:
+ * going live is a decision worth writing down in wrangler.toml.
+ */
+export function assertPaymentsAllowed(env: Env): void {
+  if (!env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) return;
+  if (env.ALLOW_LIVE_PAYMENTS === "true") return;
+  throw new Error(
+    "STRIPE_SECRET_KEY is a live key but ALLOW_LIVE_PAYMENTS is not \"true\" — " +
+      "refusing to create a Checkout Session that would charge a real card. " +
+      "Set ALLOW_LIVE_PAYMENTS = \"true\" in wrangler.toml when that is intended.",
+  );
+}
+
 export async function createCheckoutSession(
   env: Env,
   opts: { quoteId: string; tokenBudget: number; amountCents: number },
 ): Promise<CheckoutSessionResult> {
+  // Backstop: every call site is covered even if one forgets the early check.
+  assertPaymentsAllowed(env);
+
   const successUrl = `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/success?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/cancelled`;
 
@@ -60,12 +85,37 @@ export async function createCheckoutSession(
   return { id: session.id, url: session.url };
 }
 
+/**
+ * Reverse a payment in full.
+ *
+ * Idempotency-Key is keyed on the payment intent, so the same refund can
+ * never be issued twice however many times the cron retries — which matters
+ * because the sweep marks the row only after Stripe answers, and a timeout
+ * in between would otherwise refund again on the next run.
+ */
+export async function refundPayment(env: Env, paymentIntentId: string): Promise<void> {
+  const res = await fetch(`${STRIPE_API_BASE}/refunds`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": `refund_${paymentIntentId}`,
+    },
+    body: formEncode({ payment_intent: paymentIntentId, reason: "requested_by_customer" }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Stripe refund failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+}
+
 export interface StripeCheckoutCompletedEvent {
   id: string;
   sessionId: string;
   customerEmail: string | null;
   quoteId: string;
   tokenBudget: number;
+  paymentIntent: string | null;
 }
 
 /** Verify the Stripe-Signature header and, if valid and the event is a
@@ -120,6 +170,7 @@ export async function verifyAndParseStripeWebhook(
         customer_details?: { email?: string | null };
         metadata?: Record<string, string>;
         payment_status?: string;
+        payment_intent?: string | null;
       };
     };
   };
@@ -140,6 +191,7 @@ export async function verifyAndParseStripeWebhook(
     customerEmail: session.customer_details?.email ?? null,
     quoteId,
     tokenBudget,
+    paymentIntent: session.payment_intent ?? null,
   };
 }
 

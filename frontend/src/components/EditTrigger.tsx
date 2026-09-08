@@ -58,13 +58,9 @@ export default function EditTrigger() {
     manuscriptLang,
     reviewMode,
     reviewerThreshold,
-    reviewerCount,
     spellCheck,
     retextCheck,
     grammarCheck,
-    dualEditor,
-    dualCount,
-    characterDedup,
     styleComplianceAgent,
     extraPass,
     runMode,
@@ -179,6 +175,10 @@ export default function EditTrigger() {
     null,
   );
   const [cloudEstimateError, setCloudEstimateError] = useState<string | null>(null);
+  // Typed by the author, validated by the Worker. Kept out of the persisted
+  // store on purpose: a code is single-use, so remembering it across sessions
+  // would show a discount that no longer exists.
+  const [promoCode, setPromoCode] = useState("");
   const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
   const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -208,13 +208,11 @@ export default function EditTrigger() {
         wordsPerChunk,
         runMode,
         reviewMode,
-        reviewerCount,
-        dualEditor,
-        dualCount,
         styleComplianceAgent,
         extraPass,
         styleGuide: styleGuide || undefined,
         manuscriptLang,
+        code: promoCode.trim() || undefined,
       })
         .then((est) => {
           setCloudEstimate(est);
@@ -237,12 +235,10 @@ export default function EditTrigger() {
     selectedChapters.join(","),
     firstNWords,
     selectedModes.join(","),
+    promoCode,
     wordsPerChunk,
     runMode,
     reviewMode,
-    reviewerCount,
-    dualEditor,
-    dualCount,
     styleComplianceAgent,
     extraPass,
     styleGuide,
@@ -338,13 +334,9 @@ export default function EditTrigger() {
         manuscriptLang,
         reviewMode,
         reviewerThreshold,
-        reviewerCount,
         spellCheck,
         retextCheck,
         grammarCheck,
-        dualEditor,
-        dualCount,
-        characterDedup,
         styleComplianceAgent,
         extraPass,
         runMode,
@@ -507,12 +499,23 @@ export default function EditTrigger() {
           </span>
           {cloudEstimate && !cloudCheckoutPending && (
             <span className="btn-run-meta">
-              ≈{cloudEstimate.estimatedTotalTokens.toLocaleString()}{" "}
-              {t("cloud_tokens", "tokens")} · {cloudEstimate.confidence ===
-              "lower_bound"
-                ? "≥"
-                : "≈"}
-              €{(cloudEstimate.priceCents / 100).toFixed(2)}
+              {/* Words, not tokens: the price is a flat band of words, so a
+                  token count described the job by a number that has nothing
+                  to do with what is charged. Both the word count and the
+                  price are exact, so neither carries an approximation mark. */}
+              {(cloudEstimate.totalWords ?? 0).toLocaleString()}{" "}
+              {t("cloud_words", "words")} ·{" "}
+              {cloudEstimate.priceCents === 0 ? (
+                <strong>{t("cloud_free", "Free")}</strong>
+              ) : cloudEstimate.fullPriceCents &&
+                cloudEstimate.fullPriceCents > cloudEstimate.priceCents ? (
+                <>
+                  <s>€{(cloudEstimate.fullPriceCents / 100).toFixed(2)}</s>{" "}
+                  <strong>€{(cloudEstimate.priceCents / 100).toFixed(2)}</strong>
+                </>
+              ) : (
+                <>€{(cloudEstimate.priceCents / 100).toFixed(2)}</>
+              )}
             </span>
           )}
           {cloudEstimateError && !cloudEstimate && (
@@ -522,6 +525,89 @@ export default function EditTrigger() {
           )}
         </button>
       )}
+        {/* A code is optional and rarely used, so it sits under the button
+            rather than competing with it. Feedback is inline: an unknown or
+            unusable code never blocks the run, it just does not discount it. */}
+        <label className="cloud-code">
+          <span className="cloud-code-label">
+            {t("cloud_code_label", "Have a code?")}
+          </span>
+          <input
+            type="text"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value)}
+            placeholder={t("cloud_code_placeholder", "e.g. LAUNCH50")}
+            spellCheck={false}
+            autoCapitalize="characters"
+            className="cloud-code-input"
+          />
+        </label>
+        {cloudEstimate?.appliedCode && (
+          <span className="cloud-code-note cloud-code-ok">
+            {t(
+              "cloud_code_applied",
+              `${cloudEstimate.appliedCode} applied`,
+            )}
+          </span>
+        )}
+        {cloudEstimate?.codeRejectedReason && (
+          <span className="cloud-code-note cloud-code-warn">
+            {cloudEstimate.codeRejectedReason}
+          </span>
+        )}
+        {cloudEstimate?.codeUnknown && (
+          <span className="cloud-code-note cloud-code-warn">
+            {t("cloud_code_unknown", "That code was not recognised.")}
+          </span>
+        )}
+        {/* What the paid option is and is not. Collapsed by default so it does
+            not shout at someone who has already decided, but present before
+            payment rather than after it — the headline is that this is not a
+            better editor than the one already on their machine, which is the
+            one thing a buyer would otherwise reasonably assume. */}
+        <details className="cloud-expect">
+          <summary>
+            {t("cloud_expect_summary", "What to expect from a cloud run")}
+          </summary>
+          <ul className="cloud-expect-list">
+            <li>
+              {t(
+                "cloud_expect_quality",
+                "For copy editing, the models that run on your own machine are better — 64% of planted errors found against 56% in the cloud, measured across four languages. The cloud exists for computers that cannot run a model locally, not to buy a better copy edit.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_spelling",
+                "Spelling is the strongest part everywhere: 85–95% of misspellings found, and nearly every one of the rest is at least flagged for you to look at.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_commas",
+                "Commas are the weakest: between 11% and 70% depending on the language. Treat comma suggestions as prompts, and plan a human pass if commas matter to you.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_noise",
+                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain. Nothing is applied without you.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_translation",
+                "Translation and line editing are where the cloud earns its cost: translation runs on a much larger model, and both come out ahead of the local ones.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_privacy",
+                "Your manuscript is sent to Bethaniel's service for this job. Local runs never leave your machine.",
+              )}
+            </li>
+          </ul>
+        </details>
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}

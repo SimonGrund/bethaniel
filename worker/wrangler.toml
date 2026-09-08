@@ -1,6 +1,6 @@
 name = "bethaniel-cloud"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Custom domain / route — point this at cloud.bethaniel.eu (or whatever
@@ -12,34 +12,198 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bethaniel-cloud"
-database_id = "REPLACE_WITH_D1_DATABASE_ID" # `wrangler d1 create bethaniel-cloud`
+database_id = "5a1f9f20-d04b-47a7-9679-d637266e4859" # `wrangler d1 create bethaniel-cloud`
 
 [[durable_objects.bindings]]
 name = "CREDENTIAL_LEDGER"
 class_name = "CredentialLedger"
 
+[[durable_objects.bindings]]
+name = "GLOBAL_METER"
+class_name = "GlobalMeter"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CredentialLedger"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["GlobalMeter"]
+
+# Per-IP limiter for /v1/quote and /v1/checkout — the two endpoints that take
+# no credential yet write to D1 and call Stripe. This repo is public, so the
+# URL below is too; without a limit, a loop against it exhausts the daily D1
+# write quota. 30/minute is far above any real author and far below a script.
+#
+# namespace_id is an arbitrary label scoped to this Worker, not an account
+# resource to create — changing it resets the counters.
+[[unsafe.bindings]]
+name = "IP_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
 
 [triggers]
 crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 
 [vars]
-# Non-secret tuning knobs. Secrets (MISTRAL_API_KEY, STRIPE_SECRET_KEY,
+# Non-secret tuning knobs. Secrets (PROVIDER_API_KEY, STRIPE_SECRET_KEY,
 # STRIPE_WEBHOOK_SECRET) are set via `wrangler secret put <NAME>` and must
 # never appear here.
-MISTRAL_MODEL = "mistral-large-latest"
-MISTRAL_API_BASE = "https://api.mistral.ai"
-# Blended EUR cost per token across input+output, calibrated to Bethaniel's
-# actual input-heavy workload (full chunk sent, short JSON corrections back)
-# against Mistral's list price. Revisit once real usage data exists.
-BASE_COST_EUR_PER_TOKEN = "0.0000045"
-# Company markup — 50-100% range; 0.75 sits at the middle.
-MARKUP_MULTIPLIER = "1.75"
+# OVHcloud AI Endpoints: EU-sovereign, zero data retention by default (only
+# billing data is kept), and OpenAI-compatible — proxy.ts appends
+# /v1/chat/completions to the base below.
+#
+# Qwen3.5-9B, not the Llama-3.3-70B that was here before, and not the
+# Qwen3.5-397B-A17B before that. Each swap came from the same finding: for
+# copy-editing, size is close to irrelevant and the money goes on nothing.
+#
+# Measured 8 September 2026, all four models on ONE harness at identical
+# settings (one editor, one reviewer, one request at a time), four languages
+# of ~100 planted errors each:
+#
+#                       copy edit   line edit   translation (chrF)
+#   Baby Betty 4B          60%         52%           75.8
+#   Big Bad Betty 9B       60%         49%           76.5
+#   Llama-3.3-70B          60%         24%           78.3
+#   Qwen3.5-9B             59%         52%           76.7
+#
+# Copy edit is a four-way tie inside one point. On LINE edit the 70B was the
+# worst of the four by a wide margin — less than half the free bundled model —
+# and the 9B ties the best. The 70B leads only translation, by 1.6 chrF
+# overall and 5.0 on Danish, which is the one thing lost by this change.
+#
+# Qwen3.5-9B is a REASONING model on this endpoint: left alone it spends every
+# completion token on hidden chain-of-thought and returns content: null. llm.ts
+# sends reasoning_effort: "none" for models observed to do that, which is what
+# makes it usable here at all — see the note there before changing it.
+#
+# NOTE: switching models here is not enough on its own. `wrangler dev` does
+# NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
+# the old model while believing you changed it.
+PROVIDER_MODEL = "Qwen3.5-9B"
+# Translation is the one pass where size still pays, so it keeps the model the
+# rest of the product no longer needs. Measured 8 September 2026, chrF against
+# human reference translations: Llama-3.3-70B 78.3 against Qwen3.5-9B's 76.7
+# overall, and 80.9 against 75.9 on Danish — a five-point gap in the language
+# where the 70B is otherwise the WORST model of the four. Copy edit and line
+# edit see no such gain, which is why they moved.
+#
+# Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
+PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
+PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+# DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
+#
+# It no longer sets any price. Since pricing moved to flat word bands, the
+# only thing this feeds is globalMeter.ts's reading of the daily ceiling in
+# money. Qwen3.5-9B is a far smaller model and OVHcloud prices the Qwen family
+# SPLIT (input and output at different rates), so the true figure is both much
+# lower and a blend rather than a flat rate.
+#
+# Kept high on purpose. Over-estimating the cost per token makes the daily
+# ceiling bite EARLIER than the real spend warrants — the cap stops work
+# sooner, never later, which is the safe direction for a bound whose whole job
+# is to stop runaway spending. The cost is that DAILY_TOKEN_CEILING's
+# EUR-per-day reading is now an upper bound rather than an estimate: real
+# editing spend is roughly a quarter of what this implies.
+#
+# Replace it with the blended Qwen3.5-9B rate (at the measured 76.6% input mix)
+# whenever the real numbers are to hand, and the ceiling becomes accurate
+# rather than merely safe.
+BASE_COST_EUR_PER_TOKEN = "0.00000067"
+# The translation model's rate. Meta-Llama-3_3-70B-Instruct is priced FLAT by
+# OVHcloud at EUR 0.67/Mtok, input and output alike, so this one IS exact —
+# it is the figure the line above used to be before the model beneath it
+# changed.
+BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.00000067"
+# ── Price: flat bands of words, not cost-plus ──
+#
+# One band of PRICE_TIER_WORDS costs PRICE_TIER_EUR_CENTS; two bands cost
+# double, and so on. A 100,000-word novel and a 3,000-word story both sit in
+# band one and pay the same.
+#
+# Cost-plus was abandoned because the costs are too small to bill. Measured
+# against the app's own estimator, 100,000 words is ~1.07M tokens for a copy
+# edit and ~1.61M for a translation — EUR 0.16 and EUR 0.24 on the models this
+# Worker serves. That is a bill dominated by Stripe's fixed fee, and a number
+# no author can predict. A band is predictable and still leaves comfortable
+# margin: the dearest case, translation on the 70B, costs ~EUR 1.08 in a band
+# sold for EUR 5.
+#
+# Note the floor this creates: band one is the minimum, so a 3,000-word short
+# story pays EUR 5. That is the deliberate trade for a price anyone can work
+# out in their head.
+PRICE_TIER_WORDS = "100000"
+PRICE_TIER_EUR_CENTS = "500"
+
+# Kept for the cost model in globalMeter.ts, which still reasons in tokens.
+# No longer used to compute a price.
+# Company markup — 3x the blended provider cost.
+MARKUP_MULTIPLIER = "3"
 # Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
 STRIPE_PCT_FEE = "0.015"
 STRIPE_FIXED_FEE_EUR = "0.25"
+# Superseded by PRICE_TIER_EUR_CENTS, which is itself the floor — band one is
+# the smallest thing anyone can buy. Left in place because older deployments
+# still read it; it can never bind while it sits below a band.
 MIN_CHARGE_EUR_CENTS = "200"
+# How much room a credential gets above the estimate that priced it. Under
+# cost-plus a bigger job cost more and so bought a bigger ceiling; under band
+# pricing the price is flat, so the ceiling comes from the estimate alone —
+# and an estimate that runs low would otherwise strand a paid job
+# mid-manuscript. The global daily ceiling still bounds total exposure.
+TOKEN_BUDGET_HEADROOM = "1.5"
 CREDENTIAL_EXPIRY_DAYS = "7"
-CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
+# The Worker's OWN origin — it hosts /v1/success, which is where Stripe sends
+# the buyer and where the bethaniel:// credential handoff happens. Must change
+# in lockstep with the `routes` line at the top: point that at a real domain
+# and leave this on workers.dev, and every paid checkout dead-ends on a page
+# the deployed Worker no longer answers.
+CHECKOUT_SUCCESS_URL_BASE = "https://bethaniel-cloud.cloudwatcher.workers.dev"
+
+# Fail-closed switch on real money. An sk_live_ key is refused unless this is
+# the exact string "true" — see assertPaymentsAllowed in src/stripe.ts. Flip it
+# in the same commit that swaps the key, never before.
+ALLOW_LIVE_PAYMENTS = "false"
+
+# ── Safety limits ──
+# OVHcloud offers budget *alerts* but no hard spending cap, and an
+# authenticated key may send 400 requests/minute per project per model —
+# roughly EUR 187/hour at a representative Bethaniel chunk. These are
+# therefore the only real ceilings that exist. See src/globalMeter.ts.
+#
+# Worker-wide tokens per UTC day (~EUR 10 of upstream cost at the flat rate
+# above — it was ~EUR 23 on the old, dearer model; the token ceiling is left
+# where it was, so the euro exposure simply halved). Cloud jobs are forced to the Speed preset server-side
+# (cloudRunKnobs in backend/src/cloudEstimate.ts), so the largest single job
+# is bounded: a 400k-word manuscript is 4.98M tokens. This leaves room for
+# ~3 of those in a day, or a dozen ordinary 100k-word ones.
+#
+# Must stay at or above MAX_QUOTE_TOKENS, or we could sell a job we then
+# refuse to run — /v1/quote enforces that relationship at runtime rather than
+# trusting this comment.
+#
+# A value of 0 or an unparseable one fails CLOSED (every request refused),
+# never open.
+DAILY_TOKEN_CEILING = "15000000"
+# No single call may reserve or generate more than this, whatever it asks for.
+MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
+# Upper bound on an unauthenticated /v1/quote, so nobody can mint a Checkout
+# Session for an absurd sum. 8M is ~1.6x the largest job anyone can actually
+# buy (a 400k-word manuscript at Speed, 4.98M). An anti-nonsense bound, not a
+# product limit — real jobs must never reach it.
+MAX_QUOTE_TOKENS = "8000000"
+# "none" because PROVIDER_MODEL is a Qwen model, which reasons by default and
+# will otherwise burn the whole output budget thinking and return empty
+# content — measured in src/proxy.ts, and measured again on 8 September 2026
+# when the same behaviour reached a paid line-edit run through the direct API
+# path and cost it every LLM correction.
+#
+# "default" omits the field, which is what a non-reasoning model wants:
+# Llama-3.3-70B has no chain-of-thought to switch off, and gpt-oss rejects an
+# explicit "none" with a 400. Set it back to "default" if PROVIDER_MODEL ever
+# returns to a non-reasoning model.
+#
+# PROVIDER_MODEL_TRANSLATE is exempt: it is a Llama model and is sent without
+# the field, handled in src/proxy.ts.
+PROVIDER_REASONING_EFFORT = "none"

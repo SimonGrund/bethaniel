@@ -75,8 +75,12 @@ export function renderSuccessPage(sessionId: string): string {
   </div>
 
   <p class="error" id="error-text">
-    Something went wrong activating your credit. If you were charged, contact
-    support with this reference: <code>${escapedSessionId}</code>
+    Something went wrong activating your credit. Your payment went through, so
+    nothing is lost — email
+    <a href="mailto:simon@bethaniel.eu?subject=Betty%20in%20the%20Cloud%20—%20activation%20failed">simon@bethaniel.eu</a>
+    with the reference below and you will get either your credit or your money
+    back. Unused credit is refunded automatically when it expires.
+    <br /><code>${escapedSessionId}</code>
   </p>
 
 <script>
