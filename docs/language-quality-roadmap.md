@@ -27,35 +27,86 @@ Headline: recall 47–68%, precision 31–79%, clean-text false positives 0–13
 
 ## Where it stands now
 
-Same fixtures, same two repeats, after every fix in **Done** below —
-including the Hunspell swap and the German proper-noun fix.
+Measured 8 September 2026, **one request at a time** — see the method note
+before comparing any of this with an older number. Copy edit, four languages,
+all four models on identical settings.
+
+| Language | Baby Betty 4B | Big Bad Betty 9B | Cloud 70B | Cloud 9B |
+|---|---|---|---|---|
+| English | 68 / 76 | 67 / 74 | 78 / 74 | **80 / 79** |
+| Danish | **54 / 86** | 49 / 72 | 39 / 85 | 35 / 83 |
+| German | 58 / 69 | 63 / 77 | 65 / 78 | **68 / 73** |
+| Spanish | **61 / 75** | 61 / 78 | 57 / 79 | 59 / 77 |
+| **Mean recall** | 60 | 60 | 60 | 59 |
+
+Recall / precision. **All four models are within one point of each other on
+the mean.** Size is close to irrelevant for copy editing; the per-language
+split is where every real difference lives, which is the argument for keeping
+this table split rather than reporting a headline.
+
+Line edit tells a different story, and it is the one place model choice
+matters: Cloud 9B and Baby Betty both reach 52% mean recall, Big Bad Betty
+49%, and the Llama-70B **24%** — less than half the free bundled model.
+Translation is the mirror image: the 70B leads on chrF (78.3 against 76.7)
+and by 5.0 points on Danish, which is its *worst* language for copy edit.
+That split is why the cloud now runs Qwen3.5-9B for editing and keeps the
+70B for translation alone.
+
+By error type, copy edit, the bundled models:
 
 | Error type | English | Danish | German | Spanish |
 |---|---|---|---|---|
-| Misspelling | 94 / 94 | 81 / 81 | 68 / 68 | 91 / 95 |
-| Wrong word | 60 / 67 | 46 / **23** | 54 / 62 | 92 / 92 |
-| Comma | **30 / 30** | **21 / 17** | 54 / 68 | **3 / 5** |
-| Capitalization | 29 / 71 | 80 / 70 | 79 / 93 | 80 / 100 |
-| Duplicated word | 100 / 100 | 67 / 67 | 100 / 100 | 100 / 100 |
-| **Recall** | 56 / 60 | 42 / 41 | 67 / 72 | 59 / 63 |
-| **Precision** | 71 / 72 | 80 / 77 | 70 / 82 | 78 / 79 |
-| **Clean-text FPs** | 1 / 1 | 0 / 2 | 0 / 1 | 3 / 1 |
+| Misspelling | 94 / 94 | 88 / 85 | **47 / 47** | 88 / 88 |
+| Wrong word | 80 / 73 | **23 / 23** | 38 / 46 | 92 / 92 |
+| Comma | **35 / 38** | **34 / 30** | 57 / 70 | **11 / 11** |
 
-Run scorecard: **46 for both models**. Precision is now 70–82% in every
-language against 31–79% at baseline, and clean-text false positives are 0–3
-against 0–131. The remaining missed-error pool is 176, of which **115 (65%)
-are commas**.
+Three things in that table are worth naming rather than averaging away:
 
-Two results in that table are worth naming rather than averaging away:
-
-- **Big Bad Betty is worse than Baby Betty at Danish wrong words** — 46 → 23,
-  the only place either model halves the other. It is also ahead on
-  capitalization in three languages and on German commas. A single headline
-  number hides both directions, which is the argument for keeping this split.
-- **English capitalization (29/71)** is still the fixture artifact documented
-  under §2 below, not a defect. It has not been re-planted.
+- **Commas are still the largest hole**, and the largest planted category in
+  every fixture. Spanish at 11% is the worst cell on the page.
+- **German misspelling has regressed**, and §3 below is now a description of
+  that rather than a fix. It also no longer differs between the two models,
+  which is itself the clue.
+- **Danish wrong words are all-or-nothing.** Across four languages and every
+  model there was not one case where a wrong word was flagged in the right
+  place with the wrong replacement: if it notices, it is right. That makes a
+  Danish miss invisible — no flag for the author to review — which is the one
+  failure mode the human-in-the-loop design cannot catch.
 
 ## Done
+
+**8 September 2026 — the harness itself.** The benchmark now runs one request
+at a time by default. Everything below this line that predates it was measured
+with ±20 points of batching noise; see the method note.
+
+**A dictionary is not an opinion.** The precision pass deleted any correction
+it scored below threshold, including the deterministic layer's. It now
+annotates rather than deletes: nothing is removed, and what it doubts arrives
+flagged. Deletion is the only irreversible act in a pipeline a human reads,
+and unmarked false positives on clean text stayed flat at 2 across every
+setting while recall rose 54→60%.
+
+**The agent fan-out never produced a second opinion.** Two to four editor
+agents and N reviewers all ran the same prompt at temperature 0 — and the
+reviewers shared a seed as well — so every extra agent returned a byte-
+identical answer that the union-dedupe collapsed. Measured across four
+languages and three models: one editor and two gave identical output in every
+cell, and one was 15-20% faster. Removed, along with `characterDedup`, which
+was plumbed end to end and read by nothing.
+
+**A capitalised misspelling is not a name.** The proper-noun filter dropped any
+correction changing the letters of a capitalised non-dictionary word — which
+describes every sentence-initial typo, and in German nearly every noun typo
+there is. It discarded 10 of 10 correct German fixes and `Recieve` → `Receive`
+in English.
+
+**A reasoning model is not identified by its name.** Qwen3.5-9B reasons and is
+called none of `reason`, `think` or `r1`, so it received no chain-of-thought
+headroom, spent every completion token thinking and returned `content: null`.
+A paid cloud line-edit run produced nothing but deterministic corrections while
+being billed in full. Detection is now observational, and reasoning is turned
+off rather than paid for.
+
 
 **1. Spanish — LanguageTool rewrote every quotation mark.** `COMILLAS_TIPOGRAFICAS`
 converted `"` to `«»` once per quote: 124 flags on one clean fixture, 248
@@ -180,35 +231,58 @@ merging, the way `scripts/plant-errors.ts` guarantees for the three newer
 fixtures (all three carry zero `other`). Until then English capitalization is
 not comparable with the other three and should not be read as a defect.
 
-### 3. German misspelling — FIXED, and the dictionary was never the problem
+### 3. German misspelling — REGRESSED, and quantisation is the new suspect
 
-Resolved, and the route there is worth recording because the obvious answer was
-wrong twice.
+This section used to say FIXED and record 68 / 68. Both halves need correcting.
 
-**The dictionaries are all already current.** Fetched and compared against
-upstream: German is already hunspell-de_DE_frami, byte-for-byte; Danish is
-already Stavekontrolden 2.9.101; Spanish and English match their upstream
-entry counts exactly. There is no dictionary upgrade available in any language,
-and the earlier recommendation here to try frami was simply wrong.
+**The 68 was inflated by the harness.** It came from a run with several
+requests in flight, where batching moved the same German fixture between 50%
+and 71% on consecutive repeats. Measured one-at-a-time against the commit
+before the spellcheck guard (1fec295), German misspelling recall was **50%
+(4B) and 62% (9B)** — never 68 on both.
 
-**The dictionary rejected all 44 planted German misspellings.** Detection was
-never the problem. `getSpellCorrections` protects a mid-sentence capital
-outright as a probable proper noun — true in English, Danish and Spanish, and
-in German a description of every noun in the language. It discarded 27 of 27
-capitalised planted misspellings before the dictionary was consulted.
+**Against that honest baseline there is still a real regression**, measured
+the same way on both builds:
 
-Fixed by changing the signal for noun-capitalising languages: a mid-sentence
-capital is protected only from its second occurrence, since a character name
-recurs and a typo does not. Measured, Baby Betty:
-
-| | before | after |
+| | 4B | 9B |
 |---|---|---|
-| German misspelling | 49% | **68%** |
-| German wrong word | 54% | 58% |
-| German recall | 59% | **67%** |
-| German clean-text FPs | 0 | 0 |
+| before the guard (1fec295) | 50% | 62% |
+| today | 47% | 47% |
 
-No other language moved, which is what a German-only fix should look like.
+Three points off the small model and **fifteen off the large one**. Overall
+German recall fell 60→58 and 70→63.
+
+The cause is the spellcheck suggestion guard (bee4caa) and the proper-noun
+filter around it. Both were right to exist — the guard stopped `siebzehn-
+zähnige` being rewritten to `siebzehnjährige` on clean prose, and the filter
+was discarding every capitalised misspelling in the language — and both were
+narrowed once already (aa905bd, 6a82614), which recovered most of what the
+first version cost. What remains is the residue.
+
+**The tell is that the two models now agree exactly.** Before the guard they
+differed by twelve points; today both sit at 47%, which is what the
+deterministic layer alone produces. Whatever the model knew about German
+spelling is no longer reaching the author.
+
+**And a new observation points somewhere else entirely.** The *same*
+Qwen3.5-9B, served full-precision in the cloud rather than as a local Q4_K_M
+GGUF, scored **100%** on German misspellings where every quantised local model
+sits at 47%. Same model, same prompt, same pipeline — the difference is the
+quantisation. German compounds are long, unfamiliar and unforgiving of a
+single wrong token, which is exactly where 4-bit weights would degrade first,
+and it would explain why German spelling has been immovable across model sizes
+while responding to nothing in the pipeline.
+
+That is one observation, not a result. Before acting on it: re-run the cloud
+9B on German to confirm it reproduces, then run an unquantised (or Q8) local
+9B on the same fixture. If it holds, the fix for German spelling is not in
+this pipeline at all — it is the quantisation the bundled models ship at, and
+the trade is VRAM against a language.
+
+**The dictionary was never the problem**, and that part of the old section
+stands: all four dictionaries were checked against upstream and are current;
+the German one rejected all 44 planted misspellings. Detection was never the
+weak link. What is fragile is everything between detection and the author.
 
 ### 4. English wrong word (53/67%) — the confusable list is English-first
 
@@ -223,13 +297,30 @@ Cheapest lever: raise `maxSets` (currently 40) for English, or order the sets
 by observed miss rate rather than assumed frequency. Measure before changing —
 a longer hint block costs prompt budget on every chunk.
 
-### 5. Big Bad Betty is not worth its size except on wrong words
+### 5. Size buys nothing for copy editing — settled, with four models
 
-Overall 47 vs 45 on the run scorecard; the 9B leads only on wrong word (Danish
-+21, English +14) and costs ~30% more time and twice the VRAM. If the default
-model choice is ever revisited, that is the trade — and it argues for
-improving the deterministic layers, which help both models equally, over
-recommending the larger one.
+The old version of this section hedged, because it compared two models on a
+noisy harness. With all four measured one-at-a-time on identical settings it
+is not a hedge any more:
+
+| | copy edit | line edit | translation (chrF) |
+|---|---|---|---|
+| Baby Betty 4B | 60% | 52% | 75.8 |
+| Big Bad Betty 9B | 60% | 49% | 76.5 |
+| Llama-3.3-70B | 60% | **24%** | **78.3** |
+| Qwen3.5-9B (cloud) | 59% | 52% | 76.7 |
+
+**Copy edit is a four-way tie inside one point**, from a 4B that runs on a
+laptop to a 70B that costs money per token. **Line edit is where models
+differ**, and there the 70B is the worst of the four by a wide margin. Only
+**translation** rewards size, and it does so consistently.
+
+The product follows the table: the cloud runs Qwen3.5-9B for editing and keeps
+the 70B for translation alone.
+
+The standing conclusion holds and is now better evidenced — effort spent on
+the deterministic layers helps every model equally, and effort spent on a
+bigger model buys almost nothing outside translation.
 
 ## The guard against the next one
 
@@ -267,8 +358,26 @@ dictionary is updated.
 
 ## Method note
 
-Every number above came from `scripts/test-models.ts` against the ~100-error
-fixtures. Before changing a rule, measure it against the ledger bar documented
-in `languageTool.ts`: **zero real errors found, at least one invented**. Two of
-the three fixes above were found by applying that bar to a rule nobody
-suspected.
+Every number above comes from `scripts/test-models.ts` against the ~100-error
+fixtures, run **one request at a time**. That is not a detail — it is what
+makes the numbers mean anything.
+
+Corrections decode greedily (temperature 0), so a run ought to repeat exactly.
+It did not, because with several requests in flight llama.cpp batches them into
+one decode and the batch composition changes the floating-point arithmetic. On
+the German fixture the same configuration scored 50% and 71% on consecutive
+repeats. At one slot, four repeats came back bit-identical, as did five runs
+with different seeds.
+
+**Any figure in this file older than 8 September 2026 carries roughly twenty
+points of that noise** and should not be compared with a current one without
+re-measuring. The 68% that §3 used to report for German is exactly this
+mistake, and it sent a real regression undiagnosed for a week.
+
+The consistency column in the generated report means nothing for copy edit: at
+one slot it is always 100, and the spread it used to show was batching noise
+rather than the model disagreeing with itself. It still means something for
+line edit, which rewrites at the model's configured temperature.
+
+Before changing a rule, measure it against the ledger bar documented in
+`languageTool.ts`: **zero real errors found, at least one invented**.

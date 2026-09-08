@@ -79,20 +79,24 @@ PROVIDER_MODEL = "Qwen3.5-9B"
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
 PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
 PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
-# !!! STALE — THIS IS STILL THE Llama-3.3-70B PRICE !!!
+# DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
 #
-# EUR 0.67/Mtok was OVHcloud's FLAT rate for Meta-Llama-3_3-70B-Instruct,
-# input and output alike. Qwen3.5-9B is a much smaller model and OVHcloud
-# prices the Qwen family SPLIT — different input and output rates — so this
-# number is both too high and the wrong shape: it needs a blend over the real
-# input/output mix (a real run measured 76.6% input), not a single flat rate.
+# It no longer sets any price. Since pricing moved to flat word bands, the
+# only thing this feeds is globalMeter.ts's reading of the daily ceiling in
+# money. Qwen3.5-9B is a far smaller model and OVHcloud prices the Qwen family
+# SPLIT (input and output at different rates), so the true figure is both much
+# lower and a blend rather than a flat rate.
 #
-# Left deliberately unchanged rather than guessed at, because this constant
-# is what a customer is charged: MARKUP_MULTIPLIER is applied on top of it.
-# Too high only overcharges rather than losing money, which is why shipping
-# the swap with a stale price is survivable for a moment and not acceptable
-# for a release. Set it from OVHcloud's published Qwen3.5-9B rates before
-# deploying, and verify against a real invoice.
+# Kept high on purpose. Over-estimating the cost per token makes the daily
+# ceiling bite EARLIER than the real spend warrants — the cap stops work
+# sooner, never later, which is the safe direction for a bound whose whole job
+# is to stop runaway spending. The cost is that DAILY_TOKEN_CEILING's
+# EUR-per-day reading is now an upper bound rather than an estimate: real
+# editing spend is roughly a quarter of what this implies.
+#
+# Replace it with the blended Qwen3.5-9B rate (at the measured 76.6% input mix)
+# whenever the real numbers are to hand, and the ceiling becomes accurate
+# rather than merely safe.
 BASE_COST_EUR_PER_TOKEN = "0.00000067"
 # The translation model's rate. Meta-Llama-3_3-70B-Instruct is priced FLAT by
 # OVHcloud at EUR 0.67/Mtok, input and output alike, so this one IS exact —
