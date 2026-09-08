@@ -176,6 +176,9 @@ function parseMaxParallel(): number | null {
 // ranged 50%-71% recall. Every effect worth chasing is smaller than that.
 // Pass --parallel-auto for the backend's own recommendation (faster, and what
 // a real run uses) when throughput matters more than a comparable number.
+// The raw flag, before the local-only default is applied. API models ignore
+// the default but still honour an explicit --max-parallel.
+const EXPLICIT_MAX_PARALLEL = parseMaxParallel();
 const MAX_PARALLEL =
   parseMaxParallel() ?? (process.argv.includes("--parallel-auto") ? null : 1);
 
@@ -637,8 +640,20 @@ async function main() {
     } catch {
       // Fallback to 1 if endpoint unavailable
     }
-    if (MAX_PARALLEL !== null && MAX_PARALLEL < recommendedParallel) {
+    // The one-slot default exists to stop llama.cpp batching several local
+    // requests into one decode, which changes the floating-point arithmetic
+    // and made the same fixture score 50% and 71% on consecutive repeats.
+    // None of that applies to an API model: the provider batches on its own
+    // side whatever we do, so capping it to one slot buys no reproducibility
+    // and costs an order of magnitude in wall time (the backend recommends 12
+    // for API entries, limited by rate limits rather than hardware).
+    const isApiModel = model.startsWith("custom:");
+    if (!isApiModel && MAX_PARALLEL !== null && MAX_PARALLEL < recommendedParallel) {
       recommendedParallel = MAX_PARALLEL;
+    } else if (isApiModel && EXPLICIT_MAX_PARALLEL !== null && EXPLICIT_MAX_PARALLEL < recommendedParallel) {
+      // An explicit --max-parallel is still honoured for API models, so a
+      // provider's rate limit can be respected on purpose.
+      recommendedParallel = EXPLICIT_MAX_PARALLEL;
     }
     console.log(`  Parallel slots: ${recommendedParallel}`);
 
