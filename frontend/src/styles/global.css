@@ -6359,3 +6359,35 @@ summary.review-source::before {
 .cloud-code-warn {
   color: #b08830;
 }
+
+/* ── Cloud expectations ──
+   Collapsed by default so it does not shout at someone who has already decided,
+   but it sits before payment rather than after it. The first line is the one a
+   buyer would otherwise assume wrongly: paying does not buy a better edit. */
+.cloud-expect {
+  margin-top: 0.5rem;
+  font-size: 0.79rem;
+  color: #8a7a5c;
+  max-width: 34rem;
+}
+.cloud-expect summary {
+  cursor: pointer;
+  padding: 0.15rem 0;
+  color: #7a6a4c;
+}
+.cloud-expect summary:focus-visible {
+  outline: 2px solid #b08830;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.cloud-expect-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.5;
+}
+.cloud-expect-list li::marker {
+  color: #c9b896;
+}

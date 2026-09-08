@@ -560,6 +560,54 @@ export default function EditTrigger() {
             {t("cloud_code_unknown", "That code was not recognised.")}
           </span>
         )}
+        {/* What the paid option is and is not. Collapsed by default so it does
+            not shout at someone who has already decided, but present before
+            payment rather than after it — the headline is that this is not a
+            better editor than the one already on their machine, which is the
+            one thing a buyer would otherwise reasonably assume. */}
+        <details className="cloud-expect">
+          <summary>
+            {t("cloud_expect_summary", "What to expect from a cloud run")}
+          </summary>
+          <ul className="cloud-expect-list">
+            <li>
+              {t(
+                "cloud_expect_quality",
+                "For copy editing, the models that run on your own machine are better — 64% of planted errors found against 56% in the cloud, measured across four languages. The cloud exists for computers that cannot run a model locally, not to buy a better copy edit.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_spelling",
+                "Spelling is the strongest part everywhere: 85–95% of misspellings found, and nearly every one of the rest is at least flagged for you to look at.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_commas",
+                "Commas are the weakest: between 11% and 70% depending on the language. Treat comma suggestions as prompts, and plan a human pass if commas matter to you.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_noise",
+                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain. Nothing is applied without you.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_translation",
+                "Translation and line editing are where the cloud earns its cost: translation runs on a much larger model, and both come out ahead of the local ones.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_privacy",
+                "Your manuscript is sent to Bethaniel's service for this job. Local runs never leave your machine.",
+              )}
+            </li>
+          </ul>
+        </details>
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}
