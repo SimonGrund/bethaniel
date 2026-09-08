@@ -255,6 +255,29 @@ async function api(
   return res.json();
 }
 
+/**
+ * How a model should be NAMED in the results.
+ *
+ * An API catalog entry keeps one id (custom:bethaniel-cloud) whatever model it
+ * is pointed at, so two runs against different upstream models were
+ * indistinguishable in the saved results and the second silently replaced the
+ * first. The configured model name is appended so they stay separate rows.
+ */
+async function modelLabel(model: string): Promise<string> {
+  if (!model.startsWith("custom:")) return model;
+  const entryId = model.slice("custom:".length);
+  try {
+    const cfg = (await api(
+      "GET",
+      `/models/custom/config?entryId=${encodeURIComponent(entryId)}`,
+    )) as { model?: string };
+    return cfg?.model ? `${model} (${cfg.model})` : model;
+  } catch {
+    // The label is cosmetic; never fail a benchmark over it.
+    return model;
+  }
+}
+
 async function uploadText(filename: string, content: string): Promise<string> {
   const blob = new Blob([content], { type: "text/plain" });
   const form = new FormData();
@@ -625,8 +648,13 @@ async function main() {
   let skipped = 0;
 
   for (const model of models) {
+    // What goes in the results. Same as `model` for a local GGUF; for an API
+    // entry it carries the configured upstream model too, so two runs against
+    // different upstream models are separate rows rather than one overwriting
+    // the other.
+    const label = await modelLabel(model);
     console.log(`\n${"─".repeat(60)}`);
-    console.log(`MODEL: ${model}`);
+    console.log(`MODEL: ${label}`);
     console.log(`${"─".repeat(60)}`);
 
     // Fetch recommended parallel slots for this model from the backend
@@ -682,7 +710,7 @@ async function main() {
         // run is enough to measure its false-positive rate.
         const repeats = file.variant === "correct" ? 1 : REPEAT;
         for (let repeatIndex = 1; repeatIndex <= repeats; repeatIndex++) {
-          const key = resultKey(model, file.filename, mode, repeatIndex);
+          const key = resultKey(label, file.filename, mode, repeatIndex);
           if (completedKeys.has(key)) {
             skipped++;
             continue;
@@ -818,7 +846,7 @@ async function main() {
         }
 
         const result: TestResult = {
-          model,
+          model: label,
           file: br.task.file.filename,
           language: br.task.file.language,
           variant: br.task.file.variant,
@@ -833,7 +861,7 @@ async function main() {
 
         results.push(result);
         completedKeys.add(
-          resultKey(model, br.task.file.filename, br.task.mode, br.task.repeatIndex),
+          resultKey(label, br.task.file.filename, br.task.mode, br.task.repeatIndex),
         );
 
         // Clean up the uploaded doc (nothing to clean up if submission

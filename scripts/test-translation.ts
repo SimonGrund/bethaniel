@@ -165,6 +165,24 @@ interface JudgeScore {
   reason: string;
 }
 
+/**
+ * How a model should be NAMED in the results. An API catalog entry keeps one
+ * id whatever model it points at, so without the configured model name two
+ * runs against different upstream models overwrite each other.
+ */
+async function modelLabel(model: string): Promise<string> {
+  if (!model.startsWith("custom:")) return model;
+  try {
+    const cfg = (await api(
+      "GET",
+      `/models/custom/config?entryId=${encodeURIComponent(model.slice("custom:".length))}`,
+    )) as { model?: string };
+    return cfg?.model ? `${model} (${cfg.model})` : model;
+  } catch {
+    return model;
+  }
+}
+
 async function judgeTranslation(
   judgeModel: string,
   sourceText: string,
@@ -283,6 +301,7 @@ async function main() {
   const results: Result[] = [];
 
   for (const model of models) {
+    const label = await modelLabel(model);
     for (const targetLang of TARGET_LANGS) {
       const label = `${model} → ${targetLang}`;
       console.log(`Translating: ${label}`);
@@ -305,7 +324,7 @@ async function main() {
 
         if (outcome.status !== "done" || !outcome.editedText) {
           console.log(`  FAILED (${(elapsedMs / 1000).toFixed(1)}s): ${outcome.errors.join("; ") || "no output"}`);
-          results.push({ model, targetLang, errors: outcome.errors, scores: [], elapsedMs });
+          results.push({ model: label, targetLang, errors: outcome.errors, scores: [], elapsedMs });
           continue;
         }
 
@@ -329,7 +348,7 @@ async function main() {
         }
 
         results.push({
-          model,
+          model: label,
           targetLang,
           translatedText: outcome.editedText,
           errors: outcome.errors,

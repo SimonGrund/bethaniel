@@ -180,6 +180,7 @@ export async function* parseSSE(
   const decoder = new TextDecoder();
   let buffer = "";
   let dropped = 0;
+  let sawContent = false;
 
   try {
     while (true) {
@@ -200,10 +201,26 @@ export async function* parseSSE(
         if (payload === "[DONE]") return;
         try {
           const parsed = JSON.parse(payload) as {
-            choices?: { delta?: { content?: string } }[];
+            choices?: {
+              delta?: {
+                content?: string;
+                reasoning_content?: string;
+                reasoning?: string;
+              };
+            }[];
           };
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) yield content;
+          const delta = parsed.choices?.[0]?.delta;
+          // A model streaming reasoning_content spends max_tokens thinking
+          // before it says anything visible. Remember it, so the NEXT call
+          // gets chain-of-thought headroom whatever the model is called.
+          if (model && (delta?.reasoning_content || delta?.reasoning)) {
+            noteReasoningModel(model);
+          }
+          const content = delta?.content;
+          if (content) {
+            sawContent = true;
+            yield content;
+          }
         } catch {
           // Malformed SSE line — count it so a fully-garbled stream (which
           // otherwise surfaces only as "0 content tokens") is diagnosable.
@@ -213,6 +230,12 @@ export async function* parseSSE(
     }
   } finally {
     reader.releaseLock();
+    // A stream that produced no visible text at all is the symptom of a
+    // reasoning model with no headroom, whether or not the provider labelled
+    // the thinking as reasoning_content. Record it so the retry gets room;
+    // granting headroom to a model that failed for some other reason costs
+    // nothing but a larger cap.
+    if (model && !sawContent && !dropped) noteReasoningModel(model);
     if (dropped > 0) {
       appendLog({
         level: "warn",
@@ -232,8 +255,40 @@ export async function* parseSSE(
  * headroom on top of the requested visible-output cap, within DeepSeek's
  * 65536 output-token limit.
  */
-export function apiMaxTokens(requested: number, apiModelName: string): number {
-  if (!/reason|think|\br1\b/i.test(apiModelName)) return requested;
+/**
+ * Models observed to emit chain-of-thought. Populated at runtime from the
+ * stream, because naming does not identify them: Qwen3.5-9B reasons and is
+ * called none of `reason`, `think` or `r1`. Measured — served through
+ * OVHcloud it returned content: null, 120 of 120 completion tokens in
+ * reasoning_content, and finish_reason "length", which reached the pipeline
+ * as "0 content tokens" and cost a paid line-edit run every one of its LLM
+ * corrections.
+ */
+const observedReasoningModels = new Set<string>();
+
+/** Record that a model reasons, so its next call gets CoT headroom. */
+export function noteReasoningModel(model: string): void {
+  observedReasoningModels.add(model);
+}
+
+/** Has this model been seen emitting chain-of-thought? */
+export function isKnownReasoningModel(model: string): boolean {
+  return observedReasoningModels.has(model);
+}
+
+export function apiMaxTokens(
+  requested: number,
+  apiModelName: string,
+  modelKey?: string,
+): number {
+  // The name is only a first guess for a model never seen before; observation
+  // decides, because a name-only test silently misclassifies every reasoning
+  // model that is not marketed as one.
+  const reasons =
+    /reason|think|\br1\b/i.test(apiModelName) ||
+    observedReasoningModels.has(apiModelName) ||
+    (modelKey ? observedReasoningModels.has(modelKey) : false);
+  if (!reasons) return requested;
   return Math.min(65536, requested + 32768);
 }
 
@@ -340,8 +395,26 @@ async function* chatStream(
       stream: true,
       temperature: options.temperature ?? cfg.temperature,
       top_p: options.top_p ?? cfg.top_p,
-      max_tokens: apiMaxTokens(options.max_tokens ?? cfg.num_predict, apiModel),
+      max_tokens: apiMaxTokens(options.max_tokens ?? cfg.num_predict, apiModel, model),
     };
+
+    // Ask a reasoning model not to think.
+    //
+    // Finding an error or rewriting a sentence is not a task chain-of-thought
+    // improves, and paying for it is the whole cost: served through OVHcloud,
+    // Qwen3.5-9B spent every one of its completion tokens reasoning and
+    // returned `content: null`, so a line-edit run produced nothing but
+    // deterministic corrections while being billed in full. Giving it CoT
+    // headroom instead would work and would make every chunk slow and dear;
+    // `reasoning_effort: "none"` returns the answer directly (measured: same
+    // prompt, `finish_reason` "length" with no content becomes "stop" with the
+    // rewrite).
+    //
+    // Sent only for models actually observed to reason, because a provider
+    // that does not know the field rejects the whole request with a 400.
+    if (isKnownReasoningModel(apiModel) || isKnownReasoningModel(model)) {
+      apiBody.reasoning_effort = "none";
+    }
     if (options.top_k != null) apiBody.top_k = options.top_k ?? cfg.top_k;
     if (options.repeat_penalty != null) {
       apiBody.frequency_penalty =
