@@ -30,6 +30,12 @@ export interface Env {
   MIN_CHARGE_EUR_CENTS: string;
   CREDENTIAL_EXPIRY_DAYS: string;
   CHECKOUT_SUCCESS_URL_BASE: string;
+  /**
+   * Must be the string "true" before an `sk_live_` key is allowed to create
+   * a Checkout Session. Absent or anything else, a live key is refused — see
+   * assertPaymentsAllowed in stripe.ts for why this exists.
+   */
+  ALLOW_LIVE_PAYMENTS?: string;
 
   // ── Safety limits ──
   // The provider offers budget alerts but no hard spending cap, so these are

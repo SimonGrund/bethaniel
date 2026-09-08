@@ -22,7 +22,11 @@ import {
   sweepExpiredPendingClaims,
   sweepExpiredQuotes,
 } from "./db";
-import { createCheckoutSession, verifyAndParseStripeWebhook } from "./stripe";
+import {
+  assertPaymentsAllowed,
+  createCheckoutSession,
+  verifyAndParseStripeWebhook,
+} from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
@@ -197,6 +201,11 @@ export default {
             free: true,
           });
         }
+
+        // Before spending a promo use, not after: a live-key refusal must not
+        // burn the author's code on a request that was never going to reach
+        // Stripe. createCheckoutSession re-checks as a backstop.
+        assertPaymentsAllowed(env);
 
         // A partial discount still goes through Stripe at the reduced amount,
         // and the code is spent only once that session is created.

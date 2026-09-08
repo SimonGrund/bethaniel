@@ -20,10 +20,35 @@ export interface CheckoutSessionResult {
   url: string;
 }
 
+/**
+ * Refuse to charge a real card unless the deployment says so out loud.
+ *
+ * Test and live Stripe keys differ by four characters, both mint sessions
+ * that look alike, and this repo is public — so the natural mistake is to
+ * paste the key sitting at the top of the dashboard (which is the live one)
+ * while walking the flow, and only notice at the payment page. The cost of
+ * that mistake is somebody's actual money.
+ *
+ * The check is deliberately a fail-closed default rather than a warning:
+ * going live is a decision worth writing down in wrangler.toml.
+ */
+export function assertPaymentsAllowed(env: Env): void {
+  if (!env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) return;
+  if (env.ALLOW_LIVE_PAYMENTS === "true") return;
+  throw new Error(
+    "STRIPE_SECRET_KEY is a live key but ALLOW_LIVE_PAYMENTS is not \"true\" — " +
+      "refusing to create a Checkout Session that would charge a real card. " +
+      "Set ALLOW_LIVE_PAYMENTS = \"true\" in wrangler.toml when that is intended.",
+  );
+}
+
 export async function createCheckoutSession(
   env: Env,
   opts: { quoteId: string; tokenBudget: number; amountCents: number },
 ): Promise<CheckoutSessionResult> {
+  // Backstop: every call site is covered even if one forgets the early check.
+  assertPaymentsAllowed(env);
+
   const successUrl = `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/success?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/cancelled`;
 

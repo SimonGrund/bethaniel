@@ -148,6 +148,11 @@ CREDENTIAL_EXPIRY_DAYS = "7"
 # the deployed Worker no longer answers.
 CHECKOUT_SUCCESS_URL_BASE = "https://bethaniel-cloud.cloudwatcher.workers.dev"
 
+# Fail-closed switch on real money. An sk_live_ key is refused unless this is
+# the exact string "true" — see assertPaymentsAllowed in src/stripe.ts. Flip it
+# in the same commit that swaps the key, never before.
+ALLOW_LIVE_PAYMENTS = "false"
+
 # ── Safety limits ──
 # OVHcloud offers budget *alerts* but no hard spending cap, and an
 # authenticated key may send 400 requests/minute per project per model —
