@@ -59,13 +59,17 @@ it is *worse* than the 4B on Danish wrong words. See
 
 - **External Betty** — Connect to DeepSeek (or any OpenAI-compatible endpoint) via a local API key stored on your machine. No key leaves your device. Select "External Betty" as the model in the wizard to bypass local inference and use cloud-hosted models instead.
 
-- **Betty in the Cloud** — Runs Meta-Llama-3.3-70B on OVHcloud AI Endpoints, chosen by benchmark over four other cloud models (it led the next best by 21 points of recall and by a factor of twenty on clean-text false positives, at half the token price — full table in `sample_texts/run_mode_bench_results.txt`). Note that on the one English fixture where all three have been compared it scores *level* with the local 4B; the deterministic layer does the spelling either way, and commas are not a capacity problem. It has not been through the four-language benchmark, because the hosted service is not deployed yet. For a machine that cannot run a local model and a user who does not want to obtain an API key. Pay per job through Stripe; the manuscript is processed by Bethaniel's hosted service and the credential the app stores afterwards is a scoped, prepaid token for that service, never a provider key. A pre-run estimate (`POST /api/cloud/estimate`) prices the job before any money moves, and a per-credential ledger hard-caps total spend. The cloud path reuses the same `"api"` plumbing as External Betty — the editing pipeline itself is identical. See [`worker/README.md`](worker/README.md) for the deployable side and [`docs/cloud-terms.html`](docs/cloud-terms.html) for the terms.
+- **Betty in the Cloud** — Runs Meta-Llama-3.3-70B on OVHcloud AI Endpoints, chosen by benchmark over four other cloud models (it led the next best by 21 points of recall and by a factor of twenty on clean-text false positives, at half the token price — full table in `sample_texts/run_mode_bench_results.txt`). Note that on the one English fixture where all three have been compared it scores *level* with the local 4B; the deterministic layer does the spelling either way, and commas are not a capacity problem. It has now been through the same four-language benchmark as the bundled models, on the same harness and the same settings — one editor, one reviewer, one request at a time. It leads on English and German, and loses to the bundled 4B on Danish and Spanish; averaged over the four it is level with both local models to within a point. Bigger is not reliably better here, and the per-language split is the honest way to read it. For a machine that cannot run a local model and a user who does not want to obtain an API key. Pay per job through Stripe; the manuscript is processed by Bethaniel's hosted service and the credential the app stores afterwards is a scoped, prepaid token for that service, never a provider key. A pre-run estimate (`POST /api/cloud/estimate`) prices the job before any money moves, and a per-credential ledger hard-caps total spend. The cloud path reuses the same `"api"` plumbing as External Betty — the editing pipeline itself is identical. See [`worker/README.md`](worker/README.md) for the deployable side and [`docs/cloud-terms.html`](docs/cloud-terms.html) for the terms.
 
-### Multi-Agent Orchestration
+### Agent Orchestration
 
-- **One editor pass, by measurement** — the pipeline supports 2–4 parallel editor passes per chunk, union-deduplicated for broader coverage, and every run ships with **one**. A heavier preset (3 editors, 2 reviewers, a thorough second pass) was built and benchmarked: it gained +48% applied corrections on a strong API model and *nothing* on either bundled local model, at 2–3× the wall clock. It was removed rather than kept as a trap. The knobs remain in Advanced Settings for anyone who wants to hand-tune them. See [`docs/run-modes.md`](docs/run-modes.md). Failed agents are retried automatically.
+- **One editor pass, and there is no other kind** — the pipeline once supported 2–4 parallel editor passes per chunk, union-deduplicated for broader coverage. They were removed after being measured, because they were not doing anything: corrections decode greedily (`temperature: 0`, so the same prompt gives the same tokens), every extra agent returned a byte-identical answer, and the union-dedupe collapsed them back into one set. Across four languages and three models, one editor and two produced identical output in every cell — same recall, same precision, same clean-text flags — and one editor was 15–20% faster. Failed agents are retried automatically.
 
-- **Reviewer agents** — A skeptical second-reader LLM scores every proposed correction on a 1–5 confidence scale. With multiple reviewer agents, the strictest score wins. Corrections scoring below a configurable threshold are flagged and hidden by default. Reviewers run in parallel with the next chunk's editor to hide latency.
+  The style-compliance agent is the exception and still runs alongside the editor when a style sheet is present: it uses a *different* prompt, so it can genuinely disagree.
+
+- **Reviewer agent** — A skeptical second-reader LLM scores every proposed correction on a 1–5 confidence scale. Corrections below the threshold are flagged for the author rather than hidden. One agent runs, for the same reason as the editor: N of them shared a prompt *and* a seed, so the "strictest score wins" aggregation was taking the minimum of a value and itself. The aggregation is still there and still correct; there is simply never more than one score.
+
+- **Precision pass** — A second, narrower audit that asks whether the original needed fixing at all, rather than whether the fix is well-formed. It annotates rather than deletes: below its cut a correction would be removed, but that cut is set so nothing is, because Bethaniel is read by a human before anything is applied and deletion is the only irreversible act in the pipeline. Corrections it doubts arrive flagged. A finding from a deterministic checker is never overruled by it — a dictionary is not an opinion.
 
 - **Translation review-and-revise** — After translating a chunk, the text is split into paragraphs. Each source→translated paragraph pair is scored by a translation-quality reviewer. Any paragraph flagged as garbled or nonsensical is re-translated with added context about the issue.
 
@@ -140,6 +144,22 @@ per-language plan and refuses any edit that does not add exactly one span of
 the intended category, so the ground truth is constructed rather than
 annotated. Fixtures live in `sample_texts/`; results land in
 `sample_texts/benchmark_results.json`.
+
+The harness runs **one request at a time** by default, and that default is
+load-bearing. Corrections decode greedily, so a run ought to repeat exactly —
+but with several requests in flight llama.cpp batches them into one decode and
+the batch composition changes the floating-point arithmetic. Measured on the
+German fixture, the same configuration scored 50% and 71% on consecutive
+repeats; at one slot, four repeats came back bit-identical, as did five runs
+with different seeds. Pass `--parallel-auto` for throughput when a comparable
+number is not the point. API models are exempt: the provider batches on its
+own side regardless, so they run at the backend's recommended concurrency.
+
+One consequence worth knowing when reading the report: the **consistency**
+column means nothing for copy edit. At one slot it is always 100, and the
+spread it used to report was batching noise rather than the model disagreeing
+with itself. It still means something for line edit, which rewrites at the
+model's configured temperature where the seed genuinely matters.
 
 Three things are measured, because the three editing modes fail differently:
 
