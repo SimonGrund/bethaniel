@@ -99,12 +99,43 @@ BASE_COST_EUR_PER_TOKEN = "0.00000067"
 # it is the figure the line above used to be before the model beneath it
 # changed.
 BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.00000067"
+# ── Price: flat bands of words, not cost-plus ──
+#
+# One band of PRICE_TIER_WORDS costs PRICE_TIER_EUR_CENTS; two bands cost
+# double, and so on. A 100,000-word novel and a 3,000-word story both sit in
+# band one and pay the same.
+#
+# Cost-plus was abandoned because the costs are too small to bill. Measured
+# against the app's own estimator, 100,000 words is ~1.07M tokens for a copy
+# edit and ~1.61M for a translation — EUR 0.16 and EUR 0.24 on the models this
+# Worker serves. That is a bill dominated by Stripe's fixed fee, and a number
+# no author can predict. A band is predictable and still leaves comfortable
+# margin: the dearest case, translation on the 70B, costs ~EUR 1.08 in a band
+# sold for EUR 5.
+#
+# Note the floor this creates: band one is the minimum, so a 3,000-word short
+# story pays EUR 5. That is the deliberate trade for a price anyone can work
+# out in their head.
+PRICE_TIER_WORDS = "100000"
+PRICE_TIER_EUR_CENTS = "500"
+
+# Kept for the cost model in globalMeter.ts, which still reasons in tokens.
+# No longer used to compute a price.
 # Company markup — 3x the blended provider cost.
 MARKUP_MULTIPLIER = "3"
 # Stripe's own cut, absorbed into the price rather than eaten by Bethaniel.
 STRIPE_PCT_FEE = "0.015"
 STRIPE_FIXED_FEE_EUR = "0.25"
+# Superseded by PRICE_TIER_EUR_CENTS, which is itself the floor — band one is
+# the smallest thing anyone can buy. Left in place because older deployments
+# still read it; it can never bind while it sits below a band.
 MIN_CHARGE_EUR_CENTS = "200"
+# How much room a credential gets above the estimate that priced it. Under
+# cost-plus a bigger job cost more and so bought a bigger ceiling; under band
+# pricing the price is flat, so the ceiling comes from the estimate alone —
+# and an estimate that runs low would otherwise strand a paid job
+# mid-manuscript. The global daily ceiling still bounds total exposure.
+TOKEN_BUDGET_HEADROOM = "1.5"
 CREDENTIAL_EXPIRY_DAYS = "7"
 CHECKOUT_SUCCESS_URL_BASE = "https://cloud.bethaniel.eu"
 

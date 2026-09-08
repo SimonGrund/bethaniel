@@ -111,6 +111,8 @@ export interface CloudEstimateResult {
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
   estimatedTotalTokens: number;
+  /** Words across every unit. The cloud prices by size, not by tokens. */
+  totalWords: number;
   confidence: "estimate" | "lower_bound";
   perMode: Record<string, { inputTokens: number; outputTokens: number }>;
 }
@@ -353,6 +355,7 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     estimatedInputTokens,
     estimatedOutputTokens,
     estimatedTotalTokens: estimatedInputTokens + estimatedOutputTokens,
+    totalWords: input.units.reduce((sum, u) => sum + u.wordCount, 0),
     confidence,
     perMode,
   };

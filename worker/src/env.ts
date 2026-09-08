@@ -19,6 +19,12 @@ export interface Env {
   /** Rate for PROVIDER_MODEL_TRANSLATE, which is a different (dearer) model. */
   BASE_COST_EUR_PER_TOKEN_TRANSLATE?: string;
   MARKUP_MULTIPLIER: string;
+  /** Words per pricing band. One band = PRICE_TIER_EUR_CENTS. */
+  PRICE_TIER_WORDS?: string;
+  /** Price of one band, in EUR cents. */
+  PRICE_TIER_EUR_CENTS?: string;
+  /** Multiplier on the token estimate when sizing a credential's ceiling. */
+  TOKEN_BUDGET_HEADROOM?: string;
   STRIPE_PCT_FEE: string;
   STRIPE_FIXED_FEE_EUR: string;
   MIN_CHARGE_EUR_CENTS: string;

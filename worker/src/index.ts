@@ -8,7 +8,7 @@
 // rewrite.
 
 import type { Env } from "./env";
-import { priceTokens } from "./quote";
+import { priceJob } from "./quote";
 import {
   insertQuote,
   findQuote,
@@ -49,9 +49,19 @@ export default {
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
-        const { estimatedTokens } = (await request.json()) as { estimatedTokens: number };
+        const { estimatedTokens, words } = (await request.json()) as {
+          estimatedTokens: number;
+          words?: number;
+        };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
           return json({ error: "estimatedTokens must be a positive number" }, 400);
+        }
+        // The price is a function of SIZE now, so the word count is what it
+        // needs. An app that only sends tokens still gets a valid quote:
+        // falling back to band one is the cheapest band, so a stale client is
+        // never overcharged by the omission.
+        if (words !== undefined && (!Number.isFinite(words) || words <= 0)) {
+          return json({ error: "words must be a positive number when given" }, 400);
         }
         // /v1/quote is unauthenticated by necessity — the app asks for a price
         // before anyone has paid. Bound it so a bad (or hostile) caller cannot
@@ -77,10 +87,16 @@ export default {
             413,
           );
         }
-        const quote = priceTokens(env, estimatedTokens);
+        const quote = priceJob(env, { estimatedTokens, words: words ?? 1 });
         const quoteId = crypto.randomUUID();
         await insertQuote(env, quoteId, quote.tokens, quote.priceEurCents);
-        return json({ quoteId, tokens: quote.tokens, priceEurCents: quote.priceEurCents });
+        return json({
+          quoteId,
+          tokens: quote.tokens,
+          words: quote.words,
+          tiers: quote.tiers,
+          priceEurCents: quote.priceEurCents,
+        });
       }
 
       if (url.pathname === "/v1/checkout" && request.method === "POST") {
@@ -89,7 +105,13 @@ export default {
         if (!quote) return json({ error: "Quote not found or expired — get a new price" }, 404);
         const session = await createCheckoutSession(env, {
           quoteId: quote.id,
-          tokenBudget: quote.estimated_tokens,
+          // Sized from the ESTIMATE, with headroom, and no longer related to
+          // what was paid. Under cost-plus the two moved together; under band
+          // pricing they do not, so an under-estimate would otherwise cut a
+          // paid job off partway with no larger budget to fall back on.
+          tokenBudget: Math.ceil(
+            quote.estimated_tokens * (Number(env.TOKEN_BUDGET_HEADROOM) || 1.5),
+          ),
           amountCents: quote.price_eur_cents,
         });
         return json({ checkoutUrl: session.url });

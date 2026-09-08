@@ -2107,7 +2107,11 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     const quoteRes = await fetch(`${workerBaseUrl}/v1/quote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estimatedTokens: estimate.estimatedTotalTokens }),
+      body: JSON.stringify({
+        estimatedTokens: estimate.estimatedTotalTokens,
+        // The cloud prices by manuscript size; tokens now only size the ledger.
+        words: estimate.totalWords,
+      }),
     });
     if (!quoteRes.ok) {
       res
