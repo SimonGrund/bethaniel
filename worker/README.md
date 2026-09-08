@@ -34,6 +34,32 @@ the deploy checklist.
    `BETHANIEL_CLOUD_BASE_URL` in the app's environment) to match. Until then
    the app cannot reach the Worker: the catalog points at `cloud.bethaniel.eu`.
 
+## Operator surface
+
+`POST /admin/sweep` runs the maintenance pass — credential expiry, stale
+claim and quote cleanup, and the refund decision — on demand:
+
+```
+npx wrangler secret put ADMIN_TOKEN     # 32+ random bytes; never a var
+curl -X POST https://<worker>/admin/sweep -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+It exists because the hourly cron is a scheduler nobody here controls: if it
+stops firing, credential expiry, quote cleanup and refunds all stop silently
+with it. This is the hand crank. It shares one `runMaintenance` with the cron
+so the two cannot drift, and running it repeatedly is safe — every sweep is a
+conditional UPDATE or DELETE, and `refund_status` makes each credential's
+refund decision happen exactly once.
+
+**Everything under `/admin/*` answers 404 without the token** — the same
+answer a deployment with no `ADMIN_TOKEN` set gives. That is deliberate: this
+repo is public, so the prefix is readable by anyone, and a 401 would confirm
+there is something there to attack. No token configured means no admin
+surface at all, rather than an open one.
+
+`docs/admin-surface.md` carries the rest of the planned endpoints and the
+open questions behind them.
+
 ## Local development
 
 `npm run dev` runs against Miniflare with a local D1 instance. Put fake
