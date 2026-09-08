@@ -170,14 +170,22 @@ export async function handleChatCompletions(
   // per token, which is why it is priced separately.
   const pass = request.headers.get("X-Bethaniel-Pass");
   const isTranslate = pass === "translate";
-  const upstreamModel =
-    isTranslate && env.PROVIDER_MODEL_TRANSLATE
-      ? env.PROVIDER_MODEL_TRANSLATE
-      : env.PROVIDER_MODEL;
+  // Whether the translate model was actually available, NOT whether translation
+  // was asked for. PROVIDER_MODEL_TRANSLATE is optional, and when it is unset a
+  // translate request silently falls back to PROVIDER_MODEL — so deciding the
+  // reasoning field on intent would send the reasoning model with reasoning
+  // left ON, which by measurement returns content: null after burning the whole
+  // output budget. The paid job would be billed for nothing at all.
+  const routedToTranslateModel = isTranslate && !!env.PROVIDER_MODEL_TRANSLATE;
+  const upstreamModel = routedToTranslateModel
+    ? (env.PROVIDER_MODEL_TRANSLATE as string)
+    : env.PROVIDER_MODEL;
   // Only PROVIDER_MODEL is known to reason. The translate model is a Llama,
   // which rejects nothing but has no chain-of-thought to switch off, so the
   // field must be omitted for it exactly as it was before this split.
-  const reasoningEffort = isTranslate ? "default" : env.PROVIDER_REASONING_EFFORT;
+  const reasoningEffort = routedToTranslateModel
+    ? "default"
+    : env.PROVIDER_REASONING_EFFORT;
 
   const upstreamBody = {
     ...body,
@@ -311,21 +319,55 @@ async function commitUsage(
   holdId: string,
   actualTokens: number,
 ): Promise<void> {
+  // Each step is isolated, because this runs under ctx.waitUntil AFTER the
+  // client has its response — nothing here can be retried by the caller, and
+  // a rejection would otherwise skip every step below it.
+  //
+  // The step that matters is the ledger commit: a reservation that is never
+  // committed or released is never freed (reservations have no TTL), so it
+  // silently shrinks the balance of a credential the author has already paid
+  // for, for the rest of its seven-day life. Letting a failed daily-ceiling
+  // settlement take it down with it traded a self-correcting problem for a
+  // permanent one.
+
   // Settle the daily ceiling too, or its `reserved` would grow monotonically
-  // and the cap would tighten toward zero over the day.
-  await meter.fetch("https://meter/commit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ holdId, actualTokens }),
-  });
-  await ledger.fetch("https://ledger/commit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reservationId, actualTokens }),
-  });
-  const statusRes = await ledger.fetch("https://ledger/status");
-  if (statusRes.ok) {
-    const status = (await statusRes.json()) as { reserved: number; spent: number };
-    await updateCredentialMirror(env, tokenHash, status.reserved, status.spent);
+  // and the cap would tighten toward zero over the day. This one IS
+  // self-correcting: the meter resets daily.
+  try {
+    await meter.fetch("https://meter/commit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ holdId, actualTokens }),
+    });
+  } catch (err) {
+    console.error("[proxy] meter commit failed, continuing to the ledger:", err);
+  }
+
+  try {
+    await ledger.fetch("https://ledger/commit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId, actualTokens }),
+    });
+  } catch (err) {
+    // Nothing else can free this reservation. Loud, because the effect is
+    // invisible to the author until their credential runs short.
+    console.error(
+      `[proxy] LEDGER COMMIT FAILED for ${tokenHash.slice(0, 12)} — reservation ` +
+        `${reservationId} (${actualTokens} tokens) is leaked for the credential's lifetime:`,
+      err,
+    );
+  }
+
+  // Support/cron mirror only — the Durable Object above is authoritative, so
+  // a stale mirror costs accuracy in the refund sweep, not correctness here.
+  try {
+    const statusRes = await ledger.fetch("https://ledger/status");
+    if (statusRes.ok) {
+      const status = (await statusRes.json()) as { reserved: number; spent: number };
+      await updateCredentialMirror(env, tokenHash, status.reserved, status.spent);
+    }
+  } catch (err) {
+    console.error("[proxy] credential mirror update failed:", err);
   }
 }

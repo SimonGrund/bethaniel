@@ -42,14 +42,43 @@ export interface PriceQuote {
  * The token estimate still matters, but for a different job — it sizes the
  * credential's spending ceiling (see /v1/checkout), which is what actually
  * bounds exposure now that the price no longer does.
+ *
+ * Which is exactly why the two numbers cannot be trusted independently. Both
+ * arrive from an unauthenticated caller, `words` sets the price and
+ * `estimatedTokens` sets the ceiling — so `{ words: 1, estimatedTokens: 8M }`
+ * would buy a 12M-token credential for the band-one minimum. Billing on
+ * whichever number implies MORE work closes that without an error path: an
+ * honest client is unaffected (its word count always dominates), and the
+ * dishonest one simply pays what the tokens it asked for are worth.
  */
+/**
+ * The most tokens one word of manuscript could honestly consume.
+ *
+ * Measured against the app's own estimator at its heaviest setting — a
+ * Danish translation with review, style agent and an extra pass — which
+ * comes to 16.14 tokens per word; a copy edit is 10.7. Forty leaves roughly
+ * 2.5x headroom over the worst real configuration, so no honest quote is
+ * ever repriced by it, while the attack it exists to stop needs a ratio in
+ * the millions.
+ *
+ * Raise it if a genuinely heavier mode is added; lowering it below ~20 would
+ * start overcharging real translation jobs.
+ */
+export const MAX_TOKENS_PER_WORD = 40;
+
 export function priceJob(
   env: Env,
   input: { estimatedTokens: number; words: number },
   promo?: PromoTerms | null,
 ): PriceQuote {
   const tokens = Math.max(1, Math.round(input.estimatedTokens));
-  const words = Math.max(1, Math.round(input.words));
+  const claimedWords = Math.max(1, Math.round(input.words));
+
+  // The smallest word count that could honestly need this many tokens. A
+  // caller who under-reports words (or omits them entirely, which lands here
+  // as 1) is billed on this instead.
+  const impliedWords = Math.ceil(tokens / MAX_TOKENS_PER_WORD);
+  const words = Math.max(claimedWords, impliedWords);
 
   const bandWords = Number(env.PRICE_TIER_WORDS) || 100_000;
   const bandCents = Number(env.PRICE_TIER_EUR_CENTS) || 500;

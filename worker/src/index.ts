@@ -13,6 +13,7 @@ import {
   insertQuote,
   findPromo,
   redeemPromo,
+  releasePromo,
   findQuote,
   insertCredential,
   findCredentialByStripeSession,
@@ -47,7 +48,10 @@ function json(body: unknown, status = 200): Response {
 }
 
 function html(body: string, status = 200): Response {
-  return new Response(body, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }
 
 /**
@@ -106,7 +110,9 @@ async function reimburseUnusedCredentials(
     if (verdict.action === "review") {
       await setRefundStatus(env, row.id, "review");
       flagged++;
-      console.log(`[refund] ${row.stripe_session_id} needs a human: ${verdict.reason}`);
+      console.log(
+        `[refund] ${row.stripe_session_id} needs a human: ${verdict.reason}`,
+      );
       continue;
     }
     await setRefundStatus(env, row.id, "none");
@@ -135,7 +141,13 @@ async function runMaintenance(env: Env): Promise<MaintenanceSummary> {
   // grew by one row per price check forever, paid or not.
   const expiredQuotes = await sweepExpiredQuotes(env);
   const { refunded, flagged } = await reimburseUnusedCredentials(env);
-  return { expiredCredentials, expiredClaims, expiredQuotes, refunded, flagged };
+  return {
+    expiredCredentials,
+    expiredClaims,
+    expiredQuotes,
+    refunded,
+    flagged,
+  };
 }
 
 function describeMaintenance(s: MaintenanceSummary): string {
@@ -146,7 +158,11 @@ function describeMaintenance(s: MaintenanceSummary): string {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
 
     try {
@@ -161,7 +177,8 @@ export default {
       // so probing this public URL cannot tell the two apart, or learn that
       // the prefix means anything at all.
       if (url.pathname.startsWith("/admin/")) {
-        if (!isAdminRequest(request, env)) return json({ error: "Not found" }, 404);
+        if (!isAdminRequest(request, env))
+          return json({ error: "Not found" }, 404);
 
         // Run the maintenance pass now. Exists because the hourly cron is a
         // scheduler we do not control: if it stops firing, credential expiry,
@@ -195,14 +212,20 @@ export default {
           code?: string;
         };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
-          return json({ error: "estimatedTokens must be a positive number" }, 400);
+          return json(
+            { error: "estimatedTokens must be a positive number" },
+            400,
+          );
         }
         // The price is a function of SIZE now, so the word count is what it
         // needs. An app that only sends tokens still gets a valid quote:
         // falling back to band one is the cheapest band, so a stale client is
         // never overcharged by the omission.
         if (words !== undefined && (!Number.isFinite(words) || words <= 0)) {
-          return json({ error: "words must be a positive number when given" }, 400);
+          return json(
+            { error: "words must be a positive number when given" },
+            400,
+          );
         }
         // /v1/quote is unauthenticated by necessity — the app asks for a price
         // before anyone has paid. Bound it so a bad (or hostile) caller cannot
@@ -271,7 +294,11 @@ export default {
       if (url.pathname === "/v1/checkout" && request.method === "POST") {
         const { quoteId } = (await request.json()) as { quoteId: string };
         const quote = await findQuote(env, quoteId);
-        if (!quote) return json({ error: "Quote not found or expired — get a new price" }, 404);
+        if (!quote)
+          return json(
+            { error: "Quote not found or expired — get a new price" },
+            404,
+          );
 
         // The ceiling, computed once and shared by both paths below.
         const tokenBudget = Math.ceil(
@@ -302,37 +329,58 @@ export default {
           const token = generateCredentialToken();
           const tokenHash = await hashToken(token);
           const expiresAt = new Date(
-            Date.now() + Number(env.CREDENTIAL_EXPIRY_DAYS) * 24 * 60 * 60 * 1000,
+            Date.now() +
+              Number(env.CREDENTIAL_EXPIRY_DAYS) * 24 * 60 * 60 * 1000,
           ).toISOString();
           // No Stripe session exists, but the column is UNIQUE and NOT NULL and
           // is what makes webhook delivery idempotent. A synthetic id keyed to
           // the quote preserves both: replaying this endpoint with the same
           // quote collides instead of minting twice.
           const syntheticSessionId = `promo_${quote.id}`;
-          const already = await findCredentialByStripeSession(env, syntheticSessionId);
+          const already = await findCredentialByStripeSession(
+            env,
+            syntheticSessionId,
+          );
           if (already) {
+            // The use was just taken for a credential that already exists, so
+            // give it back rather than charging twice for one mint.
+            if (quote.promo_code) await releasePromo(env, quote.promo_code);
             return json({ error: "This quote has already been claimed" }, 409);
           }
-          await insertCredential(env, {
-            id: crypto.randomUUID(),
-            tokenHash,
-            stripeSessionId: syntheticSessionId,
-            tokenBudget,
-            // Nothing was charged, so there is nothing to reverse. The
-            // expiry sweep also skips promo_ sessions outright — see
-            // refundVerdict — but the column stays honest either way.
-            stripePaymentIntent: null,
-            expiresAt,
-            customerEmail: null,
-          });
-          const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);
-          const ledger = env.CREDENTIAL_LEDGER.get(ledgerId);
-          await ledger.fetch("https://ledger/init", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ budgetTotal: tokenBudget, expiresAt }),
-          });
-          await insertPendingClaim(env, syntheticSessionId, token, tokenBudget);
+
+          // From here the code is spent but the credential does not exist yet.
+          // Anything that throws in between leaves a single-use code consumed
+          // and the author with nothing, so every step gives the use back.
+          try {
+            await insertCredential(env, {
+              id: crypto.randomUUID(),
+              tokenHash,
+              stripeSessionId: syntheticSessionId,
+              tokenBudget,
+              // Nothing was charged, so there is nothing to reverse. The
+              // expiry sweep also skips promo_ sessions outright — see
+              // refundVerdict — but the column stays honest either way.
+              stripePaymentIntent: null,
+              expiresAt,
+              customerEmail: null,
+            });
+            const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);
+            const ledger = env.CREDENTIAL_LEDGER.get(ledgerId);
+            await ledger.fetch("https://ledger/init", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ budgetTotal: tokenBudget, expiresAt }),
+            });
+            await insertPendingClaim(
+              env,
+              syntheticSessionId,
+              token,
+              tokenBudget,
+            );
+          } catch (err) {
+            if (quote.promo_code) await releasePromo(env, quote.promo_code);
+            throw err;
+          }
           // Same shape the app already handles after a paid checkout.
           return json({
             checkoutUrl: `${env.CHECKOUT_SUCCESS_URL_BASE}/v1/success?session_id=${syntheticSessionId}`,
@@ -360,11 +408,20 @@ export default {
           }
         }
 
-        const session = await createCheckoutSession(env, {
-          quoteId: quote.id,
-          tokenBudget,
-          amountCents: quote.price_eur_cents,
-        });
+        let session;
+        try {
+          session = await createCheckoutSession(env, {
+            quoteId: quote.id,
+            tokenBudget,
+            amountCents: quote.price_eur_cents,
+          });
+        } catch (err) {
+          // The use was taken a few lines above and bought nothing. Without
+          // this, a Stripe outage permanently consumes a single-use code and
+          // the author's retry is refused with "already used".
+          if (quote.promo_code) await releasePromo(env, quote.promo_code);
+          throw err;
+        }
         return json({ checkoutUrl: session.url });
       }
 
@@ -382,7 +439,10 @@ export default {
 
         // Idempotent on stripe_session_id: Stripe retries webhooks, and a
         // duplicate delivery must not mint a second credential for one payment.
-        const existing = await findCredentialByStripeSession(env, event.sessionId);
+        const existing = await findCredentialByStripeSession(
+          env,
+          event.sessionId,
+        );
         if (existing) return json({ received: true, alreadyProcessed: true });
 
         const token = generateCredentialToken();
@@ -409,7 +469,12 @@ export default {
           body: JSON.stringify({ budgetTotal: event.tokenBudget, expiresAt }),
         });
 
-        await insertPendingClaim(env, event.sessionId, token, event.tokenBudget);
+        await insertPendingClaim(
+          env,
+          event.sessionId,
+          token,
+          event.tokenBudget,
+        );
 
         return json({ received: true });
       }
@@ -435,7 +500,10 @@ export default {
         });
       }
 
-      if (url.pathname === "/v1/chat/completions" && request.method === "POST") {
+      if (
+        url.pathname === "/v1/chat/completions" &&
+        request.method === "POST"
+      ) {
         return await handleChatCompletions(request, env, ctx);
       }
 
@@ -446,7 +514,11 @@ export default {
     }
   },
 
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(
+    _event: ScheduledEvent,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
     ctx.waitUntil(
       (async () => {
         const summary = await runMaintenance(env);
