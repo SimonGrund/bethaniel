@@ -27,9 +27,11 @@
  *   npx tsx scripts/test-translation.ts --judge 9b        # override judge model (default: largest installed)
  *   npx tsx scripts/test-translation.ts --source path.md  # override source text (default: sample_texts/english_correct.md)
  *   npx tsx scripts/test-translation.ts --model qwen      # only benchmark models whose filename contains "qwen"
+ *   npx tsx scripts/test-translation.ts --api             # ALSO benchmark API models that have a
+ *                                                         # credential. Opt-in: every run spends real money.
  */
 
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { buildTranslationReviewerPrompt } from "../backend/src/prompts.js";
@@ -58,6 +60,10 @@ function parseArg(flag: string): string | null {
 const JUDGE_FILTER = parseArg("--judge");
 const SOURCE_OVERRIDE = parseArg("--source");
 const MODEL_FILTER = parseArg("--model");
+// API-source models are opt-in for the same reason as in test-models.ts:
+// every run of one spends real money at a provider, so they must never join
+// the default grid by accident.
+const INCLUDE_API = process.argv.includes("--api");
 
 function isTransientError(msg: string): boolean {
   const m = msg.toLowerCase();
@@ -196,6 +202,21 @@ async function main() {
   const catalogFileNames = new Set(catalogData.catalog.map((c) => c.fileName));
   const sizeByFile = new Map(catalogData.catalog.map((c) => [c.fileName, c.sizeBytes]));
   let models = modelData.models.filter((m) => catalogFileNames.has(m));
+
+  // API entries are never in /models — nothing is installed on disk for them.
+  // They are 'installed' when a credential exists, which is what
+  // /models/installed reports.
+  if (INCLUDE_API) {
+    const installed = (await api("GET", "/models/installed")) as {
+      installed: { fileName: string; name: string }[];
+    };
+    for (const e of installed.installed) {
+      if (!e.fileName.startsWith("custom:")) continue;
+      if (!models.includes(e.fileName)) models.push(e.fileName);
+      console.log(`  API model available: ${e.name} (${e.fileName})`);
+    }
+  }
+
   if (models.length === 0) {
     console.error("ERROR: No catalog models found in backend/models/");
     process.exit(1);
@@ -325,6 +346,24 @@ async function main() {
   }
 
   // ── Report ──
+  // Merge with any previous run before rendering. A run only covers the models
+  // it was asked for — `--api` benchmarks the cloud entry alone — so both the
+  // report and the JSON must show the accumulated picture, not just this
+  // invocation. Keyed by model + target language; a fresh row wins.
+  const rawPath = join(SAMPLE_DIR, "translation_results.json");
+  const rowKey = (r: { model: string; targetLang: string }) => `${r.model}::${r.targetLang}`;
+  const mergedRows = new Map<string, (typeof results)[number]>();
+  if (existsSync(rawPath)) {
+    try {
+      for (const r of JSON.parse(readFileSync(rawPath, "utf-8")) as typeof results)
+        mergedRows.set(rowKey(r), r);
+    } catch {
+      // An unreadable or half-written file is not worth failing a finished run over.
+    }
+  }
+  for (const r of results) mergedRows.set(rowKey(r), r);
+  const allResults = [...mergedRows.values()];
+
   const lines: string[] = [];
   lines.push("BETHANIEL TRANSLATION QUALITY BENCHMARK");
   lines.push(`Report generated: ${new Date().toISOString()}`);
@@ -345,7 +384,7 @@ async function main() {
   // costs a word-level metric everything). A reference is ONE valid rendering,
   // so read these for ranking models against each other, never as an absolute
   // "this translation is 62% correct".
-  const scored = results.filter((r) => r.quality);
+  const scored = allResults.filter((r) => r.quality);
   if (scored.length > 0) {
     lines.push("SCORECARD — reference-based (deterministic, no judge model)");
     lines.push("=".repeat(80));
@@ -410,9 +449,17 @@ async function main() {
   console.log(report);
 
   // Also save raw translated texts for manual spot-checking.
-  const rawPath = join(SAMPLE_DIR, "translation_results.json");
-  writeFileSync(rawPath, JSON.stringify(results, null, 2), "utf-8");
-  console.log(`Raw translations + scores saved to: ${rawPath}`);
+  //
+  // Merged, not overwritten. A run only ever covers the models it was asked
+  // for — `--api` benchmarks the cloud entry alone — so writing `results`
+  // straight out silently discarded every row from the previous run. That
+  // cost a full local pass once: the cloud run replaced three local models'
+  // worth of translations with its own three rows. A row is identified by
+  // model + target language, and a fresh one wins.
+  writeFileSync(rawPath, JSON.stringify(allResults, null, 2), "utf-8");
+  console.log(
+    `Raw translations + scores saved to: ${rawPath} (${results.length} from this run, ${allResults.length} total)`,
+  );
 }
 
 main().catch((err) => {
