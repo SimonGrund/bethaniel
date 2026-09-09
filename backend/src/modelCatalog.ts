@@ -163,13 +163,23 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     // chapter run sequentially (queue.ts), so this only helps a multi-chapter
     // book, and there it is close to a linear win on wall-clock.
     //
-    // 12 is bounded by the credential ledger's 120 requests/min, not by the
-    // provider: one chapter issues 3 upstream calls per chunk at the Speed
-    // preset, so 12 chapters burst to ~36, or ~72 if a second chunk lands in
-    // the same window. OVHcloud's own ceiling is 400/min per project per
-    // model, shared across all customers — see the sizing note in
-    // worker/src/ledger.ts for how the two interact.
-    recommendedParallel: 12,
+    // Chapters are the unit that parallelises, and on Scaleway throughput is
+    // bought with concurrency rather than waited for. Measured 9 September
+    // 2026 on 2,366-word chunks, every request succeeding:
+    //
+    //     12 concurrent    352 tok/s aggregate
+    //     40 concurrent  1,059 tok/s aggregate
+    //
+    // So 40, not 12. For a 43-chapter manuscript that is most of the book at
+    // once and takes a copy edit from ~27 minutes to ~9. Chunks inside one
+    // chapter still run sequentially, so this only helps a multi-chapter book
+    // — and there it is close to a linear win.
+    //
+    // Bounded by the credential ledger's 400 requests/min (one chapter is 3
+    // upstream calls per chunk at the Speed preset, so 40 chapters burst to
+    // ~120 and up to ~240 if second chunks land in the same window). Raise
+    // both together or neither.
+    recommendedParallel: 40,
     defaults: {
       ...COMMON_DEFAULTS,
       num_ctx: 128000,
@@ -243,10 +253,13 @@ export function isOllamaModel(entry: ModelCatalogEntry): boolean {
  * faster provider that keeps manuscripts is not an upgrade.
  *
  * Set this back to false to restore the offer. Nothing else needs to change:
- * the Worker stays deployed and live, and any credential already paid for
- * keeps working, because this hides the SALE and not the model.
+ * the Worker stays deployed and live.
+ *
+ * Overridable so the benchmark harness can still reach the model while the
+ * offer is withdrawn: BETHANIEL_CLOUD_OFFER=on. Suspended by default, so a
+ * forgotten env var fails toward not-for-sale rather than toward selling.
  */
-export const CLOUD_OFFER_SUSPENDED = true;
+export const CLOUD_OFFER_SUSPENDED = process.env.BETHANIEL_CLOUD_OFFER !== "on";
 
 export function isApiModelEntry(entry: ModelCatalogEntry): boolean {
   return entry.source === "api";

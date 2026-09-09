@@ -98,7 +98,7 @@ PROVIDER_MODEL = "deepseek-v4-flash"
 # edit see no such gain, which is why they moved.
 #
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
-PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
+PROVIDER_MODEL_TRANSLATE = "llama-3.3-70b-instruct"
 PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c0206/v1"
 
 # ── Switching provider ──
@@ -119,7 +119,7 @@ PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c020
 # (with a project id: https://api.scaleway.ai/<project-id>/v1). Either is
 # accepted; see chatCompletionsUrl in src/upstream.ts.
 #
-PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+# PROVIDER_API_BASE_TRANSLATE — unset: translation now uses the default provider
 # PROVIDER_REASONING_EFFORT_TRANSLATE = "none"   # only for a reasoning model
 # and: npx wrangler secret put PROVIDER_API_KEY_TRANSLATE
 # DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.

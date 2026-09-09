@@ -48,14 +48,30 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 // refusal to a 403 the app treated it as a dead credential and failed the
 // chunk outright. Both halves of that are fixed; this is the sizing half.
 //
-// Aggregate check: OVHcloud allows 400 requests/min per project per model,
-// shared across every Bethaniel customer. Three concurrent jobs at this limit
-// is 360 — under it. A fourth can push past, and the provider's own 429 is
-// now retried with backoff rather than failing the chunk, so it degrades
-// instead of breaking. A Worker-wide request-rate guard would make that
-// aggregate explicit; GlobalMeter today bounds tokens per day, not calls per
-// minute.
-const RATE_LIMIT_MAX_REQUESTS = 120;
+// Raised to 400 on 9 September 2026, when the provider moved to Scaleway and
+// the old ceiling became the binding constraint rather than a backstop.
+//
+// Measured on Scaleway, one 2,366-word chunk per request, all succeeding:
+//
+//     12 concurrent    352 tok/s aggregate
+//     40 concurrent  1,059 tok/s aggregate
+//
+// It scales, in other words — throughput is bought with concurrency, not
+// waited for. A 43-chapter book at one chapter each is ~129 calls per burst
+// and up to ~258 if second chunks land in the same window, which 120 refused
+// and 400 admits. That is the difference between ~27 minutes and ~9 for a
+// full-length manuscript.
+//
+// Still a backstop, not the spend control: `budgetTotal` is absolute and a
+// credential can only ever spend what was paid for, however fast it asks.
+// This only shapes burst behaviour.
+//
+// The aggregate across customers is now the open question. OVHcloud's shared
+// 400/min no longer applies, and Scaleway's limits are per-account and were
+// not reached at 40 concurrent — but nothing here bounds calls per minute
+// Worker-wide, and GlobalMeter bounds tokens per day rather than call rate.
+// That guard is worth building before many customers run at once.
+const RATE_LIMIT_MAX_REQUESTS = 400;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
