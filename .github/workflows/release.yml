@@ -21,6 +21,11 @@ name: Release
 # job-level `if` guard below instead.
 
 on:
+    # Cut a release deliberately, without having to invent a code change.
+    # `paths-ignore` below means an empty or docs-only commit can never
+    # trigger this — which is correct for pushes, and leaves no way to say
+    # "release what is already on main". This is that way.
+    workflow_dispatch:
     push:
         branches:
             - main
