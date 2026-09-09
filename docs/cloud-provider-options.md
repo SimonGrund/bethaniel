@@ -123,6 +123,57 @@ Scaleway's base URL is project-scoped, not model-scoped:
 model is chosen per request. Confirmed working model ids: `qwen3.6-35b-a3b`,
 `deepseek-v4-flash` (reports as `deepseek-v4-flash-0731`), `glm-5.2`.
 
+## How to measure a provider without fooling yourself
+
+Every speed number above the first table was wrong, and the corrections are
+worth more than the numbers. Three effects, each worth 1.5-2.5x:
+
+**Cold start dominates.** Five identical trials at concurrency 8 ran 422, 432,
+517, 559, 607 tok/s — monotonically increasing. Serverless endpoints load or
+scale replicas under sustained load, so a first-touch measurement understates
+by ~2.4x. Every provider comparison taken cold is meaningless.
+
+**Aggregate scales superlinearly with concurrency, then flattens.** Warm on
+Scaleway: 551 tok/s at 8, 1,423 at 16, 2,288 at 40. Doubling concurrency more
+than doubled throughput between 8 and 16 — continuous batching fills the GPU
+better. Measuring at low concurrency measures the wrong thing entirely.
+
+**Prefix caching flatters a naive benchmark.** Sending the same request
+repeatedly gave 2,288 tok/s at 40-wide; sending DISTINCT text slices gave
+1,398-1,520. A manuscript is all new text, so ~1,450 is the honest figure and
+2,288 was a cache hit. Any benchmark that reuses one prompt is measuring the
+cache.
+
+### Corrected: Scaleway, warm, distinct inputs
+
+| concurrency | aggregate |
+|---|---|
+| 8 | ~550 tok/s |
+| 16 | ~1,420 |
+| 40 | **~1,450** (distinct text; 2,288 with a warm cache) |
+
+At ~1,450 tok/s a 120,000-word copy edit (567k output tokens) is **~6.5
+minutes**, not the 25-40 that withdrew the offer. The gap to DeepSeek was
+mostly measurement error plus a 12-wide concurrency cap, not the provider.
+
+**So the OVHcloud verdict is unsafe.** Its 178 tok/s at 8-wide was measured
+cold and at low concurrency — the same mistake, and likely understated by a
+similar factor. Since OVHcloud's Qwen3.5-9B is still the best-quality model
+measured (59% copy / 52% line, against 44-46% for both Scaleway candidates),
+it deserves a warm 40-wide re-measurement before being replaced. If it lands
+anywhere near 1,000 tok/s, the right answer is to keep the quality and raise
+the concurrency.
+
+### Method, for next time
+
+1. Warm the endpoint first; discard the first trial.
+2. Fix concurrency, repeat 3-5 times, report the MEDIAN and the spread.
+3. Use distinct input text per request.
+4. Compare at the concurrency the product actually uses, not at 1.
+
+Done that way the spread is 1.2-1.3x, which is normal for shared tenancy.
+Done any other way, providers look 3x apart when they are not.
+
 ## Nobody publishes tokens per second
 
 Not one provider states throughput. The best independent comparison found ships
