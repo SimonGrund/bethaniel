@@ -128,6 +128,8 @@ interface MaintenanceSummary {
   expiredQuotes: number;
   refunded: number;
   flagged: number;
+  /** Minutes the Worker-wide request ceiling was reached since the last sweep. */
+  saturations: { at: string; rate: number }[];
 }
 
 /**
@@ -143,19 +145,37 @@ async function runMaintenance(env: Env): Promise<MaintenanceSummary> {
   // grew by one row per price check forever, paid or not.
   const expiredQuotes = await sweepExpiredQuotes(env);
   const { refunded, flagged } = await reimburseUnusedCredentials(env);
+  // Minutes in which the Worker-wide rate ceiling was actually hit. Customers
+  // saw a slower job and nothing else; without this nobody would learn the
+  // cause. Read-and-clear, so each saturated minute is reported once.
+  let saturations: { at: string; rate: number }[] = [];
+  try {
+    const meter = env.GLOBAL_METER.get(env.GLOBAL_METER.idFromName("global"));
+    const res = await meter.fetch("https://meter/drain-saturations", {
+      method: "POST",
+    });
+    if (res.ok) {
+      saturations =
+        ((await res.json()) as { saturations?: typeof saturations }).saturations ?? [];
+    }
+  } catch (err) {
+    console.error("[cron] could not read rate saturations:", err);
+  }
   return {
     expiredCredentials,
     expiredClaims,
     expiredQuotes,
     refunded,
     flagged,
+    saturations,
   };
 }
 
 function describeMaintenance(s: MaintenanceSummary): string {
   return (
     `expired ${s.expiredCredentials} credential(s), swept ${s.expiredClaims} stale pending claim(s), ` +
-    `${s.expiredQuotes} expired quote(s), refunded ${s.refunded}, flagged ${s.flagged} for review`
+    `${s.expiredQuotes} expired quote(s), refunded ${s.refunded}, flagged ${s.flagged} for review` +
+    (s.saturations.length ? `, RATE CEILING HIT in ${s.saturations.length} minute(s)` : "")
   );
 }
 

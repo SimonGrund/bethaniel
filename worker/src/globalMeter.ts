@@ -61,6 +61,25 @@ export class GlobalMeter {
   private env: Env;
   private meter: MeterState = { day: "", reserved: 0, spent: 0 };
   private holds = new Map<string, Hold>();
+  /**
+   * Request timestamps in the last minute, Worker-wide.
+   *
+   * The daily token ceiling bounds what Bethaniel SPENDS. Nothing bounded how
+   * fast it asked, and the two are different problems: one customer running a
+   * book at full concurrency can saturate the provider for everybody else long
+   * before the day's tokens run out. Per-credential limits cannot see that —
+   * they only know about one credential.
+   *
+   * In memory rather than storage on purpose. A rolling minute is worthless
+   * after a restart, and persisting every request would cost a write per call.
+   */
+  private recentRequests: number[] = [];
+  /**
+   * Minutes in which the ceiling was actually hit, kept so a human hears about
+   * it. Saturation is invisible otherwise: the customer sees a slower job and
+   * nobody sees the cause.
+   */
+  private saturations: { at: string; rate: number }[] = [];
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -93,6 +112,33 @@ export class GlobalMeter {
     return Number.isFinite(raw) && raw > 0 ? raw : 0;
   }
 
+  private rateCeiling(): number {
+    const raw = Number(this.env.WORKER_REQUESTS_PER_MINUTE);
+    // Unlike the token ceiling this fails OPEN. A missing value here means "do
+    // not pace", which costs speed for other customers at worst; failing closed
+    // would refuse every request over a config typo, and this guard is not the
+    // spend control — DAILY_TOKEN_CEILING is, and that one does fail closed.
+    return Number.isFinite(raw) && raw > 0 ? raw : Infinity;
+  }
+
+  /** True if this request should be paced. Also records the saturation. */
+  private overRate(now: number): boolean {
+    const cutoff = now - 60_000;
+    this.recentRequests = this.recentRequests.filter((t) => t > cutoff);
+    const ceiling = this.rateCeiling();
+    if (this.recentRequests.length < ceiling) {
+      this.recentRequests.push(now);
+      return false;
+    }
+    const minute = new Date(now).toISOString().slice(0, 16);
+    const last = this.saturations.at(-1);
+    if (last?.at === minute) last.rate = this.recentRequests.length;
+    else this.saturations.push({ at: minute, rate: this.recentRequests.length });
+    // Keep a day's worth at most; the sweep reads and clears it hourly.
+    if (this.saturations.length > 1440) this.saturations.shift();
+    return true;
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const now = Date.now();
@@ -100,6 +146,16 @@ export class GlobalMeter {
 
     if (url.pathname === "/reserve" && request.method === "POST") {
       const { holdTokens } = (await request.json()) as { holdTokens: number };
+      // Pace before spending. A 429 here is backpressure the app waits out
+      // (llm.ts), so a saturated minute makes every job slower rather than
+      // making one job fail — and nobody's purchase is refused, because
+      // checkout never reaches this DO.
+      if (this.overRate(now)) {
+        return jsonResponse(
+          { ok: false, reason: "worker_rate_limit", perMinute: this.rateCeiling() },
+          429,
+        );
+      }
       const ceiling = this.ceiling();
       if (ceiling <= 0) {
         return jsonResponse(
@@ -154,6 +210,14 @@ export class GlobalMeter {
       return jsonResponse({ ok: true });
     }
 
+    // Read AND clear, so the hourly sweep reports each saturated minute once.
+    // A metric nobody clears is a metric nobody reads twice.
+    if (url.pathname === "/drain-saturations" && request.method === "POST") {
+      const drained = this.saturations;
+      this.saturations = [];
+      return jsonResponse({ saturations: drained });
+    }
+
     if (url.pathname === "/status") {
       const ceiling = this.ceiling();
       const used = this.meter.reserved + this.meter.spent;
@@ -165,6 +229,9 @@ export class GlobalMeter {
         used,
         remaining: Math.max(0, ceiling - used),
         liveHolds: this.holds.size,
+        requestsLastMinute: this.recentRequests.length,
+        rateCeiling: this.rateCeiling(),
+        saturations: this.saturations,
       });
     }
 

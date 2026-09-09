@@ -61,6 +61,8 @@ jobs:
                     -H "Authorization: Bearer ${ADMIN_TOKEN}")
 
                   echo "$response"
+                  # Kept for the next step, which reports rate-ceiling hits.
+                  echo "$response" > sweep.json
 
                   # Surface the refund numbers in the run summary, so the
                   # Actions tab answers "did anyone get their money back?"
@@ -93,6 +95,29 @@ jobs:
                   curl --silent --show-error --fail-with-body --max-time 60 \
                     "$WORKER/admin/refunds" \
                     -H "Authorization: Bearer ${ADMIN_TOKEN}" > reviews.json
+
+                  # The sweep response carries any minute in which the
+                  # Worker-wide request ceiling was reached. Customers saw a
+                  # slower job; without this nobody would learn the cause.
+                  sat=$(jq -r '.saturations | length // 0' sweep.json 2>/dev/null || echo 0)
+                  if [ "$sat" -gt 0 ]; then
+                    {
+                      echo "The Worker-wide request ceiling"
+                      echo "(WORKER_REQUESTS_PER_MINUTE) was reached in $sat minute(s)"
+                      echo "since the last sweep. Jobs were paced, not failed — but"
+                      echo "everyone editing at that moment was slower."
+                      echo
+                      echo '```json'
+                      jq '.saturations' sweep.json
+                      echo '```'
+                      echo
+                      echo "If this recurs, either raise the ceiling or find out"
+                      echo "what is generating the traffic. If it was one customer"
+                      echo "editing a full book, that is the system working."
+                    } > sat.md
+                    gh label create rate-ceiling --color FBCA04                       --description "The Worker-wide request ceiling was reached"                       2>/dev/null || true
+                    gh issue create --label rate-ceiling                       --title "Rate ceiling reached ($sat minute(s))" --body-file sat.md
+                  fi
 
                   count=$(jq -r '.count' reviews.json)
                   echo "$count credential(s) awaiting a refund decision"

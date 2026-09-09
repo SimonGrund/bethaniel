@@ -89,7 +89,7 @@ crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 # NOTE: switching models here is not enough on its own. `wrangler dev` does
 # NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
 # the old model while believing you changed it.
-PROVIDER_MODEL = "deepseek-v4-flash"
+PROVIDER_MODEL = "qwen3.6-35b-a3b"
 # Translation is the one pass where size still pays, so it keeps the model the
 # rest of the product no longer needs. Measured 8 September 2026, chrF against
 # human reference translations: Llama-3.3-70B 78.3 against Qwen3.5-9B's 76.7
@@ -98,7 +98,7 @@ PROVIDER_MODEL = "deepseek-v4-flash"
 # edit see no such gain, which is why they moved.
 #
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
-PROVIDER_MODEL_TRANSLATE = "llama-3.3-70b-instruct"
+PROVIDER_MODEL_TRANSLATE = "Qwen3.5-9B"  # TEMPORARY: OVHcloud A/B via the translate slot
 PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c0206/v1"
 
 # ── Switching provider ──
@@ -119,8 +119,8 @@ PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c020
 # (with a project id: https://api.scaleway.ai/<project-id>/v1). Either is
 # accepted; see chatCompletionsUrl in src/upstream.ts.
 #
-# PROVIDER_API_BASE_TRANSLATE — unset: translation now uses the default provider
-# PROVIDER_REASONING_EFFORT_TRANSLATE = "none"   # only for a reasoning model
+PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+PROVIDER_REASONING_EFFORT_TRANSLATE = "none"
 # and: npx wrangler secret put PROVIDER_API_KEY_TRANSLATE
 # DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
 #
@@ -223,6 +223,23 @@ MAX_OUTPUT_TOKENS_PER_REQUEST = "8192"
 # buy (a 400k-word manuscript at Speed, 4.98M). An anti-nonsense bound, not a
 # product limit — real jobs must never reach it.
 MAX_QUOTE_TOKENS = "8000000"
+
+# Worker-wide requests per minute, across every customer.
+#
+# DAILY_TOKEN_CEILING bounds what Bethaniel spends; this bounds how fast it
+# asks. Different failures: one customer running a full book at 24 chapters
+# at once can saturate the provider for everybody else long before the day's
+# tokens run out, and a per-credential limit cannot see that.
+#
+# 1500 allows roughly six concurrent full-speed jobs (24 chapters at ~3 calls
+# per chunk settles near 72/min sustained with a burst on top). Hitting it is
+# PACING, not refusal: the 429 is waited out by backend/src/llm.ts, so a busy
+# minute makes every job slower rather than making one fail. Checkout never
+# reaches this meter, so nobody is stopped from buying.
+#
+# Every minute the ceiling is reached is recorded and reported by the hourly
+# sweep, which raises a GitHub issue — saturation is otherwise invisible.
+WORKER_REQUESTS_PER_MINUTE = "1500"
 # "none" because PROVIDER_MODEL is a Qwen model, which reasons by default and
 # will otherwise burn the whole output budget thinking and return empty
 # content — measured in src/proxy.ts, and measured again on 8 September 2026

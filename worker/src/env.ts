@@ -82,6 +82,19 @@ export interface Env {
   DAILY_TOKEN_CEILING: string;
   MAX_OUTPUT_TOKENS_PER_REQUEST: string;
   MAX_QUOTE_TOKENS: string;
+  /**
+   * Worker-wide requests per minute, across every customer.
+   *
+   * DAILY_TOKEN_CEILING bounds what Bethaniel spends; this bounds how fast it
+   * asks. They are different failures: one customer running a full book at high
+   * concurrency can saturate the provider for everyone else long before the
+   * day's tokens run out, and a per-credential limit cannot see that because it
+   * only knows about one credential.
+   *
+   * Fails OPEN when unset — pacing is not the spend control, and refusing every
+   * request over a config typo would be worse than not pacing.
+   */
+  WORKER_REQUESTS_PER_MINUTE?: string;
   /** "none" (default) disables the model's chain-of-thought; "default" hands
    *  control back to the provider. Anything else is passed through verbatim. */
   PROVIDER_REASONING_EFFORT: string;
