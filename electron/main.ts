@@ -11,6 +11,7 @@ import {
   ipcMain,
   Menu,
   Notification,
+  powerSaveBlocker,
 } from "electron";
 import { ChildProcess, fork, execFileSync } from "child_process";
 import * as path from "path";
@@ -389,6 +390,77 @@ function findLanguageToolDir(): string | null {
 let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let backendPort = 4000;
+
+// ── Keeping the machine awake while Betty works ──
+//
+// A job is orchestrated HERE, on this machine, chunk by chunk — even a cloud
+// job, where only the inference is remote. So if the machine sleeps, the run
+// stops: in-flight requests die, and on the next launch queue.ts marks any
+// task still `queued` or `editing` as cancelled, because there is no
+// mid-chunk resume. Completed chapters survive; the one in progress does not.
+//
+// For a cloud job that also costs money. The Worker commits token usage even
+// when the client vanishes mid-stream, so the author pays for output they
+// never receive — and a part-spent credential is above the auto-refund
+// threshold, so it needs a human to settle.
+//
+// A full-length manuscript is 20-40 minutes of work, which is comfortably
+// longer than a default sleep timer. Closing the lid is the realistic way
+// this happens, not a deliberate shutdown.
+let sleepBlockerId: number | null = null;
+let sleepGuardTimer: NodeJS.Timeout | null = null;
+
+async function queueIsBusy(): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${backendPort}/api/queue/status`);
+    if (!res.ok) return false;
+    const tasks = (await res.json()) as Record<string, { status?: string }>;
+    return Object.values(tasks).some(
+      (t) => t?.status === "queued" || t?.status === "editing",
+    );
+  } catch {
+    // Backend not up, or shutting down. Not a reason to hold the machine
+    // awake — release rather than assume the worst.
+    return false;
+  }
+}
+
+/**
+ * Poll rather than push, because the queue's own updates go over Socket.IO to
+ * the renderer and the main process is not a client of it. A 15s poll against
+ * localhost is cheap, and 15s of drift on a timer measured in minutes does
+ * not matter.
+ */
+function startSleepGuard(): void {
+  if (sleepGuardTimer) return;
+  sleepGuardTimer = setInterval(async () => {
+    const busy = await queueIsBusy();
+    if (busy && sleepBlockerId === null) {
+      // `prevent-app-suspension` stops the SYSTEM sleeping while still
+      // allowing the display to switch off — the screen going dark during a
+      // 40-minute edit is fine; the machine suspending is not.
+      sleepBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+      console.log("[power] job running — holding the machine awake");
+    } else if (!busy && sleepBlockerId !== null) {
+      powerSaveBlocker.stop(sleepBlockerId);
+      sleepBlockerId = null;
+      console.log("[power] queue idle — released");
+    }
+  }, 15_000);
+  // Never keep the process alive on this timer's account.
+  sleepGuardTimer.unref?.();
+}
+
+function releaseSleepGuard(): void {
+  if (sleepGuardTimer) {
+    clearInterval(sleepGuardTimer);
+    sleepGuardTimer = null;
+  }
+  if (sleepBlockerId !== null) {
+    powerSaveBlocker.stop(sleepBlockerId);
+    sleepBlockerId = null;
+  }
+}
 let isQuitting = false;
 
 // ── Uninstall ──
@@ -746,6 +818,7 @@ app.whenReady().then(async () => {
   }
 
   backendReady = true;
+  startSleepGuard();
 
   // Create the main window
   const iconPath = IS_DEV
@@ -805,6 +878,7 @@ app.whenReady().then(async () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  releaseSleepGuard();
 
   if (backendProcess && !backendProcess.killed) {
     backendProcess.kill("SIGTERM");

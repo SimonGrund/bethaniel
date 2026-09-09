@@ -573,7 +573,7 @@ export default function EditTrigger() {
             <li>
               {t(
                 "cloud_expect_quality",
-                "For copy editing, the models that run on your own machine are better — 64% of planted errors found against 56% in the cloud, measured across four languages. The cloud exists for computers that cannot run a model locally, not to buy a better copy edit.",
+                "For copy editing, every model we tested lands within one point of the others — 59-60% of planted errors found, across four languages, whether it runs on your laptop or in the cloud. The cloud exists for computers that cannot run a model locally. It does not buy a better copy edit.",
               )}
             </li>
             <li>
@@ -598,6 +598,18 @@ export default function EditTrigger() {
               {t(
                 "cloud_expect_translation",
                 "Translation and line editing are where the cloud earns its cost: translation runs on a much larger model, and both come out ahead of the local ones.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_duration",
+                "A full-length manuscript takes a while: roughly 25-40 minutes for a copy and line edit of a 120,000-word book, or 15-25 minutes to translate one. Betty works chapter by chapter, twelve at a time.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_awake",
+                "Leave this machine on until it finishes. Betty runs the job from here even when the editing happens in the cloud, so if the computer sleeps or shuts down, the chapter in progress is lost — and on a paid run, the tokens it had already used are spent. Betty now keeps the machine awake while it works, but closing the lid on some laptops still suspends it.",
               )}
             </li>
             <li>
