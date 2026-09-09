@@ -6,6 +6,7 @@
 // side — only the base URL and credential differ.
 
 import type { Env } from "./env";
+import { resolveUpstream } from "./upstream";
 import { hashToken } from "./crypto";
 import { findCredentialByTokenHash, updateCredentialMirror } from "./db";
 
@@ -168,24 +169,11 @@ export async function handleChatCompletions(
   // need — measured 8 September 2026, it leads chrF by 1.6 overall and 5.0 on
   // Danish, while being the WORST of four models at line edit. It costs more
   // per token, which is why it is priced separately.
-  const pass = request.headers.get("X-Bethaniel-Pass");
-  const isTranslate = pass === "translate";
-  // Whether the translate model was actually available, NOT whether translation
-  // was asked for. PROVIDER_MODEL_TRANSLATE is optional, and when it is unset a
-  // translate request silently falls back to PROVIDER_MODEL — so deciding the
-  // reasoning field on intent would send the reasoning model with reasoning
-  // left ON, which by measurement returns content: null after burning the whole
-  // output budget. The paid job would be billed for nothing at all.
-  const routedToTranslateModel = isTranslate && !!env.PROVIDER_MODEL_TRANSLATE;
-  const upstreamModel = routedToTranslateModel
-    ? (env.PROVIDER_MODEL_TRANSLATE as string)
-    : env.PROVIDER_MODEL;
-  // Only PROVIDER_MODEL is known to reason. The translate model is a Llama,
-  // which rejects nothing but has no chain-of-thought to switch off, so the
-  // field must be omitted for it exactly as it was before this split.
-  const reasoningEffort = routedToTranslateModel
-    ? "default"
-    : env.PROVIDER_REASONING_EFFORT;
+  // Provider, model and reasoning setting all resolve together — see
+  // resolveUpstream for why they must not be decided separately.
+  const route = resolveUpstream(env, request.headers.get("X-Bethaniel-Pass"));
+  const upstreamModel = route.model;
+  const reasoningEffort = route.reasoningEffort;
 
   const upstreamBody = {
     ...body,
@@ -215,11 +203,11 @@ export async function handleChatCompletions(
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${env.PROVIDER_API_BASE}/v1/chat/completions`, {
+    upstream = await fetch(route.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.PROVIDER_API_KEY}`,
+        Authorization: `Bearer ${route.apiKey}`,
       },
       body: JSON.stringify(upstreamBody),
     });

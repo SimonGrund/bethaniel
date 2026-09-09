@@ -14,6 +14,19 @@ export interface Env {
   PROVIDER_MODEL: string;
   /** Model used for the translate pass only — see wrangler.toml. */
   PROVIDER_MODEL_TRANSLATE?: string;
+  /**
+   * Provider overrides for the translation pass. Each falls back to its
+   * default-route counterpart, so leaving them unset keeps the original
+   * arrangement: one provider, two models.
+   *
+   * They exist so the two passes can sit on DIFFERENT vendors — which is
+   * what a migration actually looks like, when credit remains on the old
+   * provider and the new one is only better at part of the job.
+   */
+  PROVIDER_API_BASE_TRANSLATE?: string;
+  /** Secret. `wrangler secret put`, never a var. */
+  PROVIDER_API_KEY_TRANSLATE?: string;
+  PROVIDER_REASONING_EFFORT_TRANSLATE?: string;
   PROVIDER_API_BASE: string;
   BASE_COST_EUR_PER_TOKEN: string;
   /** Rate for PROVIDER_MODEL_TRANSLATE, which is a different (dearer) model. */

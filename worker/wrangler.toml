@@ -100,6 +100,28 @@ PROVIDER_MODEL = "Qwen3.5-9B"
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
 PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
 PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+
+# ── Switching provider ──
+#
+# The edit pass and the translate pass resolve independently: provider, key,
+# model and reasoning setting each have a _TRANSLATE counterpart that falls
+# back to the default when unset. So all three of these are valid:
+#
+#   one provider, one model    — set nothing below
+#   one provider, two models   — PROVIDER_MODEL_TRANSLATE only (today)
+#   two providers              — add the _TRANSLATE base and key
+#
+# The third is what a migration looks like. Moving editing to a faster
+# provider while translation stays where the remaining credit is costs two
+# lines here and one `wrangler secret put`.
+#
+# Base URLs may or may not carry /v1 — OVHcloud's does not, Scaleway's does
+# (with a project id: https://api.scaleway.ai/<project-id>/v1). Either is
+# accepted; see chatCompletionsUrl in src/upstream.ts.
+#
+# PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+# PROVIDER_REASONING_EFFORT_TRANSLATE = "none"   # only for a reasoning model
+# and: npx wrangler secret put PROVIDER_API_KEY_TRANSLATE
 # DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
 #
 # It no longer sets any price. Since pricing moved to flat word bands, the
