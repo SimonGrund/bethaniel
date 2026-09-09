@@ -29,6 +29,9 @@ concurrency:
     group: cloud-sweep
     cancel-in-progress: false
 
+env:
+    WORKER: https://bethaniel-cloud.cloudwatcher.workers.dev
+
 permissions:
     contents: read
     # To open the issue that tells a human a refund needs deciding.
@@ -54,7 +57,7 @@ jobs:
                   # token returns, deliberately) would look like success.
                   response=$(curl --silent --show-error --fail-with-body \
                     --max-time 120 \
-                    -X POST "https://bethaniel-cloud.cloudwatcher.workers.dev/admin/sweep" \
+                    -X POST "$WORKER/admin/sweep" \
                     -H "Authorization: Bearer ${ADMIN_TOKEN}")
 
                   echo "$response"
@@ -73,7 +76,6 @@ jobs:
                     *'"ok":true'*) ;;
                     *) echo "::error::Sweep did not report ok:true"; exit 1 ;;
                   esac
-
             - name: Raise anything waiting on a human
               env:
                   ADMIN_TOKEN: ${{ secrets.CLOUD_ADMIN_TOKEN }}
@@ -85,59 +87,52 @@ jobs:
                   # is farmable — so the sweep parks them for a decision. Without
                   # this step the queue is a column value nobody reads, and the
                   # customer waits on an inbox that does not exist.
-                  reviews=$(curl --silent --show-error --fail-with-body \
-                    --max-time 60 \
-                    "https://bethaniel-cloud.cloudwatcher.workers.dev/admin/refunds" \
-                    -H "Authorization: Bearer ${ADMIN_TOKEN}")
+                  curl --silent --show-error --fail-with-body --max-time 60 \
+                    "$WORKER/admin/refunds" \
+                    -H "Authorization: Bearer ${ADMIN_TOKEN}" > reviews.json
 
-                  count=$(echo "$reviews" | jq -r '.count')
+                  count=$(jq -r '.count' reviews.json)
                   echo "$count credential(s) awaiting a refund decision"
 
+                  existing=$(gh issue list --label refund-review --state open \
+                    --json number --jq '.[0].number // empty')
+
                   if [ "$count" -eq 0 ]; then
-                    # Nothing pending. Close a stale issue rather than leaving it
-                    # open forever — an inbox that never empties stops being read.
-                    open=$(gh issue list --label refund-review --state open \
-                      --json number --jq '.[0].number // empty')
-                    if [ -n "$open" ]; then
-                      gh issue close "$open" --comment "Queue is empty — all refunds decided."
+                    # Close a stale issue rather than leaving it open forever —
+                    # an inbox that never empties stops being read.
+                    if [ -n "$existing" ]; then
+                      gh issue close "$existing" --comment "Queue is empty — all refunds decided."
                     fi
                     exit 0
                   fi
 
-                  body=$(printf '%s
-' \
-                    "The sweep parked these because they were partly used: too much" \
-                    "spend to refund automatically, too little to be sure the author" \
-                    "got what they paid for. Someone has to choose." \
-                    "" \
-                    '```json' \
-                    "$reviews" \
-                    '```' \
-                    "" \
-                    "Decide one with:" \
-                    "" \
-                    '```' \
-                    'curl -X POST https://bethaniel-cloud.cloudwatcher.workers.dev/admin/refund ' \
-                    '  -H "Authorization: Bearer $ADMIN_TOKEN" -H "content-type: application/json" ' \
-                    "  -d '{\"credentialId\":\"…\",\"action\":\"refund\"}'" \
-                    '```' \
-                    "" \
-                    "`action` is `refund` (moves money) or `decline` (does not)." \
-                    "Either clears it from the queue. This issue closes itself once" \
-                    "the queue is empty.")
+                  # Built as a file, not an inline string: the body contains
+                  # JSON, backticks and quotes, and every one of those is a way
+                  # for a shell here to misread it.
+                  {
+                    echo "The sweep parked these because they were partly used: too much"
+                    echo "spend to refund automatically, too little to be sure the author"
+                    echo "got what they paid for. Someone has to choose."
+                    echo
+                    echo '```json'
+                    cat reviews.json
+                    echo '```'
+                    echo
+                    echo "Settle one with POST /admin/refund, sending the credentialId"
+                    echo "and an action of either refund (moves money) or decline"
+                    echo "(does not). Either clears it from the queue."
+                    echo
+                    echo "See docs/admin-surface.md. This issue closes itself once the"
+                    echo "queue is empty."
+                  } > body.md
 
-                  open=$(gh issue list --label refund-review --state open \
-                    --json number --jq '.[0].number // empty')
-
-                  # One issue, updated — not one per hour. A notification that
-                  # repeats every hour is one that gets muted.
-                  if [ -n "$open" ]; then
-                    gh issue edit "$open" --body "$body"
-                    echo "updated issue #$open"
+                  if [ -n "$existing" ]; then
+                    gh issue edit "$existing" --body-file body.md
+                    echo "updated issue #$existing"
                   else
                     gh label create refund-review --color B60205 \
                       --description "A cloud credential is waiting on a refund decision" \
                       2>/dev/null || true
                     gh issue create --label refund-review \
-                      --title "Refunds awaiting a decision" --body "$body"
+                      --title "Refunds awaiting a decision" --body-file body.md
                   fi
