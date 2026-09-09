@@ -179,7 +179,12 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     // upstream calls per chunk at the Speed preset, so 40 chapters burst to
     // ~120 and up to ~240 if second chunks land in the same window). Raise
     // both together or neither.
-    recommendedParallel: 40,
+    // 24, down from 40. At 40 a full-book job overran the credential's own
+    // rate limit and lost chapters to it; 24 halves the burst while keeping
+    // most of the throughput (warm, 24-wide measured ~1,000+ tok/s against
+    // ~1,450 at 40). Raise it once the provider's documented limits are known
+    // rather than inferred — and raise the ledger's ceiling with it.
+    recommendedParallel: 24,
     defaults: {
       ...COMMON_DEFAULTS,
       num_ctx: 128000,

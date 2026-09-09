@@ -430,6 +430,37 @@ async function* chatStream(
     }
     if (options.seed !== undefined) apiBody.seed = options.seed;
 
+    // ── Rate limits are backpressure, not failure ──
+    //
+    // Betty in the Cloud paces itself with two ceilings: a per-credential burst
+    // limit in the Worker's ledger, and the provider's own. Both answer 429.
+    //
+    // Until 9 September 2026 a 429 fell through to the generic branch below and
+    // FAILED THE CHUNK — which meant our own backpressure could destroy work an
+    // author had already paid for, thirty chapters into a manuscript. A benchmark
+    // run lost two tasks that way, and a customer running a full book at high
+    // concurrency would have lost chapters.
+    //
+    // So a 429 is waited out, not surfaced. `Retry-After` is honoured when the
+    // server sends one, otherwise exponential backoff with jitter — jitter
+    // because forty chapters that all backed off in lockstep would simply
+    // collide again on the retry. Attempts are bounded so a genuinely wedged
+    // provider still ends the job rather than hanging on it forever.
+    const MAX_THROTTLE_WAITS = 6;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, ms);
+        signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(t);
+            reject(new Error("aborted"));
+          },
+          { once: true },
+        );
+      });
+
+    for (let throttled = 0; ; throttled++) {
     const watchdog = stallWatchdog(signal);
     try {
       const res = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -454,6 +485,21 @@ async function* chatStream(
         if (res.status === 401 || res.status === 402 || res.status === 403) {
           throw new ApiAccountError(res.status, text);
         }
+        // Too many requests: slow down and try again. Not an error until we
+        // have waited long enough that something is genuinely wrong.
+        if (res.status === 429 && throttled < MAX_THROTTLE_WAITS) {
+          const header = Number(res.headers.get("retry-after"));
+          const wait = Number.isFinite(header) && header > 0
+            ? Math.min(header * 1000, 60_000)
+            : Math.min(1000 * 2 ** throttled, 30_000) * (0.5 + Math.random());
+          console.warn(
+            `[llm] throttled (429), waiting ${(wait / 1000).toFixed(1)}s ` +
+              `— attempt ${throttled + 1}/${MAX_THROTTLE_WAITS}`,
+          );
+          watchdog.done();
+          await sleep(wait);
+          continue;
+        }
         throw new Error(`DeepSeek API error ${res.status}: ${text}`);
       }
 
@@ -462,6 +508,7 @@ async function* chatStream(
       watchdog.done();
     }
     return;
+    }
   }
 
   // Ensure the model is loaded in llama-server with the required context size.

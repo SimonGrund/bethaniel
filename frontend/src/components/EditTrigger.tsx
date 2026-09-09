@@ -603,7 +603,7 @@ export default function EditTrigger() {
             <li>
               {t(
                 "cloud_expect_duration",
-                "A full-length manuscript takes a while: roughly 25-40 minutes for a copy and line edit of a 120,000-word book, or 15-25 minutes to translate one. Betty works chapter by chapter, twelve at a time.",
+                "Betty edits 24 chapters at once, so a 120,000-word book takes roughly 10-15 minutes. Chapters beyond the first 24 start a second round: a 25-chapter book takes about as long as a 48-chapter one, so the time depends on how many rounds your chapters fill rather than on the word count alone.",
               )}
             </li>
             <li>

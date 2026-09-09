@@ -71,7 +71,23 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 // not reached at 40 concurrent — but nothing here bounds calls per minute
 // Worker-wide, and GlobalMeter bounds tokens per day rather than call rate.
 // That guard is worth building before many customers run at once.
-const RATE_LIMIT_MAX_REQUESTS = 400;
+// 1,200 from 400 on 9 September 2026, and the number matters less than it used
+// to: a 429 is now waited out by backend/src/llm.ts rather than failing the
+// chunk, so this ceiling is a PACING mechanism, not a cliff. Before that change
+// our own backpressure could destroy work an author had paid for — a benchmark
+// run lost two tasks to exactly this.
+//
+// Sized from the call volume rather than a round number. At the Speed preset a
+// chunk costs 3 upstream calls (editor + style agent + reviewer); a chapter is
+// ~2,800 words, so ~2 chunks, ~6 calls. Chunks take 60-95s measured, so P
+// concurrent chapters settle at roughly 3P calls/minute with a 3P burst on top
+// as waves overlap. At the catalog's 24 that is ~72 sustained and ~144 in a
+// burst; 1,200 leaves room for retries and a second job on the same credential
+// without ever being reached in normal use.
+//
+// Still not the spend control. `budgetTotal` is, and it is absolute: a
+// credential can only ever spend what was paid for, however fast it asks.
+const RATE_LIMIT_MAX_REQUESTS = 1200;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

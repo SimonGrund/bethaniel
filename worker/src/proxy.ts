@@ -19,10 +19,14 @@ function estimateTokensRough(text: string): number {
 /** Shape `ApiAccountError` (backend/src/llm.ts) already parses for 401/402/403
  *  responses — reusing it means Bethaniel's app needs zero new error-handling
  *  code for this Worker's failure modes. */
-function openAiError(message: string, status: number): Response {
+function openAiError(
+  message: string,
+  status: number,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(JSON.stringify({ error: { message } }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }
 
@@ -103,9 +107,13 @@ export async function handleChatCompletions(
       // chunk outright and tell the user to go check Model settings, where
       // there is nothing to find. Any other status is retryable there, and a
       // rate limit is exactly the case where retrying is the right answer.
+      // Retry-After turns a guess into an instruction. The window is 60s, so
+      // a couple of seconds is enough for the burst that tripped it to drain,
+      // and the app (llm.ts) waits rather than failing the chunk.
       return openAiError(
         "Too many requests for this credential — please retry in a moment.",
         429,
+        { "Retry-After": "3" },
       );
     }
     return openAiError("This credential is not currently usable", 403);
