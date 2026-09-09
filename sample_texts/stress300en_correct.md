@@ -107,3 +107,75 @@ Marta read it twice, printed it, and pinned it to the corkboard.
 Then she went upstairs, entered the morning's readings, checked the uplink, made a note of a small discrepancy in the humidity sensor that would need attention before the spring, and put the kettle on. The wind was from the northwest at fourteen kilometers per hour. The pressure was falling slowly. The models suggested snow before the weekend, and Marta, who had not been asked, thought it would arrive on Friday afternoon.
 
 It arrived on Friday afternoon.
+
+## Seven
+
+Winter proper began in the third week of November, and with it the part of the year Marta liked best, which was the part nobody else wanted.
+
+The road closed above the eighth kilometer on the twenty-second. After that the only access was by snowmobile, and the supply schedule shifted from weekly to fortnightly, and the character of the work changed entirely. In summer the station was a place she maintained. In winter it was a place she inhabited, and the difference was not sentimental but practical: things broke, and there was nobody to call, and the interval between a fault appearing and a fault being repaired collapsed to however long it took her to understand it.
+
+She had learned an enormous amount this way. Not systematically, and not in an order anybody would have chosen, but thoroughly. She could rewind a motor. She could diagnose a failing bearing by sound alone, which had taken four winters and one expensive mistake. She could improvise a gasket from materials that had not been intended for the purpose and would have horrified the manufacturer.
+
+None of this appeared in her job description, which described a monitoring role and mentioned, in a subordinate clause, routine upkeep.
+
+## Eight
+
+The humidity sensor failed properly in December, having been failing improperly since October.
+
+She had flagged it twice. The first request had been acknowledged. The second had produced a purchase authorization for a replacement unit that was, according to the specification attached, physically incompatible with the housing, having been designed for a different generation of the instrument entirely. Marta had written back explaining this, with photographs, and had received a reply thanking her for her observations.
+
+So she repaired it, using a component salvaged from the disused solar array and a technique she had found described in a forum post from two thousand and nine. The repair held for eleven days and then failed differently, in a manner she found genuinely interesting, and she spent an afternoon working out why before repairing it again more permanently.
+
+She logged both repairs. She did not log the salvage, because the solar array was technically an asset and its disassembly would have required a form she had no intention of completing.
+
+Erik emailed in January. He had submitted his dissertation, passed, and was working for a consultancy that advised public bodies on estate rationalization, a phrase he used without apparent irony and then, in the following sentence, with a great deal of it. He asked how the station was.
+
+Marta wrote back a longer reply than she had intended. She described the humidity sensor. She described the forum post. She described the particular satisfaction of a repair that nobody had authorized and nobody would inspect and which would nevertheless be keeping a number accurate on somebody's screen in Oslo for as long as the building stood.
+
+She read it over and thought that it sounded like a defense of something. She sent it anyway.
+
+## Nine
+
+The avalanche came down the eastern face on the ninth of February, at approximately four in the afternoon, and buried two hundred meters of the road at the sixth kilometer.
+
+Nobody was on it. This was not luck. The road authority had closed the lower section that morning on the strength of a bulletin that had drawn, among other inputs, on the temperature gradient Marta's station had been reporting for the preceding seventy-two hours — a gradient that the station ninety-one kilometers to the southeast, at its lower elevation, had not seen and could not have seen.
+
+She learned about the closure from the radio and about the avalanche from the sound, which arrived as a long compression rather than a bang, and which she felt in the floor before she heard it.
+
+She went out onto the platform. The valley was white and entirely silent and the cloud had lifted for the first time in nine days, and across on the opposite ridge all seven transmission towers were still standing, which she checked without deciding to.
+
+Then she went inside and entered the observation in the log, because that was the job, and the job did not pause for the thing it existed to predict.
+
+## Ten
+
+The consolidation review concluded in April.
+
+Marta learned this the way she had learned most things about her employer, which was late and indirectly: a colleague at the regional office mentioned it in the postscript of an email about something else. The station had been retained. No reason was given, because no reason was required; the review had been an internal exercise and its reasoning was internal too.
+
+She never found out whether her letter had been read.
+
+This bothered her considerably more than she had anticipated, and for reasons she found difficult to defend. The outcome was the one she wanted. The station remained. The instruments continued to report, the bulletin continued to draw on them, and the road continued to close when it needed to. By every measure that mattered to anybody other than herself, the matter had resolved correctly.
+
+But she had spent six weeks constructing an argument, and had assembled evidence, and had made a case in the specific belief that a case could be made — and the possibility that the outcome had arrived independently of all that effort was, she found, genuinely difficult to sit with.
+
+She raised it with Erik, who was by then in a position to know how such reviews actually worked.
+
+"It probably wasn't read," he said. "I'm sorry. They mostly aren't."
+
+"Then what decided it?"
+
+"Somebody looked at a spreadsheet and your station was cheap." He paused. "That's not nothing. Cheap is a thing you made it. Twenty years of not asking for anything is why the number was small enough to survive the column."
+
+Marta thought about this for a long time afterwards, on and off, through the spring and into the following summer. She was not certain it was a compliment. She was reasonably certain it was true.
+
+## Eleven
+
+The frost came early the following autumn, on the eleventh, which was three days sooner than the models had suggested and one day sooner than Marta had privately expected.
+
+She noted the discrepancy in the log, which was where such things belonged, and then, because the observation seemed worth preserving somewhere less official, she wrote it on a card and pinned it to the corkboard beside seven years of letters thanking her for her observations.
+
+It was the first thing on that board that she had written herself.
+
+Below the station the valley filled with cloud in the usual way, and the seven towers on the opposite ridge caught the last of the light, and the anemometer turned steadily in a wind that was coming, as it almost always did, from the northwest.
+
+She made coffee. She checked the uplink, which was working. She sat down at the console and began entering the morning's figures, one after another, in the order the instruments had produced them, exactly as she had done four thousand times before and expected to do several thousand times again.
