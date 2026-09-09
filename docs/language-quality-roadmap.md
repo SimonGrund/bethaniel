@@ -353,6 +353,42 @@ not a quality target; tightening them buys nothing. They exist to catch the
 10–30× swing every one of these bugs actually produced without flapping when a
 dictionary is updated.
 
+## How big a difference is a real difference
+
+Added 9 September 2026, after asking whether the fixtures are large enough to
+trust. They are, for some questions, and firmly are not for others.
+
+Recall is a proportion measured on a finite number of planted errors, so it
+carries binomial sampling error. Near 50%, the standard error is
+`sqrt(0.25 / n)`, and the 95% interval is roughly twice that either side:
+
+| What is being compared | planted errors | 95% interval |
+|---|---|---|
+| One language, stress100 fixture | ~100 | **±10 points** |
+| One language, small fixture | 14-35 | **±17 to ±26 points** |
+| Mean across four languages | ~400 | **±5 points** |
+| One error type within a language | 2-47 | ±14 to ±70 points |
+
+Three consequences, all of which have already caught us out:
+
+- **Model selection must use the four-language mean, never one language.** A
+  language moving 8 points between models is noise. This is why §5's
+  "four-way tie at 59-60%" was correctly called a tie rather than a ranking —
+  those four numbers are one number with error bars.
+- **Per-error-type rows are directional only.** "Comma 27%" on 37 planted
+  commas is ±16. Useful for spotting a hole the size of the comma problem
+  (0-27% against 90%+ for spelling), useless for telling 45% from 55%.
+- **Repeats do not shrink this.** `--repeat` re-runs the same fixture, and at
+  temperature 0 the decode is near-deterministic, so extra runs measure
+  provider nondeterminism rather than sampling error. The interval is set by
+  how many distinct errors are planted, full stop. The only way to halve it
+  is roughly four times the fixtures.
+
+So: **a mean difference under ~5 points is not a finding.** Around 10 points
+is worth acting on. The 13-point copy-edit gap that kept deepseek-v4-flash out
+of the cloud slot clears that bar, but not by so much that one incomplete run
+should be the last word — which is why it was re-checked rather than filed.
+
 ## Method note
 
 Every number above comes from `scripts/test-models.ts` against the ~100-error
