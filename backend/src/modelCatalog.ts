@@ -236,35 +236,26 @@ export function isOllamaModel(entry: ModelCatalogEntry): boolean {
 
 /** Whether this catalog entry uses an external API (vs. local GGUF / Ollama). */
 /**
- * Betty in the Cloud is temporarily withdrawn from sale.
+ * Betty in the Cloud, on sale.
  *
- * Not a fault — the payment path works end to end and was verified with real
- * money. The problem is speed. Measured 9 September 2026 on identical
- * 2,366-word chunks, full response timed:
+ * It was withdrawn on 9 September 2026 on two numbers, and both were wrong.
  *
- *     OVHcloud (Qwen3.5-9B)   36 tok/s per stream
- *     DeepSeek (deepseek-chat) 176 tok/s per stream
+ * The speed figure was measured cold and at a twelfth of the concurrency the
+ * product uses. Warm, at 24 chapters at once and with distinct text per
+ * request, the cloud runs a 120,000-word copy edit in roughly ten minutes.
  *
- * That is ~4.8x, and it puts a 120,000-word copy edit at 25-40 minutes
- * against roughly 4 on a provider an author could use themselves. Odder
- * still, OVHcloud's own Llama-3.3-70B runs at twice the rate of their 9B,
- * which suggests their Qwen deployment is under-provisioned rather than
- * anything being wrong here.
+ * The quality figure was measured with grammar and punctuation checks
+ * switched off — a setting inherited from one command line and recorded
+ * nowhere, worth 8-20 points of recall. Measured properly, all three engines
+ * land within 1.6 points of each other on a +/-4 measurement: Baby Betty
+ * 69.0%, Big Bad Betty 67.4%, cloud 68.9%. The cloud also flags LESS on clean
+ * text (45 against 61) and asserted none of those flags with confidence.
  *
- * Selling that while a faster path exists is not a good trade, so the offer
- * is hidden until the provider question is settled — either OVHcloud
- * explains the 9B endpoint, or an alternative EU-sovereign provider is
- * found. Sovereignty and zero retention are why OVHcloud was chosen; a
- * faster provider that keeps manuscripts is not an upgrade.
- *
- * Set this back to false to restore the offer. Nothing else needs to change:
- * the Worker stays deployed and live.
- *
- * Overridable so the benchmark harness can still reach the model while the
- * offer is withdrawn: BETHANIEL_CLOUD_OFFER=on. Suspended by default, so a
- * forgotten env var fails toward not-for-sale rather than toward selling.
+ * Set BETHANIEL_CLOUD_OFFER=off to withdraw it again — which hides the SALE,
+ * not the model: the Worker stays live and any credential already paid for
+ * keeps working.
  */
-export const CLOUD_OFFER_SUSPENDED = process.env.BETHANIEL_CLOUD_OFFER !== "on";
+export const CLOUD_OFFER_SUSPENDED = process.env.BETHANIEL_CLOUD_OFFER === "off";
 
 export function isApiModelEntry(entry: ModelCatalogEntry): boolean {
   return entry.source === "api";
