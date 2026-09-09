@@ -103,6 +103,7 @@ import {
 } from "./modelConfig.js";
 import {
   MODEL_CATALOG,
+  CLOUD_OFFER_SUSPENDED,
   isOllamaModel,
   isApiModel,
   isCustomGgufModel,
@@ -1478,7 +1479,11 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
   // (slow)? null when no GPU is detected. Uses the same headroom math as the
   // loader's offload decision so the UI and runtime agree.
   const vramMib = hw.gpu.vramGb != null ? hw.gpu.vramGb * 1024 : null;
-  const catalog = MODEL_CATALOG.map((entry) => ({
+  // Withdrawn from sale — see CLOUD_OFFER_SUSPENDED. Hidden rather than
+  // removed, so a credential already paid for still resolves its config.
+  const catalog = MODEL_CATALOG.filter(
+    (entry) => !(CLOUD_OFFER_SUSPENDED && entry.id === "bethaniel-cloud"),
+  ).map((entry) => ({
     ...entry,
     allowed:
       entry.source === "custom_gguf" ? true : allowedTiers.includes(entry.tier),
@@ -2061,6 +2066,13 @@ router.delete("/models/custom/config", (req: Request, res: Response) => {
 // key itself never round-trips to the frontend.
 
 router.post("/cloud/estimate", async (req: Request, res: Response) => {
+  if (CLOUD_OFFER_SUSPENDED) {
+    res.status(503).json({
+      error:
+        "Betty in the Cloud is temporarily unavailable while we sort out a speed problem with the provider. Nothing has been charged.",
+    });
+    return;
+  }
   const body = req.body ?? {};
   const units = Array.isArray(body.units)
     ? body.units.map((u: unknown) => ({
@@ -2163,6 +2175,13 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
 });
 
 router.post("/cloud/checkout", async (req: Request, res: Response) => {
+  if (CLOUD_OFFER_SUSPENDED) {
+    res.status(503).json({
+      error:
+        "Betty in the Cloud is temporarily unavailable while we sort out a speed problem with the provider. Nothing has been charged.",
+    });
+    return;
+  }
   const { quoteId } = req.body ?? {};
   if (typeof quoteId !== "string" || !quoteId) {
     res.status(400).json({ error: "quoteId is required" });

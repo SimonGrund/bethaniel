@@ -220,6 +220,34 @@ export function isOllamaModel(entry: ModelCatalogEntry): boolean {
 }
 
 /** Whether this catalog entry uses an external API (vs. local GGUF / Ollama). */
+/**
+ * Betty in the Cloud is temporarily withdrawn from sale.
+ *
+ * Not a fault — the payment path works end to end and was verified with real
+ * money. The problem is speed. Measured 9 September 2026 on identical
+ * 2,366-word chunks, full response timed:
+ *
+ *     OVHcloud (Qwen3.5-9B)   36 tok/s per stream
+ *     DeepSeek (deepseek-chat) 176 tok/s per stream
+ *
+ * That is ~4.8x, and it puts a 120,000-word copy edit at 25-40 minutes
+ * against roughly 4 on a provider an author could use themselves. Odder
+ * still, OVHcloud's own Llama-3.3-70B runs at twice the rate of their 9B,
+ * which suggests their Qwen deployment is under-provisioned rather than
+ * anything being wrong here.
+ *
+ * Selling that while a faster path exists is not a good trade, so the offer
+ * is hidden until the provider question is settled — either OVHcloud
+ * explains the 9B endpoint, or an alternative EU-sovereign provider is
+ * found. Sovereignty and zero retention are why OVHcloud was chosen; a
+ * faster provider that keeps manuscripts is not an upgrade.
+ *
+ * Set this back to false to restore the offer. Nothing else needs to change:
+ * the Worker stays deployed and live, and any credential already paid for
+ * keeps working, because this hides the SALE and not the model.
+ */
+export const CLOUD_OFFER_SUSPENDED = true;
+
 export function isApiModelEntry(entry: ModelCatalogEntry): boolean {
   return entry.source === "api";
 }
