@@ -28,14 +28,38 @@ Three ways out, any one is enough:
 
 Do not launch having done none of these.
 
-## BLOCKER — secrets to rotate
+## BLOCKER — one secret still to rotate
 
-- **The `sk_live_` Stripe key.** It sat in the deployed Worker briefly on
-  8 September during the environment mix-up. Unused, but rotate it.
-- **`ADMIN_TOKEN`.** Generated during testing on 8 September. It is a working
-  credential to the refund machinery.
+- **The full-access `sk_live_` Stripe key.** It sat in the deployed Worker
+  briefly on 8 September during the environment mix-up. The Worker now runs a
+  RESTRICTED `rk_live_` key scoped to Checkout Sessions and Refunds, so the
+  full-access one has no remaining purpose — roll it in the Stripe dashboard.
+- ~~`ADMIN_TOKEN`~~ — rotated 8 September when the sweep workflow was wired up.
 
-## BLOCKER — the live payment path has never run
+## RESOLVED — the live payment path is proven
+
+Verified 9 September 2026 with a real EUR 5 payment on a real card:
+
+| Leg | Result |
+|---|---|
+| Live restricted key creates a session | `cs_live_…` |
+| Live webhook endpoint + its `whsec_` verify | credential minted |
+| `payment_intent` captured | yes — refundable |
+| Credential buys inference | 33 tokens, correct output |
+| Ledger settles | `spent: 33, reserved: 0` |
+| Automatic refund on the live key | `refunded: 1`, money returned |
+| Sweep is idempotent | second run refunded 0 |
+
+The test call was kept under `UNUSED_TOKEN_TOLERANCE` (2,000 tokens) on
+purpose, so the credential still qualified for automatic refund. A full job
+would have crossed into `review` and needed a human.
+
+`ALLOW_LIVE_PAYMENTS = "true"` is deployed. **The Worker takes real money as
+of now.** The only thing standing between that and customers is the unreleased
+catalog change — 1.34.0 in users' hands still points at a domain that does not
+resolve, so releasing 1.34.1 is what actually opens the doors.
+
+## Notes on what going live required
 
 Everything so far was Stripe test mode. Going live means:
 
