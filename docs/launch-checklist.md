@@ -69,13 +69,24 @@ giving up the automatic-refund promise.
 Note that restricted keys are `rk_live_`, not `sk_live_` — the guard tests
 the `_live_` segment for exactly this reason. See the 9 September fix.
 
-## BLOCKER — the domain switch is one commit, not two
+## RESOLVED — production runs on workers.dev
 
-`routes` in `wrangler.toml` and `CHECKOUT_SUCCESS_URL_BASE` must change
-together. Point the route at `cloud.bethaniel.eu` while the success URL still
-says `workers.dev` (or the reverse) and every paid checkout completes and then
-dead-ends on a page nothing serves. `backend/src/modelCatalog.ts`'s
-`defaultBaseUrl` has to match as well.
+Decided 9 September 2026: no custom domain for now.
+
+A Workers Custom Domain requires Cloudflare to be authoritative for the zone.
+`bethaniel.eu` is on simply.com nameservers and carries Google Workspace mail
+(`MX smtp.google.com`) — which serves `simon@bethaniel.eu`, the address the
+checkout failure page tells customers to write to. Moving nameservers to gain
+a prettier URL risks the mailbox that catches "I paid and got nothing".
+
+`backend/src/modelCatalog.ts` now points at
+`https://bethaniel-cloud.cloudwatcher.workers.dev`, which matches
+`CHECKOUT_SUCCESS_URL_BASE`, and `routes` stays commented out.
+
+The cost is that customers see that URL in the address bar during checkout.
+If it is ever worth changing, FOUR things move together — `routes`,
+`CHECKOUT_SUCCESS_URL_BASE`, `defaultBaseUrl`, and the live webhook endpoint's
+URL in Stripe. Missing the last one charges customers and gives them nothing.
 
 ## SHOULD — a `review`-flagged refund has no reader
 

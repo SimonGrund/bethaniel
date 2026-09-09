@@ -141,10 +141,22 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minRamAppleSiliconGb: 0,
     // Points at the Bethaniel-run Cloudflare Worker, which proxies to OVHcloud
     // under its own key — the credential stored locally is a paid, scoped
-    // token for that Worker, never a raw provider key. Override at runtime via
-    // process.env.BETHANIEL_CLOUD_BASE_URL until the production Worker is live.
+    // token for that Worker, never a raw provider key.
+    //
+    // A workers.dev URL rather than cloud.bethaniel.eu, deliberately. A Workers
+    // Custom Domain needs Cloudflare to be authoritative for the zone, and
+    // bethaniel.eu is on simply.com with Google Workspace mail — including the
+    // simon@bethaniel.eu that the checkout failure page tells customers to
+    // write to. Moving nameservers to gain a prettier URL risks the mailbox
+    // that catches "I paid and got nothing", which is a bad trade.
+    //
+    // Changing this later means changing FOUR things together: this line,
+    // `routes` and CHECKOUT_SUCCESS_URL_BASE in worker/wrangler.toml, and the
+    // live webhook endpoint's URL in the Stripe dashboard. Miss the last one
+    // and paying customers are charged and receive nothing.
     defaultBaseUrl:
-      process.env.BETHANIEL_CLOUD_BASE_URL || "https://cloud.bethaniel.eu",
+      process.env.BETHANIEL_CLOUD_BASE_URL ||
+      "https://bethaniel-cloud.cloudwatcher.workers.dev",
     // Provider rate limits, not local hardware, bound concurrency here — a
     // cloud job holds no VRAM, so the 3 that a local model is capped at buys
     // nothing here. Chapters are the unit that parallelises: chunks inside one

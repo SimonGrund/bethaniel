@@ -28,11 +28,14 @@ the deploy checklist.
    `bethaniel-cloud.<your-subdomain>.workers.dev`, which is the right place to
    walk the checkout flow the first time — a real card, a real webhook, and a
    URL nothing in production points at yet.
-5. Point a real domain at it (uncomment the `routes` line in `wrangler.toml`
-   once DNS is set up), and update the `bethaniel-cloud` catalog entry's
-   `defaultBaseUrl` in `backend/src/modelCatalog.ts` (or set
-   `BETHANIEL_CLOUD_BASE_URL` in the app's environment) to match. Until then
-   the app cannot reach the Worker: the catalog points at `cloud.bethaniel.eu`.
+5. That workers.dev URL IS production — `routes` stays commented out. A
+   Workers Custom Domain needs Cloudflare to be authoritative for the zone,
+   and bethaniel.eu is on simply.com with Google Workspace mail, including the
+   address the checkout failure page gives customers. If that ever changes,
+   four things move together: `routes`, `CHECKOUT_SUCCESS_URL_BASE`,
+   `defaultBaseUrl` in `backend/src/modelCatalog.ts`, and the live webhook
+   endpoint's URL in Stripe. `BETHANIEL_CLOUD_BASE_URL` overrides the app side
+   at runtime for testing.
 
 ## Operator surface
 

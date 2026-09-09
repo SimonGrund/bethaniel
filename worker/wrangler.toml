@@ -3,10 +3,18 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Custom domain / route — point this at cloud.bethaniel.eu (or whatever
-# subdomain modelCatalog.ts's `defaultBaseUrl` for the "bethaniel-cloud"
-# catalog entry is set to) once DNS is configured. Until then this deploys to
-# the default *.workers.dev URL.
+# Deliberately OFF: production runs on the *.workers.dev URL.
+#
+# A Workers Custom Domain requires Cloudflare to be authoritative for the
+# zone, and bethaniel.eu is on simply.com nameservers with Google Workspace
+# mail — the mailbox the checkout failure page points customers at. A prettier
+# URL is not worth risking it. Decided 9 September 2026.
+#
+# To change it later, four things move together: this line,
+# CHECKOUT_SUCCESS_URL_BASE below, `defaultBaseUrl` in
+# backend/src/modelCatalog.ts, and the live webhook endpoint's URL in the
+# Stripe dashboard. Miss the Stripe one and paying customers get charged and
+# receive nothing.
 # routes = [{ pattern = "cloud.bethaniel.eu/*", custom_domain = true }]
 
 [[d1_databases]]
