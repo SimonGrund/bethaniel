@@ -1,192 +1,62 @@
 [
   {
-    "find": " walked the perimeter, checking t",
-    "replace": " walked the perrimeter, checking t",
+    "find": "n a list of facilities scheduled f",
+    "replace": "n a list of faciliteis scheduled f",
     "category": "misspelling"
   },
   {
-    "find": " a habit of thanking her for obs",
-    "replace": " a habit of thaanking her for obs",
+    "find": "e had never mentioned this to any",
+    "replace": "e had never mantioned this to any",
     "category": "misspelling"
   },
   {
-    "find": "mount to an argument for anythin",
-    "replace": "mount to an agument for anythin",
+    "find": "orthwest at between twelve and ",
+    "replace": "orthwest at betwen twelve and ",
     "category": "misspelling"
   },
   {
-    "find": "t many such documents, understood",
-    "replace": "t many such doccuments, understood",
+    "find": "ressure was falling slowly. The",
+    "replace": "ressure was faling slowly. The",
     "category": "misspelling"
   },
   {
-    "find": "terms would occasionally produce a r",
-    "replace": "terms would occsaionally produce a r",
+    "find": "d have been difficult to explain ",
+    "replace": "d have been dificult to explain ",
     "category": "misspelling"
   },
   {
-    "find": "scured by a persistent bank of low",
-    "replace": "scured by a peersistent bank of low",
+    "find": "sion nor an accident. It was a p",
+    "replace": "sion nor an accidant. It was a p",
     "category": "misspelling"
   },
   {
-    "find": "wed him the instruments. The anemom",
-    "replace": "wed him the insrtuments. The anemom",
+    "find": "istory. She attached the outage ",
+    "replace": "istory. She atached the outage ",
     "category": "misspelling"
   },
   {
-    "find": "g extremely careful not to be i",
-    "replace": "g extremely caareful not to be i",
+    "find": "wers on the opposite ridge caugh",
+    "replace": "wers on the opposate ridge caugh",
     "category": "misspelling"
   },
   {
-    "find": "ruments had measured against wha",
-    "replace": "ruments had measurred against wha",
+    "find": "ompound and looked at it and t",
+    "replace": "ompound and loked at it and t",
     "category": "misspelling"
   },
   {
-    "find": "pend at the summit. She counte",
-    "replace": "pend at the sumit. She counte",
+    "find": "en built in nineteen sixty-eight",
+    "replace": "en built in nineten sixty-eight",
     "category": "misspelling"
   },
   {
-    "find": "inter using materials ordered und",
-    "replace": "inter using materiaals ordered und",
+    "find": "imately as *assets pending con",
+    "replace": "imately as *asets pending con",
     "category": "misspelling"
   },
   {
-    "find": "look at the valley. She had ma",
-    "replace": "look at the vaalley. She had ma",
-    "category": "misspelling"
-  },
-  {
-    "find": " nobody had telephoned about, and ",
-    "replace": " nobody had telephond about, and ",
-    "category": "misspelling"
-  },
-  {
-    "find": "anation was unremarkable: she had si",
-    "replace": "anation was unremakrable: she had si",
-    "category": "misspelling"
-  },
-  {
-    "find": "even in the morning the station",
-    "replace": "even in the morrning the station",
-    "category": "misspelling"
-  },
-  {
-    "find": "rred to her afterwards, walking ba",
-    "replace": "rred to her aftewards, walking ba",
-    "category": "misspelling"
-  },
-  {
-    "find": " place long enough that the pl",
-    "replace": " place long eonugh that the pl",
-    "category": "misspelling"
-  },
-  {
-    "find": "ontained no adjectives that she co",
-    "replace": "ontained no adjecitves that she co",
-    "category": "misspelling"
-  },
-  {
-    "find": " coffee and examined his left an",
-    "replace": " coffee and exaimned his left an",
-    "category": "misspelling"
-  },
-  {
-    "find": " be entered manually because the",
-    "replace": " be entered manuallly because the",
-    "category": "misspelling"
-  },
-  {
-    "find": "nditions on nineteen occasions i",
-    "replace": "nditions on nineteeen occasions i",
-    "category": "misspelling"
-  },
-  {
-    "find": "y email, in paragraphs of consider",
-    "replace": "y email, in paragraaphs of consider",
-    "category": "misspelling"
-  },
-  {
-    "find": "y onto open ground, and it was",
-    "replace": "y onto open grounnd, and it was",
-    "category": "misspelling"
-  },
-  {
-    "find": "pany in the specific sense that ",
-    "replace": "pany in the sppecific sense that ",
-    "category": "misspelling"
-  },
-  {
-    "find": "it joined a considerable archive of ",
-    "replace": "it joined a considerrable archive of ",
-    "category": "misspelling"
-  },
-  {
-    "find": "is pack was enormous. He was wal",
-    "replace": "is pack was enormus. He was wal",
-    "category": "misspelling"
-  },
-  {
-    "find": "been asked, thought it would ar",
-    "replace": "been asked, thuoght it would ar",
-    "category": "misspelling"
-  },
-  {
-    "find": "vived every attempt to abandon ",
-    "replace": "vived every atempt to abandon ",
-    "category": "misspelling"
-  },
-  {
-    "find": " translated approximately as *assets ",
-    "replace": " translated aproximately as *assets ",
-    "category": "misspelling"
-  },
-  {
-    "find": "d a gust of ninety-four kilome",
-    "replace": "d a gust of nineety-four kilome",
-    "category": "misspelling"
-  },
-  {
-    "find": "d spent two decades reading exa",
-    "replace": "d spent two decaades reading exa",
-    "category": "misspelling"
-  },
-  {
-    "find": "ing without triggering an alarm. T",
-    "replace": "ing without tirggering an alarm. T",
-    "category": "misspelling"
-  },
-  {
-    "find": "appear. The station's designati",
-    "replace": "appear. The statiion's designati",
-    "category": "misspelling"
-  },
-  {
-    "find": " road and a building. You've fou",
-    "replace": " road and a buildiing. You've fou",
-    "category": "misspelling"
-  },
-  {
-    "find": " that Marta watched him for sev",
-    "replace": " that Marta wathed him for sev",
-    "category": "misspelling"
-  },
-  {
-    "find": "mmitted the department to nothing ",
-    "replace": "mmitted the departemnt to nothing ",
-    "category": "misspelling"
-  },
-  {
-    "find": "road to the weather station cli",
-    "replace": "road to the waether station cli",
-    "category": "misspelling"
-  },
-  {
-    "find": "ived on the fourteenth, as she had",
-    "replace": "ived on the fourtenth, as she had",
+    "find": "outcome had arrived independent",
+    "replace": "outcome had arived independent",
     "category": "misspelling"
   },
   {
@@ -195,493 +65,168 @@
     "category": "misspelling"
   },
   {
-    "find": "private and unrecorded opinion, wo",
-    "replace": "private and unrrecorded opinion, wo",
+    "find": "he onset of freezing conditions ",
+    "replace": "he onset of frezing conditions ",
     "category": "misspelling"
   },
   {
-    "find": "through the observation window befo",
-    "replace": "through the obervation window befo",
+    "find": "ly, and the character of the work",
+    "replace": "ly, and the cheracter of the work",
     "category": "misspelling"
   },
   {
-    "find": "es over the following two days an",
-    "replace": "es over the followig two days an",
-    "category": "misspelling"
-  },
-  {
-    "find": " considered seriously and because",
-    "replace": " considered seriosuly and because",
-    "category": "misspelling"
-  },
-  {
-    "find": "most honest instrument in the buil",
-    "replace": "most honest instrumnet in the buil",
-    "category": "misspelling"
-  },
-  {
-    "find": " opened the maintenance ledger, and",
-    "replace": " opened the mainteenance ledger, and",
-    "category": "misspelling"
-  },
-  {
-    "find": "he had been keeping a private r",
-    "replace": "he had been keping a private r",
-    "category": "misspelling"
-  },
-  {
-    "find": "l operating budget divided by ",
-    "replace": "l operating budegt divided by ",
-    "category": "misspelling"
-  },
-  {
-    "find": "ired it and because the alterna",
-    "replace": "ired it and beacuse the alterna",
-    "category": "misspelling"
-  },
-  {
-    "find": "ough spruce forest and then br",
-    "replace": "ough spruce foorest and then br",
-    "category": "misspelling"
-  },
-  {
-    "find": "eport which quantified the problem",
-    "replace": "eport which quantifeid the problem",
-    "category": "misspelling"
-  },
-  {
-    "find": "ed with the particular over-prepar",
-    "replace": "ed with the particuar over-prepar",
-    "category": "misspelling"
-  },
-  {
-    "find": "ired in two thousand and eleven.",
-    "replace": "ired in two thousaand and eleven.",
-    "category": "misspelling"
-  },
-  {
-    "find": "ancellation arrive together, i",
-    "replace": "ancellation arive together, i",
-    "category": "misspelling"
-  },
-  {
-    "find": "rned that a report which merel",
-    "replace": "rned that a reoprt which merel",
-    "category": "misspelling"
-  },
-  {
-    "find": "en she went upstairs, entered th",
-    "replace": "en she went upsstairs, entered th",
-    "category": "misspelling"
-  },
-  {
-    "find": "ened to the answers, which Mart",
-    "replace": "ened to the annswers, which Mart",
-    "category": "misspelling"
-  },
-  {
-    "find": "elephone, a document she had nev",
-    "replace": "elephone, a dcoument she had nev",
-    "category": "misspelling"
-  },
-  {
-    "find": "orthwest at fourteen kilometers ",
-    "replace": "orthwest at fourteeen kilometers ",
-    "category": "misspelling"
-  },
-  {
-    "find": "any further information she conside",
-    "replace": "any further informmation she conside",
-    "category": "misspelling"
-  },
-  {
-    "find": "vation four hundred meters lowe",
-    "replace": "vation four hudnred meters lowe",
-    "category": "misspelling"
-  },
-  {
-    "find": "had swollen impressively above the b",
-    "replace": "had swollen impresively above the b",
-    "category": "misspelling"
-  },
-  {
-    "find": " facilities scheduled for decommi",
-    "replace": " facilities schedlued for decommi",
-    "category": "misspelling"
-  },
-  {
-    "find": "e station's function in the regi",
-    "replace": "e station's fnction in the regi",
-    "category": "misspelling"
-  },
-  {
-    "find": " and he was writing a dissertat",
-    "replace": " and he was writiing a dissertat",
-    "category": "misspelling"
-  },
-  {
-    "find": "et, and the central office had ",
-    "replace": "et, and the cnetral office had ",
-    "category": "misspelling"
-  },
-  {
-    "find": " stayed two nights, because hi",
-    "replace": " stayed two niights, because hi",
-    "category": "misspelling"
-  },
-  {
-    "find": "her for her observations. It confirm",
-    "replace": "her for her obserrvations. It confirm",
-    "category": "misspelling"
-  },
-  {
-    "find": " downstream products, including ",
-    "replace": " downstream produucts, including ",
-    "category": "misspelling"
-  },
-  {
-    "find": "little. The barometric pressure he",
-    "replace": "little. The barrometric pressure he",
-    "category": "misspelling"
-  },
-  {
-    "find": "en, after a moment, added a no",
-    "replace": "en, after a momment, added a no",
-    "category": "misspelling"
-  },
-  {
-    "find": "en of those occasions the road au",
-    "replace": "en of those occassions the road au",
-    "category": "misspelling"
-  },
-  {
-    "find": "ntinued its business without her",
-    "replace": "ntinued its businses without her",
-    "category": "misspelling"
-  },
-  {
-    "find": "ty remained within scope for c",
-    "replace": "ty remained withn scope for c",
-    "category": "misspelling"
-  },
-  {
-    "find": "erred twice between departments",
-    "replace": "erred twice bteween departments",
-    "category": "misspelling"
-  },
-  {
-    "find": "the station exactly once, durin",
-    "replace": "the station exatly once, durin",
-    "category": "misspelling"
-  },
-  {
-    "find": "on would be considered. It contain",
-    "replace": "on would be conisdered. It contain",
-    "category": "misspelling"
-  },
-  {
-    "find": "nted it and pinned it to the c",
-    "replace": "nted it and pinnned it to the c",
-    "category": "misspelling"
-  },
-  {
-    "find": "stitutional yellow that had fa",
-    "replace": "stitutional yelow that had fa",
-    "category": "misspelling"
-  },
-  {
-    "find": "ions in the conditional mood, and M",
-    "replace": "ions in the codnitional mood, and M",
-    "category": "misspelling"
-  },
-  {
-    "find": " twelve and twenty kilometers ",
-    "replace": " twelve and twennty kilometers ",
-    "category": "misspelling"
-  },
-  {
-    "find": "ntified the contribution of its data",
-    "replace": "ntified the contriubtion of its data",
-    "category": "misspelling"
-  },
-  {
-    "find": "gested snow before the weekend",
-    "replace": "gested snow befroe the weekend",
-    "category": "misspelling"
-  },
-  {
-    "find": "that nobody cancels. The examin",
-    "replace": "that nobody canceels. The examin",
-    "category": "misspelling"
-  },
-  {
-    "find": " had bought everything at once fro",
-    "replace": " had bought eevrything at once fro",
-    "category": "misspelling"
-  },
-  {
-    "find": "lley road's winter closures de",
-    "replace": "lley road's winnter closures de",
-    "category": "misspelling"
-  },
-  {
-    "find": "the nearest comparable station was",
-    "replace": "the nearest cmoparable station was",
-    "category": "misspelling"
-  },
-  {
-    "find": "t she began drafting an email to",
-    "replace": "t she began draftig an email to",
-    "category": "misspelling"
-  },
-  {
-    "find": "y below was invisible under a lid",
-    "replace": "y below was invisibe under a lid",
-    "category": "misspelling"
-  },
-  {
-    "find": "t would not tolerate it. He was ",
-    "replace": "t would not tolerte it. He was ",
-    "category": "misspelling"
-  },
-  {
-    "find": "\"It's not a closure notice,\" sh",
-    "replace": "\"It's not a cloosure notice,\" sh",
-    "category": "misspelling"
-  },
-  {
-    "find": "es had been identified. It noted t",
-    "replace": "es had been identifeid. It noted t",
-    "category": "misspelling"
-  },
-  {
-    "find": ",\" she said eventually. \"Most of t",
-    "replace": ",\" she said eventualy. \"Most of t",
-    "category": "misspelling"
-  },
-  {
-    "find": "ressure was falling slowly. The",
-    "replace": "ressure was falliing slowly. The",
-    "category": "misspelling"
-  },
-  {
-    "find": "ltiplied by eleven — and put i",
-    "replace": "ltiplied by eleevn — and put i",
-    "category": "misspelling"
-  },
-  {
-    "find": "It measured something real and it",
-    "replace": "It measured sommething real and it",
-    "category": "misspelling"
-  },
-  {
-    "find": "lar. It was simply a thing she",
-    "replace": "lar. It was siply a thing she",
-    "category": "misspelling"
-  },
-  {
-    "find": "on somebody intended to make lat",
-    "replace": "on somebody intedned to make lat",
-    "category": "misspelling"
-  },
-  {
-    "find": "dred times, possibly more, and t",
-    "replace": "dred times, posisbly more, and t",
-    "category": "misspelling"
-  },
-  {
-    "find": "ecessor had warned her about t",
-    "replace": "ecessor had warend her about t",
-    "category": "misspelling"
-  },
-  {
-    "find": "s later and thanked her for her",
-    "replace": "s later and tahnked her for her",
-    "category": "misspelling"
-  },
-  {
-    "find": "ttached the outage log, includ",
-    "replace": "ttached the outaage log, includ",
-    "category": "misspelling"
-  },
-  {
-    "find": "d four. The thermometer housing, wh",
-    "replace": "d four. The themometer housing, wh",
+    "find": "ning in the following budgetary c",
+    "replace": "ning in the folowing budgetary c",
     "category": "misspelling"
   },
   {
     "find": " It was not evidence of anything",
-    "replace": " It was not eivdence of anything",
+    "replace": " It was not evidance of anything",
     "category": "misspelling"
   },
   {
-    "find": " sufficient thoroughness that its bu",
-    "replace": " sufficient thoroughess that its bu",
+    "find": "he relevant paragraph committed t",
+    "replace": "he relevant peragraph committed t",
     "category": "misspelling"
   },
   {
-    "find": "olor of wet cardboard. Somewhere ",
-    "replace": "olor of wet cardboarrd. Somewhere ",
+    "find": "y email, in paragraphs of consider",
+    "replace": "y email, in peragraphs of consider",
     "category": "misspelling"
   },
   {
-    "find": "to anybody, partly because it ",
-    "replace": "to anybody, patrly because it ",
+    "find": "nce was not sentimental but practic",
+    "replace": "nce was not santimental but practic",
     "category": "misspelling"
   },
   {
-    "find": "ompound and looked at it and t",
-    "replace": "ompound and lookeed at it and t",
+    "find": " it. He was excellent company in ",
+    "replace": " it. He was excellant company in ",
     "category": "misspelling"
   },
   {
-    "find": "visor was a courteous man named H",
-    "replace": "visor was a cuorteous man named H",
+    "find": ". Marta had written back explai",
+    "replace": ". Marta had writen back explai",
     "category": "misspelling"
   },
   {
-    "find": "single most important fact about ",
-    "replace": "single most impportant fact about ",
+    "find": "bmitted his dissertation, passed, an",
+    "replace": "bmitted his disertation, passed, an",
     "category": "misspelling"
   },
   {
-    "find": "egard as an uncommon accomplishm",
-    "replace": "egard as an unccommon accomplishm",
+    "find": "terms would occasionally produce a r",
+    "replace": "terms would ocasionally produce a r",
     "category": "misspelling"
   },
   {
-    "find": "ething that nobody examines is",
-    "replace": "ething that nboody examines is",
+    "find": "rength of a bulletin that had dr",
+    "replace": "rength of a buletin that had dr",
     "category": "misspelling"
   },
   {
-    "find": "s neither a decision nor an acci",
-    "replace": "s neither a decisiion nor an acci",
+    "find": "n seriously reviewed. Marta cons",
+    "replace": "n seriously reveiwed. Marta cons",
     "category": "misspelling"
   },
   {
-    "find": " way of not having to write on",
-    "replace": " way of not havig to write on",
+    "find": "don it. Her predecessor had warned ",
+    "replace": "don it. Her predecesor had warned ",
     "category": "misspelling"
   },
   {
-    "find": " Nobody has checked anything he",
-    "replace": " Nobody has cheecked anything he",
+    "find": "had swollen impressively above the b",
+    "replace": "had swollen impressivly above the b",
     "category": "misspelling"
   },
   {
-    "find": "sidered the question seriously, ",
-    "replace": "sidered the questoin seriously, ",
+    "find": "network. It quantified the contrib",
+    "replace": "network. It quentified the contrib",
     "category": "misspelling"
   },
   {
-    "find": "old, and it listed the station",
-    "replace": "old, and it lsted the station",
+    "find": "he spent an afternoon working out",
+    "replace": "he spent an afternon working out",
     "category": "misspelling"
   },
   {
-    "find": "nse. So she calculated the cost of",
-    "replace": "nse. So she calculaated the cost of",
+    "find": "on had been abbreviated in a way th",
+    "replace": "on had been abreviated in a way th",
     "category": "misspelling"
   },
   {
-    "find": " was young, perhaps twenty-five",
-    "replace": " was young, perahps twenty-five",
+    "find": " lift until midday, and the sk",
+    "replace": " lift until miday, and the sk",
     "category": "misspelling"
   },
   {
-    "find": "here was no mysticism in it. Ther",
-    "replace": "here was no mysticiism in it. Ther",
+    "find": " construct, contented. She was no",
+    "replace": " construct, contanted. She was no",
     "category": "misspelling"
   },
   {
-    "find": "a wrote the interval in the ledg",
-    "replace": "a wrote the inetrval in the ledg",
+    "find": "'ve found a document. The docume",
+    "replace": "'ve found a documant. The docume",
     "category": "misspelling"
   },
   {
-    "find": "em would be acknowledged and filed, ",
-    "replace": "em would be akcnowledged and filed, ",
+    "find": "station the valley filled with",
+    "replace": "station the valey filled with",
     "category": "misspelling"
   },
   {
-    "find": "e fraud she described without emb",
-    "replace": "e fraud she dsecribed without emb",
+    "find": " models had suggested and one day",
+    "replace": " models had sugested and one day",
     "category": "misspelling"
   },
   {
-    "find": "d gradually toward the first h",
-    "replace": "d gradually towarrd the first h",
+    "find": " opened the maintenance ledger, and",
+    "replace": " opened the maintenence ledger, and",
     "category": "misspelling"
   },
   {
-    "find": "Is this the meteorological station?\" h",
-    "replace": "Is this the meteorlogical station?\" h",
+    "find": " it for the fourteen days she wa",
+    "replace": " it for the fourten days she wa",
     "category": "misspelling"
   },
   {
-    "find": "cted on her figures rather than",
-    "replace": "cted on her fiigures rather than",
-    "category": "misspelling"
-  },
-  {
-    "find": "strike most people as intolera",
-    "replace": "strike most peeople as intolera",
-    "category": "misspelling"
-  },
-  {
-    "find": "he humidity sensor that would ",
-    "replace": "he humidity sennsor that would ",
-    "category": "misspelling"
-  },
-  {
-    "find": "was another routine, and found ",
-    "replace": "was another routtine, and found ",
-    "category": "misspelling"
-  },
-  {
-    "find": "Halvorsen's predecessor retired, an",
-    "replace": "Halvorsen's prredecessor retired, an",
-    "category": "misspelling"
-  },
-  {
-    "find": "a two-story concrete box painted",
-    "replace": "a two-story concerte box painted",
-    "category": "misspelling"
-  },
-  {
-    "find": "t, which he explained at some len",
-    "replace": "t, which he explaiined at some len",
+    "find": " somebody's screen in Oslo for",
+    "replace": " somebody's scren in Oslo for",
     "category": "misspelling"
   },
   {
     "find": "ntain would install routines in",
-    "replace": "ntain would intsall routines in",
+    "replace": "ntain would instal routines in",
     "category": "misspelling"
   },
   {
-    "find": "she had not anticipated and did not",
-    "replace": "she had not antiicpated and did not",
+    "find": "ng, perhaps twenty-five, and d",
+    "replace": "ng, perhaps twanty-five, and d",
     "category": "misspelling"
   },
   {
-    "find": "She did not attach the corkboa",
-    "replace": "She did not atach the corkboa",
+    "find": "years being extremely careful not",
+    "replace": "years being extremly careful not",
     "category": "misspelling"
   },
   {
-    "find": "he eventual letter, when she w",
-    "replace": "he eventual leter, when she w",
+    "find": "nsolidation review concluded i",
+    "replace": "nsolidation reveiw concluded i",
     "category": "misspelling"
   },
   {
-    "find": "ced it, and noticing was most of",
-    "replace": "ced it, and nooticing was most of",
+    "find": "n taken. It invited her to subm",
+    "replace": "n taken. It invated her to subm",
     "category": "misspelling"
   },
   {
-    "find": " uplink had failed again. She ",
-    "replace": " uplink had failled again. She ",
+    "find": "en, after a moment, added a no",
+    "replace": "en, after a momant, added a no",
+    "category": "misspelling"
+  },
+  {
+    "find": "egard as an uncommon accomplishm",
+    "replace": "egard as an uncomon accomplishm",
     "category": "misspelling"
   },
   {
@@ -690,143 +235,468 @@
     "category": "misspelling"
   },
   {
-    "find": "e she could construct, contented.",
-    "replace": "e she could coonstruct, contented.",
+    "find": " she had no intention of completi",
+    "replace": " she had no intantion of completi",
     "category": "misspelling"
   },
   {
-    "find": "epartmental planning annex, thre",
-    "replace": "epartmental plannig annex, thre",
+    "find": "ng what the instruments had measure",
+    "replace": "ng what the instrumants had measure",
     "category": "misspelling"
   },
   {
-    "find": "nd had been repaired eleven time",
-    "replace": "nd had been repaaired eleven time",
+    "find": "e and began entering the morning",
+    "replace": "e and began antering the morning",
     "category": "misspelling"
   },
   {
-    "find": "n seriously reviewed. Marta cons",
-    "replace": "n seriously rveiewed. Marta cons",
+    "find": "at the only access was by snow",
+    "replace": "at the only acess was by snow",
     "category": "misspelling"
   },
   {
-    "find": " that Marta always stopped the",
-    "replace": " that Marta alawys stopped the",
+    "find": "ntirely. In summer the station",
+    "replace": "ntirely. In sumer the station",
     "category": "misspelling"
   },
   {
-    "find": "asked it of herself many times ",
-    "replace": "asked it of herrself many times ",
+    "find": "observation seemed worth prese",
+    "replace": "observation semed worth prese",
     "category": "misspelling"
   },
   {
-    "find": "ething else entirely, a small ad",
-    "replace": "ething else entirelly, a small ad",
+    "find": " in a year, multiplied by eleven —",
+    "replace": " in a year, multipleid by eleven —",
+    "category": "misspelling"
+  },
+  {
+    "find": "he specific belief that a case",
+    "replace": "he specific beleif that a case",
+    "category": "misspelling"
+  },
+  {
+    "find": "way and had visited the station",
+    "replace": "way and had visated the station",
+    "category": "misspelling"
+  },
+  {
+    "find": "directly: a colleague at the regi",
+    "replace": "directly: a coleague at the regi",
+    "category": "misspelling"
+  },
+  {
+    "find": "ow how such reviews actually wo",
+    "replace": "ow how such reveiws actually wo",
+    "category": "misspelling"
+  },
+  {
+    "find": "scured by a persistent bank of low",
+    "replace": "scured by a persistant bank of low",
+    "category": "misspelling"
+  },
+  {
+    "find": "tructing an argument, and had as",
+    "replace": "tructing an argumant, and had as",
+    "category": "misspelling"
+  },
+  {
+    "find": "e preceding seventy-two hours —",
+    "replace": "e preceding sevanty-two hours —",
+    "category": "misspelling"
+  },
+  {
+    "find": "the nearest comparable station was",
+    "replace": "the nearest comparible station was",
+    "category": "misspelling"
+  },
+  {
+    "find": "r she found genuinely interesting",
+    "replace": "r she found genuinly interesting",
+    "category": "misspelling"
+  },
+  {
+    "find": "ing without triggering an alarm. T",
+    "replace": "ing without trigering an alarm. T",
+    "category": "misspelling"
+  },
+  {
+    "find": " barometric pressure held steady",
+    "replace": " barometric presure held steady",
+    "category": "misspelling"
+  },
+  {
+    "find": "stitutional yellow that had fa",
+    "replace": "stitutional yelow that had fa",
+    "category": "misspelling"
+  },
+  {
+    "find": "one of this appeared in her job ",
+    "replace": "one of this apeared in her job ",
+    "category": "misspelling"
+  },
+  {
+    "find": "most honest instrument in the buil",
+    "replace": "most honest instrumant in the buil",
+    "category": "misspelling"
+  },
+  {
+    "find": "umn, on the eleventh, which was ",
+    "replace": "umn, on the elevanth, which was ",
+    "category": "misspelling"
+  },
+  {
+    "find": "s white and entirely silent and ",
+    "replace": "s white and antirely silent and ",
+    "category": "misspelling"
+  },
+  {
+    "find": "arta always stopped the truck a",
+    "replace": "arta always stoped the truck a",
+    "category": "misspelling"
+  },
+  {
+    "find": "hs, and had received a reply tha",
+    "replace": "hs, and had recieved a reply tha",
+    "category": "misspelling"
+  },
+  {
+    "find": "ng repaired collapsed to however ",
+    "replace": "ng repaired colapsed to however ",
+    "category": "misspelling"
+  },
+  {
+    "find": "t people as intolerable, and had be",
+    "replace": "t people as intolerible, and had be",
+    "category": "misspelling"
+  },
+  {
+    "find": "gnise, in a department that had ap",
+    "replace": "gnise, in a departmant that had ap",
+    "category": "misspelling"
+  },
+  {
+    "find": " documents, understood that this w",
+    "replace": " documents, understod that this w",
+    "category": "misspelling"
+  },
+  {
+    "find": "d as a long compression rather than",
+    "replace": "d as a long compresion rather than",
+    "category": "misspelling"
+  },
+  {
+    "find": "single most important fact about ",
+    "replace": "single most importent fact about ",
+    "category": "misspelling"
+  },
+  {
+    "find": "et, and the central office had ",
+    "replace": "et, and the cantral office had ",
+    "category": "misspelling"
+  },
+  {
+    "find": "ntinued its business without her",
+    "replace": "ntinued its busines without her",
+    "category": "misspelling"
+  },
+  {
+    "find": "tained four separate constructio",
+    "replace": "tained four seperate constructio",
+    "category": "misspelling"
+  },
+  {
+    "find": "he eventual letter, when she w",
+    "replace": "he eventual leter, when she w",
+    "category": "misspelling"
+  },
+  {
+    "find": "it, using a component salvaged fr",
+    "replace": "it, using a componant salvaged fr",
+    "category": "misspelling"
+  },
+  {
+    "find": "nion, would arrive on the four",
+    "replace": "nion, would arive on the four",
+    "category": "misspelling"
+  },
+  {
+    "find": " before the weekend, and Marta,",
+    "replace": " before the wekend, and Marta,",
     "category": "misspelling"
   },
   {
     "find": "rive on the sixteenth and which, ",
-    "replace": "rive on the sixeenth and which, ",
+    "replace": "rive on the sixteanth and which, ",
     "category": "misspelling"
   },
   {
-    "find": "ree hundred kilometers away and ha",
-    "replace": "ree hundred killometers away and ha",
+    "find": "n attached, physically incompatibl",
+    "replace": "n attached, physicaly incompatibl",
     "category": "misspelling"
   },
   {
-    "find": "perhaps ten minutes she stood a",
-    "replace": "perhaps ten minuttes she stood a",
+    "find": "d above the eighth kilometer o",
+    "replace": "d above the ieghth kilometer o",
     "category": "misspelling"
   },
   {
-    "find": "d it twice, printed it, and pin",
-    "replace": "d it twice, priinted it, and pin",
+    "find": "had spent a considerable proportion ",
+    "replace": "had spent a considerible proportion ",
     "category": "misspelling"
   },
   {
-    "find": "The station itself was an unre",
-    "replace": "The station istelf was an unre",
+    "find": "looked at a spreadsheet and your st",
+    "replace": "looked at a spreadshet and your st",
     "category": "misspelling"
   },
   {
-    "find": "ttached the anemometer maintenance",
-    "replace": "ttached the anemoeter maintenance",
+    "find": "han she had anticipated, and for re",
+    "replace": "han she had enticipated, and for re",
     "category": "misspelling"
   },
   {
-    "find": "ay that she recognized only becaus",
-    "replace": "ay that she reecognized only becaus",
+    "find": "She did not attach the corkboa",
+    "replace": "She did not atach the corkboa",
     "category": "misspelling"
   },
   {
-    "find": "ifficult to explain and partly ",
-    "replace": "ifficult to explian and partly ",
+    "find": "e all seven transmission towers were",
+    "replace": "e all seven transmision towers were",
     "category": "misspelling"
   },
   {
-    "find": "onsiderable proportion of her adul",
-    "replace": "onsiderable proportoin of her adul",
+    "find": "pend at the summit. She counte",
+    "replace": "pend at the sumit. She counte",
     "category": "misspelling"
   },
   {
-    "find": " before the spring, and put th",
-    "replace": " before the spirng, and put th",
+    "find": " be entered manually because the",
+    "replace": " be entered manualy because the",
     "category": "misspelling"
   },
   {
-    "find": "ost for six consecutive years. She ",
-    "replace": "ost for six consecutvie years. She ",
+    "find": "tage report carefully. She had le",
+    "replace": "tage report carefuly. She had le",
     "category": "misspelling"
   },
   {
-    "find": "g, and that resisting them was mo",
-    "replace": "g, and that rsisting them was mo",
+    "find": ",\" she said eventually. \"Most of t",
+    "replace": ",\" she said evantually. \"Most of t",
     "category": "misspelling"
   },
   {
-    "find": " figure she constructed from the st",
-    "replace": " figure she construtced from the st",
+    "find": "ived on the fourteenth, as she had",
+    "replace": "ived on the fourteanth, as she had",
     "category": "misspelling"
   },
   {
-    "find": "the two had disagreed about the o",
-    "replace": "the two had disagreeed about the o",
+    "find": " kilometers downhill on a joint ",
+    "replace": " kilometers downhil on a joint ",
     "category": "misspelling"
   },
   {
-    "find": "nk it's the reason the station",
-    "replace": "nk it's the reasson the station",
+    "find": " would have horrified the manufac",
+    "replace": " would have horrifeid the manufac",
     "category": "misspelling"
   },
   {
-    "find": "There is no public,\" Marta sai",
-    "replace": "There is no pbulic,\" Marta sai",
+    "find": "and put the kettle on. The win",
+    "replace": "and put the ketle on. The win",
     "category": "misspelling"
   },
   {
-    "find": "y and heard nothing for six wee",
-    "replace": "y and heard nothiing for six wee",
+    "find": "er existed, transferred twice betwe",
+    "replace": "er existed, transfered twice betwe",
     "category": "misspelling"
   },
   {
-    "find": "eight by an agency that no lon",
-    "replace": "eight by an agenncy that no lon",
+    "find": "igned for a different generation ",
+    "replace": "igned for a differant generation ",
     "category": "misspelling"
   },
   {
-    "find": "day a hiker appeared on the acce",
-    "replace": "day a hiker appeaerd on the acce",
+    "find": "e descended gradually toward the ",
+    "replace": "e descended gradualy toward the ",
     "category": "misspelling"
   },
   {
-    "find": "y above was extraordinarily clear, and ",
-    "replace": "y above was extraordinaarily clear, and ",
+    "find": "anation was unremarkable: she had si",
+    "replace": "anation was unremarkible: she had si",
     "category": "misspelling"
   },
   {
-    "find": "nt that had apparently been reorga",
-    "replace": "nt that had aparently been reorga",
+    "find": "tments, and forgotten with suffic",
+    "replace": "tments, and forgoten with suffic",
+    "category": "misspelling"
+  },
+  {
+    "find": "ked from an office three hundr",
+    "replace": "ked from an ofice three hundr",
+    "category": "misspelling"
+  },
+  {
+    "find": "ebruary, at approximately four in the",
+    "replace": "ebruary, at approximatly four in the",
+    "category": "misspelling"
+  },
+  {
+    "find": " would need attention before the ",
+    "replace": " would need attantion before the ",
+    "category": "misspelling"
+  },
+  {
+    "find": "dred times, possibly more, and t",
+    "replace": "dred times, posibly more, and t",
+    "category": "misspelling"
+  },
+  {
+    "find": "ernoon, and buried two hundred",
+    "replace": "ernoon, and bureid two hundred",
+    "category": "misspelling"
+  },
+  {
+    "find": "set and its disassembly would have ",
+    "replace": "set and its disasembly would have ",
+    "category": "misspelling"
+  },
+  {
+    "find": "ation for a replacement unit that w",
+    "replace": "ation for a replacemant unit that w",
+    "category": "misspelling"
+  },
+  {
+    "find": "which would nevertheless be keeping ",
+    "replace": "which would nevertheles be keeping ",
+    "category": "misspelling"
+  },
+  {
+    "find": "the one she wanted. The statio",
+    "replace": "the one she wented. The statio",
+    "category": "misspelling"
+  },
+  {
+    "find": "he had been keeping a private r",
+    "replace": "he had been keping a private r",
+    "category": "misspelling"
+  },
+  {
+    "find": "n. It was a departmental planning an",
+    "replace": "n. It was a departmantal planning an",
+    "category": "misspelling"
+  },
+  {
+    "find": "es had been identified. It noted t",
+    "replace": "es had been idantified. It noted t",
+    "category": "misspelling"
+  },
+  {
+    "find": " then broke suddenly onto open g",
+    "replace": " then broke sudenly onto open g",
+    "category": "misspelling"
+  },
+  {
+    "find": "eleven-hour silence that nobody",
+    "replace": "eleven-hour silance that nobody",
+    "category": "misspelling"
+  },
+  {
+    "find": "t upstairs, entered the morning",
+    "replace": "t upstairs, antered the morning",
+    "category": "misspelling"
+  },
+  {
+    "find": " of similar documents. The corkbo",
+    "replace": " of similar documants. The corkbo",
+    "category": "misspelling"
+  },
+  {
+    "find": "en of those occasions the road au",
+    "replace": "en of those ocasions the road au",
+    "category": "misspelling"
+  },
+  {
+    "find": "e station's annual operating b",
+    "replace": "e station's anual operating b",
+    "category": "misspelling"
+  },
+  {
+    "find": "rastructure abandonment, which he e",
+    "replace": "rastructure abandonmant, which he e",
+    "category": "misspelling"
+  },
+  {
+    "find": "sed without apparent irony and t",
+    "replace": "sed without apparant irony and t",
+    "category": "misspelling"
+  },
+  {
+    "find": "ised public bodies on estate r",
+    "replace": "ised public bodeis on estate r",
+    "category": "misspelling"
+  },
+  {
+    "find": "temperature gradient Marta's sta",
+    "replace": "temperature gradiant Marta's sta",
+    "category": "misspelling"
+  },
+  {
+    "find": "en years of letters thanking he",
+    "replace": "en years of leters thanking he",
+    "category": "misspelling"
+  },
+  {
+    "find": "icular over-preparedness of somebody",
+    "replace": "icular over-preparednes of somebody",
+    "category": "misspelling"
+  },
+  {
+    "find": "in it was a compliment. She was re",
+    "replace": "in it was a complimant. She was re",
+    "category": "misspelling"
+  },
+  {
+    "find": "ion and the cancellation arrive toge",
+    "replace": "ion and the cancelation arrive toge",
+    "category": "misspelling"
+  },
+  {
+    "find": "he made him coffee and examine",
+    "replace": "he made him cofee and examine",
+    "category": "misspelling"
+  },
+  {
+    "find": "ame did not appear. The statio",
+    "replace": "ame did not apear. The statio",
+    "category": "misspelling"
+  },
+  {
+    "find": "eport which merely stated a pr",
+    "replace": "eport which merly stated a pr",
+    "category": "misspelling"
+  },
+  {
+    "find": "s since her arrival, which was ",
+    "replace": "s since her arival, which was ",
+    "category": "misspelling"
+  },
+  {
+    "find": "easure that mattered to anybody ",
+    "replace": "easure that matered to anybody ",
+    "category": "misspelling"
+  },
+  {
+    "find": "is way. Not systematically, and not in",
+    "replace": "is way. Not systematicaly, and not in",
+    "category": "misspelling"
+  },
+  {
+    "find": "y below was invisible under a lid",
+    "replace": "y below was invisable under a lid",
+    "category": "misspelling"
+  },
+  {
+    "find": "e following sentence, with a gre",
+    "replace": "e following santence, with a gre",
     "category": "misspelling"
   }
 ]

@@ -1112,7 +1112,8 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
       lines.push(`\n  ${language} — ${truth.length} planted errors  (95% interval ±${ci.toFixed(0)} points)`);
       lines.push(
         `    ${"model".padEnd(26)} ${"fixed".padStart(6)} ${"seen".padStart(6)} ${"prec.".padStart(6)}` +
-          ` ${"wrongFix".padStart(9)} ${"halluc".padStart(7)} ${"clean".padStart(6)} ${"unmarked".padStart(9)}`,
+          ` ${"wrongFix".padStart(9)} ${"broke".padStart(6)} ${"halluc".padStart(7)}` +
+          ` ${"clean".padStart(6)} ${"unmarked".padStart(9)}`,
       );
 
       const present: string[] = [];
@@ -1123,7 +1124,9 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         );
         if (runs.length === 0) continue;
         present.push(model);
-        const scored = runs.map((r) => scoreCorrections(r.corrections, truth));
+        const scored = runs.map((r) =>
+          scoreCorrections(r.corrections, truth, wordChecksFor(language) ?? undefined),
+        );
         const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
         const recall = avg(scored.map((s) => s.recall ?? 0));
         // Errors a correction landed on at all. The gap to `recall` is what
@@ -1133,7 +1136,14 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         const precision = avg(scored.map((s) => s.precision));
         // A false positive on the error's own span costs a glance; one on
         // clean prose costs trust. One number hides the difference.
+        // Split, because a wrong fix that leaves valid English costs the
+        // author a glance, while one that introduces a non-word has actively
+        // damaged the manuscript — the only outcome here worse than doing
+        // nothing at all.
         const wrongFix = avg(scored.map((s) => s.falsePositiveBreakdown.wrongFix.length));
+        const wrongBad = avg(
+          scored.map((s) => s.falsePositiveBreakdown.wrongFixDamaging.length),
+        );
         const halluc = avg(scored.map((s) => s.falsePositiveBreakdown.hallucination.length));
         const cleanRuns = results.filter(
           (r) => r.model === model && r.language === language && r.mode === mode &&
@@ -1161,7 +1171,7 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         lines.push(
           `    ${shortName(model).padEnd(26)} ${`${recall.toFixed(0)}%`.padStart(6)}` +
             ` ${`${seen.toFixed(0)}%`.padStart(6)} ${`${precision.toFixed(0)}%`.padStart(6)}` +
-            ` ${wrongFix.toFixed(1).padStart(9)} ${halluc.toFixed(1).padStart(7)}` +
+            ` ${wrongFix.toFixed(1).padStart(9)} ${wrongBad.toFixed(1).padStart(6)} ${halluc.toFixed(1).padStart(7)}` +
             ` ${(cleanFlags === null ? "n/a" : cleanFlags.toFixed(1)).padStart(6)}` +
             ` ${(cleanUnmarked === null ? "n/a" : cleanUnmarked.toFixed(1)).padStart(9)}`,
         );

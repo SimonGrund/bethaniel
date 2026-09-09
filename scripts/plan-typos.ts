@@ -68,8 +68,60 @@ function makeRng(seed: number) {
 }
 const rnd = makeRng(SEED);
 
-/** Corruptions that a typist produces, none of which are homophones. */
-const CORRUPTIONS: ((w: string, r: () => number) => string | null)[] = [
+/**
+ * Corruptions people actually produce, none of which are homophones.
+ *
+ * Split deliberately into two families, because they measure different things
+ * and the difference showed up the first time this was run.
+ *
+ * MECHANICAL slips — doubled, dropped and transposed letters — produce
+ * conspicuous garbage: `posisbly`, `intsall`, `rsisting`. A deterministic
+ * spellchecker catches essentially all of them, so a fixture built from these
+ * scores ~99% and tells you the spell layer is wired up. Worth confirming
+ * once; not worth measuring twice.
+ *
+ * PLAUSIBLE slips are the ones that survive a careless proofread: `visable`,
+ * `obediantly`, `seperate`, `definately`. They go wrong exactly where English
+ * spelling is irregular, and they look almost right. Both of the misspellings
+ * Betty missed outright on the hand-written fixture were of this kind. This is
+ * the harder and more useful measurement.
+ *
+ * `--plausible-only` restricts generation to the second family.
+ */
+type Corruption = (w: string, r: () => number) => string | null;
+
+/** Wrong where English spelling is genuinely irregular. */
+const PLAUSIBLE: Corruption[] = [
+  // -able / -ible, which nothing but memory distinguishes.
+  (w) => (w.endsWith("ible") ? w.slice(0, -4) + "able" : null),
+  (w) => (w.endsWith("able") ? w.slice(0, -4) + "ible" : null),
+  // -ent / -ant, and the adverbs built on them: obedient -> obediant.
+  (w) => (w.includes("ent") ? w.replace("ent", "ant") : null),
+  (w) => (w.includes("ant") ? w.replace("ant", "ent") : null),
+  // -ence / -ance.
+  (w) => (w.endsWith("ence") ? w.slice(0, -4) + "ance" : null),
+  (w) => (w.endsWith("ance") ? w.slice(0, -4) + "ence" : null),
+  // ie / ei — the rule everybody half-remembers.
+  (w) => (w.includes("ie") ? w.replace("ie", "ei") : null),
+  (w) => (w.includes("ei") ? w.replace("ei", "ie") : null),
+  // separate -> seperate, definite -> definate.
+  (w) => (w.includes("ara") ? w.replace("ara", "era") : null),
+  (w) => (w.includes("ite") ? w.replace("ite", "ate") : null),
+  // An -ely adverb whose stem has lost its e: entirely -> entirly.
+  (w) => (w.endsWith("ely") && w.length > 5 ? w.slice(0, -3) + "ly" : null),
+  // Where the word doubles and the writer does not: occurrence -> occurence.
+  (w) => {
+    for (let i = 1; i < w.length - 1; i++) {
+      if (w[i] === w[i + 1]) return w.slice(0, i) + w.slice(i + 1);
+    }
+    return null;
+  },
+  // -cede / -ceed.
+  (w) => (w.endsWith("cede") ? w.slice(0, -4) + "ceed" : null),
+];
+
+/** Keyboard and finger slips. Conspicuous, and a spellchecker eats them. */
+const MECHANICAL: Corruption[] = [
   // double a letter
   (w, r) => {
     const i = 1 + Math.floor(r() * (w.length - 2));
@@ -93,13 +145,14 @@ const CORRUPTIONS: ((w: string, r: () => number) => string | null)[] = [
     }
     return null;
   },
-  // ie/ei swap, the classic
-  (w) => {
-    if (w.includes("ie")) return w.replace("ie", "ei");
-    if (w.includes("ei")) return w.replace("ei", "ie");
-    return null;
-  },
 ];
+
+const PLAUSIBLE_ONLY = process.argv.includes("--plausible-only");
+// Plausible first, so a word that admits both kinds is corrupted the harder
+// way rather than whichever the shuffle happened to reach.
+const CORRUPTIONS: Corruption[] = PLAUSIBLE_ONLY
+  ? PLAUSIBLE
+  : [...PLAUSIBLE, ...MECHANICAL];
 
 async function main() {
   const cleanPath = join(SAMPLE_DIR, `${lang}_correct.md`);
@@ -147,7 +200,9 @@ async function main() {
 
     // Try corruptions until one produces a genuine non-word.
     let bad: string | null = null;
-    const shuffled = [...CORRUPTIONS].sort(() => rnd() - 0.5);
+    const shuffled = PLAUSIBLE_ONLY
+      ? [...CORRUPTIONS]
+      : [...CORRUPTIONS].sort(() => rnd() - 0.5);
     for (const f of shuffled) {
       const cand = f(word, rnd);
       if (!cand || cand === word || cand.length < 4) continue;

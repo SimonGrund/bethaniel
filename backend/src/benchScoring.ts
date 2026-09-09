@@ -169,6 +169,12 @@ export interface RecallPrecisionResult {
    */
   falsePositiveBreakdown: {
     wrongFix: ScoredCorrection[];
+    /** Subset of wrongFix that leaves valid text — a different wording, not a
+     *  broken one. Empty unless scoreCorrections was given a WordChecks. */
+    wrongFixBenign: ScoredCorrection[];
+    /** Subset of wrongFix that introduces a non-word: the model made the
+     *  manuscript worse than it found it. */
+    wrongFixDamaging: ScoredCorrection[];
     hallucination: ScoredCorrection[];
   };
 }
@@ -233,6 +239,9 @@ function touchesAnyErrorSpan(
 export function scoreCorrections(
   corrections: ScoredCorrection[],
   groundTruth: PlantedError[],
+  /** Supply to split wrong fixes into benign and damaging. Without it both
+   *  land in `wrongFix` and the two sub-counts are zero. */
+  checks?: WordChecks,
 ): RecallPrecisionResult {
   const claimed = new Set<number>();
   const missedErrors: PlantedError[] = [];
@@ -254,10 +263,43 @@ export function scoreCorrections(
   const falsePositives = falsePositiveCorrections.length;
   const falseNegatives = missedErrors.length;
 
+  const wrongFixCorrections = falsePositiveCorrections.filter((c) =>
+    touchesAnyErrorSpan(c, groundTruth),
+  );
+
+  // A wrong fix is not automatically a bad one.
+  //
+  // The ground truth records ONE correct answer, recovered by diffing the
+  // planted fixture against its clean twin. Prose usually admits several. A
+  // model that turns "stepping of the ramp" into "stepping onto the ramp"
+  // scores as a wrong fix against a ground truth that says "off", and has
+  // nonetheless left the author with correct English. That is a completely
+  // different event from turning it into "stepping off the ramp".
+  //
+  // The test is deliberately narrow, because a wide one would be a judgement
+  // about meaning that nothing here can make: does the replacement introduce
+  // a word the dictionary does not know? If it does not, the sentence is at
+  // worst differently-worded and at best equally correct. If it does, the
+  // model has actively damaged text it was asked to repair, which is the
+  // only failure mode in this family that is worse than doing nothing.
+  const introducesNonWord = (c: ScoredCorrection): boolean => {
+    if (!checks) return false;
+    const before = new Set(words(c.original));
+    return words(c.corrected).some((w) => !before.has(w) && !checks.isKnownWord(w));
+  };
+  const damaging = checks ? wrongFixCorrections.filter(introducesNonWord) : [];
+  const benign = checks
+    ? wrongFixCorrections.filter((c) => !introducesNonWord(c))
+    : [];
+
   const falsePositiveBreakdown = {
-    wrongFix: falsePositiveCorrections.filter((c) =>
-      touchesAnyErrorSpan(c, groundTruth),
-    ),
+    wrongFix: wrongFixCorrections,
+    /** Wrong against the ground truth, but leaves valid text — a different
+     *  wording, not a broken one. Empty unless `checks` was supplied. */
+    wrongFixBenign: benign,
+    /** Wrong AND introduces a word no dictionary knows: the model has made
+     *  the manuscript worse than it found it. */
+    wrongFixDamaging: damaging,
     hallucination: falsePositiveCorrections.filter(
       (c) => !touchesAnyErrorSpan(c, groundTruth),
     ),
