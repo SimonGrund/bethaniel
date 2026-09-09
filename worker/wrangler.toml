@@ -89,7 +89,7 @@ crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 # NOTE: switching models here is not enough on its own. `wrangler dev` does
 # NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
 # the old model while believing you changed it.
-PROVIDER_MODEL = "qwen3.6-35b-a3b"
+PROVIDER_MODEL = "deepseek-v4-flash"
 # Translation is the one pass where size still pays, so it keeps the model the
 # rest of the product no longer needs. Measured 8 September 2026, chrF against
 # human reference translations: Llama-3.3-70B 78.3 against Qwen3.5-9B's 76.7
@@ -98,7 +98,7 @@ PROVIDER_MODEL = "qwen3.6-35b-a3b"
 # edit see no such gain, which is why they moved.
 #
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
-PROVIDER_MODEL_TRANSLATE = "Qwen3.5-9B"  # TEMPORARY: OVHcloud A/B via the translate slot
+PROVIDER_MODEL_TRANSLATE = "llama-3.3-70b-instruct"
 PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c0206/v1"
 
 # ── Switching provider ──
@@ -119,33 +119,34 @@ PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c020
 # (with a project id: https://api.scaleway.ai/<project-id>/v1). Either is
 # accepted; see chatCompletionsUrl in src/upstream.ts.
 #
-PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
-PROVIDER_REASONING_EFFORT_TRANSLATE = "none"
+# PROVIDER_API_BASE_TRANSLATE — deliberately unset. Translation runs on the
+# default provider (Scaleway) as well, so OVHcloud is out of the path
+# entirely. Set it, plus PROVIDER_API_KEY_TRANSLATE, only to split the two
+# passes across vendors again.
+# PROVIDER_REASONING_EFFORT_TRANSLATE — unset: Llama has no chain-of-thought
+# to switch off, and resolveUpstream omits the field for the translate route.
 # and: npx wrangler secret put PROVIDER_API_KEY_TRANSLATE
-# DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
+# Scaleway's real rate for deepseek-v4-flash, blended at the measured mix.
 #
-# It no longer sets any price. Since pricing moved to flat word bands, the
-# only thing this feeds is globalMeter.ts's reading of the daily ceiling in
-# money. Qwen3.5-9B is a far smaller model and OVHcloud prices the Qwen family
-# SPLIT (input and output at different rates), so the true figure is both much
-# lower and a blend rather than a flat rate.
+# EUR 0.40/Mtok input, EUR 0.80/Mtok output, EUR 0.08/Mtok for input served
+# from their prefix cache. A 99,000-word copy edit is 877k input and 330k
+# output — 73% input — which blends to EUR 0.509/Mtok, or EUR 0.61 for the job.
 #
-# Kept high on purpose. Over-estimating the cost per token makes the daily
-# ceiling bite EARLIER than the real spend warrants — the cap stops work
-# sooner, never later, which is the safe direction for a bound whose whole job
-# is to stop runaway spending. The cost is that DAILY_TOKEN_CEILING's
-# EUR-per-day reading is now an upper bound rather than an estimate: real
-# editing spend is roughly a quarter of what this implies.
+# Replaces Llama-3.3-70B's flat EUR 0.67 rate, which was carried for a model
+# nobody runs any more and was knowingly wrong, kept high so the daily ceiling
+# erred early. It no longer has to err: this figure is measured.
 #
-# Replace it with the blended Qwen3.5-9B rate (at the measured 76.6% input mix)
-# whenever the real numbers are to hand, and the ceiling becomes accurate
-# rather than merely safe.
-BASE_COST_EUR_PER_TOKEN = "0.00000067"
+# It still sets no price — pricing is flat word bands — and only feeds
+# globalMeter.ts's reading of the daily ceiling in money. The cache rate is
+# deliberately NOT assumed here: the system prompt repeats across chunks and
+# should hit it, but assuming a discount would make the ceiling optimistic,
+# and this bound is supposed to bite early rather than late.
+BASE_COST_EUR_PER_TOKEN = "0.000000509"
 # The translation model's rate. Meta-Llama-3_3-70B-Instruct is priced FLAT by
 # OVHcloud at EUR 0.67/Mtok, input and output alike, so this one IS exact —
 # it is the figure the line above used to be before the model beneath it
 # changed.
-BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.00000067"
+BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.000000640"
 # ── Price: flat bands of words, not cost-plus ──
 #
 # One band of PRICE_TIER_WORDS costs PRICE_TIER_EUR_CENTS; two bands cost
