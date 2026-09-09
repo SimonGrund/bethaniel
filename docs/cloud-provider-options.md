@@ -89,6 +89,40 @@ restructuring the queue to submit and poll rather than stream.
 Worth pricing out before choosing a provider on speed alone, because it changes
 what "fast enough" means.
 
+## Measured, 9 September 2026
+
+Same 2,366-word chunk, same copy-edit prompt, full response timed.
+
+| Provider / model | single stream | 8 concurrent (aggregate) |
+|---|---|---|
+| OVHcloud Qwen3.5-9B | 36 tok/s | 178 |
+| Scaleway qwen3.6-35b-a3b | 48 tok/s | 308 |
+| Scaleway deepseek-v4-flash | **75 tok/s** | 229 |
+| DeepSeek direct (not EU) | 153-225 tok/s | 1,171-1,326 |
+
+**DeepSeek-V4-Flash on Scaleway is twice OVHcloud's speed**, EU-hosted, zero
+retention by default, and the model family already trusted through External
+Betty. It is the leading candidate.
+
+Two cautions before treating any of this as settled:
+
+- **The aggregate column looks throttled.** 88 tok/s per stream across 8
+  streams should aggregate near 700; it gives 229. Scaleway appears to queue
+  concurrent requests, and their docs say official rate limits apply only
+  after KYC. Re-measure on a verified account before drawing conclusions
+  about parallelism — this is the number that decides whether the shared-
+  ceiling problem follows us to the new provider.
+- **This is speed only. Quality is unmeasured.** The frozen benchmark in
+  `language-quality-roadmap.md` covers Qwen3.5-9B, Llama-3.3-70B and the two
+  local models. Nothing is known about qwen3.6-35b-a3b or deepseek-v4-flash
+  on planted-error recall, and speed is worthless if recall drops. The
+  four-language grid has to be re-run against the candidate before it ships.
+
+Scaleway's base URL is project-scoped, not model-scoped:
+`https://api.scaleway.ai/<project-id>/v1` serves the whole catalog and the
+model is chosen per request. Confirmed working model ids: `qwen3.6-35b-a3b`,
+`deepseek-v4-flash` (reports as `deepseek-v4-flash-0731`), `glm-5.2`.
+
 ## Nobody publishes tokens per second
 
 Not one provider states throughput. The best independent comparison found ships

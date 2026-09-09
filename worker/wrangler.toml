@@ -89,7 +89,7 @@ crons = ["0 * * * *"] # hourly: sweep expired unused credentials
 # NOTE: switching models here is not enough on its own. `wrangler dev` does
 # NOT pick up [vars] edits on hot reload — restart it, or you will benchmark
 # the old model while believing you changed it.
-PROVIDER_MODEL = "Qwen3.5-9B"
+PROVIDER_MODEL = "deepseek-v4-flash"
 # Translation is the one pass where size still pays, so it keeps the model the
 # rest of the product no longer needs. Measured 8 September 2026, chrF against
 # human reference translations: Llama-3.3-70B 78.3 against Qwen3.5-9B's 76.7
@@ -99,7 +99,7 @@ PROVIDER_MODEL = "Qwen3.5-9B"
 #
 # Costs more per token than PROVIDER_MODEL. See BASE_COST_EUR_PER_TOKEN_TRANSLATE.
 PROVIDER_MODEL_TRANSLATE = "Meta-Llama-3_3-70B-Instruct"
-PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c0206/v1"
 
 # ── Switching provider ──
 #
@@ -119,7 +119,7 @@ PROVIDER_API_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
 # (with a project id: https://api.scaleway.ai/<project-id>/v1). Either is
 # accepted; see chatCompletionsUrl in src/upstream.ts.
 #
-# PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+PROVIDER_API_BASE_TRANSLATE = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
 # PROVIDER_REASONING_EFFORT_TRANSLATE = "none"   # only for a reasoning model
 # and: npx wrangler secret put PROVIDER_API_KEY_TRANSLATE
 # DELIBERATELY CONSERVATIVE — this is the Llama-3.3-70B rate, not Qwen3.5-9B's.
