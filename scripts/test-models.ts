@@ -33,6 +33,7 @@
  *   npx tsx scripts/test-models.ts --report-only  # Recompute + reprint the report from saved results, no new runs
  *   npx tsx scripts/test-models.ts --mode line_edit  # Only run line_edit (skips *_copy_edit.md entirely)
  *   npx tsx scripts/test-models.ts --api        # ALSO run API models that have a credential
+ *   npx tsx scripts/test-models.ts --allow-no-grammar  # measure WITHOUT LanguageTool (stamped in results)
  *                                               # (External Betty, Betty in the Cloud). Opt-in:
  *                                               # every run of one spends real money.
  */
@@ -157,6 +158,9 @@ const MODEL_FILTER = parseModel();
 // of one spends real money at a provider, so they must never join the default
 // grid by accident.
 const INCLUDE_API = process.argv.includes("--api");
+const ALLOW_NO_GRAMMAR = process.argv.includes("--allow-no-grammar");
+/** Set once the backend has been asked; stamped onto every result row. */
+let languageToolAvailable = false;
 
 function parseMaxParallel(): number | null {
   const idx = process.argv.indexOf("--max-parallel");
@@ -212,6 +216,38 @@ interface TestResult {
   corrections: ScoredCorrection[];
   errors: string[];
   runDate: string;
+  /**
+   * The pipeline that produced this row.
+   *
+   * Added 9 September 2026, after four grids ran with LANGUAGETOOL_DISABLED=1
+   * inherited from a single command. The numbers were 8-20 points low and
+   * looked entirely normal, because nothing recorded that grammar checks were
+   * off — and two cloud models were declared unusable on the strength of them.
+   *
+   * A result that cannot describe the conditions it was measured under is not
+   * a measurement.
+   */
+  env: RunEnvironment;
+}
+
+interface RunEnvironment {
+  /** The check worth the most recall, and the one that was silently off. */
+  languageTool: boolean;
+  /** Chapters dispatched at once. Affects wall-clock, not quality. */
+  parallel: number;
+  /** The dialect and toggles the harness sent with the job. */
+  editOptions: Record<string, unknown>;
+  /**
+   * What actually served the request, when it can be known.
+   *
+   * For an API entry the local config's model string is a LABEL the caller
+   * chose, not the model the provider ran — the Worker overrides it. That is
+   * how a qwen3.6 run came to be filed under deepseek-v4-flash. Null until
+   * the backend exposes the upstream model it was answered by; the label is
+   * deliberately NOT recorded here, because a wrong answer is worse than an
+   * absent one.
+   */
+  resolvedModel: string | null;
 }
 
 // ── Persistence ──
@@ -494,6 +530,53 @@ async function main() {
   // when a credential exists for that entry, which is what /models/installed
   // reports. Opt in with --api, because a cloud run spends real money and the
   // default grid must not.
+  // ── The grammar gate ──
+  //
+  // A benchmark is a measuring instrument, and one that silently changes its
+  // own calibration is worse than one that refuses to start. On 9 September
+  // 2026 four grids ran with LANGUAGETOOL_DISABLED=1 inherited from a single
+  // command: the numbers came out 8-20 points low, looked entirely normal, and
+  // two cloud models were declared unusable on the strength of them.
+  //
+  // Commas are 37% of the planted errors in the stress fixtures and are mostly
+  // what LanguageTool contributes, so without it the grid is not measuring the
+  // product. --allow-no-grammar exists for the deliberate case and stamps the
+  // results, so the caveat travels with the numbers wherever they go.
+  const ltStatus = (await api("GET", "/languagetool/status")) as {
+    available?: boolean;
+    hasJar?: boolean;
+    hasJava?: boolean;
+  };
+  languageToolAvailable = ltStatus?.available === true;
+  if (!languageToolAvailable && !ALLOW_NO_GRAMMAR) {
+    console.error(
+      [
+        "",
+        "ERROR: LanguageTool is not available, so grammar and punctuation checks",
+        "are off. Recall runs 8-20 points low and the results look normal, which",
+        "is exactly how four grids were wasted on 9 September 2026.",
+        "",
+        `  jar: ${ltStatus?.hasJar ? "found" : "MISSING"}   java: ${ltStatus?.hasJava ? "found" : "MISSING"}`,
+        `  LANGUAGETOOL_DISABLED=${process.env.LANGUAGETOOL_DISABLED ?? "(unset)"}`,
+        "",
+        "Fix it, or pass --allow-no-grammar to measure without it deliberately.",
+        "That flag is recorded in the results file.",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  if (!languageToolAvailable) {
+    console.warn(
+      [
+        "",
+        "WARNING: running WITHOUT grammar checks (--allow-no-grammar).",
+        "  Recall will be 8-20 points below a normal run. Every result row is",
+        "  stamped env.languageTool=false; do not compare these to a normal run.",
+        "",
+      ].join("\n"),
+    );
+  }
+
   if (INCLUDE_API) {
     const apiEntries = new Set(
       MODEL_CATALOG.filter((e) => e.source === "api").map((e) => e.fileName),
@@ -785,6 +868,7 @@ async function main() {
               ok: true as const,
               task,
               docId,
+              editOptions,
               taskId: queueRes.taskIds[0],
               startTime,
             };
@@ -857,6 +941,12 @@ async function main() {
           corrections: br.taskResult.corrections,
           errors: br.taskResult.errors,
           runDate: new Date().toISOString(),
+          env: {
+            languageTool: languageToolAvailable,
+            parallel: recommendedParallel,
+            editOptions: br.editOptions ?? {},
+            resolvedModel: null,
+          },
         };
 
         results.push(result);
