@@ -476,6 +476,37 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     ): RunModeKnobs[K] =>
       forced?.[key] ?? explicit ?? preset?.[key] ?? DEFAULT_RUN_KNOBS[key];
 
+    // ── Grammar checks are not optional ──
+    //
+    // Measured 9 September 2026 on identical fixtures with only LanguageTool
+    // differing: recall fell 8-20 points without it, and commas — 37% of the
+    // planted errors — collapsed to 19%. It is not a bonus pass; it is most of
+    // the comma and punctuation recall the product claims.
+    //
+    // So a job that asks for grammar checks and cannot have them is REFUSED
+    // rather than run degraded. Silently producing a worse edit is the failure
+    // mode that cost four benchmark grids and a wrong verdict on two cloud
+    // models; doing it to a paying author is worse.
+    //
+    // Refusing is only fair because the app can repair itself: POST
+    // /languagetool/install downloads the distribution, and the error names it.
+    // The job is blocked, not the product — every other mode still runs, and a
+    // caller who genuinely wants no grammar pass can send grammarCheck: false.
+    const wantsGrammar = resolveKnob("grammarCheck", grammarCheck);
+    if (wantsGrammar && !isLanguageToolAvailable()) {
+      const lt = getLanguageToolStatus();
+      res.status(409).json({
+        error:
+          "Grammar and punctuation checks are unavailable, and they find most of " +
+          "the comma errors Betty catches. Install LanguageTool from Settings, or " +
+          "turn grammar checks off to run without them.",
+        code: "languagetool_unavailable",
+        detail: { hasJar: lt.hasJar, hasJava: lt.hasJava },
+      });
+      return;
+    }
+
+
     // Support both `modes` array and legacy `mode` string
     const modeList: TaskMode[] =
       modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
@@ -2363,6 +2394,7 @@ import {
 } from "./llamaServer.js";
 import {
   getLanguageToolStatus,
+  isLanguageToolAvailable,
   ensureLanguageToolRunning,
 } from "./languageToolServer.js";
 import { downloadLanguageTool } from "./languageToolInstall.js";
