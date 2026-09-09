@@ -31,9 +31,17 @@ export interface CheckoutSessionResult {
  *
  * The check is deliberately a fail-closed default rather than a warning:
  * going live is a decision worth writing down in wrangler.toml.
+ *
+ * Matched on the `_live_` segment rather than on `sk_live_`, because Stripe
+ * has more than one kind of live key. A RESTRICTED key — the kind you should
+ * be using here, scoped to Checkout Sessions and Refunds — is `rk_live_…`,
+ * so a `sk_live_` test would have waved through the safer of the two
+ * choices and taken real money with the switch still off.
  */
+const LIVE_KEY = /^[a-z]+_live_/;
+
 export function assertPaymentsAllowed(env: Env): void {
-  if (!env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) return;
+  if (!LIVE_KEY.test(env.STRIPE_SECRET_KEY ?? "")) return;
   if (env.ALLOW_LIVE_PAYMENTS === "true") return;
   throw new Error(
     "STRIPE_SECRET_KEY is a live key but ALLOW_LIVE_PAYMENTS is not \"true\" — " +

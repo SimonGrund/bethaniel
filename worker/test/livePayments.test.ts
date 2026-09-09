@@ -20,11 +20,22 @@ test("a test key passes whatever the flag says", () => {
   );
 });
 
-test("a live key is refused by default", () => {
-  assert.throws(
-    () => assertPaymentsAllowed(envWith({ STRIPE_SECRET_KEY: "sk_live_abc" })),
-    /live key/,
-  );
+test("a live key is refused by default — of every kind Stripe issues", () => {
+  // rk_live_ is a RESTRICTED live key, which is what this Worker should be
+  // using: it needs only Checkout Sessions and Refunds. An earlier version
+  // tested for "sk_live_" alone, so choosing the safer key silently defeated
+  // the guard and took real money with the switch off.
+  for (const key of ["sk_live_abc", "rk_live_abc"]) {
+    assert.throws(
+      () => assertPaymentsAllowed(envWith({ STRIPE_SECRET_KEY: key })),
+      /live key/,
+      key,
+    );
+  }
+});
+
+test("a restricted TEST key still passes — rk is not by itself live", () => {
+  assertPaymentsAllowed(envWith({ STRIPE_SECRET_KEY: "rk_test_abc" }));
 });
 
 test("only the exact string \"true\" opens the gate", () => {
