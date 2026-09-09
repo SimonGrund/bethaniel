@@ -19,3 +19,6 @@ Backup/
 # LanguageTool distribution is dropped in locally / bundled at build time — never commit the jars.
 electron/resources/languagetool/*
 !electron/resources/languagetool/HOWTO.md
+
+# TypeScript incremental build cache
+*.tsbuildinfo
