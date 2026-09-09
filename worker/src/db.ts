@@ -124,6 +124,47 @@ export async function findUnruledExpiredCredentials(env: Env): Promise<
   return results ?? [];
 }
 
+/** A credential the sweep could not decide about on its own. */
+export interface RefundReviewRow {
+  id: string;
+  stripe_session_id: string;
+  stripe_payment_intent: string | null;
+  token_budget: number;
+  spent: number;
+  customer_email: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+/**
+ * Everything waiting on a human.
+ *
+ * The sweep deliberately refuses to auto-refund a partly-used credential —
+ * that rule is farmable (see refund.ts) — so it writes 'review' and moves on.
+ * Until something reads this, the author it concerns is waiting on a decision
+ * that exists only as a column value.
+ */
+export async function findRefundReviews(env: Env): Promise<RefundReviewRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id, stripe_session_id, stripe_payment_intent, token_budget, spent,
+            customer_email, created_at, expires_at
+       FROM credentials
+      WHERE refund_status = 'review'
+      ORDER BY expires_at ASC
+      LIMIT 200`,
+  ).all<RefundReviewRow>();
+  return results ?? [];
+}
+
+export async function findCredentialById(
+  env: Env,
+  id: string,
+): Promise<RefundReviewRow & { refund_status: string | null } | null> {
+  return env.DB.prepare(`SELECT * FROM credentials WHERE id = ?`)
+    .bind(id)
+    .first<RefundReviewRow & { refund_status: string | null }>();
+}
+
 export async function setRefundStatus(
   env: Env,
   id: string,

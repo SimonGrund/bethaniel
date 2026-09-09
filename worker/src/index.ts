@@ -24,6 +24,8 @@ import {
   sweepExpiredQuotes,
   findUnruledExpiredCredentials,
   setRefundStatus,
+  findRefundReviews,
+  findCredentialById,
 } from "./db";
 import {
   assertPaymentsAllowed,
@@ -188,6 +190,73 @@ export default {
           const summary = await runMaintenance(env);
           console.log(`[admin] sweep: ${describeMaintenance(summary)}`);
           return json({ ok: true, ...summary });
+        }
+
+        // The sweep's outbox. Partly-used credentials are deliberately not
+        // auto-refunded — that rule is farmable — so they land here instead.
+        // Until something reads this, the author it concerns is waiting on a
+        // decision that exists only as a column value.
+        if (url.pathname === "/admin/refunds" && request.method === "GET") {
+          const rows = await findRefundReviews(env);
+          return json({
+            count: rows.length,
+            reviews: rows.map((r) => ({
+              credentialId: r.id,
+              session: r.stripe_session_id,
+              email: r.customer_email,
+              spent: r.spent,
+              budget: r.token_budget,
+              // The number the decision actually turns on.
+              percentUsed: r.token_budget > 0
+                ? Math.round((r.spent / r.token_budget) * 100)
+                : 0,
+              refundable: !!r.stripe_payment_intent,
+              expiredAt: r.expires_at,
+            })),
+          });
+        }
+
+        // Settle one. `refund` moves money and marks it refunded; `decline`
+        // moves none and marks it declined. Either way the row leaves the
+        // queue, because a decision that does not clear the inbox is a
+        // decision that gets made again next week.
+        if (url.pathname === "/admin/refund" && request.method === "POST") {
+          const { credentialId, action } = (await request.json()) as {
+            credentialId?: string;
+            action?: string;
+          };
+          if (!credentialId || (action !== "refund" && action !== "decline")) {
+            return json(
+              { error: 'Send { credentialId, action: "refund" | "decline" }' },
+              400,
+            );
+          }
+          const row = await findCredentialById(env, credentialId);
+          if (!row) return json({ error: "No such credential" }, 404);
+
+          if (action === "decline") {
+            await setRefundStatus(env, row.id, "none");
+            return json({ ok: true, action: "decline", credentialId: row.id });
+          }
+
+          if (!row.stripe_payment_intent) {
+            return json(
+              { error: "No payment_intent recorded — nothing to reverse" },
+              409,
+            );
+          }
+          // Stripe's Idempotency-Key is on the payment intent, so a repeated
+          // call cannot double-refund even if this one is retried.
+          try {
+            await refundPayment(env, row.stripe_payment_intent);
+          } catch (err) {
+            await setRefundStatus(env, row.id, "failed");
+            console.error(`[admin] manual refund FAILED for ${row.id}:`, err);
+            return json({ error: "Stripe refused the refund" }, 502);
+          }
+          await setRefundStatus(env, row.id, "refunded");
+          console.log(`[admin] manual refund for ${row.stripe_session_id}`);
+          return json({ ok: true, action: "refund", credentialId: row.id });
         }
 
         return json({ error: "Not found" }, 404);
