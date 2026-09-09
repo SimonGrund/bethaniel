@@ -80,6 +80,9 @@ jobs:
               env:
                   ADMIN_TOKEN: ${{ secrets.CLOUD_ADMIN_TOKEN }}
                   GH_TOKEN: ${{ github.token }}
+                  # gh resolves the repo from the working directory, and this
+                  # job never checks the repo out — it only makes HTTP calls.
+                  GH_REPO: ${{ github.repository }}
               run: |
                   set -euo pipefail
 
