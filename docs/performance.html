@@ -210,7 +210,7 @@
       <span>·</span>
       <span>English · Danish · German · Spanish</span>
       <span>·</span>
-      <span>Measured 7 September 2026</span>
+      <span>Measured 7&ndash;9 September 2026</span>
     </nav>
   </header>
 
@@ -218,6 +218,8 @@
     <h2>How to read this</h2>
     <p>A copy editor is judged on two things that pull against each other. <strong>Recall</strong> is the share of real errors it found. <strong>Precision</strong> is the share of its suggestions that were real errors. Pushing either one up tends to push the other down, and a tool that flags everything scores brilliantly on the first and is useless.</p>
     <p>There is a third number, and in practice it is the one to read first: <strong>flags on clean text</strong>. Each language's fixture comes in two versions — one with errors planted, one with none. What a model says about the clean one is what an author actually experiences as noise, because there is nothing there to find. A tool that misses errors is disappointing. A tool that invents them makes the author distrust every suggestion, including the good ones.</p>
+    <p>Recall on its own treats three different outcomes as one, and they are not equally bad for the person reading the suggestions. An error <strong>found and fixed</strong> needs nothing. An error <strong>found and mis-fixed</strong> still reaches the author, who rejects the suggestion and corrects it themselves. An error <strong>missed</strong> is invisible, and it is the only one a human reading every suggestion cannot rescue. This page reports the first as <em>fixed</em> and the first two together as <em>seen</em>; the gap between them is work the tool surfaced but could not finish, and the distance from <em>seen</em> to 100% is what it hid.</p>
+    <p>The same applies to the suggestions that turn out to be wrong. A wrong suggestion on a real error costs a glance. A wrong suggestion on clean prose costs trust. And a wrong <em>fix</em> is not automatically a bad one: the ground truth records a single correct answer recovered by diffing against a clean twin, while prose usually admits several — turning &ldquo;stepping of the ramp&rdquo; into &ldquo;stepping onto the ramp&rdquo; scores as wrong and still leaves the author with correct English. What matters is whether the replacement <strong>broke</strong> the text, which is asked narrowly: did it introduce a word no dictionary knows? Across both engines, of 235 wrong fixes, <strong>25 broke anything</strong>.</p>
     <div class="sunk">
       <h3>The fixtures</h3>
       <p>Four texts of about 2,270 words each — the same short story, written natively in each language rather than translated, so the errors are the ones that language actually makes. Roughly a hundred errors per language are then planted by a generator that refuses any edit which does not produce exactly one span of the intended kind. The ground truth is therefore <em>constructed</em>, not annotated after the fact, so it cannot drift from the text.</p>
@@ -317,21 +319,25 @@
   </section>
 
   <section>
-    <h2>Betty in the Cloud, and what is not measured</h2>
-    <p>Everything above is the two bundled local models. The paid cloud option runs a much larger model — Meta-Llama-3.3-70B on OVHcloud AI Endpoints — through the same pipeline, and it has <strong>not</strong> been through this four-language benchmark. It has been measured once, on English only, as part of choosing which model to run.</p>
+    <h2>Betty in the Cloud, measured</h2>
+    <p>The paid cloud option runs a hosted model through the same pipeline. It is no longer an open question: on 9&nbsp;September&nbsp;2026 both engines were put through the same six fixtures, the same backend and the same grammar layer on the same afternoon, and only the model differed.</p>
     <div class="table-wrap">
       <table>
-        <caption>English stress fixture, one run, Speed preset. Alongside the local models on the same fixture for scale.</caption>
-        <thead><tr><th>Model</th><th>Recall</th><th>Prec.</th><th>Misspelling</th><th>Wrong word</th><th>Comma</th><th>Clean flags</th></tr></thead>
+        <caption>Six stress fixtures, 617 planted errors, Speed preset. The 95% interval on these numbers is &plusmn;4 points, so a difference under four points is not a difference.</caption>
+        <thead><tr><th>Measure</th><th>Baby Betty &mdash; 4B, local</th><th>Betty in the Cloud</th></tr></thead>
         <tbody>
-          <tr><td>Baby Betty — 4B, local</td><td>56%</td><td>71%</td><td>94%</td><td>60%</td><td>30%</td><td>1</td></tr>
-          <tr><td>Big Bad Betty — 9B, local</td><td>60%</td><td>72%</td><td>94%</td><td>67%</td><td>30%</td><td>1</td></tr>
-          <tr><td>Betty in the Cloud — 70B</td><td>56%</td><td>72%</td><td>94%</td><td>53%</td><td>19%</td><td>2</td></tr>
+          <tr><td>Fixed</td><td>69.0%</td><td>68.9%</td></tr>
+          <tr><td>Seen</td><td>74.2%</td><td>76.0%</td></tr>
+          <tr><td>Precision</td><td>73.3%</td><td>70.8%</td></tr>
+          <tr><td>Wrong fixes that broke text</td><td>11 of 107</td><td>14 of 128</td></tr>
+          <tr><td>Flags on clean text</td><td>61</td><td>45</td></tr>
+          <tr><td>&hellip; asserted without doubt</td><td>6</td><td>0</td></tr>
         </tbody>
       </table>
     </div>
-    <p>A seventy-billion-parameter model scoring level with a four-billion one is the result, and it is worth sitting with rather than explaining away. The categories say why: the deterministic layer does the spelling in both cases, and commas — the largest remaining pool — are not a capacity problem. The 70B was still the right choice among the five cloud models tested; it led the next best on recall by twenty-one points and on clean-text false positives by a factor of twenty, at half the token price. It just does not lead the local models by anything like its size.</p>
-    <p class="callout">Read that row as indicative, not settled. It is <strong>one run, one language</strong>, against the two-repeat four-language numbers everywhere else on this page — and one model in that same comparison varied by six points of recall across three runs. Running the cloud model through the full four-language benchmark is straightforward (<code>scripts/test-models.ts --api</code>) and costs well under a euro in tokens; it has not been done because the hosted service is not deployed yet.</p>
+    <p><strong>They are the same editor.</strong> A hosted model and a four-billion-parameter one running on a laptop score within a tenth of a point of each other, which is worth sitting with rather than explaining away. The categories say why: the deterministic layers do the spelling in both cases, and commas &mdash; the largest remaining pool &mdash; are not a capacity problem. Where the cloud is quietly ahead is noise: it flags less on clean prose, and none of those flags were asserted confidently.</p>
+    <p>So the cloud is not a better copy edit. It exists for machines that cannot run a model locally, and for people who would rather not give up their laptop for a quarter of an hour.</p>
+    <p class="callout">This corrects an earlier version of this page, which reported the cloud at 56% on one run of one language and called a seventy-billion-parameter model level with a four-billion one. That comparison was measured with the grammar and punctuation checks switched off &mdash; a setting inherited from a single command line, recorded nowhere, and worth between eight and twenty points of recall. Four benchmark runs were thrown away when it came to light, and every number on this page now comes from runs that record whether those checks were active.</p>
   </section>
 
   <section id="fixed">
@@ -368,7 +374,7 @@
   </section>
 
   <footer>
-    <div>Bethaniel · Performance · Measured 7 September 2026</div>
+    <div>Bethaniel · Performance · Measured 7–9 September 2026</div>
     <div>Both bundled models, two repeats per task, on consumer hardware. Numbers move a few points between runs; the shape does not.</div>
   </footer>
 
