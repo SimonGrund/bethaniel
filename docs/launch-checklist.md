@@ -39,11 +39,35 @@ Do not launch having done none of these.
 
 Everything so far was Stripe test mode. Going live means:
 
-- A **live-mode webhook endpoint** at the production URL. The sandbox
-  endpoint does not carry over, and its `whsec_` will not verify.
-- `ALLOW_LIVE_PAYMENTS = "true"` in `wrangler.toml`. Until then an `sk_live_`
-  key is refused by design (`assertPaymentsAllowed`).
+- A **live-mode webhook endpoint** at the production URL. A sandbox or
+  test-mode endpoint does not carry over, and its `whsec_` will not verify.
+  The signing secret belongs to the ENDPOINT, not the key — what has to match
+  is the environment the two live in.
+- `ALLOW_LIVE_PAYMENTS = "true"` in `wrangler.toml`. Until then any live key
+  is refused by design (`assertPaymentsAllowed`).
 - One real payment, end to end, on the real domain, before announcing it.
+
+**Use a restricted key, not a full one.** The Worker makes exactly two Stripe
+API calls, so the grant is:
+
+| Scope | Level |
+|---|---|
+| Checkout Sessions | Write |
+| Refunds | Write |
+| everything else | None |
+
+Verified against a restricted TEST key on 9 September 2026: a real test
+payment minted its credential, and an expired-unused credential was refunded
+through the live Stripe API. Inline `price_data` needs no Products or Prices
+scope. Webhook verification is a local HMAC and touches no key at all.
+
+A full key can read every payment and customer you have and move money out;
+these two can take payments (which only ever pay you) and reverse them.
+`Refunds: write` is the one scope with teeth and cannot be dropped without
+giving up the automatic-refund promise.
+
+Note that restricted keys are `rk_live_`, not `sk_live_` — the guard tests
+the `_live_` segment for exactly this reason. See the 9 September fix.
 
 ## BLOCKER — the domain switch is one commit, not two
 
