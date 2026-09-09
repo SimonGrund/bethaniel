@@ -521,6 +521,9 @@ export interface CategoryRecall {
   caught: number;
   /** 0-100, or null when the fixture planted none of this category. */
   recall: number | null;
+  /** Errors any correction landed on, right fix or wrong. */
+  surfaced: number;
+  attentionRecall: number | null;
 }
 
 /**
@@ -533,20 +536,42 @@ export function recallByCategory(
   groundTruth: PlantedError[],
   missedErrors: PlantedError[],
   checks?: WordChecks | null,
+  /** Supply to also report how many of each category were SURFACED — landed on
+   *  by any correction, right fix or wrong. Without it `surfaced` mirrors
+   *  `caught`, which is the stricter of the two and so the safe default. */
+  corrections?: ScoredCorrection[],
 ): CategoryRecall[] {
   const missed = new Set<PlantedError>(missedErrors);
   const planted = new Map<PlantedErrorCategory, number>();
   const caught = new Map<PlantedErrorCategory, number>();
+  const surfaced = new Map<PlantedErrorCategory, number>();
 
   for (const err of groundTruth) {
     const cat = classifyPlantedError(err, checks);
     planted.set(cat, (planted.get(cat) ?? 0) + 1);
-    if (!missed.has(err)) caught.set(cat, (caught.get(cat) ?? 0) + 1);
+    const wasCaught = !missed.has(err);
+    if (wasCaught) caught.set(cat, (caught.get(cat) ?? 0) + 1);
+    // An error a correction landed on but mis-fixed is still in front of the
+    // author. Counted per category because the two diverge very differently by
+    // kind: a misspelling is almost always fixed once found, a comma often is
+    // not.
+    const wasSurfaced =
+      wasCaught ||
+      (corrections?.some((c) => touchesErrorSpan(c, err)) ?? false);
+    if (wasSurfaced) surfaced.set(cat, (surfaced.get(cat) ?? 0) + 1);
   }
 
   return CATEGORY_ORDER.map((category) => {
     const p = planted.get(category) ?? 0;
     const c = caught.get(category) ?? 0;
-    return { category, planted: p, caught: c, recall: p > 0 ? (c / p) * 100 : null };
+    const s = surfaced.get(category) ?? c;
+    return {
+      category,
+      planted: p,
+      caught: c,
+      surfaced: s,
+      recall: p > 0 ? (c / p) * 100 : null,
+      attentionRecall: p > 0 ? (s / p) * 100 : null,
+    };
   });
 }

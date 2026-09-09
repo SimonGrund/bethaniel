@@ -1279,19 +1279,32 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         )!;
         return {
           model,
-          rows: recallByCategory(truth, scoreCorrections(run.corrections, truth).missedErrors, checks),
+          rows: recallByCategory(
+            truth,
+            scoreCorrections(run.corrections, truth).missedErrors,
+            checks,
+            run.corrections,
+          ),
         };
       });
+      // Two columns per model: fixed, and surfaced. They diverge very
+      // differently by category — a misspelling found is nearly always fixed,
+      // a comma found often is not — and one number would hide that.
       lines.push(
-        `    ${"recall by error type".padEnd(26)} ${"planted".padStart(7)}` +
-          perModel.map((m) => shortName(m.model).slice(-9).padStart(11)).join(""),
+        `    ${"by error type (fixed/seen)".padEnd(26)} ${"planted".padStart(7)}` +
+          perModel.map((m) => shortName(m.model).slice(-9).padStart(13)).join(""),
       );
       for (let i = 0; i < perModel[0].rows.length; i++) {
         const { category, planted } = perModel[0].rows[i];
         if (planted === 0) continue;
         lines.push(
           `      ${category.padEnd(24)} ${String(planted).padStart(7)}` +
-            perModel.map((m) => `${(m.rows[i].recall ?? 0).toFixed(0)}%`.padStart(11)).join(""),
+            perModel
+              .map((m) => {
+                const r = m.rows[i];
+                return `${(r.recall ?? 0).toFixed(0)}/${(r.attentionRecall ?? 0).toFixed(0)}%`.padStart(13);
+              })
+              .join(""),
         );
       }
       if (!checks) {
