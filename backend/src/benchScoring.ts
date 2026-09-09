@@ -133,6 +133,24 @@ export interface RecallPrecisionResult {
   falseNegatives: number;
   /** 0-100. Undefined ground truth (clean-text runs) has no recall — use precision only. */
   recall: number | null;
+  /**
+   * 0-100. Errors that ANY correction landed on, whether or not the fix was
+   * right.
+   *
+   * `recall` is strict: right span AND right replacement. That is the correct
+   * measure of the product doing the work for the author. But the three ways
+   * to fail are not equally bad for them, and only this pair separates them:
+   *
+   *   caught      right span, right fix   — nothing to do
+   *   wrong fix   right span, wrong fix   — flagged; the author sees it and
+   *                                         fixes it themselves
+   *   missed      no correction at all    — INVISIBLE, and the only failure
+   *                                         a human-in-the-loop cannot catch
+   *
+   * So attentionRecall - recall is the share of errors Betty surfaced but
+   * could not fix, and 100 - attentionRecall is the share it hid.
+   */
+  attentionRecall: number | null;
   /** 0-100 */
   precision: number;
   /** 0-100, harmonic mean of recall/precision when both exist; falls back to precision alone. */
@@ -180,25 +198,30 @@ function bigrams(ws: string[]): Set<string> {
  * correction's original text and the error's wrong text catches these
  * without over-matching on lone common words like "the" or "and".
  */
+export function touchesErrorSpan(
+  correction: ScoredCorrection,
+  err: PlantedError,
+): boolean {
+  const wrong = norm(err.wrong);
+  if (!wrong) return false;
+  const original = norm(correction.original);
+  if (original.includes(wrong) || wrong.includes(original)) return true;
+  const originalWords = words(correction.original);
+  if (originalWords.length < 2) return false;
+  const wrongWords = words(err.wrong);
+  if (wrongWords.length < 2) return false;
+  const originalBigrams = bigrams(originalWords);
+  for (const bg of bigrams(wrongWords)) {
+    if (originalBigrams.has(bg)) return true;
+  }
+  return false;
+}
+
 function touchesAnyErrorSpan(
   correction: ScoredCorrection,
   groundTruth: PlantedError[],
 ): boolean {
-  const original = norm(correction.original);
-  const originalWords = words(correction.original);
-  const originalBigrams = originalWords.length >= 2 ? bigrams(originalWords) : null;
-  return groundTruth.some((err) => {
-    const wrong = norm(err.wrong);
-    if (!wrong) return false;
-    if (original.includes(wrong) || wrong.includes(original)) return true;
-    if (!originalBigrams) return false;
-    const wrongWords = words(err.wrong);
-    if (wrongWords.length < 2) return false;
-    for (const bg of bigrams(wrongWords)) {
-      if (originalBigrams.has(bg)) return true;
-    }
-    return false;
-  });
+  return groundTruth.some((err) => touchesErrorSpan(correction, err));
 }
 
 /**
@@ -242,6 +265,13 @@ export function scoreCorrections(
 
   const recall =
     groundTruth.length > 0 ? (truePositives / groundTruth.length) * 100 : null;
+  // Counted over ground-truth errors rather than over corrections, so two
+  // corrections landing on one error cannot inflate it past 100%.
+  const touched = groundTruth.filter((err) =>
+    corrections.some((c) => touchesErrorSpan(c, err)),
+  ).length;
+  const attentionRecall =
+    groundTruth.length > 0 ? (touched / groundTruth.length) * 100 : null;
   const precision =
     corrections.length > 0 ? (truePositives / corrections.length) * 100 : 100;
   const f1 =
@@ -256,6 +286,7 @@ export function scoreCorrections(
     falsePositives,
     falseNegatives,
     recall,
+    attentionRecall,
     precision,
     f1,
     missedErrors,

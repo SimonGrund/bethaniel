@@ -1105,9 +1105,14 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
     for (const language of languages) {
       const truth = groundTruthFor(language, mode);
       if (truth.length === 0) continue;
-      lines.push(`\n  ${language} — ${truth.length} planted errors`);
+      // Binomial 95% interval on the recall proportion at its widest (p=0.5).
+      // Printed so nobody reads a 6-point gap on 30 planted errors as a
+      // result. See docs/language-quality-roadmap.md.
+      const ci = 200 * Math.sqrt(0.25 / truth.length);
+      lines.push(`\n  ${language} — ${truth.length} planted errors  (95% interval ±${ci.toFixed(0)} points)`);
       lines.push(
-        `    ${"model".padEnd(26)} ${"recall".padStart(7)} ${"prec.".padStart(7)} ${"clean flags".padStart(12)}`,
+        `    ${"model".padEnd(26)} ${"fixed".padStart(6)} ${"seen".padStart(6)} ${"prec.".padStart(6)}` +
+          ` ${"wrongFix".padStart(9)} ${"halluc".padStart(7)} ${"clean".padStart(6)} ${"unmarked".padStart(9)}`,
       );
 
       const present: string[] = [];
@@ -1121,7 +1126,15 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         const scored = runs.map((r) => scoreCorrections(r.corrections, truth));
         const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
         const recall = avg(scored.map((s) => s.recall ?? 0));
+        // Errors a correction landed on at all. The gap to `recall` is what
+        // Betty surfaced but mis-fixed — the author still sees those, unlike
+        // a miss, which is invisible.
+        const seen = avg(scored.map((s) => s.attentionRecall ?? 0));
         const precision = avg(scored.map((s) => s.precision));
+        // A false positive on the error's own span costs a glance; one on
+        // clean prose costs trust. One number hides the difference.
+        const wrongFix = avg(scored.map((s) => s.falsePositiveBreakdown.wrongFix.length));
+        const halluc = avg(scored.map((s) => s.falsePositiveBreakdown.hallucination.length));
         const cleanRuns = results.filter(
           (r) => r.model === model && r.language === language && r.mode === mode &&
             r.variant === "correct" && r.errors.length === 0,
@@ -1129,9 +1142,28 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         const cleanFlags = cleanRuns.length
           ? avg(cleanRuns.map((r) => r.corrections.filter((c) => c.original !== c.corrected).length))
           : null;
+        // The flags that cost trust are the UNMARKED ones. A flagged
+        // suggestion on clean text arrives wearing its own doubt and the
+        // author dismisses it; an unflagged one asserts an error that is not
+        // there. Bethaniel is human-in-the-loop, so the split IS the metric.
+        const cleanUnmarked = cleanRuns.length
+          ? avg(
+              cleanRuns.map(
+                (r) =>
+                  r.corrections.filter(
+                    (c) =>
+                      c.original !== c.corrected &&
+                      !(c as unknown as { flagged?: boolean }).flagged,
+                  ).length,
+              ),
+            )
+          : null;
         lines.push(
-          `    ${shortName(model).padEnd(26)} ${`${recall.toFixed(0)}%`.padStart(7)} ${`${precision.toFixed(0)}%`.padStart(7)} ` +
-            `${(cleanFlags === null ? "n/a" : cleanFlags.toFixed(1)).padStart(12)}`,
+          `    ${shortName(model).padEnd(26)} ${`${recall.toFixed(0)}%`.padStart(6)}` +
+            ` ${`${seen.toFixed(0)}%`.padStart(6)} ${`${precision.toFixed(0)}%`.padStart(6)}` +
+            ` ${wrongFix.toFixed(1).padStart(9)} ${halluc.toFixed(1).padStart(7)}` +
+            ` ${(cleanFlags === null ? "n/a" : cleanFlags.toFixed(1)).padStart(6)}` +
+            ` ${(cleanUnmarked === null ? "n/a" : cleanUnmarked.toFixed(1)).padStart(9)}`,
         );
       }
 
