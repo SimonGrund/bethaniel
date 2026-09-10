@@ -141,23 +141,26 @@ export default function ScopeSelection() {
         ))}
       </div>
 
+      {/* Pills in a bounded, wrapping box — not a row per chapter. The old
+          column grew with the manuscript and pushed "Confirm manuscript" out
+          of view, so the chooser hid the button that acts on the choice. */}
       {scopeMode === "selected_chapters" && chapters.length > 0 && (
-        <details className="chapter-select-details" open>
-          <summary className="chapter-select-summary">
-            {selectedChapters.length} of {chapters.length} chapters selected
-          </summary>
+        <div className="chapter-select-details">
           <div className="chapter-select">
             {chapters.map((ch, i) => (
               <label
                 key={i}
                 className={`chapter-option ${selectedSet.has(i) ? "selected" : ""}`}
+                title={`${ch.title.trim() || shortChapterLabel(i, ch.title)} — ${ch.wordCount.toLocaleString()} words`}
               >
                 <input
                   type="checkbox"
                   checked={selectedSet.has(i)}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setSelectedChapters([...selectedChapters, i].sort());
+                      setSelectedChapters(
+                        [...selectedChapters, i].sort((a, b) => a - b),
+                      );
                     } else {
                       setSelectedChapters(
                         selectedChapters.filter((j) => j !== i),
@@ -165,12 +168,30 @@ export default function ScopeSelection() {
                     }
                   }}
                 />
-                {shortChapterLabel(i, ch.title)} (
-                {ch.wordCount.toLocaleString()} w)
+                <span className="chapter-option-name">
+                  {shortChapterLabel(i, ch.title)}
+                </span>
+                <span className="chapter-option-words">
+                  {ch.wordCount.toLocaleString()}w
+                </span>
               </label>
             ))}
           </div>
-        </details>
+          <div className="chapter-select-actions">
+            <span>
+              {selectedChapters.length} of {chapters.length} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedChapters(chapters.map((_, i) => i))}
+            >
+              {t("select_all", "Select all")}
+            </button>
+            <button type="button" onClick={() => setSelectedChapters([])}>
+              {t("select_none", "Clear")}
+            </button>
+          </div>
+        </div>
       )}
 
       {scopeMode === "first_n_words" && (

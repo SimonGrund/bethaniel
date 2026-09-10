@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
+import CloudCheckoutModal from "./CloudCheckoutModal";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
@@ -180,6 +181,7 @@ export default function EditTrigger() {
   // would show a discount that no longer exists.
   const [promoCode, setPromoCode] = useState("");
   const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
+  const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
   const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Looked up once — the bridge itself never changes across a session, and a
@@ -266,8 +268,17 @@ export default function EditTrigger() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [electronBridge]);
 
-  const handleRunInCloud = async () => {
+  // Two steps, deliberately. The button opens the confirmation; only the
+  // confirmation — after the terms are ticked — opens Stripe.
+  const handleRunInCloud = () => {
     if (!cloudEstimate) return;
+    setCloudClaimError(null);
+    setCloudConfirmOpen(true);
+  };
+
+  const handleConfirmCloudPurchase = async () => {
+    if (!cloudEstimate) return;
+    setCloudConfirmOpen(false);
     setCloudClaimError(null);
     try {
       const { checkoutUrl } = await createCloudCheckout(cloudEstimate.quoteId);
@@ -283,6 +294,25 @@ export default function EditTrigger() {
       );
     }
   };
+
+  // Closing Stripe without paying sends nothing back, so the pending flag had
+  // no way to clear and the button stayed on "Waiting for payment…" for the
+  // rest of the session — with the run unreachable behind it. Two ways out: an
+  // explicit cancel, and an expiry for the user who simply walked away.
+  const cancelCloudWait = () => {
+    setCloudCheckoutPending(false);
+    setCloudClaimError(null);
+  };
+
+  useEffect(() => {
+    if (!cloudCheckoutPending) return;
+    // Long enough that a real payment — card, 3-D Secure, a hunt for the
+    // wallet — is never interrupted; short enough that an abandoned one does
+    // not outlive the session. A credential that arrives later still works:
+    // onCloudCredentialClaimed does not consult this flag.
+    const id = setTimeout(() => setCloudCheckoutPending(false), 15 * 60 * 1000);
+    return () => clearTimeout(id);
+  }, [cloudCheckoutPending]);
 
   const buildEditOptions = () => {
     const opts: Record<string, boolean | string> = {};
@@ -525,6 +555,26 @@ export default function EditTrigger() {
           )}
         </button>
       )}
+
+      {/* Outside the button: a disabled button cannot carry its own way out. */}
+      {cloudCheckoutPending && (
+        <p className="cloud-wait-note">
+          {t("cloud_wait_hint", "Finish the payment in your browser.")}{" "}
+          <button type="button" className="link-button" onClick={cancelCloudWait}>
+            {t("cloud_wait_cancel", "Didn't pay? Cancel")}
+          </button>
+        </p>
+      )}
+
+      <CloudCheckoutModal
+        open={cloudConfirmOpen}
+        estimate={cloudEstimate}
+        chapters={units.length}
+        modes={selectedModes}
+        lang={lang}
+        onCancel={() => setCloudConfirmOpen(false)}
+        onConfirm={handleConfirmCloudPurchase}
+      />
         {/* A code is optional and rarely used, so it sits under the button
             rather than competing with it. Feedback is inline: an unknown or
             unusable code never blocks the run, it just does not discount it. */}

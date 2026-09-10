@@ -14,6 +14,7 @@ import StepBar from "./StepBar";
 import EditTrigger from "./EditTrigger";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
 import ModelDownloadStrip from "./ModelDownloadStrip";
+import { CLOUD_TERMS_URL } from "./CloudCheckoutModal";
 
 const SETUP_STEPS = ["model", "edits", "upload", "style"];
 
@@ -160,6 +161,20 @@ export default function Sidebar() {
           </button>
         </div>
       )}
+
+      {/* Pinned last in flow, under everything else. The cloud terms are the
+          one place Bethaniel's "nothing leaves your machine" promise is set
+          aside, so they should be reachable from inside the app and not only
+          from the dialog that asks you to accept them. */}
+      <div className="sidebar-legal">
+        <a
+          href={CLOUD_TERMS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t("terms_and_conditions", "Terms & conditions")}
+        </a>
+      </div>
     </aside>
   );
 }
