@@ -73,6 +73,8 @@ export default function App() {
     completedSteps,
     document: doc,
     selectedModes,
+    markStepComplete,
+    advanceWizard,
     styleGuide,
   } = useStore();
   const setLogs = useStore((s) => s.setLogs);
@@ -531,6 +533,19 @@ export default function App() {
                                   where an experimental TASK reads as an
                                   experimental style setting. */}
                               <BetaFeatures />
+                              <div className="step-confirm-row">
+                                <button
+                                  type="button"
+                                  className="btn-primary btn-confirm-step"
+                                  disabled={selectedModes.length === 0}
+                                  onClick={() => {
+                                    markStepComplete("edits");
+                                    advanceWizard("edits");
+                                  }}
+                                >
+                                  {t("wizard_confirm_edits", "Confirm task")}
+                                </button>
+                              </div>
                             </>
                           )}
                           {step === "upload" && (

@@ -199,7 +199,7 @@ export default function StyleGuideEditor() {
           when it happens to be current is a step that cannot be finished —
           and this is the last one, so the run never becomes available. */}
       {(
-        <div className="wizard-confirm" style={{ gap: "0.5rem" }}>
+        <div className="step-confirm-row">
           <button
             type="button"
             className="btn-secondary"

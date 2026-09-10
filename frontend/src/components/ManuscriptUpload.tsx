@@ -192,9 +192,10 @@ export default function ManuscriptUpload() {
 
           <ScopeSelection />
 
+          <div className="step-confirm-row upload-side-confirm">
           <button
             type="button"
-            className="btn-primary btn-confirm-step upload-side-confirm"
+            className="btn-primary btn-confirm-step"
             onClick={() => {
               markStepComplete("upload");
               advanceWizard("upload");
@@ -202,6 +203,7 @@ export default function ManuscriptUpload() {
           >
             {t("wizard_confirm_upload")}
           </button>
+          </div>
         </aside>
       )}
     </section>

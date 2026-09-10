@@ -5010,11 +5010,32 @@ summary.review-source::before {
   cursor: default;
 }
 
-/* Bottom of the column: a column of decisions ends with the one that acts on
-   them. `margin-top: auto` is what keeps it at the foot however tall the
-   sample beside it turns out to be. */
+/* ── How every setup card ends ──
+   One row, bottom right, on all three: the same gesture finishes each step,
+   folds it and opens the next, so the flow has one shape rather than three. */
+.step-confirm-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #ece0c8;
+}
+
+.step-confirm-row .btn-confirm-step {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 11rem;
+}
+
+/* In the manuscript card the row is the foot of the right-hand column, so it
+   takes the leftover height rather than a fixed margin. */
 .upload-side-confirm {
   margin-top: auto;
+}
+
+.upload-side-confirm .btn-confirm-step {
   width: 100%;
 }
 

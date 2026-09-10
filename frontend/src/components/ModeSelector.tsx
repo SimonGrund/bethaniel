@@ -74,6 +74,7 @@ export default function ModeSelector({
     manuscriptLang,
     setManuscriptLang,
     markStepComplete,
+    advanceWizard,
     lineEditEnabled,
     setLineEditEnabled,
   } = useStore();
@@ -370,6 +371,7 @@ export default function ModeSelector({
       </div>
 
       {activeCard && <div className="task-controls">{renderControls()}</div>}
+
     </section>
   );
 }
