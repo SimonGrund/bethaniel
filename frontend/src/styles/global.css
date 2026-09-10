@@ -5529,21 +5529,40 @@ summary.review-source::before {
   font-size: 0.85rem;
 }
 
+/* One control, not an arrow with words next to it. The way back out of Former
+   Runs is the most-used thing on this screen and it looked like decoration. */
 .btn-back-to-setup {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: #8a7e6a;
-  font-size: 1.6rem;
+  gap: 0.5rem;
+  border: 1px solid #d9c9a8;
+  background: #fdfaf0;
+  color: #4a3f2f;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem 0.4rem 0.85rem;
   cursor: pointer;
-  padding: 0;
-  transition: color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.btn-back-to-setup span {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .btn-back-to-setup:hover {
-  color: #5a4f3f;
+  background: #f2ead8;
+  border-color: #8b7355;
+  color: #2a2419;
+}
+
+.btn-back-to-setup:focus-visible {
+  outline: 2px solid #8a7050;
+  outline-offset: 2px;
 }
 
 .back-to-setup-label {
@@ -6627,6 +6646,79 @@ summary.review-source::before {
 
 .corrections-scroll {
   padding-right: 0.25rem;
+}
+
+/* ── Former runs ──
+   A list of past runs is a list of things to pick, so each is a card with its
+   manuscript name first and the facts underneath — not a collapsed row whose
+   summary line ran the name, the id, five chips and a delete button together
+   at one size. */
+.review-run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.review-run-list .review-group {
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 10px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.review-run-list .review-group:hover {
+  border-color: #8b7355;
+  box-shadow: 0 2px 8px rgba(42, 36, 25, 0.08);
+}
+
+.review-run-list .review-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  padding: 0.9rem 1.1rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.12rem;
+  color: #2a2419;
+}
+
+/* The chips are the run's facts; they read as a second line, not as more
+   title. */
+.review-run-list .review-source-meta {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-family: var(--sans, "Inter", system-ui, sans-serif);
+  font-size: 0.75rem;
+}
+
+.review-back-to-list {
+  display: inline-block;
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* The delete control wrapped onto a line of its own, so every card carried a
+   blank row under its facts. Pinned to the corner it costs no height. */
+.review-run-list .review-group {
+  position: relative;
+}
+
+.review-run-list .review-source .review-delete-btn {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.8rem;
+  margin: 0;
+}
+
+/* The disclosure marker is the only thing saying a card opens. */
+.review-run-list .review-source::marker,
+.review-run-list .review-source::-webkit-details-marker {
+  color: #8b7355;
 }
 
 /* ── Review: the destructive control is quiet ──

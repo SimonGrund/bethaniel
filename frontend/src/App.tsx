@@ -602,13 +602,10 @@ export default function App() {
                 type="button"
                 className="btn-back-to-setup"
                 onClick={() => setWizardStep("folded")}
-                title={t("new_run")}
               >
-                ←
-              </button>
-              <span className="back-to-setup-label">
+                <span aria-hidden="true">←</span>
                 {t("return_to_dashboard")}
-              </span>
+              </button>
             </div>
             <div className="bottom-row">
               <div className="results-col">

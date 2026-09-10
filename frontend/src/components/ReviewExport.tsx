@@ -4133,19 +4133,45 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               )}
             </details>
           );
-          return jobNode;
+          return { jid, node: jobNode };
         });
 
-        const displayJobs = isOldResults ? rendered : rendered.slice(0, 1);
+        // Past runs open one at a time and take the screen. Stacked, an opened
+        // run pushed every other one below the fold and left the reader
+        // scrolling through collapsed headers to find their way back.
+        const openJid =
+          isOldResults
+            ? (rendered.find((r) => openJobs.has(r.jid))?.jid ?? null)
+            : null;
+        const displayJobs = isOldResults
+          ? openJid
+            ? rendered.filter((r) => r.jid === openJid)
+            : rendered
+          : rendered.slice(0, 1);
 
         return (
           <>
-            {displayJobs.map((jobNode, i) => (
-              <div key={i} ref={i === 0 ? latestRef : undefined}>
-                {jobNode}
-              </div>
-            ))}
-            {isOldResults && jobEntries.length > 0 && (
+            {isOldResults && openJid && (
+              <button
+                type="button"
+                className="btn-linkish review-back-to-list"
+                onClick={() => setOpenJobs(new Set())}
+              >
+                {t("back_to_all_runs", "← All runs")}
+              </button>
+            )}
+            <div
+              className={
+                isOldResults && !openJid ? "review-run-list" : undefined
+              }
+            >
+              {displayJobs.map((r, i) => (
+                <div key={r.jid} ref={i === 0 ? latestRef : undefined}>
+                  {r.node}
+                </div>
+              ))}
+            </div>
+            {isOldResults && !openJid && jobEntries.length > 0 && (
               <div className="review-clear-row">
                 <button
                   type="button"
