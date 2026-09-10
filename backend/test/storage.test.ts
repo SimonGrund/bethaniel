@@ -44,6 +44,8 @@ beforeEach(async () => {
 });
 
 after(async () => {
+  const { closeDb } = await import("../src/db.ts");
+  closeDb();
   await fs.rm(root, { recursive: true, force: true });
 });
 
