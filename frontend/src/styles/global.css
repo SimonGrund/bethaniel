@@ -1093,23 +1093,23 @@ h4 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  background: #f2eede;
-  color: #4a4420;
-  border: 1.5px solid #8a8347;
-  border-radius: 10px;
-  padding: 0.6rem 1rem;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #1a140a 0%, #3d2f1a 100%);
+  color: #f7f1e3;
+  border: 2px solid #8b7355;
+  border-radius: 12px;
+  padding: 1.25rem 2rem;
+  min-width: 200px;
+  flex-shrink: 0;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(26, 20, 10, 0.15);
 }
 
 .btn-run-cloud:hover:not(:disabled) {
-  background: #e9e2c9;
-  border-color: #6a662b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26, 20, 10, 0.25);
+  border-color: #b8915a;
 }
 
 .btn-run-cloud:disabled {
@@ -4308,20 +4308,22 @@ summary.review-source::before {
 }
 
 /* ── Betty in the Cloud ── */
-/* The cloud button used to sit in the same pale blue whether it was the only
-   way to run (no model installed) or an alternative to a local run, so it
-   read as disabled-ish either way. A solid fill and a hairline glow give it
-   the weight of a real choice — it is, after all, the one that costs money
-   and the only one available on a machine that cannot run a model. */
-.btn-run-cloud {
-  background: linear-gradient(180deg, #f6f2e4 0%, #ebe4cd 100%);
-  border-color: #8a8347;
-  box-shadow: 0 1px 2px rgba(74, 68, 32, 0.14);
+/* ── The cloud mark ──
+   The same Betty on both buttons, because it is the same Betty doing the same
+   work; the cloud only says where she runs. A warm brown keeps the badge
+   inside the palette instead of announcing itself. */
+.btn-run-icon-stack {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
 }
 
-.btn-run-cloud .btn-run-meta {
-  font-weight: 600;
-  opacity: 0.95;
+.btn-run-cloud-badge {
+  position: absolute;
+  right: -7px;
+  bottom: -3px;
+  color: #b8915a;
+  filter: drop-shadow(0 0 2px rgba(26, 20, 10, 0.9));
 }
 
 /* A disabled button cannot carry its own escape hatch, so the way out of a
@@ -4356,6 +4358,7 @@ summary.review-source::before {
   flex-direction: column;
   gap: 0.4rem;
   min-width: 0;
+  align-self: stretch;
 }
 
 .cloud-block .cloud-code,
@@ -5135,10 +5138,16 @@ summary.review-source::before {
 .wizard-launch .run-actions > .btn-run,
 .wizard-launch .run-actions > .cloud-block {
   flex: 1 1 18rem;
+  min-width: 0;
 }
 
-.wizard-launch .run-actions > .btn-run {
-  align-self: flex-start;
+/* The two buttons are one decision, so they are the same object twice: the
+   local one stretches to whatever height the cloud button takes, rather than
+   sitting short beside it. The cloud column's small print hangs below both. */
+.wizard-launch .run-actions > .btn-run,
+.wizard-launch .run-actions > .cloud-block > .btn-run-cloud {
+  align-self: stretch;
+  width: 100%;
 }
 
 /* The code field and the notes below stay full width under both buttons. */

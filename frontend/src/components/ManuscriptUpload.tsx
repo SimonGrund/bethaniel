@@ -25,7 +25,6 @@ export default function ManuscriptUpload() {
     setUploading,
     setSelectedChapters,
     setScopeMode,
-    wizardStep,
     advanceWizard,
     markStepComplete,
   } = useStore();
@@ -163,7 +162,9 @@ export default function ManuscriptUpload() {
           column beside the sample, not stacked under it: the file, what is in
           it, what to edit, and the button that moves on. Confirm sits at the
           bottom of that column, which is where a column of decisions ends. */}
-      {doc && wizardStep === "upload" && (
+      {/* Same reasoning as the style step: the card is on screen, so the
+          control that completes it is too. */}
+      {doc && (
         <aside className="upload-side">
           <div className="upload-side-doc">
             <span className="file-name">{doc.name}</span>

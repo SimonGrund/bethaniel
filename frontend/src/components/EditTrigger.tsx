@@ -594,7 +594,22 @@ export default function EditTrigger() {
             "Your manuscript will be sent to Bethaniel's cloud service for this job.",
           )}
         >
-          <span aria-hidden="true">💳</span>
+          <span className="btn-run-icon-stack" aria-hidden="true">
+            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+            <svg
+              className="btn-run-cloud-badge"
+              viewBox="0 0 24 16"
+              width="26"
+              height="18"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                fill="currentColor"
+                d="M18.7 6.3a5.3 5.3 0 0 0-9.9-1.6A4.2 4.2 0 0 0 4.4 8.8 3.8 3.8 0 0 0 5 16h13.2a4.9 4.9 0 0 0 .5-9.7Z"
+              />
+            </svg>
+          </span>
           <span className="btn-run-label">
             {cloudCheckoutPending
               ? t("cloud_waiting_payment", "Waiting for payment…")
