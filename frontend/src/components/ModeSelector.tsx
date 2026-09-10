@@ -55,7 +55,12 @@ const CARDS: { id: FrontCard; titleKey: string; descKey: string }[] = [
   },
 ];
 
-export default function ModeSelector() {
+export default function ModeSelector({
+  onCollapse,
+}: {
+  /** Supplied when this sits in a foldable setup card. */
+  onCollapse?: () => void;
+} = {}) {
   const {
     lang,
     selectedModes,
@@ -330,7 +335,24 @@ export default function ModeSelector() {
 
   return (
     <section className="mode-selector">
-      <h2 className="tasks-heading">{t("tasks_heading")}</h2>
+      {/* Doubles as this card's fold control, so every card collapses from its
+          own top line rather than one of them being the exception. */}
+      <h2
+        className={`tasks-heading${onCollapse ? " tasks-heading-toggle" : ""}`}
+        role={onCollapse ? "button" : undefined}
+        tabIndex={onCollapse ? 0 : undefined}
+        title={onCollapse ? t("minimise_step", "Minimise") : undefined}
+        onClick={onCollapse}
+        onKeyDown={(e) => {
+          if (!onCollapse) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onCollapse();
+          }
+        }}
+      >
+        {t("tasks_heading")}
+      </h2>
 
       <div className="task-cards">
         {CARDS.map((card) => (

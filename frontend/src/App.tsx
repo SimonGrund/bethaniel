@@ -465,7 +465,15 @@ export default function App() {
                         <button
                           type="button"
                           className="wizard-step-fold"
-                          onClick={() => setWizardStep(step)}
+                          onClick={() => {
+                            // Unfold directly rather than relying on the
+                            // wizardStep effect: folding the card that is
+                            // ALREADY the current step makes setWizardStep a
+                            // no-op, so the effect never fires and the row
+                            // becomes a dead control on its own card.
+                            unfoldStep(step);
+                            setWizardStep(step);
+                          }}
                           aria-expanded={false}
                           aria-controls={`wizard-step-${step}`}
                         >
@@ -488,7 +496,20 @@ export default function App() {
                             −
                           </button>
                           {MENU_INTRO[step] && (
-                            <div className="wizard-menu-header">
+                            <div
+                              className="wizard-menu-header wizard-menu-header-toggle"
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded
+                              title={t("minimise_step", "Minimise")}
+                              onClick={() => foldStep(step)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  foldStep(step);
+                                }
+                              }}
+                            >
                               <h2 className="wizard-menu-title">
                                 {t(MENU_INTRO[step].nameKey)}
                               </h2>
@@ -502,7 +523,7 @@ export default function App() {
                           {step === "model" && <ModelSelector />}
                           {step === "edits" && (
                             <>
-                              <ModeSelector />
+                              <ModeSelector onCollapse={() => foldStep(step)} />
                               {/* Inside the task card, not after it. Loose in
                                   the page it landed below the style guide,
                                   where an experimental TASK reads as an

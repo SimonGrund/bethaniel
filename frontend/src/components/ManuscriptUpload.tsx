@@ -132,31 +132,15 @@ export default function ManuscriptUpload() {
             </p>
           )}
           {doc && documentMd && (
-            <details
-              className="import-preview"
-              open={/\.(pdf|epub)$/i.test(doc.name)}
-            >
-              <summary>{t("preview_extracted")}</summary>
+            <div className="import-preview">
+              <p className="import-preview-label">{t("preview_extracted")}</p>
               <p className="small-note">{t("preview_hint")}</p>
               <pre className="import-preview-text">
                 {documentMd.slice(0, PREVIEW_CHARS)}
                 {documentMd.length > PREVIEW_CHARS ? "\n…" : ""}
               </pre>
-            </details>
+            </div>
           )}
-          <span className="file-name">{doc.name}</span>
-          <span className="file-stats">
-            {doc.wordCount.toLocaleString()} words ·{" "}
-            {doc.chapters.length === 0
-              ? "no chapters detected"
-              : doc.chapters
-                  .slice(0, 4)
-                  .map((ch, i) => shortChapterLabel(i, ch.title))
-                  .join(" · ") +
-                (doc.chapters.length > 4
-                  ? ` · +${doc.chapters.length - 4} more`
-                  : "")}
-          </span>
           <input
             ref={fileRef}
             type="file"
@@ -173,37 +157,49 @@ export default function ManuscriptUpload() {
         </div>
       )}
 
-      {/* ── Scope selection (after upload, in wizard step 3) ── */}
-      {wizardStep === "upload" && doc && (
-        <>
-          <ScopeSelection />
-        </>
-      )}
       </div>
 
-      {/* The action column. Stacked underneath, "Confirm manuscript" sat below
-          a chapter list that can be long — the button you must press next was
-          the one thing the card scrolled away. Beside the manuscript it stays
-          level with it however many chapters there are. */}
+      {/* Everything that describes the manuscript or acts on it lives in one
+          column beside the sample, not stacked under it: the file, what is in
+          it, what to edit, and the button that moves on. Confirm sits at the
+          bottom of that column, which is where a column of decisions ends. */}
       {doc && wizardStep === "upload" && (
-        <aside className="upload-actions">
+        <aside className="upload-side">
+          <div className="upload-side-doc">
+            <span className="file-name">{doc.name}</span>
+            <span className="file-stats">
+              {doc.wordCount.toLocaleString()} words ·{" "}
+              {doc.chapters.length === 0
+                ? "no chapters detected"
+                : doc.chapters
+                    .slice(0, 3)
+                    .map((ch, i) => shortChapterLabel(i, ch.title))
+                    .join(" · ") +
+                  (doc.chapters.length > 3
+                    ? ` · +${doc.chapters.length - 3} more`
+                    : "")}
+            </span>
+            <button
+              type="button"
+              className="btn-linkish"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? t("converting") : t("btn_change_document")}
+            </button>
+          </div>
+
+          <ScopeSelection />
+
           <button
             type="button"
-            className="btn-primary btn-confirm-step"
+            className="btn-primary btn-confirm-step upload-side-confirm"
             onClick={() => {
               markStepComplete("upload");
               advanceWizard("upload");
             }}
           >
             {t("wizard_confirm_upload")}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary btn-small"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? t("converting") : t("btn_change_document")}
           </button>
         </aside>
       )}

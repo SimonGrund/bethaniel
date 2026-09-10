@@ -4930,27 +4930,73 @@ summary.review-source::before {
   align-items: start;
 }
 
+/* The sample on the left sets the card's height; the decisions column on the
+   right stretches to match it. A wider right column than the old 12rem action
+   strip, because it now carries the scope chooser too. */
 .wizard-upload-only > section.upload-step-loaded {
-  grid-template-columns: minmax(0, 1fr) 12rem;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+  align-items: stretch;
 }
 
 .upload-main {
   min-width: 0;
 }
 
-.upload-actions {
+.upload-side {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  position: sticky;
-  top: 0.5rem;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
-.upload-actions .btn-confirm-step {
-  width: 100%;
+.upload-side-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.upload-actions .btn-small {
+.upload-side .file-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2a2419;
+  overflow-wrap: anywhere;
+}
+
+.upload-side .file-stats {
+  font-size: 0.78rem;
+  color: #8b7355;
+  line-height: 1.45;
+}
+
+.btn-linkish {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #6b5438;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.btn-linkish:hover:not(:disabled) {
+  color: #2a2419;
+}
+
+.btn-linkish:disabled {
+  color: #b8a888;
+  cursor: default;
+}
+
+/* Bottom of the column: a column of decisions ends with the one that acts on
+   them. `margin-top: auto` is what keeps it at the foot however tall the
+   sample beside it turns out to be. */
+.upload-side-confirm {
+  margin-top: auto;
   width: 100%;
 }
 
@@ -4960,10 +5006,29 @@ summary.review-source::before {
     grid-template-columns: 1fr;
   }
 
-  .upload-actions {
-    position: static;
-    flex-direction: row;
+  .upload-side-confirm {
+    margin-top: 0.5rem;
   }
+}
+
+/* A card's top line folds it, mirroring the folded row that reopens it: the
+   same strip does the same job in both directions. */
+.wizard-menu-header-toggle,
+.tasks-heading-toggle {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.wizard-menu-header-toggle:hover,
+.tasks-heading-toggle:hover {
+  background: #f6f1e4;
+}
+
+.wizard-menu-header-toggle:focus-visible,
+.tasks-heading-toggle:focus-visible {
+  outline: 2px solid #8a7050;
+  outline-offset: 2px;
 }
 
 /* ── A folded step ──
@@ -6758,10 +6823,35 @@ summary.review-source::before {
    starts: a displaced drop cap or a mangled accent is obvious on sight and
    invisible in a word count. */
 .import-preview {
-  margin-top: 0.6rem;
+  margin-top: 0;
   width: 100%;
   max-width: 42rem;
   text-align: left;
+}
+
+/* In the two-column card the sample is the left column and sets the card's
+   height, so it grows with the text instead of being capped at a fixed box.
+   The cap only comes back when there is more text than a screen. */
+.upload-step-loaded .upload-main .import-preview-text {
+  max-height: min(34rem, 55vh);
+}
+
+.import-preview-label {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #8b7355;
+}
+
+.import-preview-label {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #8b7355;
 }
 
 .import-preview > summary {
