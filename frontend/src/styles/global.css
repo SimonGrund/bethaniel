@@ -4188,6 +4188,22 @@ summary.review-source::before {
   text-underline-offset: 2px;
 }
 
+/* Sits under the run button, before the click. */
+.run-download-note {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.7rem;
+  background: #f6f1e4;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #4a3f2f;
+}
+
+.run-download-note strong {
+  color: #2a2419;
+}
+
 /* ── Betty in the Cloud ── */
 /* The cloud button used to sit in the same pale blue whether it was the only
    way to run (no model installed) or an alternative to a local run, so it

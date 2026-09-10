@@ -28,30 +28,9 @@ export default function ManuscriptUpload() {
     wizardStep,
     advanceWizard,
     markStepComplete,
-    installed,
-    modelEnvLoaded,
-    hasSeenModelIntro,
-    setModelIntroOpen,
-    recommendation,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  /**
-   * Offer a Betty, once, when the manuscript lands.
-   *
-   * This is the moment a model first becomes relevant, and — since the model
-   * step is hidden by default — the only moment the app gets to raise it.
-   * Skipped for anyone who already has a local model on disk, and for anyone
-   * who has seen the offer before.
-   */
-  function maybeOfferModel() {
-    if (hasSeenModelIntro) return;
-    // An empty list before the first fetch lands means "unknown", not "none".
-    if (!modelEnvLoaded || installed.length > 0) return;
-    if (!recommendation) return;
-    setModelIntroOpen(true);
-  }
 
   // Refusals the backend can explain — a scanned PDF, a file that is not text.
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -212,7 +191,6 @@ export default function ManuscriptUpload() {
               className="btn-primary btn-confirm-step"
               onClick={() => {
                 markStepComplete("upload");
-                maybeOfferModel();
                 advanceWizard("upload");
               }}
             >

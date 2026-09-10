@@ -80,6 +80,8 @@ export default function EditTrigger() {
     installed,
     downloads,
     modelEnvLoaded,
+    recommendation,
+    setModelIntroOpen,
     catalog,
     setModel,
   } = useStore();
@@ -397,9 +399,26 @@ export default function EditTrigger() {
     handleClickRef.current = handleClick;
   });
 
+  // ── Does a local run still need a model on disk? ──
+  //
+  // The offer used to fire the moment a manuscript landed, which asked for a
+  // 2 GB download before the user had chosen what they wanted done — or seen
+  // Betty do anything at all. It waits for Run now: by then the answer to
+  // "why am I downloading this" is on screen.
+  const needsLocalModel =
+    modelEnvLoaded &&
+    !isApiModel &&
+    installed.length === 0 &&
+    recommendation !== null;
+
   /** Gate the run button: intercept translate + Baby Betty with a warning
-   *  before ever reaching handleClick. */
+   *  before ever reaching handleClick, and the first-model download before
+   *  either. */
   const onRunButtonClick = () => {
+    if (needsLocalModel) {
+      setModelIntroOpen(true);
+      return;
+    }
     if (isTranslateWithBabyBetty) {
       setShowTranslateWarning(true);
       return;
@@ -554,6 +573,24 @@ export default function EditTrigger() {
             </span>
           )}
         </button>
+      )}
+
+      {/* Said before the click, not after it. A 2 GB download that arrives as
+          a surprise reads as the app taking a liberty; the same download,
+          announced, reads as the price of running offline. */}
+      {needsLocalModel && (
+        <p className="run-download-note">
+          <strong>
+            {t(
+              "run_needs_model_title",
+              "To run on your own machine, Betty needs a model — about 2 GB.",
+            )}
+          </strong>{" "}
+          {t(
+            "run_needs_model_body",
+            "You will be asked before anything downloads. It happens once, it stays on your computer, and after that Betty works with no internet at all.",
+          )}
+        </p>
       )}
 
       {/* Outside the button: a disabled button cannot carry its own way out. */}
