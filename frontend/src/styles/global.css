@@ -4289,6 +4289,44 @@ summary.review-source::before {
   color: #8b7355;
 }
 
+/* ── What Betty still needs (the pre-run dialog) ──
+   One row per missing piece, each naming its size, so a combined ask reads as
+   a list of two things rather than one vague large one. */
+.setup-need {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.85rem;
+  background: #f6f1e4;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+}
+
+.setup-need-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.setup-need-size {
+  font-size: 0.8rem;
+  color: #8b7355;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.setup-need .model-confirm-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.setup-need-reassure {
+  font-size: 0.82rem;
+  color: #6b5438;
+}
+
 /* ── Betty in the Cloud ── */
 /* The cloud button used to sit in the same pale blue whether it was the only
    way to run (no model installed) or an alternative to a local run, so it

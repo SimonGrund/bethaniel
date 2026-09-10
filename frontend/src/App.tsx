@@ -19,7 +19,6 @@ import OnboardingGuide from "./components/OnboardingGuide";
 import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
-import LanguageToolAdviceModal from "./components/LanguageToolAdviceModal";
 import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
 import type {
@@ -74,7 +73,7 @@ export default function App() {
   const advancedMode = useStore((s) => s.advancedMode);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
-  const setLanguageToolAdvice = useStore((s) => s.setLanguageToolAdvice);
+  const setLanguageToolAvailable = useStore((s) => s.setLanguageToolAvailable);
   const setLanguageToolDownload = useStore((s) => s.setLanguageToolDownload);
   const setEngineDevice = useStore((s) => s.setEngineDevice);
   const t = useTranslation(lang);
@@ -91,19 +90,18 @@ export default function App() {
   }, [setIntroOpen]);
 
   // Grammar checking (LanguageTool) may not be installed on this build — a
-  // silent degrade otherwise. Offer to fetch it, unless the user already
-  // said not now.
+  // silent degrade otherwise. Record whether it is; the offer to fetch it now
+  // rides with the model download at Run rather than interrupting the launch
+  // with its own dialog. Two separate downloads asked for at two separate
+  // moments read as an app that keeps wanting things.
   useEffect(() => {
     fetchLanguageToolStatus()
-      .then((status) => {
-        if (status.available) return;
-        if (useStore.getState().dismissedAdvice.includes("languagetool-missing")) {
-          return;
-        }
-        setLanguageToolAdvice(true);
-      })
-      .catch(() => {});
-  }, [setLanguageToolAdvice]);
+      .then((status) => setLanguageToolAvailable(status.available))
+      // Unknown is treated as present: a failed status check is not evidence
+      // of a missing install, and prompting on it would nag the user for a
+      // download they may not need.
+      .catch(() => setLanguageToolAvailable(true));
+  }, [setLanguageToolAvailable]);
 
   // Check if a model is installed
   useEffect(() => {
@@ -210,7 +208,7 @@ export default function App() {
       setPerfAdvice(advice);
     });
 
-    // On-demand LanguageTool download, started from LanguageToolAdviceModal.
+    // On-demand LanguageTool download, started from ModelIntroModal.
     socket.on("languagetool:download", (d: LanguageToolDownload) => {
       setLanguageToolDownload(d);
     });
@@ -344,7 +342,6 @@ export default function App() {
       <ModelIntroModal />
       <ModelReadyModal />
       <PerfAdviceModal />
-      <LanguageToolAdviceModal />
       <Sidebar />
       <main className="main-content">
         {/* Header */}

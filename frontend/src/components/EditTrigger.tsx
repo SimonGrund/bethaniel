@@ -82,6 +82,8 @@ export default function EditTrigger() {
     modelEnvLoaded,
     recommendation,
     setModelIntroOpen,
+    languageToolAvailable,
+    dismissedAdvice,
     catalog,
     setModel,
   } = useStore();
@@ -399,23 +401,29 @@ export default function EditTrigger() {
     handleClickRef.current = handleClick;
   });
 
-  // ── Does a local run still need a model on disk? ──
+  // ── What a local run still needs on disk ──
   //
-  // The offer used to fire the moment a manuscript landed, which asked for a
-  // 2 GB download before the user had chosen what they wanted done — or seen
-  // Betty do anything at all. It waits for Run now: by then the answer to
+  // The model offer used to fire the moment a manuscript landed, which asked
+  // for a 2 GB download before the user had chosen what they wanted done — or
+  // seen Betty do anything at all. It waits for Run now: by then the answer to
   // "why am I downloading this" is on screen.
+  //
+  // The grammar layer joins it. It used to ask for itself on launch, so a
+  // build shipping neither demanded one download before the user had done
+  // anything and a second one later. One ask, at one moment.
   const needsLocalModel =
-    modelEnvLoaded &&
-    !isApiModel &&
-    installed.length === 0 &&
-    recommendation !== null;
+    modelEnvLoaded && !isApiModel && installed.length === 0;
+  const needsGrammar =
+    languageToolAvailable === false &&
+    !dismissedAdvice.includes("languagetool-missing");
+  const needsSetup =
+    (needsLocalModel || needsGrammar) && recommendation !== null;
 
   /** Gate the run button: intercept translate + Baby Betty with a warning
    *  before ever reaching handleClick, and the first-model download before
    *  either. */
   const onRunButtonClick = () => {
-    if (needsLocalModel) {
+    if (needsSetup) {
       setModelIntroOpen(true);
       return;
     }
@@ -578,13 +586,23 @@ export default function EditTrigger() {
       {/* Said before the click, not after it. A 2 GB download that arrives as
           a surprise reads as the app taking a liberty; the same download,
           announced, reads as the price of running offline. */}
-      {needsLocalModel && (
+      {needsSetup && (
         <p className="run-download-note">
           <strong>
-            {t(
-              "run_needs_model_title",
-              "To run on your own machine, Betty needs a model — about 2 GB.",
-            )}
+            {needsLocalModel && needsGrammar
+              ? t(
+                  "run_needs_both_title",
+                  "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
+                )
+              : needsLocalModel
+                ? t(
+                    "run_needs_model_title",
+                    "To run on your own machine, Betty needs a model — about 2 GB.",
+                  )
+                : t(
+                    "run_needs_grammar_title",
+                    "Betty's grammar checks aren't installed yet — about 200 MB.",
+                  )}
           </strong>{" "}
           {t(
             "run_needs_model_body",
