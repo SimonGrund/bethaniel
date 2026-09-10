@@ -2350,37 +2350,33 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             EDIT_MODES.includes(task.mode),
           );
           const editTaskIds = editTasks.map(([tid]) => tid);
-          // One pill per editable chapter, carrying what is still outstanding
-          // there. `resultMeta` covers the window before a result hydrates,
-          // and both counts exclude flagged suggestions for the same reason
+          // One pill per editable chapter, carrying how many changes it
+          // proposes. Deliberately the total rather than what is still
+          // unticked: corrections arrive already accepted, so an "outstanding"
+          // count reads zero everywhere the moment results load and tells the
+          // author nothing about where the work is. `resultMeta` carries the
+          // count before a result hydrates — the snapshot strips `result` — and
+          // both paths exclude flagged and dialect entries for the same reason
           // the chapter headers do.
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
-            const total = cs
+            const count = cs
               ? cs.filter((c) => !c.flagged && c.reason !== "dialect").length
               : (task.resultMeta?.corrections ?? 0);
-            const done = acceptedCorrections[tid] ?? new Set<string>();
-            const settled = cs
-              ? cs.filter(
-                  (c) =>
-                    !c.flagged &&
-                    c.reason !== "dialect" &&
-                    c.id &&
-                    (done.has(c.id) ||
-                      [...done].some((k) => k.startsWith(`${c.id}:`))),
-                ).length
-              : 0;
             return {
               tid,
               name: task.name,
-              pending: Math.max(0, total - settled),
+              count,
+              // Neither source has landed yet, so the pill must not claim the
+              // chapter is clean — that is the one wrong thing it could say.
+              known: cs !== null || task.resultMeta != null,
               status: task.status,
             };
           });
           const activeChapterId =
             activeChapter && chapterPills.some((p) => p.tid === activeChapter)
               ? activeChapter
-              : (chapterPills.find((p) => p.pending > 0)?.tid ??
+              : (chapterPills.find((p) => p.count > 0)?.tid ??
                 chapterPills[0]?.tid ??
                 null);
           const allEditDone = editTasks.every(
@@ -3472,12 +3468,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       aria-selected={pill.tid === activeChapterId}
                       className={`chapter-pill${
                         pill.tid === activeChapterId ? " chapter-pill-active" : ""
-                      }${pill.pending === 0 ? " chapter-pill-clear" : ""}`}
+                      }${
+                        pill.known && pill.count === 0
+                          ? " chapter-pill-clear"
+                          : ""
+                      }`}
                       onClick={() => setActiveChapter(pill.tid)}
                     >
                       <span className="chapter-pill-name">{pill.name}</span>
                       <span className="chapter-pill-count">
-                        {pill.pending > 0 ? pill.pending : "✓"}
+                        {!pill.known ? "·" : pill.count > 0 ? pill.count : "✓"}
                       </span>
                     </button>
                   ))}

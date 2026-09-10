@@ -834,9 +834,11 @@ h4 {
   background: #fdfaf0;
   border: 2px dashed #c9b896;
   border-radius: 12px;
-  /* Big, inviting drop target. */
-  min-height: 240px;
-  padding: 3rem 2rem;
+  /* Inviting, but not at the cost of the two steps under it. At 240px the
+     drop target pushed "Select a task" and the style guide off a 13-inch
+     screen — which is the whole point of putting them on one page. */
+  min-height: 150px;
+  padding: 1.75rem 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;

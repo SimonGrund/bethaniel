@@ -282,25 +282,6 @@ export default function App() {
     }
   }, [tasks]);
 
-  // Loading state
-  if (modelReady === null) {
-    return (
-      <div
-        className="app-layout"
-        style={{ justifyContent: "center", alignItems: "center" }}
-      >
-        <div className="splash">
-          <img
-            src="/logo-full.svg"
-            alt="Bethaniel"
-            className="splash-logo splash-pulse"
-          />
-          <span className="splash-text">Loading Betty…</span>
-        </div>
-      </div>
-    );
-  }
-
   // Advancing the wizard now moves the page rather than swapping the panel.
   // Deliberately not on first mount: landing mid-page on open would hide the
   // manuscript step, which is where everyone starts.
@@ -320,6 +301,25 @@ export default function App() {
       block: "start",
     });
   }, [wizardStep]);
+
+  // Loading state
+  if (modelReady === null) {
+    return (
+      <div
+        className="app-layout"
+        style={{ justifyContent: "center", alignItems: "center" }}
+      >
+        <div className="splash">
+          <img
+            src="/logo-full.svg"
+            alt="Bethaniel"
+            className="splash-logo splash-pulse"
+          />
+          <span className="splash-text">Loading Betty…</span>
+        </div>
+      </div>
+    );
+  }
 
   const isSetupPhase = wizardStep !== "done";
   // A step menu is open only for the setup steps; every other state (folded, or
