@@ -690,20 +690,26 @@ export default function EditTrigger() {
           <ul className="cloud-expect-list">
             <li>
               {t(
-                "cloud_expect_quality",
-                "For copy editing, every model we tested lands within one point of the others — 59-60% of planted errors found, across four languages, whether it runs on your laptop or in the cloud. The cloud exists for computers that cannot run a model locally. It does not buy a better copy edit.",
+                "cloud_expect_yours",
+                "The decisions stay yours. Betty finds and proposes; nothing is applied to your manuscript until you accept it, one suggestion at a time. About nine in ten of her proposed fixes are the right one — which still leaves one in ten for you to turn down, and that is the job she cannot do for you.",
               )}
             </li>
             <li>
               {t(
                 "cloud_expect_spelling",
-                "Spelling is the strongest part everywhere: 85–95% of misspellings found, and nearly every one of the rest is at least flagged for you to look at.",
+                "She is strongest where the answer is not a matter of opinion: almost every misspelling is surfaced, and most wrong words — “their” for “there”, “past” for “passed” — are caught too.",
               )}
             </li>
             <li>
               {t(
                 "cloud_expect_commas",
-                "Commas are the weakest: between 11% and 70% depending on the language. Treat comma suggestions as prompts, and plan a human pass if commas matter to you.",
+                "Commas are the exception, and it is worth knowing before you buy: Betty helps with them but is not enough on her own. On our own test data she correctly fixes only about one missing comma in three. If your commas matter, plan a human pass for them.",
+              )}
+            </li>
+            <li>
+              {t(
+                "cloud_expect_quality",
+                "The cloud does not buy a better copy edit. Every model we tested lands within one point of the others — 59-60% of planted errors found, across four languages, whether it runs on your laptop or in the cloud. The cloud exists for computers that cannot run a model locally.",
               )}
             </li>
             <li>
