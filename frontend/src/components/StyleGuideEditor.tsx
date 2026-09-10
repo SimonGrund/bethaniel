@@ -12,7 +12,6 @@ export default function StyleGuideEditor() {
     styleGuide,
     setStyleGuide,
     selectedModes,
-    wizardStep,
     advanceWizard,
     markStepComplete,
   } = useStore();
@@ -194,8 +193,13 @@ export default function StyleGuideEditor() {
       )}
 
       {/* ── Wizard confirm / skip buttons ── */}
-      {wizardStep === "style" && (
-        <div className="wizard-confirm" style={{ gap: "0.5rem" }}>
+      {/* Always, not only while this is the "current" step. That gate was
+          written when one card was mounted at a time; on the one-page
+          layout every card is mounted, so a card whose confirm appears only
+          when it happens to be current is a step that cannot be finished —
+          and this is the last one, so the run never becomes available. */}
+      {(
+        <div className="step-confirm-row">
           <button
             type="button"
             className="btn-secondary"

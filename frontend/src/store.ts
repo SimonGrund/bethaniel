@@ -335,11 +335,12 @@ interface AppState {
   dismissedAdvice: string[];
   dismissAdvice: (key: string) => void;
 
-  /** Grammar checking (LanguageTool) isn't installed — offer to fetch it.
-   *  Uses the same `dismissedAdvice` list (key "languagetool-missing") so a
-   *  "not now" answer survives a restart, same as perf advice. */
-  languageToolAdvice: boolean;
-  setLanguageToolAdvice: (b: boolean) => void;
+  /** Whether the grammar layer is installed. Null until the check lands.
+   *  Kept separate from `languageToolAdvice` so the answer can be *known*
+   *  without a dialog being raised about it: the offer now travels with the
+   *  model download at Run rather than interrupting on launch. */
+  languageToolAvailable: boolean | null;
+  setLanguageToolAvailable: (b: boolean | null) => void;
   /** Progress of an in-flight (or just-finished) on-demand LanguageTool
    *  download. Transient — re-synced from the server on mount. */
   languageToolDownload: LanguageToolDownload | null;
@@ -843,9 +844,9 @@ export const useStore = create<AppState>()(
             : [...state.dismissedAdvice, key],
         })),
 
-      languageToolAdvice: false,
-      setLanguageToolAdvice: (languageToolAdvice) =>
-        set({ languageToolAdvice }),
+      languageToolAvailable: null,
+      setLanguageToolAvailable: (languageToolAvailable) =>
+        set({ languageToolAvailable }),
       languageToolDownload: null,
       setLanguageToolDownload: (languageToolDownload) =>
         set({ languageToolDownload }),

@@ -120,6 +120,7 @@ import {
   deleteDocument,
   saveStyleGuide,
   getStyleGuide,
+  getThroughputProfiles,
 } from "./db.js";
 import {
   submitTask,
@@ -1562,6 +1563,26 @@ function defaultModelFileName(): string {
 }
 
 // ── GET /api/models/installed ──
+/**
+ * Measured end-to-end throughput per model, so the app can tell an author how
+ * long a run will take before they start it.
+ *
+ * `recordJobThroughput` has been writing this after every finished job and
+ * nothing has ever read it. It is words per second for a whole job — parallel
+ * slots included — which is exactly the figure an estimate needs and the one
+ * a per-chunk tok/s sample cannot give.
+ */
+router.get("/models/perf", (_req: Request, res: Response) => {
+  const profiles = getThroughputProfiles();
+  const wordsPerSec: Record<string, number> = {};
+  for (const [file, p] of Object.entries(profiles)) {
+    if (typeof p.wordsPerSec === "number" && p.wordsPerSec > 0) {
+      wordsPerSec[file] = p.wordsPerSec;
+    }
+  }
+  res.json({ wordsPerSec });
+});
+
 router.get("/models/installed", async (_req: Request, res: Response) => {
   try {
     await fs.mkdir(MODELS_DIR_PATH, { recursive: true });

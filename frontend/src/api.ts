@@ -237,6 +237,14 @@ export async function spawnJobSummary(
   return data.taskId as string;
 }
 
+/** Measured end-to-end words/sec per model file, for the run-time estimate.
+ *  Empty until a job has finished on this machine. */
+export async function getModelPerf(): Promise<Record<string, number>> {
+  const res = await apiFetch("/models/perf");
+  const data = (await res.json()) as { wordsPerSec?: Record<string, number> };
+  return data.wordsPerSec ?? {};
+}
+
 export async function getQueueStatus() {
   const res = await apiFetch("/queue/status");
   return res.json();

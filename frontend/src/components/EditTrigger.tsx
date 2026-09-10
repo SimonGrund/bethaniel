@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
+import CloudCheckoutModal from "./CloudCheckoutModal";
+import { estimateRun, formatEstimate } from "../runEstimate";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
   getCloudEstimate,
   createCloudCheckout,
+  getModelPerf,
   type CloudEstimateResponse,
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
@@ -79,6 +82,10 @@ export default function EditTrigger() {
     installed,
     downloads,
     modelEnvLoaded,
+    recommendation,
+    setModelIntroOpen,
+    languageToolAvailable,
+    dismissedAdvice,
     catalog,
     setModel,
   } = useStore();
@@ -180,6 +187,15 @@ export default function EditTrigger() {
   // would show a discount that no longer exists.
   const [promoCode, setPromoCode] = useState("");
   const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
+  const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
+  // Measured throughput, so the estimate sharpens after the first real run
+  // instead of quoting a published figure forever.
+  const [wordsPerSec, setWordsPerSec] = useState<Record<string, number>>({});
+  useEffect(() => {
+    getModelPerf()
+      .then(setWordsPerSec)
+      .catch(() => {});
+  }, []);
   const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Looked up once — the bridge itself never changes across a session, and a
@@ -266,8 +282,17 @@ export default function EditTrigger() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [electronBridge]);
 
-  const handleRunInCloud = async () => {
+  // Two steps, deliberately. The button opens the confirmation; only the
+  // confirmation — after the terms are ticked — opens Stripe.
+  const handleRunInCloud = () => {
     if (!cloudEstimate) return;
+    setCloudClaimError(null);
+    setCloudConfirmOpen(true);
+  };
+
+  const handleConfirmCloudPurchase = async () => {
+    if (!cloudEstimate) return;
+    setCloudConfirmOpen(false);
     setCloudClaimError(null);
     try {
       const { checkoutUrl } = await createCloudCheckout(cloudEstimate.quoteId);
@@ -283,6 +308,25 @@ export default function EditTrigger() {
       );
     }
   };
+
+  // Closing Stripe without paying sends nothing back, so the pending flag had
+  // no way to clear and the button stayed on "Waiting for payment…" for the
+  // rest of the session — with the run unreachable behind it. Two ways out: an
+  // explicit cancel, and an expiry for the user who simply walked away.
+  const cancelCloudWait = () => {
+    setCloudCheckoutPending(false);
+    setCloudClaimError(null);
+  };
+
+  useEffect(() => {
+    if (!cloudCheckoutPending) return;
+    // Long enough that a real payment — card, 3-D Secure, a hunt for the
+    // wallet — is never interrupted; short enough that an abandoned one does
+    // not outlive the session. A credential that arrives later still works:
+    // onCloudCredentialClaimed does not consult this flag.
+    const id = setTimeout(() => setCloudCheckoutPending(false), 15 * 60 * 1000);
+    return () => clearTimeout(id);
+  }, [cloudCheckoutPending]);
 
   const buildEditOptions = () => {
     const opts: Record<string, boolean | string> = {};
@@ -367,9 +411,46 @@ export default function EditTrigger() {
     handleClickRef.current = handleClick;
   });
 
+  // ── What a local run still needs on disk ──
+  //
+  // The model offer used to fire the moment a manuscript landed, which asked
+  // for a 2 GB download before the user had chosen what they wanted done — or
+  // seen Betty do anything at all. It waits for Run now: by then the answer to
+  // "why am I downloading this" is on screen.
+  //
+  // The grammar layer joins it. It used to ask for itself on launch, so a
+  // build shipping neither demanded one download before the user had done
+  // anything and a second one later. One ask, at one moment.
+  const needsLocalModel =
+    modelEnvLoaded && !isApiModel && installed.length === 0;
+  const needsGrammar =
+    languageToolAvailable === false &&
+    !dismissedAdvice.includes("languagetool-missing");
+  const needsSetup =
+    (needsLocalModel || needsGrammar) && recommendation !== null;
+
+  // Words in the selected scope, not in the document: a reader who picked six
+  // chapters is waiting for six chapters.
+  const scopeWords = units.reduce(
+    (n, u) => n + u.original.split(/\s+/).filter(Boolean).length,
+    0,
+  );
+  const localEta = estimateRun(scopeWords, model, wordsPerSec, false);
+  const cloudEta = estimateRun(
+    cloudEstimate?.totalWords ?? scopeWords,
+    cloudEntry?.fileName ?? null,
+    wordsPerSec,
+    true,
+  );
+
   /** Gate the run button: intercept translate + Baby Betty with a warning
-   *  before ever reaching handleClick. */
+   *  before ever reaching handleClick, and the first-model download before
+   *  either. */
   const onRunButtonClick = () => {
+    if (needsSetup) {
+      setModelIntroOpen(true);
+      return;
+    }
     if (isTranslateWithBabyBetty) {
       setShowTranslateWarning(true);
       return;
@@ -475,12 +556,34 @@ export default function EditTrigger() {
               {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
               {selectedModes.length}{" "}
               {selectedModes.length === 1 ? "mode" : "modes"}
+              {localEta && (
+                <>
+                  {" · "}
+                  <span
+                    title={
+                      localEta.measured
+                        ? t(
+                            "eta_measured",
+                            "Based on how fast this machine ran your last job.",
+                          )
+                        : t(
+                            "eta_rough",
+                            "A rough figure until Betty has finished one run here — after that it is based on your own machine.",
+                          )
+                    }
+                  >
+                    {formatEstimate(localEta.seconds, t)}
+                    {!localEta.measured && "*"}
+                  </span>
+                </>
+              )}
             </span>
           )
         )}
       </button>
 
-      {electronBridge && !disabled && (
+      {(
+        <div className="cloud-block">
         <button
           type="button"
           className="btn-run-cloud"
@@ -491,7 +594,22 @@ export default function EditTrigger() {
             "Your manuscript will be sent to Bethaniel's cloud service for this job.",
           )}
         >
-          <span aria-hidden="true">💳</span>
+          <span className="btn-run-icon-stack" aria-hidden="true">
+            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+            <svg
+              className="btn-run-cloud-badge"
+              viewBox="0 0 24 16"
+              width="26"
+              height="18"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                fill="currentColor"
+                d="M18.7 6.3a5.3 5.3 0 0 0-9.9-1.6A4.2 4.2 0 0 0 4.4 8.8 3.8 3.8 0 0 0 5 16h13.2a4.9 4.9 0 0 0 .5-9.7Z"
+              />
+            </svg>
+          </span>
           <span className="btn-run-label">
             {cloudCheckoutPending
               ? t("cloud_waiting_payment", "Waiting for payment…")
@@ -505,6 +623,7 @@ export default function EditTrigger() {
                   price are exact, so neither carries an approximation mark. */}
               {(cloudEstimate.totalWords ?? 0).toLocaleString()}{" "}
               {t("cloud_words", "words")} ·{" "}
+              {cloudEta ? `${formatEstimate(cloudEta.seconds, t)} · ` : ""}
               {cloudEstimate.priceCents === 0 ? (
                 <strong>{t("cloud_free", "Free")}</strong>
               ) : cloudEstimate.fullPriceCents &&
@@ -524,7 +643,6 @@ export default function EditTrigger() {
             </span>
           )}
         </button>
-      )}
         {/* A code is optional and rarely used, so it sits under the button
             rather than competing with it. Feedback is inline: an unknown or
             unusable code never blocks the run, it just does not discount it. */}
@@ -572,26 +690,26 @@ export default function EditTrigger() {
           <ul className="cloud-expect-list">
             <li>
               {t(
-                "cloud_expect_quality",
-                "For copy editing, every model we tested lands within one point of the others — 59-60% of planted errors found, across four languages, whether it runs on your laptop or in the cloud. The cloud exists for computers that cannot run a model locally. It does not buy a better copy edit.",
+                "cloud_expect_yours",
+                "The decisions stay yours. Betty finds and proposes; nothing is applied to your manuscript until you accept it, one suggestion at a time. About nine in ten of her proposed fixes are the right one — which still leaves one in ten for you to turn down, and that is the job she cannot do for you.",
               )}
             </li>
             <li>
               {t(
                 "cloud_expect_spelling",
-                "Spelling is the strongest part everywhere: 85–95% of misspellings found, and nearly every one of the rest is at least flagged for you to look at.",
+                "She is strongest where the answer is not a matter of opinion: almost every misspelling is surfaced, and most wrong words — “their” for “there”, “past” for “passed” — are caught too.",
               )}
             </li>
             <li>
               {t(
                 "cloud_expect_commas",
-                "Commas are the weakest: between 11% and 70% depending on the language. Treat comma suggestions as prompts, and plan a human pass if commas matter to you.",
+                "Commas are the exception, and it is worth knowing before you buy: Betty helps with them but is not enough on her own. On our own test data she correctly fixes only about one missing comma in three. If your commas matter, plan a human pass for them.",
               )}
             </li>
             <li>
               {t(
                 "cloud_expect_noise",
-                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain. Nothing is applied without you.",
+                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain.",
               )}
             </li>
             <li>
@@ -620,6 +738,57 @@ export default function EditTrigger() {
             </li>
           </ul>
         </details>
+        </div>
+      )}
+
+      {/* Said before the click, not after it. A 2 GB download that arrives as
+          a surprise reads as the app taking a liberty; the same download,
+          announced, reads as the price of running offline. */}
+      {needsSetup && (
+        <p className="run-download-note">
+          <strong>
+            {needsLocalModel && needsGrammar
+              ? t(
+                  "run_needs_both_title",
+                  "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
+                )
+              : needsLocalModel
+                ? t(
+                    "run_needs_model_title",
+                    "To run on your own machine, Betty needs a model — about 2 GB.",
+                  )
+                : t(
+                    "run_needs_grammar_title",
+                    "Betty's grammar checks aren't installed yet — about 200 MB.",
+                  )}
+          </strong>{" "}
+          {t(
+            "run_needs_model_body",
+            "You will be asked before anything downloads. It happens once, it stays on your computer, and after that Betty works with no internet at all.",
+          )}
+        </p>
+      )}
+
+      {/* Outside the button: a disabled button cannot carry its own way out. */}
+      {cloudCheckoutPending && (
+        <p className="cloud-wait-note">
+          {t("cloud_wait_hint", "Finish the payment in your browser.")}{" "}
+          <button type="button" className="link-button" onClick={cancelCloudWait}>
+            {t("cloud_wait_cancel", "Didn't pay? Cancel")}
+          </button>
+        </p>
+      )}
+
+      <CloudCheckoutModal
+        open={cloudConfirmOpen}
+        estimate={cloudEstimate}
+        chapters={units.length}
+        modes={selectedModes}
+        etaLabel={cloudEta ? formatEstimate(cloudEta.seconds, t) : null}
+        lang={lang}
+        onCancel={() => setCloudConfirmOpen(false)}
+        onConfirm={handleConfirmCloudPurchase}
+      />
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}

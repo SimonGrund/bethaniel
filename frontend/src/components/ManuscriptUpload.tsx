@@ -12,6 +12,9 @@ import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
  * the upload panel.
  */
 const PREVIEW_CHARS = 900;
+// Newline plus an ellipsis, by char code: the source then carries no escape
+// for tooling to mangle on the way in.
+const PREVIEW_MORE = String.fromCharCode(10, 8230);
 
 export default function ManuscriptUpload() {
   const {
@@ -25,36 +28,18 @@ export default function ManuscriptUpload() {
     setUploading,
     setSelectedChapters,
     setScopeMode,
-    wizardStep,
     advanceWizard,
     markStepComplete,
-    installed,
-    modelEnvLoaded,
-    hasSeenModelIntro,
-    setModelIntroOpen,
-    recommendation,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  /**
-   * Offer a Betty, once, when the manuscript lands.
-   *
-   * This is the moment a model first becomes relevant, and — since the model
-   * step is hidden by default — the only moment the app gets to raise it.
-   * Skipped for anyone who already has a local model on disk, and for anyone
-   * who has seen the offer before.
-   */
-  function maybeOfferModel() {
-    if (hasSeenModelIntro) return;
-    // An empty list before the first fetch lands means "unknown", not "none".
-    if (!modelEnvLoaded || installed.length > 0) return;
-    if (!recommendation) return;
-    setModelIntroOpen(true);
-  }
-
   // Refusals the backend can explain — a scanned PDF, a file that is not text.
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Which chapter the sample shows. Null is the start of the manuscript, which
+  // is where a reader looks first — front matter is where a bad import usually
+  // shows itself.
+  const [previewChapter, setPreviewChapter] = useState<number | null>(null);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -108,9 +93,16 @@ export default function ManuscriptUpload() {
     e.preventDefault();
   }, []);
 
-  return (
-    <section>
+  // The slice the picker is asking for.
+  const chapterForPreview =
+    previewChapter !== null && doc ? doc.chapters[previewChapter] : undefined;
+  const previewBody = chapterForPreview
+    ? documentMd.slice(chapterForPreview.start, chapterForPreview.end)
+    : documentMd;
 
+  return (
+    <section className={`upload-step${doc ? " upload-step-loaded" : ""}`}>
+      <div className="upload-main">
       {!doc ? (
         <>
           <div
@@ -153,39 +145,41 @@ export default function ManuscriptUpload() {
             </p>
           )}
           {doc && documentMd && (
-            <details
-              className="import-preview"
-              open={/\.(pdf|epub)$/i.test(doc.name)}
-            >
-              <summary>{t("preview_extracted")}</summary>
-              <p className="small-note">{t("preview_hint")}</p>
+            <div className="import-preview">
+              <div className="import-preview-head">
+                <p className="import-preview-label">{t("preview_extracted")}</p>
+                {/* Checking an import means checking where it is likely to
+                    have gone wrong, which is rarely the first page. The picker
+                    replaces a sentence that told the reader what to look for
+                    while only ever showing them the opening. */}
+                {doc.chapters.length > 0 && (
+                  <select
+                    className="import-preview-pick"
+                    value={previewChapter === null ? "start" : String(previewChapter)}
+                    onChange={(e) =>
+                      setPreviewChapter(
+                        e.target.value === "start" ? null : Number(e.target.value),
+                      )
+                    }
+                    aria-label={t("preview_pick_chapter", "Chapter to preview")}
+                  >
+                    <option value="start">
+                      {t("preview_from_start", "From the beginning")}
+                    </option>
+                    {doc.chapters.map((ch, i) => (
+                      <option key={i} value={i}>
+                        {shortChapterLabel(i, ch.title)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <pre className="import-preview-text">
-                {documentMd.slice(0, PREVIEW_CHARS)}
-                {documentMd.length > PREVIEW_CHARS ? "\n…" : ""}
+                {previewBody.slice(0, PREVIEW_CHARS)}
+                {previewBody.length > PREVIEW_CHARS ? PREVIEW_MORE : ""}
               </pre>
-            </details>
+            </div>
           )}
-          <span className="file-name">{doc.name}</span>
-          <span className="file-stats">
-            {doc.wordCount.toLocaleString()} words ·{" "}
-            {doc.chapters.length === 0
-              ? "no chapters detected"
-              : doc.chapters
-                  .slice(0, 4)
-                  .map((ch, i) => shortChapterLabel(i, ch.title))
-                  .join(" · ") +
-                (doc.chapters.length > 4
-                  ? ` · +${doc.chapters.length - 4} more`
-                  : "")}
-          </span>
-          <button
-            type="button"
-            className="btn-secondary btn-small"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? t("converting") : t("btn_change_document")}
-          </button>
           <input
             ref={fileRef}
             type="file"
@@ -202,24 +196,55 @@ export default function ManuscriptUpload() {
         </div>
       )}
 
-      {/* ── Scope selection (after upload, in wizard step 3) ── */}
-      {wizardStep === "upload" && doc && (
-        <>
-          <ScopeSelection />
-          <div className="wizard-confirm">
+      </div>
+
+      {/* Everything that describes the manuscript or acts on it lives in one
+          column beside the sample, not stacked under it: the file, what is in
+          it, what to edit, and the button that moves on. Confirm sits at the
+          bottom of that column, which is where a column of decisions ends. */}
+      {/* Same reasoning as the style step: the card is on screen, so the
+          control that completes it is too. */}
+      {doc && (
+        <aside className="upload-side">
+          <div className="upload-side-doc">
+            <span className="file-name">{doc.name}</span>
+            <span className="file-stats">
+              {doc.wordCount.toLocaleString()} words ·{" "}
+              {doc.chapters.length === 0
+                ? "no chapters detected"
+                : doc.chapters
+                    .slice(0, 3)
+                    .map((ch, i) => shortChapterLabel(i, ch.title))
+                    .join(" · ") +
+                  (doc.chapters.length > 3
+                    ? ` · +${doc.chapters.length - 3} more`
+                    : "")}
+            </span>
             <button
               type="button"
-              className="btn-primary btn-confirm-step"
-              onClick={() => {
-                markStepComplete("upload");
-                maybeOfferModel();
-                advanceWizard("upload");
-              }}
+              className="btn-linkish"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
             >
-              {t("wizard_confirm_upload")}
+              {uploading ? t("converting") : t("btn_change_document")}
             </button>
           </div>
-        </>
+
+          <ScopeSelection />
+
+          <div className="step-confirm-row upload-side-confirm">
+          <button
+            type="button"
+            className="btn-primary btn-confirm-step"
+            onClick={() => {
+              markStepComplete("upload");
+              advanceWizard("upload");
+            }}
+          >
+            {t("wizard_confirm_upload")}
+          </button>
+          </div>
+        </aside>
       )}
     </section>
   );
