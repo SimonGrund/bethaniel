@@ -28,6 +28,7 @@ import {
   type VerifyOutcome,
 } from "../exportVerify";
 import CurrentRunHeader from "./CurrentRunHeader";
+import BettyAtWork from "./BettyAtWork";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -2268,12 +2269,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       )}
 
       {!isOldResults && newestJobId && (
-        <CurrentRunHeader
-          jobId={newestJobId}
-          jobTasks={headerByJob[newestJobId]}
-          modelNames={modelNames}
-          lang={lang}
-        />
+        headerByJob[newestJobId].some(
+          (task) => task.status === "queued" || task.status === "editing",
+        ) ? (
+          <BettyAtWork
+            jobId={newestJobId}
+            jobTasks={headerByJob[newestJobId]}
+            lang={lang}
+          />
+        ) : (
+          <CurrentRunHeader
+            jobId={newestJobId}
+            jobTasks={headerByJob[newestJobId]}
+            modelNames={modelNames}
+            lang={lang}
+          />
+        )
       )}
       {!isOldResults && newestJobId && hydrating.has(newestJobId) && (
         <div className="results-hydrating-row">
@@ -3973,7 +3984,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               )}
 
               {/* ── Accept-all toggle: bottom of the chapter list, right-aligned ── */}
-              {editTasks.length > 0 && !isScanJob && (
+              {editTasks.length > 0 && !isScanJob && allEditDone && (
                 <div className="accept-all-job-row">
                   <button
                     className={`btn-linkish btn-accept-all-job${
@@ -4051,7 +4062,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                    separate errand. One button does the common thing — Word,
                    with the accepted changes in it — and the cog holds the two
                    choices almost nobody changes. */}
-              {editTasks.length > 0 && !isScanJob && (
+              {editTasks.length > 0 && !isScanJob && allEditDone && (
                 <div className="export-row">
                   <span className="export-row__label">
                     {t("export_with_changes", "Export with accepted changes:")}
