@@ -4204,6 +4204,89 @@ summary.review-source::before {
   color: #2a2419;
 }
 
+/* ── Chapter pill bar (review) ──
+   Chapters used to be a column of collapsed accordions, so reviewing meant
+   opening a list to find a list. They are one row now, each pill carrying
+   what is still outstanding in it, and the column below holds a single
+   chapter's corrections — flat, and already open. */
+.chapter-pillbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e0d5c0;
+}
+
+.chapter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.55rem 0.3rem 0.7rem;
+  background: #faf6ec;
+  border: 1px solid #d9c9a8;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: #4a3f2f;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.chapter-pill:hover {
+  background: #f2ead8;
+  border-color: #b9a37c;
+}
+
+.chapter-pill-name {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The count is the point of the pill: it says where the work is without
+   opening anything. */
+.chapter-pill-count {
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #e8dfc8;
+  color: #4a3f2f;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.chapter-pill-active {
+  background: #8a7050;
+  border-color: #6b5438;
+  color: #fdfaf0;
+}
+
+.chapter-pill-active:hover {
+  background: #7a6244;
+  border-color: #6b5438;
+}
+
+.chapter-pill-active .chapter-pill-count {
+  background: rgba(253, 250, 240, 0.22);
+  color: #fdfaf0;
+}
+
+/* Nothing left here — still reachable, just not asking for attention. */
+.chapter-pill-clear .chapter-pill-count {
+  background: #dfe9d8;
+  color: #4a6a3a;
+}
+
+.chapter-pill-clear:not(.chapter-pill-active) .chapter-pill-name {
+  color: #8b7355;
+}
+
 /* ── Betty in the Cloud ── */
 /* The cloud button used to sit in the same pale blue whether it was the only
    way to run (no model installed) or an alternative to a local run, so it

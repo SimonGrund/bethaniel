@@ -1661,6 +1661,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     kind: "accept" | "dismiss" | "error";
   } | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+  // Which chapter's corrections are on screen. Null means "the first one with
+  // work left", resolved per job at render — so the choice survives a result
+  // hydrating, and reviewing a chapter to zero does not yank the user
+  // elsewhere mid-scroll.
+  const [activeChapter, setActiveChapter] = useState<string | null>(null);
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
@@ -2345,6 +2350,39 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             EDIT_MODES.includes(task.mode),
           );
           const editTaskIds = editTasks.map(([tid]) => tid);
+          // One pill per editable chapter, carrying what is still outstanding
+          // there. `resultMeta` covers the window before a result hydrates,
+          // and both counts exclude flagged suggestions for the same reason
+          // the chapter headers do.
+          const chapterPills = editTasks.map(([tid, task]) => {
+            const cs = task.result?.corrections ?? null;
+            const total = cs
+              ? cs.filter((c) => !c.flagged && c.reason !== "dialect").length
+              : (task.resultMeta?.corrections ?? 0);
+            const done = acceptedCorrections[tid] ?? new Set<string>();
+            const settled = cs
+              ? cs.filter(
+                  (c) =>
+                    !c.flagged &&
+                    c.reason !== "dialect" &&
+                    c.id &&
+                    (done.has(c.id) ||
+                      [...done].some((k) => k.startsWith(`${c.id}:`))),
+                ).length
+              : 0;
+            return {
+              tid,
+              name: task.name,
+              pending: Math.max(0, total - settled),
+              status: task.status,
+            };
+          });
+          const activeChapterId =
+            activeChapter && chapterPills.some((p) => p.tid === activeChapter)
+              ? activeChapter
+              : (chapterPills.find((p) => p.pending > 0)?.tid ??
+                chapterPills[0]?.tid ??
+                null);
           const allEditDone = editTasks.every(
             ([, task]) => task.status === "done",
           );
@@ -3417,6 +3455,34 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   {t("readiness_read_only")}
                 </p>
               )}
+              {/* ── Chapters as a pill bar ──
+                  Every chapter used to be a collapsed accordion in one long
+                  column, so reviewing meant opening a list to find a list.
+                  The chapters move to a single row of pills carrying their own
+                  outstanding count, and the column below shows one chapter's
+                  corrections, flat and already open. Nothing is nested and
+                  nothing has to be hunted for. */}
+              {chapterPills.length > 1 && (
+                <div className="chapter-pillbar" role="tablist" aria-label={t("sec_chapters")}>
+                  {chapterPills.map((pill) => (
+                    <button
+                      key={pill.tid}
+                      type="button"
+                      role="tab"
+                      aria-selected={pill.tid === activeChapterId}
+                      className={`chapter-pill${
+                        pill.tid === activeChapterId ? " chapter-pill-active" : ""
+                      }${pill.pending === 0 ? " chapter-pill-clear" : ""}`}
+                      onClick={() => setActiveChapter(pill.tid)}
+                    >
+                      <span className="chapter-pill-name">{pill.name}</span>
+                      <span className="chapter-pill-count">
+                        {pill.pending > 0 ? pill.pending : "✓"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
                 className="chapters-scroll"
                 onScroll={(e) => {
@@ -3426,6 +3492,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 }}
               >
               {entries.map(([tid, task]) => {
+                // One chapter at a time. The pill bar above is the navigation;
+                // rendering the rest would put the column back.
+                if (
+                  chapterPills.length > 1 &&
+                  activeChapterId !== null &&
+                  chapterPills.some((pill) => pill.tid === tid) &&
+                  tid !== activeChapterId
+                ) {
+                  return null;
+                }
                 const result = task.result;
 
                 // Analysis tasks with results are rendered in the aggregated
@@ -3448,7 +3524,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 if (!result) {
                   const pct = Math.round((task.progress ?? 0) * 100);
                   return (
-                    <details key={tid} className={`review-task rt-${task.status}`}>
+                    <details
+                      key={tid}
+                      className={`review-task rt-${task.status}`}
+                      open={chapterPills.length > 1 && tid === activeChapterId}
+                    >
                       <summary className="review-task-summary">
                         <span className={`task-status-pill qs-${task.status}`}>
                           {t(`status_${task.status}`)}
@@ -3555,7 +3635,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const dur = formatDuration(task);
 
                 return (
-                  <details key={tid} className={`review-task rt-${task.status}`}>
+                  <details
+                      key={tid}
+                      className={`review-task rt-${task.status}`}
+                      open={chapterPills.length > 1 && tid === activeChapterId}
+                    >
                     <summary className="review-task-summary">
                       {task.status === "error" && (
                         <span className="task-status-pill qs-error">
