@@ -536,8 +536,7 @@ export default function EditTrigger() {
   return (
     <div className="run-actions">
       <button
-        className="btn-run"
-        data-tour="run"
+        className="btn-run"
         disabled={disabled}
         onClick={onRunButtonClick}
         title={notReadyReason ?? undefined}

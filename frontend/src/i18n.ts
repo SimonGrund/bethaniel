@@ -2826,71 +2826,11 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Lass mich dir kurz alles zeigen — dauert nur etwa zwanzig Sekunden.",
     es: "Déjame darte un recorrido rápido — tarda unos veinte segundos.",
   },
-  intro_upload: {
-    en: "First, click here to drop in your manuscript.",
-    da: "Klik her først for at lægge dit manuskript ind.",
-    de: "Klick zuerst hier, um dein Manuskript hochzuladen.",
-    es: "Primero, haz clic aquí para cargar tu manuscrito.",
-  },
-  intro_edits: {
-    en: "Then click here to tell me what to do with your text — copy edit, translate, and more.",
-    da: "Klik så her for at fortælle mig, hvad jeg skal med din tekst — korrekturlæse, oversætte og mere.",
-    de: "Dann klick hier, um mir zu sagen, was ich mit deinem Text tun soll — lektorieren, übersetzen und mehr.",
-    es: "Luego haz clic aquí para decirme qué hacer con tu texto — corregir, traducir y más.",
-  },
-  intro_model: {
-    en: "Here's where you pick which Betty does the work — a local model or an external one.",
-    da: "Her vælger du, hvilken Betty der gør arbejdet — en lokal model eller en ekstern.",
-    de: "Hier wählst du, welche Betty die Arbeit macht — ein lokales Modell oder ein externes.",
-    es: "Aquí eliges qué Betty hace el trabajo — un modelo local o uno externo.",
-  },
-  intro_style: {
-    en: "Optional: hand me a style guide here so I follow your house rules.",
-    da: "Valgfrit: giv mig en stilguide her, så jeg følger dine husregler.",
-    de: "Optional: gib mir hier einen Stilleitfaden, damit ich deine Hausregeln befolge.",
-    es: "Opcional: dame aquí una guía de estilo para seguir tus normas de casa.",
-  },
-  intro_run: {
-    en: "When everything's set, hit here and I'll get to work!",
-    da: "Når alt er klar, så tryk her, og jeg går i gang!",
-    de: "Wenn alles bereit ist, klick hier und ich lege los!",
-    es: "Cuando todo esté listo, pulsa aquí y me pongo a trabajar.",
-  },
-  intro_start: {
-    en: "Show me around",
-    da: "Vis mig rundt",
-    de: "Zeig mir alles",
-    es: "Muéstrame todo",
-  },
-  intro_next: {
-    en: "Next",
-    da: "Næste",
-    de: "Weiter",
-    es: "Siguiente",
-  },
   intro_back: {
     en: "Back",
     da: "Tilbage",
     de: "Zurück",
     es: "Atrás",
-  },
-  intro_skip: {
-    en: "Skip tour",
-    da: "Spring over",
-    de: "Überspringen",
-    es: "Omitir",
-  },
-  intro_done: {
-    en: "Got it!",
-    da: "Forstået!",
-    de: "Alles klar!",
-    es: "¡Entendido!",
-  },
-  rerun_introguide: {
-    en: "Rerun intro",
-    da: "Kør intro igen",
-    de: "Intro erneut",
-    es: "Repetir intro",
   },
 
   // ── Model selector visibility ──

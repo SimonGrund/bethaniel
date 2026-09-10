@@ -97,8 +97,7 @@ export default function StepBar() {
         return (
           <button
             key={step}
-            type="button"
-            data-tour={step}
+            type="button"
             className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${isNext ? " step-card-next" : ""}`}
             onClick={() => setWizardStep(isCurrent ? "folded" : step)}
           >

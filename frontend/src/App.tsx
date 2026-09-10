@@ -18,7 +18,7 @@ import { CLOUD_TERMS_URL } from "./components/CloudCheckoutModal";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
-import OnboardingGuide from "./components/OnboardingGuide";
+import WelcomeModal from "./components/WelcomeModal";
 import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
@@ -396,7 +396,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <OnboardingGuide />
+      <WelcomeModal />
       <ModelIntroModal />
       <ModelReadyModal />
       <PerfAdviceModal />
@@ -422,7 +422,7 @@ export default function App() {
                 the tour, and the interface language. They were four separate
                 header controls competing with the one thing up here that is a
                 place to go. */}
-            <HeaderSettingsMenu onRerunIntro={() => setIntroOpen(true)} />
+            <HeaderSettingsMenu />
           </div>
         </div>
 

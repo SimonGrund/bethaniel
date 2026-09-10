@@ -11,12 +11,7 @@ import { useTranslation } from "../i18n";
 import StorageSettings from "./StorageSettings";
 import Modal from "./Modal";
 
-export default function HeaderSettingsMenu({
-  onRerunIntro,
-}: {
-  /** Reopens the welcome tour, which App owns. */
-  onRerunIntro: () => void;
-}) {
+export default function HeaderSettingsMenu() {
   const lang = useStore((s) => s.lang);
   const setLang = useStore((s) => s.setLang);
   const advancedMode = useStore((s) => s.advancedMode);
@@ -134,18 +129,6 @@ export default function HeaderSettingsMenu({
           >
             {t("storage_title")}
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="header-settings-item"
-            onClick={() => {
-              onRerunIntro();
-              setOpen(false);
-            }}
-          >
-            {t("rerun_introguide")}
-          </button>
-
           {/* Language last: it is the one thing here that is a preference
               rather than an action, and it needs its own row of choices. */}
           <div className="header-settings-langs" role="group" aria-label="Language">

@@ -6642,160 +6642,50 @@ summary.review-source::before {
   padding-right: 0.25rem;
 }
 
-/* ── Onboarding intro (first-run coachmark tour) ── */
-.intro-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 9990;
-  cursor: pointer;
-}
-
-/* Welcome / unanchored stops have no spotlight, so dim here instead. */
-.intro-backdrop.dim {
-  background: rgba(30, 20, 10, 0.55);
-}
-
-.intro-spotlight {
-  position: fixed;
-  z-index: 9991;
-  pointer-events: none;
-  border-radius: 8px;
-  box-shadow:
-    0 0 0 9999px rgba(30, 20, 10, 0.55),
-    0 0 0 2px rgba(184, 145, 90, 0.8);
-  transition:
-    top 0.25s ease,
-    left 0.25s ease,
-    width 0.25s ease,
-    height 0.25s ease;
-}
-
-.intro-bubble {
-  position: fixed;
-  z-index: 9992;
-  box-sizing: border-box;
-  max-width: 300px;
-  padding: 1rem 1.1rem;
-  background: #fdfaf0;
-  border: 1px solid #d9c9a8;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
-  animation: dialog-pop-in 0.2s ease-out;
-}
-
-.intro-bubble.centered {
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  max-width: 340px;
+/* ── Welcome ──
+   What replaced the coachmark tour: one card, once. The tour's backdrop,
+   spotlight, bubble and arrow went with it — rules that existed to point at a
+   sidebar rail the app no longer has. */
+.welcome-dialog {
+  max-width: 26rem;
   text-align: center;
 }
 
-/* Arrow pointing left at the anchored card (hidden when centered). */
-.intro-bubble::before {
-  content: "";
-  position: absolute;
-  top: 22px;
-  left: -9px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 9px solid #fdfaf0;
-  filter: drop-shadow(-1px 0 0 #d9c9a8);
+.welcome-mark {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 0.9rem;
+  display: block;
 }
 
-.intro-bubble.centered::before {
-  display: none;
-}
-
-.intro-bubble-title {
+.welcome-title {
+  margin: 0 0 0.75rem;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1a140a;
-  margin-bottom: 0.35rem;
-}
-
-.intro-bubble-body {
-  font-family: "Inter", -apple-system, system-ui, sans-serif;
-  font-size: 0.92rem;
-  line-height: 1.45;
+  font-size: 1.6rem;
   color: #2a2419;
-  margin: 0 0 0.9rem;
 }
 
-.intro-actions {
+.welcome-body {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #4a3f2f;
+}
+
+.welcome-body--quiet {
+  color: #6b5438;
+}
+
+.welcome-actions {
+  margin-top: 1.4rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.intro-bubble.centered .intro-actions {
   justify-content: center;
 }
 
-.intro-actions-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.intro-next {
-  padding: 0.4rem 0.9rem;
-  border: none;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #1a140a 0%, #3d2f1a 100%);
-  color: #f7f1e3;
-  font-family: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: filter 0.15s;
-}
-
-.intro-next:hover {
-  filter: brightness(1.15);
-}
-
-.intro-back,
-.intro-skip {
-  padding: 0.4rem 0.5rem;
-  border: none;
-  background: none;
-  color: #8b7355;
-  font-family: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.intro-back:hover,
-.intro-skip:hover {
-  color: #1a140a;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .intro-bubble {
-    animation: none;
-  }
-  .intro-spotlight {
-    transition: none;
-  }
-}
-
-/* Failed-chapter count in the run header — the reason the bar stops short. */
-.crh-stat.crh-failed {
-  color: #a33;
-  font-weight: 500;
-}
-
-/* Aggregate throughput under the run-progress bar in the diagnostics panel. */
-.log-progress-sub {
-  font-size: 0.72rem;
-  color: #8a7c64;
-  margin-top: 0.2rem;
-  font-variant-numeric: tabular-nums;
+.welcome-actions .btn-primary {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  padding-inline: 2rem;
 }
 
 
