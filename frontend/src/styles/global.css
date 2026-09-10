@@ -6642,6 +6642,46 @@ summary.review-source::before {
   padding-right: 0.25rem;
 }
 
+/* ── Review: the destructive control is quiet ──
+   Accept-all-in-this-run is a toggle, and because corrections arrive already
+   accepted its resting state is the DISMISS direction. Rendered as a primary
+   button it was the loudest thing on the page — a large red bar offering to
+   throw away every suggestion — while the work the reader actually does is
+   ticking boxes. It is text now, and only takes colour in the direction that
+   loses work. */
+.accept-all-job-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.25rem 0.1rem 0;
+}
+
+.btn-accept-all-job {
+  font-size: 0.8rem;
+}
+
+.btn-accept-all-job--undo {
+  color: #9b2335;
+}
+
+.btn-accept-all-job--undo:hover:not(:disabled) {
+  color: #7a1c2a;
+}
+
+/* The writing report is a separate pass, not another export, and said so
+   nowhere. */
+.generate-buttons-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+}
+
+.generate-buttons-note {
+  font-size: 0.78rem;
+  color: #8b7355;
+  max-width: 32rem;
+}
+
 /* ── Export block (review) ──
    The two exports used to be full-width bars reading "Download full
    manuscript (.docx)" and "Auto-format for ebook (AI) → .epub", with a

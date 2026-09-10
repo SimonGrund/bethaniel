@@ -252,6 +252,12 @@ function ConfidenceBadge({ correction }: { correction: Correction }) {
     <span
       className="correction-confidence"
       data-tip={correction.reviewReason || undefined}
+      title={
+        correction.reviewReason
+          ? `Reviewer confidence ${correction.confidence}/5 — ${correction.reviewReason}`
+          : `Reviewer confidence ${correction.confidence}/5. A second model scored how sure it is this change is right.`
+      }
+      aria-label={`Reviewer confidence ${correction.confidence} out of 5`}
     >
       {icon} {correction.confidence}/5
     </span>
@@ -2589,12 +2595,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     <button
                       type="button"
                       className="btn-secondary"
+                      title={t(
+                        "writing_report_tip",
+                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
+                      )}
                       onClick={() => void handleSpawnWritingReport(jid)}
                     >
                       {hasReport
                         ? t("regenerate_writing_report")
                         : t("generate_writing_report")}
                     </button>
+                    <span className="generate-buttons-note">
+                      {t(
+                        "writing_report_note",
+                        "An optional read on the prose itself — separate from the corrections.",
+                      )}
+                    </span>
                   </div>
                 );
               })()}
@@ -3660,19 +3676,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           ↻ {t("retry_task")}
                         </button>
                       )}
-                      {!isTranslation && hasChanges && !isScanJob && (
-                        <button
-                          type="button"
-                          className="btn-small btn-accept summary-accept-btn"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            acceptAll(tid);
-                          }}
-                        >
-                          {t("accept_all_job")}
-                        </button>
-                      )}
                       <button
                         type="button"
                         className="review-delete-btn review-delete-btn-task"
@@ -4020,8 +4023,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               {editTasks.length > 0 && !isScanJob && (
                 <div className="accept-all-job-row">
                   <button
-                    className={`btn-primary btn-accept-all-job ${
-                      allAccepted ? "btn-dismiss" : "btn-accept"
+                    className={`btn-linkish btn-accept-all-job${
+                      allAccepted ? " btn-accept-all-job--undo" : ""
                     }`}
                     disabled={!hasAnyCorrections}
                     onClick={() => {

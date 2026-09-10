@@ -400,7 +400,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Limpiar completados",
   },
   clear_all: {
-    en: "Clear all",
+    en: "Clear all runs",
     da: "Ryd alt",
     de: "Alle entfernen",
     es: "Limpiar todo",
@@ -658,7 +658,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Descartar todo",
   },
   accept_all_job: {
-    en: "Accept all changes",
+    en: "Accept every change in this run",
     da: "Acceptér alle rettelser",
     de: "Alle Änderungen akzeptieren",
     es: "Aceptar todos los cambios",
@@ -670,7 +670,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Todos los cambios fueron marcados para aceptación",
   },
   dismiss_all_job: {
-    en: "Dismiss all changes",
+    en: "Dismiss every change in this run",
     da: "Afvis alle rettelser",
     de: "Alle Änderungen ablehnen",
     es: "Descartar todos los cambios",
