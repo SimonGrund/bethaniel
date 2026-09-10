@@ -24,7 +24,6 @@ import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
 import type {
   TaskState,
-  Lang,
   DownloadProgress,
   PerfAdvice,
   RunStats,
@@ -63,7 +62,6 @@ const STEP_NAME: Record<string, string> = {
 export default function App() {
   const {
     lang,
-    setLang,
     setTasks,
     tasks,
     wizardStep,
@@ -297,6 +295,15 @@ export default function App() {
   // Advancing the wizard now moves the page rather than swapping the panel.
   // Deliberately not on first mount: landing mid-page on open would hide the
   // manuscript step, which is where everyone starts.
+  // Cards the user has folded by hand. Separate from `completedSteps`: an
+  // answered step folds on its own, but any step can be folded deliberately,
+  // and reopening one must not look like un-answering it.
+  const [handFolded, setHandFolded] = useState<string[]>([]);
+  const foldStep = (step: string) =>
+    setHandFolded((f) => (f.includes(step) ? f : [...f, step]));
+  const unfoldStep = (step: string) =>
+    setHandFolded((f) => f.filter((s) => s !== step));
+
   const didMountWizard = useRef(false);
   useEffect(() => {
     if (!["upload", "edits", "model", "style"].includes(wizardStep)) return;
@@ -304,6 +311,7 @@ export default function App() {
       didMountWizard.current = true;
       return;
     }
+    unfoldStep(wizardStep);
     const el = document.getElementById(`wizard-step-${wizardStep}`);
     if (!el) return;
     el.scrollIntoView({
@@ -368,21 +376,19 @@ export default function App() {
   ).every((step) => completedSteps.includes(step));
 
   const isSetupPhase = wizardStep !== "done";
-  // A step menu is open only for the setup steps; every other state (folded, or
-  // a stray "run") means no menu is open. The model step exists only in
-  // advanced mode, so leaving that mode while sitting on it must not strand the
-  // user on an empty panel.
-  const menuOpen =
-    (wizardStep === "model" && advancedMode) ||
-    wizardStep === "edits" ||
-    wizardStep === "upload" ||
-    wizardStep === "style";
   const hasActiveTasks = Object.values(tasks).some(
     (t) => (t.status === "queued" || t.status === "editing") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
   const hasCompletedTasks = Object.values(tasks).some(
     (t) => (t.status === "done" || t.status === "error" || t.status === "cancelled") && (t.submittedAt ?? 0) >= sessionStartedAt,
   );
+  // The setup page stays until there is a run to look at instead. It used to
+  // vanish whenever `wizardStep` was not one of the steps, which meant a click
+  // in the sidebar rail — or the page's own close button — could leave the user
+  // on an empty dashboard with no obvious way back. Nothing about setup should
+  // be able to remove setup.
+  const menuOpen = isSetupPhase && !hasActiveTasks && !hasCompletedTasks;
+
 
   return (
     <div className="app-layout">
@@ -407,24 +413,12 @@ export default function App() {
             >
               {t("former_runs")}
             </button>
-            {/* Model settings (the advanced-mode reveal) and Storage & data. */}
-            <HeaderSettingsMenu />
-            <button
-              type="button"
-              className="btn-rerun-intro"
-              onClick={() => setIntroOpen(true)}
-            >
-              {t("rerun_introguide")}
-            </button>
-            <select
-              value={lang}
-              onChange={(e) => setLang(e.target.value as Lang)}
-            >
-              <option value="en">English</option>
-              <option value="da">Dansk</option>
-              <option value="de">Deutsch</option>
-              <option value="es">Español</option>
-            </select>
+            {/* Everything that is a setting rather than a destination now lives
+                behind the cog, pinned to the far right: model settings, storage,
+                the tour, and the interface language. They were four separate
+                header controls competing with the one thing up here that is a
+                place to go. */}
+            <HeaderSettingsMenu onRerunIntro={() => setIntroOpen(true)} />
           </div>
         </div>
 
@@ -443,16 +437,6 @@ export default function App() {
                 completing one scrolls to the next. */}
             {menuOpen && (
               <div className="wizard-page">
-                <button
-                  type="button"
-                  className="btn-close-step"
-                  onClick={() => setWizardStep("folded")}
-                  title={t("minimise_setup", "Minimise setup")}
-                  aria-label={t("minimise_setup", "Minimise setup")}
-                >
-                  −
-                </button>
-
                 {PAGE_STEPS.filter(
                   (step) => step !== "model" || advancedMode,
                 ).map((step) => {
@@ -463,7 +447,9 @@ export default function App() {
                   // step still outstanding. The summary keeps the answer on
                   // screen so folding never hides what was chosen.
                   const answered = completedSteps.includes(step);
-                  const collapsed = answered && wizardStep !== step;
+                  const collapsed =
+                    handFolded.includes(step) ||
+                    (answered && wizardStep !== step);
                   return (
                     <section
                       key={step}
@@ -489,12 +475,18 @@ export default function App() {
                           <span className="wizard-step-fold-value">
                             {stepSummary(step)}
                           </span>
-                          <span className="wizard-step-fold-edit">
-                            {t("wizard_step_change", "Change")}
-                          </span>
                         </button>
                       ) : (
                         <>
+                          <button
+                            type="button"
+                            className="btn-close-step"
+                            onClick={() => foldStep(step)}
+                            title={t("minimise_step", "Minimise")}
+                            aria-label={t("minimise_step", "Minimise")}
+                          >
+                            −
+                          </button>
                           {MENU_INTRO[step] && (
                             <div className="wizard-menu-header">
                               <h2 className="wizard-menu-title">

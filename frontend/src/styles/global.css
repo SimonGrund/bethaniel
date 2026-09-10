@@ -204,52 +204,6 @@ h4 {
   gap: 0.5rem;
 }
 
-.btn-rerun-intro {
-  padding: 0.3rem 0.7rem;
-  font-size: 0.8rem;
-  border: 1px solid #d9c9a8;
-  background: #fdfaf0;
-  border-radius: 4px;
-  color: #8b7355;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
-}
-
-.btn-rerun-intro:hover {
-  border-color: #1a140a;
-  color: #1a140a;
-}
-
-.lang-toggle select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 0.3rem 1.4rem 0.3rem 0.5rem;
-  border: 1px solid #d9c9a8;
-  background: #fdfaf0
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%232a2419'/%3E%3C/svg%3E")
-    no-repeat right 0.5rem center;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  font-family: inherit;
-  color: #2a2419;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.lang-toggle select:hover {
-  border-color: #1a140a;
-}
-
-.lang-toggle select:focus {
-  border-color: #1a140a;
-  box-shadow: 0 0 0 1px #1a140a22;
-}
-
 .btn-reset-all {
   padding: 0.2rem 0.6rem;
   font-size: 0.7rem;
@@ -4558,20 +4512,22 @@ summary.review-source::before {
 .header-settings {
   position: relative;
   flex-shrink: 0;
+  /* Last in the row, and the row's own margin-left:auto puts the pair right;
+     this pushes the cog past "Former Runs" to the very edge. */
+  margin-left: 0.25rem;
 }
 
-/* Settings is the way back to the model and the stored data, so it reads as a
-   control rather than another word in a row of words: a large cog in the
-   brand's dark brown, with the label kept for anyone who needs it. */
+/* The cog IS the control: no border, no fill, no label. Everything behind it
+   is a setting rather than a place to go, so it should not compete with
+   "Former Runs" — the one thing in this row that navigates. */
 .btn-header-settings {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.6rem;
-  font-size: 0.8rem;
-  border: 1px solid #d9c9a8;
-  background: #fdfaf0;
-  border-radius: 4px;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  background: none;
+  border-radius: 999px;
   color: #4a3728;
   cursor: pointer;
   font-family: inherit;
@@ -4586,9 +4542,13 @@ summary.review-source::before {
   transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.3, 1);
 }
 
-.btn-header-settings:hover .btn-header-settings-cog,
 .btn-header-settings-on .btn-header-settings-cog {
-  transform: rotate(45deg);
+  transform: rotate(60deg);
+}
+
+/* Pinned open reads as a held position, so the cog goes further and stays. */
+.btn-header-settings-pinned .btn-header-settings-cog {
+  transform: rotate(105deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4599,23 +4559,83 @@ summary.review-source::before {
 
 .btn-header-settings:hover,
 .btn-header-settings-on {
-  border-color: #1a140a;
   color: #1a140a;
+}
+
+.btn-header-settings:focus-visible {
+  outline: 2px solid #8a7050;
+  outline-offset: 2px;
 }
 
 .header-settings-menu {
   position: absolute;
-  top: calc(100% + 0.35rem);
+  top: 100%;
   right: 0;
+  /* Bridges the gap under the cog: without it the pointer leaves the wrapper
+     on its way down and the menu shuts before it can be reached. */
+  margin-top: 0;
+  padding-top: 0.45rem;
+  background-clip: padding-box;
   z-index: 60;
   min-width: 13rem;
-  padding: 0.25rem;
+  padding: 0.45rem 0.25rem 0.25rem;
   background: #fdfaf0;
   border: 1px solid #c9b896;
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(42, 36, 25, 0.18);
   display: flex;
   flex-direction: column;
+  animation: settings-menu-in 0.16s ease-out;
+}
+
+@keyframes settings-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-settings-menu {
+    animation: none;
+  }
+}
+
+/* Language sits apart: a preference, not an action. */
+.header-settings-langs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem;
+  margin-top: 0.3rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #ece0c8;
+}
+
+.header-settings-lang {
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #6b5438;
+  text-align: left;
+  cursor: pointer;
+}
+
+.header-settings-lang:hover {
+  background: #f2ead8;
+  color: #2a2419;
+}
+
+.header-settings-lang-on {
+  background: #e8dfc8;
+  color: #2a2419;
+  font-weight: 600;
 }
 
 .header-settings-item {
@@ -4899,12 +4919,6 @@ summary.review-source::before {
   box-shadow: 0 0 0 1px #8a7050;
 }
 
-/* The close button now dismisses the whole page, not one card, so it rides
-   above the first one rather than inside it. */
-.wizard-page > .btn-close-step {
-  z-index: 2;
-}
-
 /* ── The manuscript card: two columns ──
    The manuscript on the left, what to do with it on the right. Stacked, the
    confirm button sat below a chapter list that can be long, so the control the
@@ -4964,7 +4978,7 @@ summary.review-source::before {
 
 .wizard-step-fold {
   display: grid;
-  grid-template-columns: minmax(6rem, auto) 1fr auto;
+  grid-template-columns: minmax(6rem, auto) 1fr;
   align-items: baseline;
   gap: 0.9rem;
   width: 100%;
@@ -4996,18 +5010,6 @@ summary.review-source::before {
   white-space: nowrap;
   font-size: 0.83rem;
   color: #6b5438;
-}
-
-.wizard-step-fold-edit {
-  font-size: 0.78rem;
-  color: #8a7050;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  white-space: nowrap;
-}
-
-.wizard-step-fold:hover .wizard-step-fold-edit {
-  color: #4a3728;
 }
 
 /* ── The run controls, once every question is answered ──
