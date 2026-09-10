@@ -90,12 +90,59 @@ test("estimateTaskOutputTokens: translate budgets more than a plain copy_edit fo
 // ~6x upstream for output the run-mode benchmarks found no better — so a
 // cloud job must never be able to select it, whatever the client sends.
 
-test("cloudRunKnobs forces the Speed preset for the cloud model", () => {
+test("cloudRunKnobs pins the Speed preset for the cloud model", () => {
   const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud")!;
   const knobs = cloudRunKnobs(cloudEntry.fileName);
-  assert.ok(knobs, "cloud model must get forced knobs");
+  assert.ok(knobs, "cloud model must get pinned knobs");
   assert.equal(knobs.extraPass, false, "the 2x second pass must be off");
-  assert.deepEqual(knobs, RUN_MODE_PRESETS.speed);
+  const { styleComplianceAgent: _authors, ...rest } = RUN_MODE_PRESETS.speed;
+  assert.deepEqual(knobs, rest);
+});
+
+test("cloudRunKnobs leaves the style agent to the author", () => {
+  // It is the one knob in the set that answers to the author's own style
+  // sheet rather than to a cost/quality trade-off Bethaniel can settle for
+  // them. Pinning it meant the checkbox in the UI silently did nothing on a
+  // cloud run. `resolveKnob` reads `forced?.[key] ?? explicit ?? ...`, so
+  // leaving the key off the object is what hands the decision back.
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud")!;
+  const knobs = cloudRunKnobs(cloudEntry.fileName)!;
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(knobs, "styleComplianceAgent"),
+    false,
+    "pinning this key would override the author's own setting",
+  );
+});
+
+test("the quote prices the style agent only when a sheet exists", () => {
+  // queue.ts gates the second editor on `styleComplianceAgent && styleGuide`,
+  // so pricing it from the knob alone quoted a call the run never makes.
+  const base = {
+    units: [{ wordCount: 5000 }],
+    modes: ["copy_edit"],
+    wordsPerChunk: 2500,
+    runMode: "speed" as const,
+    reviewMode: true,
+    extraPass: false,
+    numPredict: 4096,
+  };
+  const onNoSheet = estimateCloudJob({ ...base, styleComplianceAgent: true });
+  const offNoSheet = estimateCloudJob({ ...base, styleComplianceAgent: false });
+  assert.deepEqual(
+    onNoSheet.estimatedTotalTokens,
+    offNoSheet.estimatedTotalTokens,
+    "no style sheet means no style agent, whatever the knob says",
+  );
+
+  const withSheet = estimateCloudJob({
+    ...base,
+    styleComplianceAgent: true,
+    styleGuideChars: 800,
+  });
+  assert.ok(
+    withSheet.estimatedTotalTokens > onNoSheet.estimatedTotalTokens,
+    "a supplied sheet must add the second editor call to the quote",
+  );
 });
 
 test("cloudRunKnobs leaves every other model alone", () => {

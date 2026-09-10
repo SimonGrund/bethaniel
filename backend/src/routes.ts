@@ -456,10 +456,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // knobs, so this mainly serves CLI/headless/benchmark callers.
     const preset = resolveRunMode(runMode);
 
-    // Betty in the Cloud is Bethaniel's spend, not the user's, so it always
-    // runs Speed regardless of what the client asked for. `forced` overrides
-    // the explicit knobs below; for every other model it is null and the
-    // caller's own settings win exactly as before.
+    // Betty in the Cloud is Bethaniel's spend, not the user's, so it runs
+    // Speed regardless of what the client asked for. `forced` overrides the
+    // explicit knobs below; for every other model it is null and the caller's
+    // own settings win exactly as before. It is a Partial: the style agent is
+    // left out, so that one knob still resolves from the caller (see
+    // cloudRunKnobs).
     const forced = cloudRunKnobs(model);
 
     /**
@@ -2139,7 +2141,13 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     // and the work disagree in one direction or the other.
     runMode: "speed",
     reviewMode: cloudKnobs.reviewMode,
-    styleComplianceAgent: cloudKnobs.styleComplianceAgent,
+    // ...except the style agent, which the cloud does not pin: it answers to
+    // the author's style sheet, not to Bethaniel's cost model. Priced from
+    // what the caller asked for so the quote matches the run.
+    styleComplianceAgent:
+      typeof body.styleComplianceAgent === "boolean"
+        ? body.styleComplianceAgent
+        : DEFAULT_RUN_KNOBS.styleComplianceAgent,
     extraPass: cloudKnobs.extraPass,
     numPredict: cloudEntry?.defaults.num_predict ?? 8192,
     styleGuideChars:

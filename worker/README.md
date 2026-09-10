@@ -102,12 +102,23 @@ would otherwise mean ten thousand independent budgets and no total limit.
 `npm test` covers the GlobalMeter's ceiling, fail-closed and concurrency
 behaviour.
 
-Sizing assumes cloud jobs run the **Speed** preset, which the backend forces
+Sizing assumes cloud jobs run the **Speed** preset, which the backend pins
 (`cloudRunKnobs`, backend/src/cloudEstimate.ts) rather than trusting the
-client: the largest job anyone can buy is then a 400k-word manuscript at 4.98M
-tokens. Without that forcing, "custom" would allow 4 editors + style agent + 4
+client. Without that, "custom" would allow 4 editors + style agent + 4
 reviewers + a second pass — 21.3M tokens for 300k words, several times these
 ceilings.
+
+One knob is deliberately **not** pinned: `styleComplianceAgent`. It answers to
+the author's own style sheet rather than to a cost/quality trade-off Bethaniel
+can settle for them, and pinning it meant the checkbox in the app silently did
+nothing on a cloud run. It costs at most one extra editor call per chunk, and
+only when a sheet was actually supplied. This does not move the worst case —
+the agent used to be pinned *on*, so the largest buyable job was already paying
+for it; users can now only opt down. Measured at the ceiling: a 400k-word
+manuscript, copy + line edit, is 3.08M tokens with no sheet and 5.69M with a
+4k-character sheet and the agent on, against `MAX_QUOTE_TOKENS` of 8M. The
+quote reads the same value the run does (`/api/cloud/estimate` in routes.ts),
+so the price and the work cannot disagree.
 
 **What GlobalMeter does not cover:** a stolen `PROVIDER_API_KEY`. That key is
 used directly against OVHcloud and never passes through this Worker, so none

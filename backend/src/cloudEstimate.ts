@@ -120,7 +120,12 @@ export interface CloudEstimateResult {
 /** Editor calls per chunk for the corrections modes, mirroring runModePresets.ts. */
 function editorCallsPerChunk(input: CloudEstimateInput): number {
   const base = 1; // one editor pass; see the note in queue.ts
-  return base + (input.styleComplianceAgent ? 1 : 0);
+  // queue.ts runs the style agent only when a sheet was actually supplied
+  // (`styleComplianceAgent && styleGuide?.trim()`), so the knob alone would
+  // price a second editor call for jobs that never make one.
+  const styleAgent =
+    input.styleComplianceAgent && (input.styleGuideChars ?? 0) > 0;
+  return base + (styleAgent ? 1 : 0);
 }
 
 function reviewerCallsPerChunk(input: CloudEstimateInput): number {
@@ -361,7 +366,7 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
   };
 }
 
-/** Betty in the Cloud always runs the Speed preset.
+/** What Betty in the Cloud pins regardless of what the client asked for.
  *
  *  The Max preset was retired because benchmarking showed it did not earn its
  *  cost, but "custom" still exposes 4 editors + a style agent + 4 reviewers +
@@ -369,14 +374,25 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
  *  they multiply what Bethaniel pays upstream ~6x (a 100k-word manuscript
  *  goes from 1.2M tokens to 7.1M) for output the benchmarks say is no better.
  *
- *  Forced here rather than in the UI because this is the only place both the
+ *  Pinned here rather than in the UI because this is the only place both the
  *  price quote and the actual run pass through — a client that sent its own
  *  knobs could otherwise be quoted a Speed price and then run a custom job.
  *  Returns null for every other model, leaving local/BYO-key runs untouched:
- *  there the compute is the user's own to spend however they like. */
-export function cloudRunKnobs(model: unknown): RunModeKnobs | null {
+ *  there the compute is the user's own to spend however they like.
+ *
+ *  `styleComplianceAgent` is deliberately NOT pinned. It is the one knob in
+ *  the set that answers to the author's own style sheet rather than to a
+ *  cost/quality trade-off Bethaniel can settle on their behalf, and pinning it
+ *  meant a cloud user who switched it off got it anyway — a control that
+ *  silently did nothing. Leaving it out costs at most one extra editor call
+ *  per chunk, and only for a job that supplied a sheet; `estimateCloudJob`
+ *  reads the same value, so the quote and the run cannot disagree. */
+export function cloudRunKnobs(model: unknown): Partial<RunModeKnobs> | null {
   const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
-  return model === cloudEntry?.fileName ? RUN_MODE_PRESETS.speed : null;
+  if (model !== cloudEntry?.fileName) return null;
+  const { styleComplianceAgent: _authorsToSet, ...pinned } =
+    RUN_MODE_PRESETS.speed;
+  return pinned;
 }
 
 // ── What Betty in the Cloud is allowed to run ──
