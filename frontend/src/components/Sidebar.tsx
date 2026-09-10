@@ -10,19 +10,12 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { cancelJob } from "../api";
-import StepBar from "./StepBar";
-import EditTrigger from "./EditTrigger";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
 import ModelDownloadStrip from "./ModelDownloadStrip";
-import { CLOUD_TERMS_URL } from "./CloudCheckoutModal";
-
-const SETUP_STEPS = ["model", "edits", "upload", "style"];
 
 export default function Sidebar() {
-  const { lang, tasks, wizardStep, sessionStartedAt } = useStore();
+  const { lang, tasks, sessionStartedAt } = useStore();
   const engineDevice = useStore((s) => s.engineDevice);
-  // Empty feed → no dock. Reserving the rail for an amber box with nothing in
-  // it is exactly the space the setup block is scrolling to find.
   const engineFeed = useEngineFeed();
   const engineVisible = engineFeed.warming || engineFeed.lines.length > 0;
   const t = useTranslation(lang);
@@ -39,28 +32,6 @@ export default function Sidebar() {
     ),
   ];
   const isWorking = activeJobIds.length > 0;
-
-  // ── Setup collapse ──
-  // Once a run is under way the step cards are settled history: the user is
-  // watching the engine, not reconfiguring. Fold them so the log gets the rail.
-  const hasCurrentRun = Object.values(tasks).some(
-    (task) => (task.submittedAt ?? 0) >= sessionStartedAt,
-  );
-  const [setupOpen, setSetupOpen] = useState(!hasCurrentRun);
-  const prevHasRun = useRef(hasCurrentRun);
-  useEffect(() => {
-    if (hasCurrentRun === prevHasRun.current) return;
-    prevHasRun.current = hasCurrentRun;
-    // Launching folds the rail; "New run" (which resets the session boundary)
-    // unfolds it again.
-    setSetupOpen(!hasCurrentRun);
-  }, [hasCurrentRun]);
-
-  // Something opened a setup menu (the advanced-mode toggle jumps straight to
-  // the model step) — the rail must show which card is current.
-  useEffect(() => {
-    if (SETUP_STEPS.includes(wizardStep)) setSetupOpen(true);
-  }, [wizardStep]);
 
   // Arm-to-confirm for stopping a job: auto-disarm if the second click never
   // comes, and on the run ending so a stale confirm can't carry over.
@@ -96,29 +67,7 @@ export default function Sidebar() {
         <img src="/logo-icon.svg" alt="Bethaniel" />
       </div>
 
-      <div className="sidebar-section">
-        <button
-          type="button"
-          className="sidebar-setup-toggle"
-          onClick={() => setSetupOpen((open) => !open)}
-          aria-expanded={setupOpen}
-        >
-          <span className="sidebar-label">{t("sidebar_setup")}</span>
-          <span className="sidebar-setup-chevron" aria-hidden>
-            {setupOpen ? "▾" : "▸"}
-          </span>
-        </button>
-
-        {setupOpen && <StepBar />}
-
-        {/* Download progress and the run button stay put: they are the two
-            things you still need while a run is folded away. */}
-        <ModelDownloadStrip />
-        <EditTrigger />
-      </div>
-
-      {engineVisible && (
-        <div className={`sidebar-engine${isWorking ? " sidebar-engine-active" : ""}`}>
+      <div className={`sidebar-engine sidebar-engine-solo${isWorking ? " sidebar-engine-active" : ""}`}>
           <div className="sidebar-engine-header">
             <span className="sidebar-label">{t("sidebar_engine")}</span>
             {engineDevice?.running && (
@@ -142,9 +91,14 @@ export default function Sidebar() {
               </span>
             )}
           </div>
-          <EngineStatus />
+          {engineVisible ? (
+            <EngineStatus />
+          ) : (
+            <p className="sidebar-engine-idle">
+              {t("engine_log_idle", "Betty's engine will report here while she works.")}
+            </p>
+          )}
         </div>
-      )}
 
       {/* Standing, for as long as the run lasts. The same fact was already in
           the pre-purchase accordion, which is the wrong place for it: a
@@ -176,19 +130,6 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Pinned last in flow, under everything else. The cloud terms are the
-          one place Bethaniel's "nothing leaves your machine" promise is set
-          aside, so they should be reachable from inside the app and not only
-          from the dialog that asks you to accept them. */}
-      <div className="sidebar-legal">
-        <a
-          href={CLOUD_TERMS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("terms_and_conditions", "Terms & conditions")}
-        </a>
-      </div>
     </aside>
   );
 }

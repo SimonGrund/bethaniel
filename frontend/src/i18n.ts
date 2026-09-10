@@ -334,10 +334,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Editar",
   },
   btn_add_to_queue: {
-    en: "Start job",
-    da: "Start opgave",
-    de: "Auftrag starten",
-    es: "Iniciar tarea",
+    en: "Run Betty locally",
+    da: "Kør Betty lokalt",
+    de: "Betty lokal ausführen",
+    es: "Ejecutar Betty en local",
   },
   btn_add_to_queue_busy: {
     en: "Add job to queue",
@@ -2645,10 +2645,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Volver al panel principal",
   },
   run_again: {
-    en: "New Run",
-    da: "Ny kørsel",
-    de: "Neuer Lauf",
-    es: "Nueva ejecución",
+    en: "Run Betty locally",
+    da: "Kør Betty lokalt",
+    de: "Betty lokal ausführen",
+    es: "Ejecutar Betty en local",
   },
   new_run: {
     en: "New Run",

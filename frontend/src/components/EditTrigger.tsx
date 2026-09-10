@@ -583,6 +583,7 @@ export default function EditTrigger() {
       </button>
 
       {electronBridge && !disabled && (
+        <div className="cloud-block">
         <button
           type="button"
           className="btn-run-cloud"
@@ -627,56 +628,6 @@ export default function EditTrigger() {
             </span>
           )}
         </button>
-      )}
-
-      {/* Said before the click, not after it. A 2 GB download that arrives as
-          a surprise reads as the app taking a liberty; the same download,
-          announced, reads as the price of running offline. */}
-      {needsSetup && (
-        <p className="run-download-note">
-          <strong>
-            {needsLocalModel && needsGrammar
-              ? t(
-                  "run_needs_both_title",
-                  "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
-                )
-              : needsLocalModel
-                ? t(
-                    "run_needs_model_title",
-                    "To run on your own machine, Betty needs a model — about 2 GB.",
-                  )
-                : t(
-                    "run_needs_grammar_title",
-                    "Betty's grammar checks aren't installed yet — about 200 MB.",
-                  )}
-          </strong>{" "}
-          {t(
-            "run_needs_model_body",
-            "You will be asked before anything downloads. It happens once, it stays on your computer, and after that Betty works with no internet at all.",
-          )}
-        </p>
-      )}
-
-      {/* Outside the button: a disabled button cannot carry its own way out. */}
-      {cloudCheckoutPending && (
-        <p className="cloud-wait-note">
-          {t("cloud_wait_hint", "Finish the payment in your browser.")}{" "}
-          <button type="button" className="link-button" onClick={cancelCloudWait}>
-            {t("cloud_wait_cancel", "Didn't pay? Cancel")}
-          </button>
-        </p>
-      )}
-
-      <CloudCheckoutModal
-        open={cloudConfirmOpen}
-        estimate={cloudEstimate}
-        chapters={units.length}
-        modes={selectedModes}
-        etaLabel={cloudEta ? formatEstimate(cloudEta.seconds, t) : null}
-        lang={lang}
-        onCancel={() => setCloudConfirmOpen(false)}
-        onConfirm={handleConfirmCloudPurchase}
-      />
         {/* A code is optional and rarely used, so it sits under the button
             rather than competing with it. Feedback is inline: an unknown or
             unusable code never blocks the run, it just does not discount it. */}
@@ -772,6 +723,57 @@ export default function EditTrigger() {
             </li>
           </ul>
         </details>
+        </div>
+      )}
+
+      {/* Said before the click, not after it. A 2 GB download that arrives as
+          a surprise reads as the app taking a liberty; the same download,
+          announced, reads as the price of running offline. */}
+      {needsSetup && (
+        <p className="run-download-note">
+          <strong>
+            {needsLocalModel && needsGrammar
+              ? t(
+                  "run_needs_both_title",
+                  "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
+                )
+              : needsLocalModel
+                ? t(
+                    "run_needs_model_title",
+                    "To run on your own machine, Betty needs a model — about 2 GB.",
+                  )
+                : t(
+                    "run_needs_grammar_title",
+                    "Betty's grammar checks aren't installed yet — about 200 MB.",
+                  )}
+          </strong>{" "}
+          {t(
+            "run_needs_model_body",
+            "You will be asked before anything downloads. It happens once, it stays on your computer, and after that Betty works with no internet at all.",
+          )}
+        </p>
+      )}
+
+      {/* Outside the button: a disabled button cannot carry its own way out. */}
+      {cloudCheckoutPending && (
+        <p className="cloud-wait-note">
+          {t("cloud_wait_hint", "Finish the payment in your browser.")}{" "}
+          <button type="button" className="link-button" onClick={cancelCloudWait}>
+            {t("cloud_wait_cancel", "Didn't pay? Cancel")}
+          </button>
+        </p>
+      )}
+
+      <CloudCheckoutModal
+        open={cloudConfirmOpen}
+        estimate={cloudEstimate}
+        chapters={units.length}
+        modes={selectedModes}
+        etaLabel={cloudEta ? formatEstimate(cloudEta.seconds, t) : null}
+        lang={lang}
+        onCancel={() => setCloudConfirmOpen(false)}
+        onConfirm={handleConfirmCloudPurchase}
+      />
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}

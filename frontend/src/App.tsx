@@ -13,6 +13,8 @@ import StyleGuideEditor from "./components/StyleGuideEditor";
 import BetaFeatures from "./components/BetaFeatures";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
+import ModelDownloadStrip from "./components/ModelDownloadStrip";
+import { CLOUD_TERMS_URL } from "./components/CloudCheckoutModal";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
@@ -552,6 +554,7 @@ export default function App() {
                     user has just spent the whole flow not looking. */}
                 {allStepsDone && (
                   <div className="wizard-launch" role="group" aria-label={t("btn_add_to_queue")}>
+                    <ModelDownloadStrip />
                     <EditTrigger />
                   </div>
                 )}
@@ -606,6 +609,14 @@ export default function App() {
             © {new Date().getFullYear()} Bethaniel · v{__APP_VERSION__} · All
             rights reserved.
           </span>
+          <a
+            href={CLOUD_TERMS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-feedback-link"
+          >
+            {t("terms_and_conditions", "Terms & conditions")}
+          </a>
           <a
             href="https://www.bethaniel.eu/contact"
             target="_blank"
