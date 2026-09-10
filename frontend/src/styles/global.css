@@ -4697,8 +4697,48 @@ summary.review-source::before {
   /* Flex column so the Upload / Style menus can fill the open dashboard. */
   display: flex;
   flex-direction: column;
-  /* Animate the panel in when a menu opens. */
+}
+
+/* ── The setup page ──
+   Every step is on it. `wizardStep` chooses which one is marked current and
+   scrolled to, not which one exists, so the reader can always see what is
+   being asked overall and how much is left. */
+.wizard-page {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   animation: menu-panel-in 0.3s ease-out;
+}
+
+.wizard-step-block {
+  flex: 0 0 auto;
+  /* Room for the sticky header not to clip the top of a scrolled-to card. */
+  scroll-margin-top: 1rem;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    opacity 0.25s ease;
+}
+
+/* Not-current steps stay fully readable — dimming them would re-create the
+   one-at-a-time problem in a softer form. Only the border carries focus. */
+.wizard-step-current {
+  border-color: #8a7050;
+  box-shadow: 0 0 0 1px #8a7050;
+}
+
+/* The close button now dismisses the whole page, not one card, so it rides
+   above the first one rather than inside it. */
+.wizard-page > .btn-close-step {
+  z-index: 2;
+}
+
+.wizard-step-done .wizard-menu-title::after {
+  content: " ✓";
+  color: #5b7a4a;
+  font-size: 0.85em;
 }
 
 /* ── Upload & Style menus fill the available height (not just the top) ── */

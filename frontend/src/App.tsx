@@ -1,6 +1,6 @@
 // ── App shell — wizard-guided flow ──
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "./store";
 import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
@@ -35,7 +35,7 @@ import "./styles/global.css";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
-// Friendly title + one-line intro shown at the top of each open setup menu.
+// Friendly title + one-line intro shown at the top of each setup section.
 const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
   upload: { nameKey: "step_name_upload", briefKey: "upload_step_brief" },
   // `edits` deliberately absent: the task step asks its own question ("I want
@@ -45,6 +45,10 @@ const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
   model: { nameKey: "step_name_model", briefKey: "model_step_brief" },
   style: { nameKey: "step_name_style", briefKey: "style_step_brief" },
 };
+
+// The setup steps, in the order they appear on the page. The model step is
+// advanced-mode only; the rest are always present.
+const PAGE_STEPS = ["upload", "edits", "model", "style"] as const;
 
 export default function App() {
   const {
@@ -56,6 +60,7 @@ export default function App() {
     setWizardStep,
     model,
     sessionStartedAt,
+    completedSteps,
   } = useStore();
   const setLogs = useStore((s) => s.setLogs);
   const appendLog = useStore((s) => s.appendLog);
@@ -296,6 +301,26 @@ export default function App() {
     );
   }
 
+  // Advancing the wizard now moves the page rather than swapping the panel.
+  // Deliberately not on first mount: landing mid-page on open would hide the
+  // manuscript step, which is where everyone starts.
+  const didMountWizard = useRef(false);
+  useEffect(() => {
+    if (!["upload", "edits", "model", "style"].includes(wizardStep)) return;
+    if (!didMountWizard.current) {
+      didMountWizard.current = true;
+      return;
+    }
+    const el = document.getElementById(`wizard-step-${wizardStep}`);
+    if (!el) return;
+    el.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "start",
+    });
+  }, [wizardStep]);
+
   const isSetupPhase = wizardStep !== "done";
   // A step menu is open only for the setup steps; every other state (folded, or
   // a stray "run") means no menu is open. The model step exists only in
@@ -363,10 +388,16 @@ export default function App() {
           <div className="wizard-layout">
             {/* The collapsible step menu is only mounted while a step is open,
                 so no empty box lingers on the idle dashboard. */}
+            {/* One page, every step on it.
+                Showing a single step at a time meant the next question was
+                always behind a click, and a first-time user could not see how
+                much was left or what they were being asked for overall — the
+                two things that decide whether they finish. Each section is
+                still its own card, `wizardStep` now decides which one is
+                highlighted and scrolled to rather than which one exists, and
+                completing one scrolls to the next. */}
             {menuOpen && (
-              <div
-                className={`wizard-content${wizardStep === "edits" ? " wizard-content-tasks" : ""}`}
-              >
+              <div className="wizard-page">
                 <button
                   type="button"
                   className="btn-close-step"
@@ -376,38 +407,50 @@ export default function App() {
                 >
                   ×
                 </button>
-                {MENU_INTRO[wizardStep] && (
-                  <div className="wizard-menu-header">
-                    <h2 className="wizard-menu-title">
-                      {t(MENU_INTRO[wizardStep].nameKey)}
-                    </h2>
-                    <p className="wizard-menu-brief">
-                      {t(MENU_INTRO[wizardStep].briefKey)}
-                    </p>
-                  </div>
-                )}
-                {wizardStep === "model" && advancedMode && <ModelSelector />}
 
-                {wizardStep === "edits" && <ModeSelector />}
+                {PAGE_STEPS.filter(
+                  (step) => step !== "model" || advancedMode,
+                ).map((step) => (
+                  <section
+                    key={step}
+                    id={`wizard-step-${step}`}
+                    className={`wizard-content wizard-step-block${
+                      wizardStep === step ? " wizard-step-current" : ""
+                    }${completedSteps.includes(step) ? " wizard-step-done" : ""}`}
+                    aria-current={wizardStep === step ? "step" : undefined}
+                  >
+                    {MENU_INTRO[step] && (
+                      <div className="wizard-menu-header">
+                        <h2 className="wizard-menu-title">
+                          {t(MENU_INTRO[step].nameKey)}
+                        </h2>
+                        <p className="wizard-menu-brief">
+                          {t(MENU_INTRO[step].briefKey)}
+                        </p>
+                      </div>
+                    )}
+                    {step === "model" && <ModelSelector />}
+                    {step === "edits" && <ModeSelector />}
+                    {step === "upload" && (
+                      <div className="wizard-upload-only">
+                        <ManuscriptUpload />
+                      </div>
+                    )}
+                    {step === "style" && (
+                      <div className="wizard-style-only">
+                        <StyleGuideEditor />
+                      </div>
+                    )}
 
-                {wizardStep === "upload" && (
-                  <div className="wizard-upload-only">
-                    <ManuscriptUpload />
-                  </div>
-                )}
-
-                {wizardStep === "style" && (
-                  <div className="wizard-style-only">
-                    <StyleGuideEditor />
-                  </div>
-                )}
+                    {/* Experimental modes sit OUTSIDE the cream step card on
+                        purpose. Inside it they read as a sub-option of
+                        whichever task is selected — which is what they are
+                        not. */}
+                  </section>
+                ))}
+                <BetaFeatures />
               </div>
             )}
-
-            {/* Experimental modes sit OUTSIDE the cream step panel on purpose.
-                Inside it they read as a sub-option of whichever card is
-                selected — which is exactly what they are not. */}
-            {menuOpen && wizardStep === "edits" && <BetaFeatures />}
 
             {/* Idle dashboard — no menu open, nothing running: the app-wide
                 logo watermark (`.main-content::before`) is the only mark. */}
