@@ -582,7 +582,7 @@ export default function EditTrigger() {
         )}
       </button>
 
-      {electronBridge && !disabled && (
+      {(
         <div className="cloud-block">
         <button
           type="button"
