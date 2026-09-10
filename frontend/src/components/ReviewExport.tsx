@@ -4047,98 +4047,97 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
               </div>{/* ── end .review-group-body (bright card) ── */}
 
-              {/* ── Full manuscript downloads: below the bright card, but still
-                   collapsing with this <details> container ── */}
+              {/* ── Export ──
+                   One block below the bright card: a heading that says what
+                   the files will contain, the formats side by side, and the
+                   section-break setting under them as the detail it is. The
+                   buttons used to be two long sentences with nothing above
+                   them saying the accepted changes were included at all. */}
               {editTasks.length > 0 && !isScanJob && (
-                <div className="export-minor-break-row" title={t("minor_break_hint")}>
-                  <span className="option-toggle-label">
-                    {t("export_minor_break")}
-                  </span>
-                  <div className="option-toggle-group">
+                <div className="export-block">
+                  <h3 className="export-block__title">
+                    {t("export_with_changes", "Export with accepted changes:")}
+                  </h3>
+
+                  <div className="export-block__formats">
+                    {SHOW_MARKDOWN_DOWNLOADS && (
+                      <button
+                        className="btn-primary export-format"
+                        disabled={!allEditDone || !editResultsReady || verifying}
+                        title={allEditDone ? undefined : t("full_manuscript_wait")}
+                        onClick={() =>
+                          verifyThenExport(
+                            editTaskIds,
+                            (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                            (md) => downloadFile(md, `${src}.full.md`),
+                          )
+                        }
+                      >
+                        {t("download_full_md")}
+                      </button>
+                    )}
                     <button
-                      type="button"
-                      className={`toggle-btn${minorBreakStyle === "blank" ? " active" : ""}`}
-                      onClick={() => setMinorBreakStyle("blank")}
-                    >
-                      {t("minor_break_blank")}
-                    </button>
-                    <button
-                      type="button"
-                      className={`toggle-btn${minorBreakStyle === "hash" ? " active" : ""}`}
-                      onClick={() => setMinorBreakStyle("hash")}
-                    >
-                      {t("minor_break_hash")}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {editTasks.length > 0 && !isScanJob && (
-                <div className="export-buttons full-manuscript-export">
-                  {SHOW_MARKDOWN_DOWNLOADS && (
-                    <button
-                      className="btn-primary"
+                      className="btn-primary export-format"
                       disabled={!allEditDone || !editResultsReady || verifying}
                       title={allEditDone ? undefined : t("full_manuscript_wait")}
                       onClick={() =>
                         verifyThenExport(
                           editTaskIds,
-                          (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                          (md) => downloadFile(md, `${src}.full.md`),
+                          (acc, fixed) => ({
+                            md: buildFullManuscript(entries, acc, fixed),
+                            pairs: buildChapterPairs(entries, acc, fixed),
+                          }),
+                          ({ md, pairs }) =>
+                            handleDownloadDocxSurgical(pairs, md, `${src}.full.docx`),
                         )
                       }
                     >
-                      {t("download_full_md")}
+                      {t("download_full_docx")}
                     </button>
-                  )}
-                  <button
-                    className="btn-primary"
-                    disabled={!allEditDone || !editResultsReady || verifying}
-                    title={allEditDone ? undefined : t("full_manuscript_wait")}
-                    onClick={() =>
-                      verifyThenExport(
-                        editTaskIds,
-                        (acc, fixed) => ({
-                          md: buildFullManuscript(entries, acc, fixed),
-                          pairs: buildChapterPairs(entries, acc, fixed),
-                        }),
-                        ({ md, pairs }) =>
-                          handleDownloadDocxSurgical(
-                            pairs,
-                            md,
-                            `${src}.full.docx`,
-                          ),
-                      )
-                    }
-                  >
-                    {t("download_full_docx")}
-                  </button>
-                  <button
-                    className="btn-primary"
-                    disabled={
-                      !allEditDone ||
-                      !editResultsReady ||
-                      formattingEbook ||
-                      verifying
-                    }
-                    title={
-                      allEditDone
-                        ? t("auto_format_ebook_tip")
-                        : t("full_manuscript_wait")
-                    }
-                    onClick={() =>
-                      verifyThenExport(
-                        editTaskIds,
-                        (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                        (md) => handleAutoFormatEbook(md, src),
-                      )
-                    }
-                  >
-                    {formattingEbook
-                      ? t("formatting_ebook")
-                      : t("auto_format_ebook")}
-                  </button>
+                    <button
+                      className="btn-primary export-format"
+                      disabled={
+                        !allEditDone || !editResultsReady || formattingEbook || verifying
+                      }
+                      title={
+                        allEditDone ? t("auto_format_ebook_tip") : t("full_manuscript_wait")
+                      }
+                      onClick={() =>
+                        verifyThenExport(
+                          editTaskIds,
+                          (acc, fixed) => buildFullManuscript(entries, acc, fixed),
+                          (md) => handleAutoFormatEbook(md, src),
+                        )
+                      }
+                    >
+                      {formattingEbook ? t("formatting_ebook") : t("auto_format_ebook")}
+                    </button>
+                  </div>
+
+                  <div className="export-block__option" title={t("minor_break_hint")}>
+                    <span className="option-toggle-label">
+                      {t("export_minor_break")}
+                    </span>
+                    <div className="option-toggle-group">
+                      <button
+                        type="button"
+                        className={`toggle-btn${minorBreakStyle === "blank" ? " active" : ""}`}
+                        onClick={() => setMinorBreakStyle("blank")}
+                      >
+                        {t("minor_break_blank")}
+                      </button>
+                      <button
+                        type="button"
+                        className={`toggle-btn${minorBreakStyle === "hash" ? " active" : ""}`}
+                        onClick={() => setMinorBreakStyle("hash")}
+                      >
+                        {t("minor_break_hash")}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
+
                 </>
               )}
             </details>

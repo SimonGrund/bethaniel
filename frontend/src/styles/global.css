@@ -6642,6 +6642,59 @@ summary.review-source::before {
   padding-right: 0.25rem;
 }
 
+/* ── Export block (review) ──
+   The two exports used to be full-width bars reading "Download full
+   manuscript (.docx)" and "Auto-format for ebook (AI) → .epub", with a
+   section-break toggle floating above them and nothing anywhere saying the
+   accepted changes were what got written. The heading carries that now, so
+   the buttons only have to name a format. */
+.export-block {
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.25rem 1rem;
+  background: #faf6ec;
+  border: 1px solid #d9c9a8;
+  border-radius: 10px;
+}
+
+.export-block__title {
+  margin: 0 0 0.8rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #2a2419;
+}
+
+.export-block__formats {
+  display: block;
+  margin-bottom: -0.6rem;
+}
+
+.export-block .export-format {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 10rem;
+  margin: 0 0.6rem 0.6rem 0;
+}
+
+/* The section-break choice is a detail of how the file is written, so it sits
+   under the buttons rather than above them, at the size of a setting. */
+.export-block__option {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #ece0c8;
+  font-size: 0.8rem;
+}
+
+.export-block__option .option-toggle-label {
+  color: #6b5438;
+}
+
 /* ── Welcome ──
    What replaced the coachmark tour: one card, once. The tour's backdrop,
    spotlight, bubble and arrow went with it — rules that existed to point at a

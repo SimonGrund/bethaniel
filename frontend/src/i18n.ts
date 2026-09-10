@@ -952,10 +952,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Descargar manuscrito completo (.md)",
   },
   download_full_docx: {
-    en: "Download Full Manuscript (.docx)",
-    da: "Download fuldt manuskript (.docx)",
-    de: "Gesamtes Manuskript herunterladen (.docx)",
-    es: "Descargar manuscrito completo (.docx)",
+    en: "Word (.docx)",
+    da: "Word (.docx)",
+    de: "Word (.docx)",
+    es: "Word (.docx)",
+  },
+  export_with_changes: {
+    en: "Export with accepted changes:",
+    da: "Eksportér med accepterede ændringer:",
+    de: "Mit übernommenen Änderungen exportieren:",
+    es: "Exportar con los cambios aceptados:",
   },
   full_manuscript_wait: {
     en: "All chapters must finish editing before downloading the full manuscript",
@@ -964,10 +970,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Todos los capítulos deben terminar de editarse antes de descargar el manuscrito completo",
   },
   auto_format_ebook: {
-    en: "Auto-format for ebook (AI) → .epub",
-    da: "Auto-formatér til e-bog (AI) → .epub",
-    de: "Auto-Formatierung für E-Book (KI) → .epub",
-    es: "Formato automático para ebook (IA) → .epub",
+    en: "Ebook (.epub)",
+    da: "E-bog (.epub)",
+    de: "E-Book (.epub)",
+    es: "Ebook (.epub)",
   },
   auto_format_ebook_tip: {
     en: "Let the AI tidy headings, scene breaks and spacing, then export EPUB (images preserved)",
