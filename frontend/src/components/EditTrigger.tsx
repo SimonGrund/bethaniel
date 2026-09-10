@@ -709,7 +709,7 @@ export default function EditTrigger() {
             <li>
               {t(
                 "cloud_expect_noise",
-                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain. Nothing is applied without you.",
+                "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain.",
               )}
             </li>
             <li>
