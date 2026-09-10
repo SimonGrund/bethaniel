@@ -60,8 +60,24 @@ export default function HeaderSettingsMenu() {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span aria-hidden>⚙</span>
-        {t("settings")}
+        <svg
+          className="btn-header-settings-cog"
+          viewBox="0 0 24 24"
+          width="26"
+          height="26"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            fill="currentColor"
+            d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm0 5.7a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2Z"
+          />
+          <path
+            fill="currentColor"
+            d="m20.6 13.6.02-1.6-.02-1.6-1.9-.3a6.9 6.9 0 0 0-.62-1.5l1.13-1.56a9 9 0 0 0-2.25-2.25L15.4 5.92a6.9 6.9 0 0 0-1.5-.62l-.3-1.9-1.6-.02-1.6.02-.3 1.9a6.9 6.9 0 0 0-1.5.62L7.04 4.79a9 9 0 0 0-2.25 2.25L5.92 8.6a6.9 6.9 0 0 0-.62 1.5l-1.9.3L3.38 12l.02 1.6 1.9.3c.15.53.36 1.03.62 1.5l-1.13 1.56a9 9 0 0 0 2.25 2.25l1.56-1.13c.47.26.97.47 1.5.62l.3 1.9 1.6.02 1.6-.02.3-1.9c.53-.15 1.03-.36 1.5-.62l1.56 1.13a9 9 0 0 0 2.25-2.25l-1.13-1.56c.26-.47.47-.97.62-1.5l1.9-.3ZM12 18.3A6.3 6.3 0 1 1 18.3 12 6.3 6.3 0 0 1 12 18.3Z"
+          />
+        </svg>
+        <span className="btn-header-settings-label">{t("settings")}</span>
       </button>
 
       {open && (

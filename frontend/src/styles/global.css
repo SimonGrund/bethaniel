@@ -4560,20 +4560,41 @@ summary.review-source::before {
   flex-shrink: 0;
 }
 
+/* Settings is the way back to the model and the stored data, so it reads as a
+   control rather than another word in a row of words: a large cog in the
+   brand's dark brown, with the label kept for anyone who needs it. */
 .btn-header-settings {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.7rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
   border: 1px solid #d9c9a8;
   background: #fdfaf0;
   border-radius: 4px;
-  color: #8b7355;
+  color: #4a3728;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
   transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-header-settings-cog {
+  display: block;
+  color: #4a3728;
+  flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+
+.btn-header-settings:hover .btn-header-settings-cog,
+.btn-header-settings-on .btn-header-settings-cog {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-header-settings-cog {
+    transition: none;
+  }
 }
 
 .btn-header-settings:hover,
@@ -4884,6 +4905,53 @@ summary.review-source::before {
   z-index: 2;
 }
 
+/* ── The manuscript card: two columns ──
+   The manuscript on the left, what to do with it on the right. Stacked, the
+   confirm button sat below a chapter list that can be long, so the control the
+   user needs next was the one the card scrolled away. */
+.wizard-upload-only > section.upload-step {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.wizard-upload-only > section.upload-step-loaded {
+  grid-template-columns: minmax(0, 1fr) 12rem;
+}
+
+.upload-main {
+  min-width: 0;
+}
+
+.upload-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: sticky;
+  top: 0.5rem;
+}
+
+.upload-actions .btn-confirm-step {
+  width: 100%;
+}
+
+.upload-actions .btn-small {
+  width: 100%;
+}
+
+/* One column again where 12rem of it would leave nothing for the manuscript. */
+@media (max-width: 820px) {
+  .wizard-upload-only > section.upload-step-loaded {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-actions {
+    position: static;
+    flex-direction: row;
+  }
+}
+
 /* ── A folded step ──
    Four open cards is the right shape for a first run and the wrong one for
    the fifth. An answered step that is not the one being worked on folds to a
@@ -4970,10 +5038,29 @@ summary.review-source::before {
    narrow column. Same component, two homes. */
 .wizard-launch .run-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  max-width: 34rem;
+  /* Side by side: they are two ways to do the same thing, and stacked the
+     lower one reads as a step after the upper one rather than an alternative
+     to it. */
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 46rem;
   margin: 0 auto;
+}
+
+.wizard-launch .run-actions > .btn-run,
+.wizard-launch .run-actions > .btn-run-cloud {
+  flex: 1 1 16rem;
+}
+
+/* The code field and the notes below stay full width under both buttons. */
+.wizard-launch .run-actions > .cloud-code,
+.wizard-launch .run-actions > .run-download-note,
+.wizard-launch .run-actions > .cloud-wait-note,
+.wizard-launch .run-actions > .cloud-expect {
+  flex: 1 0 100%;
 }
 
 .wizard-step-done .wizard-menu-title::after {
@@ -5080,8 +5167,10 @@ summary.review-source::before {
 
 /* ── Open-menu header: friendly title + one-line intro ── */
 .wizard-menu-header {
-  margin: 0 2rem 1rem 0;
-  padding-bottom: 0.75rem;
+  /* The page carries four of these, so every margin here is spent four
+     times. Tightened for the stacked layout. */
+  margin: 0 2rem 0.7rem 0;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid #ece0c8;
 }
 

@@ -36,8 +36,8 @@ import "./styles/global.css";
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 // Friendly title + one-line intro shown at the top of each setup section.
-const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
-  upload: { nameKey: "step_name_upload", briefKey: "upload_step_brief" },
+const MENU_INTRO: Record<string, { nameKey: string; briefKey?: string }> = {
+  upload: { nameKey: "step_name_upload" },
   // `edits` deliberately absent: the task step asks its own question ("I want
   // to…") and a second heading above it just said the same thing twice. The
   // render is already guarded on the key existing.
@@ -447,10 +447,10 @@ export default function App() {
                   type="button"
                   className="btn-close-step"
                   onClick={() => setWizardStep("folded")}
-                  title={t("close_menu")}
-                  aria-label={t("close_menu")}
+                  title={t("minimise_setup", "Minimise setup")}
+                  aria-label={t("minimise_setup", "Minimise setup")}
                 >
-                  ×
+                  −
                 </button>
 
                 {PAGE_STEPS.filter(
@@ -500,9 +500,11 @@ export default function App() {
                               <h2 className="wizard-menu-title">
                                 {t(MENU_INTRO[step].nameKey)}
                               </h2>
-                              <p className="wizard-menu-brief">
-                                {t(MENU_INTRO[step].briefKey)}
-                              </p>
+                              {MENU_INTRO[step].briefKey && (
+                                <p className="wizard-menu-brief">
+                                  {t(MENU_INTRO[step].briefKey!)}
+                                </p>
+                              )}
                             </div>
                           )}
                           {step === "model" && <ModelSelector />}

@@ -88,8 +88,8 @@ export default function ManuscriptUpload() {
   }, []);
 
   return (
-    <section>
-
+    <section className={`upload-step${doc ? " upload-step-loaded" : ""}`}>
+      <div className="upload-main">
       {!doc ? (
         <>
           <div
@@ -157,14 +157,6 @@ export default function ManuscriptUpload() {
                   ? ` · +${doc.chapters.length - 4} more`
                   : "")}
           </span>
-          <button
-            type="button"
-            className="btn-secondary btn-small"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? t("converting") : t("btn_change_document")}
-          </button>
           <input
             ref={fileRef}
             type="file"
@@ -185,19 +177,35 @@ export default function ManuscriptUpload() {
       {wizardStep === "upload" && doc && (
         <>
           <ScopeSelection />
-          <div className="wizard-confirm">
-            <button
-              type="button"
-              className="btn-primary btn-confirm-step"
-              onClick={() => {
-                markStepComplete("upload");
-                advanceWizard("upload");
-              }}
-            >
-              {t("wizard_confirm_upload")}
-            </button>
-          </div>
         </>
+      )}
+      </div>
+
+      {/* The action column. Stacked underneath, "Confirm manuscript" sat below
+          a chapter list that can be long — the button you must press next was
+          the one thing the card scrolled away. Beside the manuscript it stays
+          level with it however many chapters there are. */}
+      {doc && wizardStep === "upload" && (
+        <aside className="upload-actions">
+          <button
+            type="button"
+            className="btn-primary btn-confirm-step"
+            onClick={() => {
+              markStepComplete("upload");
+              advanceWizard("upload");
+            }}
+          >
+            {t("wizard_confirm_upload")}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-small"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? t("converting") : t("btn_change_document")}
+          </button>
+        </aside>
       )}
     </section>
   );
