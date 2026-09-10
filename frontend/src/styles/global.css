@@ -1271,7 +1271,6 @@ h4 {
   cursor: pointer;
   transition: all 0.15s;
   box-shadow: 2px 2px 0 #c9b896;
-  width: 100%;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -2188,30 +2187,20 @@ summary.review-source::before {
   margin-bottom: 0.5rem;
 }
 
-.corrections-scroll {
-  max-height: 420px;
-  overflow-y: auto;
-  position: relative;
-  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-}
+/* ── No nested scrolling in the review ──
+   These were two scroll containers, one inside the other and both inside the
+   page: the corrections capped at 420px, the chapter list at 500px. Three
+   levels of wheel behaviour over the same content, where scrolling past the
+   end of the inner list quietly starts moving the outer one.
+   Both existed to stop a long column of chapters running on, and the chapter
+   pills already solved that — one chapter is on screen at a time. The page
+   scrolls; nothing inside it does.
 
-.corrections-scroll-at-bottom {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
+   The bottom fade went with them. It said "there is more below", which was
+   true of a clipped box and is not true of a list that simply ends. */
+.corrections-scroll,
 .chapters-scroll {
-  max-height: 500px;
-  overflow-y: auto;
   position: relative;
-  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-}
-
-.chapters-scroll-at-bottom {
-  -webkit-mask-image: none;
-  mask-image: none;
 }
 
 .skipped-section {
@@ -5024,8 +5013,6 @@ summary.review-source::before {
 }
 
 .step-confirm-row .btn-confirm-step {
-  flex: 0 0 auto;
-  width: auto;
   min-width: 11rem;
 }
 
@@ -6705,17 +6692,13 @@ summary.review-source::before {
 }
 
 .export-block__formats {
-  display: block;
-  margin-bottom: -0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .export-block .export-format {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
   min-width: 10rem;
-  margin: 0 0.6rem 0.6rem 0;
 }
 
 /* The section-break choice is a detail of how the file is written, so it sits
@@ -6776,7 +6759,6 @@ summary.review-source::before {
 }
 
 .welcome-actions .btn-primary {
-  flex: 0 0 auto;
   min-width: 9rem;
   padding-inline: 2rem;
 }

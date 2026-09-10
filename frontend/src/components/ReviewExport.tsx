@@ -3499,14 +3499,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   ))}
                 </div>
               )}
-              <div
-                className="chapters-scroll"
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-                  el.classList.toggle("chapters-scroll-at-bottom", atBottom);
-                }}
-              >
+              <div className="chapters-scroll">
               {entries.map(([tid, task]) => {
                 // One chapter at a time. The pill bar above is the navigation;
                 // rendering the rest would put the column back.
@@ -3846,11 +3839,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                               <div
                                 className="corrections-scroll"
-                                onScroll={(e) => {
-                                  const el = e.currentTarget;
-                                  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-                                  el.classList.toggle("corrections-scroll-at-bottom", atBottom);
-                                }}
                               >
                               {isCombined ? (
                                 <>
