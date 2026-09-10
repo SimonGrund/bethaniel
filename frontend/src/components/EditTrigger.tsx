@@ -708,12 +708,6 @@ export default function EditTrigger() {
             </li>
             <li>
               {t(
-                "cloud_expect_quality",
-                "The cloud does not buy a better copy edit. Every model we tested lands within one point of the others — 59-60% of planted errors found, across four languages, whether it runs on your laptop or in the cloud. The cloud exists for computers that cannot run a model locally.",
-              )}
-            </li>
-            <li>
-              {t(
                 "cloud_expect_noise",
                 "Expect about one confidently wrong suggestion per chapter, plus a handful Betty marks as uncertain. Nothing is applied without you.",
               )}
