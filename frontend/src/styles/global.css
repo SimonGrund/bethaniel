@@ -6908,13 +6908,30 @@ summary.review-source::before {
   max-height: min(34rem, 55vh);
 }
 
-.import-preview-label {
-  margin: 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #8b7355;
+/* Label on the left, chapter picker on the right — one line above the
+   sample, instead of a line of instructions the reader could not act on. */
+.import-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.import-preview-pick {
+  max-width: 14rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 4px;
+  background: #fdfaf0;
+  color: #4a3f2f;
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.import-preview-pick:hover {
+  border-color: #8b7355;
 }
 
 .import-preview-label {
