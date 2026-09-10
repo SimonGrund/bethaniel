@@ -146,6 +146,20 @@ export default function Sidebar() {
         </div>
       )}
 
+      {/* Standing, for as long as the run lasts. The same fact was already in
+          the pre-purchase accordion, which is the wrong place for it: a
+          warning about closing the app is worth nothing to someone who has
+          already closed it, and everything to someone watching a progress bar
+          and wondering whether they can go and do something else. */}
+      {isWorking && (
+        <p className="sidebar-keep-open">
+          {t(
+            "keep_open_while_running",
+            "Keep Betty open until this finishes — the run is driven from this computer.",
+          )}
+        </p>
+      )}
+
       {/* Only rendered when there is something to stop — an empty bordered
           footer would just eat rail the engine log can use. */}
       {isWorking && (

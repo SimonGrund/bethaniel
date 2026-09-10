@@ -12,6 +12,7 @@ import ManuscriptUpload from "./components/ManuscriptUpload";
 import StyleGuideEditor from "./components/StyleGuideEditor";
 import BetaFeatures from "./components/BetaFeatures";
 import ModeSelector from "./components/ModeSelector";
+import EditTrigger from "./components/EditTrigger";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
 import LogPanel from "./components/LogPanel";
@@ -49,6 +50,16 @@ const MENU_INTRO: Record<string, { nameKey: string; briefKey: string }> = {
 // advanced-mode only; the rest are always present.
 const PAGE_STEPS = ["upload", "edits", "model", "style"] as const;
 
+// The name a folded card shows. MENU_INTRO omits `edits` on purpose (the task
+// step asks its own question inside the card), but a folded card has no inside
+// to ask from, so it needs a name of its own.
+const STEP_NAME: Record<string, string> = {
+  upload: "step_name_upload",
+  edits: "step_name_edits",
+  model: "step_name_model",
+  style: "step_name_style",
+};
+
 export default function App() {
   const {
     lang,
@@ -60,6 +71,9 @@ export default function App() {
     model,
     sessionStartedAt,
     completedSteps,
+    document: doc,
+    selectedModes,
+    styleGuide,
   } = useStore();
   const setLogs = useStore((s) => s.setLogs);
   const appendLog = useStore((s) => s.appendLog);
@@ -319,6 +333,40 @@ export default function App() {
     );
   }
 
+  // What a folded card shows in place of its contents. Every one of these
+  // reads the same state the card itself edits, so a summary cannot drift
+  // from the answer it is summarising.
+  const stepSummary = (step: string): string => {
+    if (step === "upload") {
+      if (!doc) return "—";
+      const chapters = doc.chapters?.length ?? 0;
+      return chapters > 0
+        ? `${doc.name} · ${chapters} ${t("units")}`
+        : doc.name;
+    }
+    if (step === "edits") {
+      if (selectedModes.length === 0) return "—";
+      return selectedModes.map((m) => t(`mode_${m}`)).join(" · ");
+    }
+    if (step === "model") {
+      // The catalog name lives in ModelSelector; the file name is what the
+      // shell has, and stripping the extension is enough to read as a name.
+      return model ? model.replace(/\.gguf$/i, "").replace(/^custom:/, "") : "—";
+    }
+    if (step === "style") {
+      const sheet = styleGuide.trim();
+      return sheet
+        ? `${sheet.split(/\s+/).length} ${t("words_selected")}`
+        : t("wizard_style_none", "None");
+    }
+    return "";
+  };
+
+  // Every step answered — the run controls join the page.
+  const allStepsDone = PAGE_STEPS.filter(
+    (step) => step !== "model" || advancedMode,
+  ).every((step) => completedSteps.includes(step));
+
   const isSetupPhase = wizardStep !== "done";
   // A step menu is open only for the setup steps; every other state (folded, or
   // a stray "run") means no menu is open. The model step exists only in
@@ -407,45 +455,91 @@ export default function App() {
 
                 {PAGE_STEPS.filter(
                   (step) => step !== "model" || advancedMode,
-                ).map((step) => (
-                  <section
-                    key={step}
-                    id={`wizard-step-${step}`}
-                    className={`wizard-content wizard-step-block${
-                      wizardStep === step ? " wizard-step-current" : ""
-                    }${completedSteps.includes(step) ? " wizard-step-done" : ""}`}
-                    aria-current={wizardStep === step ? "step" : undefined}
-                  >
-                    {MENU_INTRO[step] && (
-                      <div className="wizard-menu-header">
-                        <h2 className="wizard-menu-title">
-                          {t(MENU_INTRO[step].nameKey)}
-                        </h2>
-                        <p className="wizard-menu-brief">
-                          {t(MENU_INTRO[step].briefKey)}
-                        </p>
-                      </div>
-                    )}
-                    {step === "model" && <ModelSelector />}
-                    {step === "edits" && <ModeSelector />}
-                    {step === "upload" && (
-                      <div className="wizard-upload-only">
-                        <ManuscriptUpload />
-                      </div>
-                    )}
-                    {step === "style" && (
-                      <div className="wizard-style-only">
-                        <StyleGuideEditor />
-                      </div>
-                    )}
+                ).map((step) => {
+                  // A step folds once it is answered, and only while it is not
+                  // the one being worked on. Four open cards is the right shape
+                  // for a first run and the wrong one for the fifth: by then
+                  // the answers are settled and what the page is for is the
+                  // step still outstanding. The summary keeps the answer on
+                  // screen so folding never hides what was chosen.
+                  const answered = completedSteps.includes(step);
+                  const collapsed = answered && wizardStep !== step;
+                  return (
+                    <section
+                      key={step}
+                      id={`wizard-step-${step}`}
+                      className={`wizard-content wizard-step-block${
+                        wizardStep === step ? " wizard-step-current" : ""
+                      }${answered ? " wizard-step-done" : ""}${
+                        collapsed ? " wizard-step-collapsed" : ""
+                      }`}
+                      aria-current={wizardStep === step ? "step" : undefined}
+                    >
+                      {collapsed ? (
+                        <button
+                          type="button"
+                          className="wizard-step-fold"
+                          onClick={() => setWizardStep(step)}
+                          aria-expanded={false}
+                          aria-controls={`wizard-step-${step}`}
+                        >
+                          <span className="wizard-step-fold-name">
+                            {t(STEP_NAME[step])}
+                          </span>
+                          <span className="wizard-step-fold-value">
+                            {stepSummary(step)}
+                          </span>
+                          <span className="wizard-step-fold-edit">
+                            {t("wizard_step_change", "Change")}
+                          </span>
+                        </button>
+                      ) : (
+                        <>
+                          {MENU_INTRO[step] && (
+                            <div className="wizard-menu-header">
+                              <h2 className="wizard-menu-title">
+                                {t(MENU_INTRO[step].nameKey)}
+                              </h2>
+                              <p className="wizard-menu-brief">
+                                {t(MENU_INTRO[step].briefKey)}
+                              </p>
+                            </div>
+                          )}
+                          {step === "model" && <ModelSelector />}
+                          {step === "edits" && (
+                            <>
+                              <ModeSelector />
+                              {/* Inside the task card, not after it. Loose in
+                                  the page it landed below the style guide,
+                                  where an experimental TASK reads as an
+                                  experimental style setting. */}
+                              <BetaFeatures />
+                            </>
+                          )}
+                          {step === "upload" && (
+                            <div className="wizard-upload-only">
+                              <ManuscriptUpload />
+                            </div>
+                          )}
+                          {step === "style" && (
+                            <div className="wizard-style-only">
+                              <StyleGuideEditor />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </section>
+                  );
+                })}
 
-                    {/* Experimental modes sit OUTSIDE the cream step card on
-                        purpose. Inside it they read as a sub-option of
-                        whichever task is selected — which is what they are
-                        not. */}
-                  </section>
-                ))}
-                <BetaFeatures />
+                {/* Every question answered: the run controls come to the page
+                    rather than staying only in the rail, where a first-time
+                    user has just spent the whole flow not looking. */}
+                {allStepsDone && (
+                  <div className="wizard-launch" role="group" aria-label={t("btn_add_to_queue")}>
+                    <EditTrigger />
+                  </div>
+                )}
               </div>
             )}
 

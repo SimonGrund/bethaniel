@@ -4327,6 +4327,32 @@ summary.review-source::before {
   color: #6b5438;
 }
 
+/* Standing reminder in the rail while a job runs. */
+.sidebar-keep-open {
+  flex-shrink: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  background: #f6efdd;
+  border: 1px solid #d9c9a8;
+  border-left: 3px solid #b8830d;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #4a3f2f;
+}
+
+/* The same warning inside the purchase dialog, where money is committed. */
+.cloud-buy__warn {
+  margin: 0 0 0.2rem;
+  padding: 0.65rem 0.8rem;
+  background: #f6efdd;
+  border-left: 3px solid #b8830d;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #4a3f2f;
+}
+
 /* ── Betty in the Cloud ── */
 /* The cloud button used to sit in the same pale blue whether it was the only
    way to run (no model installed) or an alternative to a local run, so it
@@ -4856,6 +4882,98 @@ summary.review-source::before {
    above the first one rather than inside it. */
 .wizard-page > .btn-close-step {
   z-index: 2;
+}
+
+/* ── A folded step ──
+   Four open cards is the right shape for a first run and the wrong one for
+   the fifth. An answered step that is not the one being worked on folds to a
+   single row: its name, the answer, and the way back in. The answer stays on
+   screen, so folding never hides what was chosen. */
+.wizard-step-collapsed {
+  padding: 0;
+  background: #faf6ec;
+}
+
+.wizard-step-fold {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr auto;
+  align-items: baseline;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.7rem 1.5rem;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.wizard-step-fold:hover {
+  background: #f2ead8;
+}
+
+.wizard-step-fold-name {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: #2a2419;
+  min-width: 0;
+}
+
+.wizard-step-fold-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.83rem;
+  color: #6b5438;
+}
+
+.wizard-step-fold-edit {
+  font-size: 0.78rem;
+  color: #8a7050;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.wizard-step-fold:hover .wizard-step-fold-edit {
+  color: #4a3728;
+}
+
+/* ── The run controls, once every question is answered ──
+   They slide in rather than appearing, because the point is that something
+   arrived: the page has stopped asking and is offering to start. */
+.wizard-launch {
+  animation: launch-slide-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes launch-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizard-launch {
+    animation: none;
+  }
+}
+
+/* On the page the run controls get room to breathe; in the rail they are a
+   narrow column. Same component, two homes. */
+.wizard-launch .run-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 34rem;
+  margin: 0 auto;
 }
 
 .wizard-step-done .wizard-menu-title::after {

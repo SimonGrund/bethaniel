@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
+import { estimateRun, formatEstimate } from "../runEstimate";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
   getCloudEstimate,
   createCloudCheckout,
+  getModelPerf,
   type CloudEstimateResponse,
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
@@ -186,6 +188,14 @@ export default function EditTrigger() {
   const [promoCode, setPromoCode] = useState("");
   const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
   const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
+  // Measured throughput, so the estimate sharpens after the first real run
+  // instead of quoting a published figure forever.
+  const [wordsPerSec, setWordsPerSec] = useState<Record<string, number>>({});
+  useEffect(() => {
+    getModelPerf()
+      .then(setWordsPerSec)
+      .catch(() => {});
+  }, []);
   const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Looked up once — the bridge itself never changes across a session, and a
@@ -419,6 +429,20 @@ export default function EditTrigger() {
   const needsSetup =
     (needsLocalModel || needsGrammar) && recommendation !== null;
 
+  // Words in the selected scope, not in the document: a reader who picked six
+  // chapters is waiting for six chapters.
+  const scopeWords = units.reduce(
+    (n, u) => n + u.original.split(/\s+/).filter(Boolean).length,
+    0,
+  );
+  const localEta = estimateRun(scopeWords, model, wordsPerSec, false);
+  const cloudEta = estimateRun(
+    cloudEstimate?.totalWords ?? scopeWords,
+    cloudEntry?.fileName ?? null,
+    wordsPerSec,
+    true,
+  );
+
   /** Gate the run button: intercept translate + Baby Betty with a warning
    *  before ever reaching handleClick, and the first-model download before
    *  either. */
@@ -532,6 +556,27 @@ export default function EditTrigger() {
               {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
               {selectedModes.length}{" "}
               {selectedModes.length === 1 ? "mode" : "modes"}
+              {localEta && (
+                <>
+                  {" · "}
+                  <span
+                    title={
+                      localEta.measured
+                        ? t(
+                            "eta_measured",
+                            "Based on how fast this machine ran your last job.",
+                          )
+                        : t(
+                            "eta_rough",
+                            "A rough figure until Betty has finished one run here — after that it is based on your own machine.",
+                          )
+                    }
+                  >
+                    {formatEstimate(localEta.seconds, t)}
+                    {!localEta.measured && "*"}
+                  </span>
+                </>
+              )}
             </span>
           )
         )}
@@ -562,6 +607,7 @@ export default function EditTrigger() {
                   price are exact, so neither carries an approximation mark. */}
               {(cloudEstimate.totalWords ?? 0).toLocaleString()}{" "}
               {t("cloud_words", "words")} ·{" "}
+              {cloudEta ? `${formatEstimate(cloudEta.seconds, t)} · ` : ""}
               {cloudEstimate.priceCents === 0 ? (
                 <strong>{t("cloud_free", "Free")}</strong>
               ) : cloudEstimate.fullPriceCents &&
@@ -626,6 +672,7 @@ export default function EditTrigger() {
         estimate={cloudEstimate}
         chapters={units.length}
         modes={selectedModes}
+        etaLabel={cloudEta ? formatEstimate(cloudEta.seconds, t) : null}
         lang={lang}
         onCancel={() => setCloudConfirmOpen(false)}
         onConfirm={handleConfirmCloudPurchase}

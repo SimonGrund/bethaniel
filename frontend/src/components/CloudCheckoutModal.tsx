@@ -23,6 +23,7 @@ export default function CloudCheckoutModal({
   estimate,
   chapters,
   modes,
+  etaLabel,
   lang,
   onCancel,
   onConfirm,
@@ -31,6 +32,8 @@ export default function CloudCheckoutModal({
   estimate: CloudEstimateResponse | null;
   chapters: number;
   modes: string[];
+  /** Roughly how long the run will take, already formatted. */
+  etaLabel?: string | null;
   lang: Lang;
   onCancel: () => void;
   onConfirm: () => void;
@@ -80,6 +83,12 @@ export default function CloudCheckoutModal({
           <dt>{t("cloud_buy_work", "Work")}</dt>
           <dd>{modes.map((m) => t(m, m)).join(" · ")}</dd>
         </div>
+        {etaLabel && (
+          <div>
+            <dt>{t("cloud_buy_time", "Expected time")}</dt>
+            <dd>{etaLabel}</dd>
+          </div>
+        )}
         <div className="cloud-buy__total">
           <dt>{t("cloud_buy_price", "One-off price")}</dt>
           <dd>
@@ -103,6 +112,13 @@ export default function CloudCheckoutModal({
         {t(
           "cloud_buy_once",
           "You are buying this run, not a subscription. There is nothing to cancel afterwards.",
+        )}
+      </p>
+
+      <p className="cloud-buy__warn">
+        {t(
+          "cloud_buy_keep_open",
+          "Keep Betty open until the run finishes. The job is driven from this computer even though the editing happens in the cloud, so if the app is closed or the machine sleeps, the chapter in progress is lost — and the tokens it had already used are spent.",
         )}
       </p>
 
