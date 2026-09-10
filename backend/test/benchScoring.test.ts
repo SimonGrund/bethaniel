@@ -13,6 +13,9 @@ import {
   classifyPlantedError,
   correctionCatchesError,
   recallByCategory,
+  classifyComma,
+  commaBucket,
+  commaRecallByKind,
   scoreCorrections,
   consistencyScore,
   timeScore,
@@ -331,4 +334,132 @@ test("recallByCategory: a category the fixture never planted reports null, not 0
   const rows = recallByCategory([{ wrong: "a b", right: "a, b" }], []);
   assert.equal(rows.find((r) => r.category === "spelling")!.recall, null);
   assert.equal(rows.find((r) => r.category === "comma")!.recall, 100);
+});
+
+// ── Comma sub-classification ──
+//
+// The split exists to keep two unlike things apart: commas a reference
+// grammar settles, and commas the writer's ear settles. A classifier that
+// leaks one into the other turns a difference of opinion into a reported
+// defect, so each rule gets a test.
+
+test("classifyComma: a comma the author never wrote is spurious in any language", () => {
+  assert.equal(
+    classifyComma({ wrong: "jævnt, at linjerne", right: "jævnt at linjerne" }, "da"),
+    "spurious",
+  );
+  assert.equal(
+    classifyComma({ wrong: "the dark,.", right: "the dark." }, "en"),
+    "spurious",
+  );
+});
+
+test("classifyComma: English non-restrictive relative clause is rule-governed", () => {
+  assert.equal(
+    classifyComma({ wrong: "the quay which", right: "the quay, which" }, "en"),
+    "relativeEn",
+  );
+  assert.equal(
+    commaBucket(
+      classifyComma({ wrong: "Mrs Lund who", right: "Mrs Lund, who" }, "en"),
+    ),
+    "rule-governed",
+  );
+});
+
+test("classifyComma: the same pronoun is settled per language, not globally", () => {
+  // "der" is a required subordinator in German (Duden D127) and a contested
+  // one in Danish, where two comma systems are officially sanctioned.
+  const err = { wrong: "Menschen der", right: "Menschen, der" };
+  assert.equal(classifyComma(err, "de"), "subordDe");
+  assert.equal(commaBucket(classifyComma(err, "de")), "rule-governed");
+  assert.equal(classifyComma(err, "da"), "subordDa");
+  assert.equal(commaBucket(classifyComma(err, "da")), "contested");
+});
+
+test("classifyComma: a list separates from the Oxford comma inside it", () => {
+  const ctx = "The letter was polite, brief, and entirely reasonable, and she resented it.";
+  assert.equal(
+    classifyComma({ wrong: "polite brief,", right: "polite, brief," }, "en", ctx),
+    "seriesInner",
+  );
+  assert.equal(
+    classifyComma({ wrong: "brief and", right: "brief, and" }, "en", ctx),
+    "seriesOxford",
+  );
+  assert.equal(commaBucket("seriesInner"), "rule-governed");
+  assert.equal(commaBucket("seriesOxford"), "discretionary");
+});
+
+test("classifyComma: two main clauses joined by 'and' are not a list", () => {
+  // The bug this pins: a list test loose enough to fire on any nearby comma
+  // swallowed every joined clause and every relative clause in ordinary
+  // prose, because well-punctuated prose has commas everywhere.
+  const ctx =
+    "She thought about Mrs Lund, who was eighty-four, and the hospital would find somebody else eventually, and none of that mattered.";
+  assert.equal(
+    classifyComma(
+      { wrong: "eventually and none", right: "eventually, and none" },
+      "en",
+      ctx,
+    ),
+    "coordClause",
+  );
+  assert.equal(
+    classifyComma({ wrong: "Lund who", right: "Lund, who" }, "en", ctx),
+    "relativeEn",
+  );
+});
+
+test("classifyComma: a subordinator is never read as a list item", () => {
+  // Danish "..., at" and German "..., bevor" sat in a list bucket until the
+  // clause tests were moved ahead of the series test.
+  const ctx = "Han så, at tallene var jævne, og at kolonnerne stemte, og han nikkede.";
+  assert.equal(
+    classifyComma({ wrong: "så at tallene", right: "så, at tallene" }, "da", ctx),
+    "subordDa",
+  );
+});
+
+test("commaRecallByKind: rows add up to the comma row of recallByCategory", () => {
+  const correct =
+    "The letter was polite, brief, and entirely reasonable. Mrs Lund, who was eighty-four, had fallen. She left, and he stayed. Outside, the rain kept on.";
+  const truth = [
+    { wrong: "polite brief,", right: "polite, brief," },
+    { wrong: "Lund who", right: "Lund, who" },
+    { wrong: "left and he", right: "left, and he" },
+    { wrong: "Outside the rain", right: "Outside, the rain" },
+  ];
+  const missed = [truth[2], truth[3]];
+  const rows = commaRecallByKind(truth, missed, "en", correct);
+  const byCategory = recallByCategory(truth, missed).find(
+    (r) => r.category === "comma",
+  )!;
+  assert.equal(
+    rows.reduce((n, r) => n + r.planted, 0),
+    byCategory.planted,
+  );
+  assert.equal(
+    rows.reduce((n, r) => n + r.caught, 0),
+    byCategory.caught,
+  );
+  // And the buckets keep the rule-governed misses apart from the rest.
+  const ruled = rows.filter((r) => r.bucket === "rule-governed");
+  assert.deepEqual(
+    ruled.map((r) => r.kind).sort(),
+    ["relativeEn", "seriesInner"],
+  );
+  assert.equal(ruled.every((r) => r.recall === 100), true);
+});
+
+test("commaRecallByKind: surfaced counts a comma landed on but mis-fixed", () => {
+  const correct = "Mrs Lund, who was eighty-four, had fallen.";
+  const truth = [{ wrong: "Lund who", right: "Lund, who" }];
+  // The model touched the span but produced the wrong text, so it is missed
+  // for recall and surfaced for attention — the author still sees it.
+  const rows = commaRecallByKind(truth, truth, "en", correct, [
+    { original: "Lund who", corrected: "Lund; who" },
+  ]);
+  assert.equal(rows[0].recall, 0);
+  assert.equal(rows[0].attentionRecall, 100);
 });

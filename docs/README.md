@@ -32,4 +32,5 @@ is a reasonable place to be reminded of it.
 | `admin-surface.md` | Planned operator endpoints, and the questions behind them |
 | `cloud-provider-options.md` | Inference providers surveyed and measured |
 | `languagetool-is-load-bearing.md` | Why grammar checks are not optional, and what it cost to learn |
+| `comma-scoring.md` | Why the comma number is two measurements, and what splitting them shows |
 | `cron-investigation.md` | Cloudflare cron triggers do not fire on this account |

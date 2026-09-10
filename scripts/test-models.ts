@@ -49,6 +49,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
   buildGroundTruth,
+  commaRecallByKind,
   recallByCategory,
   scoreCorrections,
   consistencyScore,
@@ -132,6 +133,8 @@ const LANG_CODE: Record<string, string> = {
   german: "de",
   spanish: "es",
   stress100: "en",
+  stress100b: "en",
+  stress300en: "en",
   stress100da: "da",
   stress100de: "de",
   stress100es: "es",
@@ -466,6 +469,18 @@ function groundTruthFor(
   const truth = buildGroundTruth(errored, correct);
   groundTruthCache.set(cacheKey, truth);
   return truth;
+}
+
+/** The clean fixture text, cached. `commaRecallByKind` needs a sentence of
+ *  context either side of a planted comma to tell a list from a clause. */
+const correctTextCache = new Map<string, string>();
+function correctTextFor(language: string): string {
+  const cached = correctTextCache.get(language);
+  if (cached !== undefined) return cached;
+  const path = join(SAMPLE_DIR, `${language}_correct.md`);
+  const text = existsSync(path) ? readFileSync(path, "utf-8") : "";
+  correctTextCache.set(language, text);
+  return text;
 }
 
 // ── Main ──
@@ -1279,6 +1294,7 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
         )!;
         return {
           model,
+          run,
           rows: recallByCategory(
             truth,
             scoreCorrections(run.corrections, truth).missedErrors,
@@ -1309,6 +1325,42 @@ function buildLanguageSection(results: TestResult[], models: string[]): string[]
       }
       if (!checks) {
         lines.push(`      (no dictionary for ${language} — spelling is one combined row)`);
+      }
+
+      // Commas, split by whether a reference grammar settles them. Pooled,
+      // the comma row measures "did the model reproduce THIS author's
+      // punctuation", which is a correctness question only for the
+      // rule-governed kinds. Keeping them apart is the difference between a
+      // defect and a difference of opinion — see docs/comma-scoring.md.
+      const commaRows = perModel.map((m) => ({
+        model: m.model,
+        rows: commaRecallByKind(
+          truth,
+          scoreCorrections(m.run.corrections, truth).missedErrors,
+          LANG_CODE[language] ?? "en",
+          correctTextFor(language),
+          m.run.corrections,
+        ),
+      }));
+      if (commaRows[0]?.rows.length) {
+        lines.push(
+          `    ${"commas (fixed/seen)".padEnd(26)} ${"planted".padStart(7)}` +
+            commaRows.map((m) => shortName(m.model).slice(-9).padStart(13)).join(""),
+        );
+        for (let i = 0; i < commaRows[0].rows.length; i++) {
+          const { kind, bucket, planted } = commaRows[0].rows[i];
+          const tag = bucket === "rule-governed" ? "!" : bucket === "contested" ? "?" : " ";
+          lines.push(
+            `      ${tag} ${kind.padEnd(22)} ${String(planted).padStart(7)}` +
+              commaRows
+                .map((m) => {
+                  const r = m.rows[i];
+                  return `${(r.recall ?? 0).toFixed(0)}/${(r.attentionRecall ?? 0).toFixed(0)}%`.padStart(13);
+                })
+                .join(""),
+          );
+        }
+        lines.push(`      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary`);
       }
     }
   }

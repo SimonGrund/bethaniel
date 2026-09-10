@@ -575,3 +575,246 @@ export function recallByCategory(
     };
   });
 }
+
+// ── Comma sub-classification ──────────────────────────────────────────────
+//
+// The `comma` bucket lumps together two things that are not alike, and
+// scoring them as one number measures the wrong thing for half of them.
+//
+// Ground truth here is recovered by diffing an errored fixture against its
+// clean twin, so every planted error is scored as "did the model restore what
+// the author originally wrote". For a rule-governed comma that is the same
+// question as "is the text now correct". For a discretionary one it is not:
+// two careful editors would punctuate differently, and a model that declines
+// to reproduce THIS author's choice has not made an error. Pooling them gives
+// a number that is neither a correctness measure nor a style measure.
+//
+// Measured across three engines and four languages, the split is worth about
+// 3x — rule-governed commas score 31-48%, discretionary ones 13-14% — so the
+// pooled figure is dragged down by errors that arguably aren't errors. It does
+// not, however, rescue commas: 39% on the rule-governed half is still far
+// below the ~80% these engines manage on everything else, and the spurious row
+// is worse than the pooled number rather than better. See
+// docs/comma-scoring.md.
+//
+// The rules come from a reference grammar for each language, and were fixed
+// before any score was computed rather than tuned against results.
+
+export type CommaKind =
+  /** A comma the author did not write. Wrong in every language, with no
+   *  discretion available. */
+  | "spurious"
+  /** A non-final comma in a list of three or more; omitting it runs two items
+   *  together ("polite brief, and entirely reasonable"). */
+  | "seriesInner"
+  /** Opens a non-restrictive relative clause in English. CMOS 6.27. */
+  | "relativeEn"
+  /** German comma before a subordinate clause or relative pronoun. Duden
+   *  D126/D127 — required, and LanguageTool's German rule set knows it, which
+   *  is why this row scores far above the English equivalent. */
+  | "subordDe"
+  /** Danish comma before som/der/at/fordi/hvis. Danish sanctions TWO systems
+   *  (grammatisk komma sets it, nyt komma does not), so neither presence nor
+   *  absence is an error on its own — only inconsistency within one text is.
+   *  Reported separately for that reason. */
+  | "subordDa"
+  /** The comma before the final "and" of a list. Optional by every major style
+   *  guide; the guides disagree with each other, not with the writer. */
+  | "seriesOxford"
+  /** Before and/but/og/men/y/pero joining two main clauses. Standard advice,
+   *  legitimately dropped when the clauses are short. */
+  | "coordClause"
+  /** Fronted adverbials, trailing adjuncts, appositives, rhythm commas. The
+   *  writer's ear governs. */
+  | "freeAdjunct";
+
+export const COMMA_RULE_GOVERNED: readonly CommaKind[] = [
+  "spurious",
+  "seriesInner",
+  "relativeEn",
+  "subordDe",
+];
+export const COMMA_CONTESTED: readonly CommaKind[] = ["subordDa"];
+export const COMMA_DISCRETIONARY: readonly CommaKind[] = [
+  "seriesOxford",
+  "coordClause",
+  "freeAdjunct",
+];
+
+export type CommaBucket = "rule-governed" | "contested" | "discretionary";
+
+export function commaBucket(kind: CommaKind): CommaBucket {
+  if (COMMA_RULE_GOVERNED.includes(kind)) return "rule-governed";
+  if (COMMA_CONTESTED.includes(kind)) return "contested";
+  return "discretionary";
+}
+
+const REL_EN = /^(which|who|whom|whose)$/i;
+const REL_DE =
+  /^(der|die|das|dass|welche[rmns]?|weil|wenn|ob|damit|obwohl|während|nachdem|bevor|als)$/i;
+const REL_DA = /^(som|der|at|fordi|hvis|når|selvom|mens|inden|efter)$/i;
+const COORD =
+  /^(and|but|so|yet|or|nor|og|men|eller|und|aber|oder|sondern|denn|y|e|o|pero|sino)$/i;
+
+const commaCount = (s: string): number => (s.match(/,/g) ?? []).length;
+
+/** The sentence containing a planted span, and where in it the comma sits. */
+function sentenceAround(
+  context: string,
+  right: string,
+): { text: string; commaAt: number } {
+  const at = context.indexOf(right.trim().slice(0, 24));
+  if (at < 0) return { text: context, commaAt: context.indexOf(",") };
+  const start = context.lastIndexOf(".", at) + 1;
+  let end = context.indexOf(".", at + right.length);
+  if (end < 0) end = context.length;
+  const localComma = right.indexOf(",");
+  return {
+    text: context.slice(start, end),
+    commaAt: at - start + (localComma >= 0 ? localComma : 0),
+  };
+}
+
+/**
+ * Which kind of comma one planted error is. `context` is the surrounding clean
+ * text (roughly a sentence either side) — a list comma can only be recognised
+ * from more of the sentence than the span itself carries.
+ */
+export function classifyComma(
+  err: PlantedError,
+  lang: string,
+  context = "",
+): CommaKind {
+  const { wrong, right } = err;
+  if (commaCount(wrong) > commaCount(right)) return "spurious";
+
+  // Find the comma `right` has that `wrong` does not, and read the word after
+  // it. Walking both strings together survives the leading and trailing
+  // context the diff widened the span with.
+  let i = 0;
+  let j = 0;
+  let after = "";
+  while (i < right.length && j < wrong.length) {
+    if (right[i] === wrong[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (right[i] === ",") {
+      after = right.slice(i + 1).trim().split(/\s+/)[0] ?? "";
+      break;
+    }
+    i++;
+    j++;
+  }
+  if (!after) {
+    const m = right.match(/,\s*(\S+)/);
+    after = m ? m[1] : "";
+  }
+  const word = after.replace(/[^\p{L}]/gu, "");
+
+  // A word introducing a subordinate or relative clause is never a list item,
+  // so these are settled before the series test rather than after it: the
+  // other order filed Danish "..., at" and German "..., bevor" as list commas.
+  // The author's own text settles restrictive vs non-restrictive — they wrote
+  // the comma, so the clause is non-restrictive and a reference grammar then
+  // requires it.
+  if (lang === "en" && REL_EN.test(word)) return "relativeEn";
+  if (lang === "de" && REL_DE.test(word)) return "subordDe";
+  if (lang === "da" && REL_DA.test(word)) return "subordDa";
+
+  // A coordinate series, recognised strictly: two or more commas separating
+  // short clause-free items, the last pair joined by a conjunction. A looser
+  // test that merely looked for another comma nearby swallowed every relative
+  // clause in ordinary prose, because well-punctuated prose has commas
+  // everywhere. The comma being classified must fall INSIDE the match, not
+  // merely in the same sentence.
+  const sent = sentenceAround(context || right, right);
+  const series =
+    /[^,;:.!?]{1,40},\s*[^,;:.!?]{1,40},\s*(?:and|og|und|y|e|o|eller|oder)\b|[^,;:.!?]{1,40},\s*[^,;:.!?]{1,40}\s+(?:and|og|und|y|e|o|eller|oder)\b/i.exec(
+      sent.text,
+    );
+  if (
+    series &&
+    sent.commaAt >= series.index &&
+    sent.commaAt <= series.index + series[0].length
+  ) {
+    return COORD.test(word) ? "seriesOxford" : "seriesInner";
+  }
+
+  // "she left, and he stayed" — two main clauses, not a list.
+  if (COORD.test(word)) return "coordClause";
+  return "freeAdjunct";
+}
+
+export interface CommaKindRecall {
+  kind: CommaKind;
+  bucket: CommaBucket;
+  planted: number;
+  caught: number;
+  surfaced: number;
+  recall: number | null;
+  attentionRecall: number | null;
+}
+
+const COMMA_KIND_ORDER: CommaKind[] = [
+  "spurious",
+  "seriesInner",
+  "relativeEn",
+  "subordDe",
+  "subordDa",
+  "seriesOxford",
+  "coordClause",
+  "freeAdjunct",
+];
+
+/**
+ * The comma bucket, split by kind. Built from a `scoreCorrections` result the
+ * same way `recallByCategory` is — reusing its `missedErrors` object
+ * references — so these rows always add up to that function's `comma` row.
+ */
+export function commaRecallByKind(
+  groundTruth: PlantedError[],
+  missedErrors: PlantedError[],
+  lang: string,
+  correctText: string,
+  corrections?: ScoredCorrection[],
+): CommaKindRecall[] {
+  const missed = new Set<PlantedError>(missedErrors);
+  const planted = new Map<CommaKind, number>();
+  const caught = new Map<CommaKind, number>();
+  const surfaced = new Map<CommaKind, number>();
+
+  for (const err of groundTruth) {
+    if (classifyPlantedError(err, null) !== "comma") continue;
+    const at = correctText.indexOf(err.right);
+    const context =
+      at >= 0
+        ? correctText
+            .slice(Math.max(0, at - 70), at + err.right.length + 70)
+            .replace(/\s+/g, " ")
+        : "";
+    const kind = classifyComma(err, lang, context);
+    planted.set(kind, (planted.get(kind) ?? 0) + 1);
+    const wasCaught = !missed.has(err);
+    if (wasCaught) caught.set(kind, (caught.get(kind) ?? 0) + 1);
+    const wasSurfaced =
+      wasCaught || (corrections?.some((c) => touchesErrorSpan(c, err)) ?? false);
+    if (wasSurfaced) surfaced.set(kind, (surfaced.get(kind) ?? 0) + 1);
+  }
+
+  return COMMA_KIND_ORDER.filter((k) => (planted.get(k) ?? 0) > 0).map((kind) => {
+    const p = planted.get(kind) ?? 0;
+    const c = caught.get(kind) ?? 0;
+    const s = surfaced.get(kind) ?? c;
+    return {
+      kind,
+      bucket: commaBucket(kind),
+      planted: p,
+      caught: c,
+      surfaced: s,
+      recall: (c / p) * 100,
+      attentionRecall: (s / p) * 100,
+    };
+  });
+}
