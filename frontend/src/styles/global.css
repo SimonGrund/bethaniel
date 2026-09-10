@@ -1503,20 +1503,20 @@ h4 {
 
 /* ── Diff & corrections ── */
 .word-ins {
-  background: #d4e3c5;
-  color: #2d4a1a;
+  background: #bcd9a6;
+  color: #1e3510;
   padding: 1px 4px;
   border-radius: 2px;
   font-weight: 600;
 }
 
 .word-del {
-  background: #e8c5c0;
-  color: #6b1f1a;
+  background: #eab5ae;
+  color: #58150f;
   padding: 1px 4px;
   border-radius: 2px;
   text-decoration: line-through;
-  opacity: 0.85;
+  /* No opacity: it was fading the one word the reader has to judge. */
 }
 
 .correction-card {
@@ -1555,7 +1555,7 @@ h4 {
 }
 
 .correction-card.flagged .correction-diff {
-  opacity: 0.75;
+  opacity: 1;
 }
 
 .correction-flag-badge {
@@ -1661,8 +1661,7 @@ h4 {
 }
 
 .correction-context {
-  color: #6b5e4f;
-  opacity: 0.7;
+  color: #4a3f2f;
 }
 
 .correction-empty {
@@ -4270,6 +4269,61 @@ summary.review-source::before {
   color: #6b5438;
 }
 
+/* ── The run footer in the rail ──
+   One place for the state of a run and the single action that applies to it:
+   Stop while it works, New job once it is done. Pinned last in flow so it
+   never moves, and the log above it shrinks instead. */
+.sidebar-run {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid #d9c9a8;
+}
+
+.sidebar-run-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sidebar-run-count {
+  font-size: 0.72rem;
+  color: #8b7355;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-run-bar {
+  margin-bottom: 0.7rem;
+}
+
+/* Same object as the run button on the page — this is the same kind of
+   decision, so it should not look like a different kind of control. */
+.sidebar-run-action {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  gap: 0.25rem;
+}
+
+.sidebar-run-action .btn-run-label {
+  font-size: 0.92rem;
+}
+
+.sidebar-run-action .btn-run-meta {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* Armed: the next press acts. Wine red for the one that destroys work in
+   flight, and the same treatment for the one that files results away, because
+   both are a step the reader should take deliberately. */
+.sidebar-run-action-armed {
+  background: linear-gradient(135deg, #6b1f2a 0%, #8c2b38 100%);
+  border-color: #b8915a;
+}
+
 /* Standing reminder in the rail while a job runs. */
 .sidebar-keep-open {
   flex-shrink: 0;
@@ -6761,53 +6815,87 @@ summary.review-source::before {
   max-width: 32rem;
 }
 
-/* ── Export block (review) ──
-   The two exports used to be full-width bars reading "Download full
-   manuscript (.docx)" and "Auto-format for ebook (AI) → .epub", with a
-   section-break toggle floating above them and nothing anywhere saying the
-   accepted changes were what got written. The heading carries that now, so
-   the buttons only have to name a format. */
-.export-block {
-  margin-top: 1.25rem;
-  padding: 1.1rem 1.25rem 1rem;
-  background: #faf6ec;
-  border: 1px solid #d9c9a8;
-  border-radius: 10px;
-}
-
-.export-block__title {
-  margin: 0 0 0.8rem;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.08rem;
-  font-weight: 600;
-  color: #2a2419;
-}
-
-.export-block__formats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.export-block .export-format {
-  min-width: 10rem;
-}
-
-/* The section-break choice is a detail of how the file is written, so it sits
-   under the buttons rather than above them, at the size of a setting. */
-.export-block__option {
+/* ── Export row (review) ──
+   At the foot of the results card rather than in a box of its own: exporting
+   is the end of reviewing, not a separate errand. One line, one button for
+   the common case, and a cog for the two choices almost nobody changes. */
+.export-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 0.5rem 0.65rem;
   margin-top: 0.9rem;
   padding-top: 0.8rem;
   border-top: 1px solid #ece0c8;
-  font-size: 0.8rem;
 }
 
-.export-block__option .option-toggle-label {
+.export-row__label {
+  font-size: 0.85rem;
+  color: #4a3f2f;
+}
+
+.export-row__go {
+  min-width: 9rem;
+}
+
+.export-row__cog {
+  position: relative;
+}
+
+.export-cog {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  background: #fdfaf0;
   color: #6b5438;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.export-cog:hover {
+  color: #2a2419;
+  border-color: #8b7355;
+}
+
+.export-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  z-index: 40;
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.75rem 0.8rem;
+  background: #fdfaf0;
+  border: 1px solid #c9b896;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(42, 36, 25, 0.18);
+}
+
+.export-options__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.export-options__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8b7355;
+}
+
+/* The writing report is the tail of the results, not a second export. */
+.writing-report-row {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #ece0c8;
 }
 
 /* ── Welcome ──

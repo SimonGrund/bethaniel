@@ -1672,6 +1672,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // hydrating, and reviewing a chapter to zero does not yank the user
   // elsewhere mid-scroll.
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
+  // The writing report runs another pass locally, so it is only on offer when
+  // there is something local to run it with. Cloud credentials do not count:
+  // the report is spawned as an ordinary job against the installed engine.
+  const installedModels = useStore((s) => s.installed);
+  const modelEnvLoaded = useStore((s) => s.modelEnvLoaded);
+  const canRunWritingReport = modelEnvLoaded && installedModels.length > 0;
+  // Which export options the cog is showing.
+  const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
@@ -2570,50 +2579,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               })()}
 
               {/* ── Generate writing report button (post-edit, job level) ── */}
-              {(() => {
-                // Only the real edit modes qualify — the report digests their
-                // corrections. (Frontend EDIT_MODES includes translate, which
-                // has nothing to critique.)
-                const reportSourceModes = [
-                  "copy_edit",
-                  "line_edit",
-                  "combined_edit",
-                ];
-                const hasEditResults = entries.some(
-                  ([, t]) =>
-                    reportSourceModes.includes(t.mode) &&
-                    t.status === "done" &&
-                    (t.result?.originalText || t.resultMeta?.hasText),
-                );
-                if (!hasEditResults) return null;
-
-                const hasReport = entries.some(
-                  ([, t]) => t.mode === "text_evaluator",
-                );
-                return (
-                  <div className="generate-buttons-row">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      title={t(
-                        "writing_report_tip",
-                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
-                      )}
-                      onClick={() => void handleSpawnWritingReport(jid)}
-                    >
-                      {hasReport
-                        ? t("regenerate_writing_report")
-                        : t("generate_writing_report")}
-                    </button>
-                    <span className="generate-buttons-note">
-                      {t(
-                        "writing_report_note",
-                        "An optional read on the prose itself — separate from the corrections.",
-                      )}
-                    </span>
-                  </div>
-                );
-              })()}
 
               {/* ── Writing report (text evaluator) ── */}
               {(() => {
@@ -4036,98 +4001,163 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 </div>
               )}
 
-              </div>{/* ── end .review-group-body (bright card) ── */}
+              {(() => {
+                // Only the real edit modes qualify — the report digests their
+                // corrections. (Frontend EDIT_MODES includes translate, which
+                // has nothing to critique.)
+                const reportSourceModes = [
+                  "copy_edit",
+                  "line_edit",
+                  "combined_edit",
+                ];
+                const hasEditResults = entries.some(
+                  ([, t]) =>
+                    reportSourceModes.includes(t.mode) &&
+                    t.status === "done" &&
+                    (t.result?.originalText || t.resultMeta?.hasText),
+                );
+                if (!hasEditResults || !canRunWritingReport) return null;
 
+                const hasReport = entries.some(
+                  ([, t]) => t.mode === "text_evaluator",
+                );
+                return (
+                  <div className="generate-buttons-row writing-report-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      title={t(
+                        "writing_report_tip",
+                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
+                      )}
+                      onClick={() => void handleSpawnWritingReport(jid)}
+                    >
+                      {hasReport
+                        ? t("regenerate_writing_report")
+                        : t("generate_writing_report")}
+                    </button>
+                    <span className="generate-buttons-note">
+                      {t(
+                        "writing_report_note",
+                        "An optional read on the prose itself — separate from the corrections.",
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
               {/* ── Export ──
-                   One block below the bright card: a heading that says what
-                   the files will contain, the formats side by side, and the
-                   section-break setting under them as the detail it is. The
-                   buttons used to be two long sentences with nothing above
-                   them saying the accepted changes were included at all. */}
+                   Inside the results card, at its foot, rather than in a box
+                   of its own: exporting is the end of reviewing, not a
+                   separate errand. One button does the common thing — Word,
+                   with the accepted changes in it — and the cog holds the two
+                   choices almost nobody changes. */}
               {editTasks.length > 0 && !isScanJob && (
-                <div className="export-block">
-                  <h3 className="export-block__title">
+                <div className="export-row">
+                  <span className="export-row__label">
                     {t("export_with_changes", "Export with accepted changes:")}
-                  </h3>
+                  </span>
 
-                  <div className="export-block__formats">
-                    {SHOW_MARKDOWN_DOWNLOADS && (
-                      <button
-                        className="btn-primary export-format"
-                        disabled={!allEditDone || !editResultsReady || verifying}
-                        title={allEditDone ? undefined : t("full_manuscript_wait")}
-                        onClick={() =>
-                          verifyThenExport(
+                  <button
+                    className="btn-primary btn-small export-row__go"
+                    disabled={!allEditDone || !editResultsReady || verifying}
+                    title={allEditDone ? undefined : t("full_manuscript_wait")}
+                    onClick={() =>
+                      exportFormat === "epub"
+                        ? verifyThenExport(
                             editTaskIds,
                             (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                            (md) => downloadFile(md, `${src}.full.md`),
+                            (md) => handleAutoFormatEbook(md, src),
                           )
-                        }
-                      >
-                        {t("download_full_md")}
-                      </button>
-                    )}
-                    <button
-                      className="btn-primary export-format"
-                      disabled={!allEditDone || !editResultsReady || verifying}
-                      title={allEditDone ? undefined : t("full_manuscript_wait")}
-                      onClick={() =>
-                        verifyThenExport(
-                          editTaskIds,
-                          (acc, fixed) => ({
-                            md: buildFullManuscript(entries, acc, fixed),
-                            pairs: buildChapterPairs(entries, acc, fixed),
-                          }),
-                          ({ md, pairs }) =>
-                            handleDownloadDocxSurgical(pairs, md, `${src}.full.docx`),
-                        )
-                      }
-                    >
-                      {t("download_full_docx")}
-                    </button>
-                    <button
-                      className="btn-primary export-format"
-                      disabled={
-                        !allEditDone || !editResultsReady || formattingEbook || verifying
-                      }
-                      title={
-                        allEditDone ? t("auto_format_ebook_tip") : t("full_manuscript_wait")
-                      }
-                      onClick={() =>
-                        verifyThenExport(
-                          editTaskIds,
-                          (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                          (md) => handleAutoFormatEbook(md, src),
-                        )
-                      }
-                    >
-                      {formattingEbook ? t("formatting_ebook") : t("auto_format_ebook")}
-                    </button>
-                  </div>
+                        : verifyThenExport(
+                            editTaskIds,
+                            (acc, fixed) => ({
+                              md: buildFullManuscript(entries, acc, fixed),
+                              pairs: buildChapterPairs(entries, acc, fixed),
+                            }),
+                            ({ md, pairs }) =>
+                              handleDownloadDocxSurgical(pairs, md, `${src}.full.docx`),
+                          )
+                    }
+                  >
+                    {formattingEbook
+                      ? t("formatting_ebook")
+                      : exportFormat === "epub"
+                        ? t("auto_format_ebook")
+                        : t("download_full_docx")}
+                  </button>
 
-                  <div className="export-block__option" title={t("minor_break_hint")}>
-                    <span className="option-toggle-label">
-                      {t("export_minor_break")}
-                    </span>
-                    <div className="option-toggle-group">
-                      <button
-                        type="button"
-                        className={`toggle-btn${minorBreakStyle === "blank" ? " active" : ""}`}
-                        onClick={() => setMinorBreakStyle("blank")}
-                      >
-                        {t("minor_break_blank")}
-                      </button>
-                      <button
-                        type="button"
-                        className={`toggle-btn${minorBreakStyle === "hash" ? " active" : ""}`}
-                        onClick={() => setMinorBreakStyle("hash")}
-                      >
-                        {t("minor_break_hash")}
-                      </button>
-                    </div>
+                  <div className="export-row__cog">
+                    <button
+                      type="button"
+                      className="export-cog"
+                      aria-haspopup="menu"
+                      aria-expanded={exportOptionsOpen}
+                      title={t("export_options", "Export options")}
+                      aria-label={t("export_options", "Export options")}
+                      onClick={() => setExportOptionsOpen((o) => !o)}
+                    >
+                      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+                        <path
+                          fill="currentColor"
+                          d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm0 5.7a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2Z"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M12 3.4A8.6 8.6 0 1 0 20.6 12 8.6 8.6 0 0 0 12 3.4Zm0 15.5A6.9 6.9 0 1 1 18.9 12 6.9 6.9 0 0 1 12 18.9Z"
+                        />
+                      </svg>
+                    </button>
+
+                    {exportOptionsOpen && (
+                      <div className="export-options" role="menu">
+                        <div className="export-options__group">
+                          <span className="export-options__label">
+                            {t("export_format", "Format")}
+                          </span>
+                          <div className="option-toggle-group">
+                            <button
+                              type="button"
+                              className={`toggle-btn${exportFormat === "docx" ? " active" : ""}`}
+                              onClick={() => setExportFormat("docx")}
+                            >
+                              {t("download_full_docx")}
+                            </button>
+                            <button
+                              type="button"
+                              className={`toggle-btn${exportFormat === "epub" ? " active" : ""}`}
+                              onClick={() => setExportFormat("epub")}
+                            >
+                              {t("auto_format_ebook")}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="export-options__group" title={t("minor_break_hint")}>
+                          <span className="export-options__label">
+                            {t("export_minor_break")}
+                          </span>
+                          <div className="option-toggle-group">
+                            <button
+                              type="button"
+                              className={`toggle-btn${minorBreakStyle === "blank" ? " active" : ""}`}
+                              onClick={() => setMinorBreakStyle("blank")}
+                            >
+                              {t("minor_break_blank")}
+                            </button>
+                            <button
+                              type="button"
+                              className={`toggle-btn${minorBreakStyle === "hash" ? " active" : ""}`}
+                              onClick={() => setMinorBreakStyle("hash")}
+                            >
+                              {t("minor_break_hash")}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
+              </div>{/* ── end .review-group-body (bright card) ── */}
 
                 </>
               )}
