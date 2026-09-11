@@ -247,6 +247,20 @@ export interface Correction {
   reviewReason?: string;
   flagged?: boolean;
   /**
+   * The PRECISION PASS's own 1-5 score, kept separately from `confidence`.
+   *
+   * The pass has always produced a real score — same parser, same 1-5 scale as
+   * the main reviewer — and then thrown it away after comparing it to two
+   * thresholds, which made a second opinion look like a yes/no when it was
+   * never that. Keeping it is what makes the two cuts tunable against a
+   * benchmark instead of guessed, and lets the review screen say how strongly
+   * the pass objected rather than only that it did.
+   *
+   * Absent where the pass does not run: line_edit tasks, and per-item on
+   * preApproved and LINE-kind corrections.
+   */
+  precisionConfidence?: number;
+  /**
    * Combined (copy + line) edits: "copy" = objective fix, "line" = prose
    * improvement. Set by the LLM's "kind" label; absent on single-mode tasks and
    * treated as "copy" when unlabeled.

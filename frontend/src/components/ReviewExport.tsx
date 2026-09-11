@@ -280,7 +280,11 @@ function FlagBadge({ correction }: { correction: Correction }) {
       ? "⚠ uncertain"
       : kind === "unchecked"
         ? "not checked"
-        : "second opinion differed";
+        : `second opinion differed${
+            correction.precisionConfidence != null
+              ? ` (${correction.precisionConfidence}/5)`
+              : ""
+          }`;
   return (
     <span
       className={`correction-flag-badge correction-flag-badge--${kind}`}
@@ -1659,8 +1663,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     sessionStartedAt,
     acceptedCorrections,
     seedAcceptances,
-    showFlagged,
-    toggleShowFlagged,
     toggleCorrection,
     acceptAll,
     dismissAll,
@@ -3775,23 +3777,21 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     ) : (
                       <>
                         {(() => {
-                          // Only the doubted bucket. The other two flagged
-                          // kinds are as reliable as unflagged work, so they
-                          // are never what the author wants to hide.
-                          const flaggedCount = corrections.filter(
-                            (c) => flagKindOf(c) === "doubted",
-                          ).length;
-                          const showAll = showFlagged[tid] !== false;
-                          // Dialect (British↔American) conversions are
-                          // summarized in a single job-level banner instead
-                          // of bloating every chapter's list — see the
-                          // "Accept-all toggle" section below.
-                          const visible = (showAll
-                            ? corrections
-                            : corrections.filter(
-                                (c) => flagKindOf(c) !== "doubted",
-                              )
-                          ).filter((c) => c.reason !== "dialect");
+                          // Every correction is listed. The point of a human
+                          // in the loop is that nothing decides on the
+                          // author's behalf what they are not allowed to see;
+                          // the uncertain ones arrive unticked and marked,
+                          // which is the whole of the intervention. A control
+                          // that hid them made the one bucket worth reading
+                          // carefully the one bucket that could vanish.
+                          //
+                          // Dialect (British↔American) conversions are the
+                          // exception, and not a hidden one: they are
+                          // summarized in the job-level banner below rather
+                          // than repeated down every chapter.
+                          const visible = corrections.filter(
+                            (c) => c.reason !== "dialect",
+                          );
                           let acceptedCount = 0;
                           for (const c of visible) {
                             if (!c.id) continue;
@@ -3837,10 +3837,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               />
                             );
                           };
-                          // Combined runs get one collapsible dropdown per edit
-                          // type; each shows its scored count and hides flagged
-                          // suggestions unless "show all" is on (same as the flat
-                          // list). Empty groups are omitted.
+                          // Combined runs get one collapsible dropdown per
+                          // edit type, each counting what it lists. Empty
+                          // groups are omitted.
                           const renderGroup = (
                             kind: "copy" | "line",
                             label: string,
@@ -3848,11 +3847,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             const groupAll = corrections.filter(
                               (c) => editTypeOf(c) === kind,
                             );
-                            const groupVisible = showAll
-                              ? groupAll
-                              : groupAll.filter(
-                                  (c) => flagKindOf(c) !== "doubted",
-                                );
+                            const groupVisible = groupAll;
                             if (groupVisible.length === 0) return null;
                             // What the group actually lists — not a
                             // separate figure that disagrees with it.
@@ -3869,34 +3864,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           return (
                             <>
                               <div className="review-actions">
-                                {flaggedCount > 0 && (
-                                  <button
-                                    className="show-flagged-toggle"
-                                    onClick={() => toggleShowFlagged(tid)}
-                                    title={t("flagged_tooltip")}
-                                  >
-                                    {showAll
-                                      ? `${t("hide_flagged")} (${flaggedCount})`
-                                      : `⚠ ${t("show_all_suggestions")} (${flaggedCount})`}
-                                  </button>
-                                )}
                                 <span className="small-note">
                                   {isScanJob
                                     ? visible.length
                                     : `${acceptedCount} ${t("of")} ${visible.length}`}{" "}
                                   {t("proposed_changes")}
-                                  {flaggedCount > 0 && !showAll && (
-                                    <span
-                                      className="info-tooltip"
-                                      data-tip={t("flagged_tooltip")}
-                                      style={{
-                                        color: "#8b7355",
-                                        marginLeft: "0.3rem",
-                                      }}
-                                    >
-                                      (+{flaggedCount} {t("flagged_label")}) ⓘ
-                                    </span>
-                                  )}
                                 </span>
                               </div>
 

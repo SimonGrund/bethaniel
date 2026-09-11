@@ -205,6 +205,12 @@ export function applyPrecisionPass(
       if (score && score.confidence < minConfidence) minConfidence = score.confidence;
     }
 
+    // Keep the pass's own verdict on the correction. It used to be compared to
+    // the two thresholds and dropped, so a correction could reach the author
+    // flagged at confidence 5 with nothing on it to say which pass objected or
+    // how hard — and no way to retune either cut against a benchmark.
+    if (Number.isFinite(minConfidence)) c.precisionConfidence = minConfidence;
+
     if (Number.isFinite(minConfidence) && minConfidence < threshold) {
       // A deterministic checker's finding is never deleted on a model's say-so.
       // Hunspell reporting a word as absent from the dictionary, or

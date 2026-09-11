@@ -1451,10 +1451,9 @@ async function processJob(job: JobData): Promise<void> {
         const reviewOutputs = await pr.promise;
         const threshold = job.reviewerThreshold ?? 3;
 
-        // Merge scores from all reviewer agents:
-        // each correction gets the MINIMUM confidence across reviewers.
-        // If ANY reviewer flags it, it gets flagged. Corrections no reviewer
-        // scored are flagged as unvetted rather than passed through.
+        // Corrections the reviewer did not score are flagged as unvetted
+        // rather than passed through. (aggregateReviewScores still takes a
+        // list of score maps and mins across them; there is one.)
         const allScores = reviewOutputs;
         const { flaggedCount, unscoredCount } = aggregateReviewScores(
           pr.cs,
@@ -1476,8 +1475,8 @@ async function processJob(job: JobData): Promise<void> {
           source: "engine",
           taskId,
           message: flaggedCount > 0
-            ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}, ${reviewOutputs.length} agents).`
-            : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel} (${reviewOutputs.length} agents).`,
+            ? `Reviewer flagged ${flaggedCount}/${pr.cs.length} corrections in chunk ${pr.chunkLabel} (confidence < ${threshold}).`
+            : `Reviewer passed all ${pr.cs.length} corrections in chunk ${pr.chunkLabel}.`,
           model,
         });
 
@@ -2240,49 +2239,28 @@ async function processJob(job: JobData): Promise<void> {
               mode,
               job.manuscriptLang,
             );
-            // One reviewer. N of them ran the same prompt with the same seed at
-            // temperature 0, so they could only ever return identical scores; the
-            // min-confidence aggregation below was averaging a value with itself.
-            const rCount = 1;
-
+            // One reviewer, and no machinery for more. Running N of them was
+            // an option once: they shared a prompt, a seed and temperature 0,
+            // so they could only ever return identical scores and the
+            // min-confidence merge below was comparing a value with itself.
+            // The fan-out, the survivor accounting and the "N agents" logging
+            // all described work that was never done.
             const reviewPromise = (async () => {
-              const runOne = () =>
-                runReviewerAgentWithRetry({
-                  model,
-                  chunkText: chunk.body,
-                  cs,
-                  reviewerPrompt,
-                  signal: ac.signal,
-                  taskId,
-                  chunkLabel,
-                  agentLabel: "Reviewer agent",
-                });
-              const results = await Promise.allSettled(
-                Array.from({ length: rCount }, () => runOne()),
-              );
-              const outputs: Map<number, ReviewScore>[] = [];
-              for (const r of results) {
-                if (r.status === "fulfilled" && r.value.size > 0) {
-                  outputs.push(r.value);
-                }
-              }
-              if (outputs.length === 0)
+              const scores = await runReviewerAgentWithRetry({
+                model,
+                chunkText: chunk.body,
+                cs,
+                reviewerPrompt,
+                signal: ac.signal,
+                taskId,
+                chunkLabel,
+                agentLabel: "Reviewer agent",
+              });
+              if (scores.size === 0)
                 throw new Error(
-                  `All ${rCount} reviewer agents failed after ${REVIEWER_MAX_ATTEMPTS} attempts each`,
+                  `Reviewer failed after ${REVIEWER_MAX_ATTEMPTS} attempts`,
                 );
-              if (outputs.length < rCount) {
-                // Survivors still vet every correction (min-confidence merge), so
-                // this is a warning, not a task error — unscored corrections are
-                // flagged by aggregateReviewScores either way.
-                appendLog({
-                  level: "warn",
-                  source: "engine",
-                  taskId,
-                  message: `Only ${outputs.length}/${rCount} reviewer agents contributed for chunk ${chunkLabel}; scoring on survivors.`,
-                  model,
-                });
-              }
-              return outputs;
+              return [scores];
             })();
 
             pendingReview = {

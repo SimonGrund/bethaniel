@@ -205,8 +205,6 @@ interface AppState {
 
   // Review
   acceptedCorrections: Record<string, Set<string>>;
-  showFlagged: Record<string, boolean>;
-  toggleShowFlagged: (taskId: string) => void;
   seedAcceptances: (taskId: string) => void;
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
@@ -567,20 +565,6 @@ export const useStore = create<AppState>()(
       setDownloadError: (downloadError) => set({ downloadError }),
 
       acceptedCorrections: {},
-      // Absent means SHOWN. Flagged suggestions are the ones a second
-      // reviewer doubted, and the measured truth is that most of them are
-      // right — on the stress fixtures the flagged bucket carries 248 real
-      // catches against 172 false ones. Hiding a majority-correct bucket by
-      // default is a soft deletion, and it made the review screen disagree
-      // with every recall figure Bethaniel publishes, which counts them.
-      showFlagged: {},
-      toggleShowFlagged: (taskId) =>
-        set((state) => ({
-          showFlagged: {
-            ...state.showFlagged,
-            [taskId]: state.showFlagged[taskId] === false,
-          },
-        })),
       // Tick everything Betty is confident about, once, when the result
       // first lands. Reviewing is then reading down a list and UNticking what
       // you disagree with, rather than re-entering every verdict the pipeline
