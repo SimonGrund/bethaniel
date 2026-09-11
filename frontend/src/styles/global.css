@@ -7585,11 +7585,37 @@ summary.review-source::before {
   color: #c9b896;
 }
 
-/* ── The results bar, while there are no results yet ──
-   The job card doubles as the live run panel now that the pills fill in as
-   Betty works. Titling it "Results for …" over a bar of grey pending pills
-   claims something that has not happened; the bar comes back, with its run
-   details and its delete button, the moment the last chapter settles. */
-.review-source-running {
+/* ── No results bar on the current run ──
+   Titling a bar of grey pending pills "Results for …" claims something that
+   has not happened yet, and once the run ends the title is only naming the
+   manuscript the author just handed over. Its open/close triangle controlled
+   a panel that was always open. Former Runs keeps the bar: there it is how
+   you tell several runs apart and pick between them. */
+.review-source-hidden {
   display: none;
+}
+
+/* ── The current run is not a card ──
+   With the bar gone there is nothing left for the panel to be a panel around:
+   a row of pills on a white card reads as an empty container waiting for
+   content that never arrives, and the chapter the author opens brings its own
+   card anyway. Drop it and let the pills sit on the dashboard, top-left.
+   Former Runs keeps its cards — there they separate one run from the next. */
+.review-group-flat > .review-group-body {
+  background: none;
+  border: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.review-group-flat .chapter-pillbar {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Quiet until asked for: the bar is chapters, and this is not one. */
+.chapter-pill-info {
+  margin-left: 0.15rem;
+  align-self: center;
 }

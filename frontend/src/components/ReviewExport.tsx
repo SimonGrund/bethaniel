@@ -27,7 +27,6 @@ import {
   verifyAcceptedCorrections,
   type VerifyOutcome,
 } from "../exportVerify";
-import CurrentRunHeader from "./CurrentRunHeader";
 import BettyAtWork from "./BettyAtWork";
 import { useResultHydration } from "../useResultHydration";
 
@@ -2269,24 +2268,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         </div>
       )}
 
-      {!isOldResults && newestJobId && (
+      {/* While Betty works, her panel — and when the run ends, nothing at all.
+          The rail's footer already says the run finished and how much it
+          covered; a banner repeating that across the top of the results would
+          be a second copy of it standing in the space the author needs to
+          read them. */}
+      {!isOldResults &&
+        newestJobId &&
         headerByJob[newestJobId].some(
           (task) => task.status === "queued" || task.status === "editing",
-        ) ? (
+        ) && (
           <BettyAtWork
             jobId={newestJobId}
             jobTasks={headerByJob[newestJobId]}
             lang={lang}
           />
-        ) : (
-          <CurrentRunHeader
-            jobId={newestJobId}
-            jobTasks={headerByJob[newestJobId]}
-            modelNames={modelNames}
-            lang={lang}
-          />
-        )
-      )}
+        )}
       {!isOldResults && newestJobId && hydrating.has(newestJobId) && (
         <div className="results-hydrating-row">
           <span className="step-card-spinner" />
@@ -2319,14 +2316,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const runningCount = entries.filter(
             ([, t]) => t.status === "editing",
           ).length;
-          // Anything still to come. While this holds, the panel is a run in
-          // progress rather than a set of results, and says so by dropping the
-          // "Results for …" bar: the pills below are the progress display, and
-          // titling them as results while chapters are still queued is a
-          // promise the panel cannot keep yet.
-          const jobActive = entries.some(
-            ([, t]) => t.status === "queued" || t.status === "editing",
-          );
           // A task is "partial" if it has results but with chunk-level errors
           // (the model failed to process some chunks even after retries).
           // We count any errored task with chapter-name (i.e. excluding the
@@ -2411,12 +2400,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const settledPills = chapterPills.filter(
             (p) => p.status === "done" || p.status === "error" || p.status === "cancelled",
           );
+          // Nothing opens on its own, during the run or after it. The pills
+          // are the review surface; a chapter unfolds when the author asks for
+          // that chapter, and until then the screen is the bar and nothing
+          // else. Picking one for them only guesses at where they want to
+          // start and puts a wall of corrections under the bar to be scrolled
+          // past on the way to the chapter they actually wanted.
           const activeChapterId =
             activeChapter && settledPills.some((p) => p.tid === activeChapter)
               ? activeChapter
-              : (settledPills.find((p) => p.count > 0)?.tid ??
-                settledPills[0]?.tid ??
-                null);
+              : null;
           const allEditDone = editTasks.every(
             ([, task]) => task.status === "done",
           );
@@ -2467,7 +2460,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const jobNode = (
             <details
               key={jid}
-              className="review-group"
+              className={`review-group${isOldResults ? "" : " review-group-flat"}`}
               open={isOldResults ? openJobs.has(jid) : true}
               onToggle={(e) => {
                 if (!isOldResults) return;
@@ -2482,7 +2475,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               }}
             >
               <summary
-                className={`review-source${jobActive ? " review-source-running" : ""}`}
+                className={`review-source${isOldResults ? "" : " review-source-hidden"}`}
               >
                 {t("results_for")} {src}
                 {failedChapters.length > 0 && (
@@ -3489,8 +3482,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   outstanding count, and the column below shows one chapter's
                   corrections, flat and already open. Nothing is nested and
                   nothing has to be hunted for. */}
-              {chapterPills.length > 0 && (
-                <div className="chapter-pillbar" role="tablist" aria-label={t("sec_chapters")}>
+              {(chapterPills.length > 0 || !isOldResults) && (
+                <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
                   {chapterPills.map((pill) => {
                     // Grey waiting, amber working, green finished, wine failed.
                     // One row of pills is the whole progress display during a
@@ -3509,8 +3502,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       <button
                         key={pill.tid}
                         type="button"
-                        role="tab"
-                        aria-selected={pill.tid === activeChapterId}
+                        aria-pressed={pill.tid === activeChapterId}
                         disabled={!settled}
                         className={`chapter-pill chapter-pill-${state}${
                           settled && pill.tid === activeChapterId
@@ -3538,6 +3530,29 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       </button>
                     );
                   })}
+                  {/* Run details ride along at the end of the bar. They used
+                      to hang off the "Results for …" header, which this screen
+                      no longer has — and the bar is the one thing always on
+                      screen for a run, so it is where they belong. */}
+                  {!isOldResults && (
+                    <button
+                      type="button"
+                      className="review-info-btn chapter-pill-info"
+                      aria-expanded={infoJobs.has(jid)}
+                      title={t("run_details", "Run details")}
+                      aria-label={t("run_details", "Run details")}
+                      onClick={() =>
+                        setInfoJobs((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(jid)) next.delete(jid);
+                          else next.add(jid);
+                          return next;
+                        })
+                      }
+                    >
+                      ⓘ
+                    </button>
+                  )}
                 </div>
               )}
               {/* On a scan job the chapter-by-chapter minor fixes stay folded
@@ -3557,9 +3572,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               {entries.map(([tid, task]) => {
                 // One chapter at a time. The pill bar above is the navigation;
                 // rendering the rest would put the column back.
+                // A chapter renders only when its own pill is the selected
+                // one. `activeChapterId` is drawn from settled pills alone, so
+                // while a run is in flight this renders nothing for chapters
+                // still queued or being worked on: the pill above already
+                // carries that state, and the stack of "EDITING" placeholder
+                // bars this used to leave under the bar was the same fact a
+                // second time, in the space the pills had just cleared.
                 if (
-                  chapterPills.length > 1 &&
-                  activeChapterId !== null &&
                   chapterPills.some((pill) => pill.tid === tid) &&
                   tid !== activeChapterId
                 ) {
@@ -3590,7 +3610,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     <details
                       key={tid}
                       className={`review-task rt-${task.status}`}
-                      open={chapterPills.length > 1 && tid === activeChapterId}
+                      open={tid === activeChapterId}
                     >
                       <summary className="review-task-summary">
                         <span className={`task-status-pill qs-${task.status}`}>
@@ -3697,7 +3717,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   <details
                       key={tid}
                       className={`review-task rt-${task.status}`}
-                      open={chapterPills.length > 1 && tid === activeChapterId}
+                      open={tid === activeChapterId}
                     >
                     <summary className="review-task-summary">
                       {task.status === "error" && (
