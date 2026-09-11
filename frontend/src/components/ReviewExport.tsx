@@ -19,7 +19,7 @@ import {
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
-import { ANALYSIS_MODES, EDIT_MODES } from "../types";
+import { ANALYSIS_MODES, EDIT_MODES, flagKindOf } from "../types";
 import {
   applyAccepted,
   findAllOccurrences,
@@ -264,15 +264,32 @@ function ConfidenceBadge({ correction }: { correction: Correction }) {
 }
 
 /** Flag badge — shows the reviewer's reason inline (ellipsized), full text
- *  on hover. Rendered prominently so flagged suggestions can't be missed. */
+ *  on hover.
+ *
+ *  Three kinds, not one. A single "⚠ flagged" covered corrections that are
+ *  right 15% of the time and corrections that are right 80% of the time, so
+ *  the warning was worth nothing on either: too loud for the reliable ones and
+ *  invisible among them for the rest. Only `doubted` keeps the warning;
+ *  `unchecked` says what it actually means — nobody looked — and the precision
+ *  pass's lone objection is a quiet footnote. */
 function FlagBadge({ correction }: { correction: Correction }) {
-  if (!correction.flagged) return null;
+  const kind = flagKindOf(correction);
+  if (!kind) return null;
+  const label =
+    kind === "doubted"
+      ? "⚠ uncertain"
+      : kind === "unchecked"
+        ? "not checked"
+        : "second opinion differed";
   return (
     <span
-      className="correction-flag-badge"
+      className={`correction-flag-badge correction-flag-badge--${kind}`}
       data-tip={correction.reviewReason || undefined}
     >
-      ⚠ flagged{correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
+      {label}
+      {kind === "doubted" && correction.reviewReason
+        ? ` — ${correction.reviewReason}`
+        : ""}
     </span>
   );
 }
@@ -303,7 +320,7 @@ function CorrectionCard({
   if (!correction.id) {
     return (
       <div
-        className={`correction-card ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+        className={`correction-card ${flagKindOf(correction) ? `flagged flagged-${flagKindOf(correction)}` : ""} ${readOnly ? "correction-card-readonly" : ""}`}
       >
         {!readOnly && <div className="correction-check">☐</div>}
         {correction.chunk && (
@@ -334,7 +351,7 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+        className={`correction-card ${accepted ? "accepted" : ""} ${flagKindOf(correction) ? `flagged flagged-${flagKindOf(correction)}` : ""} ${readOnly ? "correction-card-readonly" : ""}`}
         onClick={readOnly ? undefined : () => onToggleOccurrence(0)}
       >
         {!readOnly && (
@@ -371,7 +388,7 @@ function CorrectionCard({
     const accepted = correction.id ? acceptedIds.has(correction.id) : false;
     return (
       <div
-        className={`correction-card ${accepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+        className={`correction-card ${accepted ? "accepted" : ""} ${flagKindOf(correction) ? `flagged flagged-${flagKindOf(correction)}` : ""} ${readOnly ? "correction-card-readonly" : ""}`}
         onClick={readOnly ? undefined : () => onToggleOccurrence(0)}
       >
         {!readOnly && (
@@ -407,7 +424,7 @@ function CorrectionCard({
 
   return (
     <div
-      className={`correction-card ${allAccepted ? "accepted" : ""} ${correction.flagged ? "flagged" : ""} ${readOnly ? "correction-card-readonly" : ""}`}
+      className={`correction-card ${allAccepted ? "accepted" : ""} ${flagKindOf(correction) ? `flagged flagged-${flagKindOf(correction)}` : ""} ${readOnly ? "correction-card-readonly" : ""}`}
     >
       {/* Header row: master toggle + count badge */}
       <div
@@ -1641,6 +1658,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     tasks: allTasks,
     sessionStartedAt,
     acceptedCorrections,
+    seedAcceptances,
     showFlagged,
     toggleShowFlagged,
     toggleCorrection,
@@ -2043,6 +2061,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     [isOldResults, openJobs],
   );
   const hydrating = useResultHydration(tasks, eligibleJobIds);
+
+  // Tick the confident corrections as each result lands, so review starts from
+  // Betty's verdicts instead of an empty column the author has to re-enter by
+  // hand. seedAcceptances is one-shot per task and never re-ticks a dismissal.
+  useEffect(() => {
+    for (const [tid, task] of Object.entries(tasks)) {
+      if (task.result && !acceptedCorrections[tid]) seedAcceptances(tid);
+    }
+  }, [tasks, acceptedCorrections, seedAcceptances]);
 
   // Queued tasks are shown, not filtered away. They used to be filtered: a
   // chapter with no result had nothing to contribute to a list of results, so
@@ -3748,8 +3775,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     ) : (
                       <>
                         {(() => {
+                          // Only the doubted bucket. The other two flagged
+                          // kinds are as reliable as unflagged work, so they
+                          // are never what the author wants to hide.
                           const flaggedCount = corrections.filter(
-                            (c) => c.flagged,
+                            (c) => flagKindOf(c) === "doubted",
                           ).length;
                           const showAll = showFlagged[tid] !== false;
                           // Dialect (British↔American) conversions are
@@ -3758,7 +3788,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           // "Accept-all toggle" section below.
                           const visible = (showAll
                             ? corrections
-                            : corrections.filter((c) => !c.flagged)
+                            : corrections.filter(
+                                (c) => flagKindOf(c) !== "doubted",
+                              )
                           ).filter((c) => c.reason !== "dialect");
                           let acceptedCount = 0;
                           for (const c of visible) {
@@ -3818,7 +3850,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             );
                             const groupVisible = showAll
                               ? groupAll
-                              : groupAll.filter((c) => !c.flagged);
+                              : groupAll.filter(
+                                  (c) => flagKindOf(c) !== "doubted",
+                                );
                             if (groupVisible.length === 0) return null;
                             // What the group actually lists — not a
                             // separate figure that disagrees with it.

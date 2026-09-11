@@ -25,7 +25,11 @@ import type {
   LanguageToolDownload,
   EngineDeviceStatus,
 } from "./types";
-import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types";
+import {
+  DEFAULT_COPY_EDIT_OPTIONS,
+  DEFAULT_LINE_EDIT_OPTIONS,
+  isReliable,
+} from "./types";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
 export type WizardStep =
@@ -203,7 +207,7 @@ interface AppState {
   acceptedCorrections: Record<string, Set<string>>;
   showFlagged: Record<string, boolean>;
   toggleShowFlagged: (taskId: string) => void;
-  autoAcceptNonFlagged: (taskId: string) => void;
+  seedAcceptances: (taskId: string) => void;
   toggleCorrection: (taskId: string, correctionId: string) => void;
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
@@ -577,20 +581,29 @@ export const useStore = create<AppState>()(
             [taskId]: state.showFlagged[taskId] === false,
           },
         })),
-      autoAcceptNonFlagged: (taskId) =>
+      // Tick everything Betty is confident about, once, when the result
+      // first lands. Reviewing is then reading down a list and UNticking what
+      // you disagree with, rather than re-entering every verdict the pipeline
+      // already reached. The doubted bucket stays untouched: those are wrong
+      // more often than right, so they are the author's to opt into.
+      //
+      // One-shot on purpose — it must never re-tick something the author has
+      // since dismissed, so a task that has been seeded is left alone.
+      seedAcceptances: (taskId) =>
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
-          const nonFlaggedIds = new Set(
+          if (state.acceptedCorrections[taskId]) return state;
+          const ids = new Set(
             task.result.corrections
-              .filter((c) => !c.flagged)
+              .filter(isReliable)
               .map((c) => c.id ?? "")
               .filter(Boolean),
           );
           return {
             acceptedCorrections: {
               ...state.acceptedCorrections,
-              [taskId]: nonFlaggedIds,
+              [taskId]: ids,
             },
           };
         }),
@@ -615,12 +628,14 @@ export const useStore = create<AppState>()(
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
-          // Flagged corrections are the ones the pipeline refused to
-          // auto-apply — bulk accept must not sweep them in. They stay
-          // individually acceptable via "Show all suggestions".
+          // Skips only the doubted bucket — the corrections a reviewer
+          // actually scored low. The other two flagged kinds (never scored,
+          // and doubted by the precision pass alone) measure as reliable as
+          // unflagged work, so excluding them made "accept all" quietly drop
+          // most of what Betty got right.
           const ids = new Set(
             task.result.corrections
-              .filter((c) => !c.flagged)
+              .filter(isReliable)
               .map((c) => c.id ?? "")
               .filter(Boolean),
           );
@@ -644,10 +659,10 @@ export const useStore = create<AppState>()(
           for (const tid of taskIds) {
             const task = state.tasks[tid];
             if (!task?.result) continue;
-            // Same rule as acceptAll: bulk accept skips flagged corrections.
+            // Same rule as acceptAll: only the doubted bucket is skipped.
             const ids = new Set(
               task.result.corrections
-                .filter((c) => !c.flagged)
+                .filter(isReliable)
                 .map((c) => c.id ?? "")
                 .filter(Boolean),
             );

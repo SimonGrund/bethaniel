@@ -201,6 +201,42 @@ export interface DocumentMeta {
   md?: string; // only when fetched with full text
 }
 
+/** The confidence below which the main reviewer flags a fix. Mirrors
+ *  `job.reviewerThreshold`'s default in backend/src/queue.ts. */
+export const REVIEWER_FLAG_THRESHOLD = 3;
+
+/**
+ * WHY a correction is flagged. One amber badge used to cover all three, and
+ * measured on the stress fixtures they are not remotely the same thing:
+ *
+ *   doubted         a reviewer scored the fix 1-2   — right ~15-22% of the time
+ *   unchecked       no reviewer returned a score    — right ~81%
+ *   second_opinion  reviewer fine, precision pass not — right ~80%
+ *
+ * The last two are indistinguishable from unflagged work (~89%), so warning
+ * about them spends the badge on corrections that are almost always right and
+ * leaves the author no way to find the ones that are usually wrong.
+ */
+export type FlagKind = "doubted" | "unchecked" | "second_opinion";
+
+type Flaggable = { flagged?: boolean; confidence?: number };
+
+export function flagKindOf(c: Flaggable): FlagKind | null {
+  if (!c.flagged) return null;
+  // The unscored path in aggregateReviewScores flags without ever setting a
+  // confidence, which is what makes these two separable at all.
+  if (c.confidence == null) return "unchecked";
+  return c.confidence < REVIEWER_FLAG_THRESHOLD ? "doubted" : "second_opinion";
+}
+
+/**
+ * Whether Betty is confident enough to tick this on the author's behalf.
+ * Everything but the doubted bucket, which is wrong more often than right.
+ */
+export function isReliable(c: Flaggable): boolean {
+  return flagKindOf(c) !== "doubted";
+}
+
 export interface Correction {
   original: string;
   corrected: string;

@@ -7677,3 +7677,35 @@ summary.review-source::before {
     position: static;
   }
 }
+
+/* ── Three flag kinds, three weights ──
+   Measured on the stress fixtures, a doubted correction is right about 18% of
+   the time while an unchecked or second-opinion one is right about 80% — the
+   same as unflagged work. Giving all three the amber warning bar made the
+   warning meaningless: two-thirds of what wore it was fine, so the bar stopped
+   being a reason to look closer. Only `doubted` keeps it. */
+.correction-card.flagged-unchecked,
+.correction-card.flagged-second_opinion {
+  border-left: 3px solid #ded2b8;
+  background: #fdfaf0;
+}
+
+.correction-card.flagged-doubted {
+  border-left: 3px solid #c9a860;
+  background: #fdf9ee;
+}
+
+/* The reliable two get a footnote, not a warning: same ink as a caption, no
+   amber, no icon. They are saying how the verdict was reached, not that
+   anything is wrong. */
+.correction-flag-badge--unchecked,
+.correction-flag-badge--second_opinion {
+  background: none;
+  border: 1px solid #e2d8c3;
+  color: #9a8c76;
+  font-style: italic;
+}
+
+.correction-flag-badge--doubted {
+  font-style: normal;
+}
