@@ -182,11 +182,25 @@ export function applyPrecisionPass(
    * threshold, which flags nothing extra.
    */
   flagBelow: number = threshold,
-): { kept: Correction[]; removed: Correction[]; spared: number; doubted: number } {
+): {
+  kept: Correction[];
+  removed: Correction[];
+  spared: number;
+  doubted: number;
+  /**
+   * In scope for this pass but returned no score — a truncated or failed
+   * response, same failure the main reviewer reports as `unscoredCount`.
+   * Counted so a one-pass correction is not silently indistinguishable from a
+   * two-pass one: the main reviewer's misses are marked on the correction,
+   * this pass's were invisible.
+   */
+  unscored: number;
+} {
   const kept: Correction[] = [];
   const removed: Correction[] = [];
   let spared = 0;
   let doubted = 0;
+  let unscored = 0;
 
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
@@ -210,6 +224,7 @@ export function applyPrecisionPass(
     // flagged at confidence 5 with nothing on it to say which pass objected or
     // how hard — and no way to retune either cut against a benchmark.
     if (Number.isFinite(minConfidence)) c.precisionConfidence = minConfidence;
+    else unscored++;
 
     if (Number.isFinite(minConfidence) && minConfidence < threshold) {
       // A deterministic checker's finding is never deleted on a model's say-so.
@@ -242,5 +257,5 @@ export function applyPrecisionPass(
     }
   }
 
-  return { kept, removed, spared, doubted };
+  return { kept, removed, spared, doubted, unscored };
 }
