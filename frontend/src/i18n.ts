@@ -712,10 +712,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Los cambios omitidos fueron descartados por las comprobaciones de seguridad y nunca se aplican: duplicaban otra corrección aplicada, se fusionaron en una reescritura mayor superpuesta, tocaban formato markdown, habrían introducido una falta de ortografía o su texto original no se pudo encontrar. Cada entrada muestra su motivo. A diferencia de las sugerencias marcadas, las omitidas no se pueden aceptar.",
   },
   flagged_tooltip: {
-    en: "Flagged suggestions were NOT applied automatically — the reviewer scored them low-confidence or couldn't vet them. Hover a ⚠ flagged badge to see why. You can still accept the ones you agree with; \"Accept all\" leaves them untouched.",
-    da: "Markerede forslag blev IKKE anvendt automatisk — revieweren gav dem lav tillid eller kunne ikke vurdere dem. Hold musen over et ⚠-mærke for at se hvorfor. Du kan stadig acceptere dem, du er enig i; \"Accepter alle\" rører dem ikke.",
-    de: "Markierte Vorschläge wurden NICHT automatisch angewendet — der Reviewer bewertete sie mit geringer Zuversicht oder konnte sie nicht prüfen. Fahre über ein ⚠-Abzeichen, um den Grund zu sehen. Du kannst sie einzeln annehmen; \"Alle akzeptieren\" lässt sie unberührt.",
-    es: "Las sugerencias marcadas NO se aplicaron automáticamente: el revisor les dio baja confianza o no pudo evaluarlas. Pasa el cursor sobre una insignia ⚠ para ver el motivo. Aún puedes aceptar las que te convenzan; \"Aceptar todo\" no las toca.",
+    en: "Flagged suggestions were NOT ticked automatically — a second reviewer scored them low-confidence or couldn't vet them. They are shown because most of them turn out to be right. Hover a ⚠ badge to see why. Tick the ones you agree with; accepting every change in the run leaves them untouched.",
+    da: "Markerede forslag blev IKKE sat til automatisk — en anden reviewer gav dem lav tillid eller kunne ikke vurdere dem. De vises, fordi de fleste af dem viser sig at være rigtige. Hold musen over et ⚠-mærke for at se hvorfor. Sæt flueben ved dem, du er enig i; at acceptere alle ændringer i kørslen rører dem ikke.",
+    de: "Markierte Vorschläge wurden NICHT automatisch angehakt — ein zweiter Reviewer bewertete sie mit geringer Zuversicht oder konnte sie nicht prüfen. Sie werden gezeigt, weil die meisten davon richtig sind. Fahre über ein ⚠-Abzeichen, um den Grund zu sehen. Hake die an, denen du zustimmst; alle Änderungen des Laufs zu übernehmen lässt sie unberührt.",
+    es: "Las sugerencias marcadas NO se marcaron automáticamente: un segundo revisor les dio baja confianza o no pudo evaluarlas. Se muestran porque la mayoría resultan ser correctas. Pasa el cursor sobre una insignia ⚠ para ver el motivo. Marca las que te convenzan; aceptar todos los cambios de la ejecución no las toca.",
   },
   review_mode: {
     en: "Review mode (Editor + Reviewer)",

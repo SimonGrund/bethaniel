@@ -2287,7 +2287,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             (n, [, task]) =>
               n +
               (task.result
-                ? task.result.corrections.filter((c) => !c.flagged).length
+                ? task.result.corrections.length
                 : (task.resultMeta?.corrections ?? 0)),
             0,
           );
@@ -2363,7 +2363,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
             const count = cs
-              ? cs.filter((c) => !c.flagged && c.reason !== "dialect").length
+              ? cs.filter((c) => c.reason !== "dialect").length
               : (task.resultMeta?.corrections ?? 0);
             return {
               tid,
@@ -3672,14 +3672,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 // acceptance — flagged suggestions (below the reviewer
                 // threshold / unscored) are excluded, matching the default
                 // visible list.
-                const scoredCount = corrections.filter(
-                  (c) => !c.flagged,
-                ).length;
+                const scoredCount = corrections.length;
                 const copyScored = corrections.filter(
-                  (c) => !c.flagged && editTypeOf(c) === "copy",
+                  (c) => editTypeOf(c) === "copy",
                 ).length;
                 const lineScored = corrections.filter(
-                  (c) => !c.flagged && editTypeOf(c) === "line",
+                  (c) => editTypeOf(c) === "line",
                 ).length;
                 const isTranslation = task.mode === "translate";
                 const hasChanges = isTranslation
@@ -3753,7 +3751,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           const flaggedCount = corrections.filter(
                             (c) => c.flagged,
                           ).length;
-                          const showAll = showFlagged[tid] === true;
+                          const showAll = showFlagged[tid] !== false;
                           // Dialect (British↔American) conversions are
                           // summarized in a single job-level banner instead
                           // of bloating every chapter's list — see the
@@ -3822,9 +3820,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               ? groupAll
                               : groupAll.filter((c) => !c.flagged);
                             if (groupVisible.length === 0) return null;
-                            const groupScored = groupAll.filter(
-                              (c) => !c.flagged,
-                            ).length;
+                            // What the group actually lists — not a
+                            // separate figure that disagrees with it.
+                            const groupScored = groupVisible.length;
                             return (
                               <details className="correction-group" open>
                                 <summary className="correction-group-summary">
@@ -3844,7 +3842,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                     title={t("flagged_tooltip")}
                                   >
                                     {showAll
-                                      ? t("hide_flagged")
+                                      ? `${t("hide_flagged")} (${flaggedCount})`
                                       : `⚠ ${t("show_all_suggestions")} (${flaggedCount})`}
                                   </button>
                                 )}

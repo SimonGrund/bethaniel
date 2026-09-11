@@ -563,12 +563,18 @@ export const useStore = create<AppState>()(
       setDownloadError: (downloadError) => set({ downloadError }),
 
       acceptedCorrections: {},
+      // Absent means SHOWN. Flagged suggestions are the ones a second
+      // reviewer doubted, and the measured truth is that most of them are
+      // right — on the stress fixtures the flagged bucket carries 248 real
+      // catches against 172 false ones. Hiding a majority-correct bucket by
+      // default is a soft deletion, and it made the review screen disagree
+      // with every recall figure Bethaniel publishes, which counts them.
       showFlagged: {},
       toggleShowFlagged: (taskId) =>
         set((state) => ({
           showFlagged: {
             ...state.showFlagged,
-            [taskId]: !state.showFlagged[taskId],
+            [taskId]: state.showFlagged[taskId] === false,
           },
         })),
       autoAcceptNonFlagged: (taskId) =>
