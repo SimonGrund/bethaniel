@@ -92,3 +92,28 @@ export function resolveRunMode(
   }
   return null;
 }
+
+/**
+ * Whether a task runs the reviewer, given what the job's knobs resolved to.
+ *
+ * A publication scan's proofread pass overrides them and is always reviewed.
+ * The scan's whole output is a list of defects it asserts are worth fixing
+ * before publishing, and a correction only earns that assertion when a
+ * reviewer confirms it — everything else the panel counts rather than lists.
+ * With review off there are no confirmations at all, so the verdict collapses
+ * to structural findings plus a number, which is not the readiness answer the
+ * user asked for.
+ *
+ * Forcing the pass rather than refusing the job is the cheaper half of the
+ * same bargain the grammar rule makes in routes.ts: the reviewer needs no
+ * download, only tokens. It costs nothing in the cloud, whose speed preset
+ * already pins reviewMode on.
+ */
+export function reviewModeForTask(
+  mode: string,
+  jobModes: readonly string[],
+  resolved: boolean,
+): boolean {
+  if (mode === "proofread" && jobModes.includes("publication_scan")) return true;
+  return resolved;
+}

@@ -142,6 +142,7 @@ import {
 import {
   resolveRunMode,
   RUN_MODE_PRESETS,
+  reviewModeForTask,
   DEFAULT_RUN_KNOBS,
   type RunModeKnobs,
 } from "./runModePresets.js";
@@ -829,7 +830,13 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           // through one helper rather than six copies of the chain: a seventh
           // knob, or a change to the precedence, is then a single edit instead
           // of six that have to stay in lock-step.
-          reviewMode: resolveKnob("reviewMode", reviewMode),
+          // A scan's proofread pass is reviewed whatever the job asked for;
+          // the readiness verdict only lists what a reviewer confirmed.
+          reviewMode: reviewModeForTask(
+            currentMode,
+            effectiveModes,
+            resolveKnob("reviewMode", reviewMode),
+          ),
           reviewerThreshold: resolveKnob("reviewerThreshold", reviewerThreshold),
           spellCheck: resolveKnob("spellCheck", spellCheck),
           retextCheck: resolveKnob("retextCheck", retextCheck),
