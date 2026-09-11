@@ -3840,6 +3840,23 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           const visible = corrections.filter(
                             (c) => c.reason !== "dialect",
                           );
+                          // Nothing is discarded, but the doubted ones do not
+                          // share the column with the rest. A reviewer scored
+                          // them 1-2, and measured on the stress fixtures that
+                          // bucket is right about 16% of the time: reading it
+                          // inline means wading through five wrong suggestions
+                          // to reach a right one, and roughly half of every
+                          // wrong suggestion Betty makes lives here. Folded
+                          // away they cost nothing; deleted they would take
+                          // ~2% of the book's real errors with them, and an
+                          // error the author is never shown is the one kind a
+                          // human in the loop cannot catch.
+                          const mainVisible = visible.filter(
+                            (c) => flagKindOf(c) !== "doubted",
+                          );
+                          const lowVisible = visible.filter(
+                            (c) => flagKindOf(c) === "doubted",
+                          );
                           let acceptedCount = 0;
                           for (const c of visible) {
                             if (!c.id) continue;
@@ -3892,10 +3909,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             kind: "copy" | "line",
                             label: string,
                           ) => {
-                            const groupAll = corrections.filter(
+                            const groupVisible = mainVisible.filter(
                               (c) => editTypeOf(c) === kind,
                             );
-                            const groupVisible = groupAll;
                             if (groupVisible.length === 0) return null;
                             // What the group actually lists — not a
                             // separate figure that disagrees with it.
@@ -3929,7 +3945,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   {renderGroup("line", t("line_edits"))}
                                 </>
                               ) : (
-                                visible.map((c, i) => renderCard(c, i))
+                                mainVisible.map((c, i) => renderCard(c, i))
+                              )}
+
+                              {lowVisible.length > 0 && (
+                                <details className="low-confidence-group">
+                                  <summary className="low-confidence-summary">
+                                    {t("low_confidence_group")
+                                      .replace("{n}", String(lowVisible.length))}
+                                  </summary>
+                                  <p className="small-note low-confidence-note">
+                                    {t("low_confidence_note")}
+                                  </p>
+                                  {lowVisible.map((c, i) => renderCard(c, i))}
+                                </details>
                               )}
 
                               </div>

@@ -1023,6 +1023,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Der Reviewer hat diese Änderung angenommen, aber ein zweiter, engerer Durchgang widersprach — er fragt, ob das Original überhaupt korrigiert werden musste, nicht ob die Korrektur gut ist. Solche sind etwa so oft richtig wie nicht markierte Änderungen, daher ist sie angehakt.",
     es: "El revisor aprobó este cambio, pero una segunda pasada más estricta discrepó: pregunta si el original necesitaba corrección en absoluto, no si la corrección está bien hecha. Estos aciertan casi tanto como los cambios sin marcar, así que está marcado.",
   },
+  low_confidence_group: {
+    en: "Low-confidence suggestions ({n}) — rarely right",
+    da: "Forslag med lav tillid ({n}) — sjældent rigtige",
+    de: "Vorschläge mit geringer Zuversicht ({n}) — selten richtig",
+    es: "Sugerencias de baja confianza ({n}) — rara vez acertadas",
+  },
+  low_confidence_note: {
+    en: "A reviewer scored each of these 1 or 2 out of 5. Measured, about one in six turns out to be right — they are kept because the rest of Betty would otherwise never show you the error at all, not because they are worth reading first.",
+    da: "En reviewer gav hver af disse 1 eller 2 ud af 5. Målt viser omkring én ud af seks sig at være rigtig — de beholdes, fordi fejlen ellers aldrig ville blive vist, ikke fordi de er værd at læse først.",
+    de: "Ein Reviewer hat jede davon mit 1 oder 2 von 5 bewertet. Gemessen ist etwa eine von sechs richtig — sie bleiben erhalten, weil der Fehler sonst nie gezeigt würde, nicht weil sie es wert wären, zuerst gelesen zu werden.",
+    es: "Un revisor puntuó cada una con 1 o 2 sobre 5. Medido, alrededor de una de cada seis resulta acertada: se conservan porque si no el error nunca se mostraría, no porque merezcan leerse primero.",
+  },
   export_with_changes: {
     en: "Export the full manuscript with accepted changes:",
     da: "Eksportér hele manuskriptet med accepterede ændringer:",

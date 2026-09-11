@@ -7757,3 +7757,45 @@ summary.review-source::before {
   color: #9a8c76;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── The low-confidence fold ──
+   Not hidden — one click, with its count on the lid, sitting after the
+   corrections worth reading rather than among them. Deliberately plainer
+   than a correction card: this is a drawer, not a finding. */
+.low-confidence-group {
+  margin-top: 0.9rem;
+  border-top: 1px dashed #ddd3bf;
+  padding-top: 0.7rem;
+}
+
+.low-confidence-summary {
+  cursor: pointer;
+  color: #8a7f68;
+  font-size: 0.82rem;
+  list-style: none;
+  padding: 0.2rem 0;
+}
+
+.low-confidence-summary::-webkit-details-marker {
+  display: none;
+}
+
+.low-confidence-summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1rem;
+  color: #b3a88f;
+}
+
+.low-confidence-group[open] > .low-confidence-summary::before {
+  content: "▾";
+}
+
+.low-confidence-summary:hover {
+  color: #4a3f2f;
+}
+
+.low-confidence-note {
+  margin: 0.3rem 0 0.6rem 1rem;
+  max-width: 60ch;
+}
