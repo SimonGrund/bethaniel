@@ -7584,3 +7584,12 @@ summary.review-source::before {
 .cloud-expect-list li::marker {
   color: #c9b896;
 }
+
+/* ── The results bar, while there are no results yet ──
+   The job card doubles as the live run panel now that the pills fill in as
+   Betty works. Titling it "Results for …" over a bar of grey pending pills
+   claims something that has not happened; the bar comes back, with its run
+   details and its delete button, the moment the last chapter settles. */
+.review-source-running {
+  display: none;
+}

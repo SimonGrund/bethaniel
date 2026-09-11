@@ -2319,6 +2319,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const runningCount = entries.filter(
             ([, t]) => t.status === "editing",
           ).length;
+          // Anything still to come. While this holds, the panel is a run in
+          // progress rather than a set of results, and says so by dropping the
+          // "Results for …" bar: the pills below are the progress display, and
+          // titling them as results while chapters are still queued is a
+          // promise the panel cannot keep yet.
+          const jobActive = entries.some(
+            ([, t]) => t.status === "queued" || t.status === "editing",
+          );
           // A task is "partial" if it has results but with chunk-level errors
           // (the model failed to process some chunks even after retries).
           // We count any errored task with chapter-name (i.e. excluding the
@@ -2473,7 +2481,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 });
               }}
             >
-              <summary className="review-source">
+              <summary
+                className={`review-source${jobActive ? " review-source-running" : ""}`}
+              >
                 {t("results_for")} {src}
                 {failedChapters.length > 0 && (
                   <span className="meta-chip meta-chip-failed">
@@ -2830,7 +2840,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 if (!scanTask) return null;
 
                 if (scanTask.status !== "done") {
-                  const pct = Math.round((scanTask.progress ?? 0) * 100);
+                  // A scan still queued or running has nothing to report, and
+                  // Betty's own panel and the chapter pills already say the
+                  // run is moving. A "QUEUED — Publication scan" box stacked
+                  // on top of them is the clutter this screen was cleared of.
+                  // A scan that failed is different: it has to offer its
+                  // retry, so that case keeps its card.
+                  if (
+                    scanTask.status === "queued" ||
+                    scanTask.status === "editing"
+                  )
+                    return null;
                   return (
                     <details className="review-task" open>
                       <summary className="review-task-summary">
@@ -2842,22 +2862,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         {t("mode_publication_scan")}
                       </summary>
                       <div className="task-placeholder">
-                        {scanTask.status === "editing" && (
-                          <p className="small-note">
-                            {pct}%
-                            {scanTask.phase ? ` — ${scanTask.phase}` : ""}
-                          </p>
-                        )}
-                        {(scanTask.status === "error" ||
-                          scanTask.status === "cancelled") && (
-                          <button
-                            type="button"
-                            className="btn-retry"
-                            onClick={() => void handleRetry(scanTask.id)}
-                          >
-                            ↻ {t("retry")}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="btn-retry"
+                          onClick={() => void handleRetry(scanTask.id)}
+                        >
+                          ↻ {t("retry")}
+                        </button>
                       </div>
                     </details>
                   );
@@ -3471,16 +3482,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })()}
 
-              {/* On a scan job the chapter-by-chapter minor fixes stay folded
-                  behind the verdict's "Review all" link — unfolding them is a
-                  read-only look, never a fixing surface. */}
-              {(!isScanJob || showMinorDetail) && (
-              <>
-              {isScanJob && (
-                <p className="small-note readiness-readonly-note">
-                  {t("readiness_read_only")}
-                </p>
-              )}
               {/* ── Chapters as a pill bar ──
                   Every chapter used to be a collapsed accordion in one long
                   column, so reviewing meant opening a list to find a list.
@@ -3516,7 +3517,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             ? " chapter-pill-active"
                             : ""
                         }`}
-                        onClick={() => settled && setActiveChapter(pill.tid)}
+                        onClick={() => {
+                          if (!settled) return;
+                          setActiveChapter(pill.tid);
+                          // A scan keeps its chapter column folded behind the
+                          // verdict, so a pill has to open it on the way in —
+                          // otherwise clicking one does nothing visible.
+                          if (isScanJob)
+                            setMinorDetailJobs((prev) =>
+                              prev.has(jid) ? prev : new Set(prev).add(jid),
+                            );
+                        }}
                       >
                         <span className="chapter-pill-name">{pill.name}</span>
                         {state === "done" && (
@@ -3528,6 +3539,19 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     );
                   })}
                 </div>
+              )}
+              {/* On a scan job the chapter-by-chapter minor fixes stay folded
+                  behind the verdict's "Review all" link — unfolding them is a
+                  read-only look, never a fixing surface. The pills above sit
+                  outside that fold: they are the run's progress display, and
+                  while a scan is running there is no verdict yet to fold them
+                  behind — which left a scan showing no progress at all. */}
+              {(!isScanJob || showMinorDetail) && (
+              <>
+              {isScanJob && (
+                <p className="small-note readiness-readonly-note">
+                  {t("readiness_read_only")}
+                </p>
               )}
               <div className="chapters-scroll">
               {entries.map(([tid, task]) => {
