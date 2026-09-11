@@ -7723,3 +7723,30 @@ summary.review-source::before {
 .correction-flag-badge--doubted {
   font-style: normal;
 }
+
+/* ── The run's meter ──
+   Bar and number on one line. The figure is the share of the run's estimated
+   token cost, which is the only reckoning that moves while a single long
+   chapter is being worked on — a chapter count sits still for minutes and
+   then jumps, which reads as a stall. */
+.at-work__meter {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: min(380px, 100%);
+  margin: 0 auto;
+}
+
+.at-work__meter .at-work__bar {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.at-work__pct {
+  flex: 0 0 auto;
+  min-width: 2.6rem;
+  color: #8a7050;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

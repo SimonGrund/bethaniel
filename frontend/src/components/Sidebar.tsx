@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { cancelJob } from "../api";
+import { weightedProgress } from "../runProgress";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
 
 export default function Sidebar() {
@@ -44,17 +45,14 @@ export default function Sidebar() {
     status === "done" || status === "error" || status === "cancelled";
   const hasFinishedRun =
     !isWorking && sessionTasks.some((task) => isTerminal(task.status));
-  const runProgress = sessionTasks.length
-    ? sessionTasks.reduce(
-        (sum, task) =>
-          sum +
-          (isTerminal(task.status)
-            ? 1
-            : Math.min(Math.max(task.progress ?? 0, 0), 1)),
-        0,
-      ) / sessionTasks.length
-    : 0;
-  const doneCount = sessionTasks.filter((task) => isTerminal(task.status)).length;
+  // Weighted by words, like Betty's panel and the backend — this used to be a
+  // plain mean over tasks, which let the two bars on screen disagree.
+  const runProgress = weightedProgress(sessionTasks);
+  // Only chapters that actually landed. Counting a failed one as done put
+  // "13/13" over a bar the same reckoning held short of full.
+  const doneCount = sessionTasks.filter(
+    (task) => task.status === "done",
+  ).length;
   const wasStopped = sessionTasks.some((task) => task.status === "cancelled");
 
   // Starting a new job moves the session boundary, and moving it is what files

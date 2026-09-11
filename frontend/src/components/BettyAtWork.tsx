@@ -13,6 +13,7 @@
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
+import { progressPercent, weightedProgress } from "../runProgress";
 import type { Lang, TaskState } from "../types";
 
 const META_MODES = new Set(["analysis_summary", "blurb", "text_evaluator"]);
@@ -42,10 +43,12 @@ export default function BettyAtWork({
   const done = tasks.filter((task) => task.status === "done").length;
 
   // The backend's own figure while the job is live, so this and the engine log
-  // cannot disagree; the local count is the fallback for the moment before the
-  // first stats frame arrives.
+  // cannot disagree. The fallback covers the moment before the first stats
+  // frame arrives and computes the same thing the same way — it used to be a
+  // share of the chapter COUNT, which is how a one-chapter job managed to read
+  // 100% over "0 of 1 chapters done".
   const live = runStats?.jobProgress?.[jobId];
-  const pct = Math.round((live?.fraction ?? (tasks.length ? done / tasks.length : 0)) * 100);
+  const pct = progressPercent(live?.fraction ?? weightedProgress(tasks));
   const secondsLeft = runStats?.runtime?.estimatedSecondsRemaining ?? null;
 
   const source = jobTasks[0]?.source;
@@ -88,8 +91,20 @@ export default function BettyAtWork({
         )}
       </p>
 
-      <div className="at-work__bar" role="progressbar" aria-valuenow={pct}>
-        <div className="at-work__fill" style={{ width: `${pct}%` }} />
+      {/* The number is the run's share of its estimated TOKEN cost, not its
+          chapter count, so it climbs steadily through a long chapter instead
+          of standing still and then jumping. */}
+      <div className="at-work__meter">
+        <div
+          className="at-work__bar"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div className="at-work__fill" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="at-work__pct">{pct}%</span>
       </div>
     </section>
   );
