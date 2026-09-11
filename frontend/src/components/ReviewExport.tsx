@@ -19,7 +19,12 @@ import {
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction } from "../types";
-import { ANALYSIS_MODES, EDIT_MODES, flagKindOf } from "../types";
+import {
+  ANALYSIS_MODES,
+  EDIT_MODES,
+  flagKindOf,
+  isReliable,
+} from "../types";
 import {
   applyAccepted,
   findAllOccurrences,
@@ -995,8 +1000,8 @@ function correctionIssueText(correction: Correction, originalText: string): stri
  * costs a flat amount; confirmed mechanical corrections are scored by
  * DENSITY (per 1,000 words) rather than raw count, so a handful of typos in
  * a full novel doesn't score the same as a handful in a five-page chapter.
- * Only reviewer-CONFIRMED corrections count — an unconfirmed/flagged one is
- * hidden from the panel entirely, so it doesn't touch the score either. This
+ * Only corrections Betty stands behind count — a doubted one is not listed
+ * as a blocker, so it doesn't touch the score either. This
  * is a heuristic guide for "does this look clean", not a formal QA metric —
  * 95+ is the bar this panel treats as publication-ready.
  */
@@ -1056,14 +1061,15 @@ function QualityScoreRing({ score, t }: { score: number; t: (key: string) => str
  * duplicated tail from a botched edit, an unclosed quote, closing marks typed
  * as opening ones. Objective proofread corrections (spelling, duplicated
  * words/phrases, missing words, spacing, wrong punctuation) are just as much
- * publication blockers and are listed here too — but ONLY the ones BOTH the
- * editor agent(s) and the reviewer pass actually confirmed. Exactly like the
- * normal copy-edit review, a correction the reviewer flagged as low-
- * confidence or never scored is hidden rather than asserted as a must-fix —
- * deterministic checkers (spell-check especially) produce enough false
- * positives that showing every one as a "publication blocker" would bury the
- * real ones. Genuinely subjective suggestions are simply counted, same as
- * any correction the reviewer didn't confirm.
+ * publication blockers and are listed here too — but ONLY the ones Betty
+ * stands behind, which is the same bar the review screen uses to tick a
+ * correction on the author's behalf. A correction a reviewer actually scored
+ * low is counted rather than asserted as a must-fix: deterministic checkers
+ * (spell-check especially) produce enough false positives that listing every
+ * one as a "publication blocker" would bury the real ones. One a reviewer
+ * never scored, or that only the precision pass doubted, is listed — those
+ * measure as reliable as unflagged work, and demoting them was losing real
+ * blockers. Genuinely subjective suggestions are simply counted.
  */
 // Below this many punctuation-only suggestions, the nudge to run a full
 // copy edit isn't worth the extra line — a handful of comma calls doesn't
@@ -2875,22 +2881,26 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 }
 
                 // Corrections come from the proofread tasks that ran beside
-                // this scan. Only a mechanical correction BOTH the editor(s)
-                // and the reviewer confirmed (blocksPublication && !flagged)
-                // is listed as a publication blocker — exactly like normal
-                // copy-edit review, where a flagged/unscored correction is
-                // hidden rather than shown as if it had been vetted.
-                // Deterministic checkers (spell-check especially) produce
-                // enough false positives ("grey"→"trey") that surfacing every
-                // one would bury the real issues, so anything not confirmed —
-                // flagged mechanical or genuinely subjective — is simply
-                // counted, not listed.
+                // this scan. A mechanical correction is listed as a
+                // publication blocker when it is one Betty stands behind —
+                // the same bar the review screen uses to tick a correction on
+                // the author's behalf, so a blocker here and a ticked change
+                // there mean the same thing.
+                //
+                // That bar used to be `!flagged`, which demoted every doubted,
+                // unchecked and second-opinion correction alike. Measured, the
+                // last two are right about as often as unflagged work, so the
+                // verdict was quietly dropping real blockers — the one failure
+                // this panel cannot afford, since a missed blocker is a defect
+                // shipped. Only the doubted bucket is demoted now: at ~18%
+                // right, listing those as must-fix would bury the real ones,
+                // which is what the old rule was reaching for.
                 const proofreadTasks = entries
                   .map(([, task]) => task)
                   .filter((task) => task.mode === "proofread");
                 const blockingCorrections = proofreadTasks.flatMap((task) =>
                   (task.result?.corrections ?? [])
-                    .filter((c) => c.blocksPublication && !c.flagged)
+                    .filter((c) => c.blocksPublication && isReliable(c))
                     .map((c) =>
                       describeCorrection(
                         task.name,
@@ -2899,9 +2909,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       ),
                     ),
                 );
+                // The complement, exactly: everything not listed above is
+                // counted here, so the two always sum to the corrections the
+                // chapter actually produced.
                 const minorCorrectionCount = (task: TaskState) =>
                   (task.result?.corrections ?? []).filter(
-                    (c) => !c.blocksPublication || c.flagged,
+                    (c) => !c.blocksPublication || !isReliable(c),
                   ).length;
                 const minorTotal = proofreadTasks.reduce(
                   (n, task) => n + minorCorrectionCount(task),
