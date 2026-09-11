@@ -132,6 +132,18 @@ export interface Correction {
    */
   precisionConfidence?: number;
   /**
+   * No reviewer ran on this correction at all, because the run had review
+   * turned off — as opposed to a reviewer running and missing it, which is
+   * what an absent `confidence` means. The two look identical on the
+   * correction otherwise, and they are not the same claim: a miss inside a
+   * reviewed run inherits its cohort's quality, while this inherits nothing.
+   *
+   * Never set on preApproved corrections: the spell-checker and an editor
+   * agent independently produced the identical fix, which is a confirmation
+   * of its own and does not depend on the reviewer having run.
+   */
+  unreviewed?: boolean;
+  /**
    * Skip the skeptical reviewer for this correction: it is a high-confidence
    * deterministic fix (e.g. the Hunspell spell-checker and an LLM editor
    * independently produced the identical original→corrected pair). The

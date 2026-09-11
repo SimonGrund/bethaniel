@@ -283,9 +283,11 @@ function FlagBadge({ correction }: { correction: Correction }) {
   const label =
     kind === "doubted"
       ? "⚠ uncertain"
-      : kind === "unchecked"
-        ? "not checked"
-        : `second opinion differed${
+      : kind === "unreviewed"
+        ? "not reviewed"
+        : kind === "unchecked"
+          ? "not checked"
+          : `second opinion differed${
             correction.precisionConfidence != null
               ? ` (${correction.precisionConfidence}/5)`
               : ""

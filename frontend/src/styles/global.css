@@ -7684,6 +7684,20 @@ summary.review-source::before {
    same as unflagged work. Giving all three the amber warning bar made the
    warning meaningless: two-thirds of what wore it was fine, so the bar stopped
    being a reason to look closer. Only `doubted` keeps it. */
+/* Unreviewed work is not doubted, it is unexamined — the bar marks it as
+   unlike vetted work without claiming anything is wrong with it. */
+.correction-card.flagged-unreviewed {
+  border-left: 3px solid #c2b7a0;
+  background: #fdfaf0;
+}
+
+.correction-flag-badge--unreviewed {
+  background: none;
+  border: 1px dashed #cfc2a6;
+  color: #8b7f68;
+  font-style: italic;
+}
+
 .correction-card.flagged-unchecked,
 .correction-card.flagged-second_opinion {
   border-left: 3px solid #ded2b8;

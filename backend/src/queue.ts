@@ -2292,6 +2292,14 @@ async function processJob(job: JobData): Promise<void> {
             // vetted them, real-word→real-word swaps in a copy edit (e.g.
             // "form"→"from") are surfaced as flagged rather than auto-applied, so
             // a possible silent corruption is shown for manual confirmation.
+            // Nothing vetted these. Say so on each one, or they reach the
+            // author looking exactly like a correction two passes approved —
+            // and, since the review screen ticks what Betty stands behind,
+            // get ticked on the strength of a review that never happened.
+            for (const c of cs) {
+              if (!c.preApproved) c.unreviewed = true;
+            }
+
             const toApply: Correction[] = [];
             const flaggedSwaps: Correction[] = [];
             const flagSwaps = mode === "copy_edit" && !!isAcceptableWord;

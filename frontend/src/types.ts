@@ -212,16 +212,34 @@ export const REVIEWER_FLAG_THRESHOLD = 3;
  *   doubted         a reviewer scored the fix 1-2   — right ~15-22% of the time
  *   unchecked       no reviewer returned a score    — right ~81%
  *   second_opinion  reviewer fine, precision pass not — right ~80%
+ *   unreviewed      the run had review turned off   — nothing vetted it
  *
- * The last two are indistinguishable from unflagged work (~89%), so warning
+ * The middle two are indistinguishable from unflagged work (~89%), so warning
  * about them spends the badge on corrections that are almost always right and
  * leaves the author no way to find the ones that are usually wrong.
+ *
+ * `unreviewed` is the odd one: not a verdict but the absence of the machinery
+ * that produces verdicts. Raw editor output measures ~76% against ground
+ * truth, well under the ~86% the pre-accept rule is tuned for, and unlike an
+ * unscored correction inside a reviewed run it has no vetted cohort to
+ * inherit quality from. So it is shown, plainly, and left for the author.
  */
-export type FlagKind = "doubted" | "unchecked" | "second_opinion";
+export type FlagKind =
+  | "doubted"
+  | "unchecked"
+  | "second_opinion"
+  | "unreviewed";
 
-type Flaggable = { flagged?: boolean; confidence?: number };
+type Flaggable = {
+  flagged?: boolean;
+  confidence?: number;
+  unreviewed?: boolean;
+};
 
 export function flagKindOf(c: Flaggable): FlagKind | null {
+  // Checked before `flagged`: a run without a reviewer sets no flags at all,
+  // so this is the only thing distinguishing its output from vetted work.
+  if (c.unreviewed) return "unreviewed";
   if (!c.flagged) return null;
   // The unscored path in aggregateReviewScores flags without ever setting a
   // confidence, which is what makes these two separable at all.
@@ -231,10 +249,12 @@ export function flagKindOf(c: Flaggable): FlagKind | null {
 
 /**
  * Whether Betty is confident enough to tick this on the author's behalf.
- * Everything but the doubted bucket, which is wrong more often than right.
+ * Everything except the bucket a reviewer actually scored low, and the bucket
+ * no reviewer ever saw — Betty cannot stand behind a verdict it never reached.
  */
 export function isReliable(c: Flaggable): boolean {
-  return flagKindOf(c) !== "doubted";
+  const kind = flagKindOf(c);
+  return kind !== "doubted" && kind !== "unreviewed";
 }
 
 export interface Correction {
@@ -260,6 +280,18 @@ export interface Correction {
    * preApproved and LINE-kind corrections.
    */
   precisionConfidence?: number;
+  /**
+   * No reviewer ran on this correction at all, because the run had review
+   * turned off — as opposed to a reviewer running and missing it, which is
+   * what an absent `confidence` means. The two look identical on the
+   * correction otherwise, and they are not the same claim: a miss inside a
+   * reviewed run inherits its cohort's quality, while this inherits nothing.
+   *
+   * Never set on preApproved corrections: the spell-checker and an editor
+   * agent independently produced the identical fix, which is a confirmation
+   * of its own and does not depend on the reviewer having run.
+   */
+  unreviewed?: boolean;
   /**
    * Combined (copy + line) edits: "copy" = objective fix, "line" = prose
    * improvement. Set by the LLM's "kind" label; absent on single-mode tasks and
