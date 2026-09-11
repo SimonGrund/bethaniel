@@ -255,7 +255,11 @@ function ConfidenceBadge({ correction }: { correction: Correction }) {
   return (
     <span
       className="correction-confidence"
-      data-tip={correction.reviewReason || undefined}
+      data-tip={
+        correction.reviewReason
+          ? `Reviewer confidence ${correction.confidence}/5 — ${correction.reviewReason}`
+          : `Reviewer confidence ${correction.confidence}/5. A second model scored how sure it is this change is right.`
+      }
       title={
         correction.reviewReason
           ? `Reviewer confidence ${correction.confidence}/5 — ${correction.reviewReason}`
@@ -278,24 +282,53 @@ function ConfidenceBadge({ correction }: { correction: Correction }) {
  *  `unchecked` says what it actually means — nobody looked — and the precision
  *  pass's lone objection is a quiet footnote. */
 function FlagBadge({ correction }: { correction: Correction }) {
+  const lang = useStore((s) => s.lang);
+  const t = useTranslation(lang);
   const kind = flagKindOf(correction);
   if (!kind) return null;
+
   const label =
     kind === "doubted"
-      ? "⚠ uncertain"
+      ? t("flag_doubted", "⚠ uncertain")
       : kind === "unreviewed"
-        ? "not reviewed"
+        ? t("flag_unreviewed", "not reviewed")
         : kind === "unchecked"
-          ? "not checked"
-          : `second opinion differed${
-            correction.precisionConfidence != null
-              ? ` (${correction.precisionConfidence}/5)`
-              : ""
-          }`;
+          ? t("flag_unchecked", "not checked")
+          : `${t("flag_second_opinion", "second opinion differed")}${
+              correction.precisionConfidence != null
+                ? ` (${correction.precisionConfidence}/5)`
+                : ""
+            }`;
+
+  // Every kind explains itself. "not checked" and "not reviewed" name a state
+  // of the pipeline, not a property of the sentence, so without this they told
+  // the author a thing had happened and left them to guess what and whether it
+  // mattered — and `unreviewed` carries no reviewer text of its own, so it had
+  // nothing to hover at all.
+  const why =
+    kind === "doubted"
+      ? t("flag_doubted_why")
+      : kind === "unreviewed"
+        ? t("flag_unreviewed_why")
+        : kind === "unchecked"
+          ? t("flag_unchecked_why")
+          : t("flag_second_opinion_why");
+  // The reviewer's own words, where there are any worth repeating. The
+  // unchecked and unreviewed kinds carry only a restatement of their state.
+  const reviewerSaid =
+    (kind === "doubted" || kind === "second_opinion") && correction.reviewReason
+      ? `
+
+“${correction.reviewReason}”`
+      : "";
+
   return (
     <span
       className={`correction-flag-badge correction-flag-badge--${kind}`}
-      data-tip={correction.reviewReason || undefined}
+      // data-tip is the styled tooltip; title is the native one, which no
+      // ancestor's overflow can clip and which survives a long explanation.
+      data-tip={why}
+      title={`${why}${reviewerSaid}`}
     >
       {label}
       {kind === "doubted" && correction.reviewReason

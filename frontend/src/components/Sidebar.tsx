@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { cancelJob } from "../api";
-import { weightedProgress } from "../runProgress";
+import { progressPercent, weightedProgress } from "../runProgress";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
 
 export default function Sidebar() {
@@ -174,6 +174,16 @@ export default function Sidebar() {
             </span>
             <span className="sidebar-run-count">
               {doneCount}/{sessionTasks.length}
+              {/* The chapter count says where the run is in the book; the
+                  percentage says where it is in the work, which is the one
+                  that keeps moving inside a long chapter. Only while running:
+                  once it is over, "13/13" already says 100%. */}
+              {isWorking && (
+                <span className="sidebar-run-pct">
+                  {" · "}
+                  {progressPercent(runProgress)}%
+                </span>
+              )}
             </span>
           </div>
           <div className="q-bar sidebar-run-bar">

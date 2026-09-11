@@ -7750,3 +7750,10 @@ summary.review-source::before {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* The percentage rides with the chapter count in the rail, one step quieter:
+   the count is the headline, this is the detail behind it. */
+.sidebar-run-pct {
+  color: #9a8c76;
+  font-variant-numeric: tabular-nums;
+}
