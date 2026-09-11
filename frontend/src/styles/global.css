@@ -7619,3 +7619,61 @@ summary.review-source::before {
   margin-left: 0.15rem;
   align-self: center;
 }
+
+/* ── The run's action bar ──
+   Export, accept-everything and the writing report, in one strip that stays
+   at the foot of the view while the author scrolls the edits above it. It is
+   the one piece of chrome on this screen that earns being always visible:
+   every other control belongs to a chapter and travels with it. */
+.review-actionbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.7rem 0.9rem;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  box-shadow: 0 -2px 10px rgba(74, 63, 47, 0.06);
+}
+
+/* Pushes everything after it to the far end on a wide bar; collapses to a
+   plain line break once the row wraps on a narrow one. */
+.review-actionbar__gap {
+  flex: 1 1 auto;
+}
+
+/* ── Closing a chapter, not deleting it ──
+   This was a × wired to "delete these results, cannot be undone" — a
+   destructive act one mis-click away from someone whose only intent was to
+   put a chapter away. It folds the chapter back into its pill instead. */
+.review-minimize-btn {
+  margin-left: auto;
+  padding: 0 0.35rem;
+  background: none;
+  border: none;
+  color: #9a8c76;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-minimize-btn:hover {
+  color: #4a3f2f;
+}
+
+/* The opened chapter needs air under the pill bar it came from, or it reads
+   as part of the bar rather than the thing the bar opened. */
+.review-group-flat .chapters-scroll {
+  margin-top: 1.1rem;
+}
+
+@media (max-width: 720px) {
+  .review-actionbar {
+    position: static;
+  }
+}

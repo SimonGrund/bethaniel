@@ -957,11 +957,29 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Word (.docx)",
     es: "Word (.docx)",
   },
+  minimize_chapter: {
+    en: "Close this chapter",
+    da: "Luk dette kapitel",
+    de: "Dieses Kapitel schließen",
+    es: "Cerrar este capítulo",
+  },
+  dialect_accept_all: {
+    en: "Accept these spellings",
+    da: "Acceptér disse stavemåder",
+    de: "Diese Schreibweisen übernehmen",
+    es: "Aceptar estas grafías",
+  },
+  dialect_dismiss_all: {
+    en: "Dismiss these spellings",
+    da: "Afvis disse stavemåder",
+    de: "Diese Schreibweisen verwerfen",
+    es: "Descartar estas grafías",
+  },
   export_with_changes: {
-    en: "Export with accepted changes:",
-    da: "Eksportér med accepterede ændringer:",
-    de: "Mit übernommenen Änderungen exportieren:",
-    es: "Exportar con los cambios aceptados:",
+    en: "Export the full manuscript with accepted changes:",
+    da: "Eksportér hele manuskriptet med accepterede ændringer:",
+    de: "Das gesamte Manuskript mit übernommenen Änderungen exportieren:",
+    es: "Exportar el manuscrito completo con los cambios aceptados:",
   },
   full_manuscript_wait: {
     en: "All chapters must finish editing before downloading the full manuscript",

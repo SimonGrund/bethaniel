@@ -13,7 +13,6 @@ import {
   formatEbook,
   retryTask,
   clearQueue,
-  deleteTask,
   deleteJob,
   spawnJobSummary,
   spawnWritingReport,
@@ -1975,27 +1974,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     }
   }, []);
 
-  const handleDeleteTask = useCallback(
-    async (taskId: string, taskName: string) => {
-      if (
-        !window.confirm(
-          `Delete result for "${taskName}"? This cannot be undone.`,
-        )
-      ) {
-        return;
-      }
-      try {
-        await deleteTask(taskId);
-      } catch (err) {
-        console.error("Delete task failed:", err);
-        alert(
-          `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    },
-    [],
-  );
-
   const handleDeleteJob = useCallback(
     async (jobId: string, label: string, taskCount: number) => {
       if (
@@ -3625,16 +3603,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         )}
                         <button
                           type="button"
-                          className="review-delete-btn review-delete-btn-task"
-                          title={t("delete_task_tip")}
-                          aria-label={t("delete_task_tip")}
+                          className="review-minimize-btn"
+                          title={t("minimize_chapter", "Close this chapter")}
+                          aria-label={t("minimize_chapter", "Close this chapter")}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            void handleDeleteTask(tid, task.name);
+                            setActiveChapter(null);
                           }}
                         >
-                          ×
+                          −
                         </button>
                       </summary>
                       <div className="task-placeholder">
@@ -3740,16 +3718,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       )}
                       <button
                         type="button"
-                        className="review-delete-btn review-delete-btn-task"
-                        title={t("delete_task_tip")}
-                        aria-label={t("delete_task_tip")}
+                        className="review-minimize-btn"
+                        title={t("minimize_chapter", "Close this chapter")}
+                        aria-label={t("minimize_chapter", "Close this chapter")}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          void handleDeleteTask(tid, task.name);
+                          setActiveChapter(null);
                         }}
                       >
-                        ×
+                        −
                       </button>
                     </summary>
 
@@ -3869,22 +3847,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                       ? t("hide_flagged")
                                       : `⚠ ${t("show_all_suggestions")} (${flaggedCount})`}
                                   </button>
-                                )}
-                                {!isScanJob && (
-                                  <>
-                                    <button
-                                      className="btn-small btn-accept"
-                                      onClick={() => acceptAll(tid)}
-                                    >
-                                      {t("accept_all")}
-                                    </button>
-                                    <button
-                                      className="btn-small btn-dismiss"
-                                      onClick={() => dismissAll(tid)}
-                                    >
-                                      {t("dismiss_all")}
-                                    </button>
-                                  </>
                                 )}
                                 <span className="small-note">
                                   {isScanJob
@@ -4071,92 +4033,30 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       }
                     }}
                   >
-                    {dialectAllAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                    {dialectAllAccepted
+                      ? t("dialect_dismiss_all", "Dismiss these spellings")
+                      : t("dialect_accept_all", "Accept these spellings")}
                   </button>
                 </div>
               )}
 
-              {/* ── Accept-all toggle: bottom of the chapter list, right-aligned ── */}
-              {editTasks.length > 0 && !isScanJob && allEditDone && (
-                <div className="accept-all-job-row">
-                  <button
-                    className={`btn-linkish btn-accept-all-job${
-                      allAccepted ? " btn-accept-all-job--undo" : ""
-                    }`}
-                    disabled={!hasAnyCorrections}
-                    onClick={() => {
-                      if (allAccepted) {
-                        editTaskIds.forEach((tid) => dismissAll(tid));
-                        setToast({
-                          msg: t("dismiss_all_job_toast"),
-                          kind: "dismiss",
-                        });
-                      } else {
-                        acceptAllJob(editTaskIds);
-                        setToast({
-                          msg: t("accept_all_job_toast"),
-                          kind: "accept",
-                        });
-                      }
-                    }}
-                  >
-                    {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
-                  </button>
-                </div>
-              )}
-
-              {(() => {
-                // Only the real edit modes qualify — the report digests their
-                // corrections. (Frontend EDIT_MODES includes translate, which
-                // has nothing to critique.)
-                const reportSourceModes = [
-                  "copy_edit",
-                  "line_edit",
-                  "combined_edit",
-                ];
-                const hasEditResults = entries.some(
-                  ([, t]) =>
-                    reportSourceModes.includes(t.mode) &&
-                    t.status === "done" &&
-                    (t.result?.originalText || t.resultMeta?.hasText),
-                );
-                if (!hasEditResults || !canRunWritingReport) return null;
-
-                const hasReport = entries.some(
-                  ([, t]) => t.mode === "text_evaluator",
-                );
-                return (
-                  <div className="generate-buttons-row writing-report-row">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      title={t(
-                        "writing_report_tip",
-                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
-                      )}
-                      onClick={() => void handleSpawnWritingReport(jid)}
-                    >
-                      {hasReport
-                        ? t("regenerate_writing_report")
-                        : t("generate_writing_report")}
-                    </button>
-                    <span className="generate-buttons-note">
-                      {t(
-                        "writing_report_note",
-                        "An optional read on the prose itself — separate from the corrections.",
-                      )}
-                    </span>
-                  </div>
-                );
-              })()}
               {/* ── Export ──
                    Inside the results card, at its foot, rather than in a box
                    of its own: exporting is the end of reviewing, not a
                    separate errand. One button does the common thing — Word,
                    with the accepted changes in it — and the cog holds the two
                    choices almost nobody changes. */}
+              {/* ── The run's actions, at the foot of the view ──
+                  Accepting everything, exporting, and asking for a writing
+                  report are the three things an author does once they have
+                  read the edits. They used to be three rows scattered down the
+                  page, the accept-all one repeated once per chapter, so a long
+                  run met the author with that button a dozen times before it
+                  met them with an edit. One bar holds all three and stays put
+                  at the bottom of the view, reachable from anywhere in the
+                  review without scrolling to the end of it. */}
               {editTasks.length > 0 && !isScanJob && allEditDone && (
-                <div className="export-row">
+                <div className="review-actionbar">
                   <span className="export-row__label">
                     {t("export_with_changes", "Export with accepted changes:")}
                   </span>
@@ -4259,6 +4159,69 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       </div>
                     )}
                   </div>
+
+                  <span className="review-actionbar__gap" />
+
+                  <button
+                    className={`btn-linkish btn-accept-all-job${
+                      allAccepted ? " btn-accept-all-job--undo" : ""
+                    }`}
+                    disabled={!hasAnyCorrections}
+                    onClick={() => {
+                      if (allAccepted) {
+                        editTaskIds.forEach((tid) => dismissAll(tid));
+                        setToast({
+                          msg: t("dismiss_all_job_toast"),
+                          kind: "dismiss",
+                        });
+                      } else {
+                        acceptAllJob(editTaskIds);
+                        setToast({
+                          msg: t("accept_all_job_toast"),
+                          kind: "accept",
+                        });
+                      }
+                    }}
+                  >
+                    {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                  </button>
+
+                {(() => {
+                  // Only the real edit modes qualify — the report digests their
+                  // corrections. (Frontend EDIT_MODES includes translate, which
+                  // has nothing to critique.)
+                  const reportSourceModes = [
+                    "copy_edit",
+                    "line_edit",
+                    "combined_edit",
+                  ];
+                  const hasEditResults = entries.some(
+                    ([, t]) =>
+                      reportSourceModes.includes(t.mode) &&
+                      t.status === "done" &&
+                      (t.result?.originalText || t.resultMeta?.hasText),
+                  );
+                  if (!hasEditResults || !canRunWritingReport) return null;
+
+                  const hasReport = entries.some(
+                    ([, t]) => t.mode === "text_evaluator",
+                  );
+                  return (
+                    <button
+                      type="button"
+                      className="btn-secondary btn-small"
+                      title={t(
+                        "writing_report_tip",
+                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
+                      )}
+                      onClick={() => void handleSpawnWritingReport(jid)}
+                    >
+                      {hasReport
+                        ? t("regenerate_writing_report")
+                        : t("generate_writing_report")}
+                    </button>
+                  );
+                })()}
                 </div>
               )}
               </div>{/* ── end .review-group-body (bright card) ── */}
