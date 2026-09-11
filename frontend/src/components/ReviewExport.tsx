@@ -1682,6 +1682,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // Which export options the cog is showing.
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
+  // Which runs have their details open. Per job, so opening one run's
+  // reference does not unfold every other run in the list.
+  const [infoJobs, setInfoJobs] = useState<Set<string>>(() => new Set());
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
@@ -2064,16 +2067,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   );
   const hydrating = useResultHydration(tasks, eligibleJobIds);
 
-  const visibleTasks = Object.entries(tasks).filter(
-    ([, s]) => s.status !== "queued",
-  );
-  // The current-session view stays mounted while everything is still queued so
-  // the run header can show from the first second of a job.
-  if (
-    visibleTasks.length === 0 &&
-    (isOldResults || Object.keys(tasks).length === 0)
-  )
-    return null;
+  // Queued tasks are shown, not filtered away. They used to be filtered: a
+  // chapter with no result had nothing to contribute to a list of results, so
+  // it stayed hidden until it started. The pill bar changes that — a queued
+  // chapter is the grey "pending" pill, and hiding it would make the bar grow
+  // chapter by chapter as the run went on instead of standing there complete
+  // from the first second and filling in from the left.
+  const visibleTasks = Object.entries(tasks);
+  if (visibleTasks.length === 0) return null;
 
   // Group by job (one per "Start job" click), then sort newest first by submittedAt
   const byJob: Record<string, [string, TaskState][]> = {};
@@ -2399,11 +2400,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               status: task.status,
             };
           });
+          const settledPills = chapterPills.filter(
+            (p) => p.status === "done" || p.status === "error" || p.status === "cancelled",
+          );
           const activeChapterId =
-            activeChapter && chapterPills.some((p) => p.tid === activeChapter)
+            activeChapter && settledPills.some((p) => p.tid === activeChapter)
               ? activeChapter
-              : (chapterPills.find((p) => p.count > 0)?.tid ??
-                chapterPills[0]?.tid ??
+              : (settledPills.find((p) => p.count > 0)?.tid ??
+                settledPills[0]?.tid ??
                 null);
           const allEditDone = editTasks.every(
             ([, task]) => task.status === "done",
@@ -2470,34 +2474,31 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               }}
             >
               <summary className="review-source">
-                {t("results_for")} {src}{" "}
-                <code className="task-id-chip" title={`job ${jid}`}>
-                  #{jid.slice(0, 8)}
-                </code>{" "}
-                <span className="review-source-meta">
-                  <span className="meta-chip">{submittedDate}</span>
-                  <span className="meta-chip">
-                    {entries.length} {entries.length === 1 ? "task" : "tasks"}
+                {t("results_for")} {src}
+                {failedChapters.length > 0 && (
+                  <span className="meta-chip meta-chip-failed">
+                    ⚠ {failedChapters.length} failed
                   </span>
-                  {jobModels.length > 0 && (
-                    <span className="meta-chip">{jobModels.join(", ")}</span>
-                  )}
-                  {runningCount > 0 && (
-                    <span className="meta-chip meta-chip-running">
-                      {runningCount} running
-                    </span>
-                  )}
-                  {failedChapters.length > 0 && (
-                    <span className="meta-chip meta-chip-failed">
-                      ⚠ {failedChapters.length} failed
-                    </span>
-                  )}
-                  {totalCorrections > 0 && (
-                    <span className="meta-chip">
-                      {totalCorrections} corrections
-                    </span>
-                  )}
-                </span>
+                )}
+                <button
+                  type="button"
+                  className="review-info-btn"
+                  aria-expanded={infoJobs.has(jid)}
+                  title={t("run_details", "Run details")}
+                  aria-label={t("run_details", "Run details")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setInfoJobs((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(jid)) next.delete(jid);
+                      else next.add(jid);
+                      return next;
+                    });
+                  }}
+                >
+                  ⓘ
+                </button>
                 <button
                   type="button"
                   className="review-delete-btn"
@@ -2524,6 +2525,43 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               ) : (
                 <>
               <div className="review-group-body">
+
+              {/* Everything the header used to keep on screen. Reference, so
+                  it opens on request and closes again. */}
+              {infoJobs.has(jid) && (
+                <dl className="run-info">
+                  <div>
+                    <dt>{t("run_info_when", "Run")}</dt>
+                    <dd>{submittedDate}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("run_info_tasks", "Tasks")}</dt>
+                    <dd>
+                      {entries.length}
+                      {runningCount > 0 && ` · ${runningCount} running`}
+                    </dd>
+                  </div>
+                  {jobModels.length > 0 && (
+                    <div>
+                      <dt>{t("run_info_model", "Model")}</dt>
+                      <dd>{jobModels.join(", ")}</dd>
+                    </div>
+                  )}
+                  {totalCorrections > 0 && (
+                    <div>
+                      <dt>{t("run_info_changes", "Proposed changes")}</dt>
+                      <dd>{totalCorrections}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>{t("run_info_id", "Job")}</dt>
+                    <dd>
+                      <code className="task-id-chip">#{jid.slice(0, 8)}</code>
+                    </dd>
+                  </div>
+                </dl>
+              )}
+
 
               {failedChapters.length > 0 && (
                 <div className="review-warning-banner">
@@ -3450,29 +3488,45 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   outstanding count, and the column below shows one chapter's
                   corrections, flat and already open. Nothing is nested and
                   nothing has to be hunted for. */}
-              {chapterPills.length > 1 && (
+              {chapterPills.length > 0 && (
                 <div className="chapter-pillbar" role="tablist" aria-label={t("sec_chapters")}>
-                  {chapterPills.map((pill) => (
-                    <button
-                      key={pill.tid}
-                      type="button"
-                      role="tab"
-                      aria-selected={pill.tid === activeChapterId}
-                      className={`chapter-pill${
-                        pill.tid === activeChapterId ? " chapter-pill-active" : ""
-                      }${
-                        pill.known && pill.count === 0
-                          ? " chapter-pill-clear"
-                          : ""
-                      }`}
-                      onClick={() => setActiveChapter(pill.tid)}
-                    >
-                      <span className="chapter-pill-name">{pill.name}</span>
-                      <span className="chapter-pill-count">
-                        {!pill.known ? "·" : pill.count > 0 ? pill.count : "✓"}
-                      </span>
-                    </button>
-                  ))}
+                  {chapterPills.map((pill) => {
+                    // Grey waiting, amber working, green finished, wine failed.
+                    // One row of pills is the whole progress display during a
+                    // run and the whole navigation after it — the same objects
+                    // filling in rather than two separate widgets.
+                    const state =
+                      pill.status === "done"
+                        ? "done"
+                        : pill.status === "editing"
+                          ? "running"
+                          : pill.status === "error" || pill.status === "cancelled"
+                            ? "failed"
+                            : "pending";
+                    const settled = state === "done" || state === "failed";
+                    return (
+                      <button
+                        key={pill.tid}
+                        type="button"
+                        role="tab"
+                        aria-selected={pill.tid === activeChapterId}
+                        disabled={!settled}
+                        className={`chapter-pill chapter-pill-${state}${
+                          settled && pill.tid === activeChapterId
+                            ? " chapter-pill-active"
+                            : ""
+                        }`}
+                        onClick={() => settled && setActiveChapter(pill.tid)}
+                      >
+                        <span className="chapter-pill-name">{pill.name}</span>
+                        {state === "done" && (
+                          <span className="chapter-pill-count">
+                            {!pill.known ? "·" : pill.count > 0 ? pill.count : "✓"}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               <div className="chapters-scroll">
@@ -3609,15 +3663,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const hasChanges = isTranslation
                   ? result.editedText !== result.originalText
                   : corrections.length > 0;
-                const countLabel = isCombined
-                  ? `${t("copy_label")}: ${copyScored} · ${t("line_label")}: ${lineScored}`
-                  : `${scoredCount} correction(s)`;
                 const summary = isTranslation
                   ? `${task.name} — ${t("mode_translate")}`
                   : hasChanges
-                    ? `${task.name} — ${countLabel}`
+                    ? task.name
                     : `${task.name} — ${t("no_changes")}`;
-                const dur = formatDuration(task);
 
                 return (
                   <details
@@ -3632,7 +3682,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         </span>
                       )}{" "}
                       {summary}
-                      {dur && <span className="task-duration"> ({dur})</span>}
                       {task.status === "error" && (
                         <button
                           type="button"

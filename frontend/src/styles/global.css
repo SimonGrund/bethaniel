@@ -4205,6 +4205,65 @@ summary.review-source::before {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Chapter state ──
+   The same pills are the progress display during a run and the navigation
+   after it, so their colour has to carry the chapter's state: waiting, being
+   worked on, finished, failed. They fill in as the run moves through them.
+   Colour is never the only signal — a finished pill also gains its count, a
+   failed one its own border weight, and a pill that cannot be opened yet is
+   genuinely disabled. */
+.chapter-pill-pending {
+  background: #f2ede1;
+  border-color: #ddd3bf;
+  color: #9a8c76;
+  cursor: default;
+}
+
+/* Warmer and more saturated than the app's usual cream, deliberately: this
+   colour has to separate at a glance from the pending grey beside it across a
+   bar of twenty pills, and a tasteful amber did not. */
+.chapter-pill-running {
+  background: #f7d5a0;
+  border-color: #c0761a;
+  color: #663c06;
+  cursor: default;
+  animation: chapter-pill-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes chapter-pill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 118, 26, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(192, 118, 26, 0.28); }
+}
+
+/* The pulse is the only thing on the bar that moves; the colour already says
+   which chapter is running without it. */
+@media (prefers-reduced-motion: reduce) {
+  .chapter-pill-running {
+    animation: none;
+  }
+}
+
+.chapter-pill-done {
+  background: #dceccd;
+  border-color: #6f9150;
+  color: #2c4417;
+}
+
+.chapter-pill-done .chapter-pill-count {
+  background: #c3dcae;
+  color: #2c4417;
+}
+
+.chapter-pill-failed {
+  background: #f0d7d4;
+  border-color: #9b2335;
+  color: #6b1720;
+}
+
+.chapter-pill:disabled {
+  opacity: 1;
+}
+
 .chapter-pill-active {
   background: #8a7050;
   border-color: #6b5438;
@@ -4225,6 +4284,55 @@ summary.review-source::before {
 .chapter-pill-clear .chapter-pill-count {
   background: #dfe9d8;
   color: #4a6a3a;
+}
+
+/* ── Run details ──
+   The six chips the header used to hold, on request. */
+.review-info-btn {
+  margin-left: 0.45rem;
+  padding: 0 0.2rem;
+  border: none;
+  background: none;
+  color: #8b7355;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-info-btn:hover {
+  color: #2a2419;
+}
+
+.run-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem 1.25rem;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.75rem 0.85rem;
+  background: #faf6ec;
+  border: 1px solid #e0d5c0;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.run-info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.run-info dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8b7355;
+}
+
+.run-info dd {
+  margin: 0;
+  color: #2a2419;
+  overflow-wrap: anywhere;
 }
 
 .chapter-pill-clear:not(.chapter-pill-active) .chapter-pill-name {
