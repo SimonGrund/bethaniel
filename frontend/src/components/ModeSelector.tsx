@@ -1,14 +1,16 @@
-// ── Task selector — three cards, one intent ──
+// ── Task selector — four cards, one intent ──
 //
-// The three cards here are the paid product (FRONT_CARD_MODES in types.ts,
-// pinned against the backend allowlist by backend/test/cloudModes.test.ts).
-// Everything experimental lives in BetaFeatures.
+// The first three cards are the paid product (FRONT_CARD_MODES in types.ts,
+// pinned against the backend allowlist by backend/test/cloudModes.test.ts);
+// the fourth counts on this machine and costs nothing. Everything
+// experimental lives in BetaFeatures.
 //
 // Cards have no inside: a card that needs a control renders it below the card
-// row, never within the card element. Keeps all three the same shape however
-// much configuration hangs off one of them.
+// row, never within the card element. Keeps all four the same shape however
+// much configuration hangs off one of them. Clicking the active card again
+// folds its controls away; the selection stays.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { FRONT_CARD_MODES, frontCardFor } from "../types";
@@ -53,6 +55,11 @@ const CARDS: { id: FrontCard; titleKey: string; descKey: string }[] = [
     titleKey: "card_translate_title",
     descKey: "card_translate_desc",
   },
+  {
+    id: "language",
+    titleKey: "card_language_title",
+    descKey: "card_language_desc",
+  },
 ];
 
 export default function ModeSelector({
@@ -87,6 +94,9 @@ export default function ModeSelector({
   // and never called.
 
   const activeCard = frontCardFor(selectedModes);
+  // The controls under the cards fold on a second click of the active card,
+  // so a card that has been set up once is not stuck open for the session.
+  const [controlsOpen, setControlsOpen] = useState(true);
   // Truth for the current selection. `lineEditEnabled` is the remembered
   // preference used when the Edit card is re-selected; while the card is
   // active the selection itself is authoritative.
@@ -106,9 +116,14 @@ export default function ModeSelector({
   }, []);
 
   function selectCard(id: FrontCard) {
-    // Re-clicking the active card is a no-op rather than a deselect: the step
-    // must always have an answer, and "nothing selected" is not one.
-    if (activeCard === id) return;
+    // Re-clicking the active card folds or unfolds its controls rather than
+    // deselecting it: the step must always have an answer, and "nothing
+    // selected" is not one.
+    if (activeCard === id) {
+      setControlsOpen((o) => !o);
+      return;
+    }
+    setControlsOpen(true);
     // The Edit card restores the remembered line-edit preference, so turning
     // the line pass off survives a trip to another card and back.
     const modes: TaskMode[] =
@@ -187,7 +202,8 @@ export default function ModeSelector({
         </>
       );
     }
-    if (activeCard === "readthrough") return manuscriptLangRow;
+    if (activeCard === "readthrough" || activeCard === "language")
+      return manuscriptLangRow;
     return (
       <>
         <label className="line-edit-toggle">
@@ -362,6 +378,7 @@ export default function ModeSelector({
             type="button"
             className={`task-card${activeCard === card.id ? " task-card-active" : ""}`}
             aria-pressed={activeCard === card.id}
+            aria-expanded={activeCard === card.id ? controlsOpen : undefined}
             onClick={() => selectCard(card.id)}
           >
             <span className="task-card-title">{t(card.titleKey)}</span>
@@ -370,7 +387,9 @@ export default function ModeSelector({
         ))}
       </div>
 
-      {activeCard && <div className="task-controls">{renderControls()}</div>}
+      {activeCard && controlsOpen && (
+        <div className="task-controls">{renderControls()}</div>
+      )}
 
     </section>
   );

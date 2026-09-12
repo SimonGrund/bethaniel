@@ -68,14 +68,16 @@ export function modeLabelKeys(modes: TaskMode[]): string[] {
 
 // ── Task-step grouping ──
 //
-// The three front cards are the paid product: FRONT_CARD_MODES must stay
-// equal to CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus
+// The first three front cards are the paid product: FRONT_CARD_MODES must
+// stay equal to CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus
 // combined_edit, which the backend synthesises from copy_edit + line_edit and
-// no user ever selects, and minus language_enhance, which is bought from a
-// finished language report rather than picked here (EnhanceLanguageButton).
+// no user ever selects, minus language_enhance, which is bought from a
+// finished language report rather than picked here (EnhanceLanguageButton),
+// and minus the fourth card: language_analysis counts on this machine and is
+// never sold (EditTrigger's countingOnly hides the cloud button for it).
 // backend/test/cloudModes.test.ts pins the other side.
 
-export type FrontCard = "edit" | "readthrough" | "translate";
+export type FrontCard = "edit" | "readthrough" | "translate" | "language";
 
 /** Modes each front card selects. The Edit card's line_edit is removable via
  *  its own toggle; copy_edit is not — without it the card means nothing. */
@@ -83,9 +85,10 @@ export const FRONT_CARD_MODES: Record<FrontCard, TaskMode[]> = {
   edit: ["copy_edit", "line_edit"],
   readthrough: FINAL_READTHROUGH_MODES,
   translate: ["translate"],
+  language: ["language_analysis"],
 };
 
-export type BetaGroupId = "developmental" | "analysis" | "feedback" | "language";
+export type BetaGroupId = "developmental" | "analysis";
 
 export interface BetaGroup {
   id: BetaGroupId;
@@ -101,9 +104,9 @@ export const BETA_GROUPS: BetaGroup[] = [
     modes: ["character_catalog", "location_catalog", "timeline"],
     exclusive: false,
   },
-  { id: "feedback", modes: ["text_evaluator"], exclusive: true },
-  // No model: counts, not inference. The one pass every install can run.
-  { id: "language", modes: ["language_analysis"], exclusive: true },
+  // text_evaluator (the writing report) is no longer offered here: the
+  // language card covers what it counted, and the model's part is bought from
+  // that report. It is still generated from the review screen of an edit.
 ];
 
 /** Which front card, if any, a selection belongs to. First match wins, most
@@ -114,6 +117,7 @@ export function frontCardFor(modes: TaskMode[]): FrontCard | null {
   if (modes.some((m) => FRONT_CARD_MODES.readthrough.includes(m)))
     return "readthrough";
   if (modes.some((m) => FRONT_CARD_MODES.edit.includes(m))) return "edit";
+  if (modes.some((m) => FRONT_CARD_MODES.language.includes(m))) return "language";
   return null;
 }
 

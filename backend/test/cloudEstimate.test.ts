@@ -224,7 +224,7 @@ test("a mixed selection reports precisely which passes are refused", () => {
 });
 
 // ── Which product a selection is ──
-// The Worker prices the three front cards alike but names them apart on the
+// The Worker prices the three paid cards alike but names them apart on the
 // receipt, so the estimate has to say which one this is — with the same
 // precedence as the app's frontCardFor, and the enhanced analysis only when
 // it is alone.

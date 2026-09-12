@@ -1563,18 +1563,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Sprachanalyse",
     es: "Análisis del lenguaje",
   },
-  beta_group_language: {
-    en: "Language analysis — no AI needed",
-    da: "Sproganalyse — ingen AI nødvendig",
-    de: "Sprachanalyse — keine KI nötig",
-    es: "Análisis del lenguaje: sin IA",
-  },
-  run_counting_note: {
-    en: "Runs on this computer in a moment — no model, no download, no AI.",
-    da: "Kører på denne computer på et øjeblik — ingen model, ingen download, ingen AI.",
-    de: "Läuft in einem Augenblick auf diesem Computer — kein Modell, kein Download, keine KI.",
-    es: "Se ejecuta en este ordenador en un instante: sin modelo, sin descarga, sin IA.",
-  },
   la_scope: {
     en: "{chapters} chapters · {words} words · {sentences} sentences",
     da: "{chapters} kapitler · {words} ord · {sentences} sætninger",
@@ -2591,7 +2579,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Arbeitsablauf",
     es: "Flujo de trabajo",
   },
-  // ââ Task step v2: "I want toâ¦" heading, three cards, Beta disclosure ââ
+  // ââ Task step v2: "I want toâ¦" heading, four cards, Beta disclosure ââ
   tasks_heading: {
     en: "I want to…",
     da: "Jeg vil gerne…",
@@ -2634,6 +2622,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "In eine andere Sprache",
     es: "A otro idioma",
   },
+  card_language_title: {
+    en: "Analyse my language",
+    da: "Analysere mit sprog",
+    de: "Meine Sprache analysieren",
+    es: "Analizar mi lenguaje",
+  },
+  card_language_desc: {
+    en: "Overused words, rhythm, dialogue — counted here in a moment",
+    da: "Overbrugte ord, rytme, dialog — talt her på et øjeblik",
+    de: "Überstrapazierte Wörter, Rhythmus, Dialog — hier in einem Augenblick gezählt",
+    es: "Palabras repetidas, ritmo, diálogo: contado aquí en un instante",
+  },
   opt_also_line_edit: {
     en: "Also run a line edit",
     da: "Kør også en stilredigering",
@@ -2653,10 +2653,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Experimental — menos probado",
   },
   beta_disclosure_hint: {
-    en: "These passes work, but they have had far less benchmarking than the three above. Expect rougher results.",
-    da: "Disse funktioner virker, men de er testet langt mindre end de tre ovenfor. Forvent grovere resultater.",
-    de: "Diese Durchgänge funktionieren, wurden aber weit weniger getestet als die drei oben. Erwarte gröbere Ergebnisse.",
-    es: "Estas funciones sirven, pero se han probado mucho menos que las tres anteriores. Espera resultados más bastos.",
+    en: "These passes work, but they have had far less benchmarking than the cards above. Expect rougher results.",
+    da: "Disse funktioner virker, men de er testet langt mindre end kortene ovenfor. Forvent grovere resultater.",
+    de: "Diese Durchgänge funktionieren, wurden aber weit weniger getestet als die Karten oben. Erwarte gröbere Ergebnisse.",
+    es: "Estas funciones sirven, pero se han probado mucho menos que las tarjetas de arriba. Espera resultados más bastos.",
   },
   beta_group_developmental: {
     en: "Developmental edit",
@@ -2669,12 +2669,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Analyse",
     de: "Analyse",
     es: "Análisis",
-  },
-  beta_group_feedback: {
-    en: "Feedback",
-    da: "Feedback",
-    de: "Feedback",
-    es: "Comentarios",
   },
   mode_copy_edit: {
     en: "Copy edit",

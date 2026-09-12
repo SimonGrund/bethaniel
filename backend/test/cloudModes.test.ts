@@ -1,4 +1,5 @@
-// The three cards on the task step are the paid product. If this list and
+// The first three cards on the task step are the paid product (the fourth,
+// language analysis, counts locally and is never sold). If this list and
 // that card set ever disagree, we are either advertising something we will
 // not sell or hiding something we would.
 //
@@ -13,7 +14,7 @@ import assert from "node:assert/strict";
 
 import { CLOUD_ALLOWED_MODES } from "../src/cloudEstimate.ts";
 
-test("the sellable modes are exactly the three front cards, plus the merge target and the enhanced analysis", () => {
+test("the sellable modes are exactly the three paid cards, plus the merge target and the enhanced analysis", () => {
   // Mirrors FRONT_CARD_MODES in frontend/src/types.ts. combined_edit is the
   // backend's merge of copy_edit + line_edit; no user ever selects it.
   // language_enhance is never a card either: it is bought from a finished

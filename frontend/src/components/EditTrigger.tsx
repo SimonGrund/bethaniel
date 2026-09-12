@@ -514,11 +514,6 @@ export default function EditTrigger() {
         )}
       </button>
 
-      {countingOnly && (
-        <p className="run-counting-note small-note">
-          {t("run_counting_note")}
-        </p>
-      )}
 
       {!countingOnly && (
         <div className="cloud-block">

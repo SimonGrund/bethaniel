@@ -2609,7 +2609,7 @@ summary.review-source::before {
 /* Equal columns, so no card reads as the default by being wider. */
 .task-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
 }
 
@@ -2763,8 +2763,14 @@ summary.review-source::before {
   gap: 0.4rem;
 }
 
-/* Narrow windows: the three cards stack rather than squeezing. */
-@media (max-width: 900px) {
+/* Narrower windows: two by two, then a single column. */
+@media (max-width: 1100px) {
+  .task-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
   .task-cards {
     grid-template-columns: 1fr;
   }
@@ -8030,11 +8036,6 @@ summary.review-source::before {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.run-counting-note {
-  margin: 0.5rem 0 0;
-  color: #4a6a3a;
 }
 
 /* ── The aim under each heading ──
