@@ -370,6 +370,26 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
   findings.sort((a, b) => b.score - a.score);
   const headlines = findings.slice(0, 4).map(({ id, params }) => ({ id, params }));
 
+  // One verdict per section of the report, from the same scores. "na" where
+  // there is nothing to judge — too little text for a rate to mean anything,
+  // a language whose adverbs are not marked, a book with no tagged dialogue —
+  // so a green tick is never shown for want of evidence.
+  const fired = new Set(findings.map((f) => f.id));
+  const verdict = (...ids: LanguageFinding["id"][]): "ok" | "look" =>
+    ids.some((id) => fired.has(id)) ? "look" : "ok";
+  const sections: LanguageAnalysisReport["sections"] = !enough
+    ? { overused: "na", adverbs: "na", filter: "na", openers: "na", echoes: "na", rhythm: "na", tags: "na", paragraphs: "na" }
+    : {
+        overused: verdict("crutch_word"),
+        adverbs: L.adverbSuffix ? verdict("adverbs_high") : "na",
+        filter: verdict("filter_words_high"),
+        openers: verdict("opener_dominant", "opener_runs"),
+        echoes: verdict("echoes"),
+        rhythm: verdict("rhythm_flat", "sentences_long"),
+        tags: tagOtherCount + saidCount >= 20 ? verdict("tags_ornate") : "na",
+        paragraphs: allParagraphLengths.length >= 10 ? verdict("paragraphs_long") : "na",
+      };
+
   echoes.sort((a, b) => a.distance - b.distance);
 
   return {
@@ -378,6 +398,7 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
     words: totalWords,
     sentences: totalSentences,
     headlines,
+    sections,
     overused: [...overused.slice(0, 12), ...frequent],
     adverbs: { count: adverbCount, perThousand: round1(adverbPer1k), top: top(adverbFreq, 10), detected: L.adverbSuffix !== null },
     filterWords: { count: filterCount, perThousand: round1(per1k(filterCount, totalWords)), top: top(filterFreq, 10) },

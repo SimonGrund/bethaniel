@@ -33,6 +33,20 @@ export default function LanguageAnalysisPanel({
     why: t(`la_h_${f.id}_why`),
   });
 
+  // Green tick within range, red mark where worth a look, nothing where there
+  // was nothing to judge. The verdicts come from the report, so the mark and
+  // the headline list can never disagree.
+  const Mark = ({ id }: { id: keyof LanguageAnalysisReport["sections"] }) => {
+    const v = report.sections?.[id] ?? "na";
+    if (v === "na") return null;
+    const label = v === "ok" ? t("la_mark_ok") : t("la_mark_look");
+    return (
+      <span className={`la-mark la-mark-${v}`} title={label} aria-label={label}>
+        {v === "ok" ? "\u2713" : "!"}
+      </span>
+    );
+  };
+
   const crutch = report.overused.filter((o) => o.kind === "crutch");
   const frequent = report.overused.filter((o) => o.kind === "frequent");
   const rhythmMax = Math.max(1, ...report.pacing.map((p) => p.meanSentence));
@@ -53,14 +67,20 @@ export default function LanguageAnalysisPanel({
       <section className="la-section">
         <h4 className="la-h">{t("la_first")}</h4>
         {report.headlines.length === 0 ? (
-          <p className="la-clean">{t("la_nothing_stands_out")}</p>
+          <p className="la-clean">
+            <span className="la-mark la-mark-ok" aria-hidden="true">{"\u2713"}</span>
+            {t("la_nothing_stands_out")}
+          </p>
         ) : (
           <ol className="la-headlines">
             {report.headlines.map((f, i) => {
               const h = headline(f);
               return (
                 <li key={i} className="la-headline">
-                  <span className="la-headline-title">{h.title}</span>
+                  <span className="la-headline-title">
+                    <span className="la-mark la-mark-look" aria-hidden="true">!</span>
+                    {h.title}
+                  </span>
                   <span className="la-headline-why">{h.why}</span>
                 </li>
               );
@@ -72,7 +92,7 @@ export default function LanguageAnalysisPanel({
       <div className="la-grid">
         {/* ── Words ── */}
         <section className="la-section">
-          <h4 className="la-h">{t("la_overused")}</h4>
+          <h4 className="la-h"><Mark id="overused" />{t("la_overused")}</h4>
           {crutch.length === 0 ? (
             <p className="la-clean">{t("la_overused_none")}</p>
           ) : (
@@ -102,7 +122,7 @@ export default function LanguageAnalysisPanel({
 
         {/* ── Adverbs and filter words ── */}
         <section className="la-section">
-          <h4 className="la-h">{t("la_adverbs")}</h4>
+          <h4 className="la-h"><Mark id="adverbs" />{t("la_adverbs")}</h4>
           {report.adverbs.detected ? (
             <>
               <p className="la-stat">
@@ -122,7 +142,7 @@ export default function LanguageAnalysisPanel({
           )}
           <p className="la-hint small-note">{t("la_adverbs_hint")}</p>
 
-          <h5 className="la-sub">{t("la_filter")}</h5>
+          <h5 className="la-sub"><Mark id="filter" />{t("la_filter")}</h5>
           <p className="la-stat">
             <strong>{report.filterWords.perThousand}</strong> {t("la_per_thousand")}
             <span className="la-muted"> · {n(report.filterWords.count)} {t("la_in_total")}</span>
@@ -141,7 +161,7 @@ export default function LanguageAnalysisPanel({
 
         {/* ── Openers ── */}
         <section className="la-section">
-          <h4 className="la-h">{t("la_openers")}</h4>
+          <h4 className="la-h"><Mark id="openers" />{t("la_openers")}</h4>
           <table className="la-table">
             <tbody>
               {report.openers.slice(0, 6).map((o) => (
@@ -174,7 +194,7 @@ export default function LanguageAnalysisPanel({
 
         {/* ── Echoes ── */}
         <section className="la-section">
-          <h4 className="la-h">{t("la_echoes")}</h4>
+          <h4 className="la-h"><Mark id="echoes" />{t("la_echoes")}</h4>
           {report.echoes.length === 0 ? (
             <p className="la-clean">{t("la_echoes_none")}</p>
           ) : (
@@ -194,7 +214,7 @@ export default function LanguageAnalysisPanel({
 
       {/* ── Rhythm, by chapter ── */}
       <section className="la-section">
-        <h4 className="la-h">{t("la_rhythm")}</h4>
+        <h4 className="la-h"><Mark id="rhythm" />{t("la_rhythm")}</h4>
         <p className="la-stat">
           {fill(t("la_rhythm_summary"), {
             mean: report.rhythm.meanSentence,
@@ -235,7 +255,7 @@ export default function LanguageAnalysisPanel({
       {/* ── Dialogue tags and paragraphs ── */}
       <div className="la-grid">
         <section className="la-section">
-          <h4 className="la-h">{t("la_tags")}</h4>
+          <h4 className="la-h"><Mark id="tags" />{t("la_tags")}</h4>
           {report.dialogueTags.said + report.dialogueTags.otherCount === 0 ? (
             <p className="la-clean">{t("la_tags_none")}</p>
           ) : (
@@ -261,7 +281,7 @@ export default function LanguageAnalysisPanel({
         </section>
 
         <section className="la-section">
-          <h4 className="la-h">{t("la_paragraphs")}</h4>
+          <h4 className="la-h"><Mark id="paragraphs" />{t("la_paragraphs")}</h4>
           <p className="la-stat">
             {fill(t("la_paragraphs_summary"), {
               count: n(report.paragraphs.count),

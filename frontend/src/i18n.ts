@@ -1600,10 +1600,22 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Nada destaca. Las cifras de abajo son de referencia.",
   },
   la_overused: {
-    en: "Words you may be leaning on",
-    da: "Ord, du måske læner dig op ad",
-    de: "Wörter, auf die Sie sich vielleicht stützen",
-    es: "Palabras en las que quizá te apoyas",
+    en: "Words you might be using too much",
+    da: "Ord, du måske bruger for meget",
+    de: "Wörter, die Sie vielleicht zu oft verwenden",
+    es: "Palabras que quizá usas demasiado",
+  },
+  la_mark_ok: {
+    en: "Within the usual range",
+    da: "Inden for det normale",
+    de: "Im üblichen Bereich",
+    es: "Dentro de lo habitual",
+  },
+  la_mark_look: {
+    en: "Worth a look",
+    da: "Værd at se på",
+    de: "Einen Blick wert",
+    es: "Merece un vistazo",
   },
   la_overused_none: {
     en: "No crutch word stands out.",
@@ -1630,10 +1642,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Adverbios",
   },
   la_adverbs_not_detected: {
-    en: "Adverbs are not marked reliably in this language; intensifiers are counted under the words you may be leaning on.",
-    da: "Adverbier markeres ikke pålideligt på dette sprog; forstærkere tælles under de ord, du måske læner dig op ad.",
-    de: "Adverbien sind in dieser Sprache nicht zuverlässig markiert; Verstärker werden unter den Wörtern gezählt, auf die Sie sich stützen.",
-    es: "Los adverbios no se marcan de forma fiable en este idioma; los intensificadores se cuentan entre las palabras en las que te apoyas.",
+    en: "Adverbs are not marked reliably in this language; intensifiers are counted under the words you might be using too much.",
+    da: "Adverbier markeres ikke pålideligt på dette sprog; forstærkere tælles under de ord, du måske bruger for meget.",
+    de: "Adverbien sind in dieser Sprache nicht zuverlässig markiert; Verstärker werden unter den Wörtern gezählt, die Sie vielleicht zu oft verwenden.",
+    es: "Los adverbios no se marcan de forma fiable en este idioma; los intensificadores se cuentan entre las palabras que quizá usas demasiado.",
   },
   la_adverbs_hint: {
     en: "An adverb often props up a verb that could carry the weight itself: 'walked slowly' → 'ambled'. Under 15 per thousand words is typical for fiction.",

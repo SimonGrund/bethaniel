@@ -7970,9 +7970,49 @@ summary.review-source::before {
   font-size: 0.9em;
 }
 
+/* The hint is the advice — the one line that says what the number means —
+   so it reads in the body face at body contrast, not as a footnote. The
+   italic muted note was the hardest text on the page to read and the most
+   worth reading. */
 .la-hint {
-  margin: 0.4rem 0 0;
+  margin: 0.45rem 0 0;
   max-width: 62ch;
+  font-family: inherit;
+  font-style: normal;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #4a3f2f;
+}
+
+/* Green within range, red where worth a look. Sized to the heading, set in
+   a circle so the glyph reads as a mark rather than punctuation. */
+.la-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.45em;
+  border-radius: 50%;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 0.1em;
+  color: #fff;
+}
+
+.la-mark-ok {
+  background: #4f7d3a;
+}
+
+.la-mark-look {
+  background: #9b2335;
+}
+
+.la-headline-title .la-mark,
+.la-clean .la-mark {
+  font-size: 0.62em;
+  vertical-align: 0.15em;
 }
 
 .la-pacing td:first-child {

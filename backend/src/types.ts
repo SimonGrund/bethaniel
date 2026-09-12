@@ -393,6 +393,11 @@ export interface LanguageAnalysisReport {
   words: number;
   sentences: number;
   headlines: LanguageFinding[];
+  /** Per section: within typical range, worth a look, or nothing to judge. */
+  sections: Record<
+    "overused" | "adverbs" | "filter" | "openers" | "echoes" | "rhythm" | "tags" | "paragraphs",
+    "ok" | "look" | "na"
+  >;
   overused: { word: string; count: number; perThousand: number; kind: "crutch" | "frequent" }[];
   adverbs: { count: number; perThousand: number; top: { word: string; count: number }[]; detected: boolean };
   filterWords: { count: number; perThousand: number; top: { word: string; count: number }[] };
