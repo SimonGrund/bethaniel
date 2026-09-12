@@ -14,8 +14,8 @@
 // Every sentence here is phrased from the report's params so the same
 // numbers read correctly in Danish, German and Spanish.
 
-import { useRef, useState } from "react";
 import { useTranslation } from "../i18n";
+import { exportLabel, useReportExport } from "../reportExport";
 import type { Lang, LanguageAnalysisReport, LanguageFinding } from "../types";
 
 function fill(s: string, params: Record<string, string | number>): string {
@@ -191,29 +191,6 @@ function DialogueChart({
   );
 }
 
-/** A complete document: this panel's markup with the page's stylesheet
- *  inlined, so it draws the same anywhere — including a hidden window that
- *  exists only to print it. */
-function reportDocument(root: HTMLElement, title: string): string {
-  let css = "";
-  for (const sheet of Array.from(document.styleSheets)) {
-    try {
-      for (const rule of Array.from(sheet.cssRules)) css += rule.cssText + "\n";
-    } catch {
-      // A cross-origin sheet cannot be read; the report does not depend on one.
-    }
-  }
-  const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
-  return (
-    "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + esc(title) + "</title><style>" + css +
-    "\nbody{background:#fff;margin:0;padding:0 8px;font-size:12px;color:#2a2419}" +
-    ".la{padding:0}.la-toolbar{display:none}.la-details{display:none}.la-pace{break-inside:avoid}" +
-    ".la-section{break-inside:avoid}h3.la-title{font-family:Georgia,serif;font-size:20px;margin:0 0 2px}" +
-    "p.la-subtitle{margin:0 0 14px;color:#8b7355;font-size:12px}</style></head><body>" +
-    "<h3 class=\"la-title\">" + esc(title) + "</h3>" + root.outerHTML + "</body></html>"
-  );
-}
-
 export default function LanguageAnalysisPanel({
   report,
   lang,
@@ -227,30 +204,9 @@ export default function LanguageAnalysisPanel({
   const t = useTranslation(lang);
   const n = (x: number) => x.toLocaleString(lang === "en" ? "en-GB" : lang);
   const aims = report.aims;
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [exporting, setExporting] = useState<"idle" | "busy" | "saved" | "failed">("idle");
-
-  // In the desktop app the main process prints a hidden copy and asks where
-  // to save it. In a browser the fallback is the print dialog, where "Save as
-  // PDF" is a printer on every platform.
-  const exportPdf = async () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const title = `${t("mode_language_analysis")} — ${source ?? ""}`.replace(/ — $/, "");
-    const bridge = (window as unknown as { bethaniel?: { exportPdf?: (h: string, n: string) => Promise<string | null> } }).bethaniel;
-    if (!bridge?.exportPdf) {
-      window.print();
-      return;
-    }
-    setExporting("busy");
-    try {
-      const saved = await bridge.exportPdf(reportDocument(root, title), title);
-      setExporting(saved ? "saved" : "idle");
-    } catch {
-      setExporting("failed");
-    }
-    setTimeout(() => setExporting("idle"), 2500);
-  };
+  const { rootRef, state: exporting, exportPdf } = useReportExport(
+    `${t("mode_language_analysis")} — ${source ?? ""}`.replace(/ — $/, ""),
+  );
 
   const headline = (f: LanguageFinding) => ({
     title: fill(t(`la_h_${f.id}`), f.params),
@@ -293,20 +249,14 @@ export default function LanguageAnalysisPanel({
 
   return (
     <div className="la" ref={rootRef}>
-      <div className="la-toolbar">
+      <div className="la-toolbar report-toolbar">
         <button
           type="button"
           className="btn-secondary btn-small"
           onClick={() => void exportPdf()}
           disabled={exporting === "busy"}
         >
-          {exporting === "busy"
-            ? t("la_export_busy")
-            : exporting === "saved"
-              ? t("la_export_saved")
-              : exporting === "failed"
-                ? t("la_export_failed")
-                : t("la_export_pdf")}
+          {exportLabel(exporting, t)}
         </button>
       </div>
       <p className="la-scope small-note">

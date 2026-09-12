@@ -8135,10 +8135,14 @@ summary.review-source::before {
 }
 
 /* ── Report toolbar, dialogue chart, and the way back ── */
-.la-toolbar {
+.report-toolbar {
   display: flex;
   justify-content: flex-end;
   margin: 0 0 0.4rem;
+}
+
+.readiness > .report-toolbar {
+  margin-top: 0.25rem;
 }
 
 .la-dialogue {
@@ -8180,7 +8184,7 @@ summary.review-source::before {
 }
 
 @media print {
-  .la-toolbar,
+  .report-toolbar,
   .chapter-pill-back {
     display: none;
   }

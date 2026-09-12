@@ -33,6 +33,7 @@ import {
 } from "../exportVerify";
 import BettyAtWork from "./BettyAtWork";
 import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
+import { exportLabel, useReportExport } from "../reportExport";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -1122,6 +1123,7 @@ function PublicationReadinessPanel({
   wordCount,
   onReviewMinor,
   minorOpen,
+  source,
   t,
 }: {
   report: StructuralScanReport | null;
@@ -1138,8 +1140,13 @@ function PublicationReadinessPanel({
   onReviewMinor?: () => void;
   /** Whether the per-chapter minor list below is currently unfolded. */
   minorOpen?: boolean;
-  t: (key: string) => string;
+  /** The manuscript's name, for the export's title and file name. */
+  source?: string;
+  t: (key: string, fallback?: string) => string;
 }) {
+  const { rootRef, state: exporting, exportPdf } = useReportExport(
+    `${t("mode_publication_scan")} — ${source ?? ""}`.replace(/ — $/, ""),
+  );
   const structuralBlocking: BlockingIssue[] = (report?.findings ?? [])
     .filter((f) => f.blocking)
     .map((f) => ({
@@ -1157,7 +1164,17 @@ function PublicationReadinessPanel({
   });
 
   return (
-    <div className="readiness">
+    <div className="readiness" ref={rootRef}>
+      <div className="report-toolbar">
+        <button
+          type="button"
+          className="btn-secondary btn-small"
+          onClick={() => void exportPdf()}
+          disabled={exporting === "busy"}
+        >
+          {exportLabel(exporting, t)}
+        </button>
+      </div>
       <div className="readiness-headline">
         <QualityScoreRing score={score} t={t} />
         <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
@@ -3067,6 +3084,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         })
                       }
                       minorOpen={showMinorDetail}
+                      source={src}
                       t={t}
                     />
                     {editTaskIds.length > 0 && (
