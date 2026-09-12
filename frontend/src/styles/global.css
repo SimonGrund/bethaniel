@@ -8026,3 +8026,110 @@ summary.review-source::before {
   margin: 0.5rem 0 0;
   color: #4a6a3a;
 }
+
+/* ── The aim under each heading ──
+   The standard, stated before the evidence, with the verdict spelt out so
+   colour is never the only carrier. */
+.la-aim {
+  margin: 0 0 0.5rem;
+  font-size: 0.86rem;
+  color: #6b5d48;
+}
+
+.la-aim-verdict {
+  font-weight: 600;
+}
+
+.la-aim-ok .la-aim-verdict {
+  color: #4f7d3a;
+}
+
+.la-aim-look .la-aim-verdict {
+  color: #9b2335;
+}
+
+/* A row that is itself past the aim — the one word, the one opener. */
+.la-row-look .la-word {
+  color: #9b2335;
+}
+
+.la-details {
+  margin-top: 0.6rem;
+}
+
+.la-details > summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #8b7355;
+  list-style: none;
+}
+
+.la-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.la-details > summary::before {
+  content: "▸ ";
+  color: #b3a88f;
+}
+
+.la-details[open] > summary::before {
+  content: "▾ ";
+}
+
+.la-details > table {
+  margin-top: 0.5rem;
+}
+
+/* ── The pace chart ──
+   Thin bars on a recessive grid; the average as a dashed rule; ticks for
+   chapter starts. Text in the page's ink so it reads on the page's ground. */
+.la-pace {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0.4rem 0 0.5rem;
+  font-family: inherit;
+}
+
+.la-pace-bar {
+  fill: #b9a37c;
+}
+
+.la-pace-bar:hover {
+  fill: #8a7050;
+}
+
+.la-pace-grid {
+  stroke: #ede4d0;
+  stroke-width: 1;
+}
+
+.la-pace-avg {
+  stroke: #8a7050;
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+
+.la-pace-avg-label,
+.la-pace-ylabel,
+.la-pace-xlabel,
+.la-pace-edge {
+  fill: #8b7355;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.la-pace-avg-label {
+  fill: #6b5d48;
+  font-weight: 600;
+}
+
+.la-pace-tick {
+  stroke: #b3a88f;
+  stroke-width: 1;
+}
+
+.la-pace-edge {
+  font-style: italic;
+}

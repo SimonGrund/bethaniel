@@ -600,7 +600,26 @@ export interface LanguageAnalysisReport {
     longestSentence: number;
     dialogueShare: number;
   }[];
-  rhythm: { meanSentence: number; sd: number; meanByChapter: number[] };
+  rhythm: {
+    meanSentence: number;
+    sd: number;
+    meanByChapter: number[];
+    /** The book in equal runs of sentences, each as its mean length. */
+    profile: { chapter: string; meanSentence: number; dialogueShare: number }[];
+    windowSentences: number;
+  };
+  /** The thresholds the marks and headlines use; the interface prints these. */
+  aims: {
+    crutchPerThousand: number;
+    adverbsPerThousand: number;
+    filterPerThousand: number;
+    openerShare: number;
+    echoesPerThousand: number;
+    sentenceMean: number;
+    rhythmCv: number;
+    tagsOtherShare: number;
+    longParagraphShare: number;
+  };
   dialogueTags: { said: number; other: { word: string; count: number }[]; otherCount: number };
   paragraphs: { count: number; mean: number; longest: number; over200: number };
 }

@@ -122,6 +122,21 @@ const LISTS: Record<string, LangLists> = {
   },
 };
 
+// The aims the report states and the marks it awards, in one place. The
+// interface prints these numbers; it never carries its own copy of them.
+export const AIMS = {
+  crutchPerThousand: 2,
+  adverbsPerThousand: 20,
+  filterPerThousand: 12,
+  openerShare: 25,
+  echoesPerThousand: 5,
+  sentenceMean: 22,
+  /** Standard deviation over mean: below this the rhythm reads as flat. */
+  rhythmCv: 0.45,
+  tagsOtherShare: 30,
+  longParagraphShare: 5,
+} as const;
+
 const LANG_OF = (lang: string | undefined) => LISTS[(lang ?? "en").slice(0, 2)] ? (lang ?? "en").slice(0, 2) : "en";
 
 // ── Tokenising ──
@@ -196,6 +211,9 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
   const openerRuns: LanguageAnalysisReport["openerRuns"] = [];
   const echoes: LanguageAnalysisReport["echoes"] = [];
   const pacing: LanguageAnalysisReport["pacing"] = [];
+  // Every sentence's length, in reading order, with the chapter it belongs
+  // to — the raw material for a book-wide pace profile below.
+  const sentenceStream: { len: number; chapter: string; dialogue: boolean }[] = [];
 
   for (const unit of units) {
     const text = unit.original;
@@ -296,6 +314,10 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
 
     // Rhythm.
     const lens = sents.map((s) => wordsOf(s).length).filter((n) => n > 0);
+    for (const s of sents) {
+      const len = wordsOf(s).length;
+      if (len > 0) sentenceStream.push({ len, chapter: unit.name, dialogue: /["“„«»”]/.test(s) || /^[—–-]\s?\p{L}/u.test(s) });
+    }
     const dw = dialogueWords(text);
     pacing.push({
       chapter: unit.name,
@@ -334,6 +356,22 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
   const tagOtherCount = [...tagFreq.values()].reduce((a, b) => a + b, 0);
 
   const meanLens = pacing.map((p) => p.meanSentence).filter((x) => x > 0);
+
+  // The profile: the book cut into equal runs of sentences, each reduced to
+  // its mean sentence length. Short runs read quick, long runs read slow, and
+  // the shape of the whole is the thing no per-chapter table can show. Up to
+  // eighty bars, so a novel and a short story both draw at a readable width.
+  const windowSize = Math.max(12, Math.ceil(sentenceStream.length / 80));
+  const profile: LanguageAnalysisReport["rhythm"]["profile"] = [];
+  for (let i = 0; i < sentenceStream.length; i += windowSize) {
+    const slice = sentenceStream.slice(i, i + windowSize);
+    if (slice.length < Math.min(6, windowSize)) break;
+    profile.push({
+      chapter: slice[0].chapter,
+      meanSentence: round1(mean(slice.map((s) => s.len))),
+      dialogueShare: round1((slice.filter((s) => s.dialogue).length / slice.length) * 100),
+    });
+  }
   const overallMean = round1(mean(pacing.flatMap((p) => Array(p.sentences).fill(p.meanSentence))));
   const overallSd = round1(mean(pacing.map((p) => p.sd)));
   const over200 = allParagraphLengths.filter((n) => n > 200).length;
@@ -350,23 +388,23 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
   // a short excerpt from being told it has all ten problems.
   const enough = totalSentences >= 20;
   const adverbPer1k = per1k(adverbCount, totalWords);
-  if (L.adverbSuffix && enough) add("adverbs_high", adverbPer1k / 20, { perThousand: round1(adverbPer1k), example: top(adverbFreq, 3).map((x) => x.word).join(", ") });
-  if (enough) add("filter_words_high", per1k(filterCount, totalWords) / 12, { perThousand: round1(per1k(filterCount, totalWords)), example: top(filterFreq, 3).map((x) => x.word).join(", ") });
+  if (L.adverbSuffix && enough) add("adverbs_high", adverbPer1k / AIMS.adverbsPerThousand, { perThousand: round1(adverbPer1k), example: top(adverbFreq, 3).map((x) => x.word).join(", ") });
+  if (enough) add("filter_words_high", per1k(filterCount, totalWords) / AIMS.filterPerThousand, { perThousand: round1(per1k(filterCount, totalWords)), example: top(filterFreq, 3).map((x) => x.word).join(", ") });
   // Two at most, or a manuscript with one bad habit reads as having four.
-  for (const o of overused.slice(0, 2)) add("crutch_word", o.perThousand / 2, { word: o.word, count: o.count, perThousand: o.perThousand });
-  if (openers[0] && enough) add("opener_dominant", openers[0].share / 25, { word: openers[0].word, share: openers[0].share });
+  for (const o of overused.slice(0, 2)) add("crutch_word", o.perThousand / AIMS.crutchPerThousand, { word: o.word, count: o.count, perThousand: o.perThousand });
+  if (openers[0] && enough) add("opener_dominant", openers[0].share / AIMS.openerShare, { word: openers[0].word, share: openers[0].share });
   if (openerRuns.length) add("opener_runs", openerRuns.length / 4, { runs: openerRuns.length, longest: Math.max(...openerRuns.map((r) => r.length)) });
   // A coefficient of variation under 0.45 reads as metronomic. Zero — every
   // sentence the same length — is the flattest case there is, not a case to
   // skip.
   if (overallMean > 0 && enough) {
     const cv = overallSd / overallMean;
-    add("rhythm_flat", cv === 0 ? 10 : 0.45 / cv, { mean: overallMean, sd: overallSd });
+    add("rhythm_flat", cv === 0 ? 10 : AIMS.rhythmCv / cv, { mean: overallMean, sd: overallSd });
   }
-  if (overallMean && enough) add("sentences_long", overallMean / 22, { mean: overallMean });
-  if (tagOtherCount + saidCount >= 20) add("tags_ornate", tagOtherCount / (tagOtherCount + saidCount) / 0.3, { share: round1((tagOtherCount / (tagOtherCount + saidCount)) * 100), example: tagOther.slice(0, 3).map((x) => x.word).join(", ") });
-  if (allParagraphLengths.length >= 10) add("paragraphs_long", over200 / allParagraphLengths.length / 0.05, { count: over200, longest: Math.max(...allParagraphLengths) });
-  if (echoes.length && enough) add("echoes", per1k(echoes.length, totalWords) / 5, { count: echoes.length });
+  if (overallMean && enough) add("sentences_long", overallMean / AIMS.sentenceMean, { mean: overallMean });
+  if (tagOtherCount + saidCount >= 20) add("tags_ornate", tagOtherCount / (tagOtherCount + saidCount) / (AIMS.tagsOtherShare / 100), { share: round1((tagOtherCount / (tagOtherCount + saidCount)) * 100), example: tagOther.slice(0, 3).map((x) => x.word).join(", ") });
+  if (allParagraphLengths.length >= 10) add("paragraphs_long", over200 / allParagraphLengths.length / (AIMS.longParagraphShare / 100), { count: over200, longest: Math.max(...allParagraphLengths) });
+  if (echoes.length && enough) add("echoes", per1k(echoes.length, totalWords) / AIMS.echoesPerThousand, { count: echoes.length });
   findings.sort((a, b) => b.score - a.score);
   const headlines = findings.slice(0, 4).map(({ id, params }) => ({ id, params }));
 
@@ -406,7 +444,8 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
     openerRuns: openerRuns.sort((a, b) => b.length - a.length).slice(0, 12),
     echoes: echoes.slice(0, 20),
     pacing,
-    rhythm: { meanSentence: overallMean, sd: overallSd, meanByChapter: meanLens },
+    rhythm: { meanSentence: overallMean, sd: overallSd, meanByChapter: meanLens, profile, windowSentences: windowSize },
+    aims: AIMS,
     dialogueTags: { said: saidCount, other: tagOther, otherCount: tagOtherCount },
     paragraphs: {
       count: allParagraphLengths.length,

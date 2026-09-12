@@ -2,20 +2,130 @@
 //
 // Leads with what to look at first: the handful of findings furthest past
 // their thresholds, each as one sentence with the number in it and one line
-// on why it matters. Everything else — the frequency tables, the rhythm per
-// chapter, the echoes with their excerpts — sits below as evidence, because
-// a table of forty numbers is not a report and nobody reads down to the
-// interesting row.
+// on why it matters. Every section after that opens with the aim — the
+// number to be under or over — and a mark saying whether this manuscript is,
+// so the reader never has to infer the standard from the verdict. The
+// tables and the chart sit below as evidence.
+//
+// The aims are printed from the report, not kept here: the backend holds one
+// set of thresholds, awards the marks from them, and sends them along, so
+// the stated aim and the mark can never disagree.
 //
 // Every sentence here is phrased from the report's params so the same
-// numbers read correctly in Danish, German and Spanish. The report itself
-// carries no prose.
+// numbers read correctly in Danish, German and Spanish.
 
 import { useTranslation } from "../i18n";
 import type { Lang, LanguageAnalysisReport, LanguageFinding } from "../types";
 
 function fill(s: string, params: Record<string, string | number>): string {
   return s.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? ""));
+}
+
+/**
+ * The book as a row of bars, one per run of sentences in reading order,
+ * each as tall as those sentences are long on average. Short bars read
+ * quick, tall bars read slow, and the shape across the row is the pace of
+ * the whole — the one thing a per-chapter table cannot show.
+ *
+ * One series, one axis; the average as a dashed line; chapter starts as
+ * ticks. Colour carries nothing: the height is the information.
+ */
+function PaceChart({
+  profile,
+  average,
+  t,
+}: {
+  profile: LanguageAnalysisReport["rhythm"]["profile"];
+  average: number;
+  t: (k: string, f?: string) => string;
+}) {
+  if (profile.length < 2) return null;
+  const W = 800;
+  const H = 170;
+  const padL = 34;
+  const padR = 8;
+  const padT = 14;
+  const padB = 26;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const maxY = Math.max(10, Math.ceil(Math.max(...profile.map((p) => p.meanSentence), average) * 1.1));
+  const y = (v: number) => padT + innerH - (v / maxY) * innerH;
+  const n = profile.length;
+  const step = innerW / n;
+  const barW = Math.max(2, step * 0.72);
+  const gridlines = [10, 20, 30, 40].filter((g) => g < maxY);
+
+  // Chapter starts, for the ticks. Numbered rather than named: names do
+  // not fit under a bar two pixels wide, and the table below has them.
+  const starts: { i: number; num: number }[] = [];
+  let num = 0;
+  profile.forEach((p, i) => {
+    if (i === 0 || p.chapter !== profile[i - 1].chapter) starts.push({ i, num: ++num });
+  });
+  const labelEvery = starts.length > 24 ? Math.ceil(starts.length / 24) : 1;
+
+  return (
+    <svg
+      className="la-pace"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={t("la_pace_aria")}
+    >
+      {gridlines.map((g) => (
+        <g key={g}>
+          <line x1={padL} x2={W - padR} y1={y(g)} y2={y(g)} className="la-pace-grid" />
+          <text x={padL - 6} y={y(g) + 3} className="la-pace-ylabel" textAnchor="end">
+            {g}
+          </text>
+        </g>
+      ))}
+      {profile.map((p, i) => (
+        <rect
+          key={i}
+          x={padL + i * step + (step - barW) / 2}
+          y={y(p.meanSentence)}
+          width={barW}
+          height={Math.max(1, padT + innerH - y(p.meanSentence))}
+          rx={1.5}
+          className="la-pace-bar"
+        >
+          <title>{`${p.chapter} · ${p.meanSentence} ${t("la_words_per_sentence")} · ${p.dialogueShare}% ${t("la_dialogue").toLowerCase()}`}</title>
+        </rect>
+      ))}
+      <line
+        x1={padL}
+        x2={W - padR}
+        y1={y(average)}
+        y2={y(average)}
+        className="la-pace-avg"
+      />
+      <text x={W - padR} y={y(average) - 4} className="la-pace-avg-label" textAnchor="end">
+        {t("la_pace_average")} {average}
+      </text>
+      {starts.map(({ i, num: k }) => (
+        <g key={i}>
+          <line
+            x1={padL + i * step}
+            x2={padL + i * step}
+            y1={padT + innerH}
+            y2={padT + innerH + 5}
+            className="la-pace-tick"
+          />
+          {(k - 1) % labelEvery === 0 && (
+            <text x={padL + i * step + 2} y={H - 8} className="la-pace-xlabel">
+              {k}
+            </text>
+          )}
+        </g>
+      ))}
+      <text x={padL} y={padT - 3} className="la-pace-edge">
+        ↑ {t("la_pace_slower")}
+      </text>
+      <text x={W - padR} y={H - 8} className="la-pace-edge" textAnchor="end">
+        ↓ {t("la_pace_quicker")}
+      </text>
+    </svg>
+  );
 }
 
 export default function LanguageAnalysisPanel({
@@ -27,6 +137,7 @@ export default function LanguageAnalysisPanel({
 }) {
   const t = useTranslation(lang);
   const n = (x: number) => x.toLocaleString(lang === "en" ? "en-GB" : lang);
+  const aims = report.aims;
 
   const headline = (f: LanguageFinding) => ({
     title: fill(t(`la_h_${f.id}`), f.params),
@@ -42,14 +153,30 @@ export default function LanguageAnalysisPanel({
     const label = v === "ok" ? t("la_mark_ok") : t("la_mark_look");
     return (
       <span className={`la-mark la-mark-${v}`} title={label} aria-label={label}>
-        {v === "ok" ? "\u2713" : "!"}
+        {v === "ok" ? "✓" : "!"}
       </span>
+    );
+  };
+
+  // The aim, under every heading, with the mark's verdict spelt out beside
+  // it so a reader who cannot see colour still gets the answer.
+  const Aim = ({ id, text }: { id: keyof LanguageAnalysisReport["sections"]; text: string }) => {
+    const v = report.sections?.[id] ?? "na";
+    return (
+      <p className={`la-aim la-aim-${v}`}>
+        {text}
+        {v !== "na" && (
+          <span className="la-aim-verdict">
+            {" — "}
+            {v === "ok" ? t("la_aim_met") : t("la_aim_not_met")}
+          </span>
+        )}
+      </p>
     );
   };
 
   const crutch = report.overused.filter((o) => o.kind === "crutch");
   const frequent = report.overused.filter((o) => o.kind === "frequent");
-  const rhythmMax = Math.max(1, ...report.pacing.map((p) => p.meanSentence));
 
   return (
     <div className="la">
@@ -68,7 +195,7 @@ export default function LanguageAnalysisPanel({
         <h4 className="la-h">{t("la_first")}</h4>
         {report.headlines.length === 0 ? (
           <p className="la-clean">
-            <span className="la-mark la-mark-ok" aria-hidden="true">{"\u2713"}</span>
+            <span className="la-mark la-mark-ok" aria-hidden="true">{"✓"}</span>
             {t("la_nothing_stands_out")}
           </p>
         ) : (
@@ -89,17 +216,61 @@ export default function LanguageAnalysisPanel({
         )}
       </section>
 
+      {/* ── Rhythm: the whole book ── */}
+      <section className="la-section">
+        <h4 className="la-h"><Mark id="rhythm" />{t("la_rhythm")}</h4>
+        <Aim id="rhythm" text={fill(t("la_aim_rhythm"), { mean: aims.sentenceMean })} />
+        <p className="la-stat">
+          {fill(t("la_rhythm_summary"), {
+            mean: report.rhythm.meanSentence,
+            sd: report.rhythm.sd,
+          })}
+        </p>
+        <PaceChart profile={report.rhythm.profile} average={report.rhythm.meanSentence} t={t} />
+        <p className="la-hint">
+          {fill(t("la_pace_guide"), { n: report.rhythm.windowSentences })}
+        </p>
+        <details className="la-details">
+          <summary>{t("la_per_chapter")}</summary>
+          <table className="la-table la-pacing">
+            <thead>
+              <tr>
+                <th>{t("la_chapter")}</th>
+                <th className="la-num">{t("la_words")}</th>
+                <th className="la-num" title={t("la_mean_sentence_tip")}>{t("la_mean_sentence")}</th>
+                <th className="la-num" title={t("la_short_tip")}>{t("la_short")}</th>
+                <th className="la-num" title={t("la_long_tip")}>{t("la_long")}</th>
+                <th className="la-num">{t("la_dialogue")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.pacing.map((p) => (
+                <tr key={p.chapter}>
+                  <td className="la-word">{p.chapter}</td>
+                  <td className="la-num la-muted">{n(p.words)}</td>
+                  <td className="la-num">{p.meanSentence}</td>
+                  <td className="la-num la-muted">{p.shortShare}%</td>
+                  <td className="la-num la-muted">{p.longShare}%</td>
+                  <td className="la-num la-muted">{p.dialogueShare}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      </section>
+
       <div className="la-grid">
         {/* ── Words ── */}
         <section className="la-section">
           <h4 className="la-h"><Mark id="overused" />{t("la_overused")}</h4>
+          <Aim id="overused" text={fill(t("la_aim_overused"), { n: aims.crutchPerThousand })} />
           {crutch.length === 0 ? (
             <p className="la-clean">{t("la_overused_none")}</p>
           ) : (
             <table className="la-table">
               <tbody>
                 {crutch.map((o) => (
-                  <tr key={o.word}>
+                  <tr key={o.word} className={o.perThousand > aims.crutchPerThousand ? "la-row-look" : ""}>
                     <td className="la-word">{o.word}</td>
                     <td className="la-num">{n(o.count)}</td>
                     <td className="la-num la-muted">{o.perThousand} / 1k</td>
@@ -108,7 +279,7 @@ export default function LanguageAnalysisPanel({
               </tbody>
             </table>
           )}
-          <p className="la-hint small-note">{t("la_overused_hint")}</p>
+          <p className="la-hint">{t("la_overused_hint")}</p>
 
           <h5 className="la-sub">{t("la_frequent")}</h5>
           <p className="la-cloud">
@@ -125,6 +296,7 @@ export default function LanguageAnalysisPanel({
           <h4 className="la-h"><Mark id="adverbs" />{t("la_adverbs")}</h4>
           {report.adverbs.detected ? (
             <>
+              <Aim id="adverbs" text={fill(t("la_aim_per_thousand"), { n: aims.adverbsPerThousand })} />
               <p className="la-stat">
                 <strong>{report.adverbs.perThousand}</strong> {t("la_per_thousand")}
                 <span className="la-muted"> · {n(report.adverbs.count)} {t("la_in_total")}</span>
@@ -140,9 +312,10 @@ export default function LanguageAnalysisPanel({
           ) : (
             <p className="la-clean">{t("la_adverbs_not_detected")}</p>
           )}
-          <p className="la-hint small-note">{t("la_adverbs_hint")}</p>
+          <p className="la-hint">{t("la_adverbs_hint")}</p>
 
           <h5 className="la-sub"><Mark id="filter" />{t("la_filter")}</h5>
+          <Aim id="filter" text={fill(t("la_aim_per_thousand"), { n: aims.filterPerThousand })} />
           <p className="la-stat">
             <strong>{report.filterWords.perThousand}</strong> {t("la_per_thousand")}
             <span className="la-muted"> · {n(report.filterWords.count)} {t("la_in_total")}</span>
@@ -156,16 +329,17 @@ export default function LanguageAnalysisPanel({
               ))}
             </p>
           )}
-          <p className="la-hint small-note">{t("la_filter_hint")}</p>
+          <p className="la-hint">{t("la_filter_hint")}</p>
         </section>
 
         {/* ── Openers ── */}
         <section className="la-section">
           <h4 className="la-h"><Mark id="openers" />{t("la_openers")}</h4>
+          <Aim id="openers" text={fill(t("la_aim_openers"), { n: aims.openerShare })} />
           <table className="la-table">
             <tbody>
               {report.openers.slice(0, 6).map((o) => (
-                <tr key={o.word}>
+                <tr key={o.word} className={o.share > aims.openerShare ? "la-row-look" : ""}>
                   <td className="la-word">{o.word}</td>
                   <td className="la-num">{o.share}%</td>
                   <td className="la-bar-cell">
@@ -189,12 +363,13 @@ export default function LanguageAnalysisPanel({
               </ul>
             </>
           )}
-          <p className="la-hint small-note">{t("la_openers_hint")}</p>
+          <p className="la-hint">{t("la_openers_hint")}</p>
         </section>
 
         {/* ── Echoes ── */}
         <section className="la-section">
           <h4 className="la-h"><Mark id="echoes" />{t("la_echoes")}</h4>
+          <Aim id="echoes" text={fill(t("la_aim_echoes"), { n: aims.echoesPerThousand })} />
           {report.echoes.length === 0 ? (
             <p className="la-clean">{t("la_echoes_none")}</p>
           ) : (
@@ -208,54 +383,13 @@ export default function LanguageAnalysisPanel({
               ))}
             </ul>
           )}
-          <p className="la-hint small-note">{t("la_echoes_hint")}</p>
+          <p className="la-hint">{t("la_echoes_hint")}</p>
         </section>
-      </div>
 
-      {/* ── Rhythm, by chapter ── */}
-      <section className="la-section">
-        <h4 className="la-h"><Mark id="rhythm" />{t("la_rhythm")}</h4>
-        <p className="la-stat">
-          {fill(t("la_rhythm_summary"), {
-            mean: report.rhythm.meanSentence,
-            sd: report.rhythm.sd,
-          })}
-        </p>
-        <table className="la-table la-pacing">
-          <thead>
-            <tr>
-              <th>{t("la_chapter")}</th>
-              <th className="la-num">{t("la_words")}</th>
-              <th className="la-num" title={t("la_mean_sentence_tip")}>{t("la_mean_sentence")}</th>
-              <th className="la-bar-cell" />
-              <th className="la-num" title={t("la_short_tip")}>{t("la_short")}</th>
-              <th className="la-num" title={t("la_long_tip")}>{t("la_long")}</th>
-              <th className="la-num">{t("la_dialogue")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.pacing.map((p) => (
-              <tr key={p.chapter}>
-                <td className="la-word">{p.chapter}</td>
-                <td className="la-num la-muted">{n(p.words)}</td>
-                <td className="la-num">{p.meanSentence}</td>
-                <td className="la-bar-cell">
-                  <span className="la-bar" style={{ width: `${(p.meanSentence / rhythmMax) * 100}%` }} />
-                </td>
-                <td className="la-num la-muted">{p.shortShare}%</td>
-                <td className="la-num la-muted">{p.longShare}%</td>
-                <td className="la-num la-muted">{p.dialogueShare}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="la-hint small-note">{t("la_rhythm_hint")}</p>
-      </section>
-
-      {/* ── Dialogue tags and paragraphs ── */}
-      <div className="la-grid">
+        {/* ── Dialogue tags ── */}
         <section className="la-section">
           <h4 className="la-h"><Mark id="tags" />{t("la_tags")}</h4>
+          <Aim id="tags" text={fill(t("la_aim_tags"), { n: 100 - aims.tagsOtherShare })} />
           {report.dialogueTags.said + report.dialogueTags.otherCount === 0 ? (
             <p className="la-clean">{t("la_tags_none")}</p>
           ) : (
@@ -277,11 +411,13 @@ export default function LanguageAnalysisPanel({
               )}
             </>
           )}
-          <p className="la-hint small-note">{t("la_tags_hint")}</p>
+          <p className="la-hint">{t("la_tags_hint")}</p>
         </section>
 
+        {/* ── Paragraphs ── */}
         <section className="la-section">
           <h4 className="la-h"><Mark id="paragraphs" />{t("la_paragraphs")}</h4>
+          <Aim id="paragraphs" text={fill(t("la_aim_paragraphs"), { n: aims.longParagraphShare })} />
           <p className="la-stat">
             {fill(t("la_paragraphs_summary"), {
               count: n(report.paragraphs.count),
@@ -290,7 +426,7 @@ export default function LanguageAnalysisPanel({
               over200: n(report.paragraphs.over200),
             })}
           </p>
-          <p className="la-hint small-note">{t("la_paragraphs_hint")}</p>
+          <p className="la-hint">{t("la_paragraphs_hint")}</p>
         </section>
       </div>
     </div>
