@@ -1965,24 +1965,6 @@ summary.review-source::before {
   margin-top: 0.5rem;
 }
 
-.dialect-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  padding: 0.45rem 0.65rem;
-  background: #fdf4e2;
-  border: 1px solid #e6c98a;
-  border-radius: 4px;
-}
-
-.dialect-banner-text {
-  margin: 0;
-  font-style: normal;
-  color: #6b5a1f;
-}
-
 .btn-accept-all-job {
   width: auto;
   font-size: 1rem;

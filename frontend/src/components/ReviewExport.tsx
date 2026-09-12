@@ -2447,14 +2447,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           // proposes. Deliberately the total rather than what is still
           // unticked: corrections arrive already accepted, so an "outstanding"
           // count reads zero everywhere the moment results load and tells the
-          // author nothing about where the work is. `resultMeta` carries the
-          // count before a result hydrates — the snapshot strips `result` — and
-          // both paths exclude flagged and dialect entries for the same reason
-          // the chapter headers do.
+          // author nothing about where the work is. It counts what the
+          // chapter shows inline: not the dialect swaps (engine log, not
+          // cards) and not the low-confidence fold. `resultMeta` carries the
+          // same count before a result hydrates (backend/src/snapshot.ts).
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
             const count = cs
-              ? cs.filter((c) => c.reason !== "dialect").length
+              ? cs.filter(
+                  (c) => c.reason !== "dialect" && flagKindOf(c) !== "doubted",
+                ).length
               : (task.resultMeta?.corrections ?? 0);
             return {
               tid,
@@ -2502,29 +2504,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
           // Dialect (British↔American) conversions can fire dozens of times
           // across a manuscript — one per swapped word — which would bloat
-          // every chapter's list for something that's really one decision.
-          // Summarized as a single job-level notice instead; the individual
-          // corrections are excluded from each chapter's visible list below.
-          const dialectCorrections = editTasks.flatMap(([tid, task]) =>
-            (task.result?.corrections ?? [])
-              .filter((c) => c.id && c.reason === "dialect")
-              .map((c) => ({ tid, id: c.id as string })),
-          );
-          const dialectTargetDialect = editTasks
-            .map(
-              ([, task]) =>
-                (task.editOptions as Record<string, unknown> | undefined)
-                  ?.englishDialect,
-            )
-            .find((d): d is "american" | "british" => d === "american" || d === "british");
-          const dialectAllAccepted =
-            dialectCorrections.length > 0 &&
-            dialectCorrections.every(({ tid, id }) => {
-              const set = acceptedCorrections[tid] ?? new Set<string>();
-              return (
-                set.has(id) || [...set].some((k) => k.startsWith(`${id}:`))
-              );
-            });
+          // every chapter's list for something that is really one setting.
+          // They are excluded from each chapter's visible list below and
+          // reported once per chapter in the engine log (queue.ts).
 
           const jobNode = (
             <details
@@ -3941,8 +3923,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           // carefully the one bucket that could vanish.
                           //
                           // Dialect (British↔American) conversions are the
-                          // exception, and not a hidden one: they are
-                          // summarized in the job-level banner below rather
+                          // exception: a setting the author chose, applied
+                          // as chosen and reported in the engine log rather
                           // than repeated down every chapter.
                           const visible = corrections.filter(
                             (c) => c.reason !== "dialect",
@@ -4191,41 +4173,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               })}
               </div>
               </>
-              )}
-
-              {/* ── Dialect (British↔American) summary: one notice instead of
-                   one card per swapped word ── */}
-              {dialectCorrections.length > 0 && !isScanJob && (
-                <div className="dialect-banner">
-                  <p className="small-note dialect-banner-text">
-                    {t(
-                      dialectTargetDialect === "british"
-                        ? "dialect_banner_british"
-                        : "dialect_banner_american",
-                    ).replace("{n}", String(dialectCorrections.length))}
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-small"
-                    onClick={() => {
-                      if (dialectAllAccepted) {
-                        dialectCorrections.forEach(({ tid, id }) =>
-                          dismissCorrection(tid, id),
-                        );
-                        setToast({ msg: t("dismiss_all_job_toast"), kind: "dismiss" });
-                      } else {
-                        dialectCorrections.forEach(({ tid, id }) =>
-                          acceptCorrection(tid, id),
-                        );
-                        setToast({ msg: t("accept_all_job_toast"), kind: "accept" });
-                      }
-                    }}
-                  >
-                    {dialectAllAccepted
-                      ? t("dialect_dismiss_all", "Dismiss these spellings")
-                      : t("dialect_accept_all", "Accept these spellings")}
-                  </button>
-                </div>
               )}
 
               {/* ── Export ──

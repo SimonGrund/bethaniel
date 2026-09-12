@@ -26,15 +26,32 @@ export type ClientTaskState = Omit<
   resultMeta: ResultMeta | null;
 };
 
+/** The reviewer score under which a suggestion is folded away as low
+ *  confidence. Mirrors REVIEWER_FLAG_THRESHOLD in frontend/src/types.ts. */
+const LOW_CONFIDENCE_BELOW = 3;
+
+/** What the chapter pill and header count before the full result arrives:
+ *  every suggestion the author will read inline. Dialect swaps are reported
+ *  in the engine log, not as cards, and the low-confidence ones sit in their
+ *  own fold — so neither is a change the pill should claim. Unchecked and
+ *  second-opinion flags stay: they are shown inline, unticked. */
+export function countsTowardPill(c: {
+  reason?: string;
+  flagged?: boolean;
+  confidence?: number;
+}): boolean {
+  if (c.reason === "dialect") return false;
+  if (c.flagged && c.confidence != null && c.confidence < LOW_CONFIDENCE_BELOW)
+    return false;
+  return true;
+}
+
 export function makeResultMeta(
   result: TaskResult | null | undefined,
 ): ResultMeta | null {
   if (!result) return null;
   return {
-    // Count only corrections scored for acceptance; flagged suggestions
-    // (below the reviewer threshold / unscored) are excluded so the summary
-    // matches the per-chapter header shown in the UI.
-    corrections: result.corrections?.filter((c) => !c.flagged).length ?? 0,
+    corrections: result.corrections?.filter(countsTowardPill).length ?? 0,
     skipped: result.skipped?.length ?? 0,
     errors: result.errors?.length ?? 0,
     hasStructured: result.structuredData != null,

@@ -113,3 +113,22 @@ test("buildClientSnapshot keys by task id and shapes every task", () => {
   assert.equal(snap.a.resultMeta!.corrections, 2);
   assert.equal(snap.b.resultMeta, null);
 });
+
+test("the pill count leaves out dialect swaps and low-confidence suggestions, keeps the rest", () => {
+  const meta = makeResultMeta({
+    editedText: "",
+    originalText: "",
+    corrections: [
+      { original: "teh", corrected: "the" },
+      { original: "colour", corrected: "color", reason: "dialect" },
+      { original: "a", corrected: "b", flagged: true, confidence: 2 },
+      { original: "c", corrected: "d", flagged: true, confidence: 3 },
+      { original: "e", corrected: "f", flagged: true },
+    ],
+    skipped: [],
+    errors: [],
+  });
+  // The plain one, the second-opinion one (3) and the unchecked one — the
+  // three an author reads inline. Not the dialect swap, not the doubted 2.
+  assert.equal(meta!.corrections, 3);
+});

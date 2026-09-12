@@ -2979,6 +2979,28 @@ async function processJob(job: JobData): Promise<void> {
     corrections.push(...deduped);
   }
 
+  // The dialect pass is reported once per chapter here, in the engine log,
+  // rather than as a banner on the results: it is a fact about what Betty
+  // did, not a decision the author has to make, and the swapped spellings
+  // never appear as cards.
+  {
+    const dialectCount = corrections.filter((c) => c.reason === "dialect").length;
+    const dialectOpt = (job.editOptions as Record<string, unknown> | undefined)
+      ?.englishDialect;
+    if (dialectCount > 0 && (dialectOpt === "american" || dialectOpt === "british")) {
+      appendLog({
+        level: "info",
+        source: "task",
+        taskId,
+        message:
+          dialectOpt === "british"
+            ? `Updated ${dialectCount} word(s) from American to British English.`
+            : `Updated ${dialectCount} word(s) from British to American English.`,
+        model,
+      });
+    }
+  }
+
   // Chapter-level punctuation net: doubled marks the original didn't have
   // are splice artifacts (correction snippets stopping short of a
   // sentence-final period) — collapse them and say so.

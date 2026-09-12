@@ -687,18 +687,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Keine Korrekturen vorgeschlagen.",
     es: "No se propusieron correcciones.",
   },
-  dialect_banner_american: {
-    en: "Betty updated {n} word(s) from British to American English.",
-    da: "Betty opdaterede {n} ord fra britisk til amerikansk engelsk.",
-    de: "Betty hat {n} Wort/Wörter von britischem auf amerikanisches Englisch umgestellt.",
-    es: "Betty actualizó {n} palabra(s) de inglés británico a americano.",
-  },
-  dialect_banner_british: {
-    en: "Betty updated {n} word(s) from American to British English.",
-    da: "Betty opdaterede {n} ord fra amerikansk til britisk engelsk.",
-    de: "Betty hat {n} Wort/Wörter von amerikanischem auf britisches Englisch umgestellt.",
-    es: "Betty actualizó {n} palabra(s) de inglés americano a británico.",
-  },
   skipped_label: {
     en: "skipped",
     da: "sprunget over",
@@ -962,18 +950,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Luk dette kapitel",
     de: "Dieses Kapitel schließen",
     es: "Cerrar este capítulo",
-  },
-  dialect_accept_all: {
-    en: "Accept these spellings",
-    da: "Acceptér disse stavemåder",
-    de: "Diese Schreibweisen übernehmen",
-    es: "Aceptar estas grafías",
-  },
-  dialect_dismiss_all: {
-    en: "Dismiss these spellings",
-    da: "Afvis disse stavemåder",
-    de: "Diese Schreibweisen verwerfen",
-    es: "Descartar estas grafías",
   },
   flag_doubted: {
     en: "⚠ uncertain",
