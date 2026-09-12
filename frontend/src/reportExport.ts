@@ -40,27 +40,42 @@ export function reportDocument(root: HTMLElement, title: string): string {
 
 type Bridge = { exportPdf?: (html: string, name: string) => Promise<string | null> };
 
-export function useReportExport(title: string) {
+/**
+ * @param build A document of the report's own, built from its data rather
+ *   than printed from the screen — for a report whose page is a working
+ *   surface (controls, folds) rather than the thing to hand on.
+ */
+export function useReportExport(title: string, build?: () => string) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<ExportState>("idle");
 
   const exportPdf = useCallback(async () => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root && !build) return;
     const bridge = (window as unknown as { bethaniel?: Bridge }).bethaniel;
+    const html = build ? build() : reportDocument(root!, title);
     if (!bridge?.exportPdf) {
-      window.print();
+      if (build) {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+          w.print();
+        }
+      } else {
+        window.print();
+      }
       return;
     }
     setState("busy");
     try {
-      const saved = await bridge.exportPdf(reportDocument(root, title), title);
+      const saved = await bridge.exportPdf(html, title);
       setState(saved ? "saved" : "idle");
     } catch {
       setState("failed");
     }
     setTimeout(() => setState("idle"), 2500);
-  }, [title]);
+  }, [title, build]);
 
   return { rootRef, state, exportPdf };
 }

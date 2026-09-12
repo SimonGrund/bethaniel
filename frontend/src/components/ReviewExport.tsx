@@ -35,6 +35,7 @@ import BettyAtWork from "./BettyAtWork";
 import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
 import EnhanceLanguageStatus from "./EnhanceLanguageStatus";
 import { exportLabel, useReportExport } from "../reportExport";
+import { buildReadinessReportHtml, type ReportIssue } from "../readinessReport";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -1003,12 +1004,20 @@ function correctionIssueText(correction: Correction, originalText: string): stri
 /**
  * A heuristic 0-100 publication-quality score. Structural defects are rare
  * and always serious (a duplicated chapter, a truncated ending), so each one
- * costs a flat amount; confirmed mechanical corrections are scored by
- * DENSITY (per 1,000 words) rather than raw count, so a handful of typos in
- * a full novel doesn't score the same as a handful in a five-page chapter.
- * Only corrections Betty stands behind count — a doubted one is not listed
- * as a blocker, so it doesn't touch the score either. This
- * is a heuristic guide for "does this look clean", not a formal QA metric —
+ * costs a flat amount; blocking corrections are scored by DENSITY rather
+ * than raw count, so a handful of typos in a full novel doesn't score the
+ * same as a handful in a five-page chapter. Only corrections Betty stands
+ * behind count — a doubted one is not listed as a blocker, so it doesn't
+ * touch the score either; suggestions never do.
+ *
+ * The scale is set against what a professionally proofread book looks
+ * like: about one slip per ten thousand words. That costs 8 points, so a
+ * 100,000-word novel with ten remaining typos scores 92 — close, not
+ * clean — and one with three scores 98. The old scale charged 20 points
+ * per typo per THOUSAND words, which put a manuscript with fifteen small
+ * faults at 23: a number that read as a failing grade for a book a copy
+ * editor would call nearly done. Short pieces are scored as if they were
+ * at least 5,000 words, so one typo in a 400-word sample is not a 40.
  * 95+ is the bar this panel treats as publication-ready.
  */
 function computeQualityScore(opts: {
@@ -1016,9 +1025,9 @@ function computeQualityScore(opts: {
   structuralCount: number;
   confirmedCount: number;
 }): number {
-  const perThousandWords = Math.max(opts.wordCount, 1) / 1000;
+  const perTenThousandWords = Math.max(opts.wordCount, 5000) / 10000;
   const penalty =
-    opts.structuralCount * 15 + (opts.confirmedCount / perThousandWords) * 20;
+    opts.structuralCount * 15 + (opts.confirmedCount / perTenThousandWords) * 8;
   return Math.max(0, Math.min(100, Math.round(100 - penalty)));
 }
 
@@ -1085,6 +1094,7 @@ const POLISH_NUDGE_THRESHOLD = 10;
 function PublicationReadinessPanel({
   report,
   blockingCorrections,
+  minorCorrections,
   minorTotal,
   minorChapters,
   polishOnlyTotal,
@@ -1097,6 +1107,8 @@ function PublicationReadinessPanel({
 }: {
   report: StructuralScanReport | null;
   blockingCorrections: BlockingIssue[];
+  /** Everything the scan proposed that does not block, for the report. */
+  minorCorrections: BlockingIssue[];
   minorTotal: number;
   minorChapters: number;
   /** Punctuation-only suggestions (comma/semicolon/period, no word changed)
@@ -1113,9 +1125,7 @@ function PublicationReadinessPanel({
   source?: string;
   t: (key: string, fallback?: string) => string;
 }) {
-  const { rootRef, state: exporting, exportPdf } = useReportExport(
-    `${t("mode_publication_scan")} — ${source ?? ""}`.replace(/ — $/, ""),
-  );
+  const lang = useStore((s) => s.lang);
   const structuralBlocking: BlockingIssue[] = (report?.findings ?? [])
     .filter((f) => f.blocking)
     .map((f) => ({
@@ -1131,6 +1141,43 @@ function PublicationReadinessPanel({
     structuralCount: structuralBlocking.length,
     confirmedCount: blockingCorrections.length,
   });
+  // The PDF is a document of its own — summary, then one line per
+  // correction — not a print of this panel, which carries controls.
+  const toIssue = (issue: BlockingIssue): ReportIssue =>
+    issue.kind === "structural"
+      ? { location: issue.location, message: issue.message, detail: issue.detail }
+      : {
+          location: issue.location,
+          original: issue.correction.original,
+          corrected: issue.correction.corrected,
+          context: (() => {
+            const { before, after } = extractSentenceContext(
+              issue.correction.original,
+              issue.originalText,
+              0,
+            );
+            return [before, after].some(Boolean)
+              ? `…${before} [${issue.correction.original}] ${after}…`.replace(/\s+/g, " ")
+              : undefined;
+          })(),
+          correction: issue.correction,
+        };
+  const { rootRef, state: exporting, exportPdf } = useReportExport(
+    `${t("mode_publication_scan")} — ${source ?? ""}`.replace(/ — $/, ""),
+    () =>
+      buildReadinessReportHtml({
+        source: source ?? "",
+        chapters: report?.chaptersScanned ?? 0,
+        wordCount,
+        score,
+        ready,
+        structural: structuralBlocking.map(toIssue),
+        blocking: blockingCorrections.map(toIssue),
+        minor: minorCorrections.map(toIssue),
+        lang,
+        t,
+      }),
+  );
 
   return (
     <div className="readiness" ref={rootRef}>
@@ -3087,6 +3134,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   (task.result?.corrections ?? []).filter(
                     (c) => !c.blocksPublication || !isReliable(c),
                   ).length;
+                const minorCorrections = proofreadTasks.flatMap((task) =>
+                  (task.result?.corrections ?? [])
+                    .filter((c) => !c.blocksPublication || !isReliable(c))
+                    .map((c) =>
+                      describeCorrection(
+                        task.name,
+                        task.result?.originalText ?? "",
+                        c,
+                      ),
+                    ),
+                );
                 const minorTotal = proofreadTasks.reduce(
                   (n, task) => n + minorCorrectionCount(task),
                   0,
@@ -3125,6 +3183,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           | undefined) ?? null
                       }
                       blockingCorrections={blockingCorrections}
+                      minorCorrections={minorCorrections}
                       minorTotal={minorTotal}
                       minorChapters={minorChapters}
                       polishOnlyTotal={polishOnlyTotal}
