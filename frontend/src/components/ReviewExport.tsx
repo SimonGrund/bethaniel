@@ -1705,6 +1705,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     sessionStartedAt,
     acceptedCorrections,
     seedAcceptances,
+    setSessionStartedAt,
+    setWizardStep,
     toggleCorrection,
     acceptAll,
     dismissAll,
@@ -2578,6 +2580,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 <>
               <div className="review-group-body">
 
+              {!isOldResults && !runningCount && !entries.some(([, x]) => x.status === "queued") && (
+                <div className="review-back-row">
+                  <button
+                    type="button"
+                    className="chapter-pill-back"
+                    title={t("back_to_dashboard_tip")}
+                    onClick={() => {
+                      setSessionStartedAt(Date.now());
+                      setWizardStep("folded");
+                    }}
+                  >
+                    <span aria-hidden="true">←</span> {t("return_to_dashboard")}
+                  </button>
+                </div>
+              )}
+
               {/* Everything the header used to keep on screen. Reference, so
                   it opens on request and closes again. */}
               {infoJobs.has(jid) && (
@@ -2914,7 +2932,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     <summary className="review-task-summary">
                       <strong>{t("mode_language_analysis")}</strong>
                     </summary>
-                    <LanguageAnalysisPanel report={report} lang={lang} />
+                    <LanguageAnalysisPanel report={report} lang={lang} source={src} />
                   </details>
                 );
               })()}
@@ -3585,6 +3603,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   nothing has to be hunted for. */}
               {(chapterPills.length > 0 || !isOldResults) && (
                 <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
+
                   {chapterPills.map((pill) => {
                     // Grey waiting, amber working, green finished, wine failed.
                     // One row of pills is the whole progress display during a

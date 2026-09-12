@@ -671,6 +671,51 @@ ipcMain.handle("cloud:openCheckout", (_event, url: unknown) => {
   }
 });
 
+// ── IPC: render an HTML report to PDF ──
+// The renderer hands over a complete document — its own markup with the
+// stylesheet inlined — and this draws it in a window nobody sees, prints it,
+// and asks where to put the file. Done here rather than with window.print()
+// because the print dialog cannot be told to print only the report, and
+// "Save as PDF" is buried in it on every platform.
+ipcMain.handle(
+  "report:exportPdf",
+  async (_event, html: unknown, suggestedName: unknown): Promise<string | null> => {
+    if (typeof html !== "string" || html.length > 20_000_000) return null;
+    const name =
+      typeof suggestedName === "string" && suggestedName.trim()
+        ? suggestedName.replace(/[\\/:*?"<>|]+/g, "-").trim()
+        : "report";
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Save report as PDF",
+      defaultPath: path.join(app.getPath("documents"), `${name}.pdf`),
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (canceled || !filePath) return null;
+
+    const win = new BrowserWindow({
+      show: false,
+      width: 900,
+      height: 1200,
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    try {
+      await win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+      // Fonts and layout settle a moment after load; printing at once
+      // occasionally caught the page half-styled.
+      await new Promise((r) => setTimeout(r, 300));
+      const pdf = await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize: "A4",
+        margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 },
+      });
+      await fs.promises.writeFile(filePath, pdf);
+      return filePath;
+    } finally {
+      win.destroy();
+    }
+  },
+);
+
 // ── Betty in the Cloud: bethaniel:// deep-link handoff ──
 
 let pendingDeepLink: string | null = null;

@@ -8133,3 +8133,55 @@ summary.review-source::before {
 .la-pace-edge {
   font-style: italic;
 }
+
+/* ── Report toolbar, dialogue chart, and the way back ── */
+.la-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 0.4rem;
+}
+
+.la-dialogue {
+  margin-top: 0.2rem;
+}
+
+.la-dialogue-bar {
+  fill: #7f9b6a;
+}
+
+.la-dialogue-bar:hover {
+  fill: #4f7d3a;
+}
+
+/* The first thing on a finished run: a link back to the setup page, drawn
+   like the pills' quiet neighbour rather than a button. */
+.review-back-row {
+  margin: 0 0 0.6rem;
+}
+
+.chapter-pill-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.4rem;
+  margin-right: 0.35rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: #8b7355;
+  cursor: pointer;
+}
+
+.chapter-pill-back:hover {
+  color: #2a2419;
+  border-color: #d9c9a8;
+  background: #faf6ec;
+}
+
+@media print {
+  .la-toolbar,
+  .chapter-pill-back {
+    display: none;
+  }
+}

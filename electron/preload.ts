@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld("bethaniel", {
   // bethaniel:// deep link the main process listens for).
   openCloudCheckout: (url: string) =>
     ipcRenderer.invoke("cloud:openCheckout", url) as Promise<void>,
+  // Render a self-contained HTML document to PDF and let the user choose
+  // where to save it. Resolves to the path written, or null if they cancelled.
+  exportPdf: (html: string, suggestedName: string) =>
+    ipcRenderer.invoke("report:exportPdf", html, suggestedName) as Promise<string | null>,
   onCloudCredentialClaimed: (
     listener: (result: { ok: boolean; error?: string }) => void,
   ) => {

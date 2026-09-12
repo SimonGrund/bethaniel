@@ -2049,6 +2049,48 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Jeder Balken ist ein Abschnitt von etwa {n} Sätzen in Lesereihenfolge, und seine Höhe ist ihre mittlere Länge. Kurze Balken lesen sich schnell — Handlung, Dialog, Spannung. Hohe Balken lesen sich langsam — Beschreibung, Reflexion. Ein gutes Buch bewegt sich zwischen beiden; eine Reihe gleich hoher Balken, egal wie hoch, liest sich als ein einziges Tempo. Die gestrichelte Linie ist Ihr Schnitt. Die Striche sind Kapitelanfänge, der Reihe nach nummeriert.",
     es: "Cada barra es un tramo de unas {n} frases, en orden de lectura, y su altura es su longitud media. Las barras cortas se leen rápido: acción, diálogo, tensión. Las altas se leen despacio: descripción, reflexión. Un buen libro se mueve entre ambas; una fila de barras de la misma altura, sea cual sea, se lee como un solo ritmo de principio a fin. La línea discontinua es tu media. Las marcas son inicios de capítulo, numerados en orden.",
   },
+  la_export_pdf: {
+    en: "Export as PDF",
+    da: "Eksportér som PDF",
+    de: "Als PDF exportieren",
+    es: "Exportar como PDF",
+  },
+  la_export_busy: {
+    en: "Preparing PDF…",
+    da: "Forbereder PDF…",
+    de: "PDF wird erstellt…",
+    es: "Preparando el PDF…",
+  },
+  la_export_saved: {
+    en: "Saved",
+    da: "Gemt",
+    de: "Gespeichert",
+    es: "Guardado",
+  },
+  la_export_failed: {
+    en: "Could not save the PDF",
+    da: "Kunne ikke gemme PDF'en",
+    de: "PDF konnte nicht gespeichert werden",
+    es: "No se pudo guardar el PDF",
+  },
+  la_dialogue_aria: {
+    en: "Dialogue across the book: share of each stretch that is dialogue",
+    da: "Dialog gennem bogen: andel af hvert stykke, der er dialog",
+    de: "Dialog durch das Buch: Anteil jedes Abschnitts, der Dialog ist",
+    es: "Diálogo a lo largo del libro: proporción de cada tramo que es diálogo",
+  },
+  la_dialogue_guide: {
+    en: "The same stretches, bar for bar, as the share of each that is dialogue. Read the two rows together: a quick stretch that is mostly dialogue is a scene; a quick one with none is brisk narration; a slow one with none is description. Long runs of bars at zero can read dense, long runs near the top can read thin. The dashed line is the book's overall share.",
+    da: "De samme stykker, søjle for søjle, som andelen af hvert, der er dialog. Læs de to rækker sammen: et hurtigt stykke, der mest er dialog, er en scene; et hurtigt uden er kvik fortælling; et langsomt uden er beskrivelse. Lange rækker af søjler på nul kan læses tæt, lange rækker nær toppen kan læses tyndt. Den stiplede linje er bogens samlede andel.",
+    de: "Dieselben Abschnitte, Balken für Balken, als der Anteil jedes Abschnitts, der Dialog ist. Lesen Sie beide Reihen zusammen: Ein schneller Abschnitt, der größtenteils Dialog ist, ist eine Szene; ein schneller ohne Dialog ist zügige Erzählung; ein langsamer ohne Dialog ist Beschreibung. Lange Reihen von Balken auf null können sich dicht lesen, lange Reihen nahe oben dünn. Die gestrichelte Linie ist der Gesamtanteil des Buches.",
+    es: "Los mismos tramos, barra por barra, como la proporción de cada uno que es diálogo. Lee las dos filas juntas: un tramo rápido que es sobre todo diálogo es una escena; uno rápido sin diálogo es narración ágil; uno lento sin diálogo es descripción. Las series largas de barras a cero pueden leerse densas; las series largas cerca del máximo, ligeras. La línea discontinua es la proporción global del libro.",
+  },
+  back_to_dashboard_tip: {
+    en: "This run moves to Former Runs, where it stays open to you.",
+    da: "Denne kørsel flyttes til Tidligere kørsler, hvor den stadig er tilgængelig.",
+    de: "Dieser Lauf wandert zu „Frühere Läufe“ und bleibt dort für Sie zugänglich.",
+    es: "Esta ejecución pasa a Ejecuciones anteriores, donde seguirá disponible.",
+  },
   export_with_changes: {
     en: "Export the full manuscript with accepted changes:",
     da: "Eksportér hele manuskriptet med accepterede ændringer:",
