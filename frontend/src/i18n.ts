@@ -2924,10 +2924,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "{n} problema(s) que revisar antes de publicar",
   },
   readiness_minor: {
-    en: "{n} minor corrections across {m} chapters (spelling, punctuation) — none of them block publication.",
-    da: "{n} mindre rettelser fordelt på {m} kapitler (stavning, tegnsætning) — ingen af dem blokerer udgivelse.",
-    de: "{n} kleinere Korrekturen in {m} Kapiteln (Rechtschreibung, Zeichensetzung) — keine davon verhindert die Veröffentlichung.",
-    es: "{n} correcciones menores en {m} capítulos (ortografía, puntuación): ninguna impide publicar.",
+    en: "{n} further suggestions across {m} chapters — wording, punctuation, casing, names the dictionary did not know — none of them a fault a reader would take for a typo.",
+    da: "{n} yderligere forslag fordelt på {m} kapitler — formuleringer, tegnsætning, store og små bogstaver, navne ordbogen ikke kendte — ingen af dem en fejl, en læser ville tage for en slåfejl.",
+    de: "{n} weitere Vorschläge in {m} Kapiteln — Formulierung, Zeichensetzung, Groß- und Kleinschreibung, dem Wörterbuch unbekannte Namen — keiner davon ein Fehler, den ein Leser für einen Tippfehler hielte.",
+    es: "{n} sugerencias más en {m} capítulos: redacción, puntuación, mayúsculas, nombres que el diccionario no conocía; ninguna es un fallo que un lector tomaría por una errata.",
   },
   readiness_no_minor: {
     en: "No minor corrections suggested either.",

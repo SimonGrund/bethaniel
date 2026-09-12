@@ -4,6 +4,7 @@ import { Router, Request, Response } from "express";
 import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
+import { collectConsistentTerms } from "./correctionSeverity.js";
 import { promises as fs, createWriteStream, createReadStream } from "fs";
 import { join, dirname, resolve } from "path";
 import { Readable } from "stream";
@@ -865,6 +866,11 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           return;
       }
 
+      // Names and invented terms, spelled the same way three or more times
+      // across the whole manuscript: the scan must not call them typos.
+      const consistentTerms = collectConsistentTerms(
+        (units as EditUnit[]).map((u) => stripPagebreaks(u.original)),
+      );
       for (const unit of units as EditUnit[]) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
@@ -903,6 +909,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           reviewerThreshold: resolveKnob("reviewerThreshold", reviewerThreshold),
           spellCheck: resolveKnob("spellCheck", spellCheck),
           retextCheck: resolveKnob("retextCheck", retextCheck),
+          consistentTerms,
           grammarCheck: resolveKnob("grammarCheck", grammarCheck),
           styleComplianceAgent: resolveKnob(
             "styleComplianceAgent",

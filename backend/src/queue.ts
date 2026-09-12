@@ -61,6 +61,7 @@ import {
 } from "./correctionHygiene.js";
 import {
   classifyPublicationBlocking,
+  collectConsistentTerms,
   isPunctuationOnlyChange,
 } from "./correctionSeverity.js";
 import {
@@ -332,6 +333,9 @@ interface JobData {
   resumeState?: unknown;
   /** Text evaluator: recurring-habit digest from a finished edit job. */
   correctionsDigest?: CorrectionsDigest;
+  /** Names and invented terms spelled the same way across the manuscript,
+   *  so a scan does not call them misspellings (correctionSeverity.ts). */
+  consistentTerms?: string[];
 }
 
 const tasks = new Map<string, TaskState>();
@@ -3037,9 +3041,17 @@ async function processJob(job: JobData): Promise<void> {
     }
   }
 
-  for (const c of corrections) {
-    c.blocksPublication = classifyPublicationBlocking(c, mode);
-    c.polishOnly = isPunctuationOnlyChange(c.original, c.corrected);
+  {
+    // The manuscript's own vocabulary travels on the job; a chapter's own
+    // recurring capitalised words are added, for a name that lives in one
+    // chapter only.
+    const terms = new Set(job.consistentTerms ?? []);
+    for (const t of collectConsistentTerms([original], 2)) terms.add(t);
+    const ctx = { text: original, consistentTerms: terms };
+    for (const c of corrections) {
+      c.blocksPublication = classifyPublicationBlocking(c, mode, ctx);
+      c.polishOnly = isPunctuationOnlyChange(c.original, c.corrected);
+    }
   }
 
   const result: TaskResult = {
@@ -3277,6 +3289,7 @@ export async function submitTask(
       runMode: data.runMode,
       units: data.units,
       correctionsDigest: data.correctionsDigest,
+      consistentTerms: data.consistentTerms,
     },
   });
 

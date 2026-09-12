@@ -272,6 +272,7 @@ export interface TaskRetrySpec {
   units?: EditUnit[];
   /** Text evaluator: recurring-habit digest from a finished edit job. */
   correctionsDigest?: CorrectionsDigest;
+  consistentTerms?: string[];
 }
 
 /** Aggregated correction patterns fed to the writing-report synthesis. */
