@@ -36,6 +36,8 @@ export interface Env {
   PRICE_TIER_WORDS?: string;
   /** Price of one band, in EUR cents. */
   PRICE_TIER_EUR_CENTS?: string;
+  /** Price of one band of the enhanced language analysis, in EUR cents. */
+  PRICE_ENHANCE_EUR_CENTS?: string;
   /** Multiplier on the token estimate when sizing a credential's ceiling. */
   TOKEN_BUDGET_HEADROOM?: string;
   STRIPE_PCT_FEE: string;

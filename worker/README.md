@@ -15,6 +15,12 @@ the deploy checklist.
    # paste the returned database_id into wrangler.toml's [[d1_databases]] block
    npx wrangler d1 execute bethaniel-cloud --remote --file=./schema.sql
    ```
+   `schema.sql` only creates what is missing, so a database that predates the
+   `quotes.product` column (added with the enhanced language analysis) needs it
+   added by hand once, before the Worker that sells it is deployed:
+   ```
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE quotes ADD COLUMN product TEXT NOT NULL DEFAULT 'edit'"
+   ```
 3. Set secrets (never committed — these live only in Cloudflare):
    ```
    npx wrangler secret put PROVIDER_API_KEY
@@ -195,6 +201,13 @@ for the same thing) with an explicit "not currently supported", so
   are too small to bill: 100,000 words is ~1.07M tokens for a copy edit, about
   EUR 0.16 on the editing model. `MARKUP_MULTIPLIER` survives only for the
   cost model in globalMeter.ts and sets no price.
+- **The enhanced language analysis is a second product on the same bands.**
+  `/v1/quote` takes `product: "enhance"` and prices a band at
+  `PRICE_ENHANCE_EUR_CENTS` (EUR 2) instead. It reads a sample of the book
+  (at most fourteen passages plus one synthesis call), so its token guard is
+  tighter — `ENHANCE_MAX_TOKENS_PER_WORD` (4) against the edit's 40 — which is
+  what stops the small price from minting an edit-sized credential. The
+  product lands on the quote row and names the Stripe line item.
 - **Promo codes are the only route to a discount or a free run.** A code
   carries a percentage, an absolute discount, or both, plus a use count, an
   expiry and optionally a word cap. Quoting never spends one; the use is taken

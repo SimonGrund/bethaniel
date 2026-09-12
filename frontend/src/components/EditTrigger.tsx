@@ -7,43 +7,16 @@ import { estimateRun, formatEstimate } from "../runEstimate";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
-  getCloudEstimate,
-  createCloudCheckout,
   getModelPerf,
-  type CloudEstimateResponse,
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
 import { DETERMINISTIC_MODES } from "../types";
 import { refreshModelEnvironment, useStartDownload } from "../useModelRuntime";
+import { useCloudPurchase } from "../cloudPurchase";
 import Modal from "./Modal";
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
-}
-
-/** Bridge to the Electron main process — undefined outside the desktop app
- *  (e.g. a browser preview), in which case the cloud button is hidden. */
-function getElectronBridge(): {
-  openCloudCheckout: (url: string) => Promise<void>;
-  onCloudCredentialClaimed: (
-    listener: (result: { ok: boolean; error?: string }) => void,
-  ) => () => void;
-} | null {
-  const win = window as unknown as {
-    bethaniel?: {
-      openCloudCheckout?: (url: string) => Promise<void>;
-      onCloudCredentialClaimed?: (
-        listener: (result: { ok: boolean; error?: string }) => void,
-      ) => () => void;
-    };
-  };
-  if (win.bethaniel?.openCloudCheckout && win.bethaniel?.onCloudCredentialClaimed) {
-    return {
-      openCloudCheckout: win.bethaniel.openCloudCheckout,
-      onCloudCredentialClaimed: win.bethaniel.onCloudCredentialClaimed,
-    };
-  }
-  return null;
 }
 
 export default function EditTrigger() {
@@ -188,15 +161,10 @@ export default function EditTrigger() {
 
   // ── Betty in the Cloud: pre-run estimate + pay-to-run ──
 
-  const [cloudEstimate, setCloudEstimate] = useState<CloudEstimateResponse | null>(
-    null,
-  );
-  const [cloudEstimateError, setCloudEstimateError] = useState<string | null>(null);
   // Typed by the author, validated by the Worker. Kept out of the persisted
   // store on purpose: a code is single-use, so remembering it across sessions
   // would show a discount that no longer exists.
   const [promoCode, setPromoCode] = useState("");
-  const [cloudCheckoutPending, setCloudCheckoutPending] = useState(false);
   const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
   // Measured throughput, so the estimate sharpens after the first real run
   // instead of quoting a published figure forever.
@@ -206,16 +174,29 @@ export default function EditTrigger() {
       .then(setWordsPerSec)
       .catch(() => {});
   }, []);
-  const [cloudClaimError, setCloudClaimError] = useState<string | null>(null);
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Looked up once — the bridge itself never changes across a session, and a
-  // stable reference lets the credential-claimed subscription below mount
-  // exactly once instead of resubscribing on every render.
-  const [electronBridge] = useState(() => getElectronBridge());
   // Always resolves to the current render's handleClick, so the credential
-  // handler (subscribed once, fired much later after payment) submits with
-  // up-to-date doc/units/settings instead of whatever they were on mount.
+  // handler (fired much later, after payment) submits with up-to-date
+  // doc/units/settings instead of whatever they were on mount.
   const handleClickRef = useRef<() => Promise<void>>(async () => {});
+
+  // Once a credential is claimed (paid + saved via the bethaniel:// deep
+  // link), point the run at Betty in the Cloud and submit immediately — the
+  // user already committed to running this exact job by paying for it.
+  const {
+    estimate: cloudEstimate,
+    estimateError: cloudEstimateError,
+    setEstimate: setCloudEstimate,
+    requestEstimate,
+    pending: cloudCheckoutPending,
+    claimError: cloudClaimError,
+    startCheckout,
+    cancelWait: cancelCloudWait,
+  } = useCloudPurchase("run", async () => {
+    await refreshModelEnvironment();
+    useStore.getState().setModel("custom:bethaniel-cloud");
+    await handleClickRef.current();
+  });
 
   // Refetch whenever anything that changes the job's shape changes. `units`
   // is recomputed fresh every render, so its content (not identity) drives
@@ -228,7 +209,7 @@ export default function EditTrigger() {
       return;
     }
     estimateDebounceRef.current = setTimeout(() => {
-      getCloudEstimate({
+      void requestEstimate({
         units: units.map((u) => ({ wordCount: countWords(u.original) })),
         modes: selectedModes,
         wordsPerChunk,
@@ -239,17 +220,7 @@ export default function EditTrigger() {
         styleGuide: styleGuide || undefined,
         manuscriptLang,
         code: promoCode.trim() || undefined,
-      })
-        .then((est) => {
-          setCloudEstimate(est);
-          setCloudEstimateError(null);
-        })
-        .catch((err) => {
-          setCloudEstimate(null);
-          setCloudEstimateError(
-            err instanceof Error ? err.message : "Could not price this job",
-          );
-        });
+      });
     }, 500);
     return () => {
       if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
@@ -271,72 +242,18 @@ export default function EditTrigger() {
     manuscriptLang,
   ]);
 
-  // Once a credential is claimed (paid + saved via the bethaniel:// deep
-  // link), point the run at Betty in the Cloud and submit immediately — the
-  // user already committed to running this exact job by paying for it.
-  useEffect(() => {
-    if (!electronBridge) return;
-    return electronBridge.onCloudCredentialClaimed((result) => {
-      setCloudCheckoutPending(false);
-      if (!result.ok) {
-        setCloudClaimError(result.error ?? "Could not activate your cloud credit");
-        return;
-      }
-      setCloudClaimError(null);
-      void (async () => {
-        await refreshModelEnvironment();
-        useStore.getState().setModel("custom:bethaniel-cloud");
-        await handleClickRef.current();
-      })();
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [electronBridge]);
-
   // Two steps, deliberately. The button opens the confirmation; only the
   // confirmation — after the terms are ticked — opens Stripe.
   const handleRunInCloud = () => {
     if (!cloudEstimate) return;
-    setCloudClaimError(null);
     setCloudConfirmOpen(true);
   };
 
   const handleConfirmCloudPurchase = async () => {
     if (!cloudEstimate) return;
     setCloudConfirmOpen(false);
-    setCloudClaimError(null);
-    try {
-      const { checkoutUrl } = await createCloudCheckout(cloudEstimate.quoteId);
-      setCloudCheckoutPending(true);
-      if (electronBridge) {
-        await electronBridge.openCloudCheckout(checkoutUrl);
-      } else {
-        window.open(checkoutUrl, "_blank");
-      }
-    } catch (err) {
-      setCloudClaimError(
-        err instanceof Error ? err.message : "Could not start checkout",
-      );
-    }
+    await startCheckout(cloudEstimate.quoteId);
   };
-
-  // Closing Stripe without paying sends nothing back, so the pending flag had
-  // no way to clear and the button stayed on "Waiting for payment…" for the
-  // rest of the session — with the run unreachable behind it. Two ways out: an
-  // explicit cancel, and an expiry for the user who simply walked away.
-  const cancelCloudWait = () => {
-    setCloudCheckoutPending(false);
-    setCloudClaimError(null);
-  };
-
-  useEffect(() => {
-    if (!cloudCheckoutPending) return;
-    // Long enough that a real payment — card, 3-D Secure, a hunt for the
-    // wallet — is never interrupted; short enough that an abandoned one does
-    // not outlive the session. A credential that arrives later still works:
-    // onCloudCredentialClaimed does not consult this flag.
-    const id = setTimeout(() => setCloudCheckoutPending(false), 15 * 60 * 1000);
-    return () => clearTimeout(id);
-  }, [cloudCheckoutPending]);
 
   const buildEditOptions = () => {
     const opts: Record<string, boolean | string> = {};

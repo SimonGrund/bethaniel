@@ -1207,6 +1207,77 @@ export function buildWritingReportPrompt(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// ENHANCED LANGUAGE ANALYSIS — what the counts cannot see
+// ═══════════════════════════════════════════════════════════════════
+//
+// The language analysis (languageAnalysis.ts) counts: crutch words, adverbs,
+// filter words, sentence rhythm, dialogue tags. The one thing an author asks
+// for that no count can answer is whether a moment is dramatised or merely
+// stated. These two prompts add that — and only that — to the report:
+// passage notes on showing and telling, then one short paragraph of advice
+// that reads the notes and the counts together. Neither may rewrite a line.
+
+const LANGUAGE_ENHANCE_PASSAGE_PROMPT = `You are a literary craft reader looking at ONE passage sampled from a longer manuscript. Your notes will be added to a report the author already has on their word choices and rhythm, so you look ONLY for the thing that report cannot measure: showing versus telling.
+
+The user message contains the passage, labeled with the chapter it came from.
+
+Find the moments where an emotion, a trait, an atmosphere or a relationship is STATED to the reader ("she was furious", "he had always been a coward", "the room felt hostile", "they had grown apart") where dramatising it — an action, a physical detail, a line of dialogue, a choice — would let the reader feel it instead. Also find one moment, if there is one, where the passage already SHOWS well, so the author knows what to keep doing.
+
+OUTPUT — STRICT JSON ONLY:
+{
+  "notes": [
+    { "kind": "told", "quote": "exact excerpt copied verbatim from the passage, at most 25 words", "note": "what is being stated here, and what a reader would need to see, hear or watch happen to feel it for themselves" },
+    { "kind": "shown", "quote": "exact excerpt copied verbatim from the passage, at most 25 words", "note": "what this excerpt lets the reader feel without being told, and how" }
+  ]
+}
+
+RULES:
+- 0-3 notes for this passage. Report only what is clearly there — an empty list is the right answer for a passage that dramatises everything it needs to.
+- "quote" must be copied VERBATIM from the passage — never paraphrase, never invent, never quote from memory of other books.
+- NEVER rewrite the author's sentence. A note describes what a dramatised version would have to do; it does not supply the words. No suggested prose, no "try:", no example sentences.
+- Not every statement is a fault. A quick summary between scenes, a narrator's deliberate flatness, a voice that tells on purpose — these are choices. Note only the moments where telling costs the reader something.
+- Judge craft, not grammar. Ignore typos and punctuation.
+- Write every "note" in the same language as the passage.`;
+
+export function buildLanguageEnhancePassagePrompt(manuscriptLang?: string): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    LANGUAGE_ENHANCE_PASSAGE_PROMPT +
+    (langName ? buildReportLanguageBlock(langName, true) : "")
+  );
+}
+
+const LANGUAGE_ENHANCE_ADVICE_PROMPT = `You are an experienced editor writing ONE short paragraph of advice for an author, to close a report on the language of their manuscript.
+
+You will receive a JSON object with:
+- "manuscriptStats": the manuscript's size and how much of it was sampled
+- "counts": what a word-level count of the whole manuscript found — the habits it flagged (with the numbers) and, per area, whether it was within the usual range ("ok"), worth a look ("look"), or had too little to judge ("na")
+- "notes": showing-versus-telling observations from the sampled passages, each with a verbatim quote and a reader's note, marked "told" or "shown"
+
+Write a single paragraph of 120-180 words, addressed to the author as "you", that tells them how to strengthen their writing from here. Read the counts and the notes TOGETHER: name the two or three habits that would give the most for the least effort, say what each costs the reader and what to do instead in practice, and end on what is already working so they keep it. Be concrete and warm; never condescending, never gushing.
+
+RULES:
+- Base everything ONLY on the counts and notes provided — never invent habits, numbers or quotes.
+- Never rewrite any of the author's sentences and never supply example prose.
+- Never comment on plot, characters or story structure.
+- The notes come from SAMPLED passages: present what they show as patterns worth checking across the book, and never claim to have read the whole manuscript.
+- Write in the same language as the quoted passages.
+
+STRICT OUTPUT RULES — violating these makes the output unusable:
+- Output plain prose only: one paragraph. No headings, no bullet points, no Markdown, no JSON, no code fences.
+- The response must START with the first word of the paragraph. No preamble such as "Here is", "Sure", or any greeting.
+- The response must END with the paragraph's last sentence. No closing remarks, no offers of further help.
+- Do not refer to yourself, the model, or the analysis process.`;
+
+export function buildLanguageEnhanceAdvicePrompt(manuscriptLang?: string): string {
+  const langName = manuscriptLangName(manuscriptLang);
+  return (
+    LANGUAGE_ENHANCE_ADVICE_PROMPT +
+    (langName ? buildReportLanguageBlock(langName) : "")
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // REVIEWER — second-pass critical review of editor corrections
 // ═══════════════════════════════════════════════════════════════════
 

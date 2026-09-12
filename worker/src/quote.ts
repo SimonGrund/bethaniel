@@ -10,7 +10,15 @@ export interface PromoTerms {
   maxWords?: number | null;
 }
 
+/** What is being bought. An edit is priced by the size of the manuscript;
+ *  the enhanced language analysis reads only a sample of it and is a flat,
+ *  much smaller price per band. */
+export type CloudProduct = "edit" | "enhance";
+
+export const CLOUD_PRODUCTS: readonly CloudProduct[] = ["edit", "enhance"];
+
 export interface PriceQuote {
+  product: CloudProduct;
   tokens: number;
   words: number;
   tiers: number;
@@ -66,29 +74,47 @@ export interface PriceQuote {
  */
 export const MAX_TOKENS_PER_WORD = 40;
 
+/**
+ * The same ceiling for the enhanced language analysis, which never reads the
+ * whole manuscript: it samples about one passage per 7,000 words, at most
+ * fourteen, and sends each once with a short verdict back, then one
+ * synthesis call. Measured against the app's estimator that is 0.4 tokens
+ * per word of manuscript on a novel and about 2 on a 2,000-word story (where
+ * the sample is most of the text). Four clears the worst honest case and
+ * stops the flat price from buying an edit-sized credential: 8M tokens
+ * against it is 2M words, twenty bands, not two euros.
+ */
+export const ENHANCE_MAX_TOKENS_PER_WORD = 4;
+
 export function priceJob(
   env: Env,
-  input: { estimatedTokens: number; words: number },
+  input: { estimatedTokens: number; words: number; product?: CloudProduct },
   promo?: PromoTerms | null,
 ): PriceQuote {
+  const product: CloudProduct = input.product ?? "edit";
   const tokens = Math.max(1, Math.round(input.estimatedTokens));
   const claimedWords = Math.max(1, Math.round(input.words));
 
   // The smallest word count that could honestly need this many tokens. A
   // caller who under-reports words (or omits them entirely, which lands here
   // as 1) is billed on this instead.
-  const impliedWords = Math.ceil(tokens / MAX_TOKENS_PER_WORD);
+  const tokensPerWord =
+    product === "enhance" ? ENHANCE_MAX_TOKENS_PER_WORD : MAX_TOKENS_PER_WORD;
+  const impliedWords = Math.ceil(tokens / tokensPerWord);
   const words = Math.max(claimedWords, impliedWords);
 
   const bandWords = Number(env.PRICE_TIER_WORDS) || 100_000;
-  const bandCents = Number(env.PRICE_TIER_EUR_CENTS) || 500;
+  const bandCents =
+    product === "enhance"
+      ? Number(env.PRICE_ENHANCE_EUR_CENTS) || 200
+      : Number(env.PRICE_TIER_EUR_CENTS) || 500;
 
   // Bands are whole: 1 word and 100,000 words are both one band.
   const tiers = Math.max(1, Math.ceil(words / bandWords));
   const fullPriceEurCents = tiers * bandCents;
 
   if (!promo) {
-    return { tokens, words, tiers, priceEurCents: fullPriceEurCents, fullPriceEurCents };
+    return { product, tokens, words, tiers, priceEurCents: fullPriceEurCents, fullPriceEurCents };
   }
 
   // A code may cap the size it will pay for, so "free trial" can mean "free up
@@ -97,7 +123,7 @@ export function priceJob(
   // error, and is told why.
   if (promo.maxWords != null && words > promo.maxWords) {
     return {
-      tokens, words, tiers,
+      product, tokens, words, tiers,
       priceEurCents: fullPriceEurCents,
       fullPriceEurCents,
       codeRejectedReason: `${promo.code} covers up to ${promo.maxWords.toLocaleString("en")} words; this job is ${words.toLocaleString("en")}.`,
@@ -113,6 +139,6 @@ export function priceJob(
   const priceEurCents = Math.max(0, cents);
 
   return {
-    tokens, words, tiers, priceEurCents, fullPriceEurCents, appliedCode: promo.code,
+    product, tokens, words, tiers, priceEurCents, fullPriceEurCents, appliedCode: promo.code,
   };
 }

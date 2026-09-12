@@ -8137,7 +8137,9 @@ summary.review-source::before {
 /* ── Report toolbar, dialogue chart, and the way back ── */
 .report-toolbar {
   display: flex;
+  align-items: flex-start;
   justify-content: flex-end;
+  gap: 0.6rem;
   margin: 0 0 0.4rem;
 }
 
@@ -8181,6 +8183,150 @@ summary.review-source::before {
   color: #2a2419;
   border-color: #d9c9a8;
   background: #faf6ec;
+}
+
+/* ── The enhanced analysis: its purchase, and its place in the report ──
+   The button sits first in the toolbar, Export after it; the info toggle
+   and the waiting note hang beneath the button in the same column, so the
+   toolbar's row never grows sideways. */
+.la-enhance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-right: auto;
+  max-width: 62ch;
+}
+
+.la-enhance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.la-enhance-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.la-enhance-price {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #ede6d6;
+  color: #5a4a30;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.la-enhance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: auto;
+  font-size: 0.85rem;
+  color: #6b5d48;
+}
+
+.la-enhance-failed {
+  color: #9b2335;
+}
+
+.la-enhance-info {
+  font-size: 0.82rem;
+  color: #6b5d48;
+}
+
+.la-enhance-info > summary {
+  cursor: pointer;
+  list-style: none;
+  color: #8b7355;
+}
+
+.la-enhance-info > summary::-webkit-details-marker {
+  display: none;
+}
+
+.la-enhance-info > summary::before {
+  content: "ⓘ ";
+  color: #b3a88f;
+}
+
+.la-enhance-info[open] > summary::before {
+  content: "ⓘ ";
+  color: #8b7355;
+}
+
+.la-enhance-info > ul {
+  margin: 0.4rem 0 0.3rem;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+  color: #4a3f2f;
+}
+
+.la-enhance-info > p {
+  margin: 0.3rem 0 0;
+  line-height: 1.5;
+  color: #4a3f2f;
+}
+
+.la-enhance .cloud-wait-note {
+  margin: 0;
+}
+
+/* Each note: the mark, a label, the author's line as a quote, the reader's
+   note beneath. The quote is the evidence, so it is set apart from both. */
+.la-notes {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.la-note {
+  margin: 0 0 0.9rem;
+  line-height: 1.45;
+}
+
+.la-note-kind {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b7355;
+}
+
+.la-note-quote {
+  margin: 0.25rem 0 0.25rem 0.2rem;
+  padding: 0.1rem 0 0.1rem 0.7rem;
+  border-left: 3px solid #d8cfbb;
+  font-family: var(--serif, Georgia, serif);
+  font-style: italic;
+  color: #2a2419;
+}
+
+.la-note-told .la-note-quote {
+  border-left-color: #c9a0a8;
+}
+
+.la-note-shown .la-note-quote {
+  border-left-color: #a8bf9a;
+}
+
+.la-note-text {
+  display: block;
+  max-width: 62ch;
+  font-size: 0.9rem;
+  color: #4a3f2f;
+}
+
+.la-advice-text {
+  margin: 0.4rem 0 0;
+  max-width: 68ch;
+  font-family: var(--serif, Georgia, serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #2a2419;
 }
 
 @media print {

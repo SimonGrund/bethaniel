@@ -135,3 +135,32 @@ test("a copy edit quoted from tokens alone lands in the right band", () => {
   const q = priceJob(env, { estimatedTokens: 1_070_000, words: 0 });
   assert.equal(q.tiers, 1);
 });
+
+// ── The enhanced language analysis: its own price, the same guard ──
+
+test("the enhanced analysis is a flat band price, well under an edit", () => {
+  const e = { ...env, PRICE_ENHANCE_EUR_CENTS: "200" } as unknown as Env;
+  for (const words of [3_000, 50_000, 100_000]) {
+    const q = priceJob(e, { estimatedTokens: 40_000, words, product: "enhance" });
+    assert.equal(q.product, "enhance");
+    assert.equal(q.tiers, 1);
+    assert.equal(q.priceEurCents, 200);
+  }
+  assert.equal(
+    priceJob(e, { estimatedTokens: 60_000, words: 150_000, product: "enhance" }).priceEurCents,
+    400,
+  );
+});
+
+test("an enhance quote cannot buy an edit-sized credential for two euros", () => {
+  // The analysis samples the book; asking for edit-sized tokens against the
+  // small price is billed on the words those tokens imply, on its own —
+  // tighter — ceiling.
+  const q = priceJob(env, { estimatedTokens: 1_000_000, words: 50_000, product: "enhance" });
+  assert.equal(q.tiers, 3); // 1M / 4 = 250,000 words
+  assert.equal(q.priceEurCents, 600);
+});
+
+test("a quote without a product is an edit", () => {
+  assert.equal(priceJob(env, { estimatedTokens: 1e6, words: 50_000 }).product, "edit");
+});

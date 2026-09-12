@@ -16,7 +16,8 @@
 
 import { useTranslation } from "../i18n";
 import { exportLabel, useReportExport } from "../reportExport";
-import type { Lang, LanguageAnalysisReport, LanguageFinding } from "../types";
+import type { ReactNode } from "react";
+import type { Lang, LanguageAnalysisReport, LanguageEnhanceResult, LanguageFinding } from "../types";
 
 function fill(s: string, params: Record<string, string | number>): string {
   return s.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? ""));
@@ -195,11 +196,17 @@ export default function LanguageAnalysisPanel({
   report,
   lang,
   source,
+  enhanced,
+  enhance,
 }: {
   report: LanguageAnalysisReport;
   lang: Lang;
   /** The manuscript's name, for the export's title and file name. */
   source?: string;
+  /** The cloud's part, once bought: notes and advice, shown in the report. */
+  enhanced?: LanguageEnhanceResult | null;
+  /** The control that buys it, rendered beside Export. */
+  enhance?: ReactNode;
 }) {
   const t = useTranslation(lang);
   const n = (x: number) => x.toLocaleString(lang === "en" ? "en-GB" : lang);
@@ -250,6 +257,7 @@ export default function LanguageAnalysisPanel({
   return (
     <div className="la" ref={rootRef}>
       <div className="la-toolbar report-toolbar">
+        {enhance}
         <button
           type="button"
           className="btn-secondary btn-small"
@@ -266,7 +274,12 @@ export default function LanguageAnalysisPanel({
           sentences: n(report.sentences),
         })}
         {" · "}
-        {t("la_no_ai")}
+        {enhanced
+          ? fill(t("la_enhanced_scope"), {
+              passages: n(enhanced.passageCount),
+              words: n(enhanced.sampledWords),
+            })
+          : t("la_no_ai")}
       </p>
 
       {/* ── What to look at first ── */}
@@ -339,6 +352,45 @@ export default function LanguageAnalysisPanel({
           </table>
         </details>
       </section>
+
+      {/* ── Showing and telling: the cloud's part, when bought ── */}
+      {enhanced && (
+        <section className="la-section la-showtell">
+          <h4 className="la-h">
+            <span
+              className={`la-mark ${enhanced.notes.some((x) => x.kind === "told") ? "la-mark-look" : "la-mark-ok"}`}
+              aria-hidden="true"
+            >
+              {enhanced.notes.some((x) => x.kind === "told") ? "!" : "✓"}
+            </span>
+            {t("la_showtell")}
+          </h4>
+          <p className="la-hint">{t("la_showtell_hint")}</p>
+          {enhanced.notes.length === 0 ? (
+            <p className="la-clean">
+              <span className="la-mark la-mark-ok" aria-hidden="true">{"✓"}</span>
+              {t("la_showtell_none")}
+            </p>
+          ) : (
+            <ul className="la-notes">
+              {enhanced.notes.map((note, i) => (
+                <li key={i} className={`la-note la-note-${note.kind}`}>
+                  <span className={`la-mark ${note.kind === "shown" ? "la-mark-ok" : "la-mark-look"}`} aria-hidden="true">
+                    {note.kind === "shown" ? "✓" : "!"}
+                  </span>
+                  <span className="la-note-kind">
+                    {note.kind === "shown" ? t("la_shown") : t("la_told")}
+                    {" · "}
+                    {note.chapter}
+                  </span>
+                  <blockquote className="la-note-quote">{note.quote}</blockquote>
+                  <span className="la-note-text">{note.note}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <div className="la-grid">
         {/* ── Words ── */}
@@ -510,6 +562,15 @@ export default function LanguageAnalysisPanel({
           <p className="la-hint">{t("la_paragraphs_hint")}</p>
         </section>
       </div>
+
+      {/* ── The advice paragraph closes the report ── */}
+      {enhanced && enhanced.advice && (
+        <section className="la-section la-advice">
+          <h4 className="la-h">{t("la_advice")}</h4>
+          <p className="la-advice-text">{enhanced.advice}</p>
+          <p className="la-hint">{t("la_advice_hint")}</p>
+        </section>
+      )}
     </div>
   );
 }

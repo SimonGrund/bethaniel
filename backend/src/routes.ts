@@ -1169,6 +1169,76 @@ router.post(
   },
 );
 
+// ── Enhance a finished language analysis in the cloud ──
+// The counts already exist on the job; this adds the model's part — the
+// showing-versus-telling notes and a paragraph of advice — as a sibling task
+// on the same job, so the review screen folds it into the report the author
+// is already looking at. Cloud-only: the caller has just paid for it, and the
+// credential that payment minted is what the cloud model runs on.
+router.post(
+  "/queue/job/:jobId/language-enhance",
+  async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const { model } = req.body ?? {};
+      if (typeof model !== "string" || !cloudRunKnobs(model)) {
+        res.status(400).json({
+          error: "The enhanced analysis runs in Betty in the Cloud only.",
+        });
+        return;
+      }
+      const snapshot = getTasksSnapshot();
+      const counts = Object.values(snapshot).find(
+        (t) =>
+          t.jobId === jobId &&
+          t.mode === "language_analysis" &&
+          t.status === "done",
+      );
+      if (!counts) {
+        res
+          .status(400)
+          .json({ error: "No finished language analysis found for this job" });
+        return;
+      }
+      // Rerun semantics: a second purchase replaces the first result rather
+      // than stacking two sets of notes on the report.
+      for (const [tid, t] of Object.entries(snapshot)) {
+        if (t.jobId === jobId && t.mode === "language_enhance") removeTask(tid);
+      }
+      // The snapshot strips retrySpec; the chapters live there.
+      const units = getTask(counts.id)?.retrySpec?.units;
+      if (!units || units.length === 0) {
+        res.status(400).json({
+          error: "The chapters of this analysis are no longer available — run it again.",
+        });
+        return;
+      }
+      const taskId = await submitTask({
+        jobId,
+        name: "Enhanced analysis",
+        source: counts.source,
+        original: "",
+        wordCount: counts.wordCount,
+        model,
+        mode: "language_enhance",
+        prompt: "", // the orchestrator builds its own prompts
+        wpc: 2500,
+        overlap: 0,
+        manuscriptLang: counts.manuscriptLang,
+        units,
+      });
+      res.json({ taskId });
+    } catch (err) {
+      res.status(500).json({
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to start the enhanced analysis",
+      });
+    }
+  },
+);
+
 // ── Get task result ──
 router.get("/results/:taskId", (req: Request, res: Response) => {
   const task = getTask(req.params.taskId);
@@ -2239,6 +2309,7 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
         code: typeof req.body?.code === "string" ? req.body.code : undefined,
         // The cloud prices by manuscript size; tokens now only size the ledger.
         words: estimate.totalWords,
+        product: estimate.product,
       }),
     });
     if (!quoteRes.ok) {
@@ -2257,6 +2328,7 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
     };
     res.json({
       estimatedTotalTokens: estimate.estimatedTotalTokens,
+      product: estimate.product,
       // What the price is actually a function of. Tokens are still returned
       // because they size the credential's ceiling, but they no longer bear
       // on what anyone is charged.

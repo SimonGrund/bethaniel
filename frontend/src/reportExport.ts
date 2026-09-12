@@ -31,7 +31,7 @@ export function reportDocument(root: HTMLElement, title: string): string {
     '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + "</title><style>" + css +
     "\nbody{background:#fff;margin:0;padding:0 8px;font-size:12px;color:#2a2419}" +
     ".la,.readiness{padding:0}.report-toolbar,.la-toolbar,.la-details,.readiness-review{display:none}" +
-    ".la-pace,.la-section,.readiness-item{break-inside:avoid}" +
+    ".la-pace,.la-section:not(.la-showtell),.la-note,.readiness-item{break-inside:avoid}" +
     "h3.report-title{font-family:Georgia,serif;font-size:20px;margin:0 0 10px}" +
     "</style></head><body>" +
     '<h3 class="report-title">' + esc(title) + "</h3>" + root.outerHTML + "</body></html>"

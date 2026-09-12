@@ -18,7 +18,7 @@ import {
   spawnWritingReport,
 } from "../api";
 import type { DocxExportOptions } from "../api";
-import type { TaskState, Correction, LanguageAnalysisReport } from "../types";
+import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResult } from "../types";
 import {
   ANALYSIS_MODES,
   EDIT_MODES,
@@ -33,6 +33,7 @@ import {
 } from "../exportVerify";
 import BettyAtWork from "./BettyAtWork";
 import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
+import EnhanceLanguageButton from "./EnhanceLanguageButton";
 import { exportLabel, useReportExport } from "../reportExport";
 import { useResultHydration } from "../useResultHydration";
 
@@ -2944,12 +2945,36 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   | LanguageAnalysisReport
                   | undefined;
                 if (!report) return null;
+                // The cloud's part, if it was bought: a sibling task on the
+                // same job whose result folds into this report.
+                const enhTask = entries
+                  .map(([, task]) => task)
+                  .find((task) => task.mode === "language_enhance");
+                const enhanced =
+                  enhTask?.status === "done"
+                    ? (enhTask.result?.structuredData as LanguageEnhanceResult | null)
+                    : null;
                 return (
                   <details className="review-task review-summary-card" open>
                     <summary className="review-task-summary">
                       <strong>{t("mode_language_analysis")}</strong>
                     </summary>
-                    <LanguageAnalysisPanel report={report} lang={lang} source={src} />
+                    <LanguageAnalysisPanel
+                      report={report}
+                      lang={lang}
+                      source={src}
+                      enhanced={enhanced}
+                      enhance={
+                        <EnhanceLanguageButton
+                          jobId={jid}
+                          wordCount={laTask.wordCount}
+                          manuscriptLang={laTask.manuscriptLang}
+                          lang={lang}
+                          task={enhTask}
+                          onRetry={(id) => void handleRetry(id)}
+                        />
+                      }
+                    />
                   </details>
                 );
               })()}
@@ -3737,7 +3762,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   task.mode === "text_evaluator" ||
                   task.mode === "developmental_edit" ||
                   task.mode === "publication_scan" ||
-                  task.mode === "language_analysis"
+                  task.mode === "language_analysis" ||
+                  task.mode === "language_enhance"
                 ) {
                   return null;
                 }

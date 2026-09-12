@@ -11,6 +11,7 @@ export interface QuoteRow {
   estimated_tokens: number;
   price_eur_cents: number;
   promo_code: string | null;
+  product: string;
   created_at: string;
   expires_at: string;
 }
@@ -37,18 +38,20 @@ export async function insertQuote(
   priceEurCents: number,
   /** The code this price was computed with, redeemed at checkout. */
   promoCode?: string | null,
+  product: string = "edit",
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS);
   await env.DB.prepare(
-    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, promo_code, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, promo_code, product, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       id,
       estimatedTokens,
       priceEurCents,
       promoCode ?? null,
+      product,
       now.toISOString(),
       expiresAt.toISOString(),
     )

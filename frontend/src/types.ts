@@ -15,7 +15,8 @@ export type TaskMode =
   | "text_evaluator"
   | "developmental_edit"
   | "publication_scan"
-  | "language_analysis";
+  | "language_analysis"
+  | "language_enhance";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
@@ -70,7 +71,9 @@ export function modeLabelKeys(modes: TaskMode[]): string[] {
 // The three front cards are the paid product: FRONT_CARD_MODES must stay
 // equal to CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus
 // combined_edit, which the backend synthesises from copy_edit + line_edit and
-// no user ever selects. backend/test/cloudModes.test.ts pins the other side.
+// no user ever selects, and minus language_enhance, which is bought from a
+// finished language report rather than picked here (EnhanceLanguageButton).
+// backend/test/cloudModes.test.ts pins the other side.
 
 export type FrontCard = "edit" | "readthrough" | "translate";
 
@@ -363,6 +366,8 @@ export interface TaskState {
   resultMeta?: ResultMeta | null;
   editOptions?: Record<string, boolean>;
   targetLang?: string;
+  /** The language the manuscript is written in, as the run was told. */
+  manuscriptLang?: string;
   model?: string;
   tokPerSec?: string;
   etaSeconds?: number;
@@ -569,6 +574,16 @@ export interface LanguageFinding {
     | "paragraphs_long"
     | "echoes";
   params: Record<string, string | number>;
+}
+
+/** What the enhanced (cloud) analysis adds to the language report: notes on
+ *  showing and telling, each on a line quoted as written, and one paragraph
+ *  of advice. Never an edit. See backend/src/languageEnhance.ts. */
+export interface LanguageEnhanceResult {
+  notes: { kind: "told" | "shown"; chapter: string; quote: string; note: string }[];
+  advice: string;
+  passageCount: number;
+  sampledWords: number;
 }
 
 /** The language-analysis report: counts, no model. See languageAnalysis.ts. */

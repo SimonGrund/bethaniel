@@ -16,6 +16,10 @@ import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import { buildPublicationScan } from "./publicationScan.js";
 import { analyzeLanguage } from "./languageAnalysis.js";
+import {
+  runLanguageEnhance,
+  type LanguageEnhanceState,
+} from "./languageEnhance.js";
 import { detectDialect } from "./dialect.js";
 import {
   ApiAccountError,
@@ -1307,6 +1311,125 @@ async function processLanguageAnalysisJob(
   }
 }
 
+function isUsableEnhanceCheckpoint(v: unknown): v is LanguageEnhanceState {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Partial<LanguageEnhanceState>;
+  return (
+    Array.isArray(s.passages) &&
+    Array.isArray(s.notes) &&
+    typeof s.nextPassageIndex === "number" &&
+    s.nextPassageIndex <= s.passages.length
+  );
+}
+
+// The enhanced language analysis: the counts run again (they are free), then
+// sampled passages go to the model for showing-versus-telling notes and one
+// paragraph of advice (languageEnhance.ts). One task over the whole
+// manuscript, like the writing report, and checkpointed the same way — this
+// is a paid run, so a dropped connection must not cost the passages already
+// read.
+async function processLanguageEnhanceJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId, model } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "sampling passages",
+  });
+
+  try {
+    await ensureModelLoaded(model, undefined, 1);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Queue] preload of ${model} failed: ${msg}`);
+  }
+
+  const resume = isUsableEnhanceCheckpoint(job.resumeState)
+    ? job.resumeState
+    : undefined;
+  if (resume) {
+    appendLog({
+      level: "info",
+      source: "task",
+      taskId,
+      message: `Enhanced analysis: resuming at passage ${resume.nextPassageIndex + 1}/${resume.passages.length}.`,
+      model,
+    });
+  }
+
+  try {
+    const counts = analyzeLanguage(
+      units.map((u) => ({ name: u.name, original: u.original })),
+      job.manuscriptLang,
+    );
+    const { result } = await runLanguageEnhance(units, {
+      llm: makeStoryLlm(job, ac),
+      counts,
+      manuscriptLang: job.manuscriptLang,
+      signal: ac.signal,
+      resumeFrom: resume,
+      onProgress: (done, total, label) => {
+        updateTask(taskId, {
+          phase:
+            done >= total - 1
+              ? "writing advice"
+              : `reading passage ${done + 1}/${total - 1} — ${label}`,
+        });
+        updateProgress(taskId, Math.min(0.97, done / total));
+      },
+      onCheckpoint: (state) => {
+        const t = tasks.get(taskId);
+        if (!t) return;
+        t.analysisCheckpoint = structuredClone(state);
+        try {
+          saveTaskState(t);
+        } catch {
+          /* checkpoint persistence is best-effort */
+        }
+      },
+    });
+
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData: result,
+      },
+    });
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
 async function processJob(job: JobData): Promise<void> {
   const {
     taskId,
@@ -1340,6 +1463,9 @@ async function processJob(job: JobData): Promise<void> {
   }
   if (mode === "language_analysis") {
     return processLanguageAnalysisJob(job, ac);
+  }
+  if (mode === "language_enhance") {
+    return processLanguageEnhanceJob(job, ac);
   }
 
   // Edits always run corrections-mode (discrete {original,corrected} pairs).

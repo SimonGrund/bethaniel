@@ -502,6 +502,8 @@ export interface CloudEstimateRequest {
 
 export interface CloudEstimateResponse {
   estimatedTotalTokens: number;
+  /** What was priced: an edit, or the enhanced language analysis alone. */
+  product?: "edit" | "enhance";
   /** Words in the job — the unit the price is banded by. */
   totalWords?: number;
   estimatedInputTokens: number;
@@ -544,6 +546,21 @@ export async function createCloudCheckout(
     body: JSON.stringify({ quoteId }),
   });
   return res.json();
+}
+
+/** Add the cloud's part to a finished language analysis: the showing-and-
+ *  telling notes and the advice paragraph, as a sibling task on the job. */
+export async function spawnLanguageEnhance(
+  jobId: string,
+  model: string,
+): Promise<string> {
+  const res = await apiFetch(`/queue/job/${jobId}/language-enhance`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  const data = await res.json();
+  return data.taskId as string;
 }
 
 /** Save the credential issued after a successful cloud payment — the same

@@ -24,6 +24,9 @@ export default function CloudCheckoutModal({
   chapters,
   modes,
   etaLabel,
+  title,
+  privacyNote,
+  keepOpenNote,
   lang,
   onCancel,
   onConfirm,
@@ -34,6 +37,12 @@ export default function CloudCheckoutModal({
   modes: string[];
   /** Roughly how long the run will take, already formatted. */
   etaLabel?: string | null;
+  /** The heading; the default names an editing run. */
+  title?: string;
+  /** What leaves the machine; the default describes a whole-manuscript run. */
+  privacyNote?: string;
+  /** Why to keep the app open; the default describes an editing run. */
+  keepOpenNote?: string;
   lang: Lang;
   onCancel: () => void;
   onConfirm: () => void;
@@ -59,7 +68,7 @@ export default function CloudCheckoutModal({
   return (
     <Modal open={open} onClose={onCancel} labelledBy="cloudBuyTitle" className="cloud-buy">
       <h2 id="cloudBuyTitle" className="cloud-buy__title">
-        {t("cloud_buy_title", "Run this job in the cloud")}
+        {title ?? t("cloud_buy_title", "Run this job in the cloud")}
       </h2>
 
       <dl className="cloud-buy__lines">
@@ -81,7 +90,7 @@ export default function CloudCheckoutModal({
         </div>
         <div>
           <dt>{t("cloud_buy_work", "Work")}</dt>
-          <dd>{modes.map((m) => t(m, m)).join(" · ")}</dd>
+          <dd>{modes.map((m) => t(`mode_${m}`, m)).join(" · ")}</dd>
         </div>
         {etaLabel && (
           <div>
@@ -103,7 +112,8 @@ export default function CloudCheckoutModal({
       </dl>
 
       <p className="cloud-buy__note">
-        {t(
+        {privacyNote ??
+        t(
           "cloud_buy_privacy",
           "This job — and only this job — is processed on Bethaniel's servers in France. Your text is not stored, not kept after the run, and never used to train anything. Everything else about Betty stays on your own machine.",
         )}
@@ -116,7 +126,8 @@ export default function CloudCheckoutModal({
       </p>
 
       <p className="cloud-buy__warn">
-        {t(
+        {keepOpenNote ??
+        t(
           "cloud_buy_keep_open",
           "Keep Betty open until the run finishes. The job is driven from this computer even though the editing happens in the cloud, so if the app is closed or the machine sleeps, the chapter in progress is lost — and the tokens it had already used are spent.",
         )}

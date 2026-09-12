@@ -8,7 +8,7 @@
 // rewrite.
 
 import type { Env } from "./env";
-import { priceJob } from "./quote";
+import { CLOUD_PRODUCTS, priceJob, type CloudProduct } from "./quote";
 import {
   insertQuote,
   findPromo,
@@ -295,17 +295,27 @@ export default {
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
-        const { estimatedTokens, words, code } = (await request.json()) as {
-          estimatedTokens: number;
-          words?: number;
-          code?: string;
-        };
+        const { estimatedTokens, words, code, product } =
+          (await request.json()) as {
+            estimatedTokens: number;
+            words?: number;
+            code?: string;
+            product?: string;
+          };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
           return json(
             { error: "estimatedTokens must be a positive number" },
             400,
           );
         }
+        // An app that predates products sends none and is an edit.
+        if (
+          product !== undefined &&
+          !CLOUD_PRODUCTS.includes(product as CloudProduct)
+        ) {
+          return json({ error: "unknown product" }, 400);
+        }
+        const chosenProduct = (product as CloudProduct | undefined) ?? "edit";
         // The price is a function of SIZE now, so the word count is what it
         // needs. An app that only sends tokens still gets a valid quote:
         // falling back to band one is the cheapest band, so a stale client is
@@ -346,7 +356,7 @@ export default {
         const promoRow = code ? await findPromo(env, code) : null;
         const quote = priceJob(
           env,
-          { estimatedTokens, words: words ?? 1 },
+          { estimatedTokens, words: words ?? 1, product: chosenProduct },
           promoRow
             ? {
                 code: promoRow.code,
@@ -363,9 +373,11 @@ export default {
           quote.tokens,
           quote.priceEurCents,
           quote.appliedCode ?? null,
+          quote.product,
         );
         return json({
           quoteId,
+          product: quote.product,
           tokens: quote.tokens,
           words: quote.words,
           tiers: quote.tiers,
@@ -503,6 +515,7 @@ export default {
             quoteId: quote.id,
             tokenBudget,
             amountCents: quote.price_eur_cents,
+            product: quote.product === "enhance" ? "enhance" : "edit",
           });
         } catch (err) {
           // The use was taken a few lines above and bought nothing. Without

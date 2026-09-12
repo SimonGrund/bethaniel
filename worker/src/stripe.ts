@@ -52,7 +52,12 @@ export function assertPaymentsAllowed(env: Env): void {
 
 export async function createCheckoutSession(
   env: Env,
-  opts: { quoteId: string; tokenBudget: number; amountCents: number },
+  opts: {
+    quoteId: string;
+    tokenBudget: number;
+    amountCents: number;
+    product?: "edit" | "enhance";
+  },
 ): Promise<CheckoutSessionResult> {
   // Backstop: every call site is covered even if one forgets the early check.
   assertPaymentsAllowed(env);
@@ -64,8 +69,14 @@ export async function createCheckoutSession(
     mode: "payment",
     "payment_method_types[0]": "card",
     "line_items[0][price_data][currency]": "eur",
-    "line_items[0][price_data][product_data][name]": "Betty in the Cloud — one cloud editing job",
-    "line_items[0][price_data][product_data][description]": `~${opts.tokenBudget.toLocaleString()} tokens of cloud editing capacity for this manuscript job`,
+    "line_items[0][price_data][product_data][name]":
+      opts.product === "enhance"
+        ? "Betty in the Cloud — enhanced language analysis"
+        : "Betty in the Cloud — one cloud editing job",
+    "line_items[0][price_data][product_data][description]":
+      opts.product === "enhance"
+        ? `Passages of this manuscript read in the cloud for the language report — ~${opts.tokenBudget.toLocaleString()} tokens of capacity`
+        : `~${opts.tokenBudget.toLocaleString()} tokens of cloud editing capacity for this manuscript job`,
     "line_items[0][price_data][unit_amount]": String(opts.amountCents),
     "line_items[0][quantity]": "1",
     success_url: successUrl,

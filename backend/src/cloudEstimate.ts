@@ -27,6 +27,10 @@ import {
   buildFluencyReviewerPrompt,
 } from "./prompts.js";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types.js";
+import {
+  buildLanguageEnhanceAdvicePrompt,
+  buildLanguageEnhancePassagePrompt,
+} from "./prompts.js";
 
 /** Average characters per word (including the trailing space) in English
  *  prose — used to turn a word count into a character count for
@@ -115,6 +119,9 @@ export interface CloudEstimateResult {
   totalWords: number;
   confidence: "estimate" | "lower_bound";
   perMode: Record<string, { inputTokens: number; outputTokens: number }>;
+  /** What the Worker is asked to price. An enhanced language analysis on
+   *  its own is the cheaper product; anything else is an edit. */
+  product: "edit" | "enhance";
 }
 
 /** Editor calls per chunk for the corrections modes, mirroring runModePresets.ts. */
@@ -296,6 +303,42 @@ function estimateAnalysisMode(
   return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
 }
 
+/** The enhanced language analysis mirrors the writing report's sampling
+ *  (textEvaluator.ts): about one passage per 7,000 words, between 6 and 14,
+ *  each at most 800 words, sent once for a short JSON verdict — then one
+ *  synthesis call over the collected notes and the counts. Nothing in it
+ *  scales with the whole manuscript except the sample count, which is what
+ *  makes it cheap enough to sell for a fraction of an edit. */
+function estimateEnhanceMode(
+  input: CloudEstimateInput,
+): { inputTokens: number; outputTokens: number } {
+  const totalWords = input.units.reduce((s, u) => s + u.wordCount, 0);
+  const passages = Math.max(
+    1,
+    Math.min(
+      Math.min(14, Math.max(6, Math.round(totalWords / 7000))),
+      Math.max(1, Math.floor(totalWords / 1600)),
+    ),
+  );
+  const PASSAGE_WORDS = 800;
+  const NOTES_OUT_TOKENS = 350;
+  const NOTES_PAYLOAD_TOKENS_EACH = 120;
+  const ADVICE_OUT_TOKENS = 400;
+  const passageSystem = estimateTokens(
+    buildLanguageEnhancePassagePrompt(input.manuscriptLang),
+  );
+  const adviceSystem = estimateTokens(
+    buildLanguageEnhanceAdvicePrompt(input.manuscriptLang),
+  );
+  const inputTokens =
+    passages * (passageSystem + wordsToTokens(PASSAGE_WORDS)) +
+    adviceSystem +
+    passages * 3 * NOTES_PAYLOAD_TOKENS_EACH +
+    400;
+  const outputTokens = passages * NOTES_OUT_TOKENS + ADVICE_OUT_TOKENS;
+  return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
+}
+
 /**
  * Estimated OUTPUT tokens for a single task (one unit, one already-merged
  * mode) — the same per-mode formulas `estimateCloudJob` sums across a whole
@@ -337,6 +380,8 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     } else if (ANALYSIS_MODE_NAMES.has(mode)) {
       result = estimateAnalysisMode(input);
       confidence = "lower_bound";
+    } else if (mode === "language_enhance") {
+      result = estimateEnhanceMode(input);
     } else {
       // developmental_edit / proofread / publication_scan / text_evaluator —
       // not individually modeled yet. Cost roughly like a copy-edit pass
@@ -363,6 +408,12 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     totalWords: input.units.reduce((sum, u) => sum + u.wordCount, 0),
     confidence,
     perMode,
+    // The small price is for the analysis ALONE. Paired with any editing
+    // pass it is an edit, priced as one; the analysis rides along.
+    product:
+      effectiveModes.length === 1 && effectiveModes[0] === "language_enhance"
+        ? "enhance"
+        : "edit",
   };
 }
 
@@ -414,6 +465,9 @@ export const CLOUD_ALLOWED_MODES: readonly string[] = [
   "proofread",
   "publication_scan",
   "translate",
+  // Cloud-only by design: the counts are free everywhere, and this is the
+  // paid pass that adds what only a model can read.
+  "language_enhance",
 ];
 
 /** Split a mode selection into what the cloud will run and what it will not.

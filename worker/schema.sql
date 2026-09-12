@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   -- The code this quote was priced with, so /v1/checkout redeems exactly what
   -- the author was shown rather than trusting the client to resend it.
   promo_code TEXT,
+  -- What was priced: 'edit' (a cloud editing run) or 'enhance' (the enhanced
+  -- language analysis). Names the line item on the receipt.
+  product TEXT NOT NULL DEFAULT 'edit',
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );

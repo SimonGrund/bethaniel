@@ -15,7 +15,8 @@ export type TaskMode =
   | "text_evaluator"
   | "developmental_edit"
   | "publication_scan"
-  | "language_analysis";
+  | "language_analysis"
+  | "language_enhance";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",

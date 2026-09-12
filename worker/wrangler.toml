@@ -166,6 +166,9 @@ BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.000000640"
 # out in their head.
 PRICE_TIER_WORDS = "100000"
 PRICE_TIER_EUR_CENTS = "500"
+# The enhanced language analysis reads a sample of the book, not the book, so
+# it is sold per band at a fraction of an edit. Same bands, its own price.
+PRICE_ENHANCE_EUR_CENTS = "200"
 
 # Kept for the cost model in globalMeter.ts, which still reasons in tokens.
 # No longer used to compute a price.

@@ -13,9 +13,11 @@ import assert from "node:assert/strict";
 
 import { CLOUD_ALLOWED_MODES } from "../src/cloudEstimate.ts";
 
-test("the sellable modes are exactly the three front cards, plus the merge target", () => {
+test("the sellable modes are exactly the three front cards, plus the merge target and the enhanced analysis", () => {
   // Mirrors FRONT_CARD_MODES in frontend/src/types.ts. combined_edit is the
   // backend's merge of copy_edit + line_edit; no user ever selects it.
+  // language_enhance is never a card either: it is bought from a finished
+  // language report and is the one cloud-only pass (see languageEnhance.ts).
   const expected = [
     "copy_edit",
     "line_edit",
@@ -23,6 +25,7 @@ test("the sellable modes are exactly the three front cards, plus the merge targe
     "proofread",
     "publication_scan",
     "translate",
+    "language_enhance",
   ];
   assert.deepEqual([...CLOUD_ALLOWED_MODES].sort(), expected.sort());
 });
