@@ -1558,44 +1558,48 @@ h4 {
   opacity: 1;
 }
 
-.correction-flag-badge {
+.correction-verdict {
   font-size: 0.72rem;
   font-weight: 600;
-  background: #f0e0b0;
-  color: #6b5500;
-  border: 1px solid #d9c078;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  margin-left: 0.35rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-  flex-shrink: 0;
-}
-
-.correction-confidence {
-  font-size: 0.72rem;
   white-space: nowrap;
   margin-left: 0.4rem;
   color: #6b5c44;
   cursor: help;
   flex-shrink: 0;
-}
-
-/* Reviewer-reason tooltip on the score and flag badges (styled like
-   .info-tooltip; right-anchored — the badges sit at the card's right edge). */
-.correction-confidence,
-.correction-flag-badge {
   position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
 }
 
-.correction-flag-badge[data-tip] {
-  cursor: help;
+/* Amber when the reviewer doubted it; the reason rides inline. */
+.correction-verdict--doubted {
+  background: #f0e0b0;
+  color: #6b5500;
+  border: 1px solid #d9c078;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
 }
 
-.correction-confidence[data-tip]::after,
-.correction-flag-badge[data-tip]::after {
+/* Nobody scored it: a state of the pipeline, said quietly. */
+.correction-verdict--unchecked,
+.correction-verdict--unreviewed {
+  font-weight: 400;
+  font-style: italic;
+  color: #9a8c76;
+  border: 1px solid #e2d8c3;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.correction-verdict--unreviewed {
+  border-style: dashed;
+}
+
+/* The tooltip: both scores, the doubt if any, the reviewer's words (styled
+   like .info-tooltip; right-anchored — the badge sits at the card's right
+   edge). */
+.correction-verdict[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
   right: 0;
@@ -1604,10 +1608,11 @@ h4 {
   color: #f7f1e3;
   font-size: 0.78rem;
   font-weight: 400;
+  font-style: normal;
   line-height: 1.4;
   padding: 0.5rem 0.7rem;
   border-radius: 6px;
-  white-space: normal;
+  white-space: pre-line;
   width: max-content;
   max-width: 340px;
   pointer-events: none;
@@ -1618,13 +1623,12 @@ h4 {
 
 /* Lift the hovered badge above sibling cards so its tooltip isn't painted
    over by later content. */
-.correction-confidence[data-tip]:hover,
-.correction-flag-badge[data-tip]:hover {
+.correction-verdict[data-tip]:hover {
   z-index: 1000;
+  overflow: visible;
 }
 
-.correction-confidence[data-tip]:hover::after,
-.correction-flag-badge[data-tip]:hover::after {
+.correction-verdict[data-tip]:hover::after {
   opacity: 1;
 }
 
@@ -7645,6 +7649,42 @@ summary.review-source::before {
   flex: 1 1 auto;
 }
 
+/* ── Picking a chapter, once the run has settled ──
+   The same object as a pill — same ground, same border, same size — but one
+   of it, holding every chapter. */
+.chapter-select {
+  max-width: 100%;
+  padding: 0.35rem 2rem 0.35rem 0.75rem;
+  background: #faf6ec;
+  border: 1px solid #d9c9a8;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #4a3f2f;
+  cursor: pointer;
+}
+
+.chapter-select:focus-visible {
+  outline: 2px solid #b08830;
+  outline-offset: 1px;
+}
+
+/* The chapter's corrections, on the page. No card: the dropdown names the
+   chapter, and the cards are the corrections themselves. */
+.review-chapter {
+  margin: 0 0.1rem 0.55rem;
+}
+
+.review-chapter-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4a3728;
+}
+
 /* ── Closing a chapter, not deleting it ──
    This was a × wired to "delete these results, cannot be undone" — a
    destructive act one mis-click away from someone whose only intent was to
@@ -7689,13 +7729,6 @@ summary.review-source::before {
   background: #fdfaf0;
 }
 
-.correction-flag-badge--unreviewed {
-  background: none;
-  border: 1px dashed #cfc2a6;
-  color: #8b7f68;
-  font-style: italic;
-}
-
 .correction-card.flagged-unchecked,
 .correction-card.flagged-second_opinion {
   border-left: 3px solid #ded2b8;
@@ -7705,21 +7738,6 @@ summary.review-source::before {
 .correction-card.flagged-doubted {
   border-left: 3px solid #c9a860;
   background: #fdf9ee;
-}
-
-/* The reliable two get a footnote, not a warning: same ink as a caption, no
-   amber, no icon. They are saying how the verdict was reached, not that
-   anything is wrong. */
-.correction-flag-badge--unchecked,
-.correction-flag-badge--second_opinion {
-  background: none;
-  border: 1px solid #e2d8c3;
-  color: #9a8c76;
-  font-style: italic;
-}
-
-.correction-flag-badge--doubted {
-  font-style: normal;
 }
 
 /* ── The run's meter ──

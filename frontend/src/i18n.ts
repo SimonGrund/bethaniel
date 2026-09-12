@@ -2199,6 +2199,42 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die Zählung läuft so oder so auf diesem Computer. In der Cloud erhält der Bericht zusätzlich Hinweise zu Zeigen und Erzählen — Ihre eigenen Zeilen zitiert, nie umgeschrieben — und einen Absatz dazu, wie Sie Ihr Schreiben stärken.",
     es: "El recuento se hace en este ordenador de todos modos. En la nube, el informe recibe además notas sobre mostrar y contar —tus propias líneas citadas, nunca reescritas— y un párrafo sobre cómo fortalecer tu escritura.",
   },
+  verdict_tip_both: {
+    en: "{pct}% certain this is an error and the fix is right: the reviewer scored it {reviewer}/5 and the second check {second}/5. The two are multiplied, so both have to agree for a high number.",
+    da: "{pct}% sikker på, at dette er en fejl, og at rettelsen er rigtig: læseren gav {reviewer}/5, og det andet tjek gav {second}/5. De to ganges sammen, så begge skal være enige om et højt tal.",
+    de: "{pct}% sicher, dass dies ein Fehler ist und die Korrektur stimmt: der Prüfer gab {reviewer}/5, die zweite Prüfung {second}/5. Beide werden multipliziert, sodass beide für eine hohe Zahl übereinstimmen müssen.",
+    es: "{pct}% de certeza de que esto es un error y de que la corrección es correcta: el revisor le dio {reviewer}/5 y la segunda comprobación {second}/5. Se multiplican, así que ambas deben coincidir para un número alto.",
+  },
+  verdict_tip_single: {
+    en: "{pct}% certain this is an error and the fix is right: the reviewer scored it {reviewer}/5. The second check did not score this one.",
+    da: "{pct}% sikker på, at dette er en fejl, og at rettelsen er rigtig: læseren gav {reviewer}/5. Det andet tjek gav ikke denne en score.",
+    de: "{pct}% sicher, dass dies ein Fehler ist und die Korrektur stimmt: der Prüfer gab {reviewer}/5. Die zweite Prüfung hat diese nicht bewertet.",
+    es: "{pct}% de certeza de que esto es un error y de que la corrección es correcta: el revisor le dio {reviewer}/5. La segunda comprobación no puntuó esta.",
+  },
+  verdict_aria: {
+    en: "{pct} percent certain",
+    da: "{pct} procent sikker",
+    de: "{pct} Prozent sicher",
+    es: "{pct} por ciento de certeza",
+  },
+  chapter_select_placeholder: {
+    en: "Choose a chapter to review…",
+    da: "Vælg et kapitel at gennemgå…",
+    de: "Kapitel zum Durchsehen wählen…",
+    es: "Elige un capítulo para revisar…",
+  },
+  change_one: {
+    en: "change",
+    da: "ændring",
+    de: "Änderung",
+    es: "cambio",
+  },
+  change_many: {
+    en: "changes",
+    da: "ændringer",
+    de: "Änderungen",
+    es: "cambios",
+  },
   export_with_changes: {
     en: "Export the full manuscript with accepted changes:",
     da: "Eksportér hele manuskriptet med accepterede ændringer:",

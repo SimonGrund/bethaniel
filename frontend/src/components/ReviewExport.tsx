@@ -15,13 +15,13 @@ import {
   clearQueue,
   deleteJob,
   spawnJobSummary,
-  spawnWritingReport,
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResult } from "../types";
 import {
   ANALYSIS_MODES,
   EDIT_MODES,
+  certaintyPercent,
   flagKindOf,
   isReliable,
 } from "../types";
@@ -242,101 +242,58 @@ function extractSentenceContext(
   return { before, after };
 }
 
-/** Reviewer confidence score; hover shows the reviewer's reasoning. */
-function ConfidenceBadge({ correction }: { correction: Correction }) {
-  if (correction.confidence === undefined) return null;
-  const icon =
-    correction.confidence >= 5
-      ? "🟢"
-      : correction.confidence >= 4
-        ? "🟡"
-        : correction.confidence >= 3
-          ? "🟠"
-          : correction.confidence >= 2
-            ? "🔴"
-            : "⛔";
-  return (
-    <span
-      className="correction-confidence"
-      data-tip={
-        correction.reviewReason
-          ? `Reviewer confidence ${correction.confidence}/5 — ${correction.reviewReason}`
-          : `Reviewer confidence ${correction.confidence}/5. A second model scored how sure it is this change is right.`
-      }
-      title={
-        correction.reviewReason
-          ? `Reviewer confidence ${correction.confidence}/5 — ${correction.reviewReason}`
-          : `Reviewer confidence ${correction.confidence}/5. A second model scored how sure it is this change is right.`
-      }
-      aria-label={`Reviewer confidence ${correction.confidence} out of 5`}
-    >
-      {icon} {correction.confidence}/5
-    </span>
-  );
-}
-
-/** Flag badge — shows the reviewer's reason inline (ellipsized), full text
- *  on hover.
- *
- *  Three kinds, not one. A single "⚠ flagged" covered corrections that are
- *  right 15% of the time and corrections that are right 80% of the time, so
- *  the warning was worth nothing on either: too loud for the reliable ones and
- *  invisible among them for the rest. Only `doubted` keeps the warning;
- *  `unchecked` says what it actually means — nobody looked — and the precision
- *  pass's lone objection is a quiet footnote. */
-function FlagBadge({ correction }: { correction: Correction }) {
+/** One badge for the verdict on a correction: the reviewer's score and the
+ *  second check's score folded into a single certainty, with both scores and
+ *  the reviewer's reasoning on hover. Two badges used to carry this — a
+ *  "4/5" and, sometimes, a "second opinion differed (3/5)" beside it — and
+ *  the author had to do the arithmetic. The kinds that mean nobody scored
+ *  it keep their own words: those name a state of the pipeline, not a
+ *  property of the sentence. */
+function VerdictBadge({ correction }: { correction: Correction }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const kind = flagKindOf(correction);
-  if (!kind) return null;
+  const pct = certaintyPercent(correction);
 
-  const label =
-    kind === "doubted"
-      ? t("flag_doubted", "⚠ uncertain")
-      : kind === "unreviewed"
-        ? t("flag_unreviewed", "not reviewed")
-        : kind === "unchecked"
-          ? t("flag_unchecked", "not checked")
-          : `${t("flag_second_opinion", "second opinion differed")}${
-              correction.precisionConfidence != null
-                ? ` (${correction.precisionConfidence}/5)`
-                : ""
-            }`;
+  if (kind === "unreviewed" || kind === "unchecked" || pct === null) {
+    const state = kind === "unreviewed" ? "unreviewed" : "unchecked";
+    const why = state === "unreviewed" ? t("flag_unreviewed_why") : t("flag_unchecked_why");
+    return (
+      <span
+        className={`correction-verdict correction-verdict--${state}`}
+        data-tip={why}
+        title={why}
+      >
+        {state === "unreviewed" ? t("flag_unreviewed") : t("flag_unchecked")}
+      </span>
+    );
+  }
 
-  // Every kind explains itself. "not checked" and "not reviewed" name a state
-  // of the pipeline, not a property of the sentence, so without this they told
-  // the author a thing had happened and left them to guess what and whether it
-  // mattered — and `unreviewed` carries no reviewer text of its own, so it had
-  // nothing to hover at all.
-  const why =
-    kind === "doubted"
-      ? t("flag_doubted_why")
-      : kind === "unreviewed"
-        ? t("flag_unreviewed_why")
-        : kind === "unchecked"
-          ? t("flag_unchecked_why")
-          : t("flag_second_opinion_why");
-  // The reviewer's own words, where there are any worth repeating. The
-  // unchecked and unreviewed kinds carry only a restatement of their state.
-  const reviewerSaid =
-    (kind === "doubted" || kind === "second_opinion") && correction.reviewReason
-      ? `
-
-“${correction.reviewReason}”`
-      : "";
+  const icon = pct >= 80 ? "🟢" : pct >= 60 ? "🟡" : pct >= 40 ? "🟠" : pct >= 20 ? "🔴" : "⛔";
+  const scores =
+    correction.precisionConfidence != null
+      ? t("verdict_tip_both")
+          .replace("{pct}", String(pct))
+          .replace("{reviewer}", String(correction.confidence))
+          .replace("{second}", String(correction.precisionConfidence))
+      : t("verdict_tip_single")
+          .replace("{pct}", String(pct))
+          .replace("{reviewer}", String(correction.confidence));
+  const doubt = kind === "doubted" ? `\n\n${t("flag_doubted_why")}` : "";
+  const reviewerSaid = correction.reviewReason ? `\n\n“${correction.reviewReason}”` : "";
+  const tip = `${scores}${doubt}${reviewerSaid}`;
 
   return (
     <span
-      className={`correction-flag-badge correction-flag-badge--${kind}`}
+      className={`correction-verdict${kind === "doubted" ? " correction-verdict--doubted" : ""}`}
       // data-tip is the styled tooltip; title is the native one, which no
       // ancestor's overflow can clip and which survives a long explanation.
-      data-tip={why}
-      title={`${why}${reviewerSaid}`}
+      data-tip={tip}
+      title={tip}
+      aria-label={t("verdict_aria").replace("{pct}", String(pct))}
     >
-      {label}
-      {kind === "doubted" && correction.reviewReason
-        ? ` — ${correction.reviewReason}`
-        : ""}
+      {icon} {pct}%
+      {kind === "doubted" && correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
     </span>
   );
 }
@@ -387,8 +344,7 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        <ConfidenceBadge correction={correction} />
-        <FlagBadge correction={correction} />
+        <VerdictBadge correction={correction} />
       </div>
     );
   }
@@ -421,8 +377,7 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        <ConfidenceBadge correction={correction} />
-        <FlagBadge correction={correction} />
+        <VerdictBadge correction={correction} />
       </div>
     );
   }
@@ -447,8 +402,7 @@ function CorrectionCard({
             after={correction.corrected}
           />
         </span>
-        <ConfidenceBadge correction={correction} />
-        <FlagBadge correction={correction} />
+        <VerdictBadge correction={correction} />
       </div>
     );
   }
@@ -522,8 +476,7 @@ function CorrectionCard({
             <span className="correction-context"> {firstCtx.after}</span>
           )}
         </span>
-        <ConfidenceBadge correction={correction} />
-        <FlagBadge correction={correction} />
+        <VerdictBadge correction={correction} />
         {totalOcc > 1 && (
           <span
             className="occurrence-badge"
@@ -1753,12 +1706,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // hydrating, and reviewing a chapter to zero does not yank the user
   // elsewhere mid-scroll.
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
-  // The writing report runs another pass locally, so it is only on offer when
-  // there is something local to run it with. Cloud credentials do not count:
-  // the report is spawned as an ordinary job against the installed engine.
-  const installedModels = useStore((s) => s.installed);
-  const modelEnvLoaded = useStore((s) => s.modelEnvLoaded);
-  const canRunWritingReport = modelEnvLoaded && installedModels.length > 0;
   // Which export options the cog is showing.
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
@@ -2046,15 +1993,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     },
     [],
   );
-
-  const handleSpawnWritingReport = useCallback(async (jobId: string) => {
-    try {
-      await spawnWritingReport(jobId);
-    } catch (err) {
-      console.error("Spawn writing report failed:", err);
-      alert(`Failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }, []);
 
   const handleDeleteJob = useCallback(
     async (jobId: string, label: string, taskCount: number) => {
@@ -3626,7 +3564,44 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               {(chapterPills.length > 0 || !isOldResults) && (
                 <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
 
-                  {chapterPills.map((pill) => {
+                  {/* Once every chapter has settled the row of pills gives way
+                      to one control: pick a chapter. The pills are the
+                      progress display — a row of them filling in is the run
+                      — and after the run a row of twenty buttons is a lot of
+                      chrome for "which chapter". */}
+                  {chapterPills.length > 0 &&
+                  chapterPills.every((p) => p.status === "done" || p.status === "error" || p.status === "cancelled") ? (
+                    <select
+                      className="chapter-select"
+                      aria-label={t("sec_chapters")}
+                      value={activeChapterId ?? ""}
+                      onChange={(e) => {
+                        const tid = e.target.value || null;
+                        setActiveChapter(tid);
+                        if (tid && isScanJob)
+                          setMinorDetailJobs((prev) =>
+                            prev.has(jid) ? prev : new Set(prev).add(jid),
+                          );
+                      }}
+                    >
+                      <option value="">{t("chapter_select_placeholder")}</option>
+                      {chapterPills.map((pill) => {
+                        const failed = pill.status === "error" || pill.status === "cancelled";
+                        const tail = failed
+                          ? t("status_error")
+                          : !pill.known
+                            ? "…"
+                            : pill.count > 0
+                              ? `${pill.count} ${pill.count === 1 ? t("change_one") : t("change_many")}`
+                              : "✓";
+                        return (
+                          <option key={pill.tid} value={pill.tid}>
+                            {pill.name} — {tail}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : chapterPills.map((pill) => {
                     // Grey waiting, amber working, green finished, wine failed.
                     // One row of pills is the whole progress display during a
                     // run and the whole navigation after it — the same objects
@@ -3855,45 +3830,30 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     ? task.name
                     : `${task.name} — ${t("no_changes")}`;
 
+                // The chapter's corrections stand on the page, not in a card
+                // inside the card: the dropdown above names the chapter, so
+                // the only heading it needs is the one it has something to
+                // say in — a failed chapter, which keeps its retry.
                 return (
-                  <details
+                  <div
                       key={tid}
-                      className={`review-task rt-${task.status}`}
-                      open={tid === activeChapterId}
+                      className={`review-chapter rt-${task.status}`}
                     >
-                    <summary className="review-task-summary">
-                      {task.status === "error" && (
+                    {task.status === "error" && (
+                      <div className="review-chapter-head">
                         <span className="task-status-pill qs-error">
                           {t("status_error")}
-                        </span>
-                      )}{" "}
-                      {summary}
-                      {task.status === "error" && (
+                        </span>{" "}
+                        {summary}
                         <button
                           type="button"
                           className="btn-retry btn-retry-inline"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            void handleRetry(tid);
-                          }}
+                          onClick={() => void handleRetry(tid)}
                         >
                           ↻ {t("retry_task")}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        className="review-minimize-btn"
-                        title={t("minimize_chapter", "Close this chapter")}
-                        aria-label={t("minimize_chapter", "Close this chapter")}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setActiveChapter(null);
-                        }}
-                      >
-                        −
-                      </button>
-                    </summary>
+                      </div>
+                    )}
 
                     {isTranslation ? (
                       /* Translation: show a preview of the translated text */
@@ -4168,7 +4128,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       </>
                     )}
 
-                  </details>
+                  </div>
                 );
               })}
               </div>
@@ -4321,42 +4281,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
                   </button>
 
-                {(() => {
-                  // Only the real edit modes qualify — the report digests their
-                  // corrections. (Frontend EDIT_MODES includes translate, which
-                  // has nothing to critique.)
-                  const reportSourceModes = [
-                    "copy_edit",
-                    "line_edit",
-                    "combined_edit",
-                  ];
-                  const hasEditResults = entries.some(
-                    ([, t]) =>
-                      reportSourceModes.includes(t.mode) &&
-                      t.status === "done" &&
-                      (t.result?.originalText || t.resultMeta?.hasText),
-                  );
-                  if (!hasEditResults || !canRunWritingReport) return null;
-
-                  const hasReport = entries.some(
-                    ([, t]) => t.mode === "text_evaluator",
-                  );
-                  return (
-                    <button
-                      type="button"
-                      className="btn-secondary btn-small"
-                      title={t(
-                        "writing_report_tip",
-                        "Runs another pass over the edited text and writes an assessment of the prose — habits, repetitions, pacing. Separate from the corrections above.",
-                      )}
-                      onClick={() => void handleSpawnWritingReport(jid)}
-                    >
-                      {hasReport
-                        ? t("regenerate_writing_report")
-                        : t("generate_writing_report")}
-                    </button>
-                  );
-                })()}
                 </div>
               )}
               </div>{/* ── end .review-group-body (bright card) ── */}

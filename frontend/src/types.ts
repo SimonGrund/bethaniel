@@ -263,6 +263,24 @@ export function flagKindOf(c: Flaggable): FlagKind | null {
 }
 
 /**
+ * How sure Betty is, as one number: the reviewer's score and the second
+ * check's score multiplied, on a 0–100 scale. Two 5s are 100; a reviewer's
+ * 4 against a second check's 3 is 48. Each score is a judgement that this
+ * is an error AND that the fix is right, so the product is the certainty
+ * that both hold. Without a second check the reviewer's score stands alone;
+ * without a reviewer there is nothing to say.
+ */
+export function certaintyPercent(c: {
+  confidence?: number;
+  precisionConfidence?: number;
+}): number | null {
+  if (c.confidence == null) return null;
+  const reviewer = c.confidence / 5;
+  const second = c.precisionConfidence != null ? c.precisionConfidence / 5 : 1;
+  return Math.round(reviewer * second * 100);
+}
+
+/**
  * Whether Betty is confident enough to tick this on the author's behalf.
  * Everything except the bucket a reviewer actually scored low, and the bucket
  * no reviewer ever saw — Betty cannot stand behind a verdict it never reached.
