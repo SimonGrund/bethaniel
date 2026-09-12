@@ -339,7 +339,7 @@ export default function App() {
             alt="Bethaniel"
             className="splash-logo splash-pulse"
           />
-          <span className="splash-text">Loading Betty…</span>
+          <span className="splash-text">{t("loading_betty", "Loading Betty…")}</span>
         </div>
       </div>
     );

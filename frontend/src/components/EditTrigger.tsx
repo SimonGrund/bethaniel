@@ -536,7 +536,7 @@ export default function EditTrigger() {
   return (
     <div className="run-actions">
       <button
-        className="btn-run"
+        className="btn-run"
         disabled={disabled}
         onClick={onRunButtonClick}
         title={notReadyReason ?? undefined}
@@ -661,9 +661,9 @@ export default function EditTrigger() {
         </label>
         {cloudEstimate?.appliedCode && (
           <span className="cloud-code-note cloud-code-ok">
-            {t(
-              "cloud_code_applied",
-              `${cloudEstimate.appliedCode} applied`,
+            {t("cloud_code_applied").replace(
+              "{code}",
+              cloudEstimate.appliedCode ?? "",
             )}
           </span>
         )}
