@@ -14,7 +14,8 @@ export type TaskMode =
   | "blurb"
   | "text_evaluator"
   | "developmental_edit"
-  | "publication_scan";
+  | "publication_scan"
+  | "language_analysis";
 
 export const EDIT_MODES: TaskMode[] = [
   "copy_edit",
@@ -23,6 +24,13 @@ export const EDIT_MODES: TaskMode[] = [
   "translate",
   "combined_edit",
 ];
+/** Passes that count rather than infer: no model, no grammar server, no
+ *  download. A job made only of these runs on any install as it stands. */
+export const DETERMINISTIC_MODES: TaskMode[] = [
+  "publication_scan",
+  "language_analysis",
+];
+
 export const ANALYSIS_MODES: TaskMode[] = [
   "character_catalog",
   "location_catalog",
@@ -74,7 +82,7 @@ export const FRONT_CARD_MODES: Record<FrontCard, TaskMode[]> = {
   translate: ["translate"],
 };
 
-export type BetaGroupId = "developmental" | "analysis" | "feedback";
+export type BetaGroupId = "developmental" | "analysis" | "feedback" | "language";
 
 export interface BetaGroup {
   id: BetaGroupId;
@@ -91,6 +99,8 @@ export const BETA_GROUPS: BetaGroup[] = [
     exclusive: false,
   },
   { id: "feedback", modes: ["text_evaluator"], exclusive: true },
+  // No model: counts, not inference. The one pass every install can run.
+  { id: "language", modes: ["language_analysis"], exclusive: true },
 ];
 
 /** Which front card, if any, a selection belongs to. First match wins, most
@@ -542,4 +552,50 @@ export interface RuntimeStats {
 export interface RunStats {
   jobProgress: Record<string, JobProgress>;
   runtime: RuntimeStats;
+}
+
+/** One thing worth a look, chosen by how far past its threshold it sits. The
+ *  interface phrases it in the reader's language from `params`. */
+export interface LanguageFinding {
+  id:
+    | "adverbs_high"
+    | "filter_words_high"
+    | "crutch_word"
+    | "opener_dominant"
+    | "opener_runs"
+    | "rhythm_flat"
+    | "sentences_long"
+    | "tags_ornate"
+    | "paragraphs_long"
+    | "echoes";
+  params: Record<string, string | number>;
+}
+
+/** The language-analysis report: counts, no model. See languageAnalysis.ts. */
+export interface LanguageAnalysisReport {
+  language: string;
+  chaptersScanned: number;
+  words: number;
+  sentences: number;
+  headlines: LanguageFinding[];
+  overused: { word: string; count: number; perThousand: number; kind: "crutch" | "frequent" }[];
+  adverbs: { count: number; perThousand: number; top: { word: string; count: number }[]; detected: boolean };
+  filterWords: { count: number; perThousand: number; top: { word: string; count: number }[] };
+  openers: { word: string; count: number; share: number }[];
+  openerRuns: { chapter: string; word: string; length: number; excerpt: string }[];
+  echoes: { chapter: string; word: string; distance: number; excerpt: string }[];
+  pacing: {
+    chapter: string;
+    words: number;
+    sentences: number;
+    meanSentence: number;
+    sd: number;
+    shortShare: number;
+    longShare: number;
+    longestSentence: number;
+    dialogueShare: number;
+  }[];
+  rhythm: { meanSentence: number; sd: number; meanByChapter: number[] };
+  dialogueTags: { said: number; other: { word: string; count: number }[]; otherCount: number };
+  paragraphs: { count: number; mean: number; longest: number; over200: number };
 }

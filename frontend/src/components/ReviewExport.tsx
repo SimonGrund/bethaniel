@@ -18,7 +18,7 @@ import {
   spawnWritingReport,
 } from "../api";
 import type { DocxExportOptions } from "../api";
-import type { TaskState, Correction } from "../types";
+import type { TaskState, Correction, LanguageAnalysisReport } from "../types";
 import {
   ANALYSIS_MODES,
   EDIT_MODES,
@@ -32,6 +32,7 @@ import {
   type VerifyOutcome,
 } from "../exportVerify";
 import BettyAtWork from "./BettyAtWork";
+import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -2873,6 +2874,51 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })()}
 
+              {/* ── Language analysis: the counts, no model ── */}
+              {(() => {
+                const laTask = entries
+                  .map(([, task]) => task)
+                  .find((task) => task.mode === "language_analysis");
+                if (!laTask) return null;
+                if (laTask.status !== "done") {
+                  // Counting a book takes well under a second; there is no
+                  // in-progress state worth a card. A failure keeps its retry.
+                  if (laTask.status === "queued" || laTask.status === "editing")
+                    return null;
+                  return (
+                    <details className="review-task" open>
+                      <summary className="review-task-summary">
+                        <span className={`task-status-pill qs-${laTask.status}`}>
+                          {t(`status_${laTask.status}`)}
+                        </span>{" "}
+                        {t("mode_language_analysis")}
+                      </summary>
+                      <div className="task-placeholder">
+                        <button
+                          type="button"
+                          className="btn-retry"
+                          onClick={() => void handleRetry(laTask.id)}
+                        >
+                          ↻ {t("retry")}
+                        </button>
+                      </div>
+                    </details>
+                  );
+                }
+                const report = laTask.result?.structuredData as
+                  | LanguageAnalysisReport
+                  | undefined;
+                if (!report) return null;
+                return (
+                  <details className="review-task review-summary-card" open>
+                    <summary className="review-task-summary">
+                      <strong>{t("mode_language_analysis")}</strong>
+                    </summary>
+                    <LanguageAnalysisPanel report={report} lang={lang} />
+                  </details>
+                );
+              })()}
+
               {/* ── Publication readiness scan ── */}
               {(() => {
                 const scanTask = entries
@@ -3653,7 +3699,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   task.mode === "analysis_summary" ||
                   task.mode === "text_evaluator" ||
                   task.mode === "developmental_edit" ||
-                  task.mode === "publication_scan"
+                  task.mode === "publication_scan" ||
+                  task.mode === "language_analysis"
                 ) {
                   return null;
                 }

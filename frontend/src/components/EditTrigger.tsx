@@ -13,6 +13,7 @@ import {
   type CloudEstimateResponse,
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
+import { DETERMINISTIC_MODES } from "../types";
 import { refreshModelEnvironment, useStartDownload } from "../useModelRuntime";
 import Modal from "./Modal";
 
@@ -139,7 +140,16 @@ export default function EditTrigger() {
   // deep in the engine with "Model file not found". "Preparing" is honest about
   // the state and avoids the false "not installed" warning that gating on an
   // empty `installed` list would flash.
-  const notReadyReason = !modelEnvLoaded
+  // A selection made only of counting passes needs nothing this gate checks
+  // for — no model, no download, no engine. It is the one job an install with
+  // nothing on it can run, and the gate must not stand in its way.
+  const countingOnly =
+    selectedModes.length > 0 &&
+    selectedModes.every((m) => DETERMINISTIC_MODES.includes(m));
+
+  const notReadyReason = countingOnly
+    ? null
+    : !modelEnvLoaded
     ? t("run_blocked_preparing")
     : !model
     ? t("run_blocked_no_model")
@@ -422,7 +432,7 @@ export default function EditTrigger() {
   // build shipping neither demanded one download before the user had done
   // anything and a second one later. One ask, at one moment.
   const needsLocalModel =
-    modelEnvLoaded && !isApiModel && installed.length === 0;
+    !countingOnly && modelEnvLoaded && !isApiModel && installed.length === 0;
   const needsGrammar =
     languageToolAvailable === false &&
     !dismissedAdvice.includes("languagetool-missing");
@@ -435,7 +445,11 @@ export default function EditTrigger() {
     (n, u) => n + u.original.split(/\s+/).filter(Boolean).length,
     0,
   );
-  const localEta = estimateRun(scopeWords, model, wordsPerSec, false);
+  // Counting a book takes under a second; an ETA would be a number about
+  // the wrong thing.
+  const localEta = countingOnly
+    ? null
+    : estimateRun(scopeWords, model, wordsPerSec, false);
   const cloudEta = estimateRun(
     cloudEstimate?.totalWords ?? scopeWords,
     cloudEntry?.fileName ?? null,
@@ -581,7 +595,13 @@ export default function EditTrigger() {
         )}
       </button>
 
-      {(
+      {countingOnly && (
+        <p className="run-counting-note small-note">
+          {t("run_counting_note")}
+        </p>
+      )}
+
+      {!countingOnly && (
         <div className="cloud-block">
         <button
           type="button"

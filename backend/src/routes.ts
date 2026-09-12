@@ -77,6 +77,7 @@ import {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
   ANALYSIS_MODES,
+  DETERMINISTIC_MODES,
 } from "./types.js";
 import {
   estimateCloudJob,
@@ -497,7 +498,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // The job is blocked, not the product — every other mode still runs, and a
     // caller who genuinely wants no grammar pass can send grammarCheck: false.
     const wantsGrammar = resolveKnob("grammarCheck", grammarCheck);
-    if (wantsGrammar && !isLanguageToolAvailable()) {
+    // A job made only of counting passes never calls LanguageTool, so refusing
+    // it for lacking LanguageTool would turn away the one pass that exists
+    // precisely so a machine with nothing installed still gets something.
+    const requestedModes: TaskMode[] =
+      modes && Array.isArray(modes) ? modes : [mode ?? "copy_edit"];
+    const usesGrammarLayer = requestedModes.some(
+      (m) => !DETERMINISTIC_MODES.includes(m),
+    );
+    if (wantsGrammar && usesGrammarLayer && !isLanguageToolAvailable()) {
       const lt = getLanguageToolStatus();
       res.status(409).json({
         error:
@@ -624,6 +633,36 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           wpc: wordsPerChunk ?? 2500,
           overlap: 0,
           styleGuide,
+          units: cleanedUnits,
+        });
+        taskIds.push(taskId);
+        continue;
+      }
+      // ── Language analysis: counts over the whole manuscript (no LLM) ──
+      if (currentMode === "language_analysis") {
+        const cleanedUnits = (units as EditUnit[]).map((u) => ({
+          name: u.name,
+          original: stripPagebreaks(u.original),
+        }));
+        const totalWords = cleanedUnits.reduce(
+          (sum, u) => sum + u.original.split(/\s+/).filter(Boolean).length,
+          0,
+        );
+        console.log(
+          `[API]   task: "Language analysis" [language_analysis] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+        );
+        const taskId = await submitTask({
+          jobId,
+          name: "Language analysis",
+          source: doc.name,
+          original: "",
+          wordCount: totalWords,
+          model: model || defaultModelFileName(),
+          mode: "language_analysis",
+          prompt: "", // deterministic — no LLM prompt
+          wpc: wordsPerChunk ?? 2500,
+          overlap: 0,
+          manuscriptLang,
           units: cleanedUnits,
         });
         taskIds.push(taskId);

@@ -15,6 +15,7 @@ import type {
 import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import { buildPublicationScan } from "./publicationScan.js";
+import { analyzeLanguage } from "./languageAnalysis.js";
 import { detectDialect } from "./dialect.js";
 import {
   ApiAccountError,
@@ -1248,6 +1249,64 @@ async function processPublicationScanJob(
   }
 }
 
+// Counts over the whole manuscript, no model. Same shape as the scan: one
+// task carrying every chapter, so a sentence-length profile can be drawn
+// across the book rather than per chapter in isolation.
+async function processLanguageAnalysisJob(
+  job: JobData,
+  ac: AbortController,
+): Promise<void> {
+  const { taskId } = job;
+  const units: EditUnit[] =
+    job.units && job.units.length > 0
+      ? job.units
+      : [{ name: job.name, original: job.original }];
+
+  updateTask(taskId, {
+    status: "editing",
+    startedAt: Date.now(),
+    phase: "counting",
+  });
+
+  try {
+    const report = analyzeLanguage(
+      units.map((u) => ({ name: u.name, original: u.original })),
+      job.manuscriptLang,
+    );
+    abortControllers.delete(taskId);
+    updateTask(taskId, {
+      status: "done",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [],
+        structuredData: report,
+      },
+    });
+  } catch (err) {
+    abortControllers.delete(taskId);
+    const msg = err instanceof Error ? err.message : String(err);
+    const cancelled = ac.signal.aborted || /cancelled/i.test(msg);
+    updateTask(taskId, {
+      status: cancelled ? "cancelled" : "error",
+      progress: 1,
+      finishedAt: Date.now(),
+      result: {
+        editedText: "",
+        originalText: "",
+        corrections: [],
+        skipped: [],
+        errors: [cancelled ? "cancelled" : msg],
+        structuredData: null,
+      },
+    });
+  }
+}
+
 async function processJob(job: JobData): Promise<void> {
   const {
     taskId,
@@ -1278,6 +1337,9 @@ async function processJob(job: JobData): Promise<void> {
   }
   if (mode === "publication_scan") {
     return processPublicationScanJob(job, ac);
+  }
+  if (mode === "language_analysis") {
+    return processLanguageAnalysisJob(job, ac);
   }
 
   // Edits always run corrections-mode (discrete {original,corrected} pairs).
