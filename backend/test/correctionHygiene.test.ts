@@ -532,3 +532,13 @@ test("dedupeChapterCorrections: an unlocatable 'container' no longer forces a dr
   assert.equal(out.length, 2);
   assert.ok(out.some((c) => c.original === "stomach, He"));
 });
+
+test("a correction that only swaps quote or apostrophe style is a no-op", () => {
+  const kept = dropNoOpCorrections([
+    { original: "don't", corrected: "don\u2019t" },
+    { original: "\u201CHello,\u201D she said.", corrected: '"Hello," she said.' },
+    { original: "it's", corrected: "its" },
+    { original: "\u2018quoted\u2019", corrected: "'quoted'" },
+  ]);
+  assert.deepEqual(kept.map((c) => c.corrected), ["its"]);
+});

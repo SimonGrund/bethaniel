@@ -126,6 +126,23 @@ function diffTokens(
   return parts;
 }
 
+/** What a correction changes, without the words around it: the removed
+ *  tokens and the inserted ones. Two corrections with the same key are the
+ *  same change — "Skarholme" → "Skarholm" — however much context each one
+ *  quotes, which is how the same name fixed in nine chapters is recognised
+ *  as one decision. */
+function changeKey(c: { original: string; corrected: string }): string {
+  const a: string[] = c.original.match(/\s+|\w+|[^\w\s]/g) ?? [];
+  const b: string[] = c.corrected.match(/\s+|\w+|[^\w\s]/g) ?? [];
+  const dels: string[] = [];
+  const ins: string[] = [];
+  for (const p of diffTokens(a, b)) {
+    if (p.type === "del") dels.push(p.text);
+    else if (p.type === "ins") ins.push(p.text);
+  }
+  return `${dels.join("").trim()}\u0000${ins.join("").trim()}`;
+}
+
 function InlineDiff({ before, after }: { before: string; after: string }) {
   const aWords: string[] = before.match(/\s+|\w+|[^\w\s]/g) ?? [];
   const bWords: string[] = after.match(/\s+|\w+|[^\w\s]/g) ?? [];
@@ -262,7 +279,6 @@ function VerdictBadge({ correction }: { correction: Correction }) {
       <span
         className={`correction-verdict correction-verdict--${state}`}
         data-tip={why}
-        title={why}
       >
         {state === "unreviewed" ? t("flag_unreviewed") : t("flag_unchecked")}
       </span>
@@ -286,10 +302,9 @@ function VerdictBadge({ correction }: { correction: Correction }) {
   return (
     <span
       className={`correction-verdict${kind === "doubted" ? " correction-verdict--doubted" : ""}`}
-      // data-tip is the styled tooltip; title is the native one, which no
-      // ancestor's overflow can clip and which survives a long explanation.
+      // The styled tooltip only. A native title beside it showed the same
+      // words twice, a beat apart.
       data-tip={tip}
-      title={tip}
       aria-label={t("verdict_aria").replace("{pct}", String(pct))}
     >
       {icon} {pct}%
@@ -1721,6 +1736,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   const [minorDetailJobs, setMinorDetailJobs] = useState<Set<string>>(
     () => new Set(),
   );
+  // The same change proposed elsewhere in the run, offered once the author
+  // has answered one of them: a name fixed nine times is one decision, and
+  // asking it nine times is the kind of tedium that makes a reviewer stop
+  // reading. Nothing is applied until they say so.
+  const [sameChange, setSameChange] = useState<{
+    action: "accept" | "dismiss";
+    original: string;
+    corrected: string;
+    others: { tid: string; id: string }[];
+  } | null>(null);
   const [exportWarning, setExportWarning] = useState<{
     message: string;
     confirmLabel: string;
@@ -2145,6 +2170,65 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       )}
 
       <Modal
+        open={sameChange !== null}
+        onClose={() => setSameChange(null)}
+        labelledBy="same-change-title"
+        className="same-change"
+      >
+        {sameChange && (
+          <>
+            <h2 id="same-change-title" className="same-change__title">
+              {t("same_change_title").replace("{n}", String(sameChange.others.length))}
+            </h2>
+            <p className="same-change__diff">
+              <InlineDiff before={sameChange.original} after={sameChange.corrected} />
+            </p>
+            <p className="model-confirm-text">
+              {t(
+                sameChange.action === "accept"
+                  ? "same_change_body_accept"
+                  : "same_change_body_dismiss",
+              ).replace("{n}", String(sameChange.others.length))}
+            </p>
+            <div className="model-confirm-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSameChange(null)}
+              >
+                {t("same_change_one")}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  for (const { tid, id } of sameChange.others) {
+                    if (sameChange.action === "accept") acceptCorrection(tid, id);
+                    else dismissCorrection(tid, id);
+                  }
+                  setToast({
+                    msg: t(
+                      sameChange.action === "accept"
+                        ? "same_change_done_accept"
+                        : "same_change_done_dismiss",
+                    ).replace("{n}", String(sameChange.others.length)),
+                    kind: sameChange.action,
+                  });
+                  setSameChange(null);
+                }}
+              >
+                {t(
+                  sameChange.action === "accept"
+                    ? "same_change_all_accept"
+                    : "same_change_all_dismiss",
+                ).replace("{n}", String(sameChange.others.length))}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal
         open={exportWarning !== null}
         onClose={() => setExportWarning(null)}
         labelledBy="export-warning-text"
@@ -2389,6 +2473,35 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           // chapter shows inline: not the dialect swaps (engine log, not
           // cards) and not the low-confidence fold. `resultMeta` carries the
           // same count before a result hydrates (backend/src/snapshot.ts).
+          // Every other correction in this run that makes the same change and
+          // has not yet been answered the way this one just was. Dialect swaps
+          // are excluded: they are a setting, not a decision.
+          const offerSameChange = (
+            action: "accept" | "dismiss",
+            fromTid: string,
+            c: Correction,
+          ) => {
+            if (!c.id) return;
+            const key = changeKey(c);
+            const isOn = (otid: string, id: string) => {
+              const set = acceptedCorrections[otid] ?? new Set<string>();
+              return set.has(id) || [...set].some((k) => k.startsWith(`${id}:`));
+            };
+            const others = editTasks.flatMap(([otid, task]) =>
+              (task.result?.corrections ?? [])
+                .filter(
+                  (x) =>
+                    x.id &&
+                    !(otid === fromTid && x.id === c.id) &&
+                    x.reason !== "dialect" &&
+                    changeKey(x) === key &&
+                    isOn(otid, x.id) !== (action === "accept"),
+                )
+                .map((x) => ({ tid: otid, id: x.id as string })),
+            );
+            if (others.length === 0) return;
+            setSameChange({ action, original: c.original, corrected: c.corrected, others });
+          };
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
             const count = cs
@@ -3941,10 +4054,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   )
                                 }
                                 onAcceptAllOccurrences={() => {
-                                  if (c.id) acceptCorrection(tid, c.id);
+                                  if (!c.id) return;
+                                  acceptCorrection(tid, c.id);
+                                  offerSameChange("accept", tid, c);
                                 }}
                                 onDismissAllOccurrences={() => {
-                                  if (c.id) dismissCorrection(tid, c.id);
+                                  if (!c.id) return;
+                                  dismissCorrection(tid, c.id);
+                                  offerSameChange("dismiss", tid, c);
                                 }}
                                 readOnly={isScanJob}
                                 originalText={result.originalText}

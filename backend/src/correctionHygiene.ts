@@ -555,10 +555,23 @@ const INVISIBLE_RE = new RegExp(
   "g",
 );
 
+/** Curly and straight quotation marks and apostrophes, read as the same
+ *  character: a correction that only swaps one for the other changes
+ *  nothing an author would call an error. */
+const QUOTE_STYLE_RE = /[\u2018\u2019\u201A\u201B\u2032\u2035]/g;
+const DQUOTE_STYLE_RE = /[\u201C\u201D\u201E\u201F\u2033\u2036\u00AB\u00BB]/g;
+
 function normalizeForComparison(s: string): string {
-  return s.replace(INVISIBLE_RE, "").trim().replace(/\s+/g, " ");
+  return s
+    .replace(INVISIBLE_RE, "")
+    .replace(QUOTE_STYLE_RE, "'")
+    .replace(DQUOTE_STYLE_RE, '"')
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
+/** Corrections that change nothing — or nothing but the style of a quotation
+ *  mark or apostrophe, which is the author's to choose. */
 export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
   return corrections.filter(
     (c) =>

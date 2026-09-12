@@ -100,11 +100,14 @@ function contextAround(
 }
 
 /**
- * Corrections that make the manuscript's quotation marks internally consistent.
+ * Corrections for curly quotation marks facing the wrong way for their
+ * position — “Good.“ — in a manuscript written in curly marks.
  *
- * Two faults are repaired, both unambiguous:
- *   - a straight mark in a manuscript written in curly ones (and the reverse)
- *   - a curly mark facing the wrong way for its position
+ * That is the one fault repaired. A straight mark among curly ones used to
+ * be converted too, and is no longer: straight or curly is the author's
+ * choice (or their word processor's), not an error, and a run that turned
+ * up dozens of “fixes” to quotation marks read as noise to the author whose
+ * book it was. Straight marks are left exactly as typed, everywhere.
  *
  * Apostrophes are untouched: only double quotes are considered.
  *
@@ -115,8 +118,9 @@ function contextAround(
  * with its neighbour.
  */
 export function getQuoteCorrections(text: string): Correction[] {
-  const style = dominantStyle(text);
-  if (!style) return [];
+  // Orientation is only a thing curly marks have. A manuscript in straight
+  // quotes — or one with no clear style — has nothing here to repair.
+  if (dominantStyle(text) !== "curly") return [];
 
   const paragraphs = text.split(/\n\n+/);
   const out: Correction[] = [];
@@ -142,17 +146,18 @@ export function getQuoteCorrections(text: string): Correction[] {
     for (let i = 0; i < chars.length; i++) {
       const ch = chars[i];
       if (ch !== '"' && ch !== "\u201C" && ch !== "\u201D") continue;
-      const want =
-        style === "straight" ? '"' : opens[seen] ? "\u201C" : "\u201D";
+      const want = opens[seen] ? "\u201C" : "\u201D";
       seen++;
-      if (ch === want) continue;
+      // A straight mark still counts for alternation — it opens or closes
+      // like any other — but is never itself rewritten.
+      if (ch === '"' || ch === want) continue;
       // Refuse a placement the surrounding text contradicts. Two opening marks
       // in a row are malformed, and alternation would turn the second into a
       // closing mark sitting directly against a word — worse than the fault it
       // set out to fix, and not something to guess at.
       // Counted before the veto below: a flip we decline to make is still
       // evidence that the paragraph is not a simple typo.
-      if (ch !== '"') orientationFixes++;
+      orientationFixes++;
       const nextCh = chars[i + 1] ?? "";
       const prevCh = chars[i - 1] ?? "";
       if (want === "\u201D" && /[\p{L}\p{N}]/u.test(nextCh)) continue;
@@ -166,7 +171,7 @@ export function getQuoteCorrections(text: string): Correction[] {
       corrected: chars.join(""),
       kind: "copy",
       confidence: 1,
-      note: "Quotation marks made consistent with the rest of the manuscript.",
+      note: "A quotation mark facing the wrong way.",
     } as Correction);
   }
 

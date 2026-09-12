@@ -7649,6 +7649,25 @@ summary.review-source::before {
   flex: 1 1 auto;
 }
 
+/* ── The same change, elsewhere in the run ── */
+.same-change__title {
+  margin: 0 0 0.6rem;
+  font-family: var(--serif, Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #2a2419;
+}
+
+.same-change__diff {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  background: #faf6ec;
+  border: 1px solid #e3d7bd;
+  border-radius: 6px;
+  font-family: var(--serif, Georgia, serif);
+  line-height: 1.5;
+}
+
 /* ── Picking a chapter, once the run has settled ──
    The same object as a pill — same ground, same border, same size — but one
    of it, holding every chapter. */

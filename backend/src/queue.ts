@@ -2974,7 +2974,12 @@ async function processJob(job: JobData): Promise<void> {
   // Deduplicate corrections — overlapping chunks and chunk boundaries can
   // produce the same correction multiple times, sometimes with extra context.
   {
-    const deduped = dedupeChapterCorrections(original, corrections);
+    // The no-op filter runs here too, on the whole chapter: LanguageTool and
+    // the spell layer never went through the editor merge's copy of it, and a
+    // quote-style-only change from any source is not a change.
+    const deduped = dropNoOpCorrections(
+      dedupeChapterCorrections(original, corrections),
+    );
     corrections.length = 0;
     corrections.push(...deduped);
   }

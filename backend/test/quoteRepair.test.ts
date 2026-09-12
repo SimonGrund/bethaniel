@@ -34,33 +34,27 @@ test("a closing mark typed as an opening one is corrected", () => {
   assert.match(cs[0].corrected, /“Good\.”/);
 });
 
-test("a straight quote in a curly manuscript is corrected to the right curl", () => {
+test("a straight quote in a curly manuscript is left as typed", () => {
+  // Straight or curly is the author's choice, not an error. This used to be
+  // converted, and a book with a few hundred of them got a few hundred
+  // corrections about nothing.
   const text = `${CURLY_CONTEXT}\n\n“I am here to… To save you," Bria finished quietly.`;
-  const cs = getQuoteCorrections(text);
-  assert.equal(cs.length, 1, JSON.stringify(cs));
-  assert.match(cs[0].corrected, /save you,”/);
-  assert.doesNotMatch(cs[0].corrected, /"/, "a straight mark must not survive");
+  assert.deepEqual(getQuoteCorrections(text), []);
+  const line = `${CURLY_CONTEXT}\n\n"We can try," Aaron said with a shrug.`;
+  assert.deepEqual(getQuoteCorrections(line), []);
 });
 
-test("both marks of a line are fixed in ONE correction, not two overlapping ones", () => {
-  // Two marks, one paragraph. Emitted separately their spans overlapped, and
-  // applying the first left the second unable to match the text it was cut from.
-  const text = `${CURLY_CONTEXT}\n\n"We can try," Aaron said with a shrug.`;
-  const cs = getQuoteCorrections(text);
-  assert.equal(cs.length, 1, JSON.stringify(cs));
-  assert.match(cs[0].corrected, /“We can try,”/);
-});
-
-test("corrections never overlap, so they can all be applied", () => {
+test("a straight mark still counts for alternation, and a wrong-way curly one beside it is fixed", () => {
   const text = `${CURLY_CONTEXT}\n\n"First," she said.\n\n"Second,“ he replied.`;
   const cs = getQuoteCorrections(text);
+  assert.equal(cs.length, 1, JSON.stringify(cs));
   let applied = text;
   for (const c of cs) {
     assert.ok(applied.includes(c.original), `span lost: ${c.original}`);
     applied = applied.replace(c.original, c.corrected);
   }
-  assert.doesNotMatch(applied, /"/, "a straight mark survived");
-  assert.match(applied, /“Second,”/);
+  assert.match(applied, /"First," she said/, "straight marks survive");
+  assert.match(applied, /"Second,” he replied/);
 });
 
 test("a manuscript written in straight quotes is left alone", () => {
@@ -156,11 +150,11 @@ test("a paragraph needing several marks turned round is left alone", () => {
   assert.deepEqual(getQuoteCorrections(text), []);
 });
 
-test("many straight marks in one paragraph still convert together", () => {
-  // Style conversion is safe in bulk — the manuscript's style is not in doubt —
-  // so the one-fix limit must apply only to marks facing the wrong way.
-  const text = `${CURLY_CONTEXT}\n\n"No!" Laura said. "That's what we were told, and I believed it."`;
-  const cs = getQuoteCorrections(text);
-  assert.equal(cs.length, 1, JSON.stringify(cs));
-  assert.doesNotMatch(cs[0].corrected, /"/);
+test("a paragraph of straight marks in a curly manuscript is not touched at all", () => {
+  // Once, these converted in bulk. Now the style is the author's: nothing
+  // about a straight mark is a fault to fix.
+  const text = `${CURLY_CONTEXT}
+
+"No!" Laura said. "That's what we were told, and I believed it."`;
+  assert.deepEqual(getQuoteCorrections(text), []);
 });
