@@ -515,7 +515,10 @@ export default {
             quoteId: quote.id,
             tokenBudget,
             amountCents: quote.price_eur_cents,
-            product: quote.product === "enhance" ? "enhance" : "edit",
+            // A row written before products existed has none and was an edit.
+            product: CLOUD_PRODUCTS.includes(quote.product as CloudProduct)
+              ? (quote.product as CloudProduct)
+              : "edit",
           });
         } catch (err) {
           // The use was taken a few lines above and bought nothing. Without

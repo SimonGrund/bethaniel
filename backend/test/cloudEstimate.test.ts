@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import {
   estimateTaskOutputTokens,
   estimateCloudJob,
+  cloudProductFor,
   cloudRunKnobs,
   partitionCloudModes,
 } from "../src/cloudEstimate.ts";
@@ -220,4 +221,24 @@ test("a mixed selection reports precisely which passes are refused", () => {
   ]);
   assert.deepEqual(allowed, ["copy_edit", "translate"]);
   assert.deepEqual(rejected, ["developmental_edit", "timeline"]);
+});
+
+// ── Which product a selection is ──
+// The Worker prices the three front cards alike but names them apart on the
+// receipt, so the estimate has to say which one this is — with the same
+// precedence as the app's frontCardFor, and the enhanced analysis only when
+// it is alone.
+
+test("each front card is its own product; the enhanced analysis only alone", () => {
+  assert.equal(cloudProductFor(["copy_edit"]), "edit");
+  assert.equal(cloudProductFor(["combined_edit"]), "edit");
+  assert.equal(cloudProductFor(["proofread", "publication_scan"]), "readthrough");
+  assert.equal(cloudProductFor(["publication_scan"]), "readthrough");
+  assert.equal(cloudProductFor(["translate"]), "translate");
+  assert.equal(cloudProductFor(["language_enhance"]), "enhance");
+  // An older selection holding two cards: the dearest wins, as in the app.
+  assert.equal(cloudProductFor(["copy_edit", "translate"]), "translate");
+  assert.equal(cloudProductFor(["copy_edit", "proofread"]), "readthrough");
+  // The small price never applies alongside an edit.
+  assert.equal(cloudProductFor(["copy_edit", "language_enhance"]), "edit");
 });

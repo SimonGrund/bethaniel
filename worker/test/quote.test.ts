@@ -164,3 +164,17 @@ test("an enhance quote cannot buy an edit-sized credential for two euros", () =>
 test("a quote without a product is an edit", () => {
   assert.equal(priceJob(env, { estimatedTokens: 1e6, words: 50_000 }).product, "edit");
 });
+
+test("the three front cards are told apart but priced alike", () => {
+  const prices = new Set<number>();
+  for (const product of ["edit", "readthrough", "translate"] as const) {
+    const q = priceJob(env, { estimatedTokens: 800_000, words: 50_000, product });
+    assert.equal(q.product, product);
+    assert.equal(q.tiers, 1);
+    prices.add(q.priceEurCents);
+  }
+  assert.deepEqual([...prices], [500]);
+  // Same guard on every one of them: translation's heavier token count
+  // still sits well inside the ceiling, so it is never repriced by it.
+  assert.equal(priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" }).tiers, 1);
+});

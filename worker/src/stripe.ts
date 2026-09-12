@@ -6,6 +6,7 @@
 // makes a bespoke client simpler than adapting a Node-oriented SDK.
 
 import type { Env } from "./env";
+import { PRODUCT_NAMES, type CloudProduct } from "./quote";
 
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
@@ -56,7 +57,7 @@ export async function createCheckoutSession(
     quoteId: string;
     tokenBudget: number;
     amountCents: number;
-    product?: "edit" | "enhance";
+    product?: CloudProduct;
   },
 ): Promise<CheckoutSessionResult> {
   // Backstop: every call site is covered even if one forgets the early check.
@@ -70,9 +71,7 @@ export async function createCheckoutSession(
     "payment_method_types[0]": "card",
     "line_items[0][price_data][currency]": "eur",
     "line_items[0][price_data][product_data][name]":
-      opts.product === "enhance"
-        ? "Betty in the Cloud — enhanced language analysis"
-        : "Betty in the Cloud — one cloud editing job",
+      PRODUCT_NAMES[opts.product ?? "edit"],
     "line_items[0][price_data][product_data][description]":
       opts.product === "enhance"
         ? `Passages of this manuscript read in the cloud for the language report — ~${opts.tokenBudget.toLocaleString()} tokens of capacity`

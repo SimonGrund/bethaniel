@@ -502,8 +502,8 @@ export interface CloudEstimateRequest {
 
 export interface CloudEstimateResponse {
   estimatedTotalTokens: number;
-  /** What was priced: an edit, or the enhanced language analysis alone. */
-  product?: "edit" | "enhance";
+  /** What was priced: which front card, or the enhanced analysis alone. */
+  product?: "edit" | "readthrough" | "translate" | "enhance";
   /** Words in the job — the unit the price is banded by. */
   totalWords?: number;
   estimatedInputTokens: number;

@@ -10,12 +10,28 @@ export interface PromoTerms {
   maxWords?: number | null;
 }
 
-/** What is being bought. An edit is priced by the size of the manuscript;
- *  the enhanced language analysis reads only a sample of it and is a flat,
- *  much smaller price per band. */
-export type CloudProduct = "edit" | "enhance";
+/** What is being bought. The three front cards — an edit, a final
+ *  readthrough, a translation — are each priced by the size of the
+ *  manuscript, at the same band price; they are told apart so the receipt
+ *  and the quote row say what was sold. The enhanced language analysis
+ *  reads only a sample of the book and is a flat, much smaller price per
+ *  band. An app that sends no product is an edit. */
+export type CloudProduct = "edit" | "readthrough" | "translate" | "enhance";
 
-export const CLOUD_PRODUCTS: readonly CloudProduct[] = ["edit", "enhance"];
+export const CLOUD_PRODUCTS: readonly CloudProduct[] = [
+  "edit",
+  "readthrough",
+  "translate",
+  "enhance",
+];
+
+/** What the author sees on the Stripe receipt. */
+export const PRODUCT_NAMES: Record<CloudProduct, string> = {
+  edit: "Betty in the Cloud — copy and line edit",
+  readthrough: "Betty in the Cloud — final readthrough",
+  translate: "Betty in the Cloud — translation",
+  enhance: "Betty in the Cloud — enhanced language analysis",
+};
 
 export interface PriceQuote {
   product: CloudProduct;

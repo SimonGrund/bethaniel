@@ -119,9 +119,25 @@ export interface CloudEstimateResult {
   totalWords: number;
   confidence: "estimate" | "lower_bound";
   perMode: Record<string, { inputTokens: number; outputTokens: number }>;
-  /** What the Worker is asked to price. An enhanced language analysis on
-   *  its own is the cheaper product; anything else is an edit. */
-  product: "edit" | "enhance";
+  /** What the Worker is asked to price: which front card this job is, or
+   *  the enhanced language analysis on its own, which is the cheaper one. */
+  product: CloudProduct;
+}
+
+export type CloudProduct = "edit" | "readthrough" | "translate" | "enhance";
+
+/** The same precedence as the app's frontCardFor (frontend/src/types.ts):
+ *  the cards do not overlap, but an older selection can hold modes from
+ *  more than one, and translation is the one that costs Bethaniel most.
+ *  The enhanced analysis is only its own product on its own — paired with
+ *  any editing pass it rides along inside that pass's price. */
+export function cloudProductFor(effectiveModes: readonly string[]): CloudProduct {
+  if (effectiveModes.includes("translate")) return "translate";
+  if (effectiveModes.some((m) => m === "proofread" || m === "publication_scan"))
+    return "readthrough";
+  if (effectiveModes.length === 1 && effectiveModes[0] === "language_enhance")
+    return "enhance";
+  return "edit";
 }
 
 /** Editor calls per chunk for the corrections modes, mirroring runModePresets.ts. */
@@ -408,12 +424,7 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     totalWords: input.units.reduce((sum, u) => sum + u.wordCount, 0),
     confidence,
     perMode,
-    // The small price is for the analysis ALONE. Paired with any editing
-    // pass it is an edit, priced as one; the analysis rides along.
-    product:
-      effectiveModes.length === 1 && effectiveModes[0] === "language_enhance"
-        ? "enhance"
-        : "edit",
+    product: cloudProductFor(effectiveModes),
   };
 }
 
