@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
+import CloudCodeClaim from "./CloudCodeClaim";
 import { estimateRun, formatEstimate } from "../runEstimate";
 import { useTranslation } from "../i18n";
 import {
@@ -191,6 +192,7 @@ export default function EditTrigger() {
     pending: cloudCheckoutPending,
     claimError: cloudClaimError,
     startCheckout,
+    claimCode,
     cancelWait: cancelCloudWait,
   } = useCloudPurchase("run", async () => {
     await refreshModelEnvironment();
@@ -713,6 +715,9 @@ export default function EditTrigger() {
             {t("cloud_wait_cancel", "Didn't pay? Cancel")}
           </button>
         </p>
+      )}
+      {!countingOnly && cloudEntry && (
+        <CloudCodeClaim pending={cloudCheckoutPending} onClaim={claimCode} lang={lang} />
       )}
 
       <CloudCheckoutModal

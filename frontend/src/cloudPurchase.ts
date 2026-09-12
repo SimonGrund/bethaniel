@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createCloudCheckout,
   getCloudEstimate,
+  saveCloudCredential,
   type CloudEstimateRequest,
   type CloudEstimateResponse,
 } from "./api";
@@ -109,6 +110,29 @@ export function useCloudPurchase(
     [bridge, buyer],
   );
 
+  // The same credential, typed in by hand from the payment page when the
+  // bethaniel:// link back did not reach the app. Saved exactly as the
+  // desktop shell saves it (electron/main.ts claimCloudCredential); the
+  // Worker chooses the model itself on every call, so the name kept here
+  // is a label, not an instruction.
+  const claimCode = useCallback(
+    async (code: string) => {
+      setClaimError(null);
+      try {
+        await saveCloudCredential(code, "bethaniel-cloud");
+      } catch (err) {
+        setClaimError(
+          err instanceof Error ? err.message : "Could not activate your cloud credit",
+        );
+        throw err;
+      }
+      lastBuyer = buyer;
+      setPending(false);
+      await onClaimedRef.current();
+    },
+    [buyer],
+  );
+
   // Closing Stripe without paying sends nothing back, so the pending flag
   // needs its own ways out: an explicit cancel, and an expiry for the user
   // who simply walked away.
@@ -131,6 +155,7 @@ export function useCloudPurchase(
     pending,
     claimError,
     startCheckout,
+    claimCode,
     cancelWait,
     /** False in a browser preview, where no credential can come back. */
     canClaim: bridge !== null,

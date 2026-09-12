@@ -69,7 +69,7 @@ export function renderSuccessPage(sessionId: string): string {
   <div class="spinner" id="spinner"></div>
 
   <div class="code-box" id="code-box">
-    <p>Betty didn't open automatically? Copy this code and paste it into Bethaniel's "Betty in the Cloud" panel:</p>
+    <p>Betty didn't open automatically? Copy this code and paste it into Betty, under the button you paid from — "Paid, but Betty didn't open?":</p>
     <div class="code" id="code"></div>
     <button id="copy-btn" type="button">Copy code</button>
   </div>

@@ -2205,6 +2205,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Lassen Sie Betty geöffnet, bis sie fertig ist. Die Passagen werden von diesem Computer gesendet; wird die App geschlossen oder geht der Rechner in den Ruhezustand, stoppt der Lauf — und kann bei der zuletzt gelesenen Passage wieder aufgenommen werden.",
     es: "Mantén Betty abierta hasta que termine. Los pasajes se envían desde este ordenador, así que si se cierra la aplicación o el equipo se suspende, la ejecución se detiene, y puede retomarse desde el último pasaje leído.",
   },
+  cloud_claim_open: {
+    en: "Paid, but Betty didn’t open? Paste the code from the payment page",
+    da: "Betalt, men Betty åbnede ikke? Indsæt koden fra betalingssiden",
+    de: "Bezahlt, aber Betty hat sich nicht geöffnet? Fügen Sie den Code von der Zahlungsseite ein",
+    es: "¿Pagaste, pero Betty no se abrió? Pega el código de la página de pago",
+  },
+  cloud_claim_label: {
+    en: "If Betty did not open by itself after paying, paste the code shown on the payment page:",
+    da: "Hvis Betty ikke åbnede af sig selv efter betalingen, så indsæt koden fra betalingssiden:",
+    de: "Wenn Betty sich nach der Zahlung nicht von selbst geöffnet hat, fügen Sie den Code von der Zahlungsseite ein:",
+    es: "Si Betty no se abrió sola tras el pago, pega el código que aparece en la página de pago:",
+  },
+  cloud_claim_submit: {
+    en: "Activate",
+    da: "Aktivér",
+    de: "Aktivieren",
+    es: "Activar",
+  },
+  cloud_claim_busy: {
+    en: "Activating…",
+    da: "Aktiverer…",
+    de: "Wird aktiviert…",
+    es: "Activando…",
+  },
+  cloud_claim_invalid: {
+    en: "That does not look like a code from the payment page — it starts with BETH- and has four groups of five characters.",
+    da: "Det ligner ikke en kode fra betalingssiden — den begynder med BETH- og har fire grupper af fem tegn.",
+    de: "Das sieht nicht wie ein Code von der Zahlungsseite aus — er beginnt mit BETH- und hat vier Gruppen zu fünf Zeichen.",
+    es: "Eso no parece un código de la página de pago: empieza por BETH- y tiene cuatro grupos de cinco caracteres.",
+  },
   export_with_changes: {
     en: "Export the full manuscript with accepted changes:",
     da: "Eksportér hele manuskriptet med accepterede ændringer:",

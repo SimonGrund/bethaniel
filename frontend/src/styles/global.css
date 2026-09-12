@@ -5334,8 +5334,18 @@ summary.review-source::before {
 /* Notes belonging to the whole launch rather than to one side of it. */
 .wizard-launch .run-actions > .run-download-note,
 .wizard-launch .run-actions > .cloud-wait-note,
+.wizard-launch .run-actions > .cloud-claim-hint,
+.wizard-launch .run-actions > .cloud-claim,
 .wizard-launch .run-actions > .api-error {
   grid-column: 1 / -1;
+}
+
+.wizard-launch .run-actions > .cloud-claim-hint {
+  text-align: center;
+}
+
+.wizard-launch .run-actions > .cloud-claim {
+  align-items: center;
 }
 
 @media (max-width: 700px) {
@@ -8183,6 +8193,40 @@ summary.review-source::before {
   color: #2a2419;
   border-color: #d9c9a8;
   background: #faf6ec;
+}
+
+/* ── Pasting the code from the payment page ──
+   Open on its own while a payment is waited on; a one-line link otherwise.
+   The input is the promo-code input's twin, wider for the longer code. */
+.cloud-claim-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #8a7a5c;
+}
+
+.cloud-claim {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: #6b5438;
+}
+
+.cloud-claim-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cloud-claim-input {
+  width: 17rem;
+  max-width: 100%;
+}
+
+.cloud-claim-input[aria-invalid="true"] {
+  border-color: #9b2335;
 }
 
 /* ── The enhanced analysis: its purchase, and its place in the report ──

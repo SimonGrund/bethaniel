@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import CloudCheckoutModal from "./CloudCheckoutModal";
+import CloudCodeClaim from "./CloudCodeClaim";
 import { useTranslation } from "../i18n";
 import { spawnLanguageEnhance } from "../api";
 import { useCloudPurchase } from "../cloudPurchase";
@@ -43,6 +44,7 @@ export default function EnhanceLanguageButton({
     pending,
     claimError,
     startCheckout,
+    claimCode,
     cancelWait,
   } = useCloudPurchase(`enhance:${jobId}`, async () => {
     // The credential is saved; the run it paid for starts now, on the cloud
@@ -150,6 +152,7 @@ export default function EnhanceLanguageButton({
           </button>
         </p>
       )}
+      <CloudCodeClaim pending={pending} onClaim={claimCode} lang={lang} />
       {(claimError || spawnError) && (
         <div className="api-error">{claimError ?? spawnError}</div>
       )}
