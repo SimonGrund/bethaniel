@@ -8196,6 +8196,19 @@ summary.review-source::before {
   background: #faf6ec;
 }
 
+/* Under "Run in Cloud" on the language card: what the price adds. */
+.cloud-enhance-note {
+  margin: 0.4rem 0 0;
+  max-width: 34rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #6b5438;
+}
+
+.wizard-launch .run-actions > .cloud-block > .cloud-enhance-note {
+  margin-top: 0.15rem;
+}
+
 /* ── Pasting the code from the payment page ──
    Open on its own while a payment is waited on; a one-line link otherwise.
    The input is the promo-code input's twin, wider for the longer code. */
@@ -8230,41 +8243,9 @@ summary.review-source::before {
   border-color: #9b2335;
 }
 
-/* ── The enhanced analysis: its purchase, and its place in the report ──
-   The button sits first in the toolbar, Export after it; the info toggle
-   and the waiting note hang beneath the button in the same column, so the
-   toolbar's row never grows sideways. */
-.la-enhance {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-  margin-right: auto;
-  max-width: 62ch;
-}
-
-.la-enhance-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.la-enhance-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.la-enhance-price {
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  background: #ede6d6;
-  color: #5a4a30;
-  font-size: 0.8em;
-  font-weight: 600;
-}
-
+/* ── The enhanced analysis: how it is doing, and its place in the report ──
+   Bought on the launch row like every run; the report's toolbar only says
+   whether it is still reading or stopped short. */
 .la-enhance-status {
   display: inline-flex;
   align-items: center;
@@ -8276,48 +8257,6 @@ summary.review-source::before {
 
 .la-enhance-failed {
   color: #9b2335;
-}
-
-.la-enhance-info {
-  font-size: 0.82rem;
-  color: #6b5d48;
-}
-
-.la-enhance-info > summary {
-  cursor: pointer;
-  list-style: none;
-  color: #8b7355;
-}
-
-.la-enhance-info > summary::-webkit-details-marker {
-  display: none;
-}
-
-.la-enhance-info > summary::before {
-  content: "ⓘ ";
-  color: #b3a88f;
-}
-
-.la-enhance-info[open] > summary::before {
-  content: "ⓘ ";
-  color: #8b7355;
-}
-
-.la-enhance-info > ul {
-  margin: 0.4rem 0 0.3rem;
-  padding-left: 1.2rem;
-  line-height: 1.5;
-  color: #4a3f2f;
-}
-
-.la-enhance-info > p {
-  margin: 0.3rem 0 0;
-  line-height: 1.5;
-  color: #4a3f2f;
-}
-
-.la-enhance .cloud-wait-note {
-  margin: 0;
 }
 
 /* Each note: the mark, a label, the author's line as a quote, the reader's

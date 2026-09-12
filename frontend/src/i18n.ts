@@ -2085,12 +2085,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Erweiterte Analyse",
     es: "Análisis ampliado",
   },
-  la_enhance_cta: {
-    en: "Run enhanced analysis in the cloud",
-    da: "Kør udvidet analyse i skyen",
-    de: "Erweiterte Analyse in der Cloud ausführen",
-    es: "Ejecutar el análisis ampliado en la nube",
-  },
   la_enhance_buy_title: {
     en: "Run the enhanced analysis in the cloud",
     da: "Kør den udvidede analyse i skyen",
@@ -2222,6 +2216,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Det ligner ikke en kode fra betalingssiden — den begynder med BETH- og har fire grupper af fem tegn.",
     de: "Das sieht nicht wie ein Code von der Zahlungsseite aus — er beginnt mit BETH- und hat vier Gruppen zu fünf Zeichen.",
     es: "Eso no parece un código de la página de pago: empieza por BETH- y tiene cuatro grupos de cinco caracteres.",
+  },
+  cloud_enhance_adds: {
+    en: "The counts run on this computer either way. In the cloud, the report also gets notes on showing and telling — your own lines quoted, never rewritten — and a paragraph on how to strengthen your writing.",
+    da: "Optællingen kører på denne computer uanset hvad. I skyen får rapporten desuden noter om at vise frem for at fortælle — dine egne linjer citeret, aldrig omskrevet — og et afsnit om, hvordan du styrker din skrivning.",
+    de: "Die Zählung läuft so oder so auf diesem Computer. In der Cloud erhält der Bericht zusätzlich Hinweise zu Zeigen und Erzählen — Ihre eigenen Zeilen zitiert, nie umgeschrieben — und einen Absatz dazu, wie Sie Ihr Schreiben stärken.",
+    es: "El recuento se hace en este ordenador de todos modos. En la nube, el informe recibe además notas sobre mostrar y contar —tus propias líneas citadas, nunca reescritas— y un párrafo sobre cómo fortalecer tu escritura.",
   },
   export_with_changes: {
     en: "Export the full manuscript with accepted changes:",

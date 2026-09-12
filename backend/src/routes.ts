@@ -532,7 +532,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       if (rejected.length > 0) {
         res.status(400).json({
           error:
-            "Betty in the Cloud can currently run copy edit, line edit, final readthrough and translation. The other passes are still local-only.",
+            "Betty in the Cloud can currently run copy edit, line edit, final readthrough, translation and language analysis. The other passes are still local-only.",
           unsupportedModes: rejected,
         });
         return;
@@ -666,6 +666,30 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           units: cleanedUnits,
         });
         taskIds.push(taskId);
+        // On Betty in the Cloud the card is the counts plus the enhanced
+        // analysis — that is what was paid for. Same job, so the review
+        // screen folds the one into the other; cloudEstimate.ts prices the
+        // same pair.
+        if (forced) {
+          console.log(
+            `[API]   task: "Enhanced analysis" [language_enhance] (${cleanedUnits.length} chapters, ${totalWords} words)`,
+          );
+          const enhanceId = await submitTask({
+            jobId,
+            name: "Enhanced analysis",
+            source: doc.name,
+            original: "",
+            wordCount: totalWords,
+            model,
+            mode: "language_enhance",
+            prompt: "", // the orchestrator builds its own prompts
+            wpc: wordsPerChunk ?? 2500,
+            overlap: 0,
+            manuscriptLang,
+            units: cleanedUnits,
+          });
+          taskIds.push(enhanceId);
+        }
         continue;
       }
       // ── Story analysis: one task spanning the whole manuscript ──
@@ -2261,7 +2285,7 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
   if (rejected.length > 0) {
     res.status(400).json({
       error:
-        "Betty in the Cloud can currently run copy edit, line edit, final readthrough and translation. The other passes are still local-only.",
+        "Betty in the Cloud can currently run copy edit, line edit, final readthrough, translation and language analysis. The other passes are still local-only.",
       unsupportedModes: rejected,
     });
     return;

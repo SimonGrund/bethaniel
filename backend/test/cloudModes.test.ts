@@ -26,6 +26,7 @@ test("the sellable modes are exactly the three paid cards, plus the merge target
     "proofread",
     "publication_scan",
     "translate",
+    "language_analysis",
     "language_enhance",
   ];
   assert.deepEqual([...CLOUD_ALLOWED_MODES].sort(), expected.sort());

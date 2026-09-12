@@ -68,14 +68,12 @@ export function modeLabelKeys(modes: TaskMode[]): string[] {
 
 // ── Task-step grouping ──
 //
-// The first three front cards are the paid product: FRONT_CARD_MODES must
-// stay equal to CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus
-// combined_edit, which the backend synthesises from copy_edit + line_edit and
-// no user ever selects, minus language_enhance, which is bought from a
-// finished language report rather than picked here (EnhanceLanguageButton),
-// and minus the fourth card: language_analysis counts on this machine and is
-// never sold (EditTrigger's countingOnly hides the cloud button for it).
-// backend/test/cloudModes.test.ts pins the other side.
+// The four front cards are the product: FRONT_CARD_MODES must stay equal to
+// CLOUD_ALLOWED_MODES (backend/src/cloudEstimate.ts) minus combined_edit,
+// which the backend synthesises from copy_edit + line_edit, and minus
+// language_enhance, which the backend adds to a cloud run of the language
+// card — no user ever selects either. backend/test/cloudModes.test.ts pins
+// the other side.
 
 export type FrontCard = "edit" | "readthrough" | "translate" | "language";
 

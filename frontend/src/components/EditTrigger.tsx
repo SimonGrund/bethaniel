@@ -178,8 +178,13 @@ export default function EditTrigger() {
   const estimateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Always resolves to the current render's handleClick, so the credential
   // handler (fired much later, after payment) submits with up-to-date
-  // doc/units/settings instead of whatever they were on mount.
-  const handleClickRef = useRef<() => Promise<void>>(async () => {});
+  // doc/units/settings instead of whatever they were on mount. The model is
+  // passed in rather than read from the closure: setModel has not re-rendered
+  // by the time the run is submitted, so the closure still holds the local
+  // model — and a paid run would quietly go to it.
+  const handleClickRef = useRef<(modelOverride?: string) => Promise<void>>(
+    async () => {},
+  );
 
   // Once a credential is claimed (paid + saved via the bethaniel:// deep
   // link), point the run at Betty in the Cloud and submit immediately — the
@@ -197,7 +202,7 @@ export default function EditTrigger() {
   } = useCloudPurchase("run", async () => {
     await refreshModelEnvironment();
     useStore.getState().setModel("custom:bethaniel-cloud");
-    await handleClickRef.current();
+    await handleClickRef.current("custom:bethaniel-cloud");
   });
 
   // Refetch whenever anything that changes the job's shape changes. `units`
@@ -283,14 +288,14 @@ export default function EditTrigger() {
     return Object.keys(opts).length > 0 ? opts : undefined;
   };
 
-  const handleClick = async () => {
+  const handleClick = async (modelOverride?: string) => {
     if (!doc) return;
     setSubmitting(true);
     try {
       const taskIds = await addToQueue({
         docId: doc.id,
         units,
-        model,
+        model: modelOverride ?? model,
         modes: selectedModes,
         wordsPerChunk,
         overlapParagraphs,
@@ -369,12 +374,16 @@ export default function EditTrigger() {
   const localEta = countingOnly
     ? null
     : estimateRun(scopeWords, model, wordsPerSec, false);
-  const cloudEta = estimateRun(
-    cloudEstimate?.totalWords ?? scopeWords,
-    cloudEntry?.fileName ?? null,
-    wordsPerSec,
-    true,
-  );
+  // The enhanced analysis reads a sample, not the book; the per-word
+  // estimate would describe a job it is not.
+  const cloudEta = countingOnly
+    ? null
+    : estimateRun(
+        cloudEstimate?.totalWords ?? scopeWords,
+        cloudEntry?.fileName ?? null,
+        wordsPerSec,
+        true,
+      );
 
   /** Gate the run button: intercept translate + Baby Betty with a warning
    *  before ever reaching handleClick, and the first-model download before
@@ -515,17 +524,21 @@ export default function EditTrigger() {
       </button>
 
 
-      {!countingOnly && (
+      {cloudEntry && (
         <div className="cloud-block">
         <button
           type="button"
           className="btn-run-cloud"
           disabled={!cloudEstimate || cloudCheckoutPending}
           onClick={handleRunInCloud}
-          title={t(
-            "cloud_run_disclosure",
-            "Your manuscript will be sent to Bethaniel's cloud service for this job.",
-          )}
+          title={
+            countingOnly
+              ? t("la_enhance_privacy")
+              : t(
+                  "cloud_run_disclosure",
+                  "Your manuscript will be sent to Bethaniel's cloud service for this job.",
+                )
+          }
         >
           <span className="btn-run-icon-stack" aria-hidden="true">
             <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
@@ -576,6 +589,13 @@ export default function EditTrigger() {
             </span>
           )}
         </button>
+        {/* On the language card the cloud is not a faster counter — the
+            counts run here either way. It is the counts plus what only a
+            model can read, and that is said under the button, before the
+            price is paid. */}
+        {countingOnly && (
+          <p className="cloud-enhance-note">{t("cloud_enhance_adds")}</p>
+        )}
         {/* A code is optional and rarely used, so it sits under the button
             rather than competing with it. Feedback is inline: an unknown or
             unusable code never blocks the run, it just does not discount it. */}
@@ -616,6 +636,17 @@ export default function EditTrigger() {
             payment rather than after it — the headline is that this is not a
             better editor than the one already on their machine, which is the
             one thing a buyer would otherwise reasonably assume. */}
+        {countingOnly ? (
+          <details className="cloud-expect">
+            <summary>{t("la_enhance_info")}</summary>
+            <ul className="cloud-expect-list">
+              <li>{t("la_enhance_get_1")}</li>
+              <li>{t("la_enhance_get_2")}</li>
+              <li>{t("la_enhance_get_3")}</li>
+              <li>{t("la_enhance_privacy")}</li>
+            </ul>
+          </details>
+        ) : (
         <details className="cloud-expect">
           <summary>
             {t("cloud_expect_summary", "What to expect from a cloud run")}
@@ -671,6 +702,7 @@ export default function EditTrigger() {
             </li>
           </ul>
         </details>
+        )}
         </div>
       )}
 
@@ -711,7 +743,7 @@ export default function EditTrigger() {
           </button>
         </p>
       )}
-      {!countingOnly && cloudEntry && (
+      {cloudEntry && (
         <CloudCodeClaim pending={cloudCheckoutPending} onClaim={claimCode} lang={lang} />
       )}
 
@@ -719,7 +751,10 @@ export default function EditTrigger() {
         open={cloudConfirmOpen}
         estimate={cloudEstimate}
         chapters={units.length}
-        modes={selectedModes}
+        modes={countingOnly ? [...selectedModes, "language_enhance"] : selectedModes}
+        title={countingOnly ? t("la_enhance_buy_title") : undefined}
+        privacyNote={countingOnly ? t("la_enhance_privacy") : undefined}
+        keepOpenNote={countingOnly ? t("la_enhance_keep_open") : undefined}
         etaLabel={cloudEta ? formatEstimate(cloudEta.seconds, t) : null}
         lang={lang}
         onCancel={() => setCloudConfirmOpen(false)}

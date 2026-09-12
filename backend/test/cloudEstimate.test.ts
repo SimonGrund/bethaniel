@@ -242,3 +242,22 @@ test("each front card is its own product; the enhanced analysis only alone", () 
   // The small price never applies alongside an edit.
   assert.equal(cloudProductFor(["copy_edit", "language_enhance"]), "edit");
 });
+
+test("the language card in the cloud is priced as the enhanced analysis", () => {
+  const base = {
+    units: [{ wordCount: 50_000 }],
+    wordsPerChunk: 2000,
+    runMode: "speed" as const,
+    reviewMode: true,
+    styleComplianceAgent: false,
+    extraPass: false,
+    numPredict: 8192,
+    manuscriptLang: "en",
+  };
+  const card = estimateCloudJob({ ...base, modes: ["language_analysis"] });
+  const enhance = estimateCloudJob({ ...base, modes: ["language_enhance"] });
+  // The counts cost no tokens; what is priced is the model's part, once.
+  assert.equal(card.estimatedTotalTokens, enhance.estimatedTotalTokens);
+  assert.equal(card.product, "enhance");
+  assert.deepEqual(Object.keys(card.perMode), ["language_enhance"]);
+});

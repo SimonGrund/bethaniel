@@ -33,7 +33,7 @@ import {
 } from "../exportVerify";
 import BettyAtWork from "./BettyAtWork";
 import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
-import EnhanceLanguageButton from "./EnhanceLanguageButton";
+import EnhanceLanguageStatus from "./EnhanceLanguageStatus";
 import { exportLabel, useReportExport } from "../reportExport";
 import { useResultHydration } from "../useResultHydration";
 
@@ -2965,12 +2965,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       source={src}
                       enhanced={enhanced}
                       enhance={
-                        <EnhanceLanguageButton
-                          jobId={jid}
-                          wordCount={laTask.wordCount}
-                          manuscriptLang={laTask.manuscriptLang}
-                          lang={lang}
+                        <EnhanceLanguageStatus
                           task={enhTask}
+                          lang={lang}
                           onRetry={(id) => void handleRetry(id)}
                         />
                       }

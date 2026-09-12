@@ -84,15 +84,22 @@ function toEffectiveModes(modes: CloudEstimateMode[]): CloudEstimateMode[] {
   const mergeEdits = hasCopy && hasLine;
   const hasAnalysis = modes.some((m) => ANALYSIS_MODE_NAMES.has(m));
 
+  // The language card in the cloud is the local counts (no tokens) plus the
+  // enhanced analysis, which is what the price is for. routes.ts's /queue/add
+  // makes the same pair of tasks for a cloud-model job.
+  const hasCounts = modes.includes("language_analysis");
+
   const other = modes.filter(
     (m) =>
       !ANALYSIS_MODE_NAMES.has(m) &&
+      m !== "language_analysis" &&
       !(mergeEdits && (m === "copy_edit" || m === "line_edit")),
   );
   return [
     ...other,
     ...(mergeEdits ? ["combined_edit"] : []),
     ...(hasAnalysis ? ["combined_analysis"] : []),
+    ...(hasCounts && !other.includes("language_enhance") ? ["language_enhance"] : []),
   ];
 }
 
@@ -476,8 +483,10 @@ export const CLOUD_ALLOWED_MODES: readonly string[] = [
   "proofread",
   "publication_scan",
   "translate",
-  // Cloud-only by design: the counts are free everywhere, and this is the
-  // paid pass that adds what only a model can read.
+  // The counts are free everywhere; in the cloud the card means the counts
+  // plus the enhanced analysis, which is the paid pass that adds what only a
+  // model can read.
+  "language_analysis",
   "language_enhance",
 ];
 
