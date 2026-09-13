@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { uploadFile, getDocument, RequestRefusedError } from "../api";
+import Modal from "./Modal";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
 
 /**
@@ -41,6 +42,7 @@ export default function ManuscriptUpload() {
   // is where a reader looks first — front matter is where a bad import usually
   // shows itself.
   const [previewChapter, setPreviewChapter] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -149,42 +151,6 @@ export default function ManuscriptUpload() {
               {uploadError}
             </p>
           )}
-          {doc && documentMd && (
-            <div className="import-preview">
-              <div className="import-preview-head">
-                <p className="import-preview-label">{t("preview_extracted")}</p>
-                {/* Checking an import means checking where it is likely to
-                    have gone wrong, which is rarely the first page. The picker
-                    replaces a sentence that told the reader what to look for
-                    while only ever showing them the opening. */}
-                {doc.chapters.length > 0 && (
-                  <select
-                    className="import-preview-pick"
-                    value={previewChapter === null ? "start" : String(previewChapter)}
-                    onChange={(e) =>
-                      setPreviewChapter(
-                        e.target.value === "start" ? null : Number(e.target.value),
-                      )
-                    }
-                    aria-label={t("preview_pick_chapter", "Chapter to preview")}
-                  >
-                    <option value="start">
-                      {t("preview_from_start", "From the beginning")}
-                    </option>
-                    {doc.chapters.map((ch, i) => (
-                      <option key={i} value={i}>
-                        {shortChapterLabel(i, ch.title)}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <pre className="import-preview-text">
-                {previewBody.slice(0, PREVIEW_CHARS)}
-                {previewBody.length > PREVIEW_CHARS ? PREVIEW_MORE : ""}
-              </pre>
-            </div>
-          )}
           <input
             ref={fileRef}
             type="file"
@@ -203,12 +169,59 @@ export default function ManuscriptUpload() {
 
       </div>
 
-      {/* Everything that describes the manuscript or acts on it lives in one
-          column beside the sample, not stacked under it: the file, what is in
-          it, what to edit, and the button that moves on. Confirm sits at the
-          bottom of that column, which is where a column of decisions ends. */}
-      {/* Same reasoning as the style step: the card is on screen, so the
-          control that completes it is too. */}
+      {/* What the manuscript IS, and what to run it over. There is no confirm
+          button any more: the run row is always on the page and enables itself
+          once there is a document and a task, so a button whose only job was
+          to advance a wizard step was a click that bought nothing. */}
+      <Modal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        labelledBy="preview-dialog-title"
+        className="preview-dialog"
+      >
+        <div className="import-preview-head">
+          <h2 id="preview-dialog-title" className="dialog-title">
+            {t("preview_extracted")}
+          </h2>
+          {/* Checking an import means checking where it is likely to have
+              gone wrong, which is rarely the first page. */}
+          {doc && doc.chapters.length > 0 && (
+            <select
+              className="import-preview-pick"
+              value={previewChapter === null ? "start" : String(previewChapter)}
+              onChange={(e) =>
+                setPreviewChapter(
+                  e.target.value === "start" ? null : Number(e.target.value),
+                )
+              }
+              aria-label={t("preview_pick_chapter", "Chapter to preview")}
+            >
+              <option value="start">
+                {t("preview_from_start", "From the beginning")}
+              </option>
+              {doc.chapters.map((ch, i) => (
+                <option key={i} value={i}>
+                  {shortChapterLabel(i, ch.title)}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <pre className="import-preview-text">
+          {previewBody.slice(0, PREVIEW_CHARS)}
+          {previewBody.length > PREVIEW_CHARS ? PREVIEW_MORE : ""}
+        </pre>
+        <div className="step-confirm-row">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setPreviewOpen(false)}
+          >
+            {t("btn_close")}
+          </button>
+        </div>
+      </Modal>
+
       {doc && (
         <aside className="upload-side">
           <div className="upload-side-doc">
@@ -225,6 +238,20 @@ export default function ManuscriptUpload() {
                     ? ` · +${doc.chapters.length - 3} more`
                     : "")}
             </span>
+            {/* The extracted text is no longer shown on the page. It is the
+                tallest thing in the setup screen and it is needed once — to
+                check the import did not mangle anything — so it opens on
+                request instead of pushing the rest of the job below the fold
+                on every visit. Sits with the file it describes. */}
+            {documentMd && (
+              <button
+                type="button"
+                className="btn-linkish import-preview-open"
+                onClick={() => setPreviewOpen(true)}
+              >
+                {t("preview_open")}
+              </button>
+            )}
             <button
               type="button"
               className="btn-linkish"
@@ -237,18 +264,6 @@ export default function ManuscriptUpload() {
 
           <ScopeSelection />
 
-          <div className="step-confirm-row upload-side-confirm">
-          <button
-            type="button"
-            className="btn-primary btn-confirm-step"
-            onClick={() => {
-              markStepComplete("upload");
-              advanceWizard("upload");
-            }}
-          >
-            {t("wizard_confirm_upload")}
-          </button>
-          </div>
         </aside>
       )}
     </section>

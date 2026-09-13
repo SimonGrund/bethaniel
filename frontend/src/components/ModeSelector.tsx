@@ -265,22 +265,6 @@ export default function ModeSelector({
     <section className="mode-selector">
       {/* Doubles as this card's fold control, so every card collapses from its
           own top line rather than one of them being the exception. */}
-      <h2
-        className={`tasks-heading${onCollapse ? " tasks-heading-toggle" : ""}`}
-        role={onCollapse ? "button" : undefined}
-        tabIndex={onCollapse ? 0 : undefined}
-        title={onCollapse ? t("minimise_step", "Minimise") : undefined}
-        onClick={onCollapse}
-        onKeyDown={(e) => {
-          if (!onCollapse) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onCollapse();
-          }
-        }}
-      >
-        {t("tasks_heading")}
-      </h2>
 
       <div className="task-cards">
         {CARDS.map((card) => (

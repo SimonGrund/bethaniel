@@ -5166,6 +5166,180 @@ summary.review-source::before {
    Every step is on it. `wizardStep` chooses which one is marked current and
    scrolled to, not which one exists, so the reader can always see what is
    being asked overall and how much is left. */
+/* ── The setup dashboard ──
+   Two questions side by side, both open, with the run row beneath them. It was
+   a single column of folding cards: the second question sat below the fold
+   while the first was open, and confirming one changed the page height under
+   the pointer. Neither question depends on the other's answer, so neither
+   needs to wait its turn. */
+.dashboard {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: menu-panel-in 0.3s ease-out;
+}
+
+.dashboard-model,
+.dashboard-col {
+  background: #fdfbf4;
+  border: 1px solid #e0d5c0;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-split {
+  display: grid;
+  /* Equal halves while there is room. Below this the columns stack, because
+     two narrow columns make the chapter chooser and the task cards both
+     unusable long before the screen runs out of height. */
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-col {
+  min-width: 0;
+}
+
+/* Four task cards in one column of a split is four very narrow cards with
+   every title wrapping to three lines. Two rows of two fits the same cards
+   into half the width without shrinking them. */
+.dashboard-split .task-cards {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.dashboard-col-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #3a2f22;
+}
+
+/* ── Style guide, as one button ── */
+.styleguide-cta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  background: #fffaf0;
+  border: 1px solid #e6cf9e;
+  border-left: 3px solid #d69a3c;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.styleguide-cta:hover {
+  background: #fdf4e2;
+}
+
+/* Filled in: it has stopped being a recommendation and become a fact. */
+.styleguide-cta-filled {
+  background: #f7faf4;
+  border-color: #cfe0c4;
+  border-left-color: #7f9c72;
+}
+
+.styleguide-cta-filled:hover {
+  background: #f2f7ee;
+}
+
+.styleguide-cta-mark {
+  flex: none;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: #b3781f;
+}
+
+.styleguide-cta-filled .styleguide-cta-mark {
+  color: #5c7a52;
+}
+
+.styleguide-cta-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.styleguide-cta-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.styleguide-cta-tag {
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  background: #f3e3c2;
+  color: #8a6520;
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.styleguide-cta-filled .styleguide-cta-tag {
+  background: #e2eddb;
+  color: #4e6a45;
+}
+
+.styleguide-cta-hint {
+  font-size: 0.8rem;
+  color: #8a7a5f;
+}
+
+/* ── Dialogs opened from the dashboard ──
+   Both are reading surfaces rather than confirmations, so they are far wider
+   than the 420px the confirm dialog wants and they scroll inside themselves. */
+.preview-dialog,
+.styleguide-dialog {
+  max-width: min(820px, 92vw);
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.dialog-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #3a2f22;
+}
+
+.dialog-intro {
+  margin: 0 0 0.6rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #5a4d3a;
+}
+
+.dialog-list {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #6b5d47;
+}
+
+.import-preview-open {
+  margin-top: 0.35rem;
+}
+
 .wizard-page {
   position: relative;
   flex: 1;

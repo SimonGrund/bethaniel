@@ -3313,6 +3313,73 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Einleitungskomma",
     es: "Coma introductoria",
   },
+  styleguide_replace: {
+    en: "Replace with a file",
+    da: "Erstat med en fil",
+    de: "Durch eine Datei ersetzen",
+    es: "Reemplazar con un archivo",
+  },
+  // ── Manuscript preview dialog + style-guide button ──
+  preview_open: {
+    en: "Check the extracted text",
+    da: "Se den indlæste tekst",
+    de: "Den eingelesenen Text prüfen",
+    es: "Revisar el texto extraído",
+  },
+  styleguide_save: {
+    en: "Save style guide",
+    da: "Gem stilguide",
+    de: "Stilrichtlinie speichern",
+    es: "Guardar guía de estilo",
+  },
+  styleguide_cta_recommended: {
+    en: "Recommended",
+    da: "Anbefalet",
+    de: "Empfohlen",
+    es: "Recomendado",
+  },
+  styleguide_cta_words: {
+    en: "{n} words",
+    da: "{n} ord",
+    de: "{n} Wörter",
+    es: "{n} palabras",
+  },
+  styleguide_cta_blurb: {
+    en: "Tell Betty the names and terms that are meant to look unusual.",
+    da: "Fortæl Betty de navne og ord, der er ment til at se usædvanlige ud.",
+    de: "Nennen Sie Betty die Namen und Begriffe, die ungewöhnlich aussehen sollen.",
+    es: "Dile a Betty los nombres y términos que deben parecer inusuales.",
+  },
+  styleguide_cta_edit: {
+    en: "Read or edit what Betty has been told.",
+    da: "Læs eller ret det, Betty har fået at vide.",
+    de: "Lesen oder ändern, was Betty weiß.",
+    es: "Lee o edita lo que Betty ya sabe.",
+  },
+  styleguide_guidance: {
+    en: "Anything here is treated as deliberate, so Betty will stop correcting it. A few lines are enough — it does not need to be a document.",
+    da: "Alt her betragtes som bevidst, så Betty holder op med at rette det. Nogle få linjer er nok — det behøver ikke være et dokument.",
+    de: "Alles hier gilt als beabsichtigt, Betty korrigiert es also nicht mehr. Ein paar Zeilen genügen — ein ganzes Dokument ist nicht nötig.",
+    es: "Todo lo que pongas aquí se considera deliberado, así que Betty dejará de corregirlo. Bastan unas líneas — no hace falta un documento.",
+  },
+  styleguide_guidance_names: {
+    en: "Character and place names, spelled the way you want them.",
+    da: "Person- og stednavne, stavet som du vil have dem.",
+    de: "Figuren- und Ortsnamen, so geschrieben, wie Sie sie wollen.",
+    es: "Nombres de personajes y lugares, escritos como los quieres.",
+  },
+  styleguide_guidance_terms: {
+    en: "Invented words, titles and anything borrowed from another language.",
+    da: "Opdigtede ord, titler og alt lånt fra andre sprog.",
+    de: "Erfundene Wörter, Titel und alles aus anderen Sprachen Entlehnte.",
+    es: "Palabras inventadas, títulos y cualquier préstamo de otro idioma.",
+  },
+  styleguide_guidance_style: {
+    en: "House rules you want kept — a habit of punctuation, a form of address.",
+    da: "Husregler, der skal holdes — en tegnsætningsvane, en tiltaleform.",
+    de: "Eigene Regeln, die gelten sollen — eine Zeichensetzung, eine Anredeform.",
+    es: "Reglas propias que quieres mantener — una puntuación, una forma de tratamiento.",
+  },
   // ── Folded option groups (FoldingPanel.tsx) ──
   opt_group_default: {
     en: "default, click to change",

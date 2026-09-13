@@ -6,17 +6,22 @@ import { useTranslation } from "../i18n";
 import { getStyleGuide, updateStyleGuide, uploadStyleGuide } from "../api";
 import { ANALYSIS_MODES } from "../types";
 
-export default function StyleGuideEditor() {
-  const {
-    lang,
-    styleGuide,
-    setStyleGuide,
-    selectedModes,
-    advanceWizard,
-    markStepComplete,
-  } = useStore();
+export default function StyleGuideEditor({
+  onDone,
+}: {
+  /** Supplied when this sits in the style-guide dialog: the buttons become
+   *  save-and-close rather than the wizard's confirm/skip, and the editor
+   *  starts open — the reader clicked a button saying "style guide" and
+   *  landing on a read-only preview of an empty sheet would be a dead end. */
+  onDone?: () => void;
+}) {
+  const { lang, styleGuide, setStyleGuide, selectedModes } = useStore();
   const t = useTranslation(lang);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!onDone);
+  // In the dialog the editor IS the whole surface, so the controls that fold
+  // it back to a read-only preview have nothing to fold into — the dialog's
+  // own Save and Close are the only two ways out that make sense.
+  const inDialog = !!onDone;
   const [loaded, setLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -146,14 +151,16 @@ export default function StyleGuideEditor() {
       ) : (
         /* Editing: full textarea */
         <div className="styleguide-expanded">
-          <button
-            type="button"
-            className="mode-sub-close"
-            onClick={() => { handleSave(); setExpanded(false); }}
-            title={t("btn_cancel")}
-          >
-            −
-          </button>
+          {!inDialog && (
+            <button
+              type="button"
+              className="mode-sub-close"
+              onClick={() => { handleSave(); setExpanded(false); }}
+              title={t("btn_cancel")}
+            >
+              −
+            </button>
+          )}
           <textarea
             className="style-textarea"
             value={styleGuide}
@@ -167,17 +174,19 @@ export default function StyleGuideEditor() {
               className="btn-secondary btn-small"
               onClick={() => fileRef.current?.click()}
             >
-              Replace
+              {styleGuide.trim() ? t("styleguide_replace") : t("upload_style")}
             </button>
-            <button
-              className="btn-secondary btn-small"
-              onClick={() => {
-                handleSave();
-                setExpanded(false);
-              }}
-            >
-              Done
-            </button>
+            {!inDialog && (
+              <button
+                className="btn-secondary btn-small"
+                onClick={() => {
+                  handleSave();
+                  setExpanded(false);
+                }}
+              >
+                Done
+              </button>
+            )}
           </div>
           <input
             ref={fileRef}
@@ -192,37 +201,25 @@ export default function StyleGuideEditor() {
         </div>
       )}
 
-      {/* ── Wizard confirm / skip buttons ── */}
-      {/* Always, not only while this is the "current" step. That gate was
-          written when one card was mounted at a time; on the one-page
-          layout every card is mounted, so a card whose confirm appears only
-          when it happens to be current is a step that cannot be finished —
-          and this is the last one, so the run never becomes available. */}
-      {(
-        <div className="step-confirm-row">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              markStepComplete("style");
-              advanceWizard("style");
-            }}
-          >
-            {t("wizard_skip")}
-          </button>
-          <button
-            type="button"
-            className="btn-primary btn-confirm-step"
-            onClick={() => {
-              handleSave();
-              markStepComplete("style");
-              advanceWizard("style");
-            }}
-          >
-            {t("wizard_confirm_style")}
-          </button>
-        </div>
-      )}
+      <div className="step-confirm-row">
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => onDone?.()}
+        >
+          {t("btn_close")}
+        </button>
+        <button
+          type="button"
+          className="btn-primary btn-confirm-step"
+          onClick={() => {
+            handleSave();
+            onDone?.();
+          }}
+        >
+          {t("styleguide_save")}
+        </button>
+      </div>
     </section>
   );
 }
