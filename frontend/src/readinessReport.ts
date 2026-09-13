@@ -5,6 +5,12 @@
 // object: a summary a reader can take in at a glance, then one line per
 // correction — the chapter, the change, why — so it is built here from the
 // data, not from the screen.
+//
+// Only what blocks publication is listed. The minor suggestions used to
+// follow in a second table, and a report of fifteen blockers arrived as
+// twelve pages of wording notes; a reader handed the document could not tell
+// the two apart by weight. They stay in the app. The report says how many
+// there are and where to find them, and lists none.
 
 import { certaintyPercent, flagKindOf, type Correction } from "./types";
 
@@ -74,7 +80,8 @@ export function buildReadinessReportHtml(opts: {
   ready: boolean;
   structural: ReportIssue[];
   blocking: ReportIssue[];
-  minor: ReportIssue[];
+  /** How many non-blocking suggestions the scan produced — counted, not listed. */
+  minorCount: number;
   lang: string;
   t: (k: string, f?: string) => string;
 }): string {
@@ -126,11 +133,6 @@ export function buildReadinessReportHtml(opts: {
     (opts.blocking.length > 0
       ? table(opts.blocking, t)
       : `<p class="empty">${esc(t("rr_no_blocking"))}</p>`);
-  const minorSection =
-    `<h2>${esc(t("readiness_report_minor"))} (${opts.minor.length})</h2>` +
-    (opts.minor.length > 0
-      ? `<p class="counts">${esc(t("rr_minor_intro"))}</p>${table(opts.minor, t)}`
-      : `<p class="empty">${esc(t("readiness_no_minor"))}</p>`);
 
   return (
     `<!doctype html><html><head><meta charset="utf-8"><title>${esc(t("readiness_report_title"))} — ${esc(opts.source)}</title><style>${css}</style></head><body>` +
@@ -141,11 +143,10 @@ export function buildReadinessReportHtml(opts: {
     `<p class="counts">${esc(t("rr_counts"))
       .replace("{s}", `<b>${opts.structural.length}</b>`)
       .replace("{b}", `<b>${opts.blocking.length}</b>`)
-      .replace("{m}", `<b>${opts.minor.length}</b>`)}</p>` +
+      .replace("{m}", `<b>${opts.minorCount}</b>`)}</p>` +
     `</div></div>` +
     structuralSection +
     blockingSection +
-    minorSection +
     `<p class="foot">${esc(t("rr_foot"))}</p>` +
     `</body></html>`
   );

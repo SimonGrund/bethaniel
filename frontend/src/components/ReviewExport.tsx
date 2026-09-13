@@ -1173,7 +1173,7 @@ function PublicationReadinessPanel({
         ready,
         structural: structuralBlocking.map(toIssue),
         blocking: blockingCorrections.map(toIssue),
-        minor: minorCorrections.map(toIssue),
+        minorCount: minorCorrections.length,
         lang,
         t,
       }),
