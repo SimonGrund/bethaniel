@@ -7782,8 +7782,14 @@ summary.review-source::before {
 
 /* ── Picking a chapter, once the run has settled ──
    The same object as a pill — same ground, same border, same size — but one
-   of it, holding every chapter. */
-.chapter-select {
+   of it, holding every chapter.
+
+   Named review- for the step it belongs to, NOT .chapter-select: the upload
+   step's chapter chooser (see .chapter-select above) already owned that name
+   for a flex grid of pills. This rule comes later in the file, so it won cast
+   over the grid too and wrapped the whole list in a 999px ellipse that clipped
+   the corner chapters clean off. Two different objects, two different names. */
+.review-chapter-select {
   max-width: 100%;
   padding: 0.35rem 2rem 0.35rem 0.75rem;
   background: #faf6ec;
@@ -7795,7 +7801,7 @@ summary.review-source::before {
   cursor: pointer;
 }
 
-.chapter-select:focus-visible {
+.review-chapter-select:focus-visible {
   outline: 2px solid #b08830;
   outline-offset: 1px;
 }

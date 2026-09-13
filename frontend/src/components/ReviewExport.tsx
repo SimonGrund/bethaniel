@@ -3744,7 +3744,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   {chapterPills.length > 0 &&
                   chapterPills.every((p) => p.status === "done" || p.status === "error" || p.status === "cancelled") ? (
                     <select
-                      className="chapter-select"
+                      className="review-chapter-select"
                       aria-label={t("sec_chapters")}
                       value={activeChapterId ?? ""}
                       onChange={(e) => {
