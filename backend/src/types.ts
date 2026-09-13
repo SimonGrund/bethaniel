@@ -1,5 +1,11 @@
 // ── Shared type definitions ──
 
+// Type-only, so the detectSettings -> dialect -> types cycle is erased at
+// runtime and never becomes a real import cycle.
+import type { DetectedSettings } from "./detectSettings.js";
+
+export type { DetectedSettings };
+
 export type TaskMode =
   | "copy_edit"
   | "line_edit"
@@ -115,6 +121,12 @@ export interface DocumentMeta {
   chapters: Chapter[];
   wordCount: number;
   uploadedAt: number;
+  /** What the text itself says about the settings the author is asked to
+   *  declare — language, dialect, comma conventions. Computed once on upload
+   *  (detectSettings.ts) and stored so re-selecting a document from the list
+   *  pre-fills exactly as a fresh upload does. Absent on documents uploaded
+   *  before detection existed. */
+  detected?: DetectedSettings;
 }
 
 export interface Correction {

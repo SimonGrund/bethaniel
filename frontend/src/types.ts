@@ -207,6 +207,35 @@ export interface Chapter {
   wordCount: number;
 }
 
+/**
+ * One setting read off the manuscript by backend/src/detectSettings.ts.
+ * "unsure" means Betty looked and could not tell — a real answer that the UI
+ * shows as its own badge, not an absence. The counts fill the badge tooltip.
+ */
+export type Detection<T> =
+  | {
+      status: "detected";
+      value: T;
+      support: number;
+      against: number;
+      sample: number;
+    }
+  | { status: "unsure"; support: number; against: number; sample: number };
+
+/**
+ * What the manuscript said about the settings the wizard asks for. A key is
+ * ABSENT when the question does not apply to this manuscript at all (Danish
+ * comma systems in an English novel), which is how the UI knows to render
+ * nothing rather than an unsure badge.
+ */
+export interface DetectedSettings {
+  manuscriptLang?: Detection<string>;
+  englishDialect?: Detection<"american" | "british">;
+  oxfordComma?: Detection<boolean>;
+  introductoryComma?: Detection<boolean>;
+  danishComma?: Detection<"grammatisk" | "nyt">;
+}
+
 export interface DocumentMeta {
   id: string;
   name: string;
@@ -214,6 +243,7 @@ export interface DocumentMeta {
   wordCount: number;
   uploadedAt: number;
   md?: string; // only when fetched with full text
+  detected?: DetectedSettings;
 }
 
 /** The confidence below which the main reviewer flags a fix. Mirrors

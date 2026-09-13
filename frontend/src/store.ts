@@ -24,6 +24,7 @@ import type {
   RunStats,
   LanguageToolDownload,
   EngineDeviceStatus,
+  DetectedSettings,
 } from "./types";
 import {
   DEFAULT_COPY_EDIT_OPTIONS,
@@ -170,6 +171,23 @@ interface AppState {
   // free text from the "Other…" option). "en" = legacy default behavior.
   manuscriptLang: string;
   setManuscriptLang: (l: string) => void;
+
+  /**
+   * What the last uploaded manuscript said about its own settings. Drives the
+   * "detected" / "unsure" badges next to the controls; null before any upload
+   * and for documents stored before detection existed.
+   */
+  detectedSettings: DetectedSettings | null;
+  /**
+   * Apply a detection result: remember it, and move each confidently detected
+   * setting to match the manuscript.
+   *
+   * Upload wins over a previously chosen value on purpose — the settings
+   * describe THIS manuscript, and a dialect picked by hand for last month's
+   * book is not evidence about this one. A manual change made afterwards
+   * sticks, because nothing re-runs until the next upload.
+   */
+  applyDetectedSettings: (detected?: DetectedSettings | null) => void;
 
   // Document
   document: DocumentMeta | null;
@@ -471,12 +489,49 @@ export const useStore = create<AppState>()(
       manuscriptLang: DEFAULT_MANUSCRIPT_LANG,
       setManuscriptLang: (manuscriptLang) => set({ manuscriptLang }),
 
+      detectedSettings: null,
+      applyDetectedSettings: (detected) => {
+        if (!detected) {
+          set({ detectedSettings: null });
+          return;
+        }
+        set((state) => {
+          const copyEditOptions = { ...state.copyEditOptions };
+          // Only confident answers move a control. An "unsure" detection is
+          // shown as a badge asking the author to decide, and deliberately
+          // leaves the existing value where it is.
+          if (detected.englishDialect?.status === "detected") {
+            copyEditOptions.englishDialect = detected.englishDialect.value;
+          }
+          if (detected.oxfordComma?.status === "detected") {
+            copyEditOptions.oxfordComma = detected.oxfordComma.value;
+          }
+          if (detected.introductoryComma?.status === "detected") {
+            copyEditOptions.introductoryComma =
+              detected.introductoryComma.value;
+          }
+          if (detected.danishComma?.status === "detected") {
+            copyEditOptions.danishComma = detected.danishComma.value;
+          }
+          return {
+            detectedSettings: detected,
+            copyEditOptions,
+            manuscriptLang:
+              detected.manuscriptLang?.status === "detected"
+                ? detected.manuscriptLang.value
+                : state.manuscriptLang,
+          };
+        });
+      },
+
       document: null,
       setDocument: (document) => set({ document }),
       clearDocument: () =>
         set((state) => ({
           document: null,
           documentMd: "",
+          // The badges describe a manuscript that is no longer loaded.
+          detectedSettings: null,
           scopeMode: DEFAULT_SCOPE_MODE,
           selectedChapters: [],
           // Upload is no longer done, and no later step can be reached without
@@ -908,6 +963,7 @@ export const useStore = create<AppState>()(
           completedSteps: [],
           document: null,
           documentMd: "",
+          detectedSettings: null,
           tasks: {},
           pendingTaskIds: [],
           submitting: false,
@@ -980,6 +1036,9 @@ export const useStore = create<AppState>()(
         firstNWords: state.firstNWords,
         styleGuide: state.styleGuide,
         document: state.document,
+        // Persisted with the document it describes, so the badges survive a
+        // refresh exactly as the loaded manuscript does.
+        detectedSettings: state.detectedSettings,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,
         hasSeenIntro: state.hasSeenIntro,

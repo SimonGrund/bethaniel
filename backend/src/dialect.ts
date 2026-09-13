@@ -18,7 +18,7 @@
 
 import type { Correction } from "./types.js";
 
-interface DialectPair {
+export interface DialectPair {
   br: string;
   us: string;
   /** Convert br→us when target dialect is american. Default true. */
@@ -384,6 +384,37 @@ export const DIALECT_PAIRS: DialectPair[] = [
   p("cosily", "cozily"),
   p("cosiness", "coziness"),
 ];
+
+/**
+ * The subset of DIALECT_PAIRS that is safe as EVIDENCE OF a manuscript's
+ * dialect — which is a different question from what is safe to CONVERT once
+ * the dialect is already known, and the distinction is not academic:
+ *
+ * - **-ise/-ize is dropped.** Oxford spelling (OUP and much of British
+ *   publishing) writes "realize" and "organize". Converting them toward a
+ *   declared target is correct; reading them as proof of American English
+ *   would misfile a large class of British manuscripts.
+ * - **One-directional pairs are dropped.** Those already carry toUs/toBr
+ *   flags because one side is a different word rather than a different
+ *   spelling — "practice" is the British noun, a "meter" is a device in BrE.
+ *   Ambiguous to convert means worthless as evidence.
+ *
+ * Used by detectSettings.ts to pre-fill the dialect setting from the text.
+ */
+export const DIALECT_EVIDENCE: DialectPair[] = DIALECT_PAIRS.filter((pair) => {
+  // Flagged ambiguous in one direction — never evidence.
+  if (pair.toUs === false || pair.toBr === false) return false;
+  // The -ise/-ize family, caught structurally rather than by hand-listing all
+  // of its inflections. Only the SUFFIX is rewritten — a blanket s→z would
+  // also hit the plural of "realises" and the opening of "summarise" and so
+  // match nothing. Leaves "analyse"/"analyze" alone, a -yse word that stays
+  // British even under Oxford spelling and therefore is real evidence.
+  const izeForm = pair.br
+    .replace(/isation(s?)$/, "ization$1")
+    .replace(/is(e|es|ed|er|ers|ing)$/, "iz$1");
+  if (izeForm === pair.us) return false;
+  return true;
+});
 
 export interface DialectDetection {
   /** null when there isn't enough signal either way (very short/sparse text). */

@@ -92,6 +92,7 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `mdToDocx.ts` | Markdown → DOCX, built programmatically on the `docx` library (replaced html-to-docx) |
 | `imageDimensions.ts` | Pixel dimensions from PNG/JPEG/GIF/WEBP headers. Deliberately does **not** parse ICNS/JXL/HEIF — the two `image-size` advisories were unbounded loops in exactly those parsers |
 | `diff.ts` | Word-level diff → inline HTML; extract corrections from rewrites |
+| `detectSettings.ts` | Reads the settings the wizard asks for off the manuscript itself (no LLM): language by function-word frequency, English dialect from `dialect.ts`'s `DIALECT_EVIDENCE`, and the Oxford / introductory / Danish comma conventions by counting. Every detector can answer "unsure", and language gates the rest. Runs inline in `/upload` |
 | `consistency.ts` | Heuristic name/hyphen consistency checks (no LLM) |
 | `spellcheck.ts` | nspell wrapper — exhaustive spell detection + suspect hints for the editor |
 | `retextChecks.ts` | Deterministic retext prose checks (a/an, contractions, doubled words, redundant acronyms, sentence spacing); English-only |
@@ -105,8 +106,11 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 
 **State**: single Zustand store (`store.ts`) with `persist` middleware — all wizard settings, model selection, and edit options survive page refresh. Transient data (tasks, logs, document text) is not persisted.
 
-**Wizard flow** (controlled by `wizardStep` in store):
-`model` → `edits` → `upload` → `style` → `run` → `done` → `folded`
+**Wizard flow** (controlled by `wizardStep` in store, see `stepOrder()`):
+`upload` → `edits` → `model` (advanced only) → `style` → `run`
+
+Upload comes first, which is what lets `detectSettings.ts` pre-fill the dialect
+and comma controls before the user ever reaches the `edits` step.
 
 Key components map 1-to-1 to wizard steps:
 - `ModelSelector` — hardware detection, catalog, model download/install

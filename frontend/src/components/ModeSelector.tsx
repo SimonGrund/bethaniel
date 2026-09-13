@@ -22,6 +22,8 @@ import type {
 } from "../types";
 
 // A local const in this file today, and it stays one — nothing else needs it.
+import DetectionBadge from "./DetectionBadge";
+
 const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
@@ -80,6 +82,7 @@ export default function ModeSelector({
     setTargetLang,
     manuscriptLang,
     setManuscriptLang,
+    detectedSettings,
     markStepComplete,
     advanceWizard,
     lineEditEnabled,
@@ -177,6 +180,11 @@ export default function ModeSelector({
           className="lang-input"
         />
       )}
+      <DetectionBadge
+        detection={detectedSettings?.manuscriptLang}
+        current={manuscriptLang}
+        lang={lang}
+      />
     </div>
   );
 
@@ -245,6 +253,11 @@ export default function ModeSelector({
                   }
                 />
                 {t("opt_oxfordComma")}
+                <DetectionBadge
+                  detection={detectedSettings?.oxfordComma}
+                  current={copyEditOptions.oxfordComma}
+                  lang={lang}
+                />
               </label>
             )}
           </div>
@@ -252,6 +265,11 @@ export default function ModeSelector({
             <div className="option-toggle-row">
               <span className="option-toggle-label">
                 {t("opt_englishDialect")}
+                <DetectionBadge
+                  detection={detectedSettings?.englishDialect}
+                  current={copyEditOptions.englishDialect}
+                  lang={lang}
+                />
               </span>
               <div className="option-toggle-group">
                 <button
@@ -279,6 +297,11 @@ export default function ModeSelector({
             <div className="option-toggle-row">
               <span className="option-toggle-label">
                 {t("opt_introductoryComma")}
+                <DetectionBadge
+                  detection={detectedSettings?.introductoryComma}
+                  current={copyEditOptions.introductoryComma}
+                  lang={lang}
+                />
               </span>
               <div className="option-toggle-group">
                 <button
@@ -306,6 +329,11 @@ export default function ModeSelector({
             <div className="option-toggle-row">
               <span className="option-toggle-label">
                 {t("opt_danishComma")}
+                <DetectionBadge
+                  detection={detectedSettings?.danishComma}
+                  current={copyEditOptions.danishComma}
+                  lang={lang}
+                />
               </span>
               <div className="option-toggle-group">
                 <button

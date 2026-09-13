@@ -28,6 +28,7 @@ export default function ManuscriptUpload() {
     setUploading,
     setSelectedChapters,
     setScopeMode,
+    applyDetectedSettings,
     advanceWizard,
     markStepComplete,
   } = useStore();
@@ -48,6 +49,10 @@ export default function ManuscriptUpload() {
       try {
         const meta = await uploadFile(file);
         setDocument(meta);
+        // The manuscript answers the language / dialect / comma questions the
+        // next wizard step is about to ask. Applied before the user gets
+        // there, so the controls are already right when they arrive.
+        applyDetectedSettings(meta.detected);
         // Fetch full text
         const full = await getDocument(meta.id);
         setDocumentMd(full.md);
@@ -77,7 +82,7 @@ export default function ManuscriptUpload() {
         setUploading(false);
       }
     },
-    [t, clearDocument],
+    [t, clearDocument, applyDetectedSettings],
   );
 
   const onDrop = useCallback(

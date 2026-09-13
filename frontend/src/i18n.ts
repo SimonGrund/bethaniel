@@ -3313,6 +3313,37 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Einleitungskomma",
     es: "Coma introductoria",
   },
+  // ── Detection badges (detectSettings.ts) ──
+  detect_badge_detected: {
+    en: "detected",
+    da: "fundet",
+    de: "erkannt",
+    es: "detectado",
+  },
+  detect_badge_unsure: {
+    en: "unsure",
+    da: "usikker",
+    de: "unklar",
+    es: "sin certeza",
+  },
+  detect_tip_detected: {
+    en: "Betty read this from your manuscript: {support} of {sample} agree.",
+    da: "Betty har læst dette i dit manuskript: {support} ud af {sample} stemmer overens.",
+    de: "Betty hat das aus Ihrem Manuskript gelesen: {support} von {sample} stimmen überein.",
+    es: "Betty lo ha leído en tu manuscrito: {support} de {sample} coinciden.",
+  },
+  detect_tip_mixed: {
+    en: "Your manuscript does both ({support} against {against}), so Betty left this for you to decide.",
+    da: "Dit manuskript gør begge dele ({support} mod {against}), så Betty har ladet dig bestemme.",
+    de: "Ihr Manuskript macht beides ({support} gegen {against}), deshalb überlässt Betty Ihnen die Entscheidung.",
+    es: "Tu manuscrito hace las dos cosas ({support} frente a {against}), así que Betty te deja decidir.",
+  },
+  detect_tip_none: {
+    en: "Betty found no examples to judge by, so this is yours to set.",
+    da: "Betty fandt ingen eksempler at dømme ud fra, så det er op til dig.",
+    de: "Betty hat keine Beispiele gefunden, an denen sie das ablesen könnte — das entscheiden Sie.",
+    es: "Betty no encontró ejemplos en los que basarse, así que esto lo decides tú.",
+  },
   opt_danishComma: {
     en: "Danish comma system",
     da: "Kommasystem",

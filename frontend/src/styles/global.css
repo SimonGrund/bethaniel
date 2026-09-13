@@ -3161,6 +3161,35 @@ summary.review-source::before {
   color: #5a4d3a;
 }
 
+/* ── Detection badges ──
+   Marks a setting Betty read off the manuscript. Deliberately quiet: sage for
+   a confident reading, ochre for "I could not tell, please decide". The
+   evidence lives in the title tooltip so the row stays one line. */
+.detect-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: help;
+}
+
+.detect-badge-found {
+  color: #5c7a52;
+  background: #f2f7ee;
+  border-color: #cfe0c4;
+}
+
+.detect-badge-unsure {
+  color: #9a6b1f;
+  background: #fdf4e2;
+  border-color: #e6cf9e;
+}
+
 .option-toggle-group {
   display: flex;
   gap: 0;

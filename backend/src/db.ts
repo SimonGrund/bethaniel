@@ -25,7 +25,8 @@ function getDb(): Database.Database {
         md TEXT NOT NULL,
         chapters TEXT NOT NULL,
         word_count INTEGER NOT NULL,
-        uploaded_at INTEGER NOT NULL
+        uploaded_at INTEGER NOT NULL,
+        detected TEXT
       );
       CREATE TABLE IF NOT EXISTS style_guides (
         id TEXT PRIMARY KEY DEFAULT 'default',
@@ -46,8 +47,47 @@ function getDb(): Database.Database {
         updated_at INTEGER NOT NULL
       );
     `);
+    addMissingColumns(db);
   }
   return db;
+}
+
+// ── Schema migrations ──
+// CREATE TABLE IF NOT EXISTS only shapes a FRESH database; an install that
+// predates a column keeps its old table untouched and every read of the new
+// column returns undefined. Adding them explicitly is what makes an upgrade
+// in place work. Checked against PRAGMA table_info so it is idempotent —
+// SQLite has no ADD COLUMN IF NOT EXISTS.
+const ADDED_COLUMNS: { table: string; column: string; type: string }[] = [
+  { table: "documents", column: "detected", type: "TEXT" },
+];
+
+function addMissingColumns(d: Database.Database): void {
+  for (const { table, column, type } of ADDED_COLUMNS) {
+    const existing = d.prepare(`PRAGMA table_info(${table})`).all() as {
+      name: string;
+    }[];
+    if (existing.some((c) => c.name === column)) continue;
+    d.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+}
+
+/**
+ * One row -> one DocumentMeta. Shared by getDocument and listDocuments so the
+ * two cannot drift apart as columns are added.
+ */
+function rowToDocument(row: Record<string, unknown>): DocumentMeta {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    md: row.md as string,
+    chapters: JSON.parse(row.chapters as string),
+    wordCount: row.word_count as number,
+    uploadedAt: row.uploaded_at as number,
+    // Null for documents stored before detection existed, which is exactly
+    // the "nothing detected" case the UI already handles.
+    detected: row.detected ? JSON.parse(row.detected as string) : undefined,
+  };
 }
 
 export function saveDocument(doc: DocumentMeta): void {
@@ -55,8 +95,8 @@ export function saveDocument(doc: DocumentMeta): void {
   d.prepare(
     `
     INSERT OR REPLACE INTO documents
-      (id, name, md, chapters, word_count, uploaded_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+      (id, name, md, chapters, word_count, uploaded_at, detected)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `,
   ).run(
     doc.id,
@@ -65,6 +105,7 @@ export function saveDocument(doc: DocumentMeta): void {
     JSON.stringify(doc.chapters),
     doc.wordCount,
     doc.uploadedAt,
+    doc.detected ? JSON.stringify(doc.detected) : null,
   );
 }
 
@@ -74,14 +115,7 @@ export function getDocument(id: string): DocumentMeta | null {
     | Record<string, unknown>
     | undefined;
   if (!row) return null;
-  return {
-    id: row.id as string,
-    name: row.name as string,
-    md: row.md as string,
-    chapters: JSON.parse(row.chapters as string),
-    wordCount: row.word_count as number,
-    uploadedAt: row.uploaded_at as number,
-  };
+  return rowToDocument(row);
 }
 
 export function listDocuments(): DocumentMeta[] {
@@ -89,14 +123,7 @@ export function listDocuments(): DocumentMeta[] {
   const rows = d
     .prepare("SELECT * FROM documents ORDER BY uploaded_at DESC")
     .all() as Record<string, unknown>[];
-  return rows.map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    md: row.md as string,
-    chapters: JSON.parse(row.chapters as string),
-    wordCount: row.word_count as number,
-    uploadedAt: row.uploaded_at as number,
-  }));
+  return rows.map(rowToDocument);
 }
 
 export function deleteDocument(id: string): void {

@@ -33,6 +33,7 @@ import { remapChaptersToParagraphEdits } from "./docxRemap.js";
 import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
+import { detectSettings } from "./detectSettings.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
 import {
   pdfToMarkdown,
@@ -224,6 +225,10 @@ router.post(
 
       const chapters = findChapters(md);
       const wordCount = md.split(/\s+/).filter(Boolean).length;
+      // The manuscript answers the language / dialect / comma questions the
+      // wizard is about to ask. Deterministic and cheap (no model, no
+      // dictionaries) so it runs inline rather than as a second round trip.
+      const detected = detectSettings(md);
 
       const doc: DocumentMeta = {
         id: docId,
@@ -232,6 +237,7 @@ router.post(
         chapters,
         wordCount,
         uploadedAt: Date.now(),
+        detected,
       };
 
       saveDocument(doc);
@@ -243,6 +249,7 @@ router.post(
         chapters: doc.chapters,
         wordCount: doc.wordCount,
         uploadedAt: doc.uploadedAt,
+        detected: doc.detected,
       });
     } catch (err) {
       if (
