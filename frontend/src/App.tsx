@@ -24,7 +24,7 @@ import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
 import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
-import { betaGroupFor } from "./types";
+import { betaGroupFor, styleGuideApplies } from "./types";
 import type {
   TaskState,
   DownloadProgress,
@@ -89,6 +89,9 @@ export default function App() {
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const advancedMode = useStore((s) => s.advancedMode);
   const showExperimental = useStore((s) => s.showExperimental);
+  // The style guide is only asked for by runs that read one — see
+  // styleGuideApplies in types.ts for which modes those are.
+  const styleApplies = styleGuideApplies(selectedModes);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
   const setLanguageToolAvailable = useStore((s) => s.setLanguageToolAvailable);
@@ -378,7 +381,7 @@ export default function App() {
 
   // Every step answered — the run controls join the page.
   const allStepsDone = PAGE_STEPS.filter(
-    (step) => step !== "model" || advancedMode,
+    (step) => (step !== "model" || advancedMode) && (step !== "style" || styleApplies),
   ).every((step) => completedSteps.includes(step));
 
   const isSetupPhase = wizardStep !== "done";
@@ -444,7 +447,9 @@ export default function App() {
             {menuOpen && (
               <div className="wizard-page">
                 {PAGE_STEPS.filter(
-                  (step) => step !== "model" || advancedMode,
+                  (step) =>
+                    (step !== "model" || advancedMode) &&
+                    (step !== "style" || styleApplies),
                 ).map((step) => {
                   // A step folds once it is answered, and only while it is not
                   // the one being worked on. Four open cards is the right shape

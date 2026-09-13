@@ -107,6 +107,39 @@ export const BETA_GROUPS: BetaGroup[] = [
   // that report. It is still generated from the review screen of an edit.
 ];
 
+/**
+ * Modes that never read the style guide, so a run made only of them has no use
+ * for the step. Derived from what the backend actually consults, not from what
+ * the step looks like it ought to cover:
+ *
+ *  - `language_analysis` / `language_enhance` — the counts report is
+ *    deterministic and the enhanced notes quote the manuscript; neither
+ *    languageAnalysis.ts nor languageEnhance.ts takes a style guide.
+ *  - `publication_scan` — buildPublicationScan takes units and options only.
+ *    It rides along with `proofread` on the Final readthrough card, and
+ *    proofread DOES pass one to buildProofreadCorrectionsPrompt, so that card
+ *    still asks.
+ *
+ * Everything else reads it, including the experimental passes: storyAnalysis.ts
+ * threads it into the story read and the synthesis, which is exactly where a
+ * list of character names earns its keep.
+ */
+const STYLE_GUIDE_BLIND: TaskMode[] = [
+  "language_analysis",
+  "language_enhance",
+  "publication_scan",
+];
+
+/**
+ * Whether the style-guide step is worth asking for, given the selection.
+ *
+ * An empty selection answers false: nothing has been chosen yet, and the step
+ * sits after the task step anyway.
+ */
+export function styleGuideApplies(modes: TaskMode[]): boolean {
+  return modes.some((m) => !STYLE_GUIDE_BLIND.includes(m));
+}
+
 /** Which front card, if any, a selection belongs to. First match wins, most
  *  specific first: the cards do not overlap, but a selection persisted by an
  *  older UI can hold modes from more than one. */

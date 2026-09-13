@@ -30,6 +30,7 @@ import {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
   isReliable,
+  styleGuideApplies,
 } from "./types";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
@@ -50,10 +51,17 @@ export type WizardStep =
  * numbering in StepBar is derived from this array, so hiding the step
  * renumbers Style from 4 to 3 automatically.
  */
-export function stepOrder(advancedMode: boolean): WizardStep[] {
-  return advancedMode
+export function stepOrder(
+  advancedMode: boolean,
+  styleApplies = true,
+): WizardStep[] {
+  const steps: WizardStep[] = advancedMode
     ? ["upload", "edits", "model", "style", "run"]
     : ["upload", "edits", "style", "run"];
+  // A run that never reads the style guide must not be able to stop on it:
+  // filtering the render alone would leave advanceWizard walking onto a step
+  // with nothing on screen, and the wizard stuck there.
+  return styleApplies ? steps : steps.filter((s) => s !== "style");
 }
 
 // Defaults — extracted so resetAll can reference them
@@ -480,9 +488,20 @@ export const useStore = create<AppState>()(
       // (category switches, the editing panel's exclusivity rules). Same
       // invariant as toggleMode: never leave the selection empty.
       setSelectedModes: (modes) =>
-        set((state) =>
-          modes.length === 0 ? state : { selectedModes: [...modes] },
-        ),
+        set((state) => {
+          if (modes.length === 0) return state;
+          // Switching to a run that reads no style guide while standing ON the
+          // style step would strand the user there: the step is filtered out of
+          // the page and the step bar, so there would be nothing on screen and
+          // no way forward. Same guard the model step needs when advanced mode
+          // is turned off.
+          const leavingStyle =
+            state.wizardStep === "style" && !styleGuideApplies(modes);
+          return {
+            selectedModes: [...modes],
+            ...(leavingStyle ? { wizardStep: "run" as WizardStep } : {}),
+          };
+        }),
       lineEditEnabled: true,
       setLineEditEnabled: (lineEditEnabled) => set({ lineEditEnabled }),
       copyEditOptions: { ...DEFAULT_COPY_EDIT_OPTIONS },
@@ -996,7 +1015,10 @@ export const useStore = create<AppState>()(
         // Must match StepBar's rail: with the model step hidden, advancing off
         // "upload" has to skip straight past it or the wizard lands on a step
         // that renders nothing.
-        const STEP_ORDER = stepOrder(state.advancedMode);
+        const STEP_ORDER = stepOrder(
+          state.advancedMode,
+          styleGuideApplies(state.selectedModes),
+        );
         const fromIdx = STEP_ORDER.indexOf(fromStep);
         for (let i = fromIdx + 1; i < STEP_ORDER.length; i++) {
           if (!state.completedSteps.includes(STEP_ORDER[i])) {

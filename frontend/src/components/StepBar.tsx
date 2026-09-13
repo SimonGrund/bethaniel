@@ -2,7 +2,7 @@
 
 import { useStore, stepOrder } from "../store";
 import { useTranslation } from "../i18n";
-import { modeLabelKeys } from "../types";
+import { modeLabelKeys, styleGuideApplies } from "../types";
 import type { WizardStep } from "../store";
 
 // Step numbers are derived from the rail's position, not stored here: the
@@ -36,7 +36,10 @@ export default function StepBar() {
   const t = useTranslation(lang);
 
   // "run" is the launch button in EditTrigger, not a card on the rail.
-  const STEP_ORDER = stepOrder(advancedMode).filter((s) => s !== "run");
+  const STEP_ORDER = stepOrder(
+    advancedMode,
+    styleGuideApplies(selectedModes),
+  ).filter((s) => s !== "run");
 
   const hasActiveTasks = Object.values(tasks).some(
     (t) => t.status === "queued" || t.status === "editing",
@@ -97,7 +100,8 @@ export default function StepBar() {
         return (
           <button
             key={step}
-            type="button"
+            type="button"
+
             className={`step-card${isCurrent ? " step-card-current" : ""}${step === "model" ? " step-card-model" : ""}${isNext ? " step-card-next" : ""}`}
             onClick={() => setWizardStep(isCurrent ? "folded" : step)}
           >
