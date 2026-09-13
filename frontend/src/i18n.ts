@@ -4466,12 +4466,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Wird gestartet…",
     es: "Iniciando…",
   },
-  model_intro_choose: {
-    en: "Choose a different Betty",
-    da: "Vælg en anden Betty",
-    de: "Eine andere Betty wählen",
-    es: "Elegir otra Betty",
-  },
   model_intro_footnote: {
     en: 'You can change this any time under "Model settings" at the top of the window.',
     da: 'Du kan altid ændre det under "Modelindstillinger" øverst i vinduet.',

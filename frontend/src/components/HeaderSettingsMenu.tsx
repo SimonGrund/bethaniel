@@ -16,8 +16,6 @@ export default function HeaderSettingsMenu() {
   const setLang = useStore((s) => s.setLang);
   const advancedMode = useStore((s) => s.advancedMode);
   const setAdvancedMode = useStore((s) => s.setAdvancedMode);
-  const modelPanelPeek = useStore((s) => s.modelPanelPeek);
-  const setModelPanelPeek = useStore((s) => s.setModelPanelPeek);
   const showExperimental = useStore((s) => s.showExperimental);
   const setShowExperimental = useStore((s) => s.setShowExperimental);
   const wizardStep = useStore((s) => s.wizardStep);
@@ -57,10 +55,7 @@ export default function HeaderSettingsMenu() {
   }, [open]);
 
   const toggleModelSettings = () => {
-    // A session-only peek counts as "shown" here, so the item reads "Hide"
-    // and hiding clears it rather than switching the preference on.
-    const next = !(advancedMode || modelPanelPeek);
-    setModelPanelPeek(false);
+    const next = !advancedMode;
     setAdvancedMode(next);
     // Leaving advanced mode while the model step is open would otherwise
     // strand the user on an empty panel.
@@ -129,13 +124,11 @@ export default function HeaderSettingsMenu() {
           <button
             type="button"
             role="menuitemcheckbox"
-            aria-checked={advancedMode || modelPanelPeek}
+            aria-checked={advancedMode}
             className="header-settings-item"
             onClick={toggleModelSettings}
           >
-            {advancedMode || modelPanelPeek
-              ? t("hide_model_selector")
-              : t("activate_model_selector")}
+            {advancedMode ? t("hide_model_selector") : t("activate_model_selector")}
           </button>
           <button
             type="button"

@@ -31,8 +31,6 @@ export default function ModelIntroModal() {
   const setHasSeenModelIntro = useStore((s) => s.setHasSeenModelIntro);
   const setAwaitingFirstModel = useStore((s) => s.setAwaitingFirstModel);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
-  const setModelPanelPeek = useStore((s) => s.setModelPanelPeek);
-  const setWizardStep = useStore((s) => s.setWizardStep);
   const setModel = useStore((s) => s.setModel);
   const recommendation = useStore((s) => s.recommendation);
   const installed = useStore((s) => s.installed);
@@ -117,13 +115,6 @@ export default function ModelIntroModal() {
     close();
   };
 
-  const chooseInstead = () => {
-    close();
-    // A look at the panel, not a change of preference — see modelPanelPeek.
-    setModelPanelPeek(true);
-    setWizardStep("model");
-  };
-
   const both = needsModel && needsGrammar;
 
   return (
@@ -189,15 +180,16 @@ export default function ModelIntroModal() {
                     .replace("{size}", formatBytes(recommendation.sizeBytes))
                 : t("languagetool_advice_download")}
         </button>
+        {/* No "choose a different Betty" here: there is one local model, and
+            the other ways to run — your own key, your own file, the cloud —
+            are reached from the settings menu named in the footnote. */}
         <button
           type="button"
           className="btn-secondary"
-          onClick={needsModel ? chooseInstead : notNow}
+          onClick={notNow}
           disabled={busy}
         >
-          {needsModel
-            ? t("model_intro_choose")
-            : t("languagetool_advice_not_now")}
+          {t("languagetool_advice_not_now")}
         </button>
       </div>
 

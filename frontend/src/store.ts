@@ -350,15 +350,6 @@ interface AppState {
   setHasSeenModelIntro: (b: boolean) => void;
   modelIntroOpen: boolean;
   setModelIntroOpen: (b: boolean) => void;
-  /**
-   * The model panel shown for this session only — "Choose a different Betty"
-   * from the first-run dialog. Not persisted, and distinct from
-   * `advancedMode`: that is a preference the user set from the settings
-   * menu, this is a look. It used to set the preference, which left the
-   * panel on the page for good after one click to see what was there.
-   */
-  modelPanelPeek: boolean;
-  setModelPanelPeek: (b: boolean) => void;
   /** True between accepting the recommended download and its completion popup. */
   awaitingFirstModel: boolean;
   setAwaitingFirstModel: (b: boolean) => void;
@@ -928,8 +919,6 @@ export const useStore = create<AppState>()(
       setHasSeenModelIntro: (hasSeenModelIntro) => set({ hasSeenModelIntro }),
       modelIntroOpen: false,
       setModelIntroOpen: (modelIntroOpen) => set({ modelIntroOpen }),
-      modelPanelPeek: false,
-      setModelPanelPeek: (modelPanelPeek) => set({ modelPanelPeek }),
       awaitingFirstModel: false,
       setAwaitingFirstModel: (awaitingFirstModel) => set({ awaitingFirstModel }),
       modelReadyOpen: false,
