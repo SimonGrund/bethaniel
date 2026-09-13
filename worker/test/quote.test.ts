@@ -165,16 +165,31 @@ test("a quote without a product is an edit", () => {
   assert.equal(priceJob(env, { estimatedTokens: 1e6, words: 50_000 }).product, "edit");
 });
 
-test("the three front cards are told apart but priced alike", () => {
-  const prices = new Set<number>();
-  for (const product of ["edit", "readthrough", "translate"] as const) {
+test("the two edit-shaped cards are priced alike; translation is not", () => {
+  // They shared a band while they shared a model. Translation now runs on
+  // GLM-5.2 — EUR 1.80/5.50 per Mtok against deepseek-v4-flash's 0.40/0.80 —
+  // and cost about EUR 2.71 per 100k words where an edit of the same book
+  // costs cents. One band for both would have cleared the 3x markup on paper
+  // and almost nothing in practice.
+  const priceOf = (product: "edit" | "readthrough" | "translate") => {
     const q = priceJob(env, { estimatedTokens: 800_000, words: 50_000, product });
     assert.equal(q.product, product);
     assert.equal(q.tiers, 1);
-    prices.add(q.priceEurCents);
-  }
-  assert.deepEqual([...prices], [500]);
-  // Same guard on every one of them: translation's heavier token count
-  // still sits well inside the ceiling, so it is never repriced by it.
+    return q.priceEurCents;
+  };
+  assert.equal(priceOf("edit"), 500);
+  assert.equal(priceOf("readthrough"), 500);
+  assert.equal(priceOf("translate"), 1000);
+
+  // Two bands of translation is double, not a new rate: a >100k-word novel
+  // pays EUR 20.
+  assert.equal(
+    priceJob(env, { estimatedTokens: 1_600_000, words: 150_000, product: "translate" })
+      .priceEurCents,
+    2000,
+  );
+
+  // Same guard on every one of them: translation's heavier token count still
+  // sits well inside the ceiling, so it is never repriced by it.
   assert.equal(priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" }).tiers, 1);
 });

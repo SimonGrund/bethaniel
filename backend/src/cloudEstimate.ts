@@ -467,6 +467,37 @@ export const CLOUD_ALLOWED_MODES: readonly string[] = [
 
 /** Split a mode selection into what the cloud will run and what it will not.
  *  Returns `rejected` empty when everything is allowed. */
+/**
+ * Modes a locally-run model may not attempt, whatever the user selects.
+ *
+ * Translation only. Everything else degrades gracefully on a small model — a
+ * missed correction is a missed correction — but a bad translation is fluent,
+ * confident and wrong, and the author cannot see it without reading both
+ * languages. The bundled models were measured well below the hosted ones on
+ * exactly the axes that matter (idiom, register, obeying the style sheet), and
+ * since the reviewer passes were removed nothing downstream checks the output
+ * against its source. Offering it locally would be offering a result Betty
+ * cannot stand behind.
+ *
+ * Hosted models are exempt: an External Betty is the user's own key against a
+ * large model, which is not the thing this protects against.
+ */
+export const LOCAL_BLOCKED_MODES: readonly string[] = ["translate"];
+
+/** Split a mode selection into what a LOCAL engine will run and what it will
+ *  not. Returns `rejected` empty when everything is allowed. */
+export function partitionLocalModes(modes: readonly string[]): {
+  allowed: string[];
+  rejected: string[];
+} {
+  const allowed: string[] = [];
+  const rejected: string[] = [];
+  for (const m of modes) {
+    (LOCAL_BLOCKED_MODES.includes(m) ? rejected : allowed).push(m);
+  }
+  return { allowed, rejected };
+}
+
 export function partitionCloudModes(modes: readonly string[]): {
   allowed: string[];
   rejected: string[];

@@ -3337,6 +3337,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die Übersetzung exportieren:",
     es: "Exportar la traducción:",
   },
+  run_blocked_local_translate: {
+    en: "Translation needs Betty in the Cloud — the local models are not good enough at it.",
+    da: "Oversættelse kræver Betty i skyen — de lokale modeller er ikke gode nok til det.",
+    de: "Übersetzung braucht Betty in der Cloud — die lokalen Modelle sind darin nicht gut genug.",
+    es: "La traducción necesita a Betty en la nube — los modelos locales no son lo bastante buenos.",
+  },
   // ── Manuscript preview dialog + style-guide button ──
   preview_open: {
     en: "Check the extracted text",

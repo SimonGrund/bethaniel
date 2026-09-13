@@ -85,6 +85,7 @@ import {
   estimateCloudJob,
   cloudRunKnobs,
   partitionCloudModes,
+  partitionLocalModes,
   type CloudEstimateInput,
   type CloudEstimateMode,
 } from "./cloudEstimate.js";
@@ -541,6 +542,23 @@ router.post("/queue/add", async (req: Request, res: Response) => {
         res.status(400).json({
           error:
             "Betty in the Cloud can currently run copy edit, line edit, final readthrough, translation and language analysis. The other passes are still local-only.",
+          unsupportedModes: rejected,
+        });
+        return;
+      }
+    }
+
+    // The mirror of the gate above, and for the same reason: this is the
+    // endpoint that actually starts work, so a client cannot route a
+    // cloud-only pass to a local model by asking nicely. Hosted models (the
+    // cloud entry and a user's own External Betty key) both satisfy
+    // isApiModel; only the bundled engine is blocked.
+    if (!isApiModel(model)) {
+      const { rejected } = partitionLocalModes(modeList);
+      if (rejected.length > 0) {
+        res.status(400).json({
+          error:
+            "Translation needs a hosted model. Betty's local models are not good enough at it to be worth offering — a weak translation reads fluently and is wrong, which is the one error you cannot catch by reading the result.",
           unsupportedModes: rejected,
         });
         return;

@@ -121,8 +121,17 @@ export default function EditTrigger() {
     selectedModes.length > 0 &&
     selectedModes.every((m) => DETERMINISTIC_MODES.includes(m));
 
+  // Translation on a local model is refused outright, not merely discouraged:
+  // see LOCAL_BLOCKED_MODES in cloudEstimate.ts. Said here as well as at the
+  // route so the author reads it before pressing run, rather than getting a
+  // 400 back from a job they thought they had started.
+  const localTranslateBlocked =
+    selectedModes.includes("translate") && !!model && !isApiModel;
+
   const notReadyReason = countingOnly
     ? null
+    : localTranslateBlocked
+    ? t("run_blocked_local_translate")
     : !modelEnvLoaded
     ? t("run_blocked_preparing")
     : !model

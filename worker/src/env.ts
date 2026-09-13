@@ -38,6 +38,9 @@ export interface Env {
   PRICE_TIER_EUR_CENTS?: string;
   /** Price of one band of the enhanced language analysis, in EUR cents. */
   PRICE_ENHANCE_EUR_CENTS?: string;
+  /** Price per band for a translation. Its own knob because translation runs
+   *  on a dearer model than the edits — see priceJob in quote.ts. */
+  PRICE_TRANSLATE_EUR_CENTS?: string;
   /** Multiplier on the token estimate when sizing a credential's ceiling. */
   TOKEN_BUDGET_HEADROOM?: string;
   STRIPE_PCT_FEE: string;

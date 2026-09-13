@@ -120,10 +120,18 @@ export function priceJob(
   const words = Math.max(claimedWords, impliedWords);
 
   const bandWords = Number(env.PRICE_TIER_WORDS) || 100_000;
+  // Translation has its own band price. It runs on a much dearer model than
+  // the edits — GLM-5.2 at EUR 1.80/5.50 per million against deepseek-v4-flash
+  // at EUR 0.40/0.80 — and a 100k-word translation costs about EUR 2.71 in
+  // provider tokens where an edit of the same book costs cents. Sold in the
+  // edit band it would have cleared the markup policy on paper and almost
+  // nothing in practice.
   const bandCents =
     product === "enhance"
       ? Number(env.PRICE_ENHANCE_EUR_CENTS) || 200
-      : Number(env.PRICE_TIER_EUR_CENTS) || 500;
+      : product === "translate"
+        ? Number(env.PRICE_TRANSLATE_EUR_CENTS) || 1000
+        : Number(env.PRICE_TIER_EUR_CENTS) || 500;
 
   // Bands are whole: 1 word and 100,000 words are both one band.
   const tiers = Math.max(1, Math.ceil(words / bandWords));
