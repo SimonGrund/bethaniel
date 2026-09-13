@@ -69,7 +69,6 @@ import {
   buildBlurbPrompt,
   buildReviewerPrompt,
   buildPrecisionPassPrompt,
-  buildTranslationReviewerPrompt,
   buildStyleCompliancePrompt,
   buildConfusableHintBlock,
   buildCopyEditCorrectionsPrompt,
@@ -141,23 +140,6 @@ function stripAiSignoff(text: string): string {
   } while (out !== prev);
 
   return out.trim();
-}
-
-/**
- * Split text into non-empty trimmed paragraphs for translation review.
- * Paired by index — short paragraphs (headings, dialogue fragments) are kept.
- */
-function srcParasForReview(text: string): string[] {
-  return splitParagraphs(text);
-}
-function tgtParasForReview(text: string): string[] {
-  return splitParagraphs(text);
-}
-function splitParagraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
 }
 
 /**
@@ -2566,135 +2548,22 @@ async function processJob(job: JobData): Promise<void> {
           // (the entire text is "changed" source → target language), and
           // the reviewer would flag every word as "changing meaning".
           if (mode === "translate") {
+            // NO REVIEWER PASS. Translation used to run two of them — one
+            // scoring the draft against the source, one scoring the polish for
+            // fluency — each driving a re-do of whatever it flagged. They were
+            // removed deliberately: on the reviewer-scored copy/line edits the
+            // same machinery was measured to add no value, and here the two of
+            // them were a third of the bill (EUR 1.73 of EUR 4.84 per 100k
+            // words on GLM-5.2).
+            //
+            // What that costs is worth stating plainly: the draft reviewer was
+            // the ONLY stage that compared the translation against the source.
+            // The upgrade pass below is monolingual by design — it never sees
+            // the original — so nothing downstream can catch a mistranslation
+            // now, only an infelicity. The bet is that a strong enough model
+            // does not need checking; it is a bet on the model, not a saving
+            // that comes for free.
             let translatedText = rewritten;
-
-            if (job.reviewMode) {
-              // Split into paragraphs and pair them for review
-              const srcParas = srcParasForReview(chunk.body);
-              const tgtParas = tgtParasForReview(translatedText);
-              const n = Math.min(srcParas.length, tgtParas.length);
-
-              if (n > 1) {
-                const paraCorrections: Correction[] = srcParas
-                  .slice(0, n)
-                  .map((src, i) => ({
-                    original: src,
-                    corrected: tgtParas[i],
-                  }));
-
-                updateTask(taskId, {
-                  phase: `reviewing translation for chunk ${chunkLabel}`,
-                });
-
-                const reviewerPrompt = buildTranslationReviewerPrompt(job.styleGuide);
-                const rCount = 1; // see the note on the copy-edit reviewer above
-                const runOne = () =>
-                  runReviewerAgentWithRetry({
-                    model,
-                    chunkText: chunk.body,
-                    cs: paraCorrections,
-                    reviewerPrompt,
-                    signal: ac.signal,
-                    taskId,
-                    chunkLabel,
-                    agentLabel: "Rewrite-reviewer agent",
-                  });
-                const reviewResults = await Promise.allSettled(
-                  Array.from({ length: rCount }, () => runOne()),
-                );
-                const reviewOutputs: Map<number, ReviewScore>[] = [];
-                for (const r of reviewResults) {
-                  if (r.status === "fulfilled" && r.value.size > 0)
-                    reviewOutputs.push(r.value);
-                }
-                if (reviewOutputs.length > 0 && reviewOutputs.length < rCount) {
-                  appendLog({
-                    level: "warn",
-                    source: "engine",
-                    taskId,
-                    message: `Only ${reviewOutputs.length}/${rCount} rewrite-reviewer agents contributed for chunk ${chunkLabel}; scoring on survivors.`,
-                    model,
-                  });
-                }
-
-                if (reviewOutputs.length > 0) {
-                  const allScores = reviewOutputs;
-                  const threshold = job.reviewerThreshold ?? 3;
-
-                  const flagged: { idx: number; conf: number; reason: string }[] =
-                    [];
-                  for (let i = 0; i < n; i++) {
-                    let minConf = 5;
-                    let minReason = "";
-                    for (const scores of allScores) {
-                      const s = scores.get(i);
-                      if (s && s.confidence < minConf) {
-                        minConf = s.confidence;
-                        minReason = s.reason;
-                      }
-                    }
-                    if (minConf < threshold)
-                      flagged.push({ idx: i, conf: minConf, reason: minReason });
-                  }
-
-                  if (flagged.length > 0) {
-                    appendLog({
-                      level: "info",
-                      source: "engine",
-                      taskId,
-                      message: `Translation reviewer flagged ${flagged.length}/${n} paragraphs in chunk ${chunkLabel}. Re-translating…`,
-                      model,
-                    });
-
-                    const revisedParas = [...tgtParas];
-                    for (const f of flagged) {
-                      try {
-                        const rePrompt =
-                          prompt +
-                          `\n\nCRITICAL: Your previous translation of this paragraph was flagged: "${f.reason}". Provide an accurate, fluent, natural-feeling translation.`;
-                        let reAcc = "";
-                        for await (const tok of editChunkStream(
-                          model,
-                          srcParas[f.idx],
-                          rePrompt,
-                          ac.signal,
-                          deriveSeed(mode, job.name, j, "retranslate", f.idx),
-                          "translate",
-                        )) reAcc += tok;
-                        const reTranslated = reAcc.trim();
-                        if (reTranslated) {
-                          revisedParas[f.idx] = reTranslated;
-                          appendLog({
-                            level: "info",
-                            source: "engine",
-                            taskId,
-                            message: `Re-translated paragraph ${f.idx + 1}/${n} (was confidence ${f.conf}).`,
-                            model,
-                          });
-                        }
-                      } catch (err) {
-                        appendLog({
-                          level: "warn",
-                          source: "engine",
-                          taskId,
-                          message: `Re-translation of paragraph ${f.idx + 1} failed: ${err instanceof Error ? err.message : String(err)}`,
-                          model,
-                        });
-                      }
-                    }
-                    translatedText = revisedParas.join("\n\n");
-                  } else {
-                    appendLog({
-                      level: "info",
-                      source: "engine",
-                      taskId,
-                      message: `Translation reviewer passed all ${n} paragraphs in chunk ${chunkLabel}.`,
-                      model,
-                    });
-                  }
-                }
-              }
-            }
 
             // UPGRADE PASS — monolingual target-language polish + fluency
             // review. Falls back to the accuracy-validated draft on any
@@ -2707,7 +2576,9 @@ async function processJob(job: JobData): Promise<void> {
                   targetLang,
                   job.styleGuide,
                 ),
-                reviewMode: !!job.reviewMode,
+                // Never: see the NO REVIEWER PASS note above. The polish
+                // still runs; only its reviewer and re-polish loop are off.
+                reviewMode: false,
                 reviewerThreshold: job.reviewerThreshold ?? 3,
                 chunkLabel,
                 signal: ac.signal,

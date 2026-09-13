@@ -22,9 +22,7 @@ import {
   buildCombinedEditPrompt,
   buildReviewerPrompt,
   buildTranslationPrompt,
-  buildTranslationReviewerPrompt,
   buildTranslationUpgradePrompt,
-  buildFluencyReviewerPrompt,
 } from "./prompts.js";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types.js";
 import {
@@ -49,11 +47,6 @@ const ASSUMED_OUTPUT_FRACTION = 0.35;
  *  count ahead of time, so a fixed per-chunk token allowance stands in for
  *  the corrections-list payload. */
 const ASSUMED_CORRECTIONS_PAYLOAD_TOKENS = 300;
-
-/** Translate mode's re-translate/re-polish passes are reviewer-verdict
- *  driven (one extra call per flagged paragraph) — this is a rough share of
- *  chunks assumed to need a redo, not a measured rate. */
-const ASSUMED_RETRANSLATE_RATE = 0.15;
 
 function wordsToTokens(words: number): number {
   return estimateTokens("x".repeat(Math.max(0, Math.round(words * CHARS_PER_WORD))));
@@ -246,19 +239,14 @@ function estimateTranslateMode(
       input.styleGuideChars ? "x".repeat(input.styleGuideChars) : undefined,
     ),
   );
-  const reviewerSystemTokens = input.reviewMode
-    ? estimateTokens(buildTranslationReviewerPrompt())
-    : 0;
-  const upgradeSystemTokens = estimateTokens(
-    buildTranslationUpgradePrompt("the target language"),
-  );
-  const fluencySystemTokens = input.reviewMode
-    ? estimateTokens(buildFluencyReviewerPrompt("the target language"))
-    : 0;
   const reviewerCalls = reviewerCallsPerChunk(input);
 
   let inputTokens = 0;
   let outputTokens = 0;
+
+  const upgradeSystemTokens = estimateTokens(
+    buildTranslationUpgradePrompt("the target language"),
+  );
 
   for (const unit of input.units) {
     const numChunks = Math.max(1, Math.ceil(unit.wordCount / input.wordsPerChunk));
@@ -270,28 +258,15 @@ function estimateTranslateMode(
     inputTokens += numChunks * (draftSystemTokens + chunkTokens);
     outputTokens += numChunks * translatedTokens;
 
-    // Draft review + a share of chunks getting one re-translate call.
-    if (reviewerCalls > 0) {
-      inputTokens +=
-        numChunks * reviewerCalls * (reviewerSystemTokens + chunkTokens + translatedTokens);
-      outputTokens += numChunks * reviewerCalls * (translatedTokens * 0.2);
-      const retranslateChunks = numChunks * ASSUMED_RETRANSLATE_RATE;
-      inputTokens += retranslateChunks * (draftSystemTokens + chunkTokens);
-      outputTokens += retranslateChunks * translatedTokens;
-    }
+    // No reviewer passes. Translation's two reviewers (draft-against-source
+    // and polish-for-fluency), and the re-do calls their verdicts drove, were
+    // removed from queue.ts — see the NO REVIEWER PASS note there. Pricing
+    // them here anyway would quote every translation ~44% over what it costs.
 
     // Upgrade/polish pass over the translated output.
     inputTokens += numChunks * (upgradeSystemTokens + translatedTokens);
     outputTokens += numChunks * translatedTokens;
 
-    if (reviewerCalls > 0) {
-      inputTokens +=
-        numChunks * reviewerCalls * (fluencySystemTokens + translatedTokens * 2);
-      outputTokens += numChunks * reviewerCalls * (translatedTokens * 0.2);
-      const repolishChunks = numChunks * ASSUMED_RETRANSLATE_RATE;
-      inputTokens += repolishChunks * (upgradeSystemTokens + translatedTokens);
-      outputTokens += repolishChunks * translatedTokens;
-    }
   }
 
   return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
