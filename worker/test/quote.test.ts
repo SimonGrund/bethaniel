@@ -11,7 +11,11 @@ import assert from "node:assert/strict";
 import { priceJob } from "../src/quote.ts";
 import type { Env } from "../src/env.ts";
 
-const env = { PRICE_TIER_WORDS: "100000", PRICE_TIER_EUR_CENTS: "500" } as unknown as Env;
+const env = {
+  PRICE_TIER_WORDS: "100000",
+  PRICE_TIER_EUR_CENTS: "500",
+  PRICE_TRANSLATE_EUR_CENTS: "1200",
+} as unknown as Env;
 
 test("anything up to the band size costs one band", () => {
   for (const words of [1, 3_000, 50_000, 100_000]) {
@@ -168,9 +172,9 @@ test("a quote without a product is an edit", () => {
 test("the two edit-shaped cards are priced alike; translation is not", () => {
   // They shared a band while they shared a model. Translation now runs on
   // GLM-5.2 — EUR 1.80/5.50 per Mtok against deepseek-v4-flash's 0.40/0.80 —
-  // and cost about EUR 2.71 per 100k words where an edit of the same book
-  // costs cents. One band for both would have cleared the 3x markup on paper
-  // and almost nothing in practice.
+  // and costs about EUR 3.76 per 100k words with its fluency reviewer, where
+  // an edit of the same book costs cents. One band for both would have cleared
+  // the 3x markup on paper and almost nothing in practice.
   const priceOf = (product: "edit" | "readthrough" | "translate") => {
     const q = priceJob(env, { estimatedTokens: 800_000, words: 50_000, product });
     assert.equal(q.product, product);
@@ -179,17 +183,30 @@ test("the two edit-shaped cards are priced alike; translation is not", () => {
   };
   assert.equal(priceOf("edit"), 500);
   assert.equal(priceOf("readthrough"), 500);
-  assert.equal(priceOf("translate"), 1000);
+  assert.equal(priceOf("translate"), 1200);
 
   // Two bands of translation is double, not a new rate: a >100k-word novel
-  // pays EUR 20.
+  // pays EUR 24.
   assert.equal(
     priceJob(env, { estimatedTokens: 1_600_000, words: 150_000, product: "translate" })
       .priceEurCents,
-    2000,
+    2400,
   );
 
   // Same guard on every one of them: translation's heavier token count still
   // sits well inside the ceiling, so it is never repriced by it.
   assert.equal(priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" }).tiers, 1);
+});
+
+test("a deployment missing the translate price does not undercharge", () => {
+  // The code fallback has to match what wrangler.toml actually sets. It did
+  // not for one commit, and the only thing that noticed was this file: a
+  // Worker deployed without the var would have sold translations at the old
+  // EUR 10 while the app quoted them, silently, at a margin under policy.
+  const bare = { PRICE_TIER_WORDS: "100000" } as unknown as Env;
+  assert.equal(
+    priceJob(bare, { estimatedTokens: 800_000, words: 50_000, product: "translate" })
+      .priceEurCents,
+    1200,
+  );
 });

@@ -2548,21 +2548,26 @@ async function processJob(job: JobData): Promise<void> {
           // (the entire text is "changed" source → target language), and
           // the reviewer would flag every word as "changing meaning".
           if (mode === "translate") {
-            // NO REVIEWER PASS. Translation used to run two of them — one
-            // scoring the draft against the source, one scoring the polish for
-            // fluency — each driving a re-do of whatever it flagged. They were
-            // removed deliberately: on the reviewer-scored copy/line edits the
-            // same machinery was measured to add no value, and here the two of
-            // them were a third of the bill (EUR 1.73 of EUR 4.84 per 100k
-            // words on GLM-5.2).
+            // ONE reviewer, not two. The draft reviewer — which scored the
+            // translation against its source — is gone, on the same evidence
+            // that retired the reviewer-scored copy/line edits. The FLUENCY
+            // reviewer below is kept, because it was measured to earn its
+            // place on this exact model.
             //
-            // What that costs is worth stating plainly: the draft reviewer was
-            // the ONLY stage that compared the translation against the source.
-            // The upgrade pass below is monolingual by design — it never sees
-            // the original — so nothing downstream can catch a mistranslation
-            // now, only an infelicity. The bet is that a strong enough model
-            // does not need checking; it is a bet on the model, not a saving
-            // that comes for free.
+            // Measured EN->DA on GLM-5.2: the polish pass introduced a double
+            // negation ("slet ikke ikke ville dukke op") that reversed a line
+            // of dialogue. The fluency reviewer scored that paragraph 2 — under
+            // the flagging threshold of 3, so it would have been re-polished —
+            // and scored all thirteen others 4 or 5, so nothing clean would
+            // have been touched. It found the one real defect, explained it
+            // correctly, and raised no false positives, for about EUR 1.05 per
+            // 100,000 words.
+            //
+            // Note what it is catching: the polish pass is monolingual and
+            // introduced the error itself. This reviewer sees draft against
+            // polish, so a regression the polish causes is exactly what it CAN
+            // see — and with the draft reviewer gone it is the only check left
+            // between the model and the author.
             let translatedText = rewritten;
 
             // UPGRADE PASS — monolingual target-language polish + fluency
@@ -2576,9 +2581,13 @@ async function processJob(job: JobData): Promise<void> {
                   targetLang,
                   job.styleGuide,
                 ),
-                // Never: see the NO REVIEWER PASS note above. The polish
-                // still runs; only its reviewer and re-polish loop are off.
-                reviewMode: false,
+                // Unconditional, not job.reviewMode. With the draft reviewer
+                // gone this is the only thing standing between a
+                // polish-introduced meaning change and the author, and the
+                // cloud bills per band rather than per token — so letting a
+                // toggle switch it off would trade the one remaining check for
+                // a saving nobody receives.
+                reviewMode: true,
                 reviewerThreshold: job.reviewerThreshold ?? 3,
                 chunkLabel,
                 signal: ac.signal,

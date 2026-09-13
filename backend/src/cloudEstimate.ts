@@ -23,6 +23,7 @@ import {
   buildReviewerPrompt,
   buildTranslationPrompt,
   buildTranslationUpgradePrompt,
+  buildFluencyReviewerPrompt,
 } from "./prompts.js";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types.js";
 import {
@@ -51,6 +52,18 @@ const ASSUMED_CORRECTIONS_PAYLOAD_TOKENS = 300;
 function wordsToTokens(words: number): number {
   return estimateTokens("x".repeat(Math.max(0, Math.round(words * CHARS_PER_WORD))));
 }
+
+/** Translation's fluency reviewer answers with one JSON verdict line per
+ *  paragraph. Measured on a 14-paragraph Danish chunk: 553 completion tokens.
+ *  A 2,500-word chunk runs to roughly that many paragraphs, so this is the
+ *  per-chunk figure rather than a per-paragraph one. */
+const FLUENCY_VERDICT_TOKENS = 560;
+
+/** Share of chunks the fluency reviewer sends back for a re-polish. One
+ *  paragraph in fourteen was flagged on the GLM-5.2 EN->DA sample; this stays
+ *  at the retired pass's 0.15 rather than being tuned to a single chunk of a
+ *  single book. */
+const ASSUMED_REPOLISH_RATE = 0.15;
 
 /** The mode strings the frontend's mode picker actually sends — mirrors
  *  TaskMode (types.ts) minus the modes this estimator doesn't model yet
@@ -247,6 +260,9 @@ function estimateTranslateMode(
   const upgradeSystemTokens = estimateTokens(
     buildTranslationUpgradePrompt("the target language"),
   );
+  const fluencySystemTokens = estimateTokens(
+    buildFluencyReviewerPrompt("the target language"),
+  );
 
   for (const unit of input.units) {
     const numChunks = Math.max(1, Math.ceil(unit.wordCount / input.wordsPerChunk));
@@ -258,14 +274,23 @@ function estimateTranslateMode(
     inputTokens += numChunks * (draftSystemTokens + chunkTokens);
     outputTokens += numChunks * translatedTokens;
 
-    // No reviewer passes. Translation's two reviewers (draft-against-source
-    // and polish-for-fluency), and the re-do calls their verdicts drove, were
-    // removed from queue.ts — see the NO REVIEWER PASS note there. Pricing
-    // them here anyway would quote every translation ~44% over what it costs.
+    // No DRAFT reviewer. The pass that scored the translation against its
+    // source is gone, along with the re-translate calls its verdicts drove.
 
     // Upgrade/polish pass over the translated output.
     inputTokens += numChunks * (upgradeSystemTokens + translatedTokens);
     outputTokens += numChunks * translatedTokens;
+
+    // Fluency reviewer over draft-against-polish, plus the share of chunks it
+    // sends back for a re-polish. Unconditional in queue.ts — it is the only
+    // check left after the draft reviewer went — so it is priced
+    // unconditionally here too, and not behind input.reviewMode. Leaving it
+    // out understated a translation quote by about 28%.
+    inputTokens += numChunks * (fluencySystemTokens + translatedTokens * 2);
+    outputTokens += numChunks * FLUENCY_VERDICT_TOKENS;
+    const repolishChunks = numChunks * ASSUMED_REPOLISH_RATE;
+    inputTokens += repolishChunks * (upgradeSystemTokens + translatedTokens);
+    outputTokens += repolishChunks * translatedTokens;
 
   }
 

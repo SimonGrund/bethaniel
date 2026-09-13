@@ -168,11 +168,18 @@ PROVIDER_API_BASE = "https://api.scaleway.ai/51f0bdd4-07bd-4027-b446-1248905c020
 BASE_COST_EUR_PER_TOKEN = "0.000000509"
 # The translation model's rate. GLM-5.2 is NOT flat: EUR 1.80/Mtok in against
 # EUR 5.50/Mtok out, so this is a blend and the blend depends on the mix. Taken
-# from the app's own estimator for the two-pass pipeline — 0.46M in against
-# 0.34M out for 100,000 words, so output is 42.5% of tokens and EUR 3.37/Mtok
-# blended — then rounded UP, because this figure backs a spend ceiling and a
-# ceiling that reads low is worse than one that reads high.
-BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.000003500"
+# from the app's own estimator for the pipeline as it now stands — draft,
+# polish, fluency reviewer, re-polish — which is 0.86M in against 0.40M out for
+# 100,000 words. Output is 32% of tokens there and the blend is EUR 2.98/Mtok.
+#
+# Note the direction: adding the reviewer back made the blended rate CHEAPER,
+# not dearer. It is an input-heavy pass (it re-reads draft and polish together
+# and answers in one short JSON line per paragraph), so it dilutes the
+# expensive output side even as it raises the absolute bill.
+#
+# Rounded up to 3.30 for headroom, because this figure backs a spend ceiling
+# and a ceiling that reads low is worse than one that reads high.
+BASE_COST_EUR_PER_TOKEN_TRANSLATE = "0.000003300"
 # ── Price: flat bands of words, not cost-plus ──
 #
 # One band of PRICE_TIER_WORDS costs PRICE_TIER_EUR_CENTS; two bands cost
@@ -196,12 +203,16 @@ PRICE_TIER_EUR_CENTS = "500"
 # it is sold per band at a fraction of an edit. Same bands, its own price.
 PRICE_ENHANCE_EUR_CENTS = "200"
 # Translation has its own band, dearer than an edit's. It is the one product
-# that still needs a large model, and GLM-5.2 costs about EUR 2.71 in provider
-# tokens for a 100,000-word book where the same book copy-edited costs cents.
-# In the EUR 5 edit band that cleared the 3x markup on paper and almost nothing
-# in practice. At EUR 10 the margin is ~3.7x, which is the policy again.
-# Two bands (a >100k-word novel) therefore cost EUR 20.
-PRICE_TRANSLATE_EUR_CENTS = "1000"
+# that still needs a large model: GLM-5.2 plus the fluency reviewer costs about
+# EUR 3.76 in provider tokens for a 100,000-word book, where the same book
+# copy-edited costs cents. In the EUR 5 edit band that cleared the 3x markup on
+# paper and almost nothing in practice.
+#
+# EUR 12 holds the policy across the whole range, which EUR 10 did not once the
+# reviewer came back: 3.19x at 100,000 words and 3.29x at 200,000 (the worst
+# case, being two bands of a book that nearly needs three). Two bands — any
+# novel over 100,000 words — therefore cost EUR 24.
+PRICE_TRANSLATE_EUR_CENTS = "1200"
 
 # Kept for the cost model in globalMeter.ts, which still reasons in tokens.
 # No longer used to compute a price.
