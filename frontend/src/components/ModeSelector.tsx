@@ -13,7 +13,12 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { FRONT_CARD_MODES, frontCardFor } from "../types";
+import {
+  FRONT_CARD_MODES,
+  frontCardFor,
+  DEFAULT_COPY_EDIT_OPTIONS,
+  DEFAULT_LINE_EDIT_OPTIONS,
+} from "../types";
 import type {
   FrontCard,
   TaskMode,
@@ -23,6 +28,7 @@ import type {
 
 // A local const in this file today, and it stays one — nothing else needs it.
 import ManuscriptSettings from "./ManuscriptSettings";
+import FoldingPanel from "./FoldingPanel";
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "spelling",
@@ -90,6 +96,27 @@ export default function ModeSelector({
   // `toggleMode` are all unused once the five-category panels are gone.
   // `advanceWizard` was already dead in the previous version — destructured
   // and never called.
+
+  /**
+   * The one line a folded option group shows in place of its checkboxes.
+   *
+   * Untouched groups say so rather than listing their contents: "default" is
+   * both shorter and more useful than five labels the author never chose. Once
+   * anything is changed the summary must stop claiming default and name what
+   * is actually on, or the fold would be hiding the author's own edits behind
+   * a line that says nothing happened.
+   */
+  function summarise<K extends string>(
+    keys: readonly K[],
+    current: (k: K) => boolean,
+    fallback: (k: K) => boolean,
+  ): string {
+    if (keys.every((k) => current(k) === fallback(k))) {
+      return t("opt_group_default");
+    }
+    const on = keys.filter(current).map((k) => t(`opt_${k}`));
+    return on.length ? on.join(" · ") : t("opt_group_none");
+  }
 
   const activeCard = frontCardFor(selectedModes);
   // The controls under the cards fold on a second click of the active card,
@@ -185,8 +212,14 @@ export default function ModeSelector({
 
         {manuscriptSettings}
 
-        <div className="option-panel">
-          <span className="option-panel-label">{t("mode_copy_edit")}</span>
+        <FoldingPanel
+          title={t("mode_copy_edit")}
+          summary={summarise(
+            COPY_EDIT_KEYS,
+            (k) => copyEditOptions[k] as boolean,
+            (k) => DEFAULT_COPY_EDIT_OPTIONS[k] as boolean,
+          )}
+        >
           <div className="option-grid">
             {COPY_EDIT_KEYS.map((key) => (
               <label key={key} className="option-check">
@@ -199,11 +232,17 @@ export default function ModeSelector({
               </label>
             ))}
           </div>
-        </div>
+        </FoldingPanel>
 
         {lineEditOn && (
-        <div className="option-panel">
-          <span className="option-panel-label">{t("mode_line_edit")}</span>
+        <FoldingPanel
+          title={t("mode_line_edit")}
+          summary={summarise(
+            LINE_EDIT_KEYS,
+            (k) => lineEditOptions[k],
+            (k) => DEFAULT_LINE_EDIT_OPTIONS[k],
+          )}
+        >
           <div className="option-grid">
             {LINE_EDIT_KEYS.map((key) => (
               <label key={key} className="option-check">
@@ -216,7 +255,7 @@ export default function ModeSelector({
               </label>
             ))}
           </div>
-        </div>
+        </FoldingPanel>
         )}
       </>
     );

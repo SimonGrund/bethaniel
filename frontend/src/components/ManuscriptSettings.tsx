@@ -6,7 +6,8 @@
 // case deserves one quiet line, and the author's attention should be spent
 // only on what Betty genuinely could not tell.
 //
-// Hence the two states. A green check means every question that applies was
+// Hence the two states (the folding shell itself is FoldingPanel.tsx). A
+// green check means every question that applies was
 // answered from the text; the panel stays shut and the summary line says what
 // was found. An amber triangle means at least one came back "unsure", and the
 // panel opens itself — a warning the user must click to understand is a
@@ -21,12 +22,11 @@
 // translation never consults the Oxford-comma setting, so asking for one is
 // asking the author to make a decision that changes nothing.
 
-import { useEffect, useState } from "react";
-
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import type { DetectedSettings, FrontCard, Lang } from "../types";
 import DetectionBadge from "./DetectionBadge";
+import FoldingPanel from "./FoldingPanel";
 
 /** The settings this panel owns — exactly the ones detectSettings.ts reads. */
 export type SettingKey = keyof DetectedSettings;
@@ -113,13 +113,6 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
   const status = settingsStatus(keys, detectedSettings);
   const waiting = attentionCount(keys, detectedSettings);
 
-  // Opens itself when something needs the author, and re-opens on a new upload
-  // that needs them again. Their own toggle is respected until that happens.
-  const [open, setOpen] = useState(status === "attention");
-  useEffect(() => {
-    if (status === "attention") setOpen(true);
-  }, [status, detectedSettings]);
-
   const badgeFor = (key: SettingKey, current: unknown) => (
     <DetectionBadge
       detection={detectedSettings?.[key]}
@@ -157,173 +150,159 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
     .join(" · ");
 
   return (
-    <div className={`ms-panel ms-panel-${status}`}>
-      <button
-        type="button"
-        className="ms-header"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className={`ms-icon ms-icon-${status}`} aria-hidden="true">
-          {status === "clean" ? "✓" : status === "attention" ? "⚠" : ""}
-        </span>
-        <span className="ms-title">{t("ms_settings_title")}</span>
-        <span className="ms-summary">
-          {status === "attention"
-            ? t(waiting === 1 ? "ms_needs_input_one" : "ms_needs_input").replace(
-                "{n}",
-                String(waiting),
-              )
-            : summary}
-        </span>
-        <span className="ms-chevron" aria-hidden="true">
-          {open ? "▴" : "▾"}
-        </span>
-      </button>
-
-      {open && (
-        <div className="ms-body">
-          {keys.includes("manuscriptLang") && (
-            <div className="ms-row">
-              <span className="ms-label">{t("manuscript_language")}</span>
-              <span className="ms-control">
-                <select
-                  value={isKnownLang ? manuscriptLang : "other"}
-                  onChange={(e) =>
-                    setManuscriptLang(
-                      e.target.value === "other" ? "" : e.target.value,
-                    )
-                  }
-                  className="lang-input"
-                >
-                  {KNOWN_MANUSCRIPT_LANGS.map((l) => (
-                    <option key={l} value={l}>
-                      {t(`lang_${l}`)}
-                    </option>
-                  ))}
-                  <option value="other">{t("lang_other")}</option>
-                </select>
-                {!isKnownLang && (
-                  <input
-                    type="text"
-                    value={manuscriptLang}
-                    onChange={(e) => setManuscriptLang(e.target.value)}
-                    placeholder={t("lang_other_placeholder")}
-                    className="lang-input"
-                  />
-                )}
-                {badgeFor("manuscriptLang", manuscriptLang)}
-              </span>
-            </div>
-          )}
-
-          {keys.includes("englishDialect") && (
-            <div className="ms-row">
-              <span className="ms-label">{t("opt_englishDialect")}</span>
-              <span className="ms-control">
-                <span className="option-toggle-group">
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
-                    onClick={() =>
-                      setCopyEditOption("englishDialect", "american")
-                    }
-                  >
-                    {t("opt_american")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
-                    onClick={() =>
-                      setCopyEditOption("englishDialect", "british")
-                    }
-                  >
-                    {t("opt_british")}
-                  </button>
-                </span>
-                {badgeFor("englishDialect", copyEditOptions.englishDialect)}
-              </span>
-            </div>
-          )}
-
-          {keys.includes("oxfordComma") && (
-            <div className="ms-row">
-              <span className="ms-label">{t("opt_oxfordComma")}</span>
-              <span className="ms-control">
-                <span className="option-toggle-group">
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.oxfordComma ? " active" : ""}`}
-                    onClick={() => setCopyEditOption("oxfordComma", true)}
-                  >
-                    {t("opt_yes")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn${!copyEditOptions.oxfordComma ? " active" : ""}`}
-                    onClick={() => setCopyEditOption("oxfordComma", false)}
-                  >
-                    {t("opt_no")}
-                  </button>
-                </span>
-                {badgeFor("oxfordComma", copyEditOptions.oxfordComma)}
-              </span>
-            </div>
-          )}
-
-          {keys.includes("introductoryComma") && (
-            <div className="ms-row">
-              <span className="ms-label">{t("opt_introductoryComma")}</span>
-              <span className="ms-control">
-                <span className="option-toggle-group">
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.introductoryComma ? " active" : ""}`}
-                    onClick={() => setCopyEditOption("introductoryComma", true)}
-                  >
-                    {t("opt_yes")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn${!copyEditOptions.introductoryComma ? " active" : ""}`}
-                    onClick={() => setCopyEditOption("introductoryComma", false)}
-                  >
-                    {t("opt_no")}
-                  </button>
-                </span>
-                {badgeFor("introductoryComma", copyEditOptions.introductoryComma)}
-              </span>
-            </div>
-          )}
-
-          {keys.includes("danishComma") && (
-            <div className="ms-row">
-              <span className="ms-label">{t("opt_danishComma")}</span>
-              <span className="ms-control">
-                <span className="option-toggle-group">
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.danishComma === "grammatisk" ? " active" : ""}`}
-                    onClick={() =>
-                      setCopyEditOption("danishComma", "grammatisk")
-                    }
-                  >
-                    {t("opt_grammatiskKomma")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn${copyEditOptions.danishComma === "nyt" ? " active" : ""}`}
-                    onClick={() => setCopyEditOption("danishComma", "nyt")}
-                  >
-                    {t("opt_nytKomma")}
-                  </button>
-                </span>
-                {badgeFor("danishComma", copyEditOptions.danishComma)}
-              </span>
-            </div>
-          )}
+    <FoldingPanel
+      title={t("ms_settings_title")}
+      summary={
+        status === "attention"
+          ? t(waiting === 1 ? "ms_needs_input_one" : "ms_needs_input").replace(
+              "{n}",
+              String(waiting),
+            )
+          : summary
+      }
+      status={status}
+      demandsAttention={status === "attention"}
+      resetKey={detectedSettings}
+    >
+      {keys.includes("manuscriptLang") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("manuscript_language")}</span>
+          <span className="fold-control">
+            <select
+              value={isKnownLang ? manuscriptLang : "other"}
+              onChange={(e) =>
+                setManuscriptLang(
+                  e.target.value === "other" ? "" : e.target.value,
+                )
+              }
+              className="lang-input"
+            >
+              {KNOWN_MANUSCRIPT_LANGS.map((l) => (
+                <option key={l} value={l}>
+                  {t(`lang_${l}`)}
+                </option>
+              ))}
+              <option value="other">{t("lang_other")}</option>
+            </select>
+            {!isKnownLang && (
+              <input
+                type="text"
+                value={manuscriptLang}
+                onChange={(e) => setManuscriptLang(e.target.value)}
+                placeholder={t("lang_other_placeholder")}
+                className="lang-input"
+              />
+            )}
+            {badgeFor("manuscriptLang", manuscriptLang)}
+          </span>
         </div>
       )}
-    </div>
+
+      {keys.includes("englishDialect") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("opt_englishDialect")}</span>
+          <span className="fold-control">
+            <span className="option-toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
+                onClick={() =>
+                  setCopyEditOption("englishDialect", "american")
+                }
+              >
+                {t("opt_american")}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
+                onClick={() =>
+                  setCopyEditOption("englishDialect", "british")
+                }
+              >
+                {t("opt_british")}
+              </button>
+            </span>
+            {badgeFor("englishDialect", copyEditOptions.englishDialect)}
+          </span>
+        </div>
+      )}
+
+      {keys.includes("oxfordComma") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("opt_oxfordComma")}</span>
+          <span className="fold-control">
+            <span className="option-toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.oxfordComma ? " active" : ""}`}
+                onClick={() => setCopyEditOption("oxfordComma", true)}
+              >
+                {t("opt_yes")}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn${!copyEditOptions.oxfordComma ? " active" : ""}`}
+                onClick={() => setCopyEditOption("oxfordComma", false)}
+              >
+                {t("opt_no")}
+              </button>
+            </span>
+            {badgeFor("oxfordComma", copyEditOptions.oxfordComma)}
+          </span>
+        </div>
+      )}
+
+      {keys.includes("introductoryComma") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("opt_introductoryComma")}</span>
+          <span className="fold-control">
+            <span className="option-toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.introductoryComma ? " active" : ""}`}
+                onClick={() => setCopyEditOption("introductoryComma", true)}
+              >
+                {t("opt_yes")}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn${!copyEditOptions.introductoryComma ? " active" : ""}`}
+                onClick={() => setCopyEditOption("introductoryComma", false)}
+              >
+                {t("opt_no")}
+              </button>
+            </span>
+            {badgeFor("introductoryComma", copyEditOptions.introductoryComma)}
+          </span>
+        </div>
+      )}
+
+      {keys.includes("danishComma") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("opt_danishComma")}</span>
+          <span className="fold-control">
+            <span className="option-toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.danishComma === "grammatisk" ? " active" : ""}`}
+                onClick={() =>
+                  setCopyEditOption("danishComma", "grammatisk")
+                }
+              >
+                {t("opt_grammatiskKomma")}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.danishComma === "nyt" ? " active" : ""}`}
+                onClick={() => setCopyEditOption("danishComma", "nyt")}
+              >
+                {t("opt_nytKomma")}
+              </button>
+            </span>
+            {badgeFor("danishComma", copyEditOptions.danishComma)}
+          </span>
+        </div>
+      )}
+    </FoldingPanel>
   );
 }

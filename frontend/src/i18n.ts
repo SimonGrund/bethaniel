@@ -3313,6 +3313,19 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Einleitungskomma",
     es: "Coma introductoria",
   },
+  // ── Folded option groups (FoldingPanel.tsx) ──
+  opt_group_default: {
+    en: "default, click to change",
+    da: "standard, klik for at ændre",
+    de: "Standard, zum Ändern klicken",
+    es: "predeterminado, haz clic para cambiar",
+  },
+  opt_group_none: {
+    en: "nothing selected",
+    da: "intet valgt",
+    de: "nichts ausgewählt",
+    es: "nada seleccionado",
+  },
   // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
   ms_settings_title: {
     en: "Manuscript settings",
