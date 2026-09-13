@@ -368,6 +368,17 @@ interface AppState {
 
   /** Reveals the model step and its advanced settings. Off for new users. */
   advancedMode: boolean;
+  /**
+   * Whether the experimental-modes drawer is offered on the edits step.
+   *
+   * Off by default: the front cards are the product, and a drawer of
+   * half-tested passes sitting under them invites people into work that is
+   * not ready. It is a preference, so it survives resetAll exactly as
+   * advancedMode does. See BetaFeatures.tsx for why a selection already
+   * inside the drawer keeps it visible regardless of this flag.
+   */
+  showExperimental: boolean;
+  setShowExperimental: (v: boolean) => void;
   setAdvancedMode: (b: boolean) => void;
 
   // Wizard flow
@@ -913,6 +924,8 @@ export const useStore = create<AppState>()(
 
       advancedMode: false,
       setAdvancedMode: (advancedMode) => set({ advancedMode }),
+      showExperimental: false,
+      setShowExperimental: (showExperimental) => set({ showExperimental }),
 
       wizardStep: "upload",
       setWizardStep: (wizardStep) => set({ wizardStep }),
@@ -969,8 +982,9 @@ export const useStore = create<AppState>()(
           submitting: false,
           // Offer the model recommendation again on the next upload. Harmless
           // when a model is already installed — the popup checks for that.
-          // advancedMode is deliberately kept: it is a user preference, like
-          // the interface language, not part of the run being reset.
+          // advancedMode and showExperimental are deliberately kept: they are
+          // user preferences, like the interface language, not part of the run
+          // being reset.
           hasSeenModelIntro: false,
           awaitingFirstModel: false,
           modelIntroOpen: false,
@@ -1045,6 +1059,7 @@ export const useStore = create<AppState>()(
         hasSeenModelIntro: state.hasSeenModelIntro,
         dismissedAdvice: state.dismissedAdvice,
         advancedMode: state.advancedMode,
+        showExperimental: state.showExperimental,
         wizardStep: state.wizardStep,
         completedSteps: state.completedSteps,
         highlightedModel: state.highlightedModel,

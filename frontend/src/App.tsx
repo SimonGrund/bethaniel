@@ -24,6 +24,7 @@ import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
 import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
+import { betaGroupFor } from "./types";
 import type {
   TaskState,
   DownloadProgress,
@@ -87,6 +88,7 @@ export default function App() {
   const setDownloadError = useStore((s) => s.setDownloadError);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const advancedMode = useStore((s) => s.advancedMode);
+  const showExperimental = useStore((s) => s.showExperimental);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
   const setLanguageToolAvailable = useStore((s) => s.setLanguageToolAvailable);
@@ -531,8 +533,17 @@ export default function App() {
                               {/* Inside the task card, not after it. Loose in
                                   the page it landed below the style guide,
                                   where an experimental TASK reads as an
-                                  experimental style setting. */}
-                              <BetaFeatures />
+                                  experimental style setting.
+
+                                  Hidden unless asked for in the header
+                                  settings menu — except when the saved
+                                  selection is already one of these modes,
+                                  which would otherwise hide the user's own
+                                  choice behind a setting they never set. */}
+                              {(showExperimental ||
+                                betaGroupFor(selectedModes) !== null) && (
+                                <BetaFeatures />
+                              )}
                               <div className="step-confirm-row">
                                 <button
                                   type="button"

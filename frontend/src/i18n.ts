@@ -4307,6 +4307,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
 
   // ── Model selector visibility ──
+  activate_experimental: {
+    en: "Show experimental tasks",
+    da: "Vis eksperimentelle opgaver",
+    de: "Experimentelle Aufgaben anzeigen",
+    es: "Mostrar tareas experimentales",
+  },
+  hide_experimental: {
+    en: "Hide experimental tasks",
+    da: "Skjul eksperimentelle opgaver",
+    de: "Experimentelle Aufgaben ausblenden",
+    es: "Ocultar tareas experimentales",
+  },
   activate_model_selector: {
     en: "Model settings",
     da: "Modelindstillinger",

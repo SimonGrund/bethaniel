@@ -16,6 +16,8 @@ export default function HeaderSettingsMenu() {
   const setLang = useStore((s) => s.setLang);
   const advancedMode = useStore((s) => s.advancedMode);
   const setAdvancedMode = useStore((s) => s.setAdvancedMode);
+  const showExperimental = useStore((s) => s.showExperimental);
+  const setShowExperimental = useStore((s) => s.setShowExperimental);
   const wizardStep = useStore((s) => s.wizardStep);
   const setWizardStep = useStore((s) => s.setWizardStep);
   const t = useTranslation(lang);
@@ -59,6 +61,16 @@ export default function HeaderSettingsMenu() {
     // strand the user on an empty panel.
     if (!next && wizardStep === "model") setWizardStep("folded");
     if (next) setWizardStep("model");
+    setOpen(false);
+  };
+
+  const toggleExperimental = () => {
+    const next = !showExperimental;
+    setShowExperimental(next);
+    // Turning it on reveals a drawer on the edits step, so go there — the
+    // same courtesy the model toggle does. Turning it off strands nothing:
+    // a selection still inside the drawer keeps it on screen (App.tsx).
+    if (next) setWizardStep("edits");
     setOpen(false);
   };
 
@@ -117,6 +129,17 @@ export default function HeaderSettingsMenu() {
             onClick={toggleModelSettings}
           >
             {advancedMode ? t("hide_model_selector") : t("activate_model_selector")}
+          </button>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={showExperimental}
+            className="header-settings-item"
+            onClick={toggleExperimental}
+          >
+            {showExperimental
+              ? t("hide_experimental")
+              : t("activate_experimental")}
           </button>
           <button
             type="button"
