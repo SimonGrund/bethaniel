@@ -59,6 +59,7 @@ export default function App() {
   const setDownloadError = useStore((s) => s.setDownloadError);
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const advancedMode = useStore((s) => s.advancedMode);
+  const modelPanelPeek = useStore((s) => s.modelPanelPeek);
   const showExperimental = useStore((s) => s.showExperimental);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
@@ -178,6 +179,8 @@ export default function App() {
           useStore.getState().setAwaitingFirstModel(false);
           setModelReadyOpen(true);
         }
+        // A panel opened only to fetch a model has done its job.
+        useStore.getState().setModelPanelPeek(false);
       } else if (data.status === "error") {
         clearDownload(data.modelId);
         setDownloadError(data.error ?? "Download failed");
@@ -355,7 +358,7 @@ export default function App() {
                     engine precedes the work, and it is advanced-only, so it
                     must not steal width from the two columns that are the
                     actual job. */}
-                {advancedMode && (
+                {(advancedMode || modelPanelPeek) && (
                   <section className="dashboard-model">
                     <ModelSelector />
                   </section>

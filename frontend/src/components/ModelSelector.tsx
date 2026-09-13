@@ -360,6 +360,11 @@ export default function ModelSelector() {
             if (entry.fileName === "custom:gguf") return showCustomBetty;
             if (entry.fileName === "custom:deepseek-chat")
               return showExternalBetty;
+            // The cloud is not a model you pick here: it is bought per job
+            // from the Run row, which is the only place its price can be
+            // shown. A card with nothing to configure was a second door to
+            // the same room.
+            if (entry.fileName === "custom:bethaniel-cloud") return false;
             return true;
           })
           .map((entry) => {

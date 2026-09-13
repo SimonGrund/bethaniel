@@ -31,7 +31,7 @@ export default function ModelIntroModal() {
   const setHasSeenModelIntro = useStore((s) => s.setHasSeenModelIntro);
   const setAwaitingFirstModel = useStore((s) => s.setAwaitingFirstModel);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
-  const setAdvancedMode = useStore((s) => s.setAdvancedMode);
+  const setModelPanelPeek = useStore((s) => s.setModelPanelPeek);
   const setWizardStep = useStore((s) => s.setWizardStep);
   const setModel = useStore((s) => s.setModel);
   const recommendation = useStore((s) => s.recommendation);
@@ -119,7 +119,8 @@ export default function ModelIntroModal() {
 
   const chooseInstead = () => {
     close();
-    setAdvancedMode(true);
+    // A look at the panel, not a change of preference — see modelPanelPeek.
+    setModelPanelPeek(true);
     setWizardStep("model");
   };
 
