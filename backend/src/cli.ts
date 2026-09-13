@@ -40,7 +40,7 @@ Usage:
     [--language <lang>] --input-doc <path> --export-format <fmt>... [options]
 
 Required:
-  --model <name|id|file>   Friendly name ("Baby Betty"), catalog id, gguf
+  --model <name|id|file>   Friendly name ("Local Betty"), catalog id, gguf
                            filename, or custom:<id> (API/Ollama)
   --mode <mode>...         One or more of: copy line analysis translation
                            feedback (space- or comma-separated; copy+line merge
@@ -64,7 +64,7 @@ Options:
   -h, --help               Show this help
 
 Examples:
-  betty --model Baby-betty --mode copy line --input-doc book.docx \\
+  betty --model Local-betty --mode copy line --input-doc book.docx \\
     --export-format docx md
   betty --model bethaniel-cloud --mode translation --language Spanish \\
     --input-doc book.md --export-format epub

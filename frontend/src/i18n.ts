@@ -1426,10 +1426,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Ejecución",
   },
   run_needs_both_title: {
-    en: "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
-    da: "For at køre på din egen maskine har Betty brug for en model (cirka 2 GB) og sit grammatiktjek (cirka 200 MB).",
-    de: "Um auf Ihrem eigenen Rechner zu laufen, braucht Betty ein Modell (etwa 2 GB) und ihre Grammatikprüfung (etwa 200 MB).",
-    es: "Para ejecutarse en tu propio equipo, Betty necesita un modelo (unos 2 GB) y sus comprobaciones gramaticales (unos 200 MB).",
+    en: "To run on your own machine, Betty needs a model (about 3 GB) and its grammar checks (about 200 MB).",
+    da: "For at køre på din egen maskine har Betty brug for en model (cirka 3 GB) og sit grammatiktjek (cirka 200 MB).",
+    de: "Um auf Ihrem eigenen Rechner zu laufen, braucht Betty ein Modell (etwa 3 GB) und ihre Grammatikprüfung (etwa 200 MB).",
+    es: "Para ejecutarse en tu propio equipo, Betty necesita un modelo (unos 3 GB) y sus comprobaciones gramaticales (unos 200 MB).",
   },
   run_needs_grammar_title: {
     en: "Betty's grammar checks aren't installed yet — about 200 MB.",
@@ -1444,10 +1444,32 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Se te preguntará antes de descargar nada. Ocurre una sola vez, se queda en tu ordenador y, a partir de entonces, Betty trabaja sin internet.",
   },
   run_needs_model_title: {
-    en: "To run on your own machine, Betty needs a model — about 2 GB.",
-    da: "For at køre på din egen maskine har Betty brug for en model — cirka 2 GB.",
-    de: "Um auf Ihrem eigenen Rechner zu laufen, braucht Betty ein Modell — etwa 2 GB.",
-    es: "Para ejecutarse en tu propio equipo, Betty necesita un modelo: unos 2 GB.",
+    en: "To run on your own machine, Betty needs a model — about 3 GB.",
+    da: "For at køre på din egen maskine har Betty brug for en model — cirka 3 GB.",
+    de: "Um auf Ihrem eigenen Rechner zu laufen, braucht Betty ein Modell — etwa 3 GB.",
+    es: "Para ejecutarse en tu propio equipo, Betty necesita un modelo: unos 3 GB.",
+  },
+  // The Run button while the local model is not on disk yet. Enabled
+  // before a manuscript is loaded: the download is the first thing a fresh
+  // install needs, and a greyed button with no model behind it is where a
+  // new user gives up.
+  run_download_local: {
+    en: "Download {name} ({size}) to run local",
+    da: "Hent {name} ({size}) for at køre lokalt",
+    de: "{name} ({size}) herunterladen, um lokal zu arbeiten",
+    es: "Descargar {name} ({size}) para trabajar en local",
+  },
+  run_download_local_hint: {
+    en: "Downloaded once, kept on your computer, and used offline from then on.",
+    da: "Hentes én gang, bliver på din computer og bruges offline derefter.",
+    de: "Einmal heruntergeladen, bleibt auf Ihrem Computer und wird danach offline verwendet.",
+    es: "Se descarga una vez, se queda en tu ordenador y desde entonces funciona sin conexión.",
+  },
+  local_expect_novel: {
+    en: "a 90,000-word novel in about {duration}",
+    da: "en roman på 90.000 ord på cirka {duration}",
+    de: "ein Roman mit 90.000 Wörtern in etwa {duration}",
+    es: "una novela de 90.000 palabras en unos {duration}",
   },
   sec_chapters: {
     en: "Chapters",
@@ -2634,16 +2656,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   // The English text mirrors the `description` field in backend/src/modelCatalog.ts;
   // keep them in sync when editing either side.
   model_desc_qwen3_5_4b: {
-    en: "Small, handy, and quick. But sometimes I make mistakes.",
-    da: "Lille, handig og hurtig. Men nogle gange laver jeg fejl.",
-    de: "Klein, handlich und schnell. Aber manchmal mache ich Fehler.",
-    es: "Pequeña, práctica y rápida. Pero a veces cometo errores.",
+    en: "Runs on your own machine. Nothing you write leaves it.",
+    da: "Kører på din egen maskine. Intet, du skriver, forlader den.",
+    de: "Läuft auf Ihrem eigenen Rechner. Nichts, was Sie schreiben, verlässt ihn.",
+    es: "Funciona en tu propio equipo. Nada de lo que escribes sale de él.",
   },
+  // Deprecated entry — hidden from the catalog, kept for an install that
+  // still has the file.
   model_desc_qwen3_5_9b: {
-    en: "Big Bad Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
-    da: "Big Bad Betty er fremragende til de fleste opgaver. Her får du the beeeest of both worlds - Miley Cyrus",
-    de: "Big Bad Betty ist hervorragend für die meisten Aufgaben. Hier bekommst du the beeeest of both worlds - Miley Cyrus",
-    es: "Big Bad Betty es excelente para la mayoría de tareas. Aquí tienes the beeeest of both worlds - Miley Cyrus",
+    en: "No longer offered — the smaller model scores the same on editing and translation has moved to the cloud.",
+    da: "Tilbydes ikke længere — den mindre model scorer det samme på redigering, og oversættelse er flyttet til skyen.",
+    de: "Wird nicht mehr angeboten — das kleinere Modell schneidet beim Lektorat gleich ab, und die Übersetzung ist in die Cloud gezogen.",
+    es: "Ya no se ofrece: el modelo pequeño puntúa igual en corrección y la traducción se ha trasladado a la nube.",
   },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
@@ -4455,30 +4479,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: 'Puedes cambiarlo cuando quieras en "Ajustes del modelo", arriba en la ventana.',
   },
 
-  // Why this Betty — one sentence per kind of machine.
-  model_reason_apple: {
-    en: "Your machine has {machine}, so {name} is the right fit — quick, and steady on your hardware.",
-    da: "Din maskine har {machine}, så {name} passer bedst — hurtig og stabil på din hardware.",
-    de: "Dein Rechner hat {machine}, daher passt {name} am besten — schnell und stabil auf deiner Hardware.",
-    es: "Tu equipo tiene {machine}, así que {name} es la mejor opción: rápida y estable en tu hardware.",
+  // Is local worth it here — one sentence, with the time a 90,000-word novel
+  // should take on this machine. {duration} comes from formatDuration.
+  local_expect_estimated: {
+    en: "On this machine ({machine}), a 90,000-word novel should take about {duration}.",
+    da: "På denne maskine ({machine}) bør en roman på 90.000 ord tage cirka {duration}.",
+    de: "Auf diesem Rechner ({machine}) sollte ein Roman mit 90.000 Wörtern etwa {duration} dauern.",
+    es: "En este equipo ({machine}), una novela de 90.000 palabras debería tardar unos {duration}.",
   },
-  model_reason_nvidia: {
-    en: "Your graphics card ({machine}) can drive {name} at a comfortable speed.",
-    da: "Dit grafikkort ({machine}) kan køre {name} i et behageligt tempo.",
-    de: "Deine Grafikkarte ({machine}) kann {name} in angenehmem Tempo betreiben.",
-    es: "Tu tarjeta gráfica ({machine}) puede ejecutar {name} a una velocidad cómoda.",
+  local_expect_slow: {
+    en: "This machine ({machine}) has no graphics card Betty can use, so a 90,000-word novel would take about {duration}. It works — leave it running overnight — but Betty in the Cloud is the better fit for this machine.",
+    da: "Denne maskine ({machine}) har ikke et grafikkort, Betty kan bruge, så en roman på 90.000 ord ville tage cirka {duration}. Det virker — lad den køre natten over — men Betty i skyen passer bedre til denne maskine.",
+    de: "Dieser Rechner ({machine}) hat keine Grafikkarte, die Betty nutzen kann, daher würde ein Roman mit 90.000 Wörtern etwa {duration} dauern. Es funktioniert — über Nacht laufen lassen — aber Betty in der Cloud passt besser zu diesem Rechner.",
+    es: "Este equipo ({machine}) no tiene una tarjeta gráfica que Betty pueda usar, así que una novela de 90.000 palabras tardaría unas {duration}. Funciona —déjala trabajar toda la noche—, pero Betty en la nube encaja mejor con este equipo.",
   },
-  model_reason_cpu: {
-    en: "Your machine ({machine}) has no graphics card Betty can use, so {name} is the sensible choice — the bigger ones would crawl.",
-    da: "Din maskine ({machine}) har ikke et grafikkort, Betty kan bruge, så {name} er det fornuftige valg — de større ville sneglesig af sted.",
-    de: "Dein Rechner ({machine}) hat keine Grafikkarte, die Betty nutzen kann, daher ist {name} die vernünftige Wahl — die größeren würden kriechen.",
-    es: "Tu equipo ({machine}) no tiene una tarjeta gráfica que Betty pueda usar, así que {name} es la opción sensata: las mayores irían lentísimas.",
-  },
-  model_reason_measured: {
-    en: "Based on how fast Betty actually runs here ({machine}), {name} is the best fit.",
-    da: "Ud fra hvor hurtigt Betty faktisk kører her ({machine}), passer {name} bedst.",
-    de: "Gemessen daran, wie schnell Betty hier tatsächlich läuft ({machine}), passt {name} am besten.",
-    es: "Según la velocidad real de Betty aquí ({machine}), {name} es la mejor opción.",
+  local_expect_measured: {
+    en: "Measured on this machine ({machine}): a 90,000-word novel takes about {duration}.",
+    da: "Målt på denne maskine ({machine}): en roman på 90.000 ord tager cirka {duration}.",
+    de: "Auf diesem Rechner gemessen ({machine}): ein Roman mit 90.000 Wörtern dauert etwa {duration}.",
+    es: "Medido en este equipo ({machine}): una novela de 90.000 palabras tarda unos {duration}.",
   },
 
   hw_apple_silicon: {

@@ -189,3 +189,5 @@ Uninstalling never removes it silently. Each platform asks first:
 ### Adding or changing models
 
 Edit `backend/src/modelCatalog.ts` — specifically the `MODEL_CATALOG` array and `BASE_SYSTEM_PROMPT`. No other file needs to change; defaults flow from `ModelCatalogEntry.defaults` and user overrides are layered on top via per-model JSON sidecars.
+
+To withdraw a model, set `deprecated: true` rather than deleting the entry: the catalog route hides it, `getPreferredOrder`/`getAllowedTiers` skip it and nothing recommends or downloads it, but a file already on disk still resolves (Big Bad Betty, the 9B, is in this state — see the comment on its entry). `getLocalEntry()` is the one bundled model the app offers; the Run button turns into "Download Local Betty (…) to run local" until it is installed, and `modelRecommendation.ts`'s `expectedWordsPerSec` is where the hardware → speed table lives that decides what that button promises.

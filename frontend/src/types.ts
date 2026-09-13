@@ -582,6 +582,13 @@ export interface ModelRecommendation {
     | "recommendedSizeBytes"
   > | null;
   hardware: HardwareSummary;
+  /**
+   * Manuscript words per second of wall clock to expect on this machine —
+   * measured once a run has finished here, the hardware table's figure until
+   * then. The run-time estimate's fallback, and the basis of "is local worth
+   * it" on the download button.
+   */
+  wordsPerSec: number;
   installed: boolean;
 }
 

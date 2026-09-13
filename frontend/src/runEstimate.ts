@@ -19,8 +19,10 @@ const FALLBACK_WORDS_PER_SEC: Record<string, number> = {
   // the 10-15 minutes the cloud disclosure already promises: quoting a
   // different number in two places is worse than either number being wrong.
   cloud: 160,
-  // A bundled GGUF on typical consumer hardware at the default 3 slots. Well
-  // below the cloud, which is the honest shape of the trade.
+  // A bundled GGUF with no idea what it is running on. The recommendation
+  // normally supplies a hardware-specific figure instead (see
+  // `expectedWordsPerSec` in the backend) — this is only for the moment
+  // before that has loaded, and it is set low so nothing is promised.
   local: 12,
 };
 
@@ -33,20 +35,25 @@ export interface RunEstimate {
 
 /**
  * `wordsPerSec` is the map from `/api/models/perf`, keyed by model file name.
- * `isCloud` picks the fallback when that model has never finished a job here.
+ * `isCloud` picks the fallback when that model has never finished a job here;
+ * for a local run, `expectedLocalRate` (the hardware-derived figure from the
+ * recommendation) is preferred over the flat fallback when it is known.
  */
 export function estimateRun(
   words: number,
   modelFile: string | null,
   wordsPerSec: Record<string, number>,
   isCloud: boolean,
+  expectedLocalRate?: number | null,
 ): RunEstimate | null {
   if (!Number.isFinite(words) || words <= 0) return null;
   const measuredRate = modelFile ? wordsPerSec[modelFile] : undefined;
   const rate =
     measuredRate && measuredRate > 0
       ? measuredRate
-      : FALLBACK_WORDS_PER_SEC[isCloud ? "cloud" : "local"];
+      : !isCloud && expectedLocalRate && expectedLocalRate > 0
+        ? expectedLocalRate
+        : FALLBACK_WORDS_PER_SEC[isCloud ? "cloud" : "local"];
   if (!rate || rate <= 0) return null;
   return { seconds: words / rate, measured: Boolean(measuredRate) };
 }

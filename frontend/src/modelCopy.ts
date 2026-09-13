@@ -47,20 +47,51 @@ function machinePhrase(rec: ModelRecommendation, t: Translate): string {
 }
 
 /**
- * The sentence under "Betty needs a brain".
+ * The manuscript every expectation is phrased against — a 90,000-word novel.
+ * Mirrors REFERENCE_WORDS in the backend's modelRecommendation.ts.
+ */
+export const REFERENCE_WORDS = 90_000;
+
+/** Above this, a local run is an overnight job rather than a coffee break. */
+const SLOW_SECONDS = 2 * 3600;
+
+export type LocalVerdict = "fast" | "ok" | "slow";
+
+/**
+ * Is running locally on this machine a wait worth having?
  *
- * Says what we found and which Betty follows from it. When the pick came from
- * measured throughput rather than the hardware table, say so — it is a stronger
- * claim and the user has earned the more confident wording.
+ * "fast" is a novel inside half an hour, "ok" inside two hours, "slow" is
+ * anything longer — which still works, overnight, but is where the cloud
+ * earns its mention.
+ */
+export function localVerdict(rec: ModelRecommendation): LocalVerdict {
+  const seconds = REFERENCE_WORDS / rec.wordsPerSec;
+  if (seconds <= 30 * 60) return "fast";
+  if (seconds <= SLOW_SECONDS) return "ok";
+  return "slow";
+}
+
+/**
+ * The sentence under "Betty needs a brain": what this machine is, and how
+ * long a novel should take on it.
+ *
+ * There is one local model now, so the question is no longer which Betty fits
+ * but whether local is worth the wait here. When the figure is measured rather
+ * than read off the hardware table, say so — it is a stronger claim and the
+ * user has earned the more confident wording.
  */
 export function hardwareReason(rec: ModelRecommendation, t: Translate): string {
+  const duration = formatDuration(REFERENCE_WORDS / rec.wordsPerSec, t);
   const key =
     rec.basis === "measured"
-      ? "model_reason_measured"
-      : `model_reason_${rec.hardware.kind}`;
+      ? "local_expect_measured"
+      : localVerdict(rec) === "slow"
+        ? "local_expect_slow"
+        : "local_expect_estimated";
   return t(key)
     .replace("{machine}", machinePhrase(rec, t))
-    .replace("{name}", rec.name);
+    .replace("{name}", rec.name)
+    .replace("{duration}", duration);
 }
 
 /**

@@ -141,6 +141,8 @@ export interface ResolvedRecommendation {
   tier: LocalTier;
   basis: Recommendation["basis"];
   advice: Recommendation["advice"];
+  /** Manuscript words per second to expect here — see recommendModel. */
+  wordsPerSec: number;
   hardware: ReturnType<typeof summarizeHardware>;
 }
 
@@ -163,6 +165,7 @@ export function resolveRecommendation(): ResolvedRecommendation {
     tier: rec.tier,
     basis: rec.basis,
     advice: rec.advice,
+    wordsPerSec: rec.wordsPerSec,
     hardware: summarizeHardware(hw),
   };
 }

@@ -32,6 +32,10 @@ export interface ModelCatalogEntry {
   /** source "api" only: suggested parallel job count for /system/recommend.
    *  A UI hint, not an enforced cap — defaults to 3 when unset. */
   recommendedParallel?: number;
+  /** Withdrawn from the offer but still resolvable, so a file already on
+   *  disk keeps working and Storage & data can still delete it. Never listed
+   *  in the catalog the app shows, never recommended, never downloaded. */
+  deprecated?: boolean;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -61,8 +65,9 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: "qwen3.5-4b",
     tier: "small",
-    name: "Baby Betty",
-    description: "Small, handy, and quick. But sometimes I make mistakes.",
+    name: "Local Betty",
+    description:
+      "Runs on your own machine. Nothing you write leaves it.",
     fileName: "Qwen3.5-4B-Q4_K_M.gguf",
     source: "gguf",
     url: "https://huggingface.co/unsloth/Qwen3.5-4B-MTP-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
@@ -72,12 +77,19 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minRamAppleSiliconGb: 8,
     defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
   },
+  // Deprecated September 2026. On the four-language benchmark the 9B tied the
+  // 4B on copy edit (60% each) and was WORSE on line edit (49% against 52%);
+  // the one place it earned its extra 3 GB and 8 GB of RAM was translation,
+  // and translation no longer runs on any local model (LOCAL_BLOCKED_MODES in
+  // cloudEstimate.ts). With that gone there is nothing left to recommend it
+  // for. Kept resolvable for the installs that already have the file.
   {
     id: "qwen3.5-9b",
     tier: "normal",
     name: "Big Bad Betty",
+    deprecated: true,
     description:
-      "Big Bad Betty is excellent for most tasks. Here you get the beeeest of both worlds - Miley Cyrus",
+      "No longer offered — the smaller model scores the same on editing and translation has moved to the cloud.",
     fileName: "Qwen3.5-9B-Q4_K_M.gguf",
     source: "gguf",
     url: "https://huggingface.co/unsloth/Qwen3.5-9B-MTP-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
@@ -225,8 +237,16 @@ export function getModelByFileName(
 /** Filenames ordered by tier descending (biggest first) — for auto-selection. */
 export function getPreferredOrder(): string[] {
   return [...MODEL_CATALOG]
+    .filter((e) => !e.deprecated)
     .sort((a, b) => (TIER_RANK[b.tier] ?? 0) - (TIER_RANK[a.tier] ?? 0))
     .map((e) => e.fileName);
+}
+
+/** The one bundled model the app offers to download and run locally. */
+export function getLocalEntry(): ModelCatalogEntry {
+  const entry = MODEL_CATALOG.find((e) => e.source === "gguf" && !e.deprecated);
+  if (!entry) throw new Error("catalog has no downloadable local model");
+  return entry;
 }
 
 /** Whether this catalog entry is obtained via Ollama (vs. direct GGUF download). */

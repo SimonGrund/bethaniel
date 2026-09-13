@@ -1,17 +1,19 @@
-// Tests for the "which Betty should this machine run?" decision table.
+// Tests for the "is this machine worth running Betty on?" table.
 //
-// The bug this replaces: the old logic recommended the biggest model that fit
-// in RAM, so a 32 GB CPU-only laptop was pointed at a 24B model decoding at
-// ~2 tok/s. The headline assertion here is that the same machine now gets
-// Baby Betty.
+// There is one local model now — the 9B is deprecated — so the decision this
+// module used to make (which tier) has collapsed into a speed expectation:
+// how many manuscript words a second this hardware should manage, and whether
+// that is slow enough to say so. The bug the original table replaced still
+// matters as an assertion: a 32 GB CPU-only laptop must not be promised a
+// fast run just because the model fits.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   appleChipVariant,
+  expectedWordsPerSec,
   getAllowedTiers,
-  guessTierFromHardware,
   isTrusted,
   median,
   pushSample,
@@ -20,8 +22,10 @@ import {
   FLOOR_TPS,
   MIN_SAMPLES,
   PERF_WINDOW,
+  REFERENCE_WORDS,
   type HardwareInfo,
 } from "../src/modelRecommendation.ts";
+import { getLocalEntry, MODEL_CATALOG } from "../src/modelCatalog.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -79,131 +83,111 @@ test("appleChipVariant rejects non-Apple and missing names", () => {
   assert.equal(appleChipVariant(""), null);
 });
 
-// ── Layer 1: the GPU-class guess ─────────────────────────────────────────
+// ── The catalog the table is built on ────────────────────────────────────
 
-test("a CPU-only machine gets Baby Betty however much RAM it has", () => {
-  // The headline regression: 32 GB of system RAM used to qualify for the 24B.
-  assert.equal(guessTierFromHardware(hw({ totalRamGb: 32 })), "small");
-  assert.equal(guessTierFromHardware(hw({ totalRamGb: 128 })), "small");
+test("exactly one bundled model is offered, and the 9B is not it", () => {
+  const offered = MODEL_CATALOG.filter((e) => e.source === "gguf" && !e.deprecated);
+  assert.equal(offered.length, 1);
+  assert.equal(offered[0].tier, "small");
+  assert.equal(offered[0].name, "Local Betty");
+  const nineB = MODEL_CATALOG.find((e) => e.id === "qwen3.5-9b");
+  assert.ok(nineB, "the 9B stays resolvable for installs that have the file");
+  assert.equal(nineB.deprecated, true);
+  assert.equal(getLocalEntry().id, offered[0].id);
 });
 
-test("NVIDIA VRAM thresholds", () => {
-  assert.equal(guessTierFromHardware(nvidia(8)), "small");
-  assert.equal(guessTierFromHardware(nvidia(11.9)), "small");
-  assert.equal(guessTierFromHardware(nvidia(12)), "normal");
-  assert.equal(guessTierFromHardware(nvidia(16)), "normal");
-  // "normal" (Big Bad Betty, 9B) is the ceiling — no tier above it to
-  // promote into no matter how much VRAM is available.
-  assert.equal(guessTierFromHardware(nvidia(24)), "normal");
-  assert.equal(guessTierFromHardware(nvidia(32)), "normal");
+// ── Layer 1: expected speed from hardware class ─────────────────────────
+
+test("the calibration point: an RTX 5090 does a novel in about twenty minutes", () => {
+  // 80,000 words in 15 minutes was measured on a 5090; the table says 80/s
+  // so a 90,000-word novel reads as ~19 minutes, not the "several hours" the
+  // old flat 12/s fallback printed.
+  const wps = expectedWordsPerSec(nvidia(32));
+  assert.equal(wps, 80);
+  assert.ok(REFERENCE_WORDS / wps < 25 * 60);
 });
 
-test("an unreadable GPU is treated as no GPU, never as a fast one", () => {
-  const unknown = hw({
-    totalRamGb: 64,
-    gpu: { vendor: "amd", vramGb: 24, name: "AMD Radeon RX 7900 XTX" },
-  });
-  assert.equal(guessTierFromHardware(unknown), "small");
-
-  // NVIDIA detected but VRAM unreadable — still no promotion.
-  const noVram = hw({
-    totalRamGb: 64,
-    gpu: { vendor: "nvidia", vramGb: null, name: "NVIDIA GeForce RTX 4090" },
-  });
-  assert.equal(guessTierFromHardware(noVram), "small");
+test("NVIDIA cards step down by VRAM band, and unreadable VRAM lands at the bottom", () => {
+  assert.ok(expectedWordsPerSec(nvidia(24)) < expectedWordsPerSec(nvidia(32)));
+  assert.ok(expectedWordsPerSec(nvidia(16)) < expectedWordsPerSec(nvidia(24)));
+  assert.ok(expectedWordsPerSec(nvidia(12)) < expectedWordsPerSec(nvidia(16)));
+  assert.ok(expectedWordsPerSec(nvidia(8)) < expectedWordsPerSec(nvidia(12)));
+  const unreadable = hw({ gpu: { vendor: "nvidia", vramGb: null, name: "x" } });
+  assert.equal(expectedWordsPerSec(unreadable), expectedWordsPerSec(hw()));
 });
 
-test("Apple Silicon promotes on unified memory alone", () => {
-  // "normal" (Big Bad Betty, 9B) is the ceiling now — no bandwidth-sensitive
-  // top tier left to gate behind a specific chip variant, so any Apple
-  // Silicon chip with enough unified memory reaches it.
-  assert.equal(guessTierFromHardware(apple("Apple M2", 16)), "small");
-  assert.equal(guessTierFromHardware(apple("Apple M4", 24)), "normal");
-  assert.equal(guessTierFromHardware(apple("Apple M3 Pro", 36)), "normal");
-  assert.equal(guessTierFromHardware(apple("Apple M4", 64)), "normal");
-  assert.equal(guessTierFromHardware(apple("Apple M4 Max", 48)), "normal");
-  assert.equal(guessTierFromHardware(apple("Apple M2 Ultra", 128)), "normal");
+test("Apple Silicon is graded by chip variant, not memory", () => {
+  // Bandwidth differs ~3× between a base M4 and an M4 Max at the same RAM.
+  const base = expectedWordsPerSec(apple("Apple M4", 64));
+  const pro = expectedWordsPerSec(apple("Apple M4 Pro", 24));
+  const max = expectedWordsPerSec(apple("Apple M4 Max", 36));
+  const ultra = expectedWordsPerSec(apple("Apple M2 Ultra", 64));
+  assert.ok(base < pro && pro < max && max < ultra);
+  // An unnamed chip is graded as base — the table never guesses upward.
+  assert.equal(expectedWordsPerSec(apple("", 128)), base);
 });
 
-test("an unnamed Apple chip still reaches the top tier on memory alone", () => {
-  // sysctl failed; we know it's Apple Silicon with 64 GB but not which part.
-  // With no bandwidth-gated top tier left, an unknown chip name no longer
-  // matters — only unified memory does.
-  const unnamed = hw({
-    totalRamGb: 64,
-    platform: "darwin",
-    arch: "arm64",
-    appleSilicon: true,
-    gpu: { vendor: "apple", vramGb: 64, name: null },
-  });
-  assert.equal(guessTierFromHardware(unnamed), "normal");
+test("a CPU-only machine is slow however much RAM it has", () => {
+  // The original bug: 32 GB of RAM read as "fast machine". RAM says the model
+  // loads, not that it runs.
+  const laptop = hw({ totalRamGb: 32 });
+  const wps = expectedWordsPerSec(laptop);
+  assert.ok(wps <= 3);
+  assert.ok(REFERENCE_WORDS / wps > 2 * 3600, "a novel is an overnight job here");
+  // AMD and Intel are not identified as fast, so they read as CPU.
+  assert.equal(
+    expectedWordsPerSec(hw({ gpu: { vendor: "amd", vramGb: 16, name: "RX 7800" } })),
+    wps,
+  );
 });
 
-// ── RAM clamp ────────────────────────────────────────────────────────────
+// ── RAM gate ─────────────────────────────────────────────────────────────
 
-test("the RAM gate clamps a guess the machine cannot load", () => {
-  // A 24 GB card in a box with only 8 GB of system RAM: the guess says
-  // "normal", but Big Bad Betty needs 16 GB, so it lands on small.
-  const starved = hw({ totalRamGb: 8, gpu: { vendor: "nvidia", vramGb: 24, name: "x" } });
-  assert.equal(guessTierFromHardware(starved), "normal");
-  assert.equal(recommendModel(starved).tier, "small");
-});
-
-test("under the minimum for everything we still name the smallest model", () => {
-  // Refusing to answer would leave the first-run popup with nothing to offer.
-  const tiny = hw({ totalRamGb: 4 });
-  assert.equal(recommendModel(tiny).tier, "small");
-});
-
-test("getAllowedTiers deduplicates the shared custom tier", () => {
-  // Custom Betty and External Betty both have minRam 0 and tier "custom".
-  // The old version pushed one entry per catalog row, so the array ended
-  // ["small","normal","custom","custom"] and reverse()[0] was always
-  // "custom" — which is how the Recommended badge ended up on the cloud card.
+test("getAllowedTiers deduplicates the shared custom tier and skips deprecated entries", () => {
   const tiers = getAllowedTiers(hw({ totalRamGb: 64 }));
-  assert.deepEqual([...tiers].sort(), ["custom", "normal", "small"]);
+  assert.deepEqual([...tiers].sort(), ["custom", "small"]);
   assert.equal(new Set(tiers).size, tiers.length);
+  assert.ok(!tiers.includes("normal"), "the deprecated 9B is never allowed");
 });
 
-test("getAllowedTiers honours the Apple Silicon minimums", () => {
-  // Big Bad Betty needs 16 GB generally but only 12 GB on Apple Silicon.
-  assert.ok(!getAllowedTiers(hw({ totalRamGb: 12 })).includes("normal"));
-  assert.ok(getAllowedTiers(apple("Apple M2", 12)).includes("normal"));
-});
+// ── Layer 2: measured throughput ─────────────────────────────────────────
 
-// ── Layer 2: measured correction ─────────────────────────────────────────
-
-test("a trusted median below the floor downgrades to the smallest tier", () => {
-  // With only two tiers left, "normal" measuring slow has nowhere to step
-  // down to but "small" — there is no intermediate tier to stop at.
-  const machine = nvidia(16);
-  assert.equal(recommendModel(machine).tier, "normal");
-
-  const rec = recommendModel(machine, { normal: measured(FLOOR_TPS - 1) });
+test("the recommendation is always the local model, with the table's speed until measured", () => {
+  const rec = recommendModel(nvidia(32));
+  assert.equal(rec.entry.id, getLocalEntry().id);
   assert.equal(rec.tier, "small");
-  assert.equal(rec.basis, "measured");
-  assert.equal(rec.advice?.kind, "downgrade");
-  assert.equal(rec.advice?.from, "normal");
-  assert.equal(rec.advice?.to, "small");
-});
-
-test("measurement at or above the floor leaves the guess alone", () => {
-  const rec = recommendModel(nvidia(16), { normal: measured(FLOOR_TPS) });
-  assert.equal(rec.tier, "normal");
-  assert.equal(rec.advice, null);
-  assert.equal(rec.basis, "measured");
-});
-
-test("too few samples is not evidence", () => {
-  const rec = recommendModel(nvidia(16), {
-    normal: measured(1, MIN_SAMPLES - 1),
-  });
-  assert.equal(rec.tier, "normal", "warm-up noise must not move the recommendation");
   assert.equal(rec.basis, "estimated");
+  assert.equal(rec.wordsPerSec, 80);
   assert.equal(rec.advice, null);
 });
 
-test("a slow Baby Betty informs, and never offers a downgrade", () => {
+test("a measured job rate overrides the table", () => {
+  const rec = recommendModel(hw(), {
+    small: { medianTps: 40, samples: MIN_SAMPLES, wordsPerSec: 27.5 },
+  });
+  assert.equal(rec.basis, "measured");
+  assert.equal(rec.wordsPerSec, 27.5);
+});
+
+test("a trusted profile without a job rate is measured, but keeps the table's speed", () => {
+  // Profiles recorded before job-level rates existed have a median but no
+  // words/second; "measured" is honest about the basis, and the estimate
+  // still has a number to work from.
+  const rec = recommendModel(nvidia(24), { small: measured(40) });
+  assert.equal(rec.basis, "measured");
+  assert.equal(rec.wordsPerSec, expectedWordsPerSec(nvidia(24)));
+});
+
+test("warm-up noise never counts as a measurement", () => {
+  const rec = recommendModel(nvidia(32), {
+    small: { medianTps: 2, samples: MIN_SAMPLES - 1, wordsPerSec: 0.3 },
+  });
+  assert.equal(rec.basis, "estimated");
+  assert.equal(rec.wordsPerSec, 80);
+  assert.equal(rec.advice, null);
+});
+
+test("a slow local model informs, and never offers a downgrade", () => {
   const rec = recommendModel(hw({ totalRamGb: 16 }), {
     small: { medianTps: 3, samples: MIN_SAMPLES, wordsPerSec: 0.4 },
   });
@@ -215,7 +199,7 @@ test("a slow Baby Betty informs, and never offers a downgrade", () => {
   assert.equal(rec.basis, "measured");
 });
 
-test("a healthy Baby Betty produces no advice at all", () => {
+test("a healthy local model produces no advice at all", () => {
   const rec = recommendModel(hw({ totalRamGb: 16 }), {
     small: measured(FLOOR_TPS + 5),
   });
@@ -223,9 +207,17 @@ test("a healthy Baby Betty produces no advice at all", () => {
   assert.equal(rec.basis, "measured");
 });
 
+test("a stale profile for the deprecated 9B does not disturb the answer", () => {
+  const rec = recommendModel(nvidia(32), {
+    normal: { medianTps: 2, samples: MIN_SAMPLES, wordsPerSec: 0.2 },
+  });
+  assert.equal(rec.tier, "small");
+  assert.equal(rec.basis, "estimated");
+  assert.equal(rec.advice, null);
+});
+
 test("the recommendation carries the catalog entry the UI needs", () => {
   const rec = recommendModel(nvidia(32));
-  assert.equal(rec.entry.tier, "normal");
   assert.ok(rec.entry.name.length > 0);
   assert.ok(rec.entry.sizeBytes > 0);
   assert.ok(rec.entry.fileName.endsWith(".gguf"));
@@ -267,30 +259,14 @@ test("summarizeHardware classifies the three machine kinds", () => {
 
 // ── Dev override ─────────────────────────────────────────────────────────
 
-test("BETHANIEL_FAKE_RAM_GB overrides the RAM gate", () => {
-  const machine = hw({ totalRamGb: 64, gpu: { vendor: "nvidia", vramGb: 24, name: "x" } });
-  assert.equal(recommendModel(machine).tier, "normal");
+test("BETHANIEL_FAKE_RAM_GB reaches the summary and the RAM gate", () => {
+  const machine = nvidia(24);
+  assert.ok(getAllowedTiers(machine).includes("small"));
 
-  process.env.BETHANIEL_FAKE_RAM_GB = "8";
+  process.env.BETHANIEL_FAKE_RAM_GB = "4";
   try {
-    assert.equal(recommendModel(machine).tier, "small");
-    assert.equal(summarizeHardware(machine).totalRamGb, 8);
-  } finally {
-    delete process.env.BETHANIEL_FAKE_RAM_GB;
-  }
-});
-
-test("BETHANIEL_FAKE_RAM_GB also drives the Apple Silicon guess", () => {
-  // Unified memory IS the deciding figure on Apple, so an override that only
-  // reached the clamp would leave the Apple branch impossible to exercise on
-  // a machine that doesn't already have the RAM.
-  const m4 = apple("Apple M4", 16);
-  assert.equal(guessTierFromHardware(m4), "small");
-
-  process.env.BETHANIEL_FAKE_RAM_GB = "24";
-  try {
-    assert.equal(guessTierFromHardware(m4), "normal");
-    assert.equal(recommendModel(m4).tier, "normal");
+    assert.equal(summarizeHardware(machine).totalRamGb, 4);
+    assert.ok(!getAllowedTiers(machine).includes("small"));
   } finally {
     delete process.env.BETHANIEL_FAKE_RAM_GB;
   }

@@ -165,3 +165,69 @@ export function computeRuntime(
     estimatedSecondsRemaining: maxEtaSeconds,
   };
 }
+
+// ── Job-level throughput ─────────────────────────────────────────────────
+//
+// The rate an estimate needs is manuscript words per second of WALL CLOCK for
+// the whole run. It used to be recorded per chapter — each task's own words
+// over its own duration — which with three chapters running side by side
+// under-reads the machine by up to 3×, and the run-time estimate built on it
+// read "several hours" for a book an RTX 5090 finished in fifteen minutes.
+//
+// Measured across the job instead: every chapter's words, over the span from
+// the first chapter starting to the last one finishing. Parallel slots,
+// warm-up and the review passes all land inside that span, which is exactly
+// why it is the honest number.
+
+/**
+ * Modes whose duration says nothing about the model's speed: the counting
+ * passes finish in seconds without a token, and the sampled enhancement reads
+ * a slice of the book rather than the book. A run made only of these records
+ * nothing.
+ */
+const NOT_A_SPEED_SAMPLE = new Set([
+  ...META_MODES,
+  "publication_scan",
+  "language_analysis",
+  "language_enhance",
+]);
+
+export interface JobThroughput {
+  model: string;
+  /** Manuscript words per second of wall clock across the whole job. */
+  wordsPerSec: number;
+  words: number;
+  seconds: number;
+}
+
+/**
+ * The job's measured rate once it has settled, or null while any chapter is
+ * still queued or running — a partial figure would be measured over a partial
+ * span and mean nothing.
+ *
+ * Only `done` chapters contribute words; a chapter that failed produced
+ * nothing to count. The span still runs from the earliest start to the latest
+ * finish of the chapters that did complete. A job with no finished chapter, or
+ * one that finished inside the same millisecond (a fast failure with a stale
+ * `done`), records nothing rather than an absurd rate.
+ */
+export function jobThroughput(tasks: readonly TaskState[]): JobThroughput | null {
+  const chapters = tasks.filter((t) => !NOT_A_SPEED_SAMPLE.has(t.mode));
+  if (chapters.length === 0) return null;
+  if (chapters.some((t) => t.status === "queued" || t.status === "editing")) {
+    return null;
+  }
+  const done = chapters.filter(
+    (t) => t.status === "done" && t.startedAt != null && t.finishedAt != null,
+  );
+  if (done.length === 0) return null;
+  const model = done[0].model;
+  if (!model) return null;
+  const start = Math.min(...done.map((t) => t.startedAt!));
+  const end = Math.max(...done.map((t) => t.finishedAt!));
+  const seconds = (end - start) / 1000;
+  if (!(seconds > 0)) return null;
+  const words = done.reduce((n, t) => n + (t.wordCount ?? 0), 0);
+  if (words <= 0) return null;
+  return { model, wordsPerSec: words / seconds, words, seconds };
+}

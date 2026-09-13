@@ -1691,8 +1691,12 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
   const vramMib = hw.gpu.vramGb != null ? hw.gpu.vramGb * 1024 : null;
   // Withdrawn from sale — see CLOUD_OFFER_SUSPENDED. Hidden rather than
   // removed, so a credential already paid for still resolves its config.
+  // Deprecated entries are hidden the same way: a file already on disk keeps
+  // running, but nothing offers it for download.
   const catalog = MODEL_CATALOG.filter(
-    (entry) => !(CLOUD_OFFER_SUSPENDED && entry.id === "bethaniel-cloud"),
+    (entry) =>
+      !entry.deprecated &&
+      !(CLOUD_OFFER_SUSPENDED && entry.id === "bethaniel-cloud"),
   ).map((entry) => ({
     ...entry,
     allowed:

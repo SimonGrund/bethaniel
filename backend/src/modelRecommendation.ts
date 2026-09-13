@@ -1,26 +1,36 @@
-// ── Which Betty should this machine run? ──
+// ── Is this machine worth running Betty on? ──
 //
-// The old answer was "the biggest one that fits in RAM". That is wrong twice
-// over: RAM tells you a model *loads*, not that it is *usable*, and the tier
-// list it derived from always ended in "custom" so the badge landed on the
-// cloud card. A 32 GB CPU-only laptop was being pointed at a 24B model that
-// decodes at ~2 tok/s.
+// There used to be two local models and this module chose between them from
+// GPU class. There is one now: the 9B tied the 4B on copy edit, lost to it on
+// line edit, and the one pass it was better at — translation — no longer runs
+// locally at all. So the question is no longer "which Betty" but "how long
+// will Local Betty take here, and is that a wait worth having".
 //
-// The answer here has two layers:
+// The answer has two layers:
 //
-//   1. A pessimistic guess from GPU class. Unknown hardware falls to the
-//      bottom, never the top — being wrong downward costs a user some quality,
-//      being wrong upward costs them an unusable app.
-//   2. A correction from measured decode throughput. Real tok/s beats any
-//      table, so once we have enough samples we let them override the guess.
+//   1. An expected words-per-second from hardware class. Calibrated against
+//      one real measurement (an RTX 5090 doing 80,000 words in 15 minutes)
+//      and scaled down by memory bandwidth from there; unknown hardware falls
+//      to the bottom, never the top. Being wrong downward costs a user a
+//      pleasant surprise, being wrong upward costs them an evening.
+//   2. A correction from measured throughput. Real figures beat any table,
+//      so once a job has finished here its rate overrides the guess.
 //
 // Everything in this module is pure — hardware and throughput come in as plain
 // data so the whole decision table is testable without a GPU. Detection lives
-// in routes.ts; persistence lives in db.ts.
+// in hardware.ts; persistence lives in db.ts.
 
-import { MODEL_CATALOG, type ModelCatalogEntry } from "./modelCatalog.js";
+import {
+  MODEL_CATALOG,
+  getLocalEntry,
+  type ModelCatalogEntry,
+} from "./modelCatalog.js";
 
-/** The two bundled local tiers, smallest first. Custom/API are never recommended. */
+/**
+ * The bundled local tier. "normal" (the 9B) is deprecated and no longer
+ * recommended, but a throughput profile measured for it before that still
+ * parses, so the type keeps both.
+ */
 export const LOCAL_TIERS = ["small", "normal"] as const;
 export type LocalTier = (typeof LOCAL_TIERS)[number];
 
@@ -47,12 +57,19 @@ export interface ThroughputProfile {
 // ── Tuning constants ─────────────────────────────────────────────────────
 // Below FLOOR_TPS a run stops feeling like software and starts feeling like
 // waiting. 8 tok/s is roughly "a correction every few seconds" — slow but
-// tolerable; the tiers below it are where users give up.
+// tolerable; below it is where users give up.
 export const FLOOR_TPS = 8;
 /** Medians from fewer samples than this are noise (first chunk pays warm-up). */
 export const MIN_SAMPLES = 3;
 /** Rolling window of retained samples per model. */
 export const PERF_WINDOW = 10;
+
+/**
+ * The manuscript every expectation is phrased against. A novel, because that
+ * is what people bring; 90,000 because it is the middle of the range and the
+ * number rounds cleanly at every speed in the table.
+ */
+export const REFERENCE_WORDS = 90_000;
 
 // ── Apple Silicon variants ───────────────────────────────────────────────
 // Memory bandwidth differs ~3× between an M4 (120 GB/s) and an M4 Max
@@ -70,36 +87,53 @@ export function appleChipVariant(name: string | null): AppleVariant | null {
   return "base";
 }
 
-// ── Layer 1: guess from GPU class ────────────────────────────────────────
+// ── Layer 1: expected speed from hardware class ─────────────────────────
 
 /**
- * The tier this machine's GPU can drive at a usable speed, ignoring RAM.
+ * Manuscript words per second of wall clock — the whole pipeline, parallel
+ * slots included — that Local Betty should manage on this hardware before
+ * anything has been measured.
  *
- * Deliberately conservative. Anything we cannot positively identify as fast —
- * CPU-only, AMD, Intel, an NVIDIA card we couldn't read VRAM from — lands on
- * the smallest model.
+ * Decode on a 4B Q4 model is memory-bandwidth-bound, so the table is a
+ * bandwidth ladder with one measured rung: an RTX 5090 (1.8 TB/s) did 80,000
+ * words in 15 minutes, call it 80/s with headroom. Everything below scales by
+ * bandwidth and then rounds DOWN, because an estimate that reads "20 minutes"
+ * and takes 30 feels broken while the reverse feels fine.
+ *
+ * Deliberately conservative on anything it cannot positively identify as
+ * fast — AMD, Intel, an NVIDIA card whose VRAM would not read — which all
+ * land on the CPU figure.
  */
-export function guessTierFromHardware(hw: HardwareInfo): LocalTier {
+export function expectedWordsPerSec(hw: HardwareInfo): number {
   if (hw.appleSilicon) {
-    // Unified memory doubles as VRAM. Read the effective figure so
-    // BETHANIEL_FAKE_RAM_GB reaches the guess too, not only the clamp below
-    // — otherwise the Apple branch is untestable.
-    const unifiedGb = effectiveRamGb(hw);
-    if (unifiedGb >= 24) return "normal";
-    return "small";
+    switch (appleChipVariant(hw.gpu.name)) {
+      case "ultra":
+        return 40; // ~800 GB/s
+      case "max":
+        return 30; // ~400–550 GB/s
+      case "pro":
+        return 15; // ~200–270 GB/s
+      default:
+        return 8; // ~100–120 GB/s, and the unnamed case
+    }
   }
 
   if (hw.gpu.vendor === "nvidia" && hw.gpu.vramGb != null) {
-    // 12 GB holds the 9B comfortably; below that it spills to system RAM.
-    if (hw.gpu.vramGb >= 12) return "normal";
-    return "small";
+    // VRAM is a proxy for card class, and the only figure nvidia-smi gives
+    // us for free. Bands sit at the generation boundaries: 32 GB is a 5090,
+    // 24 GB a 3090/4090, 16 GB a 4080-class card, 12 GB a 4070, 8 GB a 4060.
+    const vram = hw.gpu.vramGb;
+    if (vram >= 30) return 80;
+    if (vram >= 22) return 50;
+    if (vram >= 15) return 35;
+    if (vram >= 11) return 25;
+    if (vram >= 7) return 15;
+    return 8;
   }
 
-  // No usable accelerator — CPU decode. Baby Betty is the only honest answer.
-  return "small";
+  // No usable accelerator — CPU decode. Runs, and runs overnight.
+  return 3;
 }
-
-// effectiveRamGb is declared below; hoisting is fine for function declarations.
 
 // ── RAM gate ─────────────────────────────────────────────────────────────
 
@@ -118,33 +152,19 @@ export function effectiveRamGb(hw: HardwareInfo): number {
 /**
  * Tiers this machine has the memory to load at all.
  *
- * This is the download gate for advanced mode, deliberately looser than the
- * recommendation — a user who knows what they're doing may still want the big
- * model. Deduplicated: Custom Betty and External Betty share the "custom" tier
- * and both have minRam 0, which is what made the old `reverse()[0]` derivation
- * always answer "custom".
+ * This is the download gate for advanced mode. Deduplicated: Custom Betty and
+ * External Betty share the "custom" tier and both have minRam 0, which is what
+ * made the old `reverse()[0]` derivation always answer "custom". Deprecated
+ * entries never count — a tier nobody can download is not "allowed".
  */
 export function getAllowedTiers(hw: HardwareInfo): string[] {
   const totalRamGb = effectiveRamGb(hw);
   const tiers = new Set<string>();
   for (const entry of MODEL_CATALOG) {
+    if (entry.deprecated) continue;
     if (totalRamGb >= minRamFor(entry, hw)) tiers.add(entry.tier);
   }
   return [...tiers];
-}
-
-/** Step `tier` down until the machine has the RAM to load it. */
-function clampToRam(tier: LocalTier, hw: HardwareInfo): LocalTier {
-  const totalRamGb = effectiveRamGb(hw);
-  for (let i = LOCAL_TIERS.indexOf(tier); i >= 0; i--) {
-    const candidate = LOCAL_TIERS[i];
-    const entry = MODEL_CATALOG.find((e) => e.tier === candidate);
-    if (entry && totalRamGb >= minRamFor(entry, hw)) return candidate;
-  }
-  // Under 8 GB nothing officially fits. Recommend the smallest anyway — it is
-  // the only thing with a chance, and refusing to name a model leaves the
-  // first-run popup with nothing to offer.
-  return "small";
 }
 
 // ── Layer 2: correct with measured throughput ────────────────────────────
@@ -168,8 +188,13 @@ export interface Recommendation {
   entry: ModelCatalogEntry;
   /** "measured" once real throughput informed the answer. */
   basis: "estimated" | "measured";
-  /** Set when measurement moved us off the guess, or when even Baby Betty is slow. */
+  /** Set when the local model has measured too slow to be pleasant here. */
   advice: Advice | null;
+  /**
+   * Words per second of wall clock to expect — measured when a job has
+   * finished here, the hardware table's figure until then.
+   */
+  wordsPerSec: number;
 }
 
 /** A profile only counts once it has enough samples to not be warm-up noise. */
@@ -178,62 +203,52 @@ export function isTrusted(profile: ThroughputProfile | undefined): boolean {
 }
 
 /**
- * Pick the model to recommend.
+ * The local model, and what to expect from it here.
  *
- * `profiles` maps a local tier to what we have actually measured for it. Tiers
- * we have never run are simply absent, which is the common case on first launch.
+ * `profiles` maps a local tier to what has actually been measured for it.
+ * Tiers never run are simply absent, which is the common case on first launch.
+ * There is no longer a tier walk: the only downloadable model is the small
+ * one, so the recommendation is always that, and the interesting output is
+ * the speed to expect and whether that is slow enough to say so.
  */
 export function recommendModel(
   hw: HardwareInfo,
   profiles: Partial<Record<LocalTier, ThroughputProfile>> = {},
 ): Recommendation {
-  const guessed = clampToRam(guessTierFromHardware(hw), hw);
+  const entry = getLocalEntry();
+  const tier = entry.tier as LocalTier;
+  const profile = profiles[tier];
+  const measured = isTrusted(profile);
 
-  let tier = guessed;
-  let basis: "estimated" | "measured" = "estimated";
-
-  // Walk down while the tier we would recommend has measured below the floor.
-  // Each step is only taken on trusted evidence, so an untested smaller model
-  // ends the walk rather than being skipped over.
-  while (tier !== "small") {
-    const profile = profiles[tier];
-    if (!isTrusted(profile) || profile!.medianTps >= FLOOR_TPS) break;
-    basis = "measured";
-    tier = LOCAL_TIERS[LOCAL_TIERS.indexOf(tier) - 1];
-  }
-
-  const entry = MODEL_CATALOG.find((e) => e.tier === tier)!;
+  // A measured job rate beats the table, and it is the same unit the estimate
+  // needs. A trusted profile without one (recorded before job-level rates
+  // existed) still marks the basis measured but keeps the table's speed.
+  const wordsPerSec =
+    measured && profile!.wordsPerSec && profile!.wordsPerSec > 0
+      ? profile!.wordsPerSec
+      : expectedWordsPerSec(hw);
 
   let advice: Advice | null = null;
-  if (tier !== guessed) {
-    const measured = profiles[guessed]!;
+  if (measured && profile!.medianTps < FLOOR_TPS) {
+    // Nothing smaller to fall back to. Say so plainly with a time estimate
+    // instead of offering a downgrade that does not exist — and never nudge
+    // toward the cloud from here; the UI decides how to phrase that.
     advice = {
-      kind: "downgrade",
-      from: guessed,
+      kind: "slow",
+      from: tier,
       to: tier,
-      medianTps: measured.medianTps,
-      wordsPerSec: measured.wordsPerSec,
+      medianTps: profile!.medianTps,
+      wordsPerSec: profile!.wordsPerSec,
     };
-  } else {
-    // No smaller model to fall back to. If the smallest is itself below the
-    // floor, say so plainly with a time estimate instead of offering a
-    // downgrade that does not exist — and never nudge toward the cloud.
-    const profile = profiles[tier];
-    if (tier === "small" && isTrusted(profile) && profile!.medianTps < FLOOR_TPS) {
-      basis = "measured";
-      advice = {
-        kind: "slow",
-        from: tier,
-        to: tier,
-        medianTps: profile!.medianTps,
-        wordsPerSec: profile!.wordsPerSec,
-      };
-    } else if (isTrusted(profile)) {
-      basis = "measured";
-    }
   }
 
-  return { tier, entry, basis, advice };
+  return {
+    tier,
+    entry,
+    basis: measured ? "measured" : "estimated",
+    advice,
+    wordsPerSec,
+  };
 }
 
 // ── Human-readable basis for the recommendation ──────────────────────────

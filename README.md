@@ -37,30 +37,37 @@ The Electron app bundles `llama-server` for local GGUF model inference.
 
 ### Models
 
-Five ways to run the same pipeline. The wizard's first step picks one; nothing
-else about a job changes with the choice.
+Four ways to run the same pipeline. Nothing else about a job changes with the
+choice.
 
 | Model | Where it runs | What you need |
 | --- | --- | --- |
-| **Baby Betty** — Qwen3.5 4B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~3 GB disk, 8 GB RAM |
-| **Big Bad Betty** — Qwen3.5 9B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~6 GB disk, 16 GB RAM (12 GB on Apple Silicon) |
+| **Local Betty** — Qwen3.5 4B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~3 GB disk, 8 GB RAM |
 | **Custom Betty** | Your machine | Any GGUF file you point it at |
 | **External Betty** | DeepSeek, or any OpenAI-compatible endpoint | Your own API key |
 | **Betty in the Cloud** — Qwen3.5 9B for editing, GLM-5.2 for translation | Bethaniel's hosted service | A card — pay per job |
 
-The two local models are the default and the only ones that keep the manuscript
-on the machine. On the four-language benchmark the two score level overall (46
-each); split by language the 9B gains about three points of recall and three of
-precision, concentrated in capitalization and German commas — and it is *worse*
-than the 4B on Danish wrong words. See [Quality benchmark](#quality-benchmark).
+Local Betty is the default and the only offer that keeps the manuscript on the
+machine. Until it is on disk, the Run button reads *Download Local Betty (2.6 GB)
+to run local* and says how long a 90,000-word novel should take on the machine
+it is looking at — from a hardware table until a run has finished there, from
+that run's measured rate afterwards (`backend/src/modelRecommendation.ts`).
+On a CPU-only machine that is an overnight job and the button says so; the
+cloud is the better fit there.
 
-**Translation is the one pass the local models do not run.** Neither Baby Betty
-nor Big Bad Betty was good enough at it: a weak translation is fluent, confident
-and wrong, and an author who does not read both languages cannot see it. The
-app refuses a translate job on a bundled model and offers the cloud instead;
-External Betty (your own key on a hosted model) is also accepted. In the cloud
-translation runs on GLM-5.2, in its own price band — it is the one product that
-still needs a large model.
+**There used to be a second local model**, Big Bad Betty (Qwen3.5 9B). It is
+deprecated: on the four-language benchmark it tied the 4B on copy edit (60%
+each) and was *worse* on line edit (49% against 52%), and the one pass where its
+size paid — translation — no longer runs locally at all. An install that already
+has the file keeps working; nothing offers it for download. See
+[Quality benchmark](#quality-benchmark).
+
+**Translation is the one pass the local model does not run.** It was not good
+enough at it: a weak translation is fluent, confident and wrong, and an author
+who does not read both languages cannot see it. The app refuses a translate job
+on the bundled model and offers the cloud instead; External Betty (your own key
+on a hosted model) is also accepted. In the cloud translation runs on GLM-5.2, in
+its own price band — it is the one product that still needs a large model.
 
 ### External API Support
 
@@ -268,7 +275,7 @@ llama-server port.
 
 ```bash
 # From the repo root:
-npm run betty -- --model Baby-betty --mode copy line \
+npm run betty -- --model Local-betty --mode copy line \
   --input-doc book.docx --export-format docx md
 ```
 
@@ -276,7 +283,7 @@ npm run betty -- --model Baby-betty --mode copy line \
 
 | Flag                   | Required          | Notes                                                                                   |
 | ---------------------- | ----------------- | --------------------------------------------------------------------------------------- |
-| `--model <name>`       | yes               | Friendly name (`Baby Betty`), tier (`small`), id (`qwen3.5-4b`), gguf filename, or `custom:<id>` (case/space/hyphen-insensitive) |
+| `--model <name>`       | yes               | Friendly name (`Local Betty`), tier (`small`), id (`qwen3.5-4b`), gguf filename, or `custom:<id>` (case/space/hyphen-insensitive) |
 | `--mode <mode>...`     | yes               | One or more of `copy line analysis translation` (space- or comma-separated). `copy`+`line` merge into one combined edit |
 | `--input-doc <path>`   | yes               | `.docx`, `.md`, or `.txt`                                                                |
 | `--export-format <f>...`| yes              | One or more of `docx md epub`                                                            |
@@ -327,7 +334,7 @@ without extra flags. Otherwise pass `--api-key` once (it's saved) or point
 ```bash
 cd backend
 npm run install:betty      # npm link → global `betty` command
-betty --model Baby-betty --mode copy --input-doc book.md -f md   # from anywhere
+betty --model Local-betty --mode copy --input-doc book.md -f md   # from anywhere
 npm run uninstall:betty    # remove it later
 ```
 

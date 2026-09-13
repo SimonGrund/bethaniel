@@ -13,11 +13,11 @@ run. Both models are distributed under the **Apache License 2.0**.
 
 ---
 
-## 1. Baby Betty — Qwen3.5 4B (Q4_K_M)
+## 1. Local Betty — Qwen3.5 4B (Q4_K_M)
 
 | Field             | Value                                                                             |
 | ----------------- | --------------------------------------------------------------------------------- |
-| In-app name       | Baby Betty                                                                        |
+| In-app name       | Local Betty (called Baby Betty before September 2026)                             |
 | Model family      | Qwen3.5                                                                           |
 | Parameter count   | 4 B                                                                               |
 | Quantization      | Q4_K_M GGUF                                                                       |
@@ -47,7 +47,7 @@ limitations under the License.
 
 ---
 
-## 2. Big Bad Betty — Qwen3.5 9B (Q4_K_M)
+## 2. Big Bad Betty — Qwen3.5 9B (Q4_K_M) — deprecated, no longer offered for download
 
 | Field             | Value                                                                             |
 | ----------------- | --------------------------------------------------------------------------------- |

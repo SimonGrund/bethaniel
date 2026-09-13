@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   computeJobProgress,
   computeRuntime,
+  jobThroughput,
   liveJobProgress,
 } from "../src/runStats.ts";
 import type { TaskState } from "../src/types.ts";
@@ -288,4 +289,83 @@ test("after a restart nothing is live", () => {
     task({ id: "c", jobId: "older", status: "error" }),
   ]);
   assert.deepEqual(Object.keys(p), []);
+});
+
+// ── Job-level throughput ──
+//
+// The run-time estimate was built on a per-chapter rate — each chapter's words
+// over its own duration — which with three slots read the machine at a third
+// of its speed: "several hours" for a book a 5090 did in fifteen minutes.
+
+test("three parallel chapters measure as the machine's rate, not a slot's", () => {
+  // Three 10,000-word chapters, each taking 100 s, all at once: 30,000 words
+  // in 100 s of wall clock — 300/s — where the per-chapter figure said 100/s.
+  const r = jobThroughput([
+    task({ id: "a", status: "done", wordCount: 10_000, startedAt: 0, finishedAt: 100_000, model: "m.gguf" }),
+    task({ id: "b", status: "done", wordCount: 10_000, startedAt: 0, finishedAt: 100_000, model: "m.gguf" }),
+    task({ id: "c", status: "done", wordCount: 10_000, startedAt: 0, finishedAt: 100_000, model: "m.gguf" }),
+  ]);
+  assert.ok(r);
+  assert.equal(r.model, "m.gguf");
+  assert.equal(r.words, 30_000);
+  assert.equal(r.seconds, 100);
+  assert.equal(r.wordsPerSec, 300);
+});
+
+test("the span runs from the first start to the last finish", () => {
+  const r = jobThroughput([
+    task({ id: "a", status: "done", wordCount: 6_000, startedAt: 0, finishedAt: 60_000, model: "m.gguf" }),
+    task({ id: "b", status: "done", wordCount: 6_000, startedAt: 30_000, finishedAt: 120_000, model: "m.gguf" }),
+  ]);
+  assert.equal(r?.seconds, 120);
+  assert.equal(r?.wordsPerSec, 100);
+});
+
+test("nothing is recorded while a chapter is still queued or editing", () => {
+  const settled = task({ id: "a", status: "done", wordCount: 1000, startedAt: 0, finishedAt: 10_000, model: "m.gguf" });
+  assert.equal(jobThroughput([settled, task({ id: "b", status: "queued" })]), null);
+  assert.equal(jobThroughput([settled, task({ id: "b", status: "editing" })]), null);
+});
+
+test("failed and cancelled chapters contribute no words, and a job of them records nothing", () => {
+  const r = jobThroughput([
+    task({ id: "a", status: "done", wordCount: 1000, startedAt: 0, finishedAt: 10_000, model: "m.gguf" }),
+    task({ id: "b", status: "error", wordCount: 5000, startedAt: 0, finishedAt: 1_000, model: "m.gguf" }),
+    task({ id: "c", status: "cancelled", wordCount: 5000, model: "m.gguf" }),
+  ]);
+  assert.equal(r?.words, 1000);
+  assert.equal(r?.wordsPerSec, 100);
+  assert.equal(
+    jobThroughput([task({ id: "b", status: "error", wordCount: 5000, startedAt: 0, finishedAt: 1_000, model: "m.gguf" })]),
+    null,
+  );
+});
+
+test("the counting passes and meta tasks are not speed samples", () => {
+  // A publication scan finishes in a second without a token; counted, it
+  // would make the next estimate absurdly optimistic.
+  assert.equal(
+    jobThroughput([
+      task({ id: "a", mode: "publication_scan", status: "done", wordCount: 90_000, startedAt: 0, finishedAt: 800, model: "m.gguf" }),
+      task({ id: "b", mode: "language_analysis", status: "done", wordCount: 90_000, startedAt: 0, finishedAt: 900, model: "m.gguf" }),
+    ]),
+    null,
+  );
+  // And a pending summary does not hold the measurement back either.
+  const r = jobThroughput([
+    task({ id: "a", status: "done", wordCount: 1000, startedAt: 0, finishedAt: 10_000, model: "m.gguf" }),
+    task({ id: "s", mode: "analysis_summary", status: "queued" }),
+  ]);
+  assert.equal(r?.wordsPerSec, 100);
+});
+
+test("a zero-length span or a task without a model records nothing", () => {
+  assert.equal(
+    jobThroughput([task({ id: "a", status: "done", wordCount: 1000, startedAt: 5, finishedAt: 5, model: "m.gguf" })]),
+    null,
+  );
+  assert.equal(
+    jobThroughput([task({ id: "a", status: "done", wordCount: 1000, startedAt: 0, finishedAt: 10_000 })]),
+    null,
+  );
 });

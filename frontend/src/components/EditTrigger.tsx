@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
 import CloudCodeClaim from "./CloudCodeClaim";
 import { estimateRun, formatEstimate } from "../runEstimate";
+import { formatBytes, formatDuration, REFERENCE_WORDS } from "../modelCopy";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
@@ -349,6 +350,16 @@ export default function EditTrigger() {
   // anything and a second one later. One ask, at one moment.
   const needsLocalModel =
     !countingOnly && modelEnvLoaded && !isApiModel && installed.length === 0;
+  // The one bundled model. Read from the catalog rather than the
+  // recommendation so the download button exists even when the
+  // recommendation request failed — a fresh install with nothing to click
+  // is exactly the failure this button is for.
+  const localEntry = catalog.find((e) => e.source === "gguf") ?? null;
+  // The Run button becomes the download button while nothing local is on
+  // disk and no download is in flight. Enabled before a manuscript is
+  // loaded: the download is the first thing a fresh install needs.
+  const offerLocalDownload =
+    needsLocalModel && !activeDownload && localEntry !== null;
   const needsGrammar =
     languageToolAvailable === false &&
     !dismissedAdvice.includes("languagetool-missing");
@@ -365,7 +376,24 @@ export default function EditTrigger() {
   // the wrong thing.
   const localEta = countingOnly
     ? null
-    : estimateRun(scopeWords, model, wordsPerSec, false);
+    : estimateRun(
+        scopeWords,
+        model,
+        wordsPerSec,
+        false,
+        recommendation?.wordsPerSec,
+      );
+  // What to say under the download button: the wait for this manuscript if
+  // one is loaded, otherwise for a 90,000-word novel — so a machine that
+  // would take all night hears it before the download, not after.
+  const localExpectation = !recommendation
+    ? null
+    : scopeWords > 0 && localEta
+      ? formatEstimate(localEta.seconds, t)
+      : t("local_expect_novel", "a 90,000-word novel in about {duration}").replace(
+          "{duration}",
+          formatDuration(REFERENCE_WORDS / recommendation.wordsPerSec, t),
+        );
   // The enhanced analysis reads a sample, not the book; the per-word
   // estimate would describe a job it is not.
   const cloudEta = countingOnly
@@ -442,6 +470,35 @@ export default function EditTrigger() {
   // price is available) the pay-per-job cloud option beside it.
   return (
     <div className="run-actions">
+      {offerLocalDownload ? (
+        <button
+          className="btn-run btn-run-download"
+          disabled={submitting}
+          onClick={() => setModelIntroOpen(true)}
+          title={t(
+            "run_download_local_hint",
+            "Downloaded once, kept on your computer, and used offline from then on.",
+          )}
+        >
+          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+          <span className="btn-run-label">
+            {t("run_download_local")
+              .replace("{name}", localEntry!.name)
+              .replace("{size}", formatBytes(localEntry!.sizeBytes))}
+          </span>
+          {localExpectation && (
+            <span className="btn-run-meta">
+              {recommendation?.hardware.gpuName ??
+                (recommendation?.hardware.kind === "cpu"
+                  ? t("hw_cpu_only")
+                  : "")}
+              {" · "}
+              {localExpectation}
+              {recommendation?.basis !== "measured" && "*"}
+            </span>
+          )}
+        </button>
+      ) : (
       <button
         className="btn-run"
         disabled={disabled}
@@ -487,7 +544,7 @@ export default function EditTrigger() {
           )
         )}
       </button>
-
+      )}
 
       {cloudEntry && (
         <div className="cloud-block">
@@ -680,12 +737,12 @@ export default function EditTrigger() {
             {needsLocalModel && needsGrammar
               ? t(
                   "run_needs_both_title",
-                  "To run on your own machine, Betty needs a model (about 2 GB) and its grammar checks (about 200 MB).",
+                  "To run on your own machine, Betty needs a model (about 3 GB) and its grammar checks (about 200 MB).",
                 )
               : needsLocalModel
                 ? t(
                     "run_needs_model_title",
-                    "To run on your own machine, Betty needs a model — about 2 GB.",
+                    "To run on your own machine, Betty needs a model — about 3 GB.",
                   )
                 : t(
                     "run_needs_grammar_title",

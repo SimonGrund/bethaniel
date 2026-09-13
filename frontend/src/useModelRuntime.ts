@@ -118,7 +118,38 @@ export async function refreshModelEnvironment(): Promise<void> {
   s.setPreferredOrder(env.preferredOrder);
   s.setInstalled(env.installed);
   s.setModels(env.models);
-  if (rec) s.setRecommendation(rec);
+  if (rec) {
+    s.setRecommendation(rec);
+  } else if (!s.recommendation) {
+    // The first-run download offer, the Run button's gating and the intro
+    // dialog all hang off the recommendation. When that request fails, a
+    // fresh install used to end up with no model selected, a greyed Run
+    // button and nothing to click — so stand in for it with the catalog's
+    // local model and the flat CPU expectation. Wrong about the speed at
+    // worst; never wrong about which file to download.
+    const local = env.catalog.find((e) => e.source === "gguf");
+    if (local) {
+      s.setRecommendation({
+        modelId: local.id,
+        fileName: local.fileName,
+        name: local.name,
+        description: local.description,
+        sizeBytes: local.sizeBytes,
+        tier: local.tier,
+        basis: "estimated",
+        advice: null,
+        wordsPerSec: 3,
+        hardware: {
+          kind: "cpu",
+          gpuName: null,
+          appleVariant: null,
+          vramGb: null,
+          totalRamGb: env.hardware?.totalRamGb ?? 0,
+        },
+        installed: env.installed.some((m) => m.fileName === local.fileName),
+      });
+    }
+  }
   s.setModelEnvLoaded(true);
 }
 

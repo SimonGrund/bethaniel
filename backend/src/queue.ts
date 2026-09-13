@@ -113,7 +113,7 @@ import {
   isRateLimitError,
   retryWaitMs,
 } from "./retryPolicy.js";
-import { liveJobProgress, computeRuntime } from "./runStats.js";
+import { liveJobProgress, computeRuntime, jobThroughput } from "./runStats.js";
 import { resolveRecommendation } from "./hardware.js";
 
 /**
@@ -504,6 +504,11 @@ function updateTask(id: string, update: Partial<TaskState>): void {
       });
     }
     // Persist any task that has reached a terminal state so it survives a restart.
+    const settledNow =
+      existing.status !== prevStatus &&
+      (existing.status === "done" ||
+        existing.status === "error" ||
+        existing.status === "cancelled");
     if (
       existing.status === "done" ||
       existing.status === "error" ||
@@ -516,8 +521,32 @@ function updateTask(id: string, update: Partial<TaskState>): void {
         console.warn(`[Queue] failed to persist task ${id}:`, err);
       }
     }
+    if (settledNow) recordJobRateIfSettled(existing.jobId);
     broadcast();
   }
+}
+
+/**
+ * Once the last chapter of a job settles, record the job's words-per-second
+ * for the run-time estimate. Job-level rather than per chapter: see
+ * jobThroughput in runStats.ts for why the per-chapter figure read three
+ * times too slow. API and custom-GGUF models are skipped — the first is not
+ * this machine's speed and the second is not a model the estimate can name.
+ */
+function recordJobRateIfSettled(jobId: string): void {
+  const rate = jobThroughput(
+    [...tasks.values()].filter((t) => t.jobId === jobId),
+  );
+  if (!rate) return;
+  if (isApiModel(rate.model) || isCustomGgufModel(rate.model)) return;
+  recordJobThroughput(rate.model, rate.wordsPerSec);
+  appendLog({
+    level: "info",
+    source: "engine",
+    message: `Run done: ${rate.words.toLocaleString()} words in ${(rate.seconds / 60).toFixed(1)} min · ${rate.wordsPerSec.toFixed(1)} words/s`,
+    model: rate.model,
+  });
+  emitPerfAdvice();
 }
 
 /**
@@ -2847,24 +2876,8 @@ async function processJob(job: JobData): Promise<void> {
     });
   }
 
-  // Manuscript words per second of wall clock. Unlike the per-chunk decode
-  // figure this already accounts for parallel slots, review passes and
-  // deterministic checks, so it is the number to build an honest "a 90,000-word
-  // novel will take about N hours" estimate from.
-  // `totalOutTokens > 0` is the load-bearing part: a job that failed fast (a
-  // missing model file, an aborted load) still has a wall time, and dividing
-  // the manuscript by it yields thousands of words per second — a garbage
-  // sample that would make every later time estimate absurdly optimistic.
-  if (
-    totalMs > 0 &&
-    totalOutTokens > 0 &&
-    !isApiModel(model) &&
-    !isCustomGgufModel(model)
-  ) {
-    const words = original.trim().split(/\s+/).length;
-    recordJobThroughput(model, words / (totalMs / 1000));
-    emitPerfAdvice();
-  }
+  // The words-per-second the run-time estimate uses is recorded once the
+  // whole job settles (recordJobRateIfSettled), not here per chapter.
 
   // Deduplicate corrections — overlapping chunks and chunk boundaries can
   // produce the same correction multiple times, sometimes with extra context.

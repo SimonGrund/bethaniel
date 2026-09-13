@@ -1110,6 +1110,17 @@ h4 {
 /* Betty in the Cloud — pay-per-job. Deliberately not gold/parchment like the
    local-run button: it's a distinct, opt-in, off-device path, not the
    default. */
+/* The Run button while the local model is not on disk yet. Same slot, same
+   weight — it is the same button, asking for its one prerequisite — but
+   dashed, so the eye reads "not yet" before it reads the label. */
+.btn-run-download {
+  border-style: dashed;
+  background: linear-gradient(135deg, #2a2114 0%, #4a3a22 100%);
+}
+.btn-run-download .btn-run-label {
+  font-size: 0.95rem;
+}
+
 .btn-run-cloud {
   display: flex;
   flex-direction: column;
