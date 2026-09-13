@@ -5189,6 +5189,15 @@ summary.review-source::before {
   padding: 1rem 1.25rem;
 }
 
+/* The two questions carry a heavy golden-brown edge the model row does not:
+   they are the screen, and at 1px of parchment-on-parchment the split read as
+   two vague regions rather than two cards. #b08830 is the theme's existing
+   gold accent, so the weight is new but the colour is not. */
+.dashboard-col {
+  border: 3px solid #b08830;
+  padding: 1rem 1.15rem;
+}
+
 .dashboard-split {
   display: grid;
   /* Equal halves while there is room. Below this the columns stack, because
@@ -5196,7 +5205,9 @@ summary.review-source::before {
      unusable long before the screen runs out of height. */
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  align-items: start;
+  /* Equal height rather than each sized to its own content: side by side, two
+     cards of different heights read as one unfinished. */
+  align-items: stretch;
 }
 
 @media (max-width: 1100px) {
@@ -5221,6 +5232,31 @@ summary.review-source::before {
   font-size: 1.15rem;
   font-weight: 600;
   color: #3a2f22;
+}
+
+/* Unload the manuscript, sat on the file name it removes. Quiet until reached
+   for: it empties the card, so it should not carry the weight of the controls
+   that fill it. */
+.file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.file-remove {
+  flex: none;
+  padding: 0 0.25rem;
+  border: none;
+  background: none;
+  color: #a89878;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.file-remove:hover {
+  color: #9b2335;
 }
 
 /* ── Style guide, as one button ── */
@@ -7555,13 +7591,6 @@ summary.review-source::before {
   margin-top: 0.6rem;
 }
 
-
-/* What a PDF upload costs, said before the file is chosen rather than after. */
-.upload-pdf-note {
-  margin-top: 0.5rem;
-  max-width: 34rem;
-  color: #8a7c62;
-}
 
 /* A refusal the backend explained. Persistent — the user has to act on it. */
 .upload-error {

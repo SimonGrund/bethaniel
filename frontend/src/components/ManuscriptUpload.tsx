@@ -137,7 +137,6 @@ export default function ManuscriptUpload() {
               <p className="small-note">{t("upload_prompt")}</p>
             )}
           </div>
-          <p className="small-note upload-pdf-note">{t("pdf_caveat")}</p>
           {uploadError && (
             <p className="upload-error" role="alert">
               {uploadError}
@@ -225,7 +224,22 @@ export default function ManuscriptUpload() {
       {doc && (
         <aside className="upload-side">
           <div className="upload-side-doc">
-            <span className="file-name">{doc.name}</span>
+            <span className="file-name-row">
+              <span className="file-name">{doc.name}</span>
+              {/* On the file name rather than in the card's corner: an × up
+                  there reads as closing the card, and this unloads the
+                  manuscript. "Change document" replaces one; nothing emptied
+                  the card until now. */}
+              <button
+                type="button"
+                className="file-remove"
+                onClick={clearDocument}
+                title={t("remove_document")}
+                aria-label={t("remove_document")}
+              >
+                ×
+              </button>
+            </span>
             <span className="file-stats">
               {doc.wordCount.toLocaleString()} words ·{" "}
               {doc.chapters.length === 0

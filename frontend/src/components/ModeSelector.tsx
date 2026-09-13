@@ -16,6 +16,7 @@ import { useTranslation } from "../i18n";
 import {
   FRONT_CARD_MODES,
   frontCardFor,
+  styleGuideApplies,
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
 } from "../types";
@@ -29,6 +30,7 @@ import type {
 // A local const in this file today, and it stays one — nothing else needs it.
 import ManuscriptSettings from "./ManuscriptSettings";
 import FoldingPanel from "./FoldingPanel";
+import StyleGuideButton from "./StyleGuideButton";
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "spelling",
@@ -283,7 +285,14 @@ export default function ModeSelector({
       </div>
 
       {activeCard && controlsOpen && (
-        <div className="task-controls">{renderControls()}</div>
+        <div className="task-controls">
+          {renderControls()}
+          {/* Inside the collapsible controls, not beside them: the style guide
+              is one of this task's settings, and a lone button left standing
+              after the rest of them folded away read as something the fold had
+              missed. Only for runs that read one — see styleGuideApplies. */}
+          {styleGuideApplies(selectedModes) && <StyleGuideButton />}
+        </div>
       )}
 
     </section>

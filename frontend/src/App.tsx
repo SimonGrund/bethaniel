@@ -22,9 +22,8 @@ import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
 import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
-import StyleGuideButton from "./components/StyleGuideButton";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
-import { betaGroupFor, styleGuideApplies } from "./types";
+import { betaGroupFor } from "./types";
 import type {
   TaskState,
   DownloadProgress,
@@ -61,9 +60,6 @@ export default function App() {
   const setIntroOpen = useStore((s) => s.setIntroOpen);
   const advancedMode = useStore((s) => s.advancedMode);
   const showExperimental = useStore((s) => s.showExperimental);
-  // The style guide is only asked for by runs that read one — see
-  // styleGuideApplies in types.ts for which modes those are.
-  const styleApplies = styleGuideApplies(selectedModes);
   const setPerfAdvice = useStore((s) => s.setPerfAdvice);
   const setModelReadyOpen = useStore((s) => s.setModelReadyOpen);
   const setLanguageToolAvailable = useStore((s) => s.setLanguageToolAvailable);
@@ -386,8 +382,6 @@ export default function App() {
                         TASK belongs with the tasks. */}
                     {(showExperimental ||
                       betaGroupFor(selectedModes) !== null) && <BetaFeatures />}
-                    {/* Only for runs that read one — see styleGuideApplies. */}
-                    {styleApplies && <StyleGuideButton />}
                   </section>
                 </div>
 

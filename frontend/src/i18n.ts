@@ -238,10 +238,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "No se pudo leer ese archivo.",
   },
   upload_prompt: {
-    en: "Upload a .docx to begin.",
-    da: "Upload en .docx for at starte.",
-    de: "Lade eine .docx hoch, um zu beginnen.",
-    es: "Sube un .docx para comenzar.",
+    // Names every format Betty accepts, and which two to prefer. .docx and
+    // .epub both carry real structure; the PDF path has to reconstruct
+    // paragraphs, emphasis and headings from glyph geometry
+    // (backend/src/pdfToMarkdown.ts), so it is the lossiest of the three and
+    // is accepted rather than recommended. Extensions stay lower-case — an
+    // extension is not a proper noun.
+    en: "Upload a .docx, .epub, or .pdf. Recommended formats are .docx and .epub",
+    da: "Upload en .docx, .epub eller .pdf. Anbefalede formater er .docx og .epub",
+    de: "Laden Sie eine .docx, .epub oder .pdf hoch. Empfohlene Formate sind .docx und .epub",
+    es: "Sube un .docx, .epub o .pdf. Los formatos recomendados son .docx y .epub",
   },
   lbl_file: {
     en: "file",
@@ -3318,6 +3324,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Erstat med en fil",
     de: "Durch eine Datei ersetzen",
     es: "Reemplazar con un archivo",
+  },
+  remove_document: {
+    en: "Remove this manuscript",
+    da: "Fjern dette manuskript",
+    de: "Dieses Manuskript entfernen",
+    es: "Quitar este manuscrito",
   },
   // ── Manuscript preview dialog + style-guide button ──
   preview_open: {
