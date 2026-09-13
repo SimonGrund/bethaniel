@@ -22,9 +22,7 @@ import type {
 } from "../types";
 
 // A local const in this file today, and it stays one — nothing else needs it.
-import DetectionBadge from "./DetectionBadge";
-
-const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
+import ManuscriptSettings from "./ManuscriptSettings";
 
 const COPY_EDIT_KEYS: (keyof CopyEditOptions)[] = [
   "spelling",
@@ -80,9 +78,6 @@ export default function ModeSelector({
     setLineEditOption,
     targetLang,
     setTargetLang,
-    manuscriptLang,
-    setManuscriptLang,
-    detectedSettings,
     markStepComplete,
     advanceWizard,
     lineEditEnabled,
@@ -104,8 +99,6 @@ export default function ModeSelector({
   // preference used when the Edit card is re-selected; while the card is
   // active the selection itself is authoritative.
   const lineEditOn = selectedModes.includes("line_edit");
-  // `isEnglishManuscript` is declared with the manuscript-language row below,
-  // which is where it came from and what it is used with.
 
   // Reconcile a selection saved before `lineEditEnabled` existed: if the Edit
   // card is showing copy-only, the remembered preference must say so too, or
@@ -143,50 +136,12 @@ export default function ModeSelector({
     markStepComplete("edits");
   }
 
-  const isKnownManuscriptLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
-  const isEnglishManuscript = manuscriptLang === "en";
-  // Danish sanctions two comma systems and the author picks one — see the
-  // danishComma note in types.ts. Only Danish manuscripts see this.
-  const isDanishManuscript = manuscriptLang === "da";
-
-  // Shared by every panel whose output depends on the manuscript's language:
-  // edits stay in it, and the reports (developmental, writing, story overview)
-  // are written in it.
-  const manuscriptLangRow = (
-    <div className="translate-lang manuscript-lang-row">
-      <label>
-        {t("manuscript_language")}:{" "}
-        <select
-          value={isKnownManuscriptLang ? manuscriptLang : "other"}
-          onChange={(e) =>
-            setManuscriptLang(e.target.value === "other" ? "" : e.target.value)
-          }
-          className="lang-input"
-        >
-          {KNOWN_MANUSCRIPT_LANGS.map((l) => (
-            <option key={l} value={l}>
-              {t(`lang_${l}`)}
-            </option>
-          ))}
-          <option value="other">{t("lang_other")}</option>
-        </select>
-      </label>
-      {!isKnownManuscriptLang && (
-        <input
-          type="text"
-          value={manuscriptLang}
-          onChange={(e) => setManuscriptLang(e.target.value)}
-          placeholder={t("lang_other_placeholder")}
-          className="lang-input"
-        />
-      )}
-      <DetectionBadge
-        detection={detectedSettings?.manuscriptLang}
-        current={manuscriptLang}
-        lang={lang}
-      />
-    </div>
-  );
+  // Language, dialect and the comma conventions now live in one collapsible
+  // panel that reports what Betty read off the manuscript. Which rows it shows
+  // depends on the card — see CARD_SETTINGS in ManuscriptSettings.tsx.
+  const manuscriptSettings = activeCard ? (
+    <ManuscriptSettings card={activeCard} />
+  ) : null;
 
   // Controls for the selected card, rendered BELOW the card row so every card
   // stays the same shape.
@@ -194,7 +149,7 @@ export default function ModeSelector({
     if (activeCard === "translate") {
       return (
         <>
-          {manuscriptLangRow}
+          {manuscriptSettings}
         <div className="translate-lang">
           <label>
             {t("target_language")}:{" "}
@@ -211,7 +166,7 @@ export default function ModeSelector({
       );
     }
     if (activeCard === "readthrough" || activeCard === "language")
-      return manuscriptLangRow;
+      return manuscriptSettings;
     return (
       <>
         <label className="line-edit-toggle">
@@ -228,7 +183,7 @@ export default function ModeSelector({
           </span>
         </label>
 
-        {manuscriptLangRow}
+        {manuscriptSettings}
 
         <div className="option-panel">
           <span className="option-panel-label">{t("mode_copy_edit")}</span>
@@ -243,118 +198,7 @@ export default function ModeSelector({
                 {t(`opt_${key}`)}
               </label>
             ))}
-            {isEnglishManuscript && (
-              <label className="option-check">
-                <input
-                  type="checkbox"
-                  checked={copyEditOptions.oxfordComma}
-                  onChange={(e) =>
-                    setCopyEditOption("oxfordComma", e.target.checked)
-                  }
-                />
-                {t("opt_oxfordComma")}
-                <DetectionBadge
-                  detection={detectedSettings?.oxfordComma}
-                  current={copyEditOptions.oxfordComma}
-                  lang={lang}
-                />
-              </label>
-            )}
           </div>
-          {isEnglishManuscript && (
-            <div className="option-toggle-row">
-              <span className="option-toggle-label">
-                {t("opt_englishDialect")}
-                <DetectionBadge
-                  detection={detectedSettings?.englishDialect}
-                  current={copyEditOptions.englishDialect}
-                  lang={lang}
-                />
-              </span>
-              <div className="option-toggle-group">
-                <button
-                  type="button"
-                  className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
-                  onClick={() =>
-                    setCopyEditOption("englishDialect", "american")
-                  }
-                >
-                  {t("opt_american")}
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
-                  onClick={() =>
-                    setCopyEditOption("englishDialect", "british")
-                  }
-                >
-                  {t("opt_british")}
-                </button>
-              </div>
-            </div>
-          )}
-          {isEnglishManuscript && (
-            <div className="option-toggle-row">
-              <span className="option-toggle-label">
-                {t("opt_introductoryComma")}
-                <DetectionBadge
-                  detection={detectedSettings?.introductoryComma}
-                  current={copyEditOptions.introductoryComma}
-                  lang={lang}
-                />
-              </span>
-              <div className="option-toggle-group">
-                <button
-                  type="button"
-                  className={`toggle-btn${copyEditOptions.introductoryComma ? " active" : ""}`}
-                  onClick={() =>
-                    setCopyEditOption("introductoryComma", true)
-                  }
-                >
-                  {t("opt_yes")}
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn${!copyEditOptions.introductoryComma ? " active" : ""}`}
-                  onClick={() =>
-                    setCopyEditOption("introductoryComma", false)
-                  }
-                >
-                  {t("opt_no")}
-                </button>
-              </div>
-            </div>
-          )}
-          {isDanishManuscript && (
-            <div className="option-toggle-row">
-              <span className="option-toggle-label">
-                {t("opt_danishComma")}
-                <DetectionBadge
-                  detection={detectedSettings?.danishComma}
-                  current={copyEditOptions.danishComma}
-                  lang={lang}
-                />
-              </span>
-              <div className="option-toggle-group">
-                <button
-                  type="button"
-                  className={`toggle-btn${copyEditOptions.danishComma === "grammatisk" ? " active" : ""}`}
-                  onClick={() =>
-                    setCopyEditOption("danishComma", "grammatisk")
-                  }
-                >
-                  {t("opt_grammatiskKomma")}
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn${copyEditOptions.danishComma === "nyt" ? " active" : ""}`}
-                  onClick={() => setCopyEditOption("danishComma", "nyt")}
-                >
-                  {t("opt_nytKomma")}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {lineEditOn && (

@@ -3313,6 +3313,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Einleitungskomma",
     es: "Coma introductoria",
   },
+  // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
+  ms_settings_title: {
+    en: "Manuscript settings",
+    da: "Manuskriptindstillinger",
+    de: "Manuskript-Einstellungen",
+    es: "Ajustes del manuscrito",
+  },
+  ms_needs_input: {
+    en: "{n} need your input",
+    da: "{n} mangler dit svar",
+    de: "{n} brauchen Ihre Angabe",
+    es: "{n} necesitan tu respuesta",
+  },
+  ms_needs_input_one: {
+    en: "1 needs your input",
+    da: "1 mangler dit svar",
+    de: "1 braucht Ihre Angabe",
+    es: "1 necesita tu respuesta",
+  },
   // ── Detection badges (detectSettings.ts) ──
   detect_badge_detected: {
     en: "detected",

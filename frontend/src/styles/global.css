@@ -3161,6 +3161,106 @@ summary.review-source::before {
   color: #5a4d3a;
 }
 
+/* ── Manuscript settings panel ──
+   One folded line when Betty read everything off the book; opens itself when
+   something needs the author. The left rule carries the state so the colour
+   reads at a glance without shouting: sage for settled, amber for waiting,
+   and plain parchment when no detection ran and Betty claims nothing. */
+.ms-panel {
+  margin: 0.85rem 0;
+  border: 1px solid #e8dcc4;
+  border-left: 3px solid #c9b896;
+  border-radius: 5px;
+  background: #fffdf6;
+}
+
+.ms-panel-clean {
+  border-left-color: #7f9c72;
+}
+
+.ms-panel-attention {
+  border-left-color: #d69a3c;
+  background: #fffaf0;
+}
+
+.ms-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: none;
+  background: none;
+  font-size: 0.82rem;
+  color: #5a4d3a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ms-icon {
+  width: 1rem;
+  font-size: 0.9rem;
+  line-height: 1;
+  flex: none;
+}
+
+.ms-icon-clean {
+  color: #5c7a52;
+}
+
+.ms-icon-attention {
+  color: #b3781f;
+}
+
+.ms-title {
+  font-weight: 600;
+  flex: none;
+}
+
+/* The summary gives way before the title does when the panel is narrow. */
+.ms-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8a7a5f;
+}
+
+.ms-panel-attention .ms-summary {
+  color: #b3781f;
+}
+
+.ms-chevron {
+  flex: none;
+  color: #a89878;
+}
+
+.ms-body {
+  padding: 0.15rem 0.7rem 0.6rem;
+  border-top: 1px solid #f0e7d2;
+}
+
+.ms-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.ms-label {
+  flex: 0 0 40%;
+  font-size: 0.82rem;
+  color: #5a4d3a;
+}
+
+.ms-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 /* ── Detection badges ──
    Marks a setting Betty read off the manuscript. Deliberately quiet: sage for
    a confident reading, ochre for "I could not tell, please decide". The
