@@ -44,7 +44,10 @@ h4 {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 2rem 2.5rem;
+  /* Top inset matches .sidebar's 1rem: the two columns each open with a
+     header ruled off by a border, and 1.25rem here started the main one 4px
+     lower than the rail's, so the two rules could never line up. */
+  padding: 1rem 2rem 2.5rem;
   min-width: 0;
   position: relative;
 }
@@ -319,8 +322,27 @@ h4 {
 }
 
 /* ── Sidebar logo ── */
+/* ── The two column headers ──
+   The rail's logo block and the main column's title bar are one horizontal
+   band split by the sidebar border, so they have to be the same height or the
+   band visibly steps down at the seam. Their contents differ (a 76px mark
+   against a 52px wordmark), so the height is stated once here rather than
+   left to whichever content happens to be taller. */
+:root {
+  --app-header-height: 6.8rem;
+}
+
+.sidebar-logo,
+.title-header {
+  box-sizing: border-box;
+  min-height: var(--app-header-height);
+}
+
 .sidebar-logo {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 0.75rem 0 1rem 0;
   margin-bottom: 0.75rem;
@@ -7993,6 +8015,11 @@ summary.review-source::before {
    over the grid too and wrapped the whole list in a 999px ellipse that clipped
    the corner chapters clean off. Two different objects, two different names. */
 .review-chapter-select {
+  /* Explicit, because this element used to collide with .chapter-select (the
+     upload step's pill grid) and was silently taking that rule's vertical
+     margin. Giving the two different names fixed the ellipse it drew round
+     the grid and left this dropdown flush against the Results heading. */
+  margin: 0.5rem 0;
   max-width: 100%;
   padding: 0.35rem 2rem 0.35rem 0.75rem;
   background: #faf6ec;

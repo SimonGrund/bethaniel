@@ -3331,6 +3331,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dieses Manuskript entfernen",
     es: "Quitar este manuscrito",
   },
+  export_translation: {
+    en: "Export the translation:",
+    da: "Eksportér oversættelsen:",
+    de: "Die Übersetzung exportieren:",
+    es: "Exportar la traducción:",
+  },
   // ── Manuscript preview dialog + style-guide button ──
   preview_open: {
     en: "Check the extracted text",

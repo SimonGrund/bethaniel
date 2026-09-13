@@ -2512,6 +2512,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             EDIT_MODES.includes(task.mode),
           );
           const editTaskIds = editTasks.map(([tid]) => tid);
+          // A translation rewrites the whole chunk rather than proposing
+          // discrete corrections, so the accept/dismiss machinery has nothing
+          // to act on: "Export with accepted changes" and "Accept every change
+          // in this run" both describe work this run did not do. The export
+          // itself is still wanted — it is how the translation leaves Betty.
+          const isTranslateJob =
+            editTasks.length > 0 &&
+            editTasks.every(([, task]) => task.mode === "translate");
           // One pill per editable chapter, carrying how many changes it
           // proposes. Deliberately the total rather than what is still
           // unticked: corrections arrive already accepted, so an "outstanding"
@@ -4329,7 +4337,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               {editTasks.length > 0 && !isScanJob && allEditDone && (
                 <div className="review-actionbar">
                   <span className="export-row__label">
-                    {t("export_with_changes", "Export with accepted changes:")}
+                    {isTranslateJob
+                      ? t("export_translation")
+                      : t("export_with_changes", "Export with accepted changes:")}
                   </span>
 
                   <button
@@ -4433,29 +4443,31 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                   <span className="review-actionbar__gap" />
 
-                  <button
-                    className={`btn-linkish btn-accept-all-job${
-                      allAccepted ? " btn-accept-all-job--undo" : ""
-                    }`}
-                    disabled={!hasAnyCorrections}
-                    onClick={() => {
-                      if (allAccepted) {
-                        editTaskIds.forEach((tid) => dismissAll(tid));
-                        setToast({
-                          msg: t("dismiss_all_job_toast"),
-                          kind: "dismiss",
-                        });
-                      } else {
-                        acceptAllJob(editTaskIds);
-                        setToast({
-                          msg: t("accept_all_job_toast"),
-                          kind: "accept",
-                        });
-                      }
-                    }}
-                  >
-                    {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
-                  </button>
+                  {!isTranslateJob && (
+                    <button
+                      className={`btn-linkish btn-accept-all-job${
+                        allAccepted ? " btn-accept-all-job--undo" : ""
+                      }`}
+                      disabled={!hasAnyCorrections}
+                      onClick={() => {
+                        if (allAccepted) {
+                          editTaskIds.forEach((tid) => dismissAll(tid));
+                          setToast({
+                            msg: t("dismiss_all_job_toast"),
+                            kind: "dismiss",
+                          });
+                        } else {
+                          acceptAllJob(editTaskIds);
+                          setToast({
+                            msg: t("accept_all_job_toast"),
+                            kind: "accept",
+                          });
+                        }
+                      }}
+                    >
+                      {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                    </button>
+                  )}
 
                 </div>
               )}
