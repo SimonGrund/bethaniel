@@ -429,14 +429,21 @@ export interface DialectDetection {
 
 /**
  * Detect a manuscript's English dialect by counting occurrences of each side
- * of the curated DIALECT_PAIRS list — reusing the exact word list the
- * copy-edit conversion already trusts, so detection and enforcement never
- * disagree about what counts as a dialect marker.
+ * of DIALECT_EVIDENCE — the subset of the conversion list that actually
+ * testifies to a dialect.
+ *
+ * It counted the full DIALECT_PAIRS list once, on the reasoning that sharing
+ * the conversion list keeps detection and enforcement in agreement. That was
+ * backwards: the conversion list contains pairs that are safe to REWRITE
+ * toward a known target but prove nothing about which target it is. The
+ * -ise/-ize family is the costly one — Oxford spelling is British and writes
+ * "realize" — so a consistent Oxford-spelling manuscript counted every -ize as
+ * American and reported itself as mixed.
  */
 export function detectDialect(text: string): DialectDetection {
   let americanHits = 0;
   let britishHits = 0;
-  for (const pair of DIALECT_PAIRS) {
+  for (const pair of DIALECT_EVIDENCE) {
     const usMatches = text.match(new RegExp(`\\b${pair.us}\\b`, "gi"));
     const brMatches = text.match(new RegExp(`\\b${pair.br}\\b`, "gi"));
     americanHits += usMatches?.length ?? 0;

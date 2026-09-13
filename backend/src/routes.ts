@@ -642,6 +642,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           overlap: 0,
           styleGuide,
           units: cleanedUnits,
+          // The dialect check measures consistency against the dialect the
+          // author declared. Omitting these left the scan guessing by majority
+          // vote, and advising against the author's own setting.
+          editOptions,
         });
         taskIds.push(taskId);
         continue;

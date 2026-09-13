@@ -1220,8 +1220,19 @@ async function processPublicationScanJob(
   });
 
   try {
+    // The author's declared dialect, when this scan belongs to a job that has
+    // a copy-edit panel. Without it the scan decides the expected dialect by
+    // majority vote and can advise the opposite of the setting.
+    const declaredDialect = (job.editOptions as Record<string, unknown>)
+      ?.englishDialect;
     const report = buildPublicationScan(
       units.map((u) => ({ name: u.name, original: u.original })),
+      {
+        englishDialect:
+          declaredDialect === "american" || declaredDialect === "british"
+            ? declaredDialect
+            : undefined,
+      },
     );
     abortControllers.delete(taskId);
     updateTask(taskId, {

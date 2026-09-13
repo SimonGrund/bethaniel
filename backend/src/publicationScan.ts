@@ -305,34 +305,70 @@ function findTruncation(units: ScanUnit[]): DraftFinding[] {
 }
 
 /**
- * Manuscript-wide English dialect consistency, using the same curated
- * British/American word-pair list the copy-edit dialect conversion trusts —
- * so detection and enforcement never disagree about what counts as a marker.
- * A professionally edited manuscript uses one dialect throughout; genuinely
- * mixed usage (not one stray outlier) is worth catching before publication.
+ * Manuscript-wide English dialect consistency. A professionally edited
+ * manuscript uses one dialect throughout; genuinely mixed usage (not one stray
+ * outlier) is worth catching before publication.
+ *
+ * `declared` is the dialect the author chose in the copy-edit panel, when the
+ * scan runs as part of a job that has one. It matters because the expected
+ * dialect used to be decided by majority vote inside this function, with the
+ * author's choice never reaching it at all — so a manuscript set to British
+ * but still mostly American was advised to standardise on American, the exact
+ * opposite of what the copy-edit pass would do to the same text. The author's
+ * stated intent outranks a head-count of the draft.
  */
-function findDialectConsistency(units: ScanUnit[]): DraftFinding[] {
+function findDialectConsistency(
+  units: ScanUnit[],
+  declared?: "american" | "british",
+): DraftFinding[] {
   const combined = units.map((u) => u.original).join("\n\n");
   const { dialect, americanHits, britishHits, mixed } = detectDialect(combined);
-  if (!mixed || !dialect) return [];
+  if (!mixed) return [];
 
-  const majorLabel = dialect === "american" ? "American" : "British";
-  const minorLabel = dialect === "american" ? "British" : "American";
-  const majorCount = dialect === "american" ? americanHits : britishHits;
-  const minorCount = dialect === "american" ? britishHits : americanHits;
-
-  return [
-    {
-      check: "dialect",
-      severity: "warning",
-      location: "Manuscript",
-      message: `Mixed English spelling: mostly ${majorLabel} (${majorCount} word(s)) but ${minorCount} word(s) use ${minorLabel} spelling.`,
-      detail: "Pick one dialect and apply it consistently before publishing.",
-    },
+  const finding = (message: string, detail: string): DraftFinding[] => [
+    { check: "dialect", severity: "warning", location: "Manuscript", message, detail },
   ];
+
+  // The author's choice first; the draft's own majority only as a fallback.
+  const reference = declared ?? dialect;
+  if (!reference) {
+    // An exact tie. detectDialect reports dialect:null here, and bailing on
+    // null used to drop the finding entirely — so the most inconsistent
+    // manuscript possible passed the scan in silence. Report it, without
+    // pretending either side is the house style.
+    return finding(
+      `Mixed English spelling: ${britishHits} word(s) use British spelling and ${americanHits} use American, in equal measure.`,
+      "Pick one dialect and apply it consistently before publishing.",
+    );
+  }
+
+  const keepLabel = reference === "american" ? "American" : "British";
+  const changeLabel = reference === "american" ? "British" : "American";
+  const keepCount = reference === "american" ? americanHits : britishHits;
+  const changeCount = reference === "american" ? britishHits : americanHits;
+
+  if (declared) {
+    return finding(
+      `Mixed English spelling: ${changeCount} word(s) use ${changeLabel} spelling, but this manuscript is set to ${keepLabel}.`,
+      `Convert them to ${keepLabel} spelling, or change the dialect setting, before publishing.`,
+    );
+  }
+  return finding(
+    `Mixed English spelling: mostly ${keepLabel} (${keepCount} word(s)) but ${changeCount} word(s) use ${changeLabel} spelling.`,
+    "Pick one dialect and apply it consistently before publishing.",
+  );
 }
 
-export function buildPublicationScan(units: ScanUnit[]): StructuralScanReport {
+/** Settings from the job the scan belongs to, when it has one. */
+export interface PublicationScanOptions {
+  /** The dialect the author declared in the copy-edit panel. */
+  englishDialect?: "american" | "british";
+}
+
+export function buildPublicationScan(
+  units: ScanUnit[],
+  options?: PublicationScanOptions,
+): StructuralScanReport {
   const { findings: dupFindings } = findDuplicates(units);
   // Marked here rather than at each push site: every structural finding is a
   // publication blocker, and stating it once keeps that true as checks are
@@ -343,7 +379,7 @@ export function buildPublicationScan(units: ScanUnit[]): StructuralScanReport {
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
     ...findTruncation(units),
-    ...findDialectConsistency(units),
+    ...findDialectConsistency(units, options?.englishDialect),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 
   const summary: Record<FindingSeverity, number> = {
