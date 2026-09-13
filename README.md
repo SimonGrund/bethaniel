@@ -32,7 +32,7 @@ The Electron app bundles `llama-server` for local GGUF model inference.
 | Category   | Modes                                                                                     |
 | ---------- | ----------------------------------------------------------------------------------------- |
 | **Editing**    | Copy edit (spelling, punctuation, grammar) and line edit (style, rhythm, phrasing). Select specific sub-options or run combined. |
-| **Translation** | Full-text translation to any target language. Paragraph-level review catches garbled output and re-translates flagged sections. |
+| **Translation** | Full-text translation to any target language: a draft, a target-language polish pass, and a paragraph-level fluency review that re-polishes anything scored as garbled. Cloud-only — see [Models](#models). |
 | **Analysis**   | Character catalog, location catalog, timeline. Auto-generates a prose summary and marketing blurb from the structured data. |
 
 ### Models
@@ -46,14 +46,21 @@ else about a job changes with the choice.
 | **Big Bad Betty** — Qwen3.5 9B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~6 GB disk, 16 GB RAM (12 GB on Apple Silicon) |
 | **Custom Betty** | Your machine | Any GGUF file you point it at |
 | **External Betty** | DeepSeek, or any OpenAI-compatible endpoint | Your own API key |
-| **Betty in the Cloud** — Llama-3.3 70B | Bethaniel's hosted service | A card — pay per job |
+| **Betty in the Cloud** — Qwen3.5 9B for editing, GLM-5.2 for translation | Bethaniel's hosted service | A card — pay per job |
 
 The two local models are the default and the only ones that keep the manuscript
 on the machine. On the four-language benchmark the two score level overall (46
 each); split by language the 9B gains about three points of recall and three of
-precision, concentrated in capitalization, German commas and translation — and
-it is *worse* than the 4B on Danish wrong words. See
-[Quality benchmark](#quality-benchmark).
+precision, concentrated in capitalization and German commas — and it is *worse*
+than the 4B on Danish wrong words. See [Quality benchmark](#quality-benchmark).
+
+**Translation is the one pass the local models do not run.** Neither Baby Betty
+nor Big Bad Betty was good enough at it: a weak translation is fluent, confident
+and wrong, and an author who does not read both languages cannot see it. The
+app refuses a translate job on a bundled model and offers the cloud instead;
+External Betty (your own key on a hosted model) is also accepted. In the cloud
+translation runs on GLM-5.2, in its own price band — it is the one product that
+still needs a large model.
 
 ### External API Support
 
@@ -71,7 +78,7 @@ it is *worse* than the 4B on Danish wrong words. See
 
 - **Precision pass** — A second, narrower audit that asks whether the original needed fixing at all, rather than whether the fix is well-formed. It annotates rather than deletes: below its cut a correction would be removed, but that cut is set so nothing is, because Bethaniel is read by a human before anything is applied and deletion is the only irreversible act in the pipeline. Corrections it doubts arrive flagged. A finding from a deterministic checker is never overruled by it — a dictionary is not an opinion.
 
-- **Translation review-and-revise** — After translating a chunk, the text is split into paragraphs. Each source→translated paragraph pair is scored by a translation-quality reviewer. Any paragraph flagged as garbled or nonsensical is re-translated with added context about the issue.
+- **Translation fluency review** — After the draft and the target-language polish, the polished text is split into paragraphs and each draft→polish pair is scored for fluency. Any paragraph flagged as garbled is re-polished with added context about the issue. This reviewer sees only the target language; the draft-against-source reviewer was removed after it could not be shown to change the output, so nothing downstream catches a mistranslation — which is why translation is restricted to a model strong enough not to need it.
 
 ### Deterministic Copy-Edit Checks
 
@@ -289,8 +296,8 @@ Each mode writes its own file named `<input>.<label>.<ext>` — labels are
 ### More examples
 
 ```bash
-# Translate to Spanish, export EPUB
-npm run betty -- --model Big-bad-betty --mode translation --language Spanish \
+# Translate to Spanish, export EPUB (the local models are not offered for translation)
+npm run betty -- --model bethaniel-cloud --mode translation --language Spanish \
   --input-doc book.md --export-format epub
 
 # Character/location/timeline analysis summary, export DOCX

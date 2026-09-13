@@ -49,8 +49,13 @@ matters: Cloud 9B and Baby Betty both reach 52% mean recall, Big Bad Betty
 49%, and the Llama-70B **24%** — less than half the free bundled model.
 Translation is the mirror image: the 70B leads on chrF (78.3 against 76.7)
 and by 5.0 points on Danish, which is its *worst* language for copy edit.
-That split is why the cloud now runs Qwen3.5-9B for editing and keeps the
-70B for translation alone.
+That split is why the cloud now runs Qwen3.5-9B for editing and a large
+model for translation alone. (The large model was the 70B when this was
+measured; it has since been replaced by GLM-5.2 on a direct EN→DA comparison
+— see `worker/wrangler.toml`. Translation is also now refused on the bundled
+local models altogether: the 4B and 9B chrF figures above were not good
+enough to ship, and with the draft-against-source reviewer removed nothing
+downstream would catch their mistranslations.)
 
 By error type, copy edit, the bundled models:
 
@@ -312,8 +317,9 @@ laptop to a 70B that costs money per token. **Line edit is where models
 differ**, and there the 70B is the worst of the four by a wide margin. Only
 **translation** rewards size, and it does so consistently.
 
-The product follows the table: the cloud runs Qwen3.5-9B for editing and keeps
-the 70B for translation alone.
+The product follows the table: the cloud runs Qwen3.5-9B for editing and a
+large model for translation alone (GLM-5.2 since September 2026, replacing the
+70B), and the local models no longer offer translation at all.
 
 The standing conclusion holds and is now better evidenced — effort spent on
 the deterministic layers helps every model equally, and effort spent on a

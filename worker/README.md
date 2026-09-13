@@ -175,10 +175,16 @@ for the same thing) with an explicit "not currently supported", so
   blended Qwen rate when the real numbers are to hand, and the ceiling becomes
   accurate rather than merely safe.
 - **Two models, chosen per pass by benchmark.** `PROVIDER_MODEL` is
-  Qwen3.5-9B for copy and line edit; `PROVIDER_MODEL_TRANSLATE` keeps
-  Meta-Llama-3.3-70B for translation alone. Measured 8 September 2026, all
-  four models on one harness at identical settings (one editor, one reviewer,
-  one request at a time), four languages of ~100 planted errors each:
+  Qwen3.5-9B for copy and line edit; `PROVIDER_MODEL_TRANSLATE` is GLM-5.2
+  for translation alone (since September 2026 — it replaced Llama-3.3-70B on
+  a measured EN→DA comparison; the reasoning is in `wrangler.toml` next to the
+  variable, and `PROVIDER_REASONING_EFFORT_TRANSLATE = "none"` must ship with
+  it). Translation is also the one pass the app refuses on the bundled local
+  models — see `LOCAL_BLOCKED_MODES` in `backend/src/cloudEstimate.ts` — so
+  the cloud (or a user's own External Betty key) is the only place it runs.
+  The split itself was measured 8 September 2026, all four models on one
+  harness at identical settings (one editor, one reviewer, one request at a
+  time), four languages of ~100 planted errors each:
 
   |                     | copy edit | line edit | translation (chrF) |
   |---|---|---|---|
@@ -191,8 +197,15 @@ for the same thing) with an explicit "not currently supported", so
   70B that costs per token. Line edit is where they differ, and there the 70B
   is the worst of the four by a wide margin, less than half the free bundled
   model. Only translation rewards size, and it does so consistently: 78.3
-  against 76.7 overall and five points on Danish. Hence the split. Read
+  against 76.7 overall and five points on Danish. Hence the split; the 70B
+  was later replaced by GLM-5.2 on the same side of it. Read
   `docs/language-quality-roadmap.md` §5 before changing either model.
+- **Translation has its own price band.** `PRICE_TRANSLATE_EUR_CENTS`
+  (EUR 12 per band of `PRICE_TIER_WORDS`) rather than the EUR 5 edit band:
+  GLM-5.2 plus the fluency reviewer costs about EUR 3.76 in provider tokens
+  per 100,000 words, where the same book copy-edited costs cents, and EUR 12
+  is what holds the 3× markup across one and two bands. The derivation is in
+  `wrangler.toml` above the variable.
 - **Pricing is flat word bands, not cost-plus.** `PRICE_TIER_WORDS` (100,000)
   costs `PRICE_TIER_EUR_CENTS` (EUR 5); two bands cost double, and so on. A
   100,000-word novel and a 3,000-word story both sit in band one and pay the

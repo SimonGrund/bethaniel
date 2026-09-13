@@ -66,8 +66,10 @@ Options:
 Examples:
   betty --model Baby-betty --mode copy line --input-doc book.docx \\
     --export-format docx md
-  betty --model Big-bad-betty --mode translation --language Spanish \\
+  betty --model bethaniel-cloud --mode translation --language Spanish \\
     --input-doc book.md --export-format epub
+  (the bundled local models are not offered for translation; use the cloud
+   or an External Betty key)
 `;
 
 function fail(msg: string): never {

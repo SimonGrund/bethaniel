@@ -4632,37 +4632,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Entendido",
   },
 
-  translate_baby_betty_warning_title: {
-    en: "Baby Betty and translation don't mix well",
-    da: "Baby Betty og oversættelse passer ikke godt sammen",
-    de: "Baby Betty und Übersetzung passen nicht gut zusammen",
-    es: "Baby Betty y la traducción no combinan bien",
-  },
-  translate_baby_betty_warning_body: {
-    en: "Baby Betty's small size makes it more prone to real mistranslations — not just style issues, but wrong pronouns, wrong words, and dropped meaning. For translation specifically, a bigger model or the cloud gives noticeably more reliable results.",
-    da: "Baby Bettys lille størrelse gør den mere tilbøjelig til reelle fejloversættelser — ikke bare stilistiske problemer, men forkerte pronominer, forkerte ord og tabt betydning. Til oversættelse specifikt giver en større model eller skyen markant mere pålidelige resultater.",
-    de: "Baby Bettys geringe Größe macht sie anfälliger für echte Fehlübersetzungen — nicht nur Stilprobleme, sondern falsche Pronomen, falsche Wörter und verlorene Bedeutung. Speziell für Übersetzungen liefert ein größeres Modell oder die Cloud deutlich zuverlässigere Ergebnisse.",
-    es: "El pequeño tamaño de Baby Betty la hace más propensa a errores de traducción reales, no solo problemas de estilo, sino pronombres equivocados, palabras erróneas y pérdida de significado. Para traducción en concreto, un modelo más grande o la nube dan resultados notablemente más fiables.",
-  },
-  translate_baby_betty_switch_big_bad: {
-    en: "Switch to {name}",
-    da: "Skift til {name}",
-    de: "Zu {name} wechseln",
-    es: "Cambiar a {name}",
-  },
-  translate_baby_betty_switch_cloud: {
-    en: "Use Betty in the Cloud",
-    da: "Brug Betty i skyen",
-    de: "Betty in der Cloud verwenden",
-    es: "Usar Betty en la nube",
-  },
-  translate_baby_betty_continue: {
-    en: "Continue with Baby Betty anyway",
-    da: "Fortsæt med Baby Betty alligevel",
-    de: "Trotzdem mit Baby Betty fortfahren",
-    es: "Continuar con Baby Betty de todos modos",
-  },
-
   languagetool_advice_title: {
     en: "Enable grammar checking?",
     da: "Aktivér grammatikkontrol?",

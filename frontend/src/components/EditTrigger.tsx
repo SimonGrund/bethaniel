@@ -12,9 +12,8 @@ import {
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
 import { DETERMINISTIC_MODES } from "../types";
-import { refreshModelEnvironment, useStartDownload } from "../useModelRuntime";
+import { refreshModelEnvironment } from "../useModelRuntime";
 import { useCloudPurchase } from "../cloudPurchase";
-import Modal from "./Modal";
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -62,10 +61,8 @@ export default function EditTrigger() {
     languageToolAvailable,
     dismissedAdvice,
     catalog,
-    setModel,
   } = useStore();
   const t = useTranslation(lang);
-  const startDownload = useStartDownload();
 
   const isWorking = Object.values(tasks).some(
     (task) => task.status === "queued" || task.status === "editing",
@@ -153,21 +150,7 @@ export default function EditTrigger() {
     submitting ||
     notReadyReason !== null;
 
-  // ── Translate mode + Baby Betty: known mistranslation risk ──
-  // Baby Betty's small size makes it more prone to actual meaning errors
-  // (not just style quibbles) when translating — confirmed by side-by-side
-  // benchmarking against Big Bad Betty, which had zero flagged errors across
-  // three languages where Baby Betty had two genuine mistranslations. Ask
-  // before running a translate job on it rather than silently letting a
-  // manuscript go out with a wrong pronoun or an invented word.
-  const babyBettyEntry = catalog.find((e) => e.tier === "small");
-  const bigBadBettyEntry = catalog.find((e) => e.tier === "normal");
   const cloudEntry = catalog.find((e) => e.id === "bethaniel-cloud");
-  const isTranslateWithBabyBetty =
-    selectedModes.includes("translate") &&
-    !!babyBettyEntry &&
-    model === babyBettyEntry.fileName;
-  const [showTranslateWarning, setShowTranslateWarning] = useState(false);
 
   // ── Betty in the Cloud: pre-run estimate + pay-to-run ──
 
@@ -394,40 +377,13 @@ export default function EditTrigger() {
         true,
       );
 
-  /** Gate the run button: intercept translate + Baby Betty with a warning
-   *  before ever reaching handleClick, and the first-model download before
-   *  either. */
+  /** Gate the run button: the first-model download comes before handleClick. */
   const onRunButtonClick = () => {
     if (needsSetup) {
       setModelIntroOpen(true);
       return;
     }
-    if (isTranslateWithBabyBetty) {
-      setShowTranslateWarning(true);
-      return;
-    }
     void handleClick();
-  };
-
-  const switchToBigBadBetty = async () => {
-    if (!bigBadBettyEntry) return;
-    setModel(bigBadBettyEntry.fileName);
-    setShowTranslateWarning(false);
-    if (!installed.some((m) => m.fileName === bigBadBettyEntry.fileName)) {
-      await startDownload(bigBadBettyEntry.id, bigBadBettyEntry.name);
-      // Downloading takes a while — let the user hit Run again once it's
-      // ready rather than queuing a job against a model that isn't there yet.
-      return;
-    }
-    void handleClick();
-  };
-
-  const switchToCloud = () => {
-    if (!cloudEntry) return;
-    setModel(cloudEntry.fileName);
-    setShowTranslateWarning(false);
-    // Betty in the Cloud may still need a credential — don't auto-submit;
-    // the normal run-gate (notReadyReason) gives the right prompt if so.
   };
 
   // Reveal the latest-run results (hidden while a setup menu is open) and jump
@@ -772,43 +728,6 @@ export default function EditTrigger() {
       {cloudClaimError && (
         <div className="api-error">{cloudClaimError}</div>
       )}
-      <Modal
-        open={showTranslateWarning}
-        onClose={() => setShowTranslateWarning(false)}
-        labelledBy="translate-baby-betty-warning-title"
-      >
-        <h2 id="translate-baby-betty-warning-title" className="model-intro-title">
-          {t("translate_baby_betty_warning_title")}
-        </h2>
-        <p className="model-confirm-text">
-          {t("translate_baby_betty_warning_body")}
-        </p>
-        <div className="model-intro-actions">
-          {bigBadBettyEntry && (
-            <button type="button" className="btn-primary" onClick={switchToBigBadBetty}>
-              {t("translate_baby_betty_switch_big_bad").replace(
-                "{name}",
-                bigBadBettyEntry.name,
-              )}
-            </button>
-          )}
-          {cloudEntry && (
-            <button type="button" className="btn-secondary" onClick={switchToCloud}>
-              {t("translate_baby_betty_switch_cloud")}
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setShowTranslateWarning(false);
-              void handleClick();
-            }}
-          >
-            {t("translate_baby_betty_continue")}
-          </button>
-        </div>
-      </Modal>
     </div>
   );
 }
