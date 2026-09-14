@@ -8914,8 +8914,10 @@ summary.review-source::before {
 /* ── Pasting the code from the payment page ──
    Open on its own while a payment is waited on; a one-line link otherwise.
    The input is the promo-code input's twin, wider for the longer code. */
+/* The last thing on the page before the footer: room beneath it, so the
+   link is not pressed against the copyright line. */
 .cloud-claim-hint {
-  margin: 0.35rem 0 0;
+  margin: 0.35rem 0 1.5rem;
   font-size: 0.75rem;
   color: #8a7a5c;
 }
@@ -8924,7 +8926,7 @@ summary.review-source::before {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  margin: 0.45rem 0 0;
+  margin: 0.45rem 0 1.5rem;
   font-size: 0.8rem;
   color: #6b5438;
 }
