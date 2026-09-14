@@ -53,7 +53,17 @@ export function useReportExport(title: string, build?: () => string) {
     const root = rootRef.current;
     if (!root && !build) return;
     const bridge = (window as unknown as { bethaniel?: Bridge }).bethaniel;
-    const html = build ? build() : reportDocument(root!, title);
+    // Building the document can fail; a failure must show on the button,
+    // not vanish into a rejected promise nobody awaits.
+    let html: string;
+    try {
+      html = build ? build() : reportDocument(root!, title);
+    } catch (err) {
+      console.error("[report] could not build the document:", err);
+      setState("failed");
+      setTimeout(() => setState("idle"), 2500);
+      return;
+    }
     if (!bridge?.exportPdf) {
       if (build) {
         const w = window.open("", "_blank");
@@ -71,7 +81,8 @@ export function useReportExport(title: string, build?: () => string) {
     try {
       const saved = await bridge.exportPdf(html, title);
       setState(saved ? "saved" : "idle");
-    } catch {
+    } catch (err) {
+      console.error("[report] export failed:", err);
       setState("failed");
     }
     setTimeout(() => setState("idle"), 2500);

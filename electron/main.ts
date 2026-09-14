@@ -651,13 +651,25 @@ function buildAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// A file dialog needs the app window as its parent. Without one it is not
+// modal, and on Windows it can open BEHIND the window that asked for it, with
+// no focus — which from the user's chair is a button that does nothing.
+// (That is what "Export as PDF" looked like.)
+function dialogParent(): BrowserWindow | undefined {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+}
+
 // ── IPC: Native file picker for GGUF models ──
 ipcMain.handle("dialog:openGguf", async () => {
-  const result = await dialog.showOpenDialog({
+  const parent = dialogParent();
+  const options = {
     title: "Select a GGUF model file",
     filters: [{ name: "GGUF Models", extensions: ["gguf"] }],
-    properties: ["openFile"],
-  });
+    properties: ["openFile" as const],
+  };
+  const result = parent
+    ? await dialog.showOpenDialog(parent, options)
+    : await dialog.showOpenDialog(options);
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
 });
@@ -685,11 +697,15 @@ ipcMain.handle(
       typeof suggestedName === "string" && suggestedName.trim()
         ? suggestedName.replace(/[\\/:*?"<>|]+/g, "-").trim()
         : "report";
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const parent = dialogParent();
+    const options = {
       title: "Save report as PDF",
       defaultPath: path.join(app.getPath("documents"), `${name}.pdf`),
       filters: [{ name: "PDF", extensions: ["pdf"] }],
-    });
+    };
+    const { canceled, filePath } = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
     if (canceled || !filePath) return null;
 
     const win = new BrowserWindow({
