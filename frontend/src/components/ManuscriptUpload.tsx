@@ -6,6 +6,7 @@ import { useTranslation } from "../i18n";
 import { uploadFile, getDocument, RequestRefusedError } from "../api";
 import Modal from "./Modal";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
+import StyleGuideButton from "./StyleGuideButton";
 
 /**
  * How much of the manuscript to show back. Enough to see whether a PDF's drop
@@ -282,6 +283,11 @@ export default function ManuscriptUpload() {
 
           <ScopeSelection />
 
+          {/* The names & terms Betty just read off this manuscript, and the
+              style sheet: offered here, with the manuscript they describe, as
+              well as in the task's settings. Right after an upload is when
+              an author wants to see what was found. */}
+          <StyleGuideButton />
         </aside>
       )}
     </section>
