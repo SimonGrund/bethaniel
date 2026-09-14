@@ -116,6 +116,98 @@ interface TokenStats {
   total: number;
 }
 
+// ── Apostrophes ──
+//
+// "Peter's" is Peter. "I'm" is nothing. "O'Brien" is O'Brien. The three
+// have to be told apart by shape, because the dictionary cannot be relied on
+// to know a contraction (a manuscript's apostrophe may not be the one the
+// dictionary expects), and once "I'm" is a mid-sentence capital that the
+// dictionary rejects, it is a name.
+const CONTRACTION_SUFFIX_RE = /['’ʼ](?:m|ve|ll|d|re|t|em)$/iu;
+const POSSESSIVE_RE = /^(.+?)['’ʼ]s?$/u;
+// "It's", "he's": "'s" is "is" here, not possession. A name in the same
+// shape ("It's" for a creature called It) is a contraction as well.
+const CONTRACTION_STEMS = new Set([
+  "it", "he", "she", "that", "there", "here", "what", "who", "where", "when",
+  "how", "why", "let", "one", "everyone", "everybody", "someone", "somebody",
+  "anyone", "anybody", "nobody", "everything", "something", "nothing",
+]);
+
+/**
+ * What a token contributes to the name count: its base form, or null for a
+ * token that is not a word of its own. Case is kept — the caller keys on it.
+ */
+function nameForm(w: string): string | null {
+  if (!/['’ʼ]/u.test(w)) return w;
+  if (CONTRACTION_SUFFIX_RE.test(w)) return null;
+  const possessive = POSSESSIVE_RE.exec(w);
+  if (possessive) {
+    const base = possessive[1];
+    if (CONTRACTION_STEMS.has(base.toLowerCase())) return null;
+    return base;
+  }
+  // An apostrophe inside a name, before a capital: O'Brien, D'Angelo.
+  if (/['’ʼ]\p{Lu}/u.test(w)) return w;
+  return null;
+}
+
+// ── Sentence starts ──
+//
+// spellcheck.ts's rule reads "she said, “It was late”" as "It" mid-sentence,
+// which for spell-checking is the safe side. For counting names it is the
+// wrong side: every line of dialogue would make a name of its first word.
+// A capital right after an opening quotation mark, or after a colon, opens
+// something here.
+const OPENERS = new Set(["“", "‘", '"', "'", "«", "‹", "(", "["]);
+
+function opensUtterance(text: string, index: number): boolean {
+  let i = index - 1;
+  while (i >= 0 && (text[i] === " " || text[i] === "\t")) i--;
+  if (i < 0) return true;
+  if (OPENERS.has(text[i])) return true;
+  if (text[i] === "*" || text[i] === "_") {
+    // Markdown emphasis wrapping a quote: _“It was late,”_
+    let j = i;
+    while (j >= 0 && (text[j] === "*" || text[j] === "_")) j--;
+    return j >= 0 && OPENERS.has(text[j]);
+  }
+  return text[i] === ":";
+}
+
+// ── Dictionary words as names ──
+//
+// "Grace" is a name and a word; nothing will ever call it a typo, so the
+// list has no business with it. But a book can make a name of a word
+// outright — Stephen King's It — and then "It" mid-sentence, again and
+// again, is not the pronoun. What makes that readable is that "it" IS a
+// pronoun: a closed class of words ordinary prose never capitalises
+// mid-sentence, so when a book does, at least PRONOUN_NAME_MIN_MIDCAP
+// times, it can only be a name. The rule is deliberately that narrow.
+// Measured on eight novels, "any dictionary word capitalised often enough"
+// admitted "Oh", "Street", "CHAPTER" and Project Gutenberg's licence; the
+// pronoun class admits nothing that is not a name. "I" is left out because
+// it is always capitalised, and titles and honorifics are left out because
+// "Mr", "Aunt" and "Captain" are capitalised mid-sentence in every book
+// and name no one.
+const PRONOUN_NAME_MIN_MIDCAP = 8;
+const PRONOUN_CLASS = new Set([
+  "it", "he", "she", "they", "we", "you", "him", "her", "them", "us", "me",
+  "one", "nobody", "somebody", "someone", "everyone", "anyone", "none",
+  "who", "what", "which", "this", "that", "these", "those", "itself",
+  "himself", "herself", "themselves",
+]);
+const HONORIFICS = new Set([
+  "mr", "mrs", "ms", "miss", "dr", "sir", "madam", "madame", "lord", "lady",
+  "master", "mistress", "captain", "colonel", "major", "general", "sergeant",
+  "lieutenant", "admiral", "doctor", "professor", "reverend", "father",
+  "mother", "brother", "sister", "aunt", "uncle", "king", "queen", "prince",
+  "princess", "duke", "duchess", "count", "countess", "baron", "earl",
+  "god", "lord", "saint", "st", "mum", "mom", "dad", "papa", "mama", "nurse",
+  "judge", "officer", "inspector", "detective", "sheriff", "chief", "senator",
+  "president", "governor", "mayor", "monsieur", "herr", "frau", "señor",
+  "señora", "don", "doña", "hr", "fru", "frk",
+]);
+
 /** Damerau-Levenshtein distance capped at 2 — enough to ask "one edit away?". */
 function editDistance1(a: string, b: string): boolean {
   if (a === b) return false;
@@ -195,19 +287,22 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
   let m: RegExpExecArray | null;
   while ((m = WORD_RE.exec(text)) !== null) {
     const raw = m[0];
-    const w = normalizeApostrophes(raw);
-    const key = w.toLowerCase();
-    const cap = isCapitalised(w);
-    const initial = isSentenceInitial(text, m.index);
+    const form = nameForm(normalizeApostrophes(raw));
+    const cap = isCapitalised(raw);
+    const initial = isSentenceInitial(text, m.index) || opensUtterance(text, m.index);
 
-    let s = stats.get(key);
-    if (!s) {
-      s = { forms: new Map(), midCap: 0, total: 0 };
-      stats.set(key, s);
+    if (form !== null) {
+      const w = form;
+      const key = w.toLowerCase();
+      let s = stats.get(key);
+      if (!s) {
+        s = { forms: new Map(), midCap: 0, total: 0 };
+        stats.set(key, s);
+      }
+      s.forms.set(w, (s.forms.get(w) ?? 0) + 1);
+      s.total++;
+      if (cap && !initial) s.midCap++;
     }
-    s.forms.set(w, (s.forms.get(w) ?? 0) + 1);
-    s.total++;
-    if (cap && !initial) s.midCap++;
 
     // Phrase run bookkeeping.
     const gap = runEnd >= 0 ? text.slice(runEnd, m.index) : "";
@@ -216,8 +311,9 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
     // A sentence opener never joins a run: "Then Gata ran" three times is
     // not a title called "Then Gata". A title that happens to open a
     // sentence loses that one count, which it can afford.
-    if ((cap && !initial) || (run.length > 0 && PHRASE_CONNECTORS.has(key))) {
-      run.push(w);
+    const phraseWord = form ?? normalizeApostrophes(raw);
+    if ((cap && !initial) || (run.length > 0 && PHRASE_CONNECTORS.has(phraseWord.toLowerCase()))) {
+      run.push(phraseWord);
     } else {
       flushRun();
     }
@@ -229,7 +325,10 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
   const nameKeys = new Map<string, LexiconTerm>();
 
   for (const [key, s] of stats) {
-    if (key.length < 3 && !isAllCaps(key)) continue;
+    // A pronoun the book has made a name of — see PRONOUN_CLASS.
+    const pronounName = PRONOUN_CLASS.has(key) && s.midCap >= PRONOUN_NAME_MIN_MIDCAP;
+    // Two letters is an initial, not a name — unless it is "It".
+    if (key.length < 3 && !isAllCaps(key) && !pronounName) continue;
     if (/^\d/.test(key)) continue;
 
     // Dominant form and the rest.
@@ -241,7 +340,10 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
     if (isCapitalised(canonical) && s.midCap >= 1 && canonicalCount >= minCount) {
       // A word the dictionary knows is not what this list is for: nothing
       // will call "Grace" a typo. In German that check is the whole test.
-      if (inDictionary === true) continue;
+      // The exception is a pronoun the book has made a name of — see
+      // PRONOUN_CLASS — which is never a title or an honorific.
+      if (HONORIFICS.has(key)) continue;
+      if (inDictionary === true && !pronounName) continue;
       if (inDictionary === null && nounCaps) continue;
       const t: LexiconTerm = {
         term: canonical,

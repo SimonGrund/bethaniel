@@ -91,9 +91,8 @@ test("harvest: a rare token one edit from a frequent name is a near miss, not a 
 test("harvest: counts and order", () => {
   const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
   const gata = lex.terms.find((t) => t.term === "Gata")!;
-  // Five bare "Gata"s; the possessive "Gata's" is its own token and is
-  // covered by the gate's stemming, not by the count.
-  assert.equal(gata.count, 5);
+  // Five bare "Gata"s and one "Gata's": the possessive is the same name.
+  assert.equal(gata.count, 6);
   assert.equal(lex.terms[0].term, "Gata", "most frequent first");
 });
 
@@ -123,6 +122,45 @@ test("harvest: casing variants ride along; the dominant one is canonical", () =>
   const z = lex.terms.find((t) => t.term === "Zorak")!;
   assert.ok(z, "Zorak harvested");
   assert.deepEqual([...(z.variants ?? [])].sort(), ["ZORAK", "zorak"]);
+});
+
+test("harvest: possessives fold into the name; contractions are not names", () => {
+  const text = `
+    Peter's hat was red. She took Peter's hat, and Peter's coat, and Peter said nothing.
+    Then Zorak's hand closed on it, and Zorak's voice said, "I'm here. I've come. I'll stay." So Zorak stayed.
+    I'm not sure. I've never been. Later O'Brien came, and O'Brien's dog, and O'Brien laughed.
+  `;
+  const lex = harvestLexicon(text, { lang: "en", isWord: (w) => ["peter", "hat", "she", "took"].includes(w.toLowerCase()) });
+  const names = Object.fromEntries(lex.terms.filter((t) => t.kind === "name").map((t) => [t.term, t.count]));
+  assert.equal(names["Zorak"], 3, "Zorak's ×2 and Zorak ×1 are one name");
+  assert.equal(names["O'Brien"], 3, "an apostrophe inside a name stays");
+  assert.ok(!("Zorak's" in names) && !("O'Brien's" in names), "no possessive terms");
+  for (const t of Object.keys(names)) assert.doesNotMatch(t, /^I['’]/, `${t} is a contraction`);
+});
+
+test("harvest: a capital after an opening quote or a colon is not a name", () => {
+  // "Then" and "Sure" each open a line of dialogue five times: still not names.
+  const text = `
+    She said, "Then we go." He said, "Then we stay." They said, "Then what?"
+    I said, "Then run." We said, "Then hide." The note read: Sure thing.
+    He wrote: Sure. She wrote: Sure. It said: Sure. They said: Sure, later.
+  `;
+  const lex = harvestLexicon(text, { lang: "en", isWord: () => false });
+  const names = lex.terms.filter((t) => t.kind === "name").map((t) => t.term);
+  assert.ok(!names.includes("Then"), `Then in ${names}`);
+  assert.ok(!names.includes("Sure"), `Sure in ${names}`);
+});
+
+test("harvest: a book can make a name of a word — It — but never of a title", () => {
+  const dict = (w: string) => ["it", "the", "they", "saw", "came", "for", "them", "and", "aunt", "captain", "waited", "again", "in", "sewer", "dark"].includes(w.toLowerCase());
+  const it = "They saw It in the dark. It came for them, and It waited. They ran from It. It followed. It laughed. It was hungry, and It fed. They feared It. ".repeat(3);
+  const lex = harvestLexicon(it, { lang: "en", isWord: dict });
+  assert.ok(lex.terms.some((t) => t.term === "It" && t.kind === "name"), "It, mid-sentence over and over, is a name");
+  const plain = "It was late. It rained. She said, \"It is over.\" It was. ".repeat(6);
+  assert.ok(!harvestLexicon(plain, { lang: "en", isWord: dict }).terms.some((t) => t.term === "It"), "the pronoun is not");
+  const titles = "They told Aunt Mae and Captain Roe. Aunt Mae wept; Captain Roe did not. Aunt Mae, Captain Roe, Aunt Mae, Captain Roe. ".repeat(4);
+  const names = harvestLexicon(titles, { lang: "en", isWord: dict }).terms.map((t) => t.term);
+  assert.ok(!names.includes("Aunt") && !names.includes("Captain"), `honorifics in ${names}`);
 });
 
 // ── Gate ──
