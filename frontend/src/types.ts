@@ -357,21 +357,34 @@ export function flagKindOf(c: Flaggable): FlagKind | null {
 }
 
 /**
- * How sure Betty is, as one number: the reviewer's score and the second
- * check's score multiplied, on a 0–100 scale. Two 5s are 100; a reviewer's
- * 4 against a second check's 3 is 48. Each score is a judgement that this
- * is an error AND that the fix is right, so the product is the certainty
- * that both hold. Without a second check the reviewer's score stands alone;
- * without a reviewer there is nothing to say.
+ * How sure Betty is, as one number on a 0–100 scale.
+ *
+ * It used to be the reviewer's score and the second check's multiplied, on
+ * the reasoning that each is a judgement that this is an error AND the fix
+ * is right. Measured against planted ground truth (scripts/bench-verdicts.ts,
+ * Local Betty, English, 266 corrections) that product was wrong in the one
+ * place it mattered: a reviewer's 5 against a second check's 1 displayed 20
+ * for a bucket that is right 72% of the time — as often as two 5s (73%).
+ * The reviewer's score is the signal (5 → 82% right, 2 → 49%, 1 → 6%); the
+ * second check moves it by a few points at most. So this is a table fitted
+ * to what was measured, nudged by the second check, and is the SAME table as
+ * `certainty` in backend/src/correctionSeverity.ts, which gates what blocks
+ * publication. Change them together.
  */
 export function certaintyPercent(c: {
   confidence?: number;
   precisionConfidence?: number;
 }): number | null {
   if (c.confidence == null) return null;
-  const reviewer = c.confidence / 5;
-  const second = c.precisionConfidence != null ? c.precisionConfidence / 5 : 1;
-  return Math.round(reviewer * second * 100);
+  const byReviewer: Record<number, number> = { 1: 10, 2: 45, 3: 58, 4: 70, 5: 82 };
+  const base = byReviewer[Math.max(1, Math.min(5, Math.round(c.confidence)))] ?? 58;
+  const second = c.precisionConfidence;
+  if (second == null) return base;
+  // A low second check shaves a little off a confident reviewer; a high one
+  // adds a little to a doubtful one (27% → 38% measured). Neither flips it.
+  if (second <= 2) return Math.round(base * 0.95);
+  if (second >= 4 && c.confidence <= 2) return base + 8;
+  return base;
 }
 
 /**

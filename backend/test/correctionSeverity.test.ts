@@ -292,3 +292,24 @@ test("a model correction the scores do not back is not a blocker, however mechan
   const c: Correction = { original: "gushes of sand", corrected: "gusts of sand", confidence: 5, precisionConfidence: 2 };
   assert.equal(classifyPublicationBlocking(c, "proofread"), false);
 });
+
+// ── Certainty ──
+//
+// Measured against planted ground truth (scripts/bench-verdicts.ts): the
+// reviewer's score is the signal, the second check nudges it, and a
+// reviewer's 5 against a second check's 1 is right about as often as two 5s.
+// The old product displayed 20 for that case. Pinned so it cannot return.
+import { certainty } from "../src/correctionSeverity.ts";
+
+test("certainty follows the reviewer; a low second check shaves, never halves", () => {
+  const at = (confidence: number, precisionConfidence?: number) =>
+    certainty({ original: "a", corrected: "b", confidence, precisionConfidence });
+  assert.equal(at(5, 5), 82);
+  assert.equal(at(5), 82, "no second check: the reviewer stands alone");
+  assert.equal(at(5, 1), 78, "a doubted 5 is still a confident fix, and still blocks");
+  assert.ok(at(5, 1)! >= 70 && at(4)! >= 70 && at(3)! < 70, "the blocking bar sits between a 3 and a 4");
+  assert.equal(at(4, 5), 70);
+  assert.equal(at(2, 5), 53, "a high second check lifts a doubtful reviewer a little");
+  assert.equal(at(1, 1), 10);
+  assert.equal(certainty({ original: "a", corrected: "b" }), null);
+});

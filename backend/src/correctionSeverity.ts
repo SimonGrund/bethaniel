@@ -189,11 +189,24 @@ function editDistance(x: string, y: string): number {
   return d[x.length][y.length];
 }
 
-/** The reviewer's score and the second check's, multiplied, on 0–100 —
- *  the same figure the review screen shows. */
-function certainty(c: Correction): number | null {
+/** How sure Betty is, 0–100 — the same figure the review screen shows.
+ *  A table fitted to measured hit rates by reviewer score, nudged by the
+ *  second check; see certaintyPercent in frontend/src/types.ts for the
+ *  measurement and keep the two identical. */
+/** Certainty at or above which a reviewer-backed model correction blocks. */
+export const BLOCKING_CERTAINTY = 70;
+
+export function certainty(c: Correction): number | null {
   if (c.confidence == null) return null;
-  return Math.round((c.confidence / 5) * ((c.precisionConfidence ?? 5) / 5) * 100);
+  const byReviewer: Record<number, number> = { 1: 10, 2: 45, 3: 58, 4: 70, 5: 82 };
+  const base = byReviewer[Math.max(1, Math.min(5, Math.round(c.confidence)))] ?? 58;
+  const second = c.precisionConfidence;
+  if (second == null) return base;
+  // A low second check shaves a little off a confident reviewer; a high one
+  // adds a little to a doubtful one (27% → 38% measured). Neither flips it.
+  if (second <= 2) return Math.round(base * 0.95);
+  if (second >= 4 && c.confidence <= 2) return base + 8;
+  return base;
 }
 
 const FUNCTION_WORDS = new Set([
@@ -296,9 +309,11 @@ export function classifyPublicationBlocking(
   if (c.editType !== "copy" && !OBJECTIVE_SCOPE_MODES.includes(mode)) return false;
 
   // A model's claim gates publication only once a reviewer has backed it:
-  // unscored, it is a suggestion like any other.
+  // unscored, it is a suggestion like any other. The bar is a reviewer's 4
+  // on the measured scale (70), which a 5 the second check doubted (78)
+  // still clears — that bucket is right as often as two 5s.
   const sure = certainty(c);
-  if (sure === null || sure < 80) return false;
+  if (sure === null || sure < BLOCKING_CERTAINTY) return false;
   if (speech) return false;
   // A comma splice is the one punctuation-only change that is an error.
   if (isPunctuationOnlyChange(c.original, c.corrected)) {

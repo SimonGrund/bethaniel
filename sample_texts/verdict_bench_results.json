@@ -1,0 +1,4203 @@
+{
+ "model": "Qwen3.5-4B-Q4_K_M.gguf",
+ "runDate": "2026-09-14T17:57:10.633Z",
+ "fixtures": [
+  "english",
+  "stress100",
+  "stress100b",
+  "stress300en"
+ ],
+ "corrections": [
+  {
+   "fixture": "english",
+   "c": {
+    "original": "shakey",
+    "corrected": "shake",
+    "reason": "spell-check",
+    "confidence": 4,
+    "reviewReason": "Corrects the spelling of 'shakey' to the standard 'shaky'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "9a39a265-ac2a-4b1f-920f-0ec38fe80385",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "began",
+    "corrected": "begin",
+    "confidence": 5,
+    "reviewReason": "Corrects the subject-verb agreement error 'began' to 'begin' after 'had'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "64e5cd6b-4fc9-4d52-b1de-35741b13fc36",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "writen",
+    "corrected": "write",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'writen' to 'write', which is grammatically incorrect and does not fix the typo; the correct word is 'written'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "090dd21a-7ce3-4d0c-a102-80665bbab09a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "unmoored",
+    "corrected": "unmourned",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Replaces 'unmoored' with 'unmourned', changing the intended meaning from emotional disconnection to grief, which alters the character's reaction.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "60d6f73b-c6d0-443c-b871-8920bcdb4ea5",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "writen",
+    "corrected": "written",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'writen' to the correct past participle 'written'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 1/1",
+    "id": "f6998fa4-b241-4d77-80c7-1ac0cc053fc2",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "ran out",
+    "corrected": "run out",
+    "confidence": 2,
+    "reviewReason": "Changes 'ran out' to 'run out', which is grammatically incorrect in this past tense context; the original was correct.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "7fb5a85d-8fde-44b3-95ab-f63197e6dc56",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "english",
+   "c": {
+    "original": "shakey",
+    "corrected": "shaky",
+    "confidence": 4,
+    "reviewReason": "Corrects the spelling of 'shakey' to the standard 'shaky'.",
+    "precisionConfidence": 2,
+    "flagged": true,
+    "chunk": "Chunk 1/1",
+    "id": "73f55d97-5c64-4723-b3be-343d916019f0",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "unexpeted",
+    "corrected": "unexpected",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error: unexpeted -> unexpected",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "0ed26767-f7b3-40a9-8b1d-6362f2bc83ea",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "patiance",
+    "corrected": "patience",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'patiance' to 'patience'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "5ea339e3-d42e-4451-9d74-c93e5fb9f265",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "She would would need",
+    "corrected": "She would need",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'would would' -> 'would'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "ba15be39-e2eb-48a6-b2ee-c7f40549e157",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "thaddeus",
+    "corrected": "Thaddeus",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the capitalization of 'thaddeus' to 'Thaddeus', matching the style sheet name.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "372cdb00-8407-4521-9317-96f0c523e126",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "went very very quiet.",
+    "corrected": "went very quiet.",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'very very' -> 'very'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "bdb552e7-8348-4f1d-956a-6fca71c1a094",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "imagenation",
+    "corrected": "imagination",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'imagenation' to 'imagination'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "e4f068e1-8f33-43c9-a940-d826e7436bac",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "was a a joke",
+    "corrected": "was a joke",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'was a a' -> 'was a'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "a8f6fa01-9d95-421e-a2a3-7dff82c3e0b3",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "constance",
+    "corrected": "Constance",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'constance' to 'Constance', matching the style sheet name.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "c6bb9e44-b60f-4404-b9d2-adea1ccdb501",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "against the the front",
+    "corrected": "against the front",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'the the' -> 'the'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "ef10dd7a-ee41-42bc-b11a-d882d44b92c8",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "absense",
+    "corrected": "absence",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'absense' to 'absence'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "b0a3a4be-8c6d-4f82-ada3-e970f47eb1f3",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "notebok",
+    "corrected": "notebook",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'notebok' to 'notebook'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "ac23bf42-4508-4822-ba35-1f1cf08e6607",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "familliar",
+    "corrected": "familiar",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'familliar' to 'familiar'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "9b0cd7df-f400-4e92-8dc1-95e5de16776a",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "jorney",
+    "corrected": "journey",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'jorney' to 'journey'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "b91fd91d-273b-4307-a5c1-c1a24e051c34",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "generatons",
+    "corrected": "generations",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'generatons' to 'generations'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "5af9503d-7ade-4767-aea9-aa9e58e56242",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "sailers",
+    "corrected": "sailors",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'sailers' to 'sailors'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "3f1326ac-4d21-4ffd-9017-79f30b79eaeb",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "for a a long",
+    "corrected": "for a long",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'for a a' -> 'for a'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "fd5436c0-e0df-4e11-a58e-6c1b2d64cada",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "breifly",
+    "corrected": "briefly",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'breifly' to 'briefly'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "ab161e70-9b99-4a1c-917f-0c8576f60be4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "prevalling",
+    "corrected": "prevailing",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'prevalling' to 'prevailing'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "e5223bd8-8f4c-43bd-a61f-46f84b06f1c4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "geussing",
+    "corrected": "guessing",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'geussing' to 'guessing'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "67eafca8-e82a-4d9e-8c49-398f28628193",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "expresion",
+    "corrected": "expression",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'expresion' to 'expression'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "1e0b9da5-d668-4b9f-b7d7-98cccbe8739e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "clutered",
+    "corrected": "clustered",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'clutered' to 'clutered' (wait, original was 'clutered', correction is 'clustered').",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "14bd9443-360b-4653-9fc8-02fe63ccb0b4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "definately",
+    "corrected": "definitely",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'definately' to 'definitely'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "bfc1e3d0-50ec-4c62-bcef-27d2297393d1",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "town, with with streets,",
+    "corrected": "town, with streets,",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'with with' -> 'with'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "e65ecfef-2d66-4b23-bff1-12d9d8590cd2",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "completly",
+    "corrected": "completely",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'completly' to 'completely'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "0e623a87-5896-4042-b8d9-3563ee8d4169",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "that at at all.",
+    "corrected": "that at all.",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'at at' -> 'at'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "8a3c4732-30d8-4f80-8c32-01d6f9066d87",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "gentlness",
+    "corrected": "gentleness",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'gentlness' to 'gentleness'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "7caf4394-cdea-4774-8e9b-0fa608f1b315",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "provokation",
+    "corrected": "provocation",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'provokation' to 'provocation'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "fad363ef-9cca-444e-a1ad-401315cdb55c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "tuesday",
+    "corrected": "Tuesday",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the capitalization of 'tuesday' to 'Tuesday' as it begins a sentence.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "56a1402b-e494-4029-8af5-57db6560e980",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "atlus.",
+    "corrected": "atlas.",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling: atlus -> atlas",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "a86bffeb-7055-47f1-870a-065aeedd82c3",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "apprentise",
+    "corrected": "apprentice",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "36f296d8-ee10-42c7-8341-be6325f43e78",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "the the last surviving",
+    "corrected": "the last surviving",
+    "confidence": 5,
+    "reviewReason": "Fixes typo: 'the the' -> 'the'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "73753a74-7cc5-4820-932b-6f7b77646c4c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "ceder",
+    "corrected": "cedar",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling: ceder -> cedar",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "c5436370-142f-43ce-9900-12bf450a2d34",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "atlus",
+    "corrected": "talus",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'atlus' to 'talus', but 'atlus' is a valid archaic spelling for 'atlas' used in the text; changing it to 'talus' (a bone) changes the meaning entirely.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "5c11cf19-e62c-4c88-8920-5a428338d59b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "grey",
+    "corrected": "Grey",
+    "reason": "spell-check",
+    "confidence": 4,
+    "reviewReason": "Changes 'grey' to 'Grey', which is stylistically consistent with the text's pattern of capitalizing colors at the start of sentences (e.g., 'The rain had stopped by than... The charts showed...').",
+    "precisionConfidence": 2,
+    "flagged": true,
+    "chunk": "Chunk 1/1",
+    "id": "3505e25c-ea0c-4e7e-b781-3450237afd50",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "recognised",
+    "corrected": "recognized",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'recognised' to 'recognized', contradicting the style sheet's requirement for American spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "531b0396-aa4d-4f18-b788-f62b48d73ccd",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "margens",
+    "corrected": "mangers",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'margens' to 'mangers', which is a different word (a room for storing grain); the original 'margens' (margins) was correct in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "9a01ca64-8c35-431c-a341-6c13fbbe62d0",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "compas",
+    "corrected": "comps",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'compas' to 'comps', which is a different word (short for computer or competition); the original 'compas' (compass) was correct in context.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "5a425553-62c1-4688-ba62-b24009f5f61b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "centre",
+    "corrected": "center",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'centre' to 'center', contradicting the style sheet's requirement for American spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "f9f95b16-bd04-478d-b296-c9867b8b341b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "apologise",
+    "corrected": "apologies",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'apologise' to 'apologies', which changes the part of speech from a verb to a noun; the original was correct in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "79825d3d-3f42-48fc-8039-33268c444be5",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "mension",
+    "corrected": "mansion",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'mension' to 'mansion', which is a different word (a large house); the original 'mension' (mention) was correct in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "76df541f-c0f4-4b1a-8dca-d0fc537bc656",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "favourite",
+    "corrected": "favorite",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'favourite' to 'favorite', contradicting the style sheet's requirement for American spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "691392c0-74e3-4d11-91f4-95d8df085d8f",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "realised",
+    "corrected": "realized",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'realised' to 'realized', contradicting the style sheet's requirement for American spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "e96836ba-70fd-48f7-9401-74b35ee62bbc",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "surveyd",
+    "corrected": "surveys",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'surveyd' to 'surveys', which is a different part of speech; the original 'surveyd' (surveyed) was correct in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "15bdc28b-e693-43c5-a410-9b163c98cb16",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "travelling",
+    "corrected": "traveling",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'travelling' to 'traveling', contradicting the style sheet's requirement for American spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "6fead6b8-6364-44dc-9d69-18108d334f39",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "woodsmoke",
+    "corrected": "wood smoke",
+    "reason": "spell-check-uncommon",
+    "confidence": 1,
+    "reviewReason": "Changes 'woodsmoke' to 'wood smoke', but hyphenated or compound words like this are standard English; the original was correct.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "7f81716b-e6c8-43e7-9755-ea2c295bbe2f",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "honour",
+    "corrected": "honor",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error: honour -> honor (matches style sheet usage of 'harrow & finch' which uses American spelling convention for the shop name, though 'honour' is also valid; however, given the shop name uses 'finch' without an 'o', consistency suggests 'honor'. Wait, re-reading style sheet: 'Harrow & Finch' has no 'o'. Standard US English is 'honor'. The text uses 'honor' elsewhere? No. Actually, 'honour' is British. The shop name 'Harrow & Finch' is neutral. Let's look closer at the text. 'finch' is used. 'honor' vs 'honour'. If the author prefers US spelling (implied by 'atlus'->'atlas' fix in #14), then 'honor' is correct. If British, 'honour'. The style sheet doesn't explicitly state a preference for honor/honour, but 'atlus'->'atlas' suggests US spelling. Also 'center' vs 'centre'? Not seen. Let's assume US spelling based on 'atlus'. Score 5.)",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 1/1",
+    "id": "8a30f902-165b-4c52-a574-94b4087889fa",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "for a a",
+    "corrected": "for an a",
+    "reason": "retext:indefinite-article",
+    "flagged": true,
+    "reviewReason": "not scored by reviewer — verify manually",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "84b35237-c5a0-49d3-877a-43df63a4d865",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "was a a",
+    "corrected": "was an a",
+    "reason": "retext:indefinite-article",
+    "flagged": true,
+    "reviewReason": "not scored by reviewer — verify manually",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "831fffc3-7edf-4f4c-b50d-8dbf872dc236",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100",
+   "c": {
+    "original": "Tuesday,",
+    "corrected": "on Tuesday,",
+    "confidence": 2,
+    "reviewReason": "Adds unnecessary preposition 'on' before Tuesday; original 'Tuesday came...' is grammatically correct and stylistically consistent with the narrative voice.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "1f43b84a-80f5-4533-85ba-4c64765ca265",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "slighest danger",
+    "corrected": "slightest danger",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'slightest' from 'slighest'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "94aaefe8-05e2-4cad-a7c3-a289abe9d0ef",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "instrucion",
+    "corrected": "instruction",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "da9c9c13-d4e7-4964-8941-23ac65f6fa52",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "softenned",
+    "corrected": "softened",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "3c8625bb-f8f6-4d36-af87-548077f0c687",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "never once managed to explaine",
+    "corrected": "never once managed to explain",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'explain' from 'explaine'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "c8b1694a-884c-4470-809a-3c3147ab9516",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "right the reply",
+    "corrected": "write the reply",
+    "confidence": 5,
+    "reviewReason": "Corrects the verb choice from 'right' to 'write' in the context of composing a letter.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "eabd603b-a076-46ad-b704-cf7bf95e1493",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "entirly",
+    "corrected": "entirely",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'entirely' from 'entirley'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "7a4ae58a-59e3-433b-9219-a64fe8718dc9",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "cup of cofee",
+    "corrected": "cup of coffee",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'coffee' from 'cofee'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "61ded9aa-d43f-4107-98f8-b18abbdf031b",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "a hour longer",
+    "corrected": "an hour longer",
+    "confidence": 5,
+    "reviewReason": "Corrects the article usage from 'a hour' to 'an hour'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "2f597c0d-e756-4ad8-a944-cbe43e3961c4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "breifly",
+    "corrected": "briefly",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "f5bf517a-0bae-42e7-9005-0a2a12a689a6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "reliabley true",
+    "corrected": "reliably true",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'reliably' from 'reliabley'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "d667cd66-a8cb-409d-be2d-7069ce929371",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "the cleerest day",
+    "corrected": "the clearest day",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'clearest' from 'cleerest'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "2dc4acd2-f516-4a52-a9f5-2f94fc58db43",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "over the the water.",
+    "corrected": "over the water.",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Removes the redundant 'the' in 'over the the water', fixing a clear typo.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "8264a69a-3f6b-4316-ba5a-ae960d0cb625",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "discused",
+    "corrected": "discussed",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'discussed' from 'discused'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "7c59e922-7399-4c2b-9591-aae74bcb57a1",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "perscription",
+    "corrected": "prescription",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "a3701b52-5f2a-40cb-9569-df5b32347f92",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "stethescope",
+    "corrected": "stethoscope",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "0f875619-5311-4956-8e7e-749d642b69a7",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "satisfyed",
+    "corrected": "satisfied",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'satisfied' from 'satisfyed'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "8b8d6d1e-aded-4550-9861-07ad4944e6cb",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "nine untill one",
+    "corrected": "nine until one",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'until' from 'untill'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "f6d7b81d-4d17-44a1-b44f-4100c738d811",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "setled it",
+    "corrected": "settled it",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'settled' from 'setled'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "f2ac5db2-a31b-437d-b8ef-880581a9dd31",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "made either of them flintch",
+    "corrected": "made either of them flinch",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'flinch' from 'flintch'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "25e1927a-c557-46c9-a5fb-cfb497e7ca28",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "entirley expected",
+    "corrected": "entirely expected",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'entirely' from 'entirley'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "7bff2b0f-a179-4062-a688-c655bd6a3a28",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "you tryed to",
+    "corrected": "you tried to",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'tried' from 'tryed'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "75f9a185-42f0-4d7e-a8a1-7906eaafbd2a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "like a photagraph",
+    "corrected": "like a photograph",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'photograph' from 'photagraph'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "d2e30da1-7314-4c75-a671-ef438412c3c2",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "a tuesday",
+    "corrected": "a Tuesday",
+    "confidence": 5,
+    "reviewReason": "Corrects the capitalization of the day 'Tuesday' as required by standard grammar.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "f52e8b02-7d67-4d35-ba04-c8a3baef6bb8",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "on her heals",
+    "corrected": "on her heels",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'heels' from 'heals'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "1ad004c3-13e3-4f2e-8650-c442a83c8f5e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "could of managed",
+    "corrected": "could have managed",
+    "confidence": 5,
+    "reviewReason": "Corrects the grammatical error 'could of managed' to 'could have managed'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "6a17e60f-b2c4-4878-8aed-ff7450209cf6",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "with the the ferry",
+    "corrected": "with the ferry",
+    "reason": "retext:repeated-words",
+    "confidence": 5,
+    "reviewReason": "Removes the redundant 'the' in 'with the the ferry', fixing a clear typo.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "03685c8d-267e-46c1-8a47-b00133f5b479",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "in september",
+    "corrected": "in September",
+    "confidence": 5,
+    "reviewReason": "Corrects the capitalization of the month 'September' as required by standard grammar.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "f8e5e279-53a7-4543-b840-5b675af532ff",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "harbour",
+    "corrected": "harbor",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'harbour' to 'harbor' contradicts the author's style sheet which explicitly lists 'harbour' as the correct spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "55aabb25-8303-46d9-91e1-d880da41ea16",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "portside",
+    "corrected": "port side",
+    "reason": "spell-check-uncommon",
+    "confidence": 2,
+    "reviewReason": "Changing 'portside' to 'port side' is unnecessary; the original compound noun is standard and correct.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "b9eb38ad-d228-4e02-95cb-f2e152a8a5bd",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "colour",
+    "corrected": "color",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'colour' to 'color' contradicts the author's style sheet which lists 'colour' as the correct spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "5c3223e8-ff3c-4a39-855b-27037e351dc6",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "learnt",
+    "corrected": "learn",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'learnt' to 'learn' is incorrect; 'learnt' is the past tense of 'learn' and fits the sentence structure perfectly.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "13270305-f3f3-4617-8794-fe571e1fc803",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "grey",
+    "corrected": "Grey",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'grey' to 'Grey' is unnecessary unless it refers to a proper noun, which it does not here.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "828e34dd-dc67-4da4-a2e1-fbf3ddb9e992",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "neighbour",
+    "corrected": "neighbor",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'neighbour' to 'neighbor' contradicts the author's style sheet which lists 'neighbour' as the correct spelling.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "13d16d54-a189-454e-90b8-81836a4884e0",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "tryed",
+    "corrected": "trued",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changing 'tryed' to 'trued' is incorrect; 'trued' is not a word, and the intended correction should be 'tried'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 1/1",
+    "id": "44f2ac22-2804-4084-bf80-727f9d1b5807",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "flintch",
+    "corrected": "flints",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changing 'flintch' to 'flints' is incorrect; 'flints' is a noun (stones), while the context requires the verb 'flinch'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "fd0264f2-7e8e-4544-bda2-e9123854929d",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "slighty",
+    "corrected": "slight",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'slighty' to 'slight' is incorrect; 'slighty' is a valid adverb meaning 'slightly', and the original usage was acceptable.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 1/1",
+    "id": "bdb89b63-a55d-4db9-839d-becf42c1ee63",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "discused",
+    "corrected": "discuses",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changing 'discused' to 'discuses' is incorrect; the intended correction should be 'discussed', and 'discuses' is not a word.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "26761539-7c3e-465e-b946-339a64186b54",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "cleerest",
+    "corrected": "cleverest",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changing 'cleerest' to 'cleverest' is incorrect; 'cleverest' means most intelligent, whereas the context requires 'clearest'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "b1c6b38f-0390-4507-9272-2c5144c0db2e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "slighest",
+    "corrected": "sliest",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changing 'slighest' to 'sliest' is incorrect; 'sliest' is not a word, and the intended correction should be 'slightest'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 1/1",
+    "id": "f6294a8f-e9d0-4dfc-9f3e-5447438d681a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress100b",
+   "c": {
+    "original": "in the dark,.",
+    "corrected": "in the dark.",
+    "confidence": 5,
+    "reviewReason": "Removes the erroneous period before the closing period in 'in the dark,.'.",
+    "precisionConfidence": 2,
+    "flagged": true,
+    "chunk": "Chunk 1/1",
+    "id": "7f66eef8-44f8-4080-a7ac-270c355d3807",
+    "blocksPublication": false,
+    "polishOnly": true
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "She had been keping",
+    "corrected": "She had been keeping",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'keping' to 'keeping'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "6aff8165-f9d4-4fad-8f3f-6ea7b7e40309",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "after a momant",
+    "corrected": "after a moment",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'momant' to 'moment'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "fdc2190c-b465-411d-bbef-2993aaf21502",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "cantral office",
+    "corrected": "central office",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'cantral' to 'central'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "f2d37547-c30c-4a53-8a91-0ec02d15e1bc",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "what the instrumants had measured",
+    "corrected": "what the instruments had measured",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'instrumants' to 'instruments'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "2d0791b0-7f59-42cc-87e1-fa703d16cc89",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "maintenence",
+    "corrected": "maintenance",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'maintenence' to 'maintenance'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "ff758b92-0b3e-4d59-a205-e6a54aae7d65",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "manualy",
+    "corrected": "manual",
+    "reason": "spell-check",
+    "confidence": 4,
+    "reviewReason": "Corrects 'manualy' to 'manual'; while 'manually' is standard, 'manual' can function as an adverb in technical contexts, though 'manually' is safer.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "4a918bf3-42e6-4446-a9ab-5a7e6557b568",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "equipment humed",
+    "corrected": "equipment hummed",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'humed' to 'hummed'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "a7ce3d44-bcff-46fa-96c6-4d2697bde0fb",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "most importent fact",
+    "corrected": "most important fact",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'importent' to 'important'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "8f839464-ee2e-492c-823f-cbd6ef35402e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "never been seriously reveiwed",
+    "corrected": "never been seriously reviewed",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'reveiwed' to 'reviewed'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "191773b2-af14-4ff5-98f4-73935643177a",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "forgoten with sufficient",
+    "corrected": "forgotten with sufficient",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'forgoten' to 'forgotten'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "b5a4da5e-c72e-46e4-8c36-aec9780c43b7",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "transfered twice",
+    "corrected": "transferred twice",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'transfered' to 'transferred'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "d59a4161-027d-4ad0-a024-5f914c6f0626",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "nineten sixty-eight",
+    "corrected": "nineteen sixty-eight",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'nineten' to 'nineteen'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "49b4a32f-4205-4dcb-becd-beb56d72fc1b",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "yelow",
+    "corrected": "yellow",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'yelow' to 'yellow'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "e4ee89a4-be36-41db-8de2-2adf788439f4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "spend at the sumit",
+    "corrected": "spend at the summit",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'sumit' to 'summit'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "0aa49be1-1a28-4a3d-a41b-8b55b63384d7",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "fourten days",
+    "corrected": "fourteen days",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'fourten' to 'fourteen'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "d686fe1e-8647-46af-bee1-00898d8d00e1",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "continued its busines",
+    "corrected": "continued its business",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'busines' to 'business'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "6a437be5-1bfc-4f97-bb66-ebaaea05f62c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "persistant bank",
+    "corrected": "persistent bank",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'persistant' to 'persistent'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "4865fbf2-aac8-4533-a25b-c833f6890a72",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "Her predecesor had warned her",
+    "corrected": "Her predecessor had warned her",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'predecesor' to 'predecessor', matching the style sheet spelling.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "f8792221-582b-4f9d-a841-62092855c732",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "posibly more",
+    "corrected": "possibly more",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'posibly' to 'possibly'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "883d08bc-50f1-4f54-8b3e-717c27f6e586",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "Marta always stoped",
+    "corrected": "Marta always stopped",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'stoped' to 'stopped'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "5a18c1fa-ec73-4409-ae39-7fa1dbaba414",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "broke sudenly",
+    "corrected": "broke suddenly",
+    "confidence": 5,
+    "reviewReason": "Corrects the spacing typo 'broke sudenly' to 'broke suddenly'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "91eb0da6-8817-4574-99d0-2dd7a2a45da0",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "stoped",
+    "corrected": "stooped",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'stoped' to 'stooped', which is a different verb meaning to bend forward; the intended word is 'stopped'.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "e372ddfb-90ad-418b-81a3-3ec69e1c93c5",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "busines",
+    "corrected": "busies",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'busines' to 'busies', which is not a word; the intended correction is 'business'.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "b873e4e0-9e0f-4520-9f53-1260969719d2",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "sumit",
+    "corrected": "suit",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'sumit' to 'suit', which changes the meaning from a mountain peak to a legal agreement or clothing.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 2/12",
+    "id": "28004b33-5e8f-4c84-a627-27dd16839189",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "importent",
+    "corrected": "impotent",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'importent' to 'impotent', which changes the meaning from 'important' to 'powerless'; the intended word is 'important'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 2/12",
+    "id": "c33775c8-243a-4a7f-becd-9e098aa1255e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "humed",
+    "corrected": "hued",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'humed' to 'hued', which changes the meaning from making a humming sound to having color; the intended word is 'hummed'.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 2/12",
+    "id": "7971547c-1147-4839-9834-b7ada3bab767",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "uplink",
+    "corrected": "up link",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the hyphenation error 'uplink' to 'up link'.",
+    "precisionConfidence": 2,
+    "flagged": true,
+    "chunk": "Chunk 2/12",
+    "id": "6ac0fca2-5f94-4e9c-b664-6493b993196f",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "evidance",
+    "corrected": "deviance",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'evidance' to 'deviance', which changes the meaning from 'proof' to 'bad behavior'; the intended word is 'evidence'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 2/12",
+    "id": "0439829d-e61a-49c0-9213-72b7c8a429fc",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "It was not evidance",
+    "corrected": "It was not evidence",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'evidance' to 'evidence'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 2/12",
+    "id": "1839a8a7-0f39-46ce-93d7-4bd16d8b5c8a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "unremarkible",
+    "corrected": "unremarkable",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "c4ca0b19-78df-4af6-a296-2f748223f4c5",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "dificult",
+    "corrected": "difficult",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "46c69d71-e59a-4e5a-8208-82eff68eb09c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "mantioned",
+    "corrected": "mentioned",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "20cf1e57-8c00-46a5-8681-44e8ceacd964",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "sixteanth",
+    "corrected": "sixteenth",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "ffa475bf-87b0-40c9-b534-ba99b446a64f",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "betwen",
+    "corrected": "between",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "a8aa703d-08e6-4e1c-9b40-0b3e295d9d60",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "presure",
+    "corrected": "pressure",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'presure' to 'pressure'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "bba6f5bf-c217-4b26-8168-e89b2b3910a7",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "instrumant",
+    "corrected": "instrument",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "c72adc7a-7764-4bea-ad8f-c9f62d685d19",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "documants",
+    "corrected": "documents",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'documants' to 'documents'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "e9f6e8f9-8ac3-41fd-ab9d-de70ef40d466",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "multipleid",
+    "corrected": "multiplied",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'multipleid' to 'multiplied'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "2070437b-8af8-4c0b-8fd9-9edc50a7f363",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "ocasionally",
+    "corrected": "occasionally",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'ocasionally' to 'occasionally'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "4adce215-fd05-4396-8d5a-1ca7e3ecbb01",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "merly",
+    "corrected": "merely",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "e44a8eb0-a64d-464a-812b-c5fecbc8de53",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "peragraphs",
+    "corrected": "paragraphs",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'peragraphs' to 'paragraphs'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "dec1a8ff-d852-487e-8e60-e101573d4eba",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "ofice",
+    "corrected": "office",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 3/12",
+    "id": "b9df5311-915f-4edf-85bf-ab31aebe4843",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "visated",
+    "corrected": "vitiated",
+    "reason": "spell-check",
+    "flagged": true,
+    "reviewReason": "not scored by reviewer — verify manually",
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "f8392340-2fc9-4e56-b4be-a3d72b7bdbe8",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "carefuly",
+    "corrected": "careful",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Removes the necessary adverbial suffix '-ly' from 'carefuly', changing the sentence meaning from 'composed carefully' to 'composed carelessly'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "bd8f825e-5d23-4eae-bab3-ef5bce589a52",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "anual",
+    "corrected": "anal",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'anual' (typo for annual) to 'anal', which is a completely different word and makes no sense in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "b17a4ac8-9b00-4f59-9919-bdecd860a55e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "arival",
+    "corrected": "rival",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'arival' (typo for arrival) to 'rival', which changes the meaning entirely.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "83c79396-eee4-4a57-8242-189d75bb99e8",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "gradualy",
+    "corrected": "gradual",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Removes the necessary adverbial suffix '-ly' from 'gradualy', changing the meaning from 'descended gradually' to 'descended gradually'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "b780b782-11be-4ddb-9f66-c474599a40e9",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "arive",
+    "corrected": "rive",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'arive' (typo for arrive) to 'rive', which is not a valid word in this context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 3/12",
+    "id": "1db3011f-fb87-4e75-b445-9dab76799c01",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "visated",
+    "corrected": "visited",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'visated' to 'visited'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 3/12",
+    "id": "3c86142b-e9ce-4202-90e9-3b08bf9ee3d5",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "from the station's anual operating budget",
+    "corrected": "from the station's annual operating budget",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'anual' to 'annual'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 3/12",
+    "id": "7fb50242-a1c0-4d60-8ec5-83a7afae2427",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "arive",
+    "corrected": "arrive",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'arive' to 'arrive'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 3/12",
+    "id": "613a3c96-c470-4d12-9330-9e346360902a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "embarass",
+    "corrected": "embarrass",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "034fb962-e41f-4023-bef9-bb302a7d60cd",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "understod",
+    "corrected": "understood",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "70ff6709-69fe-4f14-bb0a-871a0837da30",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "seperate",
+    "corrected": "separate",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "f32d7b52-732b-456c-bde2-bca402b7bf6c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "idantified",
+    "corrected": "identified",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "e493d37a-1513-423c-b1e3-503ce10b4e4e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "peragraph",
+    "corrected": "paragraph",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "63abdba7-891e-4f9a-bf52-9acaa20811f6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "abreviated",
+    "corrected": "abbreviated",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "7e8d9963-1a74-494d-a822-d4cf0c500abf",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "departmantal",
+    "corrected": "departmental",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "152025e7-10d3-4c93-bc85-c75d19596ff1",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "folowing",
+    "corrected": "following",
+    "confidence": 5,
+    "reviewReason": "Corrects the spelling of 'folowing' to 'following'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "84c67215-9c18-4c1a-8bfd-9cfc4fd0fda6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "faciliteis",
+    "corrected": "facilities",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the spelling of 'faciliteis' to 'facilities'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "a9bc1ba1-2157-4cd2-bf80-b605c5d358b2",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "impressivly",
+    "corrected": "impressively",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "c9bb2327-5a91-4376-883c-bd32c781c239",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "cofee",
+    "corrected": "coffee",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "7e181212-b197-4178-8734-2dacbedf6001",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "abandonmant",
+    "corrected": "abandonment",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "ea06387a-ed2b-4649-893e-6977f788a618",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "over-preparednes",
+    "corrected": "over-preparedness",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "479b4c34-a018-4954-b99c-5df558ecd1c0",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "twanty-five",
+    "corrected": "twenty-five",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "16048a2a-285e-4ba2-a000-701b2cc84f69",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "folowing",
+    "corrected": "flowing",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'folowing' (a typo for following) to 'flowing', which alters the meaning from budget cycles to water movement.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 4/12",
+    "id": "9811b9bf-dda6-4852-a513-8fd0480a92c5",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "asets",
+    "corrected": "sets",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'asets' (a typo for assets) to 'sets', which alters the meaning from pending consolidation of assets to generic sets.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 4/12",
+    "id": "5b0fbaa3-dfa0-4dcb-b784-77bd9e540803",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "apear",
+    "corrected": "spear",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'apear' (a typo for appear) to 'spear', which creates a nonsensical sentence about her name being a weapon.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 4/12",
+    "id": "47028e15-9033-4fab-a798-302d81fd9c73",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "accidant",
+    "corrected": "accident",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'accidant' (a typo for accident) to 'incident', which alters the meaning from a non-event to an event.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 4/12",
+    "id": "9c5e447b-022f-4795-a094-62030db699fc",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "facileitis",
+    "corrected": "facilities",
+    "confidence": 2,
+    "reviewReason": "Changes 'facileitis' (a typo for facilities) to 'facilities', but this is a duplicate correction already made at index 6.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 4/12",
+    "id": "35f250fe-67a0-4cfc-b60c-3f6570a5f9bd",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "asets",
+    "corrected": "assets",
+    "confidence": 5,
+    "reviewReason": "Corrects the spelling of 'asets' to 'assets'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 4/12",
+    "id": "8506e7e1-b126-4713-af5a-b1e5a20fca65",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "apear",
+    "corrected": "appear",
+    "confidence": 5,
+    "reviewReason": "Corrects the spelling of 'apear' to 'appear'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 4/12",
+    "id": "0e110bdb-cd0c-46f0-b254-af0e75d2661e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "accidant",
+    "corrected": "incident",
+    "confidence": 2,
+    "reviewReason": "Changes 'accidant' (a typo for accident) to 'incident', which alters the meaning from a non-event to an event.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 4/12",
+    "id": "65d2e0af-0aae-478a-91da-6ff05e906480",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "documant",
+    "corrected": "document",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "b6c9c3fc-a242-4441-8d73-54c305728ed6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "extremly careful",
+    "corrected": "extremely careful",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'extremly' to the correct word 'extremely'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "32202f51-0be3-40eb-b928-c39b8e9d19b9",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "cancelation",
+    "corrected": "cancellation",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "3b5f73d9-a1b4-4631-ba09-0b882b5b6aba",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "evantually",
+    "corrected": "eventually",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "5b94a54c-eab6-42f3-9ae5-b5df6d3ab189",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "two thousand and eleven",
+    "corrected": "2011",
+    "confidence": 4,
+    "reviewReason": "Converts spelled-out year to numerals; acceptable but style-dependent.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "c537f07c-099b-4763-8e82-8fd6f9cfc441",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "two thousand and four",
+    "corrected": "2004",
+    "confidence": 4,
+    "reviewReason": "Converts spelled-out year to numerals; acceptable but style-dependent.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "7e5e94ef-7858-45e7-9d23-e494b92edcb3",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "uncomon",
+    "corrected": "uncommon",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'uncomon' to the correct word 'uncommon'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "c317336d-e509-46eb-b101-b88b2bebcc29",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "excellant",
+    "corrected": "excellent",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'excellant' to the correct word 'excellent'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "34aa82a1-8934-43ad-9189-56bbefaca2ea",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "downhil",
+    "corrected": "downhill",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'downhil' to the correct word 'downhill'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 5/12",
+    "id": "a23b3b76-368b-48e0-8bcb-ca5408b61ba6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "contanted",
+    "corrected": "contented",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "01ad0f15-de6b-432f-9f4a-4ae97538b130",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "as intolerible",
+    "corrected": "as intolerable",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'intolerable' from 'intolerible'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "83d61a40-47ce-4443-b661-3a3b9e89dea4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "considerible",
+    "corrected": "considerable",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "9aacff77-09cb-45d9-83d7-d2a2e8172bd2",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "and loked at it",
+    "corrected": "and looked at it",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'looked' from 'loked'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "571148c5-106a-4da6-93ab-320d3b540887",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "until miday",
+    "corrected": "until midday",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'midday' from 'miday'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "ddaca07f-6a45-45fd-bddf-fc2625512bf1",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "invisable",
+    "corrected": "invisible",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "d369b621-21fd-49b2-91ff-d22c4925be54",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "without trigering an alarm",
+    "corrected": "without triggering an alarm",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'triggering' from 'trigering'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "9ed3ddc9-597d-42fe-90a3-cf3620e68cbb",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "fourteanth,",
+    "corrected": "fourteenth,",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'fourteenth' from 'fourteanth' and fixes the comma placement.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 6/12",
+    "id": "e6c12032-757d-4b74-b499-dfe23980abd3",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "loked",
+    "corrected": "liked",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'looked' to 'liked', altering the meaning and context of the sentence.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 6/12",
+    "id": "3893c16f-ae54-441b-b130-c259d31116d7",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "before the wekend",
+    "corrected": "before the weekend",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'wekend' to 'weekend'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "d77a24d8-db4d-4016-a07d-78179d678d4e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "put the ketle on",
+    "corrected": "put the kettle on",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'ketle' to 'kettle'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "e8dc9bc2-e0e7-4157-8a1e-efd39f2b7dea",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "attantion",
+    "corrected": "attention",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "43319e92-317c-4760-bd80-99b62cb8f3d7",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "antered the morning's readings",
+    "corrected": "entered the morning's readings",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'antered' to 'entered'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "17f99a86-81b4-434f-b513-fe8cb2b366f6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "It invated her",
+    "corrected": "It invited her",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'invated' to 'invited'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "03215765-fac4-434f-9cc3-3942446969bd",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "departmant",
+    "corrected": "department",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "3191d4c3-c5b5-4dea-8908-126f37c4b53c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "She did not atach",
+    "corrected": "She did not attach",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'atach' to 'attach'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "bbfa5cd4-9855-4294-9861-b765354f57cf",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "eleven-hour silance",
+    "corrected": "eleven-hour silence",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'silance' to 'silence'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "653c3237-703a-4573-b0be-25c3669aea8f",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "She atached",
+    "corrected": "She attached",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'atached' to 'attached'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "133c6fa5-9bb1-4300-b5b9-12808245a8c6",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "fourteen of those ocasions",
+    "corrected": "fourteen of those occasions",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'ocasions' to 'occasions'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "9037483f-dd93-4fd3-bc86-1706fdbb8cd9",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "onset of frezing conditions",
+    "corrected": "onset of freezing conditions",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'frezing' to 'freezing'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "3733f8b0-61bd-48f2-97a1-5f3aa18e0646",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "nearest comparible station",
+    "corrected": "nearest comparable station",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'comparible' to 'comparable'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "4951aa2a-7239-445b-9028-2788c1fe7036",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "It quentified",
+    "corrected": "It quantified",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'quentified' to 'quantified'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 7/12",
+    "id": "e1ac44fd-1672-41bb-8da9-7549a14ef45e",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "leter",
+    "corrected": "leer",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'leter' to 'leer', which is not a word; the correct correction is 'letter'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 7/12",
+    "id": "f08761b4-4997-45fc-9c82-58057435fd62",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "recognise",
+    "corrected": "recognize",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'recognise' (British spelling) to 'recognize' (American spelling), contradicting the author's established style sheet which uses 'recognise'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 7/12",
+    "id": "d6406c36-81cb-496e-a070-f88e70614b3b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "reorganised",
+    "corrected": "reorganized",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'reorganised' (British spelling) to 'reorganized' (American spelling), contradicting the author's established style sheet which uses 'reorganised'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 7/12",
+    "id": "51889823-4529-42f6-9a09-892e5efe2e85",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "antered",
+    "corrected": "antlered",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'antered' to 'antlered', which is not a word; the correct correction is 'entered'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 7/12",
+    "id": "a2c57339-a755-4c90-ad77-1c313e9e0304",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "faling",
+    "corrected": "faking",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'faling' to 'faking', which changes the meaning from falling pressure to making a fake; the correct correction is 'falling'.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 7/12",
+    "id": "d6d6036d-0d35-4e9e-b307-051d4180c505",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "The eventual leter",
+    "corrected": "The eventual letter",
+    "confidence": 5,
+    "reviewReason": "Correctly fixes the typo 'leter' to 'letter'.",
+    "precisionConfidence": 2,
+    "flagged": true,
+    "chunk": "Chunk 7/12",
+    "id": "db510268-48c7-4b27-9285-b1a4f9af3631",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "apeared",
+    "corrected": "appeared",
+    "confidence": 5,
+    "reviewReason": "Corrects a clear typo where 'apeared' was misspelled as 'appeared'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "213534d2-3c8d-470e-8366-baafb0bffda0",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "horrifeid",
+    "corrected": "horrified",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects a clear typo where 'horrifeid' was misspelled as 'horrified'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "af592d1a-8fd1-4202-8bd1-cce93fd3b56d",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "colapsed",
+    "corrected": "collapsed",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "f69598c6-af97-4fa8-bf43-650592f19282",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "santimental",
+    "corrected": "sentimental",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "c9f5c390-9b87-4527-aba4-b8066ecd7cfd",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "sumer",
+    "corrected": "summer",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "7522e961-4dff-44e0-a36c-3bb6bedb4b01",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "cheracter",
+    "corrected": "character",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "612d9b2b-3a6b-496d-b9f5-eaa08db9d8af",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "acess",
+    "corrected": "access",
+    "confidence": 5,
+    "reviewReason": "Corrects a clear typo where 'acess' was misspelled as 'access'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "a3d653b6-fea4-4a34-a693-dbb1c14fe0d0",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "ieghth",
+    "corrected": "eighth",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 8/12",
+    "id": "f597f8f8-a375-4c5e-b7e9-e6625453977d",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "acess",
+    "corrected": "aces",
+    "reason": "spell-check-uncommon",
+    "confidence": 2,
+    "reviewReason": "Changes 'acess' to 'aces', which is incorrect; the intended word is 'access'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 8/12",
+    "id": "0f59ec15-b2d9-4ac1-8b79-79d80d7bb30e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "systematicaly",
+    "corrected": "systematical",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'systematicaly' to 'systematical', which is incorrect; the adverb form 'systematically' is required.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 8/12",
+    "id": "5951b6c7-3084-489b-80a3-05ca072f82a9",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "apeared",
+    "corrected": "speared",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'apeared' to 'speared', which is nonsense; the intended word is 'appeared'.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 8/12",
+    "id": "9817f4d8-8646-4c9d-a8d8-5da147498870",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "scren",
+    "corrected": "screen",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "8acc4ee6-947c-48c2-a3f2-b1124fee4b1a",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "nevertheles",
+    "corrected": "nevertheless",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "fd6004a6-3142-4330-a771-5fbf2df2e046",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "apparant",
+    "corrected": "apparent",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "36ef9086-3da4-45b1-a1b0-18a40fa69909",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "bodeis",
+    "corrected": "bodies",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "707e5ef1-4df5-498f-8b0a-7db409a6df1b",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "disertation",
+    "corrected": "dissertation",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "5a3e07ce-79d6-40a8-ac8a-d1fd32862f82",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "intantion",
+    "corrected": "intention",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "295a66cb-79f4-4ec8-8b86-1391cb058375",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "disasembly",
+    "corrected": "disassembly",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "e930a947-e7e3-4805-8abe-0163dd7161b0",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "afternon",
+    "corrected": "afternoon",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "fb250c48-2d40-4ade-bc9c-0e579948bc9d",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "componant",
+    "corrected": "component",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "87fefdd3-97a1-4ab7-ac6b-2022bb0bc936",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "recieved",
+    "corrected": "received",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "4fa35c7f-8347-4ee0-a5b2-89f42cff4f7c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "differant",
+    "corrected": "different",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "a3d59c29-f2a1-48d6-98f8-55217f7c9add",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "physicaly",
+    "corrected": "physical",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the typo 'physicaly' to the correct word 'physical'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "137a94b9-7144-40f0-a7d6-41356146b063",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "replacemant",
+    "corrected": "replacement",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "e77ce280-afbf-4e51-a1d7-28faf5e19052",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "writen",
+    "corrected": "write",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'writen' to 'write', which is grammatically incorrect; the original 'writen' was a typo for 'written', so this change introduces an error.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "68dae750-b879-4aac-97a8-8bd134f2580c",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "physicaly",
+    "corrected": "physically",
+    "confidence": 2,
+    "reviewReason": "Changes 'physicaly' to 'physically', but the original context ('physicaly incompatible') required the adjective form; this change alters the meaning to an adverb where an adjective was needed.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "5c7c9791-d602-46dc-aebb-fd7dbb7c904e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "writen",
+    "corrected": "written",
+    "confidence": 2,
+    "reviewReason": "Changes 'writen' to 'written', which is the correct fix for the typo in the original text; however, index 6 already flagged a similar error ('writen' -> 'write'), suggesting a pattern of confusion. This specific change itself is correct, but the presence of index 6 indicates a systemic issue with handling this typo.",
+    "flagged": true,
+    "precisionConfidence": 5,
+    "chunk": "Chunk 9/12",
+    "id": "9c5b5b7f-107f-4bc6-81dd-192b7624dbb9",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "transmision",
+    "corrected": "transmission",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "494c4cf7-14a5-4375-a721-d08bf52ec2a9",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "antirely",
+    "corrected": "entirely",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'entirely'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "0e892d50-88b7-482c-83bf-67b836562a3a",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "compresion",
+    "corrected": "compression",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "1e368540-4053-4f0d-a0a4-296ae47d5d3b",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "sevanty-two",
+    "corrected": "seventy-two",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "f898a501-ad05-4ab6-b0e1-1b48d2f41df4",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "buletin",
+    "corrected": "bulletin",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "e236eab6-fc61-44cd-a854-b9a28b8844e5",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "approximatly",
+    "corrected": "approximately",
+    "preApproved": true,
+    "reason": "spell-check",
+    "confidence": 5,
+    "chunk": "Chunk 10/12",
+    "id": "cefeb00f-f8d7-42e0-9af3-c24f8ced9b39",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "gradiant",
+    "corrected": "radiant",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'gradient' to 'radiant', which alters the meaning from a slope measurement to light emission.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 10/12",
+    "id": "b9cbe81b-cd77-4d0a-b5fe-1824b90599e8",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "gradiant",
+    "corrected": "gradient",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling of 'gradient'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 10/12",
+    "id": "754670c4-1097-4667-850c-280529eab398",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "antirely",
+    "corrected": "anrily",
+    "confidence": 1,
+    "reviewReason": "Changes 'entirely' to 'anrily', which is not a valid English word and creates nonsense.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 10/12",
+    "id": "04fc710e-5ffb-496e-8990-9d3175e457be",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "Somebody looked at a spreadshet",
+    "corrected": "Somebody looked at a spreadsheet",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'spreadshet' to correct word 'spreadsheet'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "1f599fef-8a9f-4ffc-bfc0-f2e6558e653e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "how such reveiws actually worked",
+    "corrected": "how such reviews actually worked",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'reveiws' to correct word 'reviews'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "445e6405-0a46-4ba6-a8ba-be61b09dd2e9",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "in the specific beleif",
+    "corrected": "in the specific belief",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'beleif' to correct word 'belief'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "7b1885d6-8676-42c9-b9d5-a46e3cd91f38",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "argumant,",
+    "corrected": "argument,",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'argumant' to correct word 'argument'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "9a9b9a66-2625-4ce8-9eee-084fdd7289b3",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "matered",
+    "corrected": "mattered",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'matered' to correct word 'mattered'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "381494a7-9a59-4ec5-875b-1c01a9ebac23",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "wented.",
+    "corrected": "wanted.",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'wented' to correct word 'wanted'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "36fbaaf2-1e49-409c-8681-dbbfb74a1ecb",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "she had enticipated",
+    "corrected": "she had anticipated",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'enticipated' to correct word 'anticipated'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "fa33f33e-a143-45a1-8c2e-8efd9643b031",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "a coleague at the regional office",
+    "corrected": "a colleague at the regional office",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'coleague' to correct word 'colleague'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "30b197bc-c4b0-4112-a867-f88c4dd70439",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "The consolidation reveiw concluded in April.",
+    "corrected": "The consolidation review concluded in April.",
+    "confidence": 5,
+    "reviewReason": "Fixes spelling error 'reveiw' to correct word 'review'",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 11/12",
+    "id": "3f8056cb-8722-4cc6-afb1-941a527e3f1a",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "matered",
+    "corrected": "mastered",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'matered' (meaning 'affected') to 'mastered', altering the intended meaning of the sentence",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 11/12",
+    "id": "b2cf024a-a81a-41a6-8240-8dda58dd599b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "arived",
+    "corrected": "rived",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Creates nonsense word 'rived' instead of fixing the typo 'arived' to 'arrived'",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 11/12",
+    "id": "4a8527a4-1e0f-4a94-9e39-31deed81856d",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "complimant",
+    "corrected": "compliant",
+    "reason": "spell-check",
+    "confidence": 2,
+    "reviewReason": "Changes 'complimant' (meaning 'praise') to 'compliant', altering the intended meaning of the sentence",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 11/12",
+    "id": "2250efb2-496d-44e1-9f66-84f1983f7bb8",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "it was a complimant",
+    "corrected": "it was a compliment",
+    "confidence": 2,
+    "reviewReason": "Changes 'complimant' (meaning 'praise') to 'compliant', altering the intended meaning of the sentence",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 11/12",
+    "id": "d8d08fe7-8f21-4bc7-b8e9-6f93949e271a",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "opposate",
+    "corrected": "opposite",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'opposate' to 'opposite'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 12/12",
+    "id": "1512ef3d-afa4-4cda-97f1-fa2e33cf1951",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "sugested",
+    "corrected": "suggested",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'sugested' to 'suggested'.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 12/12",
+    "id": "bb7f689e-10b7-4cee-8d9c-fc3d77403b62",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "elevanth",
+    "corrected": "eleventh",
+    "reason": "spell-check",
+    "confidence": 5,
+    "reviewReason": "Corrects a misspelling of 'eleventh' to match standard English.",
+    "precisionConfidence": 5,
+    "chunk": "Chunk 12/12",
+    "id": "4c382e51-4577-445d-bf5e-5ba87e448020",
+    "blocksPublication": true,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "semed",
+    "corrected": "seed",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'semed' (a typo for seemed) to 'seed', which is a completely different word and breaks the sentence meaning.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 12/12",
+    "id": "880c9bdc-67d1-4308-929c-1bc625107094",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "leters",
+    "corrected": "leers",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'letters' to 'leers', a non-word that makes no sense in context.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 12/12",
+    "id": "37b004a3-37e8-4984-908e-b8243be04b2b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "valey",
+    "corrected": "valet",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'valey' (typo for valley) to 'valet', which is a different word and breaks the sentence meaning.",
+    "flagged": true,
+    "precisionConfidence": 2,
+    "chunk": "Chunk 12/12",
+    "id": "374c66a4-425f-4488-a838-2da43dec30f3",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "antering",
+    "corrected": "anteing",
+    "reason": "spell-check",
+    "confidence": 1,
+    "reviewReason": "Changes 'entering' to 'anteing', a non-word that breaks the sentence meaning.",
+    "flagged": true,
+    "precisionConfidence": 1,
+    "chunk": "Chunk 12/12",
+    "id": "65828086-4ecf-4fe5-adef-dda8e65f777b",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "observation semed",
+    "corrected": "observation seemed",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'semed' to 'seemed'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 12/12",
+    "id": "02c485f4-cf5a-4cf6-b67b-a4020cc94d87",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "seven years of leters",
+    "corrected": "seven years of letters",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'leters' to 'letters'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 12/12",
+    "id": "a2c5e599-0a10-40b3-a9bd-edeb7c1f709c",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": false
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "the valey",
+    "corrected": "the valley",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'valey' to 'valley'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 12/12",
+    "id": "4b635170-ed89-4e85-8401-5c3d6c295c2e",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  },
+  {
+   "fixture": "stress300en",
+   "c": {
+    "original": "began antering",
+    "corrected": "began entering",
+    "confidence": 5,
+    "reviewReason": "Corrects the misspelling 'antering' to 'entering'.",
+    "precisionConfidence": 1,
+    "flagged": true,
+    "chunk": "Chunk 12/12",
+    "id": "c3c80454-249e-4a00-8c2e-1177bddb16c9",
+    "blocksPublication": false,
+    "polishOnly": false
+   },
+   "right": true
+  }
+ ]
+}
