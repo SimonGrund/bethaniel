@@ -181,6 +181,16 @@ test("gate: a possessive counts as the name", () => {
   assert.equal(r.dropped[0].term, "Gata");
 });
 
+test("gate: a possessive stripped from a name, or added to one, is a change to the name", () => {
+  const stripped = gateProtectedTerms([c("The Gata's death.", "The Gata death.")], P);
+  assert.equal(stripped.dropped[0]?.term, "Gata");
+  const added = gateProtectedTerms([c("The Gata death.", "The Gata's death.")], P);
+  assert.equal(added.dropped[0]?.term, "Gata");
+  // Reordered, the same tokens on both sides: the names are untouched.
+  const moved = gateProtectedTerms([c("Gata and Petran ran", "Petran and Gata ran")], P);
+  assert.equal(moved.kept.length, 1);
+});
+
 test("gate: a typo of a name fixed TO the name is kept", () => {
   const r = gateProtectedTerms([c("and Silverhnad on one", "and Silverhand on one")], P);
   assert.equal(r.kept.length, 1);

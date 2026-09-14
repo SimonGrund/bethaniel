@@ -504,8 +504,9 @@ export function buildLexiconSheetBlock(p: ProtectedTerms | null, maxChars = 6000
   }
   return (
     "NAMES & TERMS — the manuscript's own vocabulary, confirmed by the author. " +
-    "Each is spelled and capitalised exactly as intended: never change its letters or its casing, " +
-    "and never replace it with a dictionary word it resembles. A DIFFERENT spelling of one of these " +
+    "Each is spelled and capitalised exactly as intended: never change its letters, its casing, or an " +
+    "apostrophe attached to it (a possessive stays a possessive), and never replace it with a " +
+    "dictionary word it resembles. A DIFFERENT spelling of one of these " +
     "in the text is a typo of that name and should be corrected TO the form listed here.\n" +
     list
   );
@@ -537,7 +538,7 @@ function changed(c: { original: string; corrected: string }): { del: string[]; i
   return { del: a.slice(i, a.length - j), ins: b.slice(i, b.length - j) };
 }
 
-/** The protected term a token IS — itself, its stem, or a hyphen part. */
+/** The protected term a token IS — itself, its possessive, or a hyphen part. */
 function protectedIn(token: string, words: ReadonlySet<string>): string | null {
   if (words.has(token)) return token;
   const s = stem(token);
@@ -602,12 +603,15 @@ export function gateProtectedTerms(
   for (const c of corrections) {
     let hit: string | null = null;
     const { del, ins } = changed(c);
-    const insSet = new Set(ins.map((t) => stem(t)));
     for (const d of del) {
       const term = protectedIn(d, words);
       if (!term) continue;
-      // The term survives on the other side: the change is around it.
-      if (insSet.has(term) || ins.some((t) => protectedIn(t, words) === term)) continue;
+      // The very same token on the other side means the change is around
+      // it — words reordered, a name moved. The same token in a different
+      // FORM is a change to the name: "EmberMother's" → "EmberMother" drops
+      // a possessive the author wrote, and stemming both sides to compare
+      // them was letting exactly that through.
+      if (ins.includes(d)) continue;
       hit = term;
       break;
     }
