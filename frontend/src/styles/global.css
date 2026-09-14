@@ -2483,6 +2483,27 @@ summary.review-source::before {
   text-align: right;
 }
 
+/* The keys, said once: shown under the first card, gone after the first answer. */
+.deck-keys {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  color: #8b7355;
+}
+
+.deck-keys kbd {
+  display: inline-block;
+  min-width: 1.5rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid #d4c9b0;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: center;
+  color: #4a3f2f;
+}
+
 @media (max-width: 640px) {
   .deck-actions {
     flex-wrap: wrap;
