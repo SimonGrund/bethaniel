@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
 import { useTranslation } from "../i18n";
 import {
@@ -58,6 +59,19 @@ function chapterSortKey(name: string): number {
   const m = name.match(/(\d+)/);
   return m ? parseInt(m[1], 10) : Infinity;
 }
+
+/**
+ * Where a task's chapter sits in the manuscript. The backend records the
+ * index at submission; tasks from before it did fall back to a number in
+ * the name, and a name with no number — "Thirteen", "Twenty-two" — to the
+ * order they were submitted in, which was the manuscript's.
+ */
+function taskOrder(task: { name: string; unitIndex?: number; submittedAt?: number }): number {
+  if (typeof task.unitIndex === "number") return task.unitIndex;
+  const byName = chapterSortKey(task.name);
+  return Number.isFinite(byName) ? byName : 1_000_000 + (task.submittedAt ?? 0) / 1000;
+}
+
 
 /** Format a task's wall-clock duration as a human-readable string. */
 function formatDuration(task: TaskState): string | null {
@@ -206,10 +220,10 @@ function extractSentenceContext(
   fullText: string,
   startIndex = 0,
 ): { before: string; after: string } {
-  const idx = fullText.indexOf(original, startIndex);
-  if (idx < 0) return { before: "", after: "" };
-
-  const editEnd = idx + original.length;
+  const found = locateInText(original, fullText, startIndex);
+  if (!found) return { before: "", after: "" };
+  const idx = found.index;
+  const editEnd = idx + found.length;
 
   // ── Determine the start of the context ──
   // Find the start of the sentence containing the edit.
@@ -1610,7 +1624,7 @@ export function buildChapterPairs(
 ): { original: string; edited: string }[] {
   const editEntries = entries
     .filter(([, task]) => EDIT_MODES.includes(task.mode))
-    .sort(([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name));
+    .sort(([, a], [, b]) => taskOrder(a) - taskOrder(b));
 
   const pairs: { original: string; edited: string }[] = [];
   for (const [tid, task] of editEntries) {
@@ -1650,7 +1664,7 @@ function buildFullManuscript(
 ): string {
   const editEntries = entries
     .filter(([, task]) => EDIT_MODES.includes(task.mode))
-    .sort(([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name));
+    .sort(([, a], [, b]) => taskOrder(a) - taskOrder(b));
 
   const chapters: string[] = [];
   for (const [tid, task] of editEntries) {
@@ -2526,7 +2540,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const isLatest = jobIndex === 0;
           // Sort tasks by chapter number so they appear in manuscript order.
           const entries = [...rawEntries].sort(
-            ([, a], [, b]) => chapterSortKey(a.name) - chapterSortKey(b.name),
+            ([, a], [, b]) => taskOrder(a) - taskOrder(b),
           );
           // Count only corrections scored for acceptance (exclude flagged),
           // consistent with the per-chapter header. Before a result is
@@ -3229,8 +3243,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   .map(([, task]) => task)
                   .filter((task) => task.mode === "proofread");
                 const blockingCorrections = proofreadTasks.flatMap((task) =>
-                  (task.result?.corrections ?? [])
-                    .filter((c) => c.blocksPublication && isReliable(c))
+                  inTextOrder(
+                    (task.result?.corrections ?? []).filter((c) => c.blocksPublication && isReliable(c)),
+                    task.result?.originalText ?? "",
+                  )
                     .map((c) =>
                       describeCorrection(
                         task.name,
@@ -3247,8 +3263,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     (c) => !c.blocksPublication || !isReliable(c),
                   ).length;
                 const minorCorrections = proofreadTasks.flatMap((task) =>
-                  (task.result?.corrections ?? [])
-                    .filter((c) => !c.blocksPublication || !isReliable(c))
+                  inTextOrder(
+                    (task.result?.corrections ?? []).filter((c) => !c.blocksPublication || !isReliable(c)),
+                    task.result?.originalText ?? "",
+                  )
                     .map((c) =>
                       describeCorrection(
                         task.name,
@@ -4170,8 +4188,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           // exception: a setting the author chose, applied
                           // as chosen and reported in the engine log rather
                           // than repeated down every chapter.
-                          const visible = corrections.filter(
-                            (c) => c.reason !== "dialect",
+                          // In the order they occur in the chapter, not the
+                          // order the passes produced them (spell-check
+                          // first, then the editor, chunk by chunk).
+                          const visible = inTextOrder(
+                            corrections.filter((c) => c.reason !== "dialect"),
+                            result.originalText,
                           );
                           // Nothing is discarded, but the doubted ones do not
                           // share the column with the rest. A reviewer scored

@@ -323,6 +323,8 @@ interface JobData {
   /** The document's confirmed names & terms (lexicon.ts). A correction
    *  that would change one is dropped before any reviewer sees it. */
   protectedTerms?: ProtectedTerms;
+  /** Where the chapter sits in the manuscript (TaskState.unitIndex). */
+  unitIndex?: number;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -3196,6 +3198,7 @@ export async function submitTask(
     mode: data.mode,
     wordCount: data.wordCount,
     submittedAt: Date.now(),
+    unitIndex: data.unitIndex,
     result: null,
     editOptions: data.editOptions,
     targetLang: data.targetLang,
@@ -3227,6 +3230,7 @@ export async function submitTask(
       correctionsDigest: data.correctionsDigest,
       consistentTerms: data.consistentTerms,
       protectedTerms: data.protectedTerms,
+      unitIndex: data.unitIndex,
     },
   });
 
@@ -3426,6 +3430,7 @@ export async function retryTask(id: string): Promise<string> {
     // the second attempt judges names the first one was told to leave alone.
     consistentTerms: spec.consistentTerms,
     protectedTerms: spec.protectedTerms,
+    unitIndex: spec.unitIndex,
     resumeState,
   });
   return newTaskId;

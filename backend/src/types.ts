@@ -229,6 +229,9 @@ export interface TaskState {
   mode: TaskMode;
   wordCount: number;
   submittedAt: number;
+  /** Where this chapter sits in the manuscript, 0-based. The name alone
+   *  cannot order chapters called "Thirteen" and "Twenty-two". */
+  unitIndex?: number;
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
@@ -294,6 +297,7 @@ export interface TaskRetrySpec {
   consistentTerms?: string[];
   /** The document's enabled lexicon, for the gate (queue.ts). */
   protectedTerms?: ProtectedTerms;
+  unitIndex?: number;
 }
 
 /** Aggregated correction patterns fed to the writing-report synthesis. */

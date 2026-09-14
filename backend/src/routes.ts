@@ -984,7 +984,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       const consistentTerms = collectConsistentTerms(
         (units as EditUnit[]).map((u) => stripPagebreaks(u.original)),
       );
-      for (const unit of units as EditUnit[]) {
+      for (const [unitIndex, unit] of (units as EditUnit[]).entries()) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
           currentMode === "combined_edit"
@@ -1023,6 +1023,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           spellCheck: resolveKnob("spellCheck", spellCheck),
           retextCheck: resolveKnob("retextCheck", retextCheck),
           consistentTerms,
+          unitIndex,
           protectedTerms: currentMode === "translate" ? undefined : protectedTerms ?? undefined,
           grammarCheck: resolveKnob("grammarCheck", grammarCheck),
           styleComplianceAgent:

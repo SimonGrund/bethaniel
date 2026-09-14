@@ -473,6 +473,9 @@ export interface TaskState {
   mode: TaskMode;
   wordCount: number;
   submittedAt: number;
+  /** Where the chapter sits in the manuscript, 0-based; absent on tasks
+   *  from before it was recorded, which fall back to the name. */
+  unitIndex?: number;
   startedAt?: number;
   finishedAt?: number;
   result: TaskResult | null;
