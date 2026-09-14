@@ -62,10 +62,17 @@ extraResources:
     to: backend/public/
     filter:
       - "**/*"
+  # The one native module is left out here and laid in per arch below:
+  # macOS builds two apps from this one node_modules, and a .node compiled
+  # for the build host is wrong for the other one. scripts/build.mjs sets a
+  # copy aside under native/<os>-<arch>/ for every arch it builds.
   - from: backend/node_modules/
     to: backend/node_modules/
     filter:
       - "**/*"
+      - "!better-sqlite3/build/Release/*.node"
+  - from: electron/resources/native/${os}-${arch}/better_sqlite3.node
+    to: backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node
   - from: backend/package.json
     to: backend/package.json
 

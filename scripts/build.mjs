@@ -173,6 +173,36 @@ console.log("\n━━━ Step 3b: Install backend production deps ━━━");
     cwd: ROOT,
   });
 
+  // A native module is per arch, and macOS ships two apps from this one
+  // node_modules. The rebuild above is for the host; the .node it produced
+  // is set aside under native/<os>-<arch>/, then rebuilt once more for every
+  // other arch of this platform and set aside the same way. electron-builder
+  // .yml keeps the .node out of the shared node_modules copy and lays the
+  // matching one in per app. Before this, the x64 app carried the arm64
+  // better_sqlite3.node and its backend died at the first dlopen — no
+  // upload, no catalog, no cloud button, and a Run button waiting forever.
+  const NODE_REL = join("better-sqlite3", "build", "Release", "better_sqlite3.node");
+  const nativeDir = join(ROOT, "electron", "resources", "native");
+  await fs.rm(nativeDir, { recursive: true, force: true });
+  async function setAsideNative(arch) {
+    const dest = join(nativeDir, `${hostPlatform()}-${arch}`);
+    await fs.mkdir(dest, { recursive: true });
+    await fs.copyFile(
+      join(tmpDir, "node_modules", NODE_REL),
+      join(dest, "better_sqlite3.node"),
+    );
+    console.log(`  ✓ better_sqlite3.node for ${hostPlatform()}-${arch} set aside`);
+  }
+  await setAsideNative(hostArch());
+  for (const arch of buildArches(hostPlatform())) {
+    if (arch === hostArch()) continue;
+    run(
+      `npx --no-install @electron/rebuild --module-dir "${tmpDir}" --arch ${arch}`,
+      { cwd: ROOT },
+    );
+    await setAsideNative(arch);
+  }
+
   // Copy rebuilt node_modules into backend/ (will be bundled by electron-builder)
   const destNm = join(backendDir, "node_modules");
   // Save dev node_modules so we can restore after packaging
