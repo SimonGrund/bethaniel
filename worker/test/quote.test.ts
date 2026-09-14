@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { priceJob } from "../src/quote.ts";
+import { parseProductUses } from "../src/db.ts";
 import type { Env } from "../src/env.ts";
 
 const env = {
@@ -209,4 +210,45 @@ test("a deployment missing the translate price does not undercharge", () => {
       .priceEurCents,
     1200,
   );
+});
+
+test("a per-product cap refuses a product the code has already paid for, and says which", () => {
+  const oneOfEach = {
+    code: "FOURRUNS", discountPct: 100, maxUsesPerProduct: 1,
+    productUses: { translate: 1 },
+  };
+  const q = priceJob(env, { estimatedTokens: 1e6, words: 50_000, product: "translate" }, oneOfEach);
+  assert.equal(q.priceEurCents, 1200, "full translation price, not free");
+  assert.equal(q.appliedCode, undefined);
+  assert.match(q.codeRejectedReason ?? "", /FOURRUNS/);
+  assert.match(q.codeRejectedReason ?? "", /a translation/);
+});
+
+test("the same code still applies to a product it has not been used for", () => {
+  const oneOfEach = {
+    code: "FOURRUNS", discountPct: 100, maxUsesPerProduct: 1,
+    productUses: { translate: 1 },
+  };
+  for (const product of ["edit", "readthrough", "enhance"] as const) {
+    const q = priceJob(env, { estimatedTokens: 1e5, words: 50_000, product }, oneOfEach);
+    assert.equal(q.priceEurCents, 0, `${product} is still free`);
+    assert.equal(q.appliedCode, "FOURRUNS");
+  }
+});
+
+test("no per-product cap means the tally is ignored", () => {
+  const q = priceJob(env, { estimatedTokens: 1e6, words: 50_000, product: "translate" }, {
+    code: "ANY", discountPct: 100, maxUsesPerProduct: null, productUses: { translate: 7 },
+  });
+  assert.equal(q.priceEurCents, 0);
+});
+
+// parseProductUses is the read side of the tally: it must be forgiving of a
+// row written before the column existed or hand-edited into something odd.
+test("the product tally reads back leniently", () => {
+  assert.deepEqual(parseProductUses({ product_uses: "{}" }), {});
+  assert.deepEqual(parseProductUses({ product_uses: "" }), {});
+  assert.deepEqual(parseProductUses({ product_uses: "not json" }), {});
+  assert.deepEqual(parseProductUses({ product_uses: "[1]" }), {});
+  assert.deepEqual(parseProductUses({ product_uses: '{"edit":1,"translate":"x"}' }), { edit: 1 });
 });

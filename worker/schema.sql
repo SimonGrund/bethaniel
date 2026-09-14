@@ -75,6 +75,15 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   -- A code may cap the size it will pay for, so "free trial" can mean
   -- "free up to 5,000 words" without minting an unbounded credential.
   max_words INTEGER,
+  -- A code may also cap its uses PER PRODUCT, so "one of each" can be minted:
+  -- max_uses 4 with max_uses_per_product 1 is one edit, one readthrough, one
+  -- translation and one enhanced analysis, not four translations. NULL means
+  -- max_uses alone governs. product_uses is the tally behind it — a JSON
+  -- object keyed by product name, e.g. {"edit":1,"translate":1} — kept on the
+  -- row itself so the redeem stays one guarded UPDATE, the same shape that
+  -- makes the total count race-safe.
+  max_uses_per_product INTEGER,
+  product_uses TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
   expires_at TEXT,                   -- NULL = never
   status TEXT NOT NULL DEFAULT 'active'  -- active | void

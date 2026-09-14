@@ -12,6 +12,7 @@ import { CLOUD_PRODUCTS, priceJob, type CloudProduct } from "./quote";
 import {
   insertQuote,
   findPromo,
+  parseProductUses,
   redeemPromo,
   releasePromo,
   findQuote,
@@ -363,6 +364,8 @@ export default {
                 discountPct: promoRow.discount_pct,
                 discountCents: promoRow.discount_cents,
                 maxWords: promoRow.max_words,
+                maxUsesPerProduct: promoRow.max_uses_per_product,
+                productUses: parseProductUses(promoRow),
               }
             : null,
         );
@@ -405,6 +408,12 @@ export default {
         const tokenBudget = Math.ceil(
           quote.estimated_tokens * (Number(env.TOKEN_BUDGET_HEADROOM) || 1.5),
         );
+        // A row written before products existed has none and was an edit.
+        const quoteProduct: CloudProduct = CLOUD_PRODUCTS.includes(
+          quote.product as CloudProduct,
+        )
+          ? (quote.product as CloudProduct)
+          : "edit";
 
         // A code that brings the price to zero skips Stripe entirely: there is
         // no payment to take, and Stripe will not create a session for zero.
@@ -415,13 +424,13 @@ export default {
           // racing on the last use of a code cannot both mint: the loser
           // matches no rows and is told the code is spent.
           const redeemed = quote.promo_code
-            ? await redeemPromo(env, quote.promo_code)
+            ? await redeemPromo(env, quote.promo_code, quoteProduct)
             : false;
           if (!redeemed) {
             return json(
               {
                 error:
-                  "That code has already been used, or expired while you were deciding. Ask for a new price.",
+                  "That code has already been used for this kind of job, or expired while you were deciding. Ask for a new price.",
               },
               409,
             );
@@ -445,7 +454,7 @@ export default {
           if (already) {
             // The use was just taken for a credential that already exists, so
             // give it back rather than charging twice for one mint.
-            if (quote.promo_code) await releasePromo(env, quote.promo_code);
+            if (quote.promo_code) await releasePromo(env, quote.promo_code, quoteProduct);
             return json({ error: "This quote has already been claimed" }, 409);
           }
 
@@ -479,7 +488,7 @@ export default {
               tokenBudget,
             );
           } catch (err) {
-            if (quote.promo_code) await releasePromo(env, quote.promo_code);
+            if (quote.promo_code) await releasePromo(env, quote.promo_code, quoteProduct);
             throw err;
           }
           // Same shape the app already handles after a paid checkout.
@@ -497,12 +506,12 @@ export default {
         // A partial discount still goes through Stripe at the reduced amount,
         // and the code is spent only once that session is created.
         if (quote.promo_code) {
-          const redeemed = await redeemPromo(env, quote.promo_code);
+          const redeemed = await redeemPromo(env, quote.promo_code, quoteProduct);
           if (!redeemed) {
             return json(
               {
                 error:
-                  "That code has already been used, or expired while you were deciding. Ask for a new price.",
+                  "That code has already been used for this kind of job, or expired while you were deciding. Ask for a new price.",
               },
               409,
             );
@@ -515,16 +524,13 @@ export default {
             quoteId: quote.id,
             tokenBudget,
             amountCents: quote.price_eur_cents,
-            // A row written before products existed has none and was an edit.
-            product: CLOUD_PRODUCTS.includes(quote.product as CloudProduct)
-              ? (quote.product as CloudProduct)
-              : "edit",
+            product: quoteProduct,
           });
         } catch (err) {
           // The use was taken a few lines above and bought nothing. Without
           // this, a Stripe outage permanently consumes a single-use code and
           // the author's retry is refused with "already used".
-          if (quote.promo_code) await releasePromo(env, quote.promo_code);
+          if (quote.promo_code) await releasePromo(env, quote.promo_code, quoteProduct);
           throw err;
         }
         return json({ checkoutUrl: session.url });

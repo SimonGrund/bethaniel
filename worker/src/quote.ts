@@ -8,6 +8,10 @@ export interface PromoTerms {
   discountPct?: number | null;
   discountCents?: number | null;
   maxWords?: number | null;
+  /** Uses allowed per product; null or absent means the total alone governs. */
+  maxUsesPerProduct?: number | null;
+  /** Uses already taken, by product. Absent counts as none. */
+  productUses?: Record<string, number>;
 }
 
 /** What is being bought. The three front cards — an edit, a final
@@ -24,6 +28,14 @@ export const CLOUD_PRODUCTS: readonly CloudProduct[] = [
   "translate",
   "enhance",
 ];
+
+/** How a product is named mid-sentence, for the reason a code is refused. */
+export const PRODUCT_NOUNS: Record<CloudProduct, string> = {
+  edit: "an edit",
+  readthrough: "a readthrough",
+  translate: "a translation",
+  enhance: "an enhanced language analysis",
+};
 
 /** What the author sees on the Stripe receipt. */
 export const PRODUCT_NAMES: Record<CloudProduct, string> = {
@@ -151,6 +163,21 @@ export function priceJob(
       priceEurCents: fullPriceEurCents,
       fullPriceEurCents,
       codeRejectedReason: `${promo.code} covers up to ${promo.maxWords.toLocaleString("en")} words; this job is ${words.toLocaleString("en")}.`,
+    };
+  }
+
+  // A code minted as "one of each" is refused for a product it has already
+  // paid for, here at quote time so the author reads why instead of meeting
+  // a 409 at checkout. redeemPromo re-checks under the same guard, atomically.
+  if (
+    promo.maxUsesPerProduct != null &&
+    (promo.productUses?.[product] ?? 0) >= promo.maxUsesPerProduct
+  ) {
+    return {
+      product, tokens, words, tiers,
+      priceEurCents: fullPriceEurCents,
+      fullPriceEurCents,
+      codeRejectedReason: `${promo.code} has already been used for ${PRODUCT_NOUNS[product]}.`,
     };
   }
 

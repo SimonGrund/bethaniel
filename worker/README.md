@@ -21,6 +21,12 @@ the deploy checklist.
    ```
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE quotes ADD COLUMN product TEXT NOT NULL DEFAULT 'edit'"
    ```
+   Likewise a database that predates per-product promo caps needs the two
+   `promo_codes` columns before a Worker that reads them is deployed —
+   without them every quote that carries a code 500s:
+   ```
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN max_uses_per_product INTEGER; ALTER TABLE promo_codes ADD COLUMN product_uses TEXT NOT NULL DEFAULT '{}'"
+   ```
 3. Set secrets (never committed — these live only in Cloudflare):
    ```
    npx wrangler secret put PROVIDER_API_KEY
@@ -243,6 +249,23 @@ for the same thing) with an explicit "not currently supported", so
   Codes are matched case-insensitively and stored uppercase. `max_uses` is
   total across all users, not per user — there are no user accounts to key it
   to, so a code that leaks is spent by whoever finds it first.
+  `max_uses_per_product` caps the uses per product on top of that, which is
+  how "one of each" is minted — this is one free edit, one readthrough, one
+  translation and one enhanced analysis, each up to 200,000 words, and not
+  four translations:
+
+  ```
+  npx wrangler d1 execute bethaniel-cloud --remote --command     "INSERT INTO promo_codes (code, campaign, discount_pct, max_uses,
+                              max_uses_per_product, max_words, created_at, expires_at)
+     VALUES ('FOURRUNS', 'comp', 100, 4, 1, 200000,
+             '2026-09-14T00:00:00Z', '2026-12-31T23:59:59Z')"
+  ```
+
+  The tally lives in `product_uses` on the same row (`{"edit":1,...}`), so
+  `SELECT code, uses, product_uses FROM promo_codes` shows what each code
+  has left. A quote against an exhausted product is refused with a reason
+  the author can read, and the checkout re-checks it under the same guarded
+  `UPDATE` that keeps the total race-safe.
 - Two things that will waste your afternoon if you do not know them:
   `wrangler dev` does NOT reload `[vars]` edits — restart it after changing
   `PROVIDER_MODEL` or you will benchmark the old model. And

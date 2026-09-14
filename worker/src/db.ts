@@ -5,6 +5,7 @@
 // reserve/commit/release path. Nothing here ever touches manuscript content.
 
 import type { Env } from "./env";
+import type { CloudProduct } from "./quote";
 
 export interface QuoteRow {
   id: string;
@@ -278,9 +279,30 @@ export interface PromoRow {
   max_uses: number;
   uses: number;
   max_words: number | null;
+  /** NULL = no per-product cap; max_uses alone governs. */
+  max_uses_per_product: number | null;
+  /** JSON object, product name → uses taken. `{}` on a fresh code. */
+  product_uses: string;
   created_at: string;
   expires_at: string | null;
   status: string;
+}
+
+/** The per-product tally as an object. A row written before the column
+ *  existed has the default `{}`; a hand-edited one that is not valid JSON
+ *  counts as empty rather than throwing the quote away. */
+export function parseProductUses(row: Pick<PromoRow, "product_uses">): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(row.product_uses || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 /** Look a code up without consuming it. Quoting must not spend a use. */
@@ -314,19 +336,38 @@ export async function findPromo(env: Env, code: string): Promise<PromoRow | null
  * Guarded so it can only ever undo: `uses > 0` means a lost race or a double
  * call cannot push the counter below zero and mint free redemptions.
  */
-export async function releasePromo(env: Env, code: string): Promise<void> {
-  await env.DB.prepare(`UPDATE promo_codes SET uses = uses - 1 WHERE code = ? AND uses > 0`)
-    .bind(code.trim().toUpperCase())
+export async function releasePromo(env: Env, code: string, product: CloudProduct): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE promo_codes
+        SET uses = uses - 1,
+            product_uses = json_set(product_uses, '$.' || ?2,
+                                    coalesce(json_extract(product_uses, '$.' || ?2), 0) - 1)
+      WHERE code = ?1 AND uses > 0
+        AND coalesce(json_extract(product_uses, '$.' || ?2), 0) > 0`,
+  )
+    .bind(code.trim().toUpperCase(), product)
     .run();
 }
 
-export async function redeemPromo(env: Env, code: string): Promise<boolean> {
+/**
+ * The per-product tally rides in the same statement as the total, so a code
+ * minted as "one of each" cannot be spent as "four translations" by two
+ * checkouts racing on it any more than the total can be overspent. The
+ * product name is a bound parameter from the closed CloudProduct set, never
+ * request text, which is what makes it safe to splice into a JSON path.
+ */
+export async function redeemPromo(env: Env, code: string, product: CloudProduct): Promise<boolean> {
   const res = await env.DB.prepare(
-    `UPDATE promo_codes SET uses = uses + 1
-      WHERE code = ? AND status = 'active' AND uses < max_uses
-        AND (expires_at IS NULL OR expires_at > ?)`,
+    `UPDATE promo_codes
+        SET uses = uses + 1,
+            product_uses = json_set(product_uses, '$.' || ?2,
+                                    coalesce(json_extract(product_uses, '$.' || ?2), 0) + 1)
+      WHERE code = ?1 AND status = 'active' AND uses < max_uses
+        AND (expires_at IS NULL OR expires_at > ?3)
+        AND (max_uses_per_product IS NULL
+             OR coalesce(json_extract(product_uses, '$.' || ?2), 0) < max_uses_per_product)`,
   )
-    .bind(code.trim().toUpperCase(), new Date().toISOString())
+    .bind(code.trim().toUpperCase(), product, new Date().toISOString())
     .run();
   return (res.meta?.changes ?? 0) > 0;
 }
