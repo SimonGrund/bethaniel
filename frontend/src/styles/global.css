@@ -936,6 +936,23 @@ h4 {
   min-height: 360px;
 }
 
+/* In the dialog the notes sit under the names & terms: a box of a few
+   lines, in the page's own type, that plainly wants writing in. */
+.styleguide-expanded .style-textarea-notes {
+  min-height: 9.5rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 0.6rem 0.75rem;
+  border-color: #c9b58f;
+  background: #fff;
+}
+
+.styleguide-expanded .style-textarea-notes:focus {
+  outline: 2px solid #8b7355;
+  outline-offset: 1px;
+}
+
 /* Empty state: textarea + drop zone */
 .styleguide-empty {
   display: flex;

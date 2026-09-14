@@ -8,6 +8,11 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+// Dialogs stack: the style sheet opens from inside the task's settings. Only
+// the one on top answers Escape and traps Tab, or one Escape closes both and
+// the outer trap pulls focus out of the inner dialog's notes.
+const openStack: symbol[] = [];
+
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -28,6 +33,15 @@ export default function Modal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusTo = useRef<Element | null>(null);
+  const id = useRef(Symbol("modal"));
+  // Read through a ref so the effect below depends on `open` alone. Callers
+  // pass `onClose={() => setOpen(false)}` — a new function every render —
+  // and a parent that re-renders on each keystroke (the style-sheet button
+  // counts the words) re-ran the effect on each one: focus was restored to
+  // the opener and then moved to the dialog's first control, and the
+  // textarea being typed in kept the first letter only.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Escape closes; Tab cycles inside. Without the trap, tabbing walks off into
   // the page behind the backdrop, which for a blocking first-run dialog means
@@ -35,11 +49,14 @@ export default function Modal({
   useEffect(() => {
     if (!open) return;
     restoreFocusTo.current = document.activeElement;
+    const me = id.current;
+    openStack.push(me);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && onClose) {
+      if (openStack[openStack.length - 1] !== me) return;
+      if (e.key === "Escape" && onCloseRef.current) {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab" || !dialogRef.current) return;
@@ -64,9 +81,11 @@ export default function Modal({
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
+      const at = openStack.indexOf(me);
+      if (at >= 0) openStack.splice(at, 1);
       (restoreFocusTo.current as HTMLElement | null)?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -80,7 +99,7 @@ export default function Modal({
   return createPortal(
     <div
       className="model-confirm-overlay"
-      onClick={onClose}
+      onClick={() => onCloseRef.current?.()}
       role="presentation"
     >
       <div

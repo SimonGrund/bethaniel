@@ -3543,6 +3543,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty hat Namen in Ihrem Manuskript gefunden. Prüfen Sie die Liste, damit sie nie „korrigiert“ werden.",
     es: "Betty encontró nombres en tu manuscrito. Revisa la lista para que nunca se “corrijan”.",
   },
+  styleguide_notes_hint: {
+    en: "Anything the list above cannot say: a rule of the book, a deliberate mistake, a word to leave as it is. Plain sentences are fine.",
+    da: "Alt det, listen ovenfor ikke kan sige: en regel for bogen, en bevidst fejl, et ord der skal stå som det er. Almindelige sætninger er fint.",
+    de: "Alles, was die Liste oben nicht sagen kann: eine Regel des Buches, ein absichtlicher Fehler, ein Wort, das bleiben soll. Einfache Sätze genügen.",
+    es: "Todo lo que la lista de arriba no puede decir: una regla del libro, un error deliberado, una palabra que debe quedarse. Bastan frases sencillas.",
+  },
+  styleguide_notes_example: {
+    en: "e.g.\nThe pirates speak ungrammatically on purpose — leave their dialogue alone.\nSara never uses contractions.\nKeep “towards”, never “toward”.",
+    da: "f.eks.\nPiraterne taler bevidst ugrammatisk — lad deres replikker være.\nSara bruger aldrig forkortelser.\nBehold “imod”, aldrig “mod”.",
+    de: "z. B.\nDie Piraten sprechen absichtlich falsch — ihre Dialoge bleiben, wie sie sind.\nSara verwendet nie Abkürzungen.\n„Sonnabend“ behalten, nie „Samstag“.",
+    es: "p. ej.\nLos piratas hablan mal a propósito — no toques sus diálogos.\nSara nunca usa contracciones.\nMantén “vos”, nunca “tú”.",
+  },
   styleguide_freetext_title: {
     en: "Your own notes",
     da: "Dine egne noter",

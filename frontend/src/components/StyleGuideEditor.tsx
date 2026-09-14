@@ -29,19 +29,40 @@ export default function StyleGuideEditor({
     if (!loaded) {
       getStyleGuide()
         .then((content) => {
-          setStyleGuide(content);
+          // What the author has here outranks the server's copy: a note
+          // typed and closed a moment ago is in the store, and letting an
+          // older (or empty) server copy replace it lost the note. The
+          // local text is pushed up instead.
+          const local = useStore.getState().styleGuide;
+          if (local.trim() && local !== content) {
+            updateStyleGuide(local);
+          } else {
+            setStyleGuide(content);
+          }
           // Auto-open the editor when a style guide already exists, so the user
           // lands straight in edit mode instead of the read-only preview.
-          if (content.trim()) setExpanded(true);
+          if ((local || content).trim()) setExpanded(true);
           setLoaded(true);
         })
         .catch(() => setLoaded(true));
     }
   }, [loaded]);
 
+  // Closing the dialog unmounts the textarea before it can blur, so a note
+  // finished with Escape or the backdrop is saved from here.
+  const latest = useRef(styleGuide);
+  latest.current = styleGuide;
+  const savedAs = useRef<string | null>(null);
   const handleSave = () => {
+    savedAs.current = styleGuide;
     updateStyleGuide(styleGuide);
   };
+  useEffect(
+    () => () => {
+      if (savedAs.current !== latest.current) updateStyleGuide(latest.current);
+    },
+    [],
+  );
 
   const handleUpload = async (file: File) => {
     try {
@@ -161,13 +182,15 @@ export default function StyleGuideEditor({
               −
             </button>
           )}
+          {inDialog && <p className="dialog-intro">{t("styleguide_notes_hint")}</p>}
           <textarea
-            className="style-textarea"
+            className={`style-textarea${inDialog ? " style-textarea-notes" : ""}`}
             value={styleGuide}
             onChange={(e) => setStyleGuide(e.target.value)}
             onBlur={handleSave}
-            rows={20}
-            placeholder={t("style_guide_tip")}
+            rows={inDialog ? 7 : 20}
+            aria-label={t("styleguide_freetext_title")}
+            placeholder={inDialog ? t("styleguide_notes_example") : t("style_guide_tip")}
           />
           <div className="styleguide-actions">
             <button
