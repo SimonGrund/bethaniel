@@ -3586,6 +3586,37 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "nichts ausgewählt",
     es: "nada seleccionado",
   },
+  // ── The Settings button under the task cards (ModeSelector.tsx) ──
+  task_settings_title: {
+    en: "Settings",
+    da: "Indstillinger",
+    de: "Einstellungen",
+    es: "Ajustes",
+  },
+  task_settings_done: {
+    en: "Done",
+    da: "Færdig",
+    de: "Fertig",
+    es: "Listo",
+  },
+  task_settings_ready: {
+    en: "Everything read off the manuscript",
+    da: "Alt aflæst fra manuskriptet",
+    de: "Alles aus dem Manuskript gelesen",
+    es: "Todo leído del manuscrito",
+  },
+  task_settings_not_detected: {
+    en: "Nothing was detected — check the settings",
+    da: "Intet blev registreret — tjek indstillingerne",
+    de: "Nichts erkannt — Einstellungen prüfen",
+    es: "No se detectó nada — revisa los ajustes",
+  },
+  task_settings_no_document: {
+    en: "Upload a manuscript and Betty fills these in",
+    da: "Upload et manuskript, så udfylder Betty dem",
+    de: "Manuskript hochladen, Betty füllt sie aus",
+    es: "Sube un manuscrito y Betty los completa",
+  },
   // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
   ms_settings_title: {
     en: "Manuscript settings",

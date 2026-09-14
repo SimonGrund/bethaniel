@@ -2675,6 +2675,119 @@ summary.review-source::before {
   color: #5a4f3f;
 }
 
+/* ── The Settings button under the task cards (ModeSelector.tsx) ──
+   One row, always there; the mark on the left is the state. */
+.task-settings-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  background: #faf8f4;
+  border: 1px solid #d4c9b0;
+  border-left: 3px solid #b8ad98;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.task-settings-cta:hover {
+  background: #f5f1e8;
+}
+
+.task-settings-cta-clean {
+  border-left-color: #5c7a52;
+}
+
+.task-settings-cta-attention {
+  background: #fffaf0;
+  border-color: #e6cf9e;
+  border-left-color: #d69a3c;
+}
+
+.task-settings-cta-attention:hover {
+  background: #fdf4e2;
+}
+
+.task-settings-mark {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #9a9080;
+}
+
+.task-settings-cta-clean .task-settings-mark {
+  color: #5c7a52;
+}
+
+.task-settings-cta-attention .task-settings-mark {
+  color: #b3781f;
+}
+
+.task-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.task-settings-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.task-settings-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8b7355;
+}
+
+.task-settings-hint {
+  font-size: 0.8rem;
+  color: #6b5d47;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-settings-chevron {
+  flex: none;
+  font-size: 1.2rem;
+  color: #9a9080;
+}
+
+.task-settings-dialog {
+  max-width: min(720px, 92vw);
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.task-settings-dialog-task {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #8b7355;
+}
+
+/* Inside the dialog the controls are the content, not a panel of their own. */
+.task-controls-dialog {
+  margin-top: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  animation: none;
+}
+
 .task-controls {
   margin-top: 0.9rem;
   padding: 0.9rem 1.1rem;

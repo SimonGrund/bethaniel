@@ -5,14 +5,18 @@
 // the fourth counts on this machine and costs nothing. Everything
 // experimental lives in BetaFeatures.
 //
-// Cards have no inside: a card that needs a control renders it below the card
-// row, never within the card element. Keeps all four the same shape however
-// much configuration hangs off one of them. Clicking the active card again
-// folds its controls away; the selection stays.
+// Cards have no inside: a card that needs a control renders it behind the
+// one Settings button under the card row, never within the card element.
+// Keeps all four the same shape however much configuration hangs off one of
+// them, and keeps the column short. The button's mark says whether the
+// manuscript answered every question the run will ask (green) or one is
+// waiting on the author (orange). Clicking the active card again opens the
+// same dialog; the selection stays.
 
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
+import Modal from "./Modal";
 import {
   FRONT_CARD_MODES,
   frontCardFor,
@@ -26,9 +30,10 @@ import type {
   CopyEditOptions,
   LineEditOptions,
 } from "../types";
+import type React from "react";
 
 // A local const in this file today, and it stays one — nothing else needs it.
-import ManuscriptSettings from "./ManuscriptSettings";
+import ManuscriptSettings, { useManuscriptSettingsState } from "./ManuscriptSettings";
 import FoldingPanel from "./FoldingPanel";
 import StyleGuideButton from "./StyleGuideButton";
 
@@ -119,9 +124,8 @@ export default function ModeSelector({
   }
 
   const activeCard = frontCardFor(selectedModes);
-  // The controls under the cards fold on a second click of the active card,
-  // so a card that has been set up once is not stuck open for the session.
-  const [controlsOpen, setControlsOpen] = useState(true);
+  // Every control the selected card has lives in one dialog.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Truth for the current selection. `lineEditEnabled` is the remembered
   // preference used when the Edit card is re-selected; while the card is
   // active the selection itself is authoritative.
@@ -139,14 +143,13 @@ export default function ModeSelector({
   }, []);
 
   function selectCard(id: FrontCard) {
-    // Re-clicking the active card folds or unfolds its controls rather than
-    // deselecting it: the step must always have an answer, and "nothing
-    // selected" is not one.
+    // Re-clicking the active card opens its settings rather than deselecting
+    // it: the step must always have an answer, and "nothing selected" is not
+    // one.
     if (activeCard === id) {
-      setControlsOpen((o) => !o);
+      setSettingsOpen(true);
       return;
     }
-    setControlsOpen(true);
     // The Edit card restores the remembered line-edit preference, so turning
     // the line pass off survives a trip to another card and back.
     const modes: TaskMode[] =
@@ -273,7 +276,6 @@ export default function ModeSelector({
             type="button"
             className={`task-card${activeCard === card.id ? " task-card-active" : ""}`}
             aria-pressed={activeCard === card.id}
-            aria-expanded={activeCard === card.id ? controlsOpen : undefined}
             onClick={() => selectCard(card.id)}
           >
             <span className="task-card-title">{t(card.titleKey)}</span>
@@ -284,17 +286,112 @@ export default function ModeSelector({
         ))}
       </div>
 
-      {activeCard && controlsOpen && (
-        <div className="task-controls">
+      {activeCard && (
+        <TaskSettings
+          card={activeCard}
+          title={t(CARDS.find((c) => c.id === activeCard)!.titleKey)}
+          open={settingsOpen}
+          onOpen={() => setSettingsOpen(true)}
+          onClose={() => setSettingsOpen(false)}
+          targetLangMissing={activeCard === "translate" && !targetLang.trim()}
+        >
           {renderControls()}
-          {/* Inside the collapsible controls, not beside them: the style guide
-              is one of this task's settings, and a lone button left standing
-              after the rest of them folded away read as something the fold had
-              missed. Only for runs that read one — see styleGuideApplies. */}
+          {/* With the rest of this task's settings, not beside them: the style
+              sheet is one of them. Only for runs that read one — see
+              styleGuideApplies. */}
           {styleGuideApplies(selectedModes) && <StyleGuideButton />}
-        </div>
+        </TaskSettings>
       )}
 
     </section>
+  );
+}
+
+// ── The one Settings button under the cards ──
+//
+// The mark is the point: it answers "do I need to look in here?" without
+// opening it. Green when the manuscript answered every question this run
+// will ask; orange when one is waiting on the author (an unsure detection,
+// or a translation with no target); grey when nothing has been read yet.
+// The button stays whichever card is active — its contents change.
+function TaskSettings({
+  card,
+  title,
+  open,
+  onOpen,
+  onClose,
+  targetLangMissing,
+  children,
+}: {
+  card: FrontCard;
+  title: string;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  targetLangMissing: boolean;
+  children: React.ReactNode;
+}) {
+  const lang = useStore((s) => s.lang);
+  const hasDocument = useStore((s) => !!s.document);
+  const t = useTranslation(lang);
+  const { status, waiting, summary } = useManuscriptSettingsState(card);
+
+  const attention = status === "attention" || targetLangMissing || (hasDocument && status === "neutral");
+  const mark: "clean" | "attention" | "neutral" = !hasDocument
+    ? "neutral"
+    : attention
+      ? "attention"
+      : "clean";
+  const pending = waiting + (targetLangMissing ? 1 : 0);
+  const hint = !hasDocument
+    ? t("task_settings_no_document")
+    : mark === "attention"
+      ? pending > 0
+        ? t(pending === 1 ? "ms_needs_input_one" : "ms_needs_input").replace("{n}", String(pending))
+        : t("task_settings_not_detected")
+      : summary || t("task_settings_ready");
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`task-settings-cta task-settings-cta-${mark}`}
+        onClick={onOpen}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className="task-settings-mark" aria-hidden="true">
+          {mark === "clean" ? "●" : mark === "attention" ? "▲" : "○"}
+        </span>
+        <span className="task-settings-body">
+          <span className="task-settings-title">
+            {t("task_settings_title")}
+            <span className="task-settings-tag">{title}</span>
+          </span>
+          <span className="task-settings-hint">{hint}</span>
+        </span>
+        <span className="task-settings-chevron" aria-hidden="true">
+          ›
+        </span>
+      </button>
+
+      <Modal
+        open={open}
+        onClose={onClose}
+        labelledBy="task-settings-title"
+        className="task-settings-dialog"
+      >
+        <h2 id="task-settings-title" className="dialog-title">
+          {t("task_settings_title")}
+          <span className="task-settings-dialog-task">{title}</span>
+        </h2>
+        <div className="task-controls task-controls-dialog">{children}</div>
+        <div className="step-confirm-row">
+          <button type="button" className="btn-primary btn-confirm-step" onClick={onClose}>
+            {t("task_settings_done")}
+          </button>
+        </div>
+      </Modal>
+    </>
   );
 }

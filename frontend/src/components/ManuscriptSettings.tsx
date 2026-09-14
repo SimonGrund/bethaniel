@@ -87,15 +87,13 @@ export function attentionCount(
 
 const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
 
-export default function ManuscriptSettings({ card }: { card: FrontCard }) {
-  const {
-    lang,
-    manuscriptLang,
-    setManuscriptLang,
-    copyEditOptions,
-    setCopyEditOption,
-    detectedSettings,
-  } = useStore();
+/**
+ * The state of a card's manuscript settings, for anything that reports it:
+ * this panel's fold line, and the Settings button under the cards. One
+ * computation, so the two never disagree about what is settled.
+ */
+export function useManuscriptSettingsState(card: FrontCard) {
+  const { lang, manuscriptLang, copyEditOptions, detectedSettings } = useStore();
   const t = useTranslation(lang);
 
   const isKnownLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
@@ -112,14 +110,6 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
 
   const status = settingsStatus(keys, detectedSettings);
   const waiting = attentionCount(keys, detectedSettings);
-
-  const badgeFor = (key: SettingKey, current: unknown) => (
-    <DetectionBadge
-      detection={detectedSettings?.[key]}
-      current={current}
-      lang={lang as Lang}
-    />
-  );
 
   // What the collapsed line says Betty settled on.
   const summary = keys
@@ -148,6 +138,29 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
     })
     .filter(Boolean)
     .join(" · ");
+
+  return { keys, status, waiting, summary, isKnownLang };
+}
+
+export default function ManuscriptSettings({ card }: { card: FrontCard }) {
+  const {
+    lang,
+    manuscriptLang,
+    setManuscriptLang,
+    copyEditOptions,
+    setCopyEditOption,
+    detectedSettings,
+  } = useStore();
+  const t = useTranslation(lang);
+  const { keys, status, waiting, summary, isKnownLang } = useManuscriptSettingsState(card);
+
+  const badgeFor = (key: SettingKey, current: unknown) => (
+    <DetectionBadge
+      detection={detectedSettings?.[key]}
+      current={current}
+      lang={lang as Lang}
+    />
+  );
 
   return (
     <FoldingPanel
