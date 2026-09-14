@@ -59,6 +59,26 @@ export async function getDocument(id: string) {
   return res.json();
 }
 
+// ── Model downloads ──
+/** Stop the transfer and keep the partial file; starting the same download
+ *  again resumes it. */
+export async function pauseModelDownload(modelId: string): Promise<void> {
+  await apiFetch("/models/download/pause", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modelId }),
+  });
+}
+
+/** Stop the transfer and delete what arrived. */
+export async function cancelModelDownload(modelId: string): Promise<void> {
+  await apiFetch("/models/download/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modelId }),
+  });
+}
+
 // ── Names & terms ──
 export async function getLexicon(docId: string): Promise<{ lexicon: Lexicon | null }> {
   const res = await apiFetch(`/documents/${docId}/lexicon`);

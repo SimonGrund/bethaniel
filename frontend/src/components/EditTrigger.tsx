@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
 import CloudCodeClaim from "./CloudCodeClaim";
+import DownloadBar from "./DownloadBar";
 import { estimateRun, formatEstimate } from "../runEstimate";
 import { formatBytes, formatDuration, REFERENCE_WORDS } from "../modelCopy";
 import { useTranslation } from "../i18n";
@@ -135,7 +136,7 @@ export default function EditTrigger() {
     : !model
     ? t("run_blocked_no_model")
     : activeDownload
-      ? t("run_blocked_downloading")
+      ? t(activeDownload.status === "paused" ? "dl_paused" : "run_blocked_downloading")
           .replace("{name}", activeDownload.name ?? "Betty")
           .replace("{percent}", String(activeDownload.percent))
       : modelPending
@@ -545,6 +546,8 @@ export default function EditTrigger() {
         )}
       </button>
       )}
+
+      {activeDownload && <DownloadBar download={activeDownload} />}
 
       {cloudEntry && (
         <div className="cloud-block">

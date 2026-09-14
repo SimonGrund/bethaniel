@@ -4734,6 +4734,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Noch keine Betty gewählt",
     es: "Aún no has elegido una Betty",
   },
+  dl_paused: {
+    en: "{name} paused at {percent}%",
+    da: "{name} sat på pause ved {percent}%",
+    de: "{name} bei {percent}% angehalten",
+    es: "{name} en pausa al {percent}%",
+  },
+  dl_reconnecting: {
+    en: "{name} — {percent}%, connection stalled, reconnecting…",
+    da: "{name} — {percent}%, forbindelsen gik i stå, forbinder igen…",
+    de: "{name} — {percent}%, Verbindung stockt, verbinde neu…",
+    es: "{name} — {percent}%, la conexión se detuvo, reconectando…",
+  },
+  dl_pause: {
+    en: "Pause",
+    da: "Pause",
+    de: "Anhalten",
+    es: "Pausar",
+  },
+  dl_resume: {
+    en: "Resume",
+    da: "Fortsæt",
+    de: "Fortsetzen",
+    es: "Reanudar",
+  },
   run_blocked_downloading: {
     en: "Downloading {name} — {percent}%",
     da: "Henter {name} — {percent}%",

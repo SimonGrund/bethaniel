@@ -4947,6 +4947,68 @@ summary.review-source::before {
   opacity: 0.85;
 }
 
+/* ── The model download under the Run button (DownloadBar.tsx) ── */
+.download-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #d4c9b0;
+  border-radius: 8px;
+  background: #faf8f4;
+}
+
+.download-bar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #4a3f2f;
+}
+
+.download-bar-size {
+  color: #8b7355;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.download-bar-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #e8dfc9;
+  overflow: hidden;
+}
+
+.download-bar-fill {
+  height: 100%;
+  background: #8b7355;
+  transition: width 0.3s ease;
+}
+
+.download-bar-paused .download-bar-fill {
+  background: #b8ad98;
+}
+
+/* Still moving, just not visibly: the stripe says so. */
+.download-bar-stalled .download-bar-fill {
+  background: repeating-linear-gradient(
+    45deg,
+    #b3781f,
+    #b3781f 6px,
+    #d69a3c 6px,
+    #d69a3c 12px
+  );
+}
+
+.download-bar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.download-bar-cancel {
+  margin-left: auto;
+}
+
 /* ── Header settings menu (model settings + storage & data) ── */
 .header-settings {
   position: relative;

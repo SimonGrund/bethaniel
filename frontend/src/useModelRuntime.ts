@@ -61,12 +61,14 @@ export function useStartDownload(): (
   const bumpDownloadDone = useStore((s) => s.bumpDownloadDone);
 
   return async (modelId, name) => {
+    // A resume keeps the figures it had; a fresh start begins at nothing.
+    const known = useStore.getState().downloads[modelId];
     setDownloadProgress({
       modelId,
-      name,
-      bytesDownloaded: 0,
-      totalBytes: 0,
-      percent: 0,
+      name: name ?? known?.name,
+      bytesDownloaded: known?.bytesDownloaded ?? 0,
+      totalBytes: known?.totalBytes ?? 0,
+      percent: known?.percent ?? 0,
       status: "starting",
     });
     try {

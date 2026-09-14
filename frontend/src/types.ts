@@ -508,8 +508,10 @@ export interface DownloadProgress {
   bytesDownloaded: number;
   totalBytes: number;
   percent: number;
-  status?: string; // "starting" | "progress" | "done" | "error" | "cancelled"
+  status?: string; // "starting" | "downloading" | "stalled" | "paused" | "done" | "error" | "cancelled"
   error?: string;
+  /** On error: a partial file was kept, so the next start resumes. */
+  resumable?: boolean;
 }
 
 /** GET /api/languagetool/status — whether grammar checking can run, and

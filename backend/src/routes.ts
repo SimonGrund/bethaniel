@@ -6,6 +6,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import { collectConsistentTerms } from "./correctionSeverity.js";
 import { promises as fs, createWriteStream, createReadStream } from "fs";
+import { transferWithResume, TransferPaused } from "./modelDownload.js";
 import { join, dirname, resolve } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
@@ -1753,6 +1754,8 @@ const activeDownloads = new Map<
     totalBytes: number;
     status: string;
     abort: AbortController;
+    /** Set by /models/download/pause: the partial file is kept. */
+    paused?: boolean;
   }
 >();
 
@@ -2092,11 +2095,12 @@ router.post("/models/download", async (req: Request, res: Response) => {
   }
 
   const abortCtrl = new AbortController();
-  const progress = {
+  const progress: NonNullable<ReturnType<typeof activeDownloads.get>> = {
     bytesDownloaded: resumeFrom,
     totalBytes: entry.sizeBytes,
     status: "downloading",
     abort: abortCtrl,
+    paused: false,
   };
   activeDownloads.set(entry.id, progress);
 
@@ -2107,94 +2111,34 @@ router.post("/models/download", async (req: Request, res: Response) => {
     resumeFrom,
   });
 
-  // Async download
+  // The transfer itself — stalls, resumes, the checksum — is modelDownload.ts.
   (async () => {
+    const emit = (extra: Record<string, unknown> = {}) => {
+      const socketIo = getSocketIO();
+      if (!socketIo) return;
+      socketIo.emit("model:download", {
+        modelId: entry.id,
+        bytesDownloaded: progress.bytesDownloaded,
+        totalBytes: progress.totalBytes,
+        percent: progress.totalBytes
+          ? Math.round((progress.bytesDownloaded / progress.totalBytes) * 100)
+          : 0,
+        ...extra,
+      });
+    };
     try {
-      const headers: Record<string, string> = {};
-      if (resumeFrom > 0) {
-        headers["Range"] = `bytes=${resumeFrom}-`;
-      }
-      const response = await fetch(entry.url, {
-        signal: abortCtrl.signal,
-        headers,
+      const digest = await transferWithResume({
+        url: entry.url,
+        partialPath,
+        expectedSize: entry.sizeBytes,
+        progress,
+        onProgress: emit,
+        log: (message) =>
+          appendLog({ level: "warn", source: "engine", message: `Download of ${entry.name}: ${message}` }),
       });
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      // If server doesn't honor Range (returns 200 instead of 206), restart from 0
-      const isResuming = resumeFrom > 0 && response.status === 206;
-      if (resumeFrom > 0 && response.status !== 206) {
-        // Server doesn't support resume — start over
-        resumeFrom = 0;
-        progress.bytesDownloaded = 0;
-        await fs.unlink(partialPath).catch(() => {});
-      }
-
-      const contentLength = parseInt(
-        response.headers.get("content-length") ?? "0",
-        10,
-      );
-      if (contentLength > 0) {
-        progress.totalBytes = isResuming
-          ? resumeFrom + contentLength
-          : contentLength;
-      }
-
-      const fileStream = createWriteStream(partialPath, {
-        flags: isResuming ? "a" : "w",
-      });
-      const reader = response.body.getReader();
-      const hash = createHash("sha256");
-
-      // If resuming, hash the existing partial file first
-      if (isResuming) {
-        await new Promise<void>((resolve, reject) => {
-          const rs = createReadStream(partialPath);
-          rs.on("data", (chunk) => hash.update(chunk));
-          rs.on("end", () => resolve());
-          rs.on("error", reject);
-        });
-      }
-
-      while (true) {
-        if (abortCtrl.signal.aborted) {
-          fileStream.destroy();
-          throw new Error("Download cancelled");
-        }
-        const { done, value } = await reader.read();
-        if (done) break;
-        fileStream.write(value);
-        hash.update(value);
-        progress.bytesDownloaded += value.byteLength;
-
-        // Emit Socket.IO progress
-        const socketIo = getSocketIO();
-        if (socketIo) {
-          socketIo.emit("model:download", {
-            modelId: entry.id,
-            bytesDownloaded: progress.bytesDownloaded,
-            totalBytes: progress.totalBytes,
-            percent: Math.round(
-              (progress.bytesDownloaded / progress.totalBytes) * 100,
-            ),
-          });
-        }
-      }
-
-      fileStream.end();
-      await new Promise<void>((resolve, reject) => {
-        fileStream.on("finish", resolve);
-        fileStream.on("error", reject);
-      });
-
-      // Verify SHA-256 if we have one
-      const digest = hash.digest("hex");
       if (entry.sha256 && digest !== entry.sha256) {
         await fs.unlink(partialPath).catch(() => {});
-        throw new Error(
-          `SHA-256 mismatch: expected ${entry.sha256}, got ${digest}`,
-        );
+        throw new Error(`SHA-256 mismatch: expected ${entry.sha256}, got ${digest}`);
       }
 
       // Rename .partial → final
@@ -2203,53 +2147,68 @@ router.post("/models/download", async (req: Request, res: Response) => {
       // Per-model defaults live in modelCatalog.ts; nothing to write here.
       // Any user override sidecar JSON (if present) is preserved across
       // re-downloads and continues to layer on top of catalog defaults.
-
       progress.status = "done";
-
-      const socketIo = getSocketIO();
-      if (socketIo) {
-        socketIo.emit("model:download", {
-          modelId: entry.id,
-          bytesDownloaded: progress.totalBytes,
-          totalBytes: progress.totalBytes,
-          percent: 100,
-          status: "done",
-        });
-      }
+      progress.bytesDownloaded = progress.totalBytes;
+      emit({ status: "done", percent: 100 });
     } catch (err) {
-      progress.status = `error: ${err instanceof Error ? err.message : String(err)}`;
-      await fs.unlink(partialPath).catch(() => {});
-
-      const socketIo = getSocketIO();
-      if (socketIo) {
-        socketIo.emit("model:download", {
-          modelId: entry.id,
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-        });
+      if (err instanceof TransferPaused) {
+        // The partial stays; the next /models/download picks it up.
+        progress.status = "paused";
+        emit({ status: "paused" });
+        return;
       }
+      progress.status = `error: ${err instanceof Error ? err.message : String(err)}`;
+      // A cancel, or a checksum that failed, has already removed the file.
+      // Anything else — a network that gave up for good — keeps what was
+      // fetched, so the next attempt resumes instead of starting over.
+      const size = await fs.stat(partialPath).then((st) => st.size).catch(() => 0);
+      emit({
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        resumable: size > 0,
+      });
     } finally {
       activeDownloads.delete(entry.id);
     }
   })();
 });
 
-// ── POST /api/models/download/cancel ──
-router.post("/models/download/cancel", async (req: Request, res: Response) => {
+// ── POST /api/models/download/pause ──
+// Stops the transfer and keeps the partial file. Starting the same download
+// again resumes from where it stopped — that route already reads the
+// partial. Cancel, below, is the one that deletes.
+router.post("/models/download/pause", (req: Request, res: Response) => {
   const { modelId } = req.body;
   const dl = activeDownloads.get(modelId);
   if (!dl) {
     res.json({ ok: true, status: "not_downloading" });
     return;
   }
+  dl.paused = true;
   dl.abort.abort();
-  activeDownloads.delete(modelId);
+  res.json({ ok: true, status: "pausing", bytesDownloaded: dl.bytesDownloaded, totalBytes: dl.totalBytes });
+});
 
-  // Clean up partial file
+// ── POST /api/models/download/cancel ──
+router.post("/models/download/cancel", async (req: Request, res: Response) => {
+  const { modelId } = req.body;
+  const dl = activeDownloads.get(modelId);
+  if (dl) {
+    dl.paused = false;
+    dl.abort.abort();
+    activeDownloads.delete(modelId);
+  }
+
+  // Clean up the partial file — a paused download has one and no transfer,
+  // and cancelling it means exactly this.
   const entry = MODEL_CATALOG.find((e) => e.id === modelId);
   if (entry) {
     const partialPath = join(MODELS_DIR_PATH, entry.fileName + ".partial");
     await fs.unlink(partialPath).catch(() => {});
+  }
+  if (!dl) {
+    res.json({ ok: true, status: "not_downloading" });
+    return;
   }
 
   const socketIo = getSocketIO();
@@ -2266,7 +2225,7 @@ router.post("/models/download/cancel", async (req: Request, res: Response) => {
 // Snapshot of in-flight downloads so a freshly-loaded frontend can re-sync
 // progress (downloads run detached server-side and survive UI reloads).
 // Registered before /models/:fileName to avoid path capture.
-router.get("/models/download/status", (_req: Request, res: Response) => {
+router.get("/models/download/status", async (_req: Request, res: Response) => {
   const downloads = Array.from(activeDownloads.entries()).map(
     ([modelId, dl]) => ({
       modelId,
@@ -2280,6 +2239,25 @@ router.get("/models/download/status", (_req: Request, res: Response) => {
       status: dl.status,
     }),
   );
+  // A partial file with no transfer running is a paused download, whether
+  // it was paused on purpose or the app was closed mid-way. Offered as
+  // such, so the button says "Resume at 88%" rather than "Download".
+  for (const entry of MODEL_CATALOG) {
+    if (entry.source !== "gguf" || activeDownloads.has(entry.id)) continue;
+    const size = await fs
+      .stat(join(MODELS_DIR_PATH, entry.fileName + ".partial"))
+      .then((st) => st.size)
+      .catch(() => 0);
+    if (size <= 0 || size >= entry.sizeBytes) continue;
+    downloads.push({
+      modelId: entry.id,
+      name: entry.name,
+      bytesDownloaded: size,
+      totalBytes: entry.sizeBytes,
+      percent: Math.round((size / entry.sizeBytes) * 100),
+      status: "paused",
+    });
+  }
   res.json({ downloads });
 });
 
