@@ -2790,12 +2790,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Meine Sprache analysieren",
     es: "Analizar mi lenguaje",
   },
-  card_language_desc: {
-    en: "Overused words, rhythm, dialogue — counted here in a moment",
-    da: "Overbrugte ord, rytme, dialog — talt her på et øjeblik",
-    de: "Überstrapazierte Wörter, Rhythmus, Dialog — hier in einem Augenblick gezählt",
-    es: "Palabras repetidas, ritmo, diálogo: contado aquí en un instante",
-  },
   opt_also_line_edit: {
     en: "Also run a line edit",
     da: "Kør også en stilredigering",

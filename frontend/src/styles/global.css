@@ -2629,6 +2629,9 @@ summary.review-source::before {
 .task-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  /* Every card the same size, whichever row it lands in: two by two, the
+     row with the longest description would otherwise stand taller. */
+  grid-auto-rows: 1fr;
   gap: 0.75rem;
 }
 

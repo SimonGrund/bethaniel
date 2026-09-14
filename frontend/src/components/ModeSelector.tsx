@@ -51,7 +51,7 @@ const LINE_EDIT_KEYS: (keyof LineEditOptions)[] = [
   "tightenProse",
 ];
 
-const CARDS: { id: FrontCard; titleKey: string; descKey: string }[] = [
+const CARDS: { id: FrontCard; titleKey: string; descKey?: string }[] = [
   { id: "edit", titleKey: "card_edit_title", descKey: "card_edit_desc" },
   {
     id: "readthrough",
@@ -63,11 +63,9 @@ const CARDS: { id: FrontCard; titleKey: string; descKey: string }[] = [
     titleKey: "card_translate_title",
     descKey: "card_translate_desc",
   },
-  {
-    id: "language",
-    titleKey: "card_language_title",
-    descKey: "card_language_desc",
-  },
+  // The title says it all; a line under it only made this card taller than
+  // the three beside it.
+  { id: "language", titleKey: "card_language_title" },
 ];
 
 export default function ModeSelector({
@@ -279,7 +277,9 @@ export default function ModeSelector({
             onClick={() => selectCard(card.id)}
           >
             <span className="task-card-title">{t(card.titleKey)}</span>
-            <span className="task-card-desc">{t(card.descKey)}</span>
+            {card.descKey && (
+              <span className="task-card-desc">{t(card.descKey)}</span>
+            )}
           </button>
         ))}
       </div>
