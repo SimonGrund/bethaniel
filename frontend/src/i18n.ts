@@ -3678,6 +3678,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty würde das übernehmen",
     es: "Betty lo aceptaría",
   },
+  deck_betty_unsure: {
+    en: "Betty is unsure of this one",
+    da: "Betty er usikker på denne",
+    de: "Bei diesem ist Betty unsicher",
+    es: "Betty no está segura de esta",
+  },
   deck_betty_would_leave: {
     en: "Betty would leave this — she is not sure",
     da: "Betty ville lade dette være — hun er ikke sikker",

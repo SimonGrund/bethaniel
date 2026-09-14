@@ -2410,8 +2410,8 @@ summary.review-source::before {
 }
 
 .deck-card-verdict {
-  flex: none;
-  padding-top: 0.15rem;
+  display: inline-block;
+  margin-top: 0.3rem;
 }
 
 .deck-actions {
@@ -2464,6 +2464,9 @@ summary.review-source::before {
 
 .deck-hint {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   font-size: 0.8rem;
   color: #8b7355;
