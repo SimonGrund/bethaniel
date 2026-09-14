@@ -1,0 +1,128 @@
+name: Intel Mac smoke test
+
+# Runs the released Intel build on an actual Intel Mac. It exists because
+# v2.8.1 shipped an x64 app carrying the arm64 better_sqlite3.node, and no
+# stage of the build could have noticed: the file was there, it was signed,
+# it was notarized. Only a dlopen on x86_64 hardware fails — so that is what
+# this does, the way the app does it (the backend is the Electron binary run
+# as Node, which is what fork() means inside Electron).
+#
+# Runs after every Build, and by hand:
+#   gh workflow run intel-mac-smoke.yml -f tag=v2.8.2
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to test (empty = latest)"
+        required: false
+        default: ""
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  smoke:
+    name: x64 app on an Intel Mac
+    # A Build that failed has nothing to test; a dispatch always runs.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: macos-15-intel
+    permissions:
+      contents: read
+    steps:
+      - name: This runner is Intel
+        run: |
+          echo "uname -m: $(uname -m)"
+          test "$(uname -m)" = "x86_64"
+
+      - name: Download the Intel app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "Bethaniel-mac-x64.zip"
+          else
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern "Bethaniel-mac-x64.zip"
+          fi
+          ditto -x -k Bethaniel-mac-x64.zip app
+          ls app
+          echo "APP=$PWD/app/Bethaniel.app" >> "$GITHUB_ENV"
+
+      # `file` reads the Mach-O header; a fat file lists every slice. Every
+      # binary the app runs must carry x86_64, or an Intel Mac refuses it
+      # with "incompatible architecture".
+      - name: Every bundled binary is x86_64
+        run: |
+          R="$APP/Contents/Resources"
+          fail=0
+          for bin in \
+            "$APP/Contents/MacOS/Bethaniel" \
+            "$R/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node" \
+            "$R/llama/darwin-x64/llama-server" \
+            "$R/languagetool/jre/bin/java"
+          do
+            if [ ! -e "$bin" ]; then echo "MISSING  $bin"; fail=1; continue; fi
+            desc=$(file -b "$bin")
+            case "$desc" in
+              *x86_64*) echo "ok       ${bin#$APP/}";;
+              *)        echo "WRONG    ${bin#$APP/}: $desc"; fail=1;;
+            esac
+          done
+          test -d "$R/llama/darwin-arm64" && { echo "WRONG    the arm64 engine is bundled in the x64 app"; fail=1; }
+          exit $fail
+
+      # The exact call that failed on a 2018 MacBook: the backend, inside the
+      # x64 Electron runtime, loading its native module and opening its
+      # database. Then the two things the renderer needs from it — a health
+      # answer and the catalog with the cloud entry the Run button offers.
+      - name: The backend starts inside the x64 Electron runtime
+        run: |
+          R="$APP/Contents/Resources"
+          mkdir -p smoke/data smoke/models
+          ELECTRON_RUN_AS_NODE=1 \
+          PORT=4123 HOST=127.0.0.1 NODE_ENV=production \
+          DATA_DIR="$PWD/smoke/data" MODELS_DIR="$PWD/smoke/models" \
+          LLAMA_BIN="$R/llama/darwin-x64/llama-server" \
+          LANGUAGETOOL_JAR="$R/languagetool/languagetool-server.jar" \
+          JAVA_BIN="$R/languagetool/jre/bin/java" \
+            "$APP/Contents/MacOS/Bethaniel" "$R/backend/dist/index.js" > backend.log 2>&1 &
+          echo $! > backend.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4123/health >/dev/null; then break; fi
+            if ! kill -0 "$(cat backend.pid)" 2>/dev/null; then echo "backend exited:"; cat backend.log; exit 1; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:4123/health || { echo "no health answer after 60 s:"; cat backend.log; exit 1; }
+          echo
+          curl -sf http://127.0.0.1:4123/api/models/catalog > catalog.json
+          grep -q '"bethaniel-cloud"' catalog.json || { echo "catalog has no cloud entry:"; cat catalog.json; exit 1; }
+          echo "catalog: $(grep -o '"id":"[^"]*"' catalog.json | wc -l | tr -d ' ') entries, cloud entry present"
+          echo "--- backend log:"; cat backend.log
+
+      - name: The engine and Java run natively
+        run: |
+          R="$APP/Contents/Resources"
+          "$R/llama/darwin-x64/llama-server" --version 2>&1 | head -3
+          "$R/languagetool/jre/bin/java" -version 2>&1 | head -2
+
+      # main.ts quits the whole app when the backend exits, so an app that is
+      # still alive after half a minute had a backend that came up.
+      - name: The app itself stays up
+        run: |
+          open "$APP"
+          sleep 30
+          if pgrep -f "Bethaniel.app/Contents/MacOS/Bethaniel" >/dev/null; then
+            echo "Bethaniel.app is running after 30 s"
+          else
+            echo "Bethaniel.app is gone after 30 s"; exit 1
+          fi
+          pkill -f "Bethaniel.app/Contents/MacOS/Bethaniel" || true
+
+      - name: Stop the backend
+        if: always()
+        run: |
+          [ -f backend.pid ] && kill "$(cat backend.pid)" 2>/dev/null || true

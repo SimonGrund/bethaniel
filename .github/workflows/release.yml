@@ -47,6 +47,9 @@ on:
         paths-ignore:
             - "docs/**"
             - "**.md"
+            # A workflow is not the app either: a smoke test added under
+            # .github/ must not send every install an update with no change.
+            - ".github/**"
 
 permissions:
     contents: write
