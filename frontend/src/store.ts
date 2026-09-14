@@ -252,6 +252,15 @@ interface AppState {
   acceptAll: (taskId: string) => void;
   dismissAll: (taskId: string) => void;
   acceptAllJob: (taskIds: string[]) => void;
+  /**
+   * The deck's record of what the author has answered, in order. A card is
+   * "decided" once it has been accepted or dismissed from the deck; Back pops
+   * the last answer and puts the card back as it was. Session-only, like the
+   * acceptances themselves.
+   */
+  decisionLog: { taskId: string; correctionId: string; wasAccepted: boolean }[];
+  decideCorrection: (taskId: string, correctionId: string, action: "accept" | "dismiss") => void;
+  undoDecision: () => { taskId: string; correctionId: string } | null;
   acceptCorrection: (taskId: string, correctionId: string) => void;
   unacceptCorrections: (taskId: string, correctionIds: string[]) => void;
   dismissCorrection: (taskId: string, correctionId: string) => void;
@@ -779,6 +788,30 @@ export const useStore = create<AppState>()(
             },
           };
         }),
+      decisionLog: [],
+      decideCorrection: (taskId, correctionId, action) => {
+        const state = get();
+        const set0 = state.acceptedCorrections[taskId] ?? new Set<string>();
+        const wasAccepted =
+          set0.has(correctionId) || [...set0].some((k) => k.startsWith(`${correctionId}:`));
+        if (action === "accept") state.acceptCorrection(taskId, correctionId);
+        else state.dismissCorrection(taskId, correctionId);
+        set((st) => ({
+          decisionLog: [
+            ...st.decisionLog.filter((d) => !(d.taskId === taskId && d.correctionId === correctionId)),
+            { taskId, correctionId, wasAccepted },
+          ],
+        }));
+      },
+      undoDecision: () => {
+        const state = get();
+        const last = state.decisionLog[state.decisionLog.length - 1];
+        if (!last) return null;
+        if (last.wasAccepted) state.acceptCorrection(last.taskId, last.correctionId);
+        else state.dismissCorrection(last.taskId, last.correctionId);
+        set((st) => ({ decisionLog: st.decisionLog.slice(0, -1) }));
+        return { taskId: last.taskId, correctionId: last.correctionId };
+      },
       acceptAll: (taskId) =>
         set((state) => {
           const task = state.tasks[taskId];

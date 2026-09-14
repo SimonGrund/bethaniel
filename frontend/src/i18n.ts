@@ -3629,6 +3629,73 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Manuskript hochladen, Betty füllt sie aus",
     es: "Sube un manuscrito y Betty los completa",
   },
+  // ── The review deck (ReviewDeck.tsx) ──
+  deck_title: {
+    en: "Suggestions",
+    da: "Forslag",
+    de: "Vorschläge",
+    es: "Sugerencias",
+  },
+  deck_accept: {
+    en: "Accept",
+    da: "Godkend",
+    de: "Übernehmen",
+    es: "Aceptar",
+  },
+  deck_dismiss: {
+    en: "Dismiss",
+    da: "Afvis",
+    de: "Verwerfen",
+    es: "Descartar",
+  },
+  deck_back: {
+    en: "Back",
+    da: "Tilbage",
+    de: "Zurück",
+    es: "Atrás",
+  },
+  deck_progress: {
+    en: "{done} of {total} decided",
+    da: "{done} af {total} afgjort",
+    de: "{done} von {total} entschieden",
+    es: "{done} de {total} decididas",
+  },
+  deck_chapter_left: {
+    en: "{n} left in this chapter",
+    da: "{n} tilbage i dette kapitel",
+    de: "{n} in diesem Kapitel übrig",
+    es: "{n} pendientes en este capítulo",
+  },
+  deck_next_chapter: {
+    en: "Next: {name}",
+    da: "Næste: {name}",
+    de: "Als Nächstes: {name}",
+    es: "Siguiente: {name}",
+  },
+  deck_betty_would_accept: {
+    en: "Betty would accept this",
+    da: "Betty ville godkende dette",
+    de: "Betty würde das übernehmen",
+    es: "Betty lo aceptaría",
+  },
+  deck_betty_would_leave: {
+    en: "Betty would leave this — she is not sure",
+    da: "Betty ville lade dette være — hun er ikke sikker",
+    de: "Betty würde das lassen — sie ist nicht sicher",
+    es: "Betty lo dejaría — no está segura",
+  },
+  deck_all_done: {
+    en: "Every suggestion decided",
+    da: "Alle forslag afgjort",
+    de: "Alle Vorschläge entschieden",
+    es: "Todas las sugerencias decididas",
+  },
+  deck_done_text: {
+    en: "All {n} suggestions have an answer. Export below, or press Back to revisit one.",
+    da: "Alle {n} forslag har fået et svar. Eksportér nedenfor, eller tryk Tilbage for at se et igen.",
+    de: "Alle {n} Vorschläge sind beantwortet. Unten exportieren, oder mit Zurück einen erneut ansehen.",
+    es: "Las {n} sugerencias tienen respuesta. Exporta abajo, o pulsa Atrás para revisar una.",
+  },
   // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
   ms_settings_title: {
     en: "Manuscript settings",

@@ -2238,6 +2238,261 @@ summary.review-source::before {
   position: relative;
 }
 
+/* ── The review deck (ReviewDeck.tsx) ──
+   One card at the top, always in the same place; the next few peek out
+   beneath it; a decided card zooms away. */
+.deck {
+  margin: 0.25rem 0 1.25rem;
+}
+
+.deck-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.deck-head-chapter {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  animation: deck-chapter-in 0.35s ease-out;
+}
+
+@keyframes deck-chapter-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.deck-chapter-name {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2a2419;
+}
+
+.deck-chapter-count,
+.deck-progress {
+  font-size: 0.8rem;
+  color: #8b7355;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-head-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.deck-back {
+  background: none;
+  border: 1px solid #d4c9b0;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #4a3f2f;
+  cursor: pointer;
+}
+
+.deck-back:hover:not(:disabled) {
+  background: #f5f1e8;
+}
+
+.deck-back:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The stack. Cards below the top one are positioned to peek out under it,
+   slightly smaller and dimmer, and slide up into the top slot as it empties. */
+.deck-stack {
+  position: relative;
+  min-height: 9rem;
+  /* The leaving card and the next one both draw here; nothing outside. */
+  overflow: hidden;
+  padding-bottom: 0.25rem;
+}
+
+.deck-card {
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-left: 3px solid #8b7355;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  transition:
+    transform 0.26s ease,
+    opacity 0.26s ease;
+  transform-origin: 50% 20%;
+}
+
+.deck-card.flagged {
+  border-left-color: #c9a860;
+  background: #fdf9ee;
+}
+
+.deck-card-top {
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 2px 10px rgba(42, 36, 25, 0.12);
+}
+
+/* The next few, under the top card: each shows its first line, a little
+   smaller and fainter the further down. In normal flow, so they move up
+   the moment the top card is gone, and the one that becomes the top card
+   rises into place. */
+.deck-card-peek {
+  pointer-events: none;
+  overflow: hidden;
+  max-height: 2.9rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.deck-card-peek .deck-card-verdict {
+  display: none;
+}
+
+.deck-card-peek-1 {
+  transform: scale(0.985);
+  opacity: 0.8;
+}
+
+.deck-card-peek-2 {
+  transform: scale(0.97);
+  opacity: 0.5;
+}
+
+.deck-card-peek-3 {
+  transform: scale(0.955);
+  opacity: 0.25;
+}
+
+@keyframes deck-card-rise {
+  from { transform: translateY(1.2rem) scale(0.985); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+
+.deck-card-top:not(.deck-card-leaving) {
+  animation: deck-card-rise 0.22s ease-out;
+}
+
+.deck-card-leaving {
+  pointer-events: none;
+}
+
+.deck-card-leaving-accept {
+  transform: scale(0.88) translateX(6%);
+  opacity: 0;
+  border-left-color: #2d4a1a;
+  background: #f0f5eb;
+}
+
+.deck-card-leaving-dismiss {
+  transform: scale(0.88) translateX(-6%);
+  opacity: 0;
+  border-left-color: #b5482f;
+  background: #f8efec;
+}
+
+.deck-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.deck-card-body .correction-diff {
+  flex: 1;
+}
+
+.deck-card-verdict {
+  flex: none;
+  padding-top: 0.15rem;
+}
+
+.deck-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #ece4d2;
+}
+
+.deck-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.3rem;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  min-width: 8.5rem;
+  justify-content: center;
+}
+
+.deck-btn-mark {
+  font-size: 1.05rem;
+}
+
+.deck-btn-accept {
+  background: #2d4a1a;
+  color: #fff;
+  border-color: #2d4a1a;
+}
+
+.deck-btn-accept:hover {
+  background: #3a5e22;
+}
+
+.deck-btn-dismiss {
+  background: #fff;
+  color: #8a3b2a;
+  border-color: #d6b5aa;
+}
+
+.deck-btn-dismiss:hover {
+  background: #f8efec;
+}
+
+.deck-hint {
+  flex: 1;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #8b7355;
+}
+
+.deck-card-done {
+  text-align: center;
+}
+
+.deck-done-text {
+  margin: 0.4rem 0;
+  color: #4a3f2f;
+}
+
+.deck-next {
+  margin: 0.4rem 0 0;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .deck-actions {
+    flex-wrap: wrap;
+  }
+  .deck-hint {
+    order: -1;
+    flex-basis: 100%;
+  }
+}
+
 .skipped-section {
   margin-top: 0.5rem;
 }

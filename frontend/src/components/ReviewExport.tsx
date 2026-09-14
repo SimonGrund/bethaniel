@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
+import ReviewDeck from "./ReviewDeck";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
@@ -185,7 +186,7 @@ function lexiconCandidateOf(
   return word;
 }
 
-function InlineDiff({ before, after }: { before: string; after: string }) {
+export function InlineDiff({ before, after }: { before: string; after: string }) {
   const aWords: string[] = before.match(/\s+|\w+|[^\w\s]/g) ?? [];
   const bWords: string[] = after.match(/\s+|\w+|[^\w\s]/g) ?? [];
   const parts = diffTokens(aWords, bWords);
@@ -215,7 +216,7 @@ function InlineDiff({ before, after }: { before: string; after: string }) {
  * Extract surrounding sentence context for a specific occurrence of `original`
  * within `fullText`, starting search from `startIndex`.
  */
-function extractSentenceContext(
+export function extractSentenceContext(
   original: string,
   fullText: string,
   startIndex = 0,
@@ -308,7 +309,7 @@ function extractSentenceContext(
  *  the author had to do the arithmetic. The kinds that mean nobody scored
  *  it keep their own words: those name a state of the pipeline, not a
  *  property of the sentence. */
-function VerdictBadge({ correction }: { correction: Correction }) {
+export function VerdictBadge({ correction }: { correction: Correction }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const kind = flagKindOf(correction);
@@ -384,17 +385,6 @@ function CorrectionCard({
         className={`correction-card ${flagKindOf(correction) ? `flagged flagged-${flagKindOf(correction)}` : ""} ${readOnly ? "correction-card-readonly" : ""}`}
       >
         {!readOnly && <div className="correction-check">☐</div>}
-        {correction.chunk && (
-          <div
-            style={{
-              fontSize: "0.75rem",
-              color: "#64748b",
-              marginBottom: "0.25rem",
-            }}
-          >
-            {correction.chunk}
-          </div>
-        )}
         <span className="correction-diff">
           <InlineDiff
             before={correction.original}
@@ -416,17 +406,6 @@ function CorrectionCard({
       >
         {!readOnly && (
           <div className="correction-check">{accepted ? "☑" : "☐"}</div>
-        )}
-        {correction.chunk && (
-          <div
-            style={{
-              fontSize: "0.75rem",
-              color: "#64748b",
-              marginBottom: "0.25rem",
-            }}
-          >
-            {correction.chunk}
-          </div>
         )}
         <span className="correction-diff">
           <InlineDiff
@@ -509,16 +488,6 @@ function CorrectionCard({
         {!readOnly && (
           <div className="correction-check">
             {allAccepted ? "☑" : anyAccepted ? "◐" : "☐"}
-          </div>
-        )}
-        {correction.chunk && (
-          <div
-            style={{
-              fontSize: "0.75rem",
-              color: "#64748b",
-            }}
-          >
-            {correction.chunk}
           </div>
         )}
         <span className="correction-diff" style={{ flex: 1 }}>
@@ -2675,6 +2644,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             setSameChangeAddTerm(false);
             setSameChange({ action, original: c.original, corrected: c.corrected, others, lexiconTerm });
           };
+          // The deck takes over the reading for an edit job once its results
+          // are in. A publication scan has its own report, and a translation
+          // rewrites whole chunks rather than proposing corrections.
+          const deckMode =
+            !isScanJob &&
+            editTasks.length > 0 &&
+            editTasks.every(([, task]) => task.mode !== "translate") &&
+            editTasks.some(([, task]) => task.result);
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
             const count = cs
@@ -3987,6 +3964,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   {t("readiness_read_only")}
                 </p>
               )}
+              {/* The suggestions of an edit job go through the deck, one at a
+                  time, chapters running into each other. The chapter column
+                  below keeps each chapter's skipped list and exports; its
+                  own card list is off while the deck is up (deckMode). */}
+              {deckMode && (
+                <ReviewDeck
+                  entries={editTasks.filter(([, task]) => task.result)}
+                  cursorTaskId={activeChapterId}
+                  onChapterChange={(tid) => {
+                    if (tid !== activeChapter) setActiveChapter(tid);
+                  }}
+                  onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
+                />
+              )}
               <div className="chapters-scroll">
               {entries.map(([tid, task]) => {
                 // One chapter at a time. The pill bar above is the navigation;
@@ -4295,6 +4286,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 </span>
                               </div>
 
+                              {!deckMode && (
                               <div
                                 className="corrections-scroll"
                               >
@@ -4321,6 +4313,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               )}
 
                               </div>
+                              )}
 
                               {/* Outside .corrections-scroll so the ⓘ tooltip
                                   isn't clipped by the overflow container. */}
