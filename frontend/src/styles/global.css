@@ -5378,6 +5378,197 @@ summary.review-source::before {
 /* ── Dialogs opened from the dashboard ──
    Both are reading surfaces rather than confirmations, so they are far wider
    than the 420px the confirm dialog wants and they scroll inside themselves. */
+/* ── Names & terms (LexiconPanel.tsx) ──
+   Pills like the chapter picker: a term is ticked or it is not. */
+.lexicon-panel {
+  margin: 0.25rem 0 1.1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 10px;
+  background: #fdfaf0;
+}
+
+.lexicon-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.lexicon-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #3a2f22;
+}
+
+.lexicon-sheet-title {
+  margin-top: 0.25rem;
+}
+
+.lexicon-count {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #8b7355;
+}
+
+.lexicon-actions {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.lexicon-actions button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #8b7355;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.lexicon-actions button:hover {
+  color: #5a4d3a;
+}
+
+.lexicon-group {
+  margin-top: 0.6rem;
+}
+
+.lexicon-group-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #8b7355;
+  margin-bottom: 0.3rem;
+}
+
+.lexicon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  /* Four hundred terms is a long novel's worth; the dialog stays a dialog. */
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.lexicon-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.24rem 0.55rem;
+  background: #fff;
+  border: 1px solid #d9c9a8;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  max-width: 18rem;
+  overflow: hidden;
+  color: #8b7355;
+}
+
+.lexicon-pill.selected {
+  background: #e8d9b8;
+  border-color: #8b7355;
+  color: #2a2419;
+}
+
+.lexicon-pill input[type="checkbox"] {
+  accent-color: #8b7355;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.lexicon-pill-term {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lexicon-pill-count {
+  color: #8b7355;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+}
+
+.lexicon-pill.selected .lexicon-pill-count {
+  color: #6b5438;
+}
+
+.lexicon-pill-remove {
+  background: none;
+  border: none;
+  padding: 0 0.1rem;
+  margin-left: 0.1rem;
+  color: #8b7355;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.lexicon-pill-remove:hover {
+  color: #b5482f;
+}
+
+.lexicon-near-misses {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.lexicon-near-misses summary {
+  cursor: pointer;
+}
+
+.lexicon-near-misses ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.lexicon-near-of {
+  color: #6b5d47;
+}
+
+.lexicon-add {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.lexicon-add .lang-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.lexicon-save-error {
+  color: #b5482f;
+  margin-top: 0.4rem;
+}
+
+/* An answer inside a toast: the one action the toast is asking about. */
+.review-toast-action {
+  margin-left: 0.9rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.review-toast-action:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .preview-dialog,
 .styleguide-dialog {
   max-width: min(820px, 92vw);

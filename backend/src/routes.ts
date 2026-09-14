@@ -49,7 +49,14 @@ import {
   reviewCorrectionsStream,
   parseReviewScores,
 } from "./llm.js";
-import { findNewSuspectWords } from "./spellcheck.js";
+import { findNewSuspectWords, getWordValidator } from "./spellcheck.js";
+import {
+  buildLexiconSheetBlock,
+  harvestLexicon,
+  parseLexicon,
+  protectedTermsOf,
+} from "./lexicon.js";
+import type { Lexicon } from "./lexicon.js";
 import {
   collapseIntroducedQuotePairs,
   collapseIntroducedPunctuationPairs,
@@ -71,6 +78,7 @@ import {
 } from "./prompts.js";
 import type {
   TaskMode,
+  DetectedSettings,
   CopyEditOptions,
   LineEditOptions,
   EditUnit,
@@ -120,6 +128,7 @@ import { detectHardware, resolveRecommendation } from "./hardware.js";
 import {
   saveDocument,
   getDocument,
+  updateDocumentLexicon,
   listDocuments,
   deleteDocument,
   saveStyleGuide,
@@ -230,6 +239,10 @@ router.post(
       // wizard is about to ask. Deterministic and cheap (no model, no
       // dictionaries) so it runs inline rather than as a second round trip.
       const detected = detectSettings(md);
+      // The manuscript's own names and terms, from the same pass: what it
+      // spells consistently is what no editor may "correct". A count and a
+      // dictionary lookup, no model. Never fails the upload.
+      const lexicon = harvestForUpload(md, detected);
 
       const doc: DocumentMeta = {
         id: docId,
@@ -239,6 +252,7 @@ router.post(
         wordCount,
         uploadedAt: Date.now(),
         detected,
+        lexicon,
       };
 
       saveDocument(doc);
@@ -251,6 +265,7 @@ router.post(
         wordCount: doc.wordCount,
         uploadedAt: doc.uploadedAt,
         detected: doc.detected,
+        lexicon: doc.lexicon,
       });
     } catch (err) {
       if (
@@ -282,6 +297,57 @@ router.post(
 );
 
 // ── Get document (full text) ──
+/**
+ * Harvest with the dictionary the manuscript's language calls for. English
+ * gets BOTH dialect dictionaries: a word that is spelling in either ("harbor"
+ * in a British book) is a dialect matter for the dialect pass, not
+ * vocabulary — harvested as a term it would have been protected from the
+ * very correction the author asked for.
+ */
+function harvestForUpload(md: string, detected: DetectedSettings): Lexicon | undefined {
+  try {
+    const lang =
+      detected.manuscriptLang?.status === "detected" ? detected.manuscriptLang.value : "en";
+    let isWord: ((w: string) => boolean) | null = null;
+    if (lang === "en") {
+      const us = getWordValidator("en", { englishDialect: "american" });
+      const gb = getWordValidator("en", { englishDialect: "british" });
+      if (us || gb) isWord = (w) => !!(us?.(w) || gb?.(w));
+    } else {
+      isWord = getWordValidator(lang);
+    }
+    return harvestLexicon(md, { lang, isWord });
+  } catch (err) {
+    console.warn("[lexicon] harvest failed:", err);
+    return undefined;
+  }
+}
+
+// ── Names & terms ──
+// The author's confirmed list for one document. The client owns the copy it
+// edits and PUTs the whole thing — one code path, like the style sheet.
+router.get("/documents/:id/lexicon", (req: Request, res: Response) => {
+  const doc = getDocument(req.params.id);
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  res.json({ lexicon: doc.lexicon ?? null });
+});
+
+router.put("/documents/:id/lexicon", (req: Request, res: Response) => {
+  const lexicon = parseLexicon(req.body?.lexicon);
+  if (!lexicon) {
+    res.status(400).json({ error: "lexicon must be { terms: [...] }" });
+    return;
+  }
+  if (!updateDocumentLexicon(req.params.id, lexicon)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  res.json({ ok: true, lexicon });
+});
+
 router.get("/documents/:id", (req: Request, res: Response) => {
   const doc = getDocument(req.params.id);
   if (!doc) {
@@ -582,6 +648,20 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       return;
     }
 
+    // The author's sheet, and the sheet the prompts read: the confirmed
+    // names & terms ride along as a generated block so every role that
+    // treats the sheet as ground truth (prompts.ts) treats them so too.
+    // Kept apart from the author's text where the difference matters — the
+    // style-compliance agent is an extra model call the author opts into by
+    // writing a sheet, and a harvested list must not opt them in.
+    const authorStyleGuide: string = typeof styleGuide === "string" ? styleGuide : "";
+    const protectedTerms = protectedTermsOf(doc.lexicon);
+    const lexiconBlock = buildLexiconSheetBlock(protectedTerms);
+    const promptStyleGuide = [authorStyleGuide.trim(), lexiconBlock]
+      .filter(Boolean)
+      .join("\n\n");
+    const hasAuthorSheet = authorStyleGuide.trim().length > 0;
+
     // Update concurrency
     setConcurrency(parallel ?? 1);
 
@@ -834,7 +914,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           };
           systemPrompt = buildCopyEditCorrectionsPrompt(
             opts,
-            styleGuide,
+            promptStyleGuide,
             undefined,
             manuscriptLang,
           );
@@ -848,7 +928,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           };
           systemPrompt = buildLineEditCorrectionsPrompt(
             opts,
-            styleGuide,
+            promptStyleGuide,
             undefined,
             manuscriptLang,
           );
@@ -859,7 +939,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           // Zero-config surface pass — no editOptions; dialect/style rules are
           // deliberately omitted (see buildProofreadCorrectionsPrompt).
           systemPrompt = buildProofreadCorrectionsPrompt(
-            styleGuide,
+            promptStyleGuide,
             undefined,
             manuscriptLang,
           );
@@ -877,7 +957,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           systemPrompt = buildCombinedEditPrompt(
             copyOpts,
             lineOpts,
-            styleGuide,
+            promptStyleGuide,
             undefined,
             manuscriptLang,
           );
@@ -885,9 +965,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           break;
         }
         case "translate":
+          // The author's sheet only: the translation role reads it as a
+          // glossary, and a bare list of names does not say how to render
+          // them.
           systemPrompt = buildTranslationPrompt(
             targetLang ?? "English",
-            styleGuide,
+            authorStyleGuide,
           );
           break;
         default:
@@ -939,11 +1022,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           spellCheck: resolveKnob("spellCheck", spellCheck),
           retextCheck: resolveKnob("retextCheck", retextCheck),
           consistentTerms,
+          protectedTerms: currentMode === "translate" ? undefined : protectedTerms ?? undefined,
           grammarCheck: resolveKnob("grammarCheck", grammarCheck),
-          styleComplianceAgent: resolveKnob(
-            "styleComplianceAgent",
-            styleComplianceAgent,
-          ),
+          styleComplianceAgent:
+            resolveKnob("styleComplianceAgent", styleComplianceAgent) && hasAuthorSheet,
           // Off unless the client asks or a preset opts in: the UI always
           // sends it explicitly; headless/API callers that omit both shouldn't
           // get surprise 2× runs. A cloud job can never turn it on.
@@ -951,7 +1033,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ? forced.extraPass
             : extraPass === true || preset?.extraPass === true,
           runMode: forced ? "speed" : runMode,
-          styleGuide,
+          styleGuide: currentMode === "translate" ? authorStyleGuide : promptStyleGuide,
         });
         taskIds.push(taskId);
       }
@@ -1330,20 +1412,25 @@ router.get("/queue/task/:taskId/result", (req: Request, res: Response) => {
 // introduced misspellings and names the accepted corrections responsible, so
 // the UI can un-accept them before exporting.
 router.post("/verify-corrections", (req: Request, res: Response) => {
-  const { chapters, englishDialect, styleGuide, manuscriptLang } =
+  const { chapters, englishDialect, styleGuide, manuscriptLang, docId } =
     req.body ?? {};
   if (!Array.isArray(chapters)) {
     res.status(400).json({ error: "chapters must be an array" });
     return;
   }
 
+  // The document's confirmed names & terms are known words here too, or the
+  // export check would flag every one of them as a misspelling.
+  const lexiconNames =
+    typeof docId === "string" ? protectedTermsOf(getDocument(docId)?.lexicon) : null;
+  const styleGuideNames = [
+    ...(typeof styleGuide === "string" && styleGuide.trim() ? [styleGuide] : []),
+    ...(lexiconNames ? [...lexiconNames.words, ...lexiconNames.phrases] : []),
+  ];
   const spellOpts = {
     englishDialect:
       typeof englishDialect === "string" ? englishDialect : undefined,
-    styleGuideNames:
-      typeof styleGuide === "string" && styleGuide.trim()
-        ? [styleGuide]
-        : undefined,
+    styleGuideNames: styleGuideNames.length > 0 ? styleGuideNames : undefined,
   };
 
   // ── Dominant typographic style (whole document) ──

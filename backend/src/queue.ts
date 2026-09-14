@@ -59,6 +59,8 @@ import {
   dropNoOpCorrections,
   dedupeChapterCorrections,
 } from "./correctionHygiene.js";
+import { gateProtectedTerms } from "./lexicon.js";
+import type { ProtectedTerms } from "./lexicon.js";
 import {
   classifyPublicationBlocking,
   collectConsistentTerms,
@@ -318,6 +320,9 @@ interface JobData {
   /** Names and invented terms spelled the same way across the manuscript,
    *  so a scan does not call them misspellings (correctionSeverity.ts). */
   consistentTerms?: string[];
+  /** The document's confirmed names & terms (lexicon.ts). A correction
+   *  that would change one is dropped before any reviewer sees it. */
+  protectedTerms?: ProtectedTerms;
 }
 
 const tasks = new Map<string, TaskState>();
@@ -2418,7 +2423,33 @@ async function processJob(job: JobData): Promise<void> {
           for (const sc of spellCorrections) {
             sc.reason ??= "spell-check";
           }
-          const cs: Correction[] = [...spellCorrections, ...dedupedEditorCs];
+          const merged: Correction[] = [...spellCorrections, ...dedupedEditorCs];
+
+          // ── Names & terms ──
+          // The one point where the editors, Hunspell, LanguageTool, retext
+          // and the dialect pass are all in one array, before a reviewer
+          // spends tokens on any of it and before anything is applied. A
+          // correction that would change a term the manuscript vouches for
+          // — "Petran" → "Petra", however plausible — is not proposed at
+          // all; it is listed as left alone, so nothing vanishes silently.
+          const gate = gateProtectedTerms(merged, job.protectedTerms);
+          const cs: Correction[] = gate.kept;
+          if (gate.dropped.length > 0) {
+            skipped.push(
+              ...gate.dropped.map(({ correction, term }) => ({
+                ...correction,
+                reason: `left alone: "${term}" is in your names & terms`,
+              })),
+            );
+            const named = [...new Set(gate.dropped.map((d) => d.term))];
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: ${gate.dropped.length} correction(s) left alone — they would change a name or term from the manuscript's own list (${named.slice(0, 5).join(", ")}${named.length > 5 ? ", …" : ""}).`,
+              model,
+            });
+          }
 
           // Corrections are emitted as JSONL (one JSON object per line), so
           // truncation only ever drops the final partial line. No retry needed.
@@ -2951,6 +2982,7 @@ async function processJob(job: JobData): Promise<void> {
     // chapter only.
     const terms = new Set(job.consistentTerms ?? []);
     for (const t of collectConsistentTerms([original], 2)) terms.add(t);
+    for (const t of job.protectedTerms?.words ?? []) terms.add(t);
     const ctx = { text: original, consistentTerms: terms };
     for (const c of corrections) {
       c.blocksPublication = classifyPublicationBlocking(c, mode, ctx);
@@ -3194,6 +3226,7 @@ export async function submitTask(
       units: data.units,
       correctionsDigest: data.correctionsDigest,
       consistentTerms: data.consistentTerms,
+      protectedTerms: data.protectedTerms,
     },
   });
 
@@ -3389,6 +3422,10 @@ export async function retryTask(id: string): Promise<string> {
     extraPass: spec.extraPass,
     units: spec.units,
     correctionsDigest: spec.correctionsDigest,
+    // A retry is the same job: the manuscript's vocabulary rides along, or
+    // the second attempt judges names the first one was told to leave alone.
+    consistentTerms: spec.consistentTerms,
+    protectedTerms: spec.protectedTerms,
     resumeState,
   });
   return newTaskId;

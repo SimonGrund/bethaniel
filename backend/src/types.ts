@@ -1,8 +1,10 @@
 // ── Shared type definitions ──
 
-// Type-only, so the detectSettings -> dialect -> types cycle is erased at
-// runtime and never becomes a real import cycle.
+// Type-only, so the detectSettings -> dialect -> types cycle (and the
+// lexicon -> types one) is erased at runtime and never becomes a real
+// import cycle.
 import type { DetectedSettings } from "./detectSettings.js";
+import type { Lexicon, ProtectedTerms } from "./lexicon.js";
 
 export type { DetectedSettings };
 
@@ -127,6 +129,11 @@ export interface DocumentMeta {
    *  pre-fills exactly as a fresh upload does. Absent on documents uploaded
    *  before detection existed. */
   detected?: DetectedSettings;
+  /** The names and terms the manuscript itself spells consistently,
+   *  harvested on upload (lexicon.ts) and confirmed or amended by the
+   *  author. Protected from "correction" while a term is enabled. Absent on
+   *  documents uploaded before the lexicon existed. */
+  lexicon?: Lexicon;
 }
 
 export interface Correction {
@@ -285,6 +292,8 @@ export interface TaskRetrySpec {
   /** Text evaluator: recurring-habit digest from a finished edit job. */
   correctionsDigest?: CorrectionsDigest;
   consistentTerms?: string[];
+  /** The document's enabled lexicon, for the gate (queue.ts). */
+  protectedTerms?: ProtectedTerms;
 }
 
 /** Aggregated correction patterns fed to the writing-report synthesis. */

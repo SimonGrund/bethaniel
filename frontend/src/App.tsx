@@ -31,6 +31,7 @@ import type {
   RunStats,
   LanguageToolDownload,
   EngineDeviceStatus,
+  Lexicon,
 } from "./types";
 import "./styles/global.css";
 
@@ -106,13 +107,17 @@ export default function App() {
 
   // Rehydrate document text on page refresh (metadata is persisted, md is not)
   useEffect(() => {
-    const { document: docMeta, documentMd, setDocumentMd, setDocument } = useStore.getState();
+    const { document: docMeta, documentMd, setDocumentMd, setDocument, lexicon, setLexicon } =
+      useStore.getState();
     if (docMeta && !documentMd) {
       getDocument(docMeta.id)
-        .then((full: { md: string }) => {
+        .then((full: { md: string; lexicon?: Lexicon }) => {
           setDocumentMd(full.md);
           // Refresh metadata in case chapters were re-detected
           setDocument({ ...docMeta, chapters: full.md ? docMeta.chapters : [] });
+          // A document loaded before names & terms existed has its list on
+          // the server only.
+          if (!lexicon && full.lexicon) setLexicon(full.lexicon);
         })
         .catch(() => {});
     }

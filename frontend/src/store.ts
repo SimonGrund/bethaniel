@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   DocumentMeta,
+  Lexicon,
   TaskState,
   TaskResult,
   EditUnit,
@@ -200,6 +201,21 @@ interface AppState {
   // Document
   document: DocumentMeta | null;
   setDocument: (d: DocumentMeta | null) => void;
+
+  /**
+   * The manuscript's names & terms (harvested on upload, confirmed here).
+   * Persisted with the document it describes and cleared with it. The
+   * component that shows it saves to the server; the store only holds the
+   * author's current answer.
+   */
+  lexicon: Lexicon | null;
+  setLexicon: (l: Lexicon | null) => void;
+  toggleLexiconTerm: (term: string, enabled: boolean) => void;
+  setAllLexiconTerms: (enabled: boolean) => void;
+  /** False when the term is empty or already listed (case-insensitively). */
+  addLexiconTerm: (term: string) => boolean;
+  removeLexiconTerm: (term: string) => void;
+  markLexiconReviewed: () => void;
   /**
    * Forget the loaded manuscript and everything scoped to it.
    *
@@ -556,12 +572,76 @@ export const useStore = create<AppState>()(
 
       document: null,
       setDocument: (document) => set({ document }),
+
+      lexicon: null,
+      setLexicon: (lexicon) => set({ lexicon }),
+      toggleLexiconTerm: (term, enabled) =>
+        set((state) => {
+          if (!state.lexicon) return {};
+          return {
+            lexicon: {
+              ...state.lexicon,
+              terms: state.lexicon.terms.map((t) => (t.term === term ? { ...t, enabled } : t)),
+            },
+          };
+        }),
+      setAllLexiconTerms: (enabled) =>
+        set((state) => {
+          if (!state.lexicon) return {};
+          return {
+            lexicon: { ...state.lexicon, terms: state.lexicon.terms.map((t) => ({ ...t, enabled })) },
+          };
+        }),
+      addLexiconTerm: (raw) => {
+        const term = raw.trim().replace(/\s+/g, " ");
+        if (!term) return false;
+        const state = get();
+        const lexicon: Lexicon = state.lexicon ?? {
+          version: 1,
+          harvestedAt: Date.now(),
+          terms: [],
+          nearMisses: [],
+        };
+        const lower = term.toLowerCase();
+        if (lexicon.terms.some((t) => t.term.toLowerCase() === lower)) return false;
+        set({
+          lexicon: {
+            ...lexicon,
+            terms: [
+              ...lexicon.terms,
+              {
+                term,
+                count: 0,
+                kind: term.includes(" ") ? "phrase" : "name",
+                source: "manual",
+                enabled: true,
+              },
+            ],
+          },
+        });
+        return true;
+      },
+      removeLexiconTerm: (term) =>
+        set((state) => {
+          if (!state.lexicon) return {};
+          return {
+            lexicon: { ...state.lexicon, terms: state.lexicon.terms.filter((t) => t.term !== term) },
+          };
+        }),
+      markLexiconReviewed: () =>
+        set((state) =>
+          state.lexicon && !state.lexicon.reviewedAt
+            ? { lexicon: { ...state.lexicon, reviewedAt: Date.now() } }
+            : {},
+        ),
+
       clearDocument: () =>
         set((state) => ({
           document: null,
           documentMd: "",
           // The badges describe a manuscript that is no longer loaded.
           detectedSettings: null,
+          lexicon: null,
           scopeMode: DEFAULT_SCOPE_MODE,
           selectedChapters: [],
           // Upload is no longer done, and no later step can be reached without
@@ -996,6 +1076,7 @@ export const useStore = create<AppState>()(
           document: null,
           documentMd: "",
           detectedSettings: null,
+          lexicon: null,
           tasks: {},
           pendingTaskIds: [],
           submitting: false,
@@ -1075,6 +1156,7 @@ export const useStore = create<AppState>()(
         // Persisted with the document it describes, so the badges survive a
         // refresh exactly as the loaded manuscript does.
         detectedSettings: state.detectedSettings,
+        lexicon: state.lexicon,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,
         hasSeenIntro: state.hasSeenIntro,

@@ -4,6 +4,7 @@
 import Database from "better-sqlite3";
 import { join } from "path";
 import type { DocumentMeta, TaskState } from "./types.js";
+import type { Lexicon } from "./lexicon.js";
 import {
   median,
   pushSample,
@@ -26,7 +27,8 @@ function getDb(): Database.Database {
         chapters TEXT NOT NULL,
         word_count INTEGER NOT NULL,
         uploaded_at INTEGER NOT NULL,
-        detected TEXT
+        detected TEXT,
+        lexicon TEXT
       );
       CREATE TABLE IF NOT EXISTS style_guides (
         id TEXT PRIMARY KEY DEFAULT 'default',
@@ -60,6 +62,7 @@ function getDb(): Database.Database {
 // SQLite has no ADD COLUMN IF NOT EXISTS.
 const ADDED_COLUMNS: { table: string; column: string; type: string }[] = [
   { table: "documents", column: "detected", type: "TEXT" },
+  { table: "documents", column: "lexicon", type: "TEXT" },
 ];
 
 function addMissingColumns(d: Database.Database): void {
@@ -87,6 +90,7 @@ function rowToDocument(row: Record<string, unknown>): DocumentMeta {
     // Null for documents stored before detection existed, which is exactly
     // the "nothing detected" case the UI already handles.
     detected: row.detected ? JSON.parse(row.detected as string) : undefined,
+    lexicon: row.lexicon ? JSON.parse(row.lexicon as string) : undefined,
   };
 }
 
@@ -95,8 +99,8 @@ export function saveDocument(doc: DocumentMeta): void {
   d.prepare(
     `
     INSERT OR REPLACE INTO documents
-      (id, name, md, chapters, word_count, uploaded_at, detected)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+      (id, name, md, chapters, word_count, uploaded_at, detected, lexicon)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `,
   ).run(
     doc.id,
@@ -106,7 +110,18 @@ export function saveDocument(doc: DocumentMeta): void {
     doc.wordCount,
     doc.uploadedAt,
     doc.detected ? JSON.stringify(doc.detected) : null,
+    doc.lexicon ? JSON.stringify(doc.lexicon) : null,
   );
+}
+
+/** The author confirmed, unticked or added a term: write the one column
+ *  rather than re-saving a whole manuscript to change a list. */
+export function updateDocumentLexicon(id: string, lexicon: Lexicon): boolean {
+  const d = getDb();
+  const res = d
+    .prepare("UPDATE documents SET lexicon = ? WHERE id = ?")
+    .run(JSON.stringify(lexicon), id);
+  return res.changes > 0;
 }
 
 export function getDocument(id: string): DocumentMeta | null {

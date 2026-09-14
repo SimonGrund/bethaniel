@@ -10,6 +10,7 @@ import type {
   ModelRecommendation,
   PurgeSelection,
   StorageUsage,
+  Lexicon,
 } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -55,6 +56,26 @@ export async function uploadFile(file: File) {
 
 export async function getDocument(id: string) {
   const res = await apiFetch(`/documents/${id}`);
+  return res.json();
+}
+
+// ── Names & terms ──
+export async function getLexicon(docId: string): Promise<{ lexicon: Lexicon | null }> {
+  const res = await apiFetch(`/documents/${docId}/lexicon`);
+  return res.json();
+}
+
+/** The client owns the list it edits and sends the whole thing, like the
+ *  style sheet. The reply is the validated copy. */
+export async function putLexicon(
+  docId: string,
+  lexicon: Lexicon,
+): Promise<{ ok: true; lexicon: Lexicon }> {
+  const res = await apiFetch(`/documents/${docId}/lexicon`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lexicon }),
+  });
   return res.json();
 }
 
@@ -313,6 +334,8 @@ export async function verifyCorrections(
     englishDialect?: string;
     styleGuide?: string;
     manuscriptLang?: string;
+    /** The document whose names & terms the check must not flag. */
+    docId?: string;
   },
 ): Promise<{ checked: boolean; chapters: VerifyChapterResult[] }> {
   const res = await apiFetch("/verify-corrections", {

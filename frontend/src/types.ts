@@ -277,6 +277,37 @@ export interface DocumentMeta {
   uploadedAt: number;
   md?: string; // only when fetched with full text
   detected?: DetectedSettings;
+  lexicon?: Lexicon;
+}
+
+// ── Names & terms (backend/src/lexicon.ts) ──
+// What the manuscript spells consistently, harvested on upload and
+// confirmed by the author. A ticked term is never respelled, renamed or
+// re-cased by any pass.
+export type LexiconKind = "name" | "word" | "phrase";
+
+export interface LexiconTerm {
+  term: string;
+  count: number;
+  kind: LexiconKind;
+  source: "harvest" | "manual";
+  enabled: boolean;
+  variants?: string[];
+}
+
+export interface LexiconNearMiss {
+  term: string;
+  of: string;
+  count: number;
+}
+
+export interface Lexicon {
+  version: 1;
+  harvestedAt: number;
+  terms: LexiconTerm[];
+  nearMisses: LexiconNearMiss[];
+  /** Set the first time the author opens the list; drives the button's label. */
+  reviewedAt?: number;
 }
 
 /** The confidence below which the main reviewer flags a fix. Mirrors

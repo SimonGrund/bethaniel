@@ -15,6 +15,7 @@ import {
   clearQueue,
   deleteJob,
   spawnJobSummary,
+  putLexicon,
 } from "../api";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResult } from "../types";
@@ -142,6 +143,32 @@ function changeKey(c: { original: string; corrected: string }): string {
     else if (p.type === "ins") ins.push(p.text);
   }
   return `${dels.join("").trim()}\u0000${ins.join("").trim()}`;
+}
+
+/** The one capitalised, non-dictionary-looking word a correction removes —
+ *  the shape of a name Betty tried to "fix". Offered for the names & terms
+ *  list when the author dismisses the fix. Null for anything else: a
+ *  re-casing, a multi-word change, a dialect swap, a word already listed. */
+function lexiconCandidateOf(
+  c: { original: string; corrected: string; reason?: string },
+  listed: ReadonlySet<string>,
+): string | null {
+  if (c.reason === "dialect") return null;
+  const a: string[] = c.original.match(/\s+|[\p{L}'’-]+|[^\p{L}\s]/gu) ?? [];
+  const b: string[] = c.corrected.match(/\s+|[\p{L}'’-]+|[^\p{L}\s]/gu) ?? [];
+  const dels: string[] = [];
+  const ins: string[] = [];
+  for (const part of diffTokens(a, b)) {
+    if (part.type === "del" && /\p{L}/u.test(part.text)) dels.push(part.text);
+    else if (part.type === "ins" && /\p{L}/u.test(part.text)) ins.push(part.text);
+  }
+  if (dels.length !== 1) return null;
+  const word = dels[0].replace(/['’]s$/u, "");
+  if (!/^\p{Lu}[\p{L}'’-]{2,}$/u.test(word)) return null;
+  const lower = word.toLowerCase();
+  if (listed.has(lower)) return null;
+  if (ins.some((w) => w.toLowerCase() === lower)) return null;
+  return word;
 }
 
 function InlineDiff({ before, after }: { before: string; after: string }) {
@@ -1761,6 +1788,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   const [toast, setToast] = useState<{
     msg: string;
     kind: "accept" | "dismiss" | "error";
+    /** A toast that asks something stays long enough to be answered. */
+    action?: { label: string; onClick: () => void };
   } | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
   // Which chapter's corrections are on screen. Null means "the first one with
@@ -1792,7 +1821,35 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     original: string;
     corrected: string;
     others: { tid: string; id: string }[];
+    /** A dismissed fix that changed a name-shaped word: offer to list it. */
+    lexiconTerm?: string;
   } | null>(null);
+  const [sameChangeAddTerm, setSameChangeAddTerm] = useState(false);
+
+  // "Add to names & terms", from the review: the list is the loaded
+  // document's, so the offer is only made when these results are that
+  // document's — tasks outlive uploads. Saved straight away; the next run
+  // reads it.
+  const lexicon = useStore((s) => s.lexicon);
+  const lexiconListed = useMemo(
+    () => new Set((lexicon?.terms ?? []).map((term) => term.term.toLowerCase())),
+    [lexicon],
+  );
+  const addTermToLexicon = (term: string) => {
+    const state = useStore.getState();
+    const docId = state.document?.id;
+    if (!docId) return;
+    if (!state.addLexiconTerm(term)) return;
+    const lexicon = useStore.getState().lexicon;
+    if (lexicon) putLexicon(docId, lexicon).catch(() => {});
+    setToast({ msg: t("lexicon_added_toast").replace("{term}", term), kind: "dismiss" });
+  };
+  const lexiconOfferFor = (fromTid: string, c: Correction): string | null => {
+    const state = useStore.getState();
+    const task = state.tasks[fromTid];
+    if (!state.document || !task || task.source !== state.document.name) return null;
+    return lexiconCandidateOf(c, lexiconListed);
+  };
   const [exportWarning, setExportWarning] = useState<{
     message: string;
     confirmLabel: string;
@@ -1808,7 +1865,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2500);
+    const timer = setTimeout(() => setToast(null), toast.action ? 7000 : 2500);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -2016,6 +2073,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   : undefined,
               styleGuide: state.styleGuide || undefined,
               manuscriptLang: state.manuscriptLang || undefined,
+              docId: state.document?.id,
             },
           );
           fixedTexts = outcome.fixedTexts;
@@ -2213,6 +2271,19 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       {toast && (
         <div className={`review-toast review-toast-${toast.kind}`}>
           {toast.msg}
+          {toast.action && (
+            <button
+              type="button"
+              className="review-toast-action"
+              onClick={() => {
+                const run = toast.action!.onClick;
+                setToast(null);
+                run();
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
 
@@ -2237,11 +2308,27 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   : "same_change_body_dismiss",
               ).replace("{n}", String(sameChange.others.length))}
             </p>
+            {sameChange.lexiconTerm && (
+              <label className="option-check same-change__lexicon">
+                <input
+                  type="checkbox"
+                  checked={sameChangeAddTerm}
+                  onChange={(e) => setSameChangeAddTerm(e.target.checked)}
+                />
+                <span>
+                  {t("lexicon_offer_checkbox").replace("{term}", sameChange.lexiconTerm)}
+                </span>
+              </label>
+            )}
             <div className="model-confirm-actions">
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setSameChange(null)}
+                onClick={() => {
+                  const term = sameChangeAddTerm ? sameChange.lexiconTerm : undefined;
+                  setSameChange(null);
+                  if (term) addTermToLexicon(term);
+                }}
               >
                 {t("same_change_one")}
               </button>
@@ -2261,7 +2348,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     ).replace("{n}", String(sameChange.others.length)),
                     kind: sameChange.action,
                   });
+                  const term = sameChangeAddTerm ? sameChange.lexiconTerm : undefined;
                   setSameChange(null);
+                  if (term) addTermToLexicon(term);
                 }}
               >
                 {t(
@@ -2554,8 +2643,23 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 )
                 .map((x) => ({ tid: otid, id: x.id as string })),
             );
-            if (others.length === 0) return;
-            setSameChange({ action, original: c.original, corrected: c.corrected, others });
+            const lexiconTerm =
+              action === "dismiss" ? lexiconOfferFor(fromTid, c) ?? undefined : undefined;
+            if (others.length === 0) {
+              if (lexiconTerm) {
+                setToast({
+                  msg: t("lexicon_offer_toast").replace("{term}", lexiconTerm),
+                  kind: "dismiss",
+                  action: {
+                    label: t("lexicon_offer_add"),
+                    onClick: () => addTermToLexicon(lexiconTerm),
+                  },
+                });
+              }
+              return;
+            }
+            setSameChangeAddTerm(false);
+            setSameChange({ action, original: c.original, corrected: c.corrected, others, lexiconTerm });
           };
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;

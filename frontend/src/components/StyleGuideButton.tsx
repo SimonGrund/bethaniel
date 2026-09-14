@@ -16,38 +16,54 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import Modal from "./Modal";
 import StyleGuideEditor from "./StyleGuideEditor";
+import LexiconPanel from "./LexiconPanel";
 
 export default function StyleGuideButton() {
   const lang = useStore((s) => s.lang);
   const styleGuide = useStore((s) => s.styleGuide);
+  const lexicon = useStore((s) => s.lexicon);
   const t = useTranslation(lang);
   const [open, setOpen] = useState(false);
 
   const words = styleGuide.trim() ? styleGuide.trim().split(/\s+/).length : 0;
   const filled = words > 0;
+  // The harvested list changes what the button has to say: found and not
+  // yet looked at, it asks; looked at, it reports what is protected.
+  const termCount = lexicon?.terms.length ?? 0;
+  const protectedCount = lexicon?.terms.filter((x) => x.enabled).length ?? 0;
+  const lexiconPending = termCount > 0 && !lexicon?.reviewedAt;
+  const lexiconDone = termCount > 0 && !!lexicon?.reviewedAt;
+  const done = filled || lexiconDone;
+  const tag = lexiconPending
+    ? t("lexicon_cta_found").replace("{n}", String(termCount))
+    : [
+        lexiconDone ? t("lexicon_cta_protected").replace("{n}", String(protectedCount)) : null,
+        filled ? t("styleguide_cta_words").replace("{n}", String(words)) : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || t("styleguide_cta_recommended");
+  const hint = lexiconPending
+    ? t("lexicon_cta_hint")
+    : done
+      ? t("styleguide_cta_edit")
+      : t("styleguide_cta_blurb");
 
   return (
     <>
       <button
         type="button"
-        className={`styleguide-cta${filled ? " styleguide-cta-filled" : ""}`}
+        className={`styleguide-cta${done ? " styleguide-cta-filled" : ""}`}
         onClick={() => setOpen(true)}
       >
         <span className="styleguide-cta-mark" aria-hidden="true">
-          {filled ? "✓" : "★"}
+          {done ? "✓" : "★"}
         </span>
         <span className="styleguide-cta-body">
           <span className="styleguide-cta-title">
             {t("style_guide")}
-            <span className="styleguide-cta-tag">
-              {filled
-                ? t("styleguide_cta_words").replace("{n}", String(words))
-                : t("styleguide_cta_recommended")}
-            </span>
+            <span className="styleguide-cta-tag">{tag}</span>
           </span>
-          <span className="styleguide-cta-hint">
-            {filled ? t("styleguide_cta_edit") : t("styleguide_cta_blurb")}
-          </span>
+          <span className="styleguide-cta-hint">{hint}</span>
         </span>
       </button>
 
@@ -68,6 +84,10 @@ export default function StyleGuideButton() {
           <li>{t("styleguide_guidance_terms")}</li>
           <li>{t("styleguide_guidance_style")}</li>
         </ul>
+        {/* What Betty found first, then what the author wants to add: the
+            list covers the first two bullets above for most books. */}
+        <LexiconPanel />
+        <h3 className="lexicon-title lexicon-sheet-title">{t("styleguide_freetext_title")}</h3>
         <StyleGuideEditor onDone={() => setOpen(false)} />
       </Modal>
     </>

@@ -211,6 +211,7 @@ export async function verifyAcceptedCorrections(
     englishDialect?: string;
     styleGuide?: string;
     manuscriptLang?: string;
+    docId?: string;
   },
 ): Promise<VerifyOutcome> {
   const excluded: ExcludedCorrection[] = [];

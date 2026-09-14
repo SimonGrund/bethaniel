@@ -331,7 +331,7 @@ export function isValidCompound(word: string, lang: string, dict: SpellDict): bo
 
 /** Dictionaries and SKIP_WORDS use the straight apostrophe; manuscripts
  *  usually use ’. Normalize before any lookup. */
-function normalizeApostrophes(word: string): string {
+export function normalizeApostrophes(word: string): string {
   return word.replace(/[’ʼ]/g, "'");
 }
 
@@ -385,7 +385,7 @@ const PRE_WORD_SKIP = new Set([
  * capitalized typo at a sentence start ("Teh cat…") from a mid-sentence proper
  * noun ("…saw Karim").
  */
-function isSentenceInitial(text: string, index: number): boolean {
+export function isSentenceInitial(text: string, index: number): boolean {
   let i = index - 1;
   while (i >= 0) {
     const ch = text[i];
@@ -408,7 +408,7 @@ function isSentenceInitial(text: string, index: number): boolean {
 const NOUN_CAPITALISING_LANGS = new Set(["de", "de_DE", "lb"]);
 
 /** Does this language capitalise common nouns, not just proper ones? */
-function capitalisesNouns(lang?: string): boolean {
+export function capitalisesNouns(lang?: string): boolean {
   const base = lang?.toLowerCase().split(/[-_]/)[0];
   return !!base && NOUN_CAPITALISING_LANGS.has(base);
 }

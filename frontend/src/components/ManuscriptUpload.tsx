@@ -30,6 +30,7 @@ export default function ManuscriptUpload() {
     setSelectedChapters,
     setScopeMode,
     applyDetectedSettings,
+    setLexicon,
     advanceWizard,
     markStepComplete,
   } = useStore();
@@ -55,6 +56,9 @@ export default function ManuscriptUpload() {
         // next wizard step is about to ask. Applied before the user gets
         // there, so the controls are already right when they arrive.
         applyDetectedSettings(meta.detected);
+        // Its names & terms, harvested in the same upload: the list the
+        // style-sheet button now offers for review.
+        setLexicon(meta.lexicon ?? null);
         // Fetch full text
         const full = await getDocument(meta.id);
         setDocumentMd(full.md);
@@ -84,7 +88,7 @@ export default function ManuscriptUpload() {
         setUploading(false);
       }
     },
-    [t, clearDocument, applyDetectedSettings],
+    [t, clearDocument, applyDetectedSettings, setLexicon],
   );
 
   const onDrop = useCallback(
