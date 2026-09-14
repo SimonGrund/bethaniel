@@ -812,12 +812,22 @@ function narrowOne(
   }
 
   // Splitting must not lose or alter the edit: replaying the pieces over the
-  // original span has to reproduce the model's own corrected text.
-  let replay = c.original;
+  // original span has to reproduce the model's own corrected text. Each
+  // piece is applied at its own place, left to right, never at the first
+  // match — the first match may be text an earlier piece just put there.
+  // ("…King, and their…" → "…King. Their…" followed by "Their" → "These":
+  // replacing the first "Their" undid the first piece, the replay disagreed
+  // with the model, and a correction carrying two independent edits was kept
+  // whole, so the author could take neither without the other.)
+  let replay = "";
+  let cursor = 0;
   for (const p of out) {
-    if (!replay.includes(p.original)) return null;
-    replay = replay.replace(p.original, p.corrected);
+    const at = c.original.indexOf(p.original, cursor);
+    if (at < 0) return null;
+    replay += c.original.slice(cursor, at) + p.corrected;
+    cursor = at + p.original.length;
   }
+  replay += c.original.slice(cursor);
   if (replay !== c.corrected) return null;
 
   return out;

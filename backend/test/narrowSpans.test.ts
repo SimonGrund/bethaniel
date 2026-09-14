@@ -127,3 +127,28 @@ test("an empty input yields an empty result", () => {
   assert.equal(r.narrowed, 0);
   assert.equal(r.split, 0);
 });
+
+test("two edits split even when the second's word is what the first one introduced", () => {
+  // ", and their" → ". Their" puts a "Their" into the text; the second edit
+  // changes the "Their" that was already there. Replaying the pieces at the
+  // first match undid the first piece and abandoned the split, so the
+  // author could take neither edit without the other.
+  const chunk =
+    "All of them were loyal to the Mad King, and their powers were enhanced by Givers. Their powers were greater than Prince Tua had expected, but not enough to threaten our people. The leader fell first.";
+  const c = {
+    original:
+      "All of them were loyal to the Mad King, and their powers were enhanced by Givers. Their powers were greater than Prince Tua had expected, but not enough to threaten our people",
+    corrected:
+      "All of them were loyal to the Mad King. Their powers were enhanced by Givers. These powers were greater than Prince Tua had expected, but not enough to threaten our people",
+  };
+  const r = narrowCorrectionSpans(chunk, [c]);
+  assert.equal(r.split, 1);
+  assert.equal(r.kept.length, 2);
+  assert.deepEqual(
+    r.kept.map((k) => [k.original, k.corrected]),
+    [
+      ["King, and their powers", "King. Their powers"],
+      ["Their", "These"],
+    ],
+  );
+});
