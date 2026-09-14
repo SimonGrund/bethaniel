@@ -688,12 +688,18 @@ export const useStore = create<AppState>()(
             const task = tasks[tid];
             if (!task) continue;
             tasks[tid] = { ...task, result };
-            // Auto-accept non-flagged corrections on first hydration (results
-            // only enter the store through this setter now).
+            // Tick what Betty stands behind on first hydration (results only
+            // enter the store through this setter). The rule is isReliable —
+            // the same one seedAcceptances uses — and not `!flagged`: the
+            // "unchecked" and "second opinion" flags mark corrections that
+            // measure as right about as often as unflagged ones (see
+            // flagKindOf), and leaving them unticked cost the author a click
+            // on every one. Only the doubted bucket, and a run nothing
+            // reviewed, start unticked.
             if (task.status === "done" && !acceptedCorrections[tid]) {
               acceptedCorrections[tid] = new Set(
                 result.corrections
-                  .filter((c) => !c.flagged)
+                  .filter(isReliable)
                   .map((c) => c.id ?? "")
                   .filter(Boolean),
               );
