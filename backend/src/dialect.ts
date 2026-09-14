@@ -16,6 +16,7 @@
 // - Distinct surface casings each get their own correction so "Grey" → "Gray"
 //   (applyCorrections does exact-text replacement with no case logic).
 
+import { scoreDialectEvidence } from "./dialectEvidence.js";
 import type { Correction } from "./types.js";
 
 export interface DialectPair {
@@ -441,26 +442,23 @@ export interface DialectDetection {
  * American and reported itself as mixed.
  */
 export function detectDialect(text: string): DialectDetection {
-  let americanHits = 0;
-  let britishHits = 0;
-  for (const pair of DIALECT_EVIDENCE) {
-    const usMatches = text.match(new RegExp(`\\b${pair.us}\\b`, "gi"));
-    const brMatches = text.match(new RegExp(`\\b${pair.br}\\b`, "gi"));
-    americanHits += usMatches?.length ?? 0;
-    britishHits += brMatches?.length ?? 0;
-  }
-
+  const ev = scoreDialectEvidence(text);
+  const { americanHits, britishHits } = ev;
   const total = americanHits + britishHits;
-  if (total === 0) {
+  if (total === 0 && ev.britishWeight + ev.americanWeight === 0) {
     return { dialect: null, americanHits, britishHits, mixed: false };
   }
 
+  // Mixed is judged on the spelling hits, every occurrence counted: a
+  // consistency report is about how many words are on the wrong side.
   const minority = Math.min(americanHits, britishHits);
-  const mixed = minority >= 3 && minority / total >= 0.15;
+  const mixed = minority >= 3 && total > 0 && minority / total >= 0.15;
+  // Which side it is, on the weighted evidence: the same verdict the
+  // upload-time detection reaches, so the two never disagree.
   const dialect =
-    americanHits === britishHits
+    ev.americanWeight === ev.britishWeight
       ? null
-      : americanHits > britishHits
+      : ev.americanWeight > ev.britishWeight
         ? "american"
         : "british";
 

@@ -12,6 +12,7 @@
 // that a mixed or thin manuscript lands there rather than being guessed at.
 
 import { DIALECT_EVIDENCE } from "./dialect.js";
+import { scoreDialectEvidence } from "./dialectEvidence.js";
 
 // Re-exported so the settings detectors present one surface to callers and
 // tests, while the word list stays next to the conversion table it filters.
@@ -174,56 +175,39 @@ export function detectManuscriptLanguage(
 
 // ── English dialect ──
 //
-// Counts the curated evidence subset (see DIALECT_EVIDENCE in dialect.ts for
-// why it is a subset and not the whole conversion list). Whole-word and
-// case-insensitive, so "Grey" counts exactly like "grey".
+// The evidence lives in dialectEvidence.ts, shared with the consistency
+// check in dialect.ts. What arrives here is already weighted and capped per
+// marker: the verdict rests on how many different dialect-specific things
+// the author does, not on how often one of them recurs.
 
-/** Total markers below this is one stray word, not a house style. */
-const DIALECT_MIN_HITS = 6;
+/** Total weight below this is a stray word or two, not a house style. */
+const DIALECT_MIN_WEIGHT = 6;
 /** A manuscript this consistent has a dialect; anything flatter is mixed. */
-const DIALECT_MIN_SHARE = 0.75;
-
-// Built once. A word that is the British form of one pair and the American
-// form of another proves nothing, so collisions are dropped from both sides.
-const { britishForms, americanForms } = (() => {
-  const british = new Set<string>();
-  const american = new Set<string>();
-  for (const pair of DIALECT_EVIDENCE) {
-    british.add(pair.br.toLowerCase());
-    american.add(pair.us.toLowerCase());
-  }
-  for (const word of [...british]) {
-    if (american.has(word)) {
-      british.delete(word);
-      american.delete(word);
-    }
-  }
-  return { britishForms: british, americanForms: american };
-})();
+const DIALECT_MIN_SHARE = 0.7;
 
 /**
- * Read the manuscript's English dialect off its spelling. Returns "unsure"
- * for prose with too few markers to judge and for genuinely mixed
- * manuscripts — the case dialect.ts exists to clean up, where the honest
- * answer is to ask the author which way the book should go.
+ * Read the manuscript's English dialect off its spelling, vocabulary and
+ * punctuation. Returns "unsure" for prose with too little to judge and for
+ * genuinely mixed manuscripts — the case dialect.ts exists to clean up,
+ * where the honest answer is to ask the author which way the book should
+ * go. The support/against figures are the weighted evidence, so a badge can
+ * say how lopsided it was.
  */
 export function detectEnglishDialect(
   md: string,
 ): Detection<"american" | "british"> {
-  let british = 0;
-  let american = 0;
-  for (const token of tokenize(sampleText(md))) {
-    if (britishForms.has(token)) british++;
-    else if (americanForms.has(token)) american++;
-  }
-
-  const total = british + american;
-  const support = Math.max(british, american);
-  const against = Math.min(british, american);
-  if (total < DIALECT_MIN_HITS) return unsure(support, against, total);
+  const ev = scoreDialectEvidence(sampleText(md));
+  const total = ev.britishWeight + ev.americanWeight;
+  const support = Math.max(ev.britishWeight, ev.americanWeight);
+  const against = Math.min(ev.britishWeight, ev.americanWeight);
+  if (total < DIALECT_MIN_WEIGHT) return unsure(support, against, total);
   if (support / total < DIALECT_MIN_SHARE) return unsure(support, against, total);
-
-  return detected(british > american ? "british" : "american", support, against, total);
+  return detected(
+    ev.britishWeight > ev.americanWeight ? "british" : "american",
+    support,
+    against,
+    total,
+  );
 }
 
 // ── Oxford comma ──
