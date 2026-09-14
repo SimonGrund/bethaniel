@@ -30,14 +30,30 @@ extraResources:
       - "!llama-b*/**"
       - "!*.tar.gz"
       - "!*.zip"
+      # macOS is built for both arches in one run, and each app gets only
+      # its own engine — see mac.extraResources below.
+      - "!darwin-*"
+      - "!darwin-*/**"
   # Optional LanguageTool grammar server (jar + optional bundled JRE). The
   # backend degrades gracefully when this directory is empty, so shipping
   # without it is fine; drop the distribution in to enable grammar checks.
+  #
+  # The JRE is per arch: scripts/fetch-languagetool.mjs puts one at
+  # jre-<os>-<arch>/ for every arch being built, and the entry after this one
+  # picks the matching one and lands it at languagetool/jre/, which is where
+  # electron/main.ts looks. An Intel Mac given the Apple Silicon Java would
+  # lose its grammar checks silently, so the arch is never a build-host guess.
   - from: electron/resources/languagetool/
     to: languagetool/
     filter:
       - "**/*"
       - "!HOWTO.md"
+      - "!jre"
+      - "!jre/**"
+      - "!jre-*"
+      - "!jre-*/**"
+  - from: electron/resources/languagetool/jre-${os}-${arch}/
+    to: languagetool/jre/
   - from: backend/dist/
     to: backend/dist/
     filter:
@@ -67,15 +83,31 @@ asarUnpack:
 afterPack: ./scripts/afterPack.cjs
 
 mac:
-  artifactName: Bethaniel-mac.${ext}
+  # Apple Silicon and Intel, from one electron-builder run: that is what
+  # makes latest-mac.yml list both zips, and electron-updater picks the one
+  # whose name carries "arm64" (or the one that does not) — the arch in the
+  # file name is load-bearing for the auto-updater, not decoration. A 2018
+  # MacBook that is offered an arm64-only app is told it is not compatible,
+  # and Betty in the Cloud needs no local engine at all.
+  artifactName: Bethaniel-mac-${arch}.${ext}
   category: public.app-category.productivity
   target:
     - target: dmg
       arch:
         - arm64
+        - x64
     - target: zip
       arch:
         - arm64
+        - x64
+  extraResources:
+    - from: electron/resources/llama/darwin-${arch}/
+      to: llama/darwin-${arch}/
+      filter:
+        - "**/*"
+        - "!llama-b*"
+        - "!llama-b*/**"
+        - "!*.tar.gz"
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: true

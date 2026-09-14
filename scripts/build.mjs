@@ -102,10 +102,18 @@ function electronBuilderFlag(p) {
   }
 }
 
+// The arches each platform ships. macOS is both: an arm64-only app is refused
+// outright by an Intel Mac ("not compatible"), and nothing about Betty needs
+// Apple Silicon — Betty in the Cloud needs no local engine at all, and the
+// local one has a macOS x64 build. electron-builder.yml lists the same pair.
+function buildArches(p) {
+  return p === "mac" ? ["arm64", "x64"] : ["x64"];
+}
+
 function llamaManifestKeys(p) {
   switch (p) {
     case "mac":
-      return ["darwin-arm64"];
+      return buildArches(p).map((arch) => `darwin-${arch}`);
     case "win":
       return ["win32-x64"];
     case "linux":
@@ -438,18 +446,18 @@ for (const p of platforms) {
     }
   }
 
-  const ltResourceDir = join(ROOT, "electron", "resources", "languagetool");
-
   // Bundle a self-contained LanguageTool (jars + a matching JRE) so grammar
   // checks work without system Java — on all platforms. On macOS the native
   // libs inside LanguageTool's JARs are signed by the afterPack hook so the
-  // notarized app passes (see scripts/sign-jar-libs.cjs). Per-platform JRE —
-  // clear the previous platform's first (matters for --platform all). Fetch
-  // failures fail the build.
+  // notarized app passes (see scripts/sign-jar-libs.cjs). One JRE per arch,
+  // each in its own jre-<os>-<arch>/ so nothing has to be cleared between
+  // platforms (matters for --platform all); electron-builder.yml picks the
+  // right one per app. Fetch failures fail the build.
   if (!skipLanguageTool) {
-    console.log(`\n  Bundling LanguageTool + JRE for ${p}…`);
-    await fs.rm(join(ltResourceDir, "jre"), { recursive: true, force: true });
-    await fetchLanguageTool(p);
+    const arches = buildArches(p);
+    console.log(`
+  Bundling LanguageTool + JRE for ${p} (${arches.join(", ")})…`);
+    await fetchLanguageTool(p, arches);
   }
 
   const flag = electronBuilderFlag(p);

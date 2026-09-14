@@ -826,8 +826,20 @@ app.whenReady().then(async () => {
     const jar = path.join(ltDir, "languagetool-server.jar");
     if (fs.existsSync(jar)) backendEnv.LANGUAGETOOL_JAR = jar;
     const javaName = process.platform === "win32" ? "java.exe" : "java";
-    const bundledJava = path.join(ltDir, "jre", "bin", javaName);
-    if (fs.existsSync(bundledJava)) backendEnv.JAVA_BIN = bundledJava;
+    // Packaged: electron-builder lands this arch's JRE at jre/. In dev the
+    // build script leaves one per arch as jre-<os>-<arch>/ (see
+    // scripts/fetch-languagetool.mjs), and a hand-placed jre/ still wins.
+    const os =
+      process.platform === "darwin"
+        ? "mac"
+        : process.platform === "win32"
+          ? "win"
+          : "linux";
+    const bundledJava = [
+      path.join(ltDir, "jre", "bin", javaName),
+      path.join(ltDir, `jre-${os}-${process.arch}`, "bin", javaName),
+    ].find((candidate) => fs.existsSync(candidate));
+    if (bundledJava) backendEnv.JAVA_BIN = bundledJava;
   }
 
   if (!IS_DEV) {

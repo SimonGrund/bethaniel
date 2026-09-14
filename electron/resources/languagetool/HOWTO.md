@@ -24,6 +24,10 @@ electron/resources/languagetool/
   languagetool-server.jar        ← required (class org.languagetool.server.HTTPServer)
   libs/ … org/ … META-INF/       ← the rest of the distribution (needed at runtime)
   jre/bin/java[.exe]             ← optional bundled JRE (else system `java`)
+  jre-<os>-<arch>/bin/java[.exe] ← what the build script fetches instead: one
+                                   per arch (mac-arm64, mac-x64, win-x64,
+                                   linux-x64), of which the packaged app gets
+                                   only its own, as `jre/`
 ```
 
 Download from https://languagetool.org/download/ (LGPL). Flatten the archive's

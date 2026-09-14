@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14 # Apple Silicon — matches arm64 target
+          - os: macos-14 # Apple Silicon host; builds the arm64 and x64 apps in one run
             platform: mac
             artifact_name: Bethaniel-mac
           - os: windows-latest
@@ -59,8 +59,8 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            dist/Bethaniel-mac.dmg
-            dist/Bethaniel-mac.zip
+            dist/Bethaniel-mac-*.dmg
+            dist/Bethaniel-mac-*.zip
           retention-days: 30
 
       - name: Upload artifact (windows)

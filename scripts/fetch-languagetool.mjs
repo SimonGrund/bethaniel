@@ -29,15 +29,16 @@ const LT_VERSION = "6.6";
 const LT_URL = `https://languagetool.org/download/LanguageTool-${LT_VERSION}.zip`;
 const JAVA_FEATURE = "17";
 
-/** platform → Adoptium (os, arch) tokens + JRE archive type. */
-function jreTarget(platform) {
+/** (platform, arch) → Adoptium (os, arch) tokens + JRE archive type. */
+function jreTarget(platform, arch) {
+  const adoptiumArch = arch === "arm64" ? "aarch64" : "x64";
   switch (platform) {
     case "mac":
-      return { os: "mac", arch: "aarch64", kind: "tar.gz" };
+      return { os: "mac", arch: adoptiumArch, kind: "tar.gz" };
     case "win":
-      return { os: "windows", arch: "x64", kind: "zip" };
+      return { os: "windows", arch: adoptiumArch, kind: "zip" };
     case "linux":
-      return { os: "linux", arch: "x64", kind: "tar.gz" };
+      return { os: "linux", arch: adoptiumArch, kind: "tar.gz" };
     default:
       throw new Error(`Unknown platform: ${platform}`);
   }
@@ -130,16 +131,23 @@ async function fetchLanguageToolJar() {
   console.log("  ✓ LanguageTool jars in place.");
 }
 
-async function fetchJre(platform) {
-  const javaExe = process.platform === "win32" ? "java.exe" : "java";
-  const jreDir = join(LT_DIR, "jre");
+/**
+ * Fetch the JRE for one (platform, arch) into jre-<platform>-<arch>/.
+ *
+ * Per arch, not per platform: macOS builds Apple Silicon and Intel in one
+ * electron-builder run, and electron-builder.yml picks jre-${os}-${arch}/ for
+ * each app. One shared jre/ would give one of the two a Java it cannot run.
+ */
+async function fetchJre(platform, arch) {
+  const javaExe = platform === "win" ? "java.exe" : "java";
+  const jreDir = join(LT_DIR, `jre-${platform}-${arch}`);
   if (existsSync(join(jreDir, "bin", javaExe))) {
-    console.log("  ✓ Bundled JRE already present — skipping.");
+    console.log(`  ✓ Bundled JRE for ${platform}-${arch} already present — skipping.`);
     return;
   }
-  const { os, arch, kind } = jreTarget(platform);
-  const url = `https://api.adoptium.net/v3/binary/latest/${JAVA_FEATURE}/ga/${os}/${arch}/jre/hotspot/normal/eclipse`;
-  console.log(`  ↓ Temurin ${JAVA_FEATURE} JRE (${os}/${arch}) …`);
+  const { os, arch: adoptiumArch, kind } = jreTarget(platform, arch);
+  const url = `https://api.adoptium.net/v3/binary/latest/${JAVA_FEATURE}/ga/${os}/${adoptiumArch}/jre/hotspot/normal/eclipse`;
+  console.log(`  ↓ Temurin ${JAVA_FEATURE} JRE (${os}/${adoptiumArch}) …`);
   const tmp = await fs.mkdtemp(join(tmpdir(), "jre-"));
   const archive = join(tmp, `jre.${kind === "tar.gz" ? "tar.gz" : "zip"}`);
   await download(url, archive);
@@ -164,14 +172,17 @@ async function fetchJre(platform) {
       await fs.chmod(join(jreDir, "bin", javaExe), 0o755);
     } catch {}
   }
-  console.log("  ✓ JRE in place at electron/resources/languagetool/jre/.");
+  console.log(`  ✓ JRE in place at electron/resources/languagetool/jre-${platform}-${arch}/.`);
 }
 
-/** Fetch LanguageTool + a matching JRE for `platform` ("mac"|"win"|"linux"). */
-export async function fetchLanguageTool(platform) {
+/**
+ * Fetch LanguageTool + a JRE for each of `arches` on `platform`
+ * ("mac"|"win"|"linux"). The jars are shared; the JREs are not.
+ */
+export async function fetchLanguageTool(platform, arches) {
   await ensureDir(LT_DIR);
   await fetchLanguageToolJar();
-  await fetchJre(platform);
+  for (const arch of arches) await fetchJre(platform, arch);
 }
 
 // ── Standalone entry ──
