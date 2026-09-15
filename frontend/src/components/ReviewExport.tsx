@@ -309,7 +309,15 @@ export function extractSentenceContext(
  *  the author had to do the arithmetic. The kinds that mean nobody scored
  *  it keep their own words: those name a state of the pipeline, not a
  *  property of the sentence. */
-export function VerdictBadge({ correction }: { correction: Correction }) {
+export function VerdictBadge({
+  correction,
+  compact = false,
+}: {
+  correction: Correction;
+  /** The deck prints the reviewer's words beside the card; the badge then
+   *  carries the score alone. */
+  compact?: boolean;
+}) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const kind = flagKindOf(correction);
@@ -329,29 +337,23 @@ export function VerdictBadge({ correction }: { correction: Correction }) {
   }
 
   const icon = pct >= 80 ? "🟢" : pct >= 60 ? "🟡" : pct >= 40 ? "🟠" : pct >= 20 ? "🔴" : "⛔";
-  const scores =
-    correction.precisionConfidence != null
-      ? t("verdict_tip_both")
-          .replace("{pct}", String(pct))
-          .replace("{reviewer}", String(correction.confidence))
-          .replace("{second}", String(correction.precisionConfidence))
-      : t("verdict_tip_single")
-          .replace("{pct}", String(pct))
-          .replace("{reviewer}", String(correction.confidence));
-  const doubt = kind === "doubted" ? `\n\n${t("flag_doubted_why")}` : "";
-  const reviewerSaid = correction.reviewReason ? `\n\n“${correction.reviewReason}”` : "";
-  const tip = `${scores}${doubt}${reviewerSaid}`;
+  // The reviewer's argument, and why a doubted one is doubted. The line
+  // saying how the percentage was arrived at is gone: it was arithmetic
+  // about the badge, not about the sentence.
+  const doubt = kind === "doubted" ? t("flag_doubted_why") : "";
+  const reviewerSaid = correction.reviewReason ? `“${correction.reviewReason}”` : "";
+  const tip = [doubt, reviewerSaid].filter(Boolean).join("\n\n");
 
   return (
     <span
       className={`correction-verdict${kind === "doubted" ? " correction-verdict--doubted" : ""}`}
       // The styled tooltip only. A native title beside it showed the same
       // words twice, a beat apart.
-      data-tip={tip}
+      data-tip={tip || undefined}
       aria-label={t("verdict_aria").replace("{pct}", String(pct))}
     >
       {icon} {pct}%
-      {kind === "doubted" && correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
+      {!compact && kind === "doubted" && correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
     </span>
   );
 }

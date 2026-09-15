@@ -2414,6 +2414,14 @@ summary.review-source::before {
   margin-top: 0.3rem;
 }
 
+.deck-reason {
+  margin: 0.55rem 0 0;
+  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #5a4d3a;
+}
+
 .deck-actions {
   display: flex;
   align-items: center;
