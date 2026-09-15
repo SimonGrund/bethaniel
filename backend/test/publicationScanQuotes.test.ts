@@ -74,3 +74,53 @@ test("speech continued across paragraphs is NOT flagged", async () => {
   const f = truncations(body).filter((x) => /quotation/i.test(x.message));
   assert.deepEqual(f, [], JSON.stringify(f));
 });
+
+test("a block quotation — one open, one close, paragraphs between — is NOT flagged", async () => {
+  // The other convention for a quotation across paragraphs: a legend read
+  // aloud, opened once and closed once, with nothing on the paragraphs
+  // between. Read paragraph by paragraph this was two findings on a
+  // manuscript that was right.
+  const body =
+    `${PROSE}\n\n` +
+    `“This era we call the Old Wars, and it was a time which brought us all to the brink of extinction.\n\n` +
+    `They channeled their energy into the ground, binding their power to two metals. One black and one white.\n\n` +
+    `As a last act, the power wielders tore the very world into pieces, letting the sea separate the land into islands.”\n\n` +
+    `She closed the book.`;
+  const f = truncations(body).filter((x) => /quotation/i.test(x.message));
+  assert.deepEqual(f, [], JSON.stringify(f));
+});
+
+test("a block quotation opened mid-paragraph is NOT flagged either", async () => {
+  const body =
+    `${PROSE}\n\n` +
+    `The page read: “This era we call the Old Wars.\n\n` +
+    `They channeled their energy into the ground.\n\n` +
+    `The sea separated the land into islands.”\n\n` +
+    `She closed the book.`;
+  const f = truncations(body).filter((x) => /quotation/i.test(x.message));
+  assert.deepEqual(f, [], JSON.stringify(f));
+});
+
+test("a quote left open when other speech begins is still caught", async () => {
+  // Carrying the open quote must not hide a real miss: the next line of
+  // dialogue is not the end of a block quotation.
+  const body =
+    `${PROSE}\n\n` +
+    `Aaron shrugged. “We can try.\n\n` +
+    `“Fine,” she said.\n\n` +
+    `They went.`;
+  const f = truncations(body).filter((x) => /quotation/i.test(x.message));
+  assert.equal(f.length, 1, JSON.stringify(f));
+  assert.match(f[0].message, /Aaron shrugged/);
+});
+
+test("a block quotation never closed is reported at its opening", async () => {
+  const body =
+    `${PROSE}\n\n` +
+    `“This era we call the Old Wars.\n\n` +
+    `They channeled their energy into the ground.\n\n` +
+    `She closed the book.`;
+  const f = truncations(body).filter((x) => /quotation/i.test(x.message));
+  assert.equal(f.length, 1, JSON.stringify(f));
+  assert.match(f[0].message, /Old Wars/);
+});

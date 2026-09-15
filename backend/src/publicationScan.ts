@@ -241,31 +241,61 @@ function excerptOf(paragraph: string): string {
 }
 
 /**
- * Paragraphs whose quotes do not balance, excluding the standard convention for
- * speech continued across paragraphs — each such paragraph opens with a quote
- * and only the last one closes. Without that exception this fires on every
- * novel containing a long speech.
+ * Paragraphs whose quotes do not balance.
+ *
+ * A quotation that runs across paragraphs is legitimate in two conventions,
+ * and the check carries the open quote from one paragraph to the next so
+ * that both pass:
+ *
+ *   - continued speech: every paragraph re-opens with “ and only the last
+ *     one closes;
+ *   - a block quotation (a letter, a legend read aloud, a page of lore):
+ *     one “ where it starts, one ” where it ends, and nothing on the
+ *     paragraphs between.
+ *
+ * Judging each paragraph on its own reported the second kind twice — the
+ * opener as unclosed, the closer as a stray — on a manuscript that was right.
+ *
+ * What still counts as wrong: two opens in one paragraph, a close with
+ * nothing open, a quote left open when other speech begins, and one left
+ * open at the end of the chapter. Each is reported with the paragraph that
+ * opened it, since that is where the fix goes.
  */
 function unbalancedParagraphs(body: string): string[] {
   const paragraphs = body.split(/\n\n+/);
   const out: string[] = [];
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
+  // The paragraph whose quote is still open, if any, and how it opened.
+  let carried: { excerpt: string; startsWithOpen: boolean } | null = null;
+  for (const p of paragraphs) {
     const { opens, closes, startsWithOpen } = quoteBalance(p);
-    if (opens === closes) continue;
-    // One unclosed opening quote, and the next paragraph opens one too: this is
-    // continued speech, not an error.
-    const next = paragraphs[i + 1];
-    if (
-      opens === closes + 1 &&
-      startsWithOpen &&
-      next &&
-      quoteBalance(next).startsWithOpen
-    ) {
+    const balance = opens - closes;
+    if (carried) {
+      // No quotes at all: the middle of a block quotation.
+      if (opens === 0 && closes === 0) continue;
+      // One close and nothing opened: the block quotation ends here.
+      if (opens === 0 && closes === 1) {
+        carried = null;
+        continue;
+      }
+      // Continued speech, paragraph by paragraph — only when the speech
+      // was opened that way too.
+      if (carried.startsWithOpen && startsWithOpen && (balance === 0 || balance === 1)) {
+        if (balance === 0) carried = null;
+        continue;
+      }
+      // Anything else while a quote is open means the open one was never
+      // closed: report it, and read this paragraph on its own.
+      out.push(carried.excerpt);
+      carried = null;
+    }
+    if (balance === 0) continue;
+    if (balance === 1) {
+      carried = { excerpt: excerptOf(p), startsWithOpen };
       continue;
     }
     out.push(excerptOf(p));
   }
+  if (carried) out.push(carried.excerpt);
   return out;
 }
 
