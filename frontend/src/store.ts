@@ -1158,11 +1158,33 @@ export const useStore = create<AppState>()(
       // knobs (extraPass and the since-removed editor/reviewer fan-out)
       // forever, since
       // those are persisted independently of the runMode label itself.
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
-        const state = persisted as Partial<AppState> & { runMode?: string };
+        let state = persisted as Partial<AppState> & { runMode?: string };
         if (version < 1 && state?.runMode && state.runMode !== "speed" && state.runMode !== "custom") {
-          return { ...state, runMode: DEFAULT_RUN_MODE, ...DEFAULT_KNOBS } as unknown as AppState;
+          state = { ...state, runMode: DEFAULT_RUN_MODE, ...DEFAULT_KNOBS };
+        }
+        // v2: every copy and line edit option is on by default. An install
+        // from before carries the old defaults in its persisted options, so
+        // the flags that changed are switched on once here.
+        if (version < 2) {
+          state = {
+            ...state,
+            copyEditOptions: {
+              ...DEFAULT_COPY_EDIT_OPTIONS,
+              ...(state.copyEditOptions ?? {}),
+              introductoryComma: true,
+              dialogueTags: true,
+            },
+            lineEditOptions: {
+              ...DEFAULT_LINE_EDIT_OPTIONS,
+              ...(state.lineEditOptions ?? {}),
+              showDontTell: true,
+              sentenceRhythm: true,
+              dialogueNaturalness: true,
+              tightenProse: true,
+            },
+          };
         }
         return state as unknown as AppState;
       },

@@ -90,11 +90,13 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   duplicateWords: true,
   englishDialect: "american",
   oxfordComma: true,
-  introductoryComma: false,
+  // Every pass on by default; the manuscript's own detection (detectSettings)
+  // still moves the comma conventions to what the book actually does.
+  introductoryComma: true,
   // Grammatisk komma is the more common default in Danish fiction and is what
   // a reader is most likely to expect; nyt komma is the deliberate choice.
   danishComma: "grammatisk",
-  dialogueTags: false,
+  dialogueTags: true,
 };
 
 export const DEFAULT_LINE_EDIT_OPTIONS: LineEditOptions = {
@@ -103,9 +105,9 @@ export const DEFAULT_LINE_EDIT_OPTIONS: LineEditOptions = {
   weakVerbs: true,
   cliches: true,
   showDontTell: true,
-  sentenceRhythm: false,
-  dialogueNaturalness: false,
-  tightenProse: false,
+  sentenceRhythm: true,
+  dialogueNaturalness: true,
+  tightenProse: true,
 };
 
 export interface Chapter {

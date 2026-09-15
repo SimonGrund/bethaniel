@@ -19,10 +19,21 @@ import {
 const SUPPRESS = "do NOT add a comma after an introductory";
 const ENFORCE = "Missing comma after an introductory";
 
-test("default (introductoryComma off) suppresses introductory commas in the corrections prompt", () => {
-  const p = buildCopyEditCorrectionsPrompt(DEFAULT_COPY_EDIT_OPTIONS);
+// Every copy-edit option is on by default; "off" is the author's choice
+// (or the manuscript's, via detectSettings). Both readings are pinned.
+const OFF = { ...DEFAULT_COPY_EDIT_OPTIONS, introductoryComma: false };
+
+test("introductoryComma off suppresses introductory commas in the corrections prompt", () => {
+  const p = buildCopyEditCorrectionsPrompt(OFF);
   assert.ok(p.includes(SUPPRESS), "expected suppression instruction");
   assert.ok(!p.includes(ENFORCE), "must not also enforce");
+});
+
+test("the default enforces the introductory comma", () => {
+  assert.equal(DEFAULT_COPY_EDIT_OPTIONS.introductoryComma, true);
+  const p = buildCopyEditCorrectionsPrompt(DEFAULT_COPY_EDIT_OPTIONS);
+  assert.ok(p.includes(ENFORCE));
+  assert.ok(!p.includes(SUPPRESS));
 });
 
 test("introductoryComma on enforces the introductory comma instead", () => {
@@ -34,13 +45,13 @@ test("introductoryComma on enforces the introductory comma instead", () => {
   assert.ok(!p.includes(SUPPRESS), "must not also suppress");
 });
 
-test("combined-edit prompt honors the off default (suppress)", () => {
-  const p = buildCombinedEditPrompt(DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS);
+test("combined-edit prompt honors introductoryComma off (suppress)", () => {
+  const p = buildCombinedEditPrompt(OFF, DEFAULT_LINE_EDIT_OPTIONS);
   assert.ok(p.includes(SUPPRESS));
 });
 
-test("rewrite prompt honors the off default (suppress)", () => {
-  const p = buildCopyEditRewritePrompt(DEFAULT_COPY_EDIT_OPTIONS);
+test("rewrite prompt honors introductoryComma off (suppress)", () => {
+  const p = buildCopyEditRewritePrompt(OFF);
   assert.ok(p.includes(SUPPRESS));
 });
 
