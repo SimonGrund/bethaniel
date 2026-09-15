@@ -3800,6 +3800,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "unklar",
     es: "sin certeza",
   },
+  detect_badge_answered: {
+    en: "your call",
+    da: "dit valg",
+    de: "Ihre Wahl",
+    es: "tu elección",
+  },
+  detect_tip_answered: {
+    en: "Betty could not tell from the manuscript; you decided this one.",
+    da: "Betty kunne ikke se det i manuskriptet; du har afgjort denne.",
+    de: "Betty konnte es dem Manuskript nicht entnehmen; Sie haben es entschieden.",
+    es: "Betty no pudo saberlo por el manuscrito; lo has decidido tú.",
+  },
+  ms_confirm_hint: {
+    en: "Pick a value above, or keep what is shown:",
+    da: "Vælg en værdi ovenfor, eller behold det viste:",
+    de: "Oben einen Wert wählen, oder das Angezeigte behalten:",
+    es: "Elige un valor arriba, o conserva lo mostrado:",
+  },
+  ms_confirm_all: {
+    en: "These are right",
+    da: "Det passer",
+    de: "So stimmt es",
+    es: "Así está bien",
+  },
   detect_tip_detected: {
     en: "Betty read this from your manuscript: {support} of {sample} agree.",
     da: "Betty har læst dette i dit manuskript: {support} ud af {sample} stemmer overens.",

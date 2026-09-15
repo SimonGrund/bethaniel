@@ -18,6 +18,11 @@
 // makes no claim there, and an icon either way would be a lie — green would
 // say "checked" when nothing was, amber would nag every older document.
 //
+// An "unsure" stops being one the moment the author answers it — picks a
+// value, or confirms the one shown, or says the lot is right. The panel is
+// then green: every question was settled, by the manuscript or by the
+// author, and there is nothing left to look at.
+//
 // Which rows appear is decided per card by what the run actually READS. A
 // translation never consults the Oxford-comma setting, so asking for one is
 // asking the author to make a decision that changes nothing.
@@ -64,25 +69,36 @@ export const CARD_SETTINGS: Record<FrontCard, SettingKey[]> = {
 export function settingsStatus(
   keys: SettingKey[],
   detected: DetectedSettings | null | undefined,
+  settled: SettingKey[] = [],
 ): SettingsStatus {
   if (!detected) return "neutral";
   let anyDetected = false;
   for (const key of keys) {
     const d = detected[key];
     if (!d) continue;
-    if (d.status === "unsure") return "attention";
+    if (d.status === "unsure" && !settled.includes(key)) return "attention";
     anyDetected = true;
   }
   return anyDetected ? "clean" : "neutral";
+}
+
+/** The shown settings still waiting on the author. */
+export function waitingKeys(
+  keys: SettingKey[],
+  detected: DetectedSettings | null | undefined,
+  settled: SettingKey[] = [],
+): SettingKey[] {
+  if (!detected) return [];
+  return keys.filter((k) => detected[k]?.status === "unsure" && !settled.includes(k));
 }
 
 /** How many of the shown settings are waiting on the author. */
 export function attentionCount(
   keys: SettingKey[],
   detected: DetectedSettings | null | undefined,
+  settled: SettingKey[] = [],
 ): number {
-  if (!detected) return 0;
-  return keys.filter((k) => detected[k]?.status === "unsure").length;
+  return waitingKeys(keys, detected, settled).length;
 }
 
 const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
@@ -93,7 +109,7 @@ const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
  * computation, so the two never disagree about what is settled.
  */
 export function useManuscriptSettingsState(card: FrontCard) {
-  const { lang, manuscriptLang, copyEditOptions, detectedSettings } = useStore();
+  const { lang, manuscriptLang, copyEditOptions, detectedSettings, settledSettings } = useStore();
   const t = useTranslation(lang);
 
   const isKnownLang = KNOWN_MANUSCRIPT_LANGS.includes(manuscriptLang);
@@ -108,8 +124,9 @@ export function useManuscriptSettingsState(card: FrontCard) {
     return isEnglish;
   });
 
-  const status = settingsStatus(keys, detectedSettings);
-  const waiting = attentionCount(keys, detectedSettings);
+  const status = settingsStatus(keys, detectedSettings, settledSettings);
+  const unanswered = waitingKeys(keys, detectedSettings, settledSettings);
+  const waiting = unanswered.length;
 
   // What the collapsed line says Betty settled on.
   const summary = keys
@@ -139,7 +156,7 @@ export function useManuscriptSettingsState(card: FrontCard) {
     .filter(Boolean)
     .join(" · ");
 
-  return { keys, status, waiting, summary, isKnownLang };
+  return { keys, status, waiting, unanswered, summary, isKnownLang };
 }
 
 export default function ManuscriptSettings({ card }: { card: FrontCard }) {
@@ -150,17 +167,24 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
     copyEditOptions,
     setCopyEditOption,
     detectedSettings,
+    settledSettings,
+    settleSettings,
   } = useStore();
   const t = useTranslation(lang);
-  const { keys, status, waiting, summary, isKnownLang } = useManuscriptSettingsState(card);
+  const { keys, status, waiting, unanswered, summary, isKnownLang } =
+    useManuscriptSettingsState(card);
 
   const badgeFor = (key: SettingKey, current: unknown) => (
     <DetectionBadge
       detection={detectedSettings?.[key]}
       current={current}
+      settled={settledSettings.includes(key)}
       lang={lang as Lang}
     />
   );
+  // Touching a control answers its question — the same value again is a
+  // confirmation, which is what the author opened the panel to give.
+  const answer = (key: SettingKey) => settleSettings([key]);
 
   return (
     <FoldingPanel
@@ -183,11 +207,12 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
           <span className="fold-control">
             <select
               value={isKnownLang ? manuscriptLang : "other"}
-              onChange={(e) =>
+              onChange={(e) => {
                 setManuscriptLang(
                   e.target.value === "other" ? "" : e.target.value,
-                )
-              }
+                );
+                answer("manuscriptLang");
+              }}
               className="lang-input"
             >
               {KNOWN_MANUSCRIPT_LANGS.map((l) => (
@@ -219,18 +244,20 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.englishDialect === "american" ? " active" : ""}`}
-                onClick={() =>
-                  setCopyEditOption("englishDialect", "american")
-                }
+                onClick={() => {
+                  setCopyEditOption("englishDialect", "american");
+                  answer("englishDialect");
+                }}
               >
                 {t("opt_american")}
               </button>
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.englishDialect === "british" ? " active" : ""}`}
-                onClick={() =>
-                  setCopyEditOption("englishDialect", "british")
-                }
+                onClick={() => {
+                  setCopyEditOption("englishDialect", "british");
+                  answer("englishDialect");
+                }}
               >
                 {t("opt_british")}
               </button>
@@ -248,14 +275,20 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.oxfordComma ? " active" : ""}`}
-                onClick={() => setCopyEditOption("oxfordComma", true)}
+                onClick={() => {
+                  setCopyEditOption("oxfordComma", true);
+                  answer("oxfordComma");
+                }}
               >
                 {t("opt_yes")}
               </button>
               <button
                 type="button"
                 className={`toggle-btn${!copyEditOptions.oxfordComma ? " active" : ""}`}
-                onClick={() => setCopyEditOption("oxfordComma", false)}
+                onClick={() => {
+                  setCopyEditOption("oxfordComma", false);
+                  answer("oxfordComma");
+                }}
               >
                 {t("opt_no")}
               </button>
@@ -273,14 +306,20 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.introductoryComma ? " active" : ""}`}
-                onClick={() => setCopyEditOption("introductoryComma", true)}
+                onClick={() => {
+                  setCopyEditOption("introductoryComma", true);
+                  answer("introductoryComma");
+                }}
               >
                 {t("opt_yes")}
               </button>
               <button
                 type="button"
                 className={`toggle-btn${!copyEditOptions.introductoryComma ? " active" : ""}`}
-                onClick={() => setCopyEditOption("introductoryComma", false)}
+                onClick={() => {
+                  setCopyEditOption("introductoryComma", false);
+                  answer("introductoryComma");
+                }}
               >
                 {t("opt_no")}
               </button>
@@ -298,22 +337,39 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.danishComma === "grammatisk" ? " active" : ""}`}
-                onClick={() =>
-                  setCopyEditOption("danishComma", "grammatisk")
-                }
+                onClick={() => {
+                  setCopyEditOption("danishComma", "grammatisk");
+                  answer("danishComma");
+                }}
               >
                 {t("opt_grammatiskKomma")}
               </button>
               <button
                 type="button"
                 className={`toggle-btn${copyEditOptions.danishComma === "nyt" ? " active" : ""}`}
-                onClick={() => setCopyEditOption("danishComma", "nyt")}
+                onClick={() => {
+                  setCopyEditOption("danishComma", "nyt");
+                  answer("danishComma");
+                }}
               >
                 {t("opt_nytKomma")}
               </button>
             </span>
             {badgeFor("danishComma", copyEditOptions.danishComma)}
           </span>
+        </div>
+      )}
+
+      {waiting > 0 && (
+        <div className="fold-confirm-row">
+          <span className="small-note">{t("ms_confirm_hint")}</span>
+          <button
+            type="button"
+            className="btn-secondary btn-small"
+            onClick={() => settleSettings(unanswered)}
+          >
+            {t("ms_confirm_all")}
+          </button>
         </div>
       )}
     </FoldingPanel>

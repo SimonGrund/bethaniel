@@ -188,6 +188,13 @@ interface AppState {
    */
   detectedSettings: DetectedSettings | null;
   /**
+   * The settings Betty could not read that the author has since answered —
+   * by picking a value, or confirming the one shown. An answered question
+   * stops asking. Cleared with the detection it belongs to.
+   */
+  settledSettings: (keyof DetectedSettings)[];
+  settleSettings: (keys: (keyof DetectedSettings)[]) => void;
+  /**
    * Apply a detection result: remember it, and move each confidently detected
    * setting to match the manuscript.
    *
@@ -545,9 +552,14 @@ export const useStore = create<AppState>()(
       setManuscriptLang: (manuscriptLang) => set({ manuscriptLang }),
 
       detectedSettings: null,
+      settledSettings: [],
+      settleSettings: (keys) =>
+        set((state) => ({
+          settledSettings: [...new Set([...state.settledSettings, ...keys])],
+        })),
       applyDetectedSettings: (detected) => {
         if (!detected) {
-          set({ detectedSettings: null });
+          set({ detectedSettings: null, settledSettings: [] });
           return;
         }
         set((state) => {
@@ -570,6 +582,7 @@ export const useStore = create<AppState>()(
           }
           return {
             detectedSettings: detected,
+            settledSettings: [],
             copyEditOptions,
             manuscriptLang:
               detected.manuscriptLang?.status === "detected"
@@ -650,6 +663,7 @@ export const useStore = create<AppState>()(
           documentMd: "",
           // The badges describe a manuscript that is no longer loaded.
           detectedSettings: null,
+          settledSettings: [],
           lexicon: null,
           scopeMode: DEFAULT_SCOPE_MODE,
           selectedChapters: [],
@@ -1115,6 +1129,7 @@ export const useStore = create<AppState>()(
           document: null,
           documentMd: "",
           detectedSettings: null,
+          settledSettings: [],
           lexicon: null,
           tasks: {},
           pendingTaskIds: [],
@@ -1217,6 +1232,7 @@ export const useStore = create<AppState>()(
         // Persisted with the document it describes, so the badges survive a
         // refresh exactly as the loaded manuscript does.
         detectedSettings: state.detectedSettings,
+        settledSettings: state.settledSettings,
         lexicon: state.lexicon,
         apiKeyConfigured: state.apiKeyConfigured,
         apiModel: state.apiModel,

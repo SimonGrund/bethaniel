@@ -3839,6 +3839,18 @@ summary.review-source::before {
   padding: 0.35rem 0;
 }
 
+/* The one-click answer, at the foot of the panel while a question waits. */
+.fold-confirm-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f0e7d2;
+}
+
 .fold-label {
   flex: 0 0 40%;
   font-size: 0.82rem;
@@ -6298,6 +6310,18 @@ summary.review-source::before {
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+}
+
+/* The column's own gap spaces its blocks; the settings panel and the style
+   sheet button bring margins of their own from elsewhere, and stacked on
+   the gap they held the card open like a gate. */
+.upload-side .fold-panel,
+.upload-side .stage {
+  margin: 0;
+}
+
+.upload-side .styleguide-cta {
+  margin-top: 0;
 }
 
 .upload-side .file-name {

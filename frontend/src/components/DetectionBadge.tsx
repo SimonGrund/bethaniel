@@ -7,6 +7,8 @@
 //   unsure   — Betty looked and could not tell. The control is left at its
 //              existing value and the badge asks the author to decide, which
 //              is the only honest thing to do when both answers are defensible.
+//   answered — an unsure the author has since decided: the badge says so and
+//              stops asking.
 //
 // The detected badge disappears the moment the author changes the control,
 // because it is then no longer describing what Betty found. That needs no
@@ -21,6 +23,8 @@ interface Props {
   detection?: Detection<unknown>;
   /** The control's current value, so an overridden setting drops its badge. */
   current: unknown;
+  /** The author has answered this one (only matters when unsure). */
+  settled?: boolean;
   lang: Lang;
 }
 
@@ -30,9 +34,17 @@ function fill(template: string, counts: Record<string, number>): string {
   );
 }
 
-export default function DetectionBadge({ detection, current, lang }: Props) {
+export default function DetectionBadge({ detection, current, settled, lang }: Props) {
   const t = useTranslation(lang);
   if (!detection) return null;
+
+  if (detection.status === "unsure" && settled) {
+    return (
+      <span className="detect-badge detect-badge-found" title={t("detect_tip_answered")}>
+        {t("detect_badge_answered")}
+      </span>
+    );
+  }
 
   const counts = {
     support: detection.support,
