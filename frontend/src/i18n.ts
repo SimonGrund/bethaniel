@@ -3708,6 +3708,42 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty würde das lassen — sie ist nicht sicher",
     es: "Betty lo dejaría — no está segura",
   },
+  deck_launch: {
+    en: "Review suggestions",
+    da: "Gennemgå forslag",
+    de: "Vorschläge durchsehen",
+    es: "Revisar sugerencias",
+  },
+  deck_launch_again: {
+    en: "Look again",
+    da: "Se igen",
+    de: "Noch einmal ansehen",
+    es: "Ver de nuevo",
+  },
+  deck_launch_left: {
+    en: "{n} suggestions waiting for an answer",
+    da: "{n} forslag venter på svar",
+    de: "{n} Vorschläge warten auf eine Antwort",
+    es: "{n} sugerencias esperan respuesta",
+  },
+  deck_launch_left_one: {
+    en: "1 suggestion waiting for an answer",
+    da: "1 forslag venter på svar",
+    de: "1 Vorschlag wartet auf eine Antwort",
+    es: "1 sugerencia espera respuesta",
+  },
+  deck_launch_none: {
+    en: "Betty found nothing to suggest",
+    da: "Betty fandt intet at foreslå",
+    de: "Betty hat nichts vorzuschlagen",
+    es: "Betty no encontró nada que sugerir",
+  },
+  focus_close: {
+    en: "Leave — your answers are kept",
+    da: "Forlad — dine svar gemmes",
+    de: "Verlassen — Ihre Antworten bleiben",
+    es: "Salir — tus respuestas se conservan",
+  },
   deck_all_done: {
     en: "Every suggestion decided",
     da: "Alle forslag afgjort",

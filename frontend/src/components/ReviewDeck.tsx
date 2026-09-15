@@ -51,6 +51,17 @@ export function buildDeck(entries: [string, TaskState][]): DeckItem[] {
   return items;
 }
 
+/** How many of a job's suggestions still want an answer. */
+export function countUndecided(
+  entries: [string, TaskState][],
+  decisionLog: { taskId: string; correctionId: string }[],
+): { left: number; total: number } {
+  const deck = buildDeck(entries);
+  const decided = new Set(decisionLog.map((d) => `${d.taskId}\u0000${d.correctionId}`));
+  const left = deck.filter((item) => !decided.has(`${item.taskId}\u0000${item.correction.id}`)).length;
+  return { left, total: deck.length };
+}
+
 const LEAVE_MS = 260;
 const PEEK = 3;
 /** Certainty under which the line says Betty is unsure rather than would accept. */
@@ -61,6 +72,7 @@ export default function ReviewDeck({
   cursorTaskId,
   onChapterChange,
   onDecide,
+  doneSlot,
 }: {
   /** Edit tasks of one job, in manuscript order, results hydrated. */
   entries: [string, TaskState][];
@@ -70,6 +82,8 @@ export default function ReviewDeck({
   onChapterChange: (taskId: string) => void;
   /** After a decision is recorded — the parent offers "same change elsewhere". */
   onDecide?: (action: "accept" | "dismiss", taskId: string, correction: Correction) => void;
+  /** What sits under the finished-deck text: the export button, in focus. */
+  doneSlot?: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
@@ -330,6 +344,7 @@ export default function ReviewDeck({
         {!top && (
           <div className="deck-card deck-card-top deck-card-done">
             <p className="deck-done-text">{t("deck_done_text").replace("{n}", String(total))}</p>
+            {doneSlot && <div className="deck-done-actions">{doneSlot}</div>}
           </div>
         )}
       </div>

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
-import ReviewDeck from "./ReviewDeck";
+import ReviewDeck, { buildDeck, countUndecided } from "./ReviewDeck";
+import ReviewFocus from "./ReviewFocus";
 import { useTranslation } from "../i18n";
 import {
   exportDocx,
@@ -1769,6 +1770,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         Object.entries(allTasks).filter(([, t]) => (t.submittedAt ?? 0) >= sessionStartedAt),
       );
   const t = useTranslation(lang);
+  const decisionLog = useStore((s) => s.decisionLog);
   const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
@@ -2191,6 +2193,26 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     }
   }, [tasks, acceptedCorrections, seedAcceptances]);
 
+  // ── The focus view ──
+  // Which job's deck has the screen to itself. It opens on its own once,
+  // the first time a live run's edits are all in and there is something to
+  // read; after that the "Review suggestions" button in the results card
+  // brings it back. Old runs never open it unasked.
+  const [focusJid, setFocusJid] = useState<string | null>(null);
+  const autoFocused = useRef(new Set<string>());
+  useEffect(() => {
+    if (isOldResults || !newestJobId || autoFocused.current.has(newestJobId)) return;
+    const edits = Object.entries(tasks).filter(
+      ([, task]) => task.jobId === newestJobId && EDIT_MODES.includes(task.mode),
+    );
+    if (edits.length === 0) return;
+    if (edits.some(([, task]) => task.mode === "translate")) return;
+    if (Object.values(tasks).some((task) => task.jobId === newestJobId && task.mode === "publication_scan")) return;
+    if (!edits.every(([, task]) => task.status === "done" && task.result)) return;
+    autoFocused.current.add(newestJobId);
+    if (buildDeck(edits).length > 0) setFocusJid(newestJobId);
+  }, [tasks, isOldResults, newestJobId]);
+
   // Queued tasks are shown, not filtered away. They used to be filtered: a
   // chapter with no result had nothing to contribute to a list of results, so
   // it stayed hidden until it started. The pill bar changes that — a queued
@@ -2606,6 +2628,26 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             : exportIds.length === 1
               ? `${editTasks.find(([tid]) => tid === exportIds[0])?.[1].name ?? src}.edited`
               : `${src}.chapters`;
+          const runExport = () =>
+            exportFormat === "epub"
+              ? verifyThenExport(
+                  exportIds,
+                  (acc, fixed) => buildFullManuscript(exportEntries, acc, fixed),
+                  (md) => handleAutoFormatEbook(md, exportAll ? src : exportName),
+                )
+              : verifyThenExport(
+                  exportIds,
+                  (acc, fixed) => ({
+                    md: buildFullManuscript(exportEntries, acc, fixed),
+                    pairs: buildChapterPairs(exportEntries, acc, fixed),
+                  }),
+                  ({ md, pairs }) => handleDownloadDocxSurgical(pairs, md, `${exportName}.docx`),
+                );
+          const exportButtonLabel = formattingEbook
+            ? t("formatting_ebook")
+            : exportFormat === "epub"
+              ? t("auto_format_ebook")
+              : t("download_full_docx");
           const toggleExportChapter = (tid: string) => {
             setExportOnly((prev) => {
               const next = new Set(prev ?? editTaskIds);
@@ -2718,6 +2760,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           // Guard the full-manuscript exports against the brief window where a
           // task is done but its result hasn't hydrated yet.
           const editResultsReady = editTasks.every(([, task]) => task.result);
+          const exportReady = allEditDone && editResultsReady && !verifying && exportIds.length > 0;
           const allEditCorrections = editTasks.flatMap(([tid, task]) =>
             (task.result?.corrections ?? [])
               .filter((c) => c.id)
@@ -3998,16 +4041,63 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   time, chapters running into each other. The chapter column
                   below keeps each chapter's skipped list and exports; its
                   own card list is off while the deck is up (deckMode). */}
-              {deckMode && (
-                <ReviewDeck
-                  entries={editTasks.filter(([, task]) => task.result)}
-                  cursorTaskId={activeChapterId}
-                  onChapterChange={(tid) => {
-                    if (tid !== activeChapter) setActiveChapter(tid);
-                  }}
-                  onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
-                />
-              )}
+              {deckMode && (() => {
+                const hydrated = editTasks.filter(([, task]) => task.result);
+                const { left, total } = countUndecided(hydrated, decisionLog);
+                return (
+                  <>
+                    <div className="deck-launch">
+                      <span className="deck-launch-text">
+                        {total === 0
+                          ? t("deck_launch_none")
+                          : left === 0
+                            ? t("deck_all_done")
+                            : t(left === 1 ? "deck_launch_left_one" : "deck_launch_left").replace(
+                                "{n}",
+                                String(left),
+                              )}
+                      </span>
+                      {total > 0 && (
+                        <button
+                          type="button"
+                          className="btn-primary btn-small"
+                          onClick={() => setFocusJid(jid)}
+                        >
+                          {left === 0 ? t("deck_launch_again") : t("deck_launch")}
+                        </button>
+                      )}
+                    </div>
+                    <ReviewFocus
+                      open={focusJid === jid}
+                      onClose={() => setFocusJid(null)}
+                      title={`${t("deck_title")} — ${src}`}
+                    >
+                      <ReviewDeck
+                        entries={hydrated}
+                        cursorTaskId={activeChapterId}
+                        onChapterChange={(tid) => {
+                          if (tid !== activeChapter) setActiveChapter(tid);
+                        }}
+                        onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
+                        doneSlot={
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            disabled={!exportReady}
+                            title={allEditDone ? undefined : t("full_manuscript_wait")}
+                            onClick={() => {
+                              setFocusJid(null);
+                              runExport();
+                            }}
+                          >
+                            {exportButtonLabel}
+                          </button>
+                        }
+                      />
+                    </ReviewFocus>
+                  </>
+                );
+              })()}
               <div className="chapters-scroll">
               {entries.map(([tid, task]) => {
                 // One chapter at a time. The pill bar above is the navigation;
@@ -4438,7 +4528,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                   <button
                     className="btn-primary btn-small export-row__go"
-                    disabled={!allEditDone || !editResultsReady || verifying || exportIds.length === 0}
+                    disabled={!exportReady}
                     title={
                       !allEditDone
                         ? t("full_manuscript_wait")
@@ -4446,29 +4536,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           ? t("export_pick_chapter")
                           : undefined
                     }
-                    onClick={() =>
-                      exportFormat === "epub"
-                        ? verifyThenExport(
-                            exportIds,
-                            (acc, fixed) => buildFullManuscript(exportEntries, acc, fixed),
-                            (md) => handleAutoFormatEbook(md, exportAll ? src : exportName),
-                          )
-                        : verifyThenExport(
-                            exportIds,
-                            (acc, fixed) => ({
-                              md: buildFullManuscript(exportEntries, acc, fixed),
-                              pairs: buildChapterPairs(exportEntries, acc, fixed),
-                            }),
-                            ({ md, pairs }) =>
-                              handleDownloadDocxSurgical(pairs, md, `${exportName}.docx`),
-                          )
-                    }
+                    onClick={runExport}
                   >
-                    {formattingEbook
-                      ? t("formatting_ebook")
-                      : exportFormat === "epub"
-                        ? t("auto_format_ebook")
-                        : t("download_full_docx")}
+                    {exportButtonLabel}
                   </button>
 
                   <div className="export-row__cog">

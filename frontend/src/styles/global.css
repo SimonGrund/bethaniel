@@ -2513,6 +2513,112 @@ summary.review-source::before {
   text-align: center;
 }
 
+.deck-done-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.8rem;
+}
+
+/* ── The focus view ──
+   The deck with the screen to itself: a dimmed page, one panel centred,
+   the card at reading width. Above the page chrome (≤1000), below the
+   dialogs the deck raises (5000) and the toasts (9999). */
+.review-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(42, 36, 25, 0.55);
+  backdrop-filter: blur(2px);
+  animation: focus-in 0.2s ease;
+}
+
+@keyframes focus-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.review-focus-panel {
+  width: min(46rem, 100%);
+  max-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  background: #f6efdc;
+  border: 1px solid #c9b896;
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.review-focus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid #e0d2b4;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.review-focus-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-focus-close {
+  flex: none;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 1.05rem;
+  color: #8b7355;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+
+.review-focus-close:hover {
+  color: #2a2419;
+  background: #ece0c8;
+}
+
+.review-focus-body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.review-focus-body .deck {
+  margin: 0;
+}
+
+/* The way into the focus view, from the results card. */
+.deck-launch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.25rem 0 1.25rem;
+  padding: 0.9rem 1.1rem;
+  background: #fdfaf0;
+  border: 1px solid #d9c9a8;
+  border-left: 3px solid #8b7355;
+  border-radius: 8px;
+}
+
+.deck-launch-text {
+  color: #4a3f2f;
+}
+
 .deck-done-text {
   margin: 0.4rem 0;
   color: #4a3f2f;
