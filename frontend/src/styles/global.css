@@ -2357,17 +2357,17 @@ summary.review-source::before {
 
 .deck-card-peek-1 {
   transform: scale(0.985);
-  opacity: 0.8;
+  opacity: 0.32;
 }
 
 .deck-card-peek-2 {
   transform: scale(0.97);
-  opacity: 0.5;
+  opacity: 0.16;
 }
 
 .deck-card-peek-3 {
   transform: scale(0.955);
-  opacity: 0.25;
+  opacity: 0.07;
 }
 
 @keyframes deck-card-rise {
@@ -2531,8 +2531,8 @@ summary.review-source::before {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: rgba(42, 36, 25, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(30, 25, 16, 0.82);
+  backdrop-filter: blur(5px);
   animation: focus-in 0.2s ease;
 }
 
@@ -2546,7 +2546,7 @@ summary.review-source::before {
 }
 
 .review-focus-panel {
-  width: min(46rem, 100%);
+  width: min(62rem, 100%);
   max-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
@@ -2592,8 +2592,28 @@ summary.review-source::before {
 }
 
 .review-focus-body {
-  padding: 1rem 1.25rem 1.25rem;
+  padding: 1.5rem 2.25rem 2rem;
   overflow-y: auto;
+}
+
+/* In focus the sentence is the whole point: larger type on the top card,
+   the surrounding context stepped back so the change itself carries the
+   eye, the reviewer's line a little quieter. */
+.review-focus .deck-card-top .deck-card-body {
+  font-size: 1.25rem;
+  line-height: 1.7;
+}
+
+.review-focus .deck-card-top {
+  padding: 1.4rem 1.6rem;
+}
+
+.review-focus .deck-card-top .correction-context {
+  color: #a08c6c;
+}
+
+.review-focus .deck-reason {
+  font-size: 0.95rem;
 }
 
 .review-focus-body .deck {
