@@ -41,7 +41,11 @@ jobs:
       - name: Download the Intel app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag }}
+          # After a Build, the tag that Build ran for — never "latest".
+          # Two releases cut minutes apart made "latest" the newer one,
+          # whose assets were still building, and the smoke test failed
+          # on a release it was not meant to test.
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}
         run: |
           if [ -n "$TAG" ]; then
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "Bethaniel-mac-x64.zip"
