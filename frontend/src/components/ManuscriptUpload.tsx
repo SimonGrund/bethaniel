@@ -7,6 +7,8 @@ import { uploadFile, getDocument, RequestRefusedError } from "../api";
 import Modal from "./Modal";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
 import StyleGuideButton from "./StyleGuideButton";
+import ManuscriptSettings from "./ManuscriptSettings";
+import { frontCardFor } from "../types";
 
 /**
  * How much of the manuscript to show back. Enough to see whether a PDF's drop
@@ -34,6 +36,7 @@ export default function ManuscriptUpload() {
     setLexicon,
     advanceWizard,
     markStepComplete,
+    selectedModes,
   } = useStore();
   const t = useTranslation(lang);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -282,6 +285,14 @@ export default function ManuscriptUpload() {
           </div>
 
           <ScopeSelection />
+
+          {/* What Betty read off the manuscript — language, dialect, the
+              comma conventions — with the manuscript it describes. Which
+              rows show depends on the task picked opposite: a translation
+              never asks about the Oxford comma. */}
+          {frontCardFor(selectedModes) && (
+            <ManuscriptSettings card={frontCardFor(selectedModes)!} />
+          )}
 
           {/* The names & terms Betty just read off this manuscript, and the
               style sheet: offered here, with the manuscript they describe, as

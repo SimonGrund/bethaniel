@@ -3623,6 +3623,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Nichts erkannt — Einstellungen prüfen",
     es: "No se detectó nada — revisa los ajustes",
   },
+  task_settings_nothing: {
+    en: "Nothing to set for this task",
+    da: "Intet at indstille for denne opgave",
+    de: "Für diese Aufgabe gibt es nichts einzustellen",
+    es: "Nada que ajustar para esta tarea",
+  },
   task_settings_no_document: {
     en: "Upload a manuscript and Betty fills these in",
     da: "Upload et manuskript, så udfylder Betty dem",

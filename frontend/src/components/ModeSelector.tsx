@@ -33,7 +33,6 @@ import type {
 import type React from "react";
 
 // A local const in this file today, and it stays one — nothing else needs it.
-import ManuscriptSettings, { useManuscriptSettingsState } from "./ManuscriptSettings";
 import FoldingPanel from "./FoldingPanel";
 import StyleGuideButton from "./StyleGuideButton";
 
@@ -166,20 +165,13 @@ export default function ModeSelector({
     markStepComplete("edits");
   }
 
-  // Language, dialect and the comma conventions now live in one collapsible
-  // panel that reports what Betty read off the manuscript. Which rows it shows
-  // depends on the card — see CARD_SETTINGS in ManuscriptSettings.tsx.
-  const manuscriptSettings = activeCard ? (
-    <ManuscriptSettings card={activeCard} />
-  ) : null;
-
-  // Controls for the selected card, rendered BELOW the card row so every card
-  // stays the same shape.
+  // Language, dialect and the comma conventions are the manuscript's, and
+  // live on the manuscript card (ManuscriptSettings there). What is left
+  // here is the task's own: which passes, which options, where to.
   function renderControls() {
     if (activeCard === "translate") {
       return (
         <>
-          {manuscriptSettings}
         <div className="translate-lang">
           <label>
             {t("target_language")}:{" "}
@@ -195,8 +187,7 @@ export default function ModeSelector({
         </>
       );
     }
-    if (activeCard === "readthrough" || activeCard === "language")
-      return manuscriptSettings;
+    if (activeCard === "readthrough" || activeCard === "language") return null;
     return (
       <>
         <label className="line-edit-toggle">
@@ -212,8 +203,6 @@ export default function ModeSelector({
             {t("opt_also_line_edit_hint")}
           </span>
         </label>
-
-        {manuscriptSettings}
 
         <FoldingPanel
           title={t("mode_copy_edit")}
@@ -288,12 +277,35 @@ export default function ModeSelector({
 
       {activeCard && (
         <TaskSettings
-          card={activeCard}
           title={t(CARDS.find((c) => c.id === activeCard)!.titleKey)}
           open={settingsOpen}
           onOpen={() => setSettingsOpen(true)}
           onClose={() => setSettingsOpen(false)}
           targetLangMissing={activeCard === "translate" && !targetLang.trim()}
+          summary={
+            activeCard === "translate"
+              ? targetLang.trim()
+                ? `${t("target_language")}: ${targetLang.trim()}`
+                : ""
+              : activeCard === "edit"
+                ? [
+                    `${t("mode_copy_edit")}: ${summarise(
+                      COPY_EDIT_KEYS,
+                      (k) => copyEditOptions[k] as boolean,
+                      (k) => DEFAULT_COPY_EDIT_OPTIONS[k] as boolean,
+                    )}`,
+                    lineEditOn
+                      ? `${t("mode_line_edit")}: ${summarise(
+                          LINE_EDIT_KEYS,
+                          (k) => lineEditOptions[k],
+                          (k) => DEFAULT_LINE_EDIT_OPTIONS[k],
+                        )}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : t("task_settings_nothing")
+          }
         >
           {renderControls()}
           {/* With the rest of this task's settings, not beside them: the style
@@ -310,46 +322,34 @@ export default function ModeSelector({
 // ── The one Settings button under the cards ──
 //
 // The mark is the point: it answers "do I need to look in here?" without
-// opening it. Green when the manuscript answered every question this run
-// will ask; orange when one is waiting on the author (an unsure detection,
-// or a translation with no target); grey when nothing has been read yet.
-// The button stays whichever card is active — its contents change.
+// opening it. Orange when something is waiting on the author — a
+// translation with no target — green otherwise. The manuscript's own
+// settings (language, dialect, commas) live on the manuscript card, with
+// their own mark. The button stays whichever card is active — its
+// contents change.
 function TaskSettings({
-  card,
   title,
   open,
   onOpen,
   onClose,
   targetLangMissing,
+  summary,
   children,
 }: {
-  card: FrontCard;
   title: string;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   targetLangMissing: boolean;
+  /** The one line the button shows for this task's settings. */
+  summary: string;
   children: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
-  const hasDocument = useStore((s) => !!s.document);
   const t = useTranslation(lang);
-  const { status, waiting, summary } = useManuscriptSettingsState(card);
 
-  const attention = status === "attention" || targetLangMissing || (hasDocument && status === "neutral");
-  const mark: "clean" | "attention" | "neutral" = !hasDocument
-    ? "neutral"
-    : attention
-      ? "attention"
-      : "clean";
-  const pending = waiting + (targetLangMissing ? 1 : 0);
-  const hint = !hasDocument
-    ? t("task_settings_no_document")
-    : mark === "attention"
-      ? pending > 0
-        ? t(pending === 1 ? "ms_needs_input_one" : "ms_needs_input").replace("{n}", String(pending))
-        : t("task_settings_not_detected")
-      : summary || t("task_settings_ready");
+  const mark: "clean" | "attention" = targetLangMissing ? "attention" : "clean";
+  const hint = targetLangMissing ? t("ms_needs_input_one").replace("{n}", "1") : summary;
 
   return (
     <>
