@@ -2305,6 +2305,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Alle {n} verwerfen",
     es: "Descartar los {n}",
   },
+  same_change_inline_accept: {
+    en: "— accepted. Betty proposed the same change {n} more time(s). Do the same there?",
+    da: "— accepteret. Betty foreslog samme ændring {n} gang(e) til. Gør det samme dér?",
+    de: "— angenommen. Betty hat dieselbe Änderung noch {n} Mal vorgeschlagen. Dort genauso?",
+    es: "— aceptado. Betty propuso el mismo cambio {n} vez/veces más. ¿Hacer lo mismo allí?",
+  },
+  same_change_inline_dismiss: {
+    en: "— dismissed. Betty proposed the same change {n} more time(s). Dismiss those too?",
+    da: "— afvist. Betty foreslog samme ændring {n} gang(e) til. Afvis også dem?",
+    de: "— verworfen. Betty hat dieselbe Änderung noch {n} Mal vorgeschlagen. Auch verwerfen?",
+    es: "— descartado. Betty propuso el mismo cambio {n} vez/veces más. ¿Descartar también?",
+  },
   same_change_one: {
     en: "Just this one",
     da: "Kun denne",

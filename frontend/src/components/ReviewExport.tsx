@@ -1815,6 +1815,98 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     lexiconTerm?: string;
   } | null>(null);
   const [sameChangeAddTerm, setSameChangeAddTerm] = useState(false);
+  const sameChangeKeep = () => {
+    if (!sameChange) return;
+    const term = sameChangeAddTerm ? sameChange.lexiconTerm : undefined;
+    setSameChange(null);
+    if (term) addTermToLexicon(term);
+  };
+  const sameChangeApplyAll = () => {
+    if (!sameChange) return;
+    for (const { tid, id } of sameChange.others) {
+      if (sameChange.action === "accept") acceptCorrection(tid, id);
+      else dismissCorrection(tid, id);
+    }
+    setToast({
+      msg: t(
+        sameChange.action === "accept" ? "same_change_done_accept" : "same_change_done_dismiss",
+      ).replace("{n}", String(sameChange.others.length)),
+      kind: sameChange.action,
+    });
+    sameChangeKeep();
+  };
+  /** The "same change elsewhere" offer: as a dialog (the chapter lists), or
+   *  as one line above the deck's next card (the focus view). */
+  const renderSameChange = (inline: boolean) => {
+    if (!sameChange) return null;
+    const n = String(sameChange.others.length);
+    const lexicon = sameChange.lexiconTerm && (
+      <label className="option-check same-change__lexicon">
+        <input
+          type="checkbox"
+          checked={sameChangeAddTerm}
+          onChange={(e) => setSameChangeAddTerm(e.target.checked)}
+        />
+        <span>{t("lexicon_offer_checkbox").replace("{term}", sameChange.lexiconTerm)}</span>
+      </label>
+    );
+    const allLabel = t(
+      sameChange.action === "accept" ? "same_change_all_accept" : "same_change_all_dismiss",
+    ).replace("{n}", n);
+    if (inline) {
+      return (
+        <div
+          className={`deck-notice deck-notice-${sameChange.action}`}
+          role="status"
+          key={`${sameChange.original}→${sameChange.corrected}`}
+        >
+          <span className="deck-notice-text">
+            <span className="deck-notice-diff">
+              <InlineDiff before={sameChange.original} after={sameChange.corrected} />
+            </span>{" "}
+            {t(
+              sameChange.action === "accept"
+                ? "same_change_inline_accept"
+                : "same_change_inline_dismiss",
+            ).replace("{n}", n)}
+          </span>
+          {lexicon}
+          <span className="deck-notice-actions">
+            <button type="button" className="btn-secondary btn-small" onClick={sameChangeKeep}>
+              {t("same_change_one")}
+            </button>
+            <button type="button" className="btn-primary btn-small" onClick={sameChangeApplyAll}>
+              {allLabel}
+            </button>
+          </span>
+        </div>
+      );
+    }
+    return (
+      <>
+        <h2 id="same-change-title" className="same-change__title">
+          {t("same_change_title").replace("{n}", n)}
+        </h2>
+        <p className="same-change__diff">
+          <InlineDiff before={sameChange.original} after={sameChange.corrected} />
+        </p>
+        <p className="model-confirm-text">
+          {t(
+            sameChange.action === "accept" ? "same_change_body_accept" : "same_change_body_dismiss",
+          ).replace("{n}", n)}
+        </p>
+        {lexicon}
+        <div className="model-confirm-actions">
+          <button type="button" className="btn-secondary" onClick={sameChangeKeep}>
+            {t("same_change_one")}
+          </button>
+          <button type="button" className="btn-primary" onClick={sameChangeApplyAll}>
+            {allLabel}
+          </button>
+        </div>
+      </>
+    );
+  };
 
   // "Add to names & terms", from the review: the list is the loaded
   // document's, so the offer is only made when these results are that
@@ -2297,81 +2389,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         </div>
       )}
 
+      {/* In the focus view the offer is a line above the next card, not a
+          dialog over it: the answer has been given and the card has gone;
+          the question is a footnote to it, and the next card is already
+          up. Outside the focus view (the chapter lists) it stays a dialog. */}
       <Modal
-        open={sameChange !== null}
+        open={sameChange !== null && focusJid === null}
         onClose={() => setSameChange(null)}
         labelledBy="same-change-title"
         className="same-change"
       >
-        {sameChange && (
-          <>
-            <h2 id="same-change-title" className="same-change__title">
-              {t("same_change_title").replace("{n}", String(sameChange.others.length))}
-            </h2>
-            <p className="same-change__diff">
-              <InlineDiff before={sameChange.original} after={sameChange.corrected} />
-            </p>
-            <p className="model-confirm-text">
-              {t(
-                sameChange.action === "accept"
-                  ? "same_change_body_accept"
-                  : "same_change_body_dismiss",
-              ).replace("{n}", String(sameChange.others.length))}
-            </p>
-            {sameChange.lexiconTerm && (
-              <label className="option-check same-change__lexicon">
-                <input
-                  type="checkbox"
-                  checked={sameChangeAddTerm}
-                  onChange={(e) => setSameChangeAddTerm(e.target.checked)}
-                />
-                <span>
-                  {t("lexicon_offer_checkbox").replace("{term}", sameChange.lexiconTerm)}
-                </span>
-              </label>
-            )}
-            <div className="model-confirm-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  const term = sameChangeAddTerm ? sameChange.lexiconTerm : undefined;
-                  setSameChange(null);
-                  if (term) addTermToLexicon(term);
-                }}
-              >
-                {t("same_change_one")}
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  for (const { tid, id } of sameChange.others) {
-                    if (sameChange.action === "accept") acceptCorrection(tid, id);
-                    else dismissCorrection(tid, id);
-                  }
-                  setToast({
-                    msg: t(
-                      sameChange.action === "accept"
-                        ? "same_change_done_accept"
-                        : "same_change_done_dismiss",
-                    ).replace("{n}", String(sameChange.others.length)),
-                    kind: sameChange.action,
-                  });
-                  const term = sameChangeAddTerm ? sameChange.lexiconTerm : undefined;
-                  setSameChange(null);
-                  if (term) addTermToLexicon(term);
-                }}
-              >
-                {t(
-                  sameChange.action === "accept"
-                    ? "same_change_all_accept"
-                    : "same_change_all_dismiss",
-                ).replace("{n}", String(sameChange.others.length))}
-              </button>
-            </div>
-          </>
-        )}
+        {sameChange && focusJid === null && renderSameChange(false)}
       </Modal>
 
       <Modal
@@ -2681,6 +2709,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             c: Correction,
           ) => {
             if (!c.id) return;
+            // Moving on without answering the last offer answers it: just
+            // that one. (A lexicon tick left unpressed goes with it — the
+            // dismissal toast offers the term again on its own.)
+            setSameChange(null);
             const key = changeKey(c);
             const isOn = (otid: string, id: string) => {
               const set = acceptedCorrections[otid] ?? new Set<string>();
@@ -4079,6 +4111,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           if (tid !== activeChapter) setActiveChapter(tid);
                         }}
                         onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
+                        notice={focusJid === jid ? renderSameChange(true) : null}
                         doneSlot={
                           <button
                             type="button"

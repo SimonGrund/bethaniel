@@ -73,6 +73,7 @@ export default function ReviewDeck({
   onChapterChange,
   onDecide,
   doneSlot,
+  notice,
 }: {
   /** Edit tasks of one job, in manuscript order, results hydrated. */
   entries: [string, TaskState][];
@@ -84,6 +85,8 @@ export default function ReviewDeck({
   onDecide?: (action: "accept" | "dismiss", taskId: string, correction: Correction) => void;
   /** What sits under the finished-deck text: the export button, in focus. */
   doneSlot?: React.ReactNode;
+  /** A line above the stack, after an answer: "do the same elsewhere?" */
+  notice?: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
@@ -338,6 +341,8 @@ export default function ReviewDeck({
           </button>
         </div>
       </div>
+
+      {notice}
 
       <div className="deck-stack">
         {shown.map((item, i) => renderCard(item, i))}

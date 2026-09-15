@@ -2513,6 +2513,62 @@ summary.review-source::before {
   text-align: center;
 }
 
+/* The "same change elsewhere" offer, as a line above the next card. It
+   follows an answer rather than interrupting one: the card has gone, the
+   next is up, and this is a footnote the author may take or leave. */
+@keyframes deck-notice-in {
+  from { opacity: 0; transform: translateY(-0.4rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.deck-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.7rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #e3d7bd;
+  border-left: 3px solid #8b7355;
+  border-radius: 6px;
+  background: #faf6ec;
+  font-size: 0.88rem;
+  color: #4a3f2f;
+  animation: deck-notice-in 0.2s ease-out;
+}
+
+.deck-notice-accept {
+  border-left-color: #2d4a1a;
+  background: #f3f7ee;
+}
+
+.deck-notice-dismiss {
+  border-left-color: #b5482f;
+  background: #f9f1ed;
+}
+
+.deck-notice-text {
+  flex: 1 1 18rem;
+  line-height: 1.5;
+}
+
+.deck-notice-diff {
+  font-family: var(--serif, Georgia, serif);
+  font-size: 0.95rem;
+}
+
+.deck-notice .same-change__lexicon {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.deck-notice-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: none;
+  margin-left: auto;
+}
+
 .deck-done-actions {
   display: flex;
   justify-content: center;
