@@ -275,6 +275,44 @@ test("a manuscript inconsistent about the final comma is unsure", () => {
   assertUnsure(detectOxfordComma(text), "half and half is not a house style");
 });
 
+test("pairs after a comma do not outvote the serial commas of an Oxford manuscript", () => {
+  // Measured on real prose: an Oxford manuscript shows about as many
+  // "X, tiny and dense" pairs as it shows lists, and none of them is a
+  // list. Four lists with the comma against five such pairs is Oxford.
+  const text = `
+    The room smelled of salt, tar, and old woodsmoke. Wren cross-referenced
+    tide tables, wind charts, and old shipping logs. The letter was polite,
+    brief, and entirely reasonable. She packed bread, cheese, and apples.
+    There were notes in the margins, tiny and dense. She brought her findings
+    to the shop the next morning, breathless and certain. Elizabeth, easy and
+    unaffected, said nothing. Collins, awkward and solemn, bowed. She thought
+    about the cardiology unit, briefly and without much feeling.
+  `;
+  assert.equal(value(detectOxfordComma(text)), true);
+});
+
+test("one stray serial comma does not unsettle a no-Oxford manuscript", () => {
+  const text = `
+    She packed bread, cheese and apples. The room held a bed, a chair and a
+    lamp. He spoke of his father, his brother and the farm. There was dust,
+    silence and the smell of tar. They brought rope, nails and a hammer.
+    The box held letters, photographs and a ring. It was cold, wet, and dark.
+  `;
+  assert.equal(value(detectOxfordComma(text)), false);
+});
+
+test("clause tails with a comma before the conjunction are not serial commas", () => {
+  // Each of these puts a comma before "and" after two short segments, and
+  // not one is a list: the segment before the conjunction is a clause.
+  const text = `
+    Outside, the rain eased, and a thin light came. Of course she wouldn't,
+    Ines thought, and did not say. Ines told them nothing, at some length,
+    and they went away satisfied. He looked up, the door closed, and nobody
+    spoke. She waited, it was late, and the house was still.
+  `;
+  assertUnsure(detectOxfordComma(text), "clauses are not lists");
+});
+
 test("prose containing no lists at all is unsure", () => {
   assertUnsure(
     detectOxfordComma(ENGLISH),

@@ -222,17 +222,97 @@ export function detectEnglishDialect(
 // least two items behind ("bread" / "cheese"), while a compound clause leaves
 // exactly one ("He ate"). Requiring two items discards every such clause.
 //
-// Residual noise is honest and bounded: "She went to the store, bought milk
-// and came home" still reads as a non-Oxford list. It is diluted by requiring
-// eight candidates and an 80% majority, and when it does bite, the answer
-// degrades to "unsure" rather than to a confident wrong one.
+// An opener before the first comma ("Slowly, she set down dust, silence,
+// and the smell of tar") is not an item and is taken off before counting;
+// so is a name addressed, which removes the commonest pair of all
+// ("Elizabeth, easy and unaffected").
+//
+// The residual noise is not symmetric, and that decides the verdict rule.
+// A serial comma before a short item after two short items is something
+// ordinary prose rarely produces by accident. Its absence is what every
+// pair after a comma looks like: "Elizabeth, easy and unaffected", "notes
+// in the margins, tiny and dense", "the next morning, breathless and
+// certain" — none of them a list, all of them counted as one under the
+// no-comma reading. Measured, an Oxford manuscript shows about as many of
+// these as it shows real lists (Pride and Prejudice: 50 serial commas
+// against 45 "lists" without one, of which two were lists), so an 80%
+// majority was never reachable and the detector answered "unsure" on
+// manuscripts whose habit could not have been plainer. With the filters
+// below the same novel reads 27 against 14; a two-chapter Oxford fixture
+// 4 against 2; the same fixture with its serial commas removed 0 against 5.
+//
+// Two answers to that. First, the shapes a clause leaves are filtered out
+// on both sides: an item that opens with a subject pronoun or auxiliary,
+// contains a contraction, a past-tense verb after its first word, or is one
+// adverb ("eventually"); and an item before the conjunction that carries a
+// preposition ("the smell of salt and tar", "with great politeness and
+// cordiality") — a pair, not a list. Second, the verdict is asymmetric:
+// Oxford needs the serial commas to outnumber the rest by half again, while
+// no-Oxford needs the serial comma to be all but absent. What is left in
+// between — a manuscript truly doing both — stays "unsure".
 
-const OXFORD_MIN_LISTS = 8;
-const OXFORD_MIN_SHARE = 0.8;
+/** Serial commas needed, and the margin they need over the other reading. */
+const OXFORD_MIN_WITH = 4;
+const OXFORD_WITH_MARGIN = 1.5;
+/** Lists without the comma needed, and the share of serial commas a
+ *  manuscript may still show and be read as no-Oxford (a stray one). */
+const OXFORD_MIN_WITHOUT = 5;
+const OXFORD_WITHOUT_STRAY_SHARE = 0.25;
 /** The first segment carries the sentence stem ("The room held a bed"), so it
  *  gets a looser budget than the items that follow it. */
 const OXFORD_FIRST_ITEM_MAX_WORDS = 10;
 const OXFORD_ITEM_MAX_WORDS = 4;
+
+/** Words that open a clause, never a thing in a list. Verbs are deliberately
+ *  not here: "read it twice, set it down, and said only" is a list of verb
+ *  phrases, and its serial comma is real evidence. */
+const CLAUSE_OPENERS = new Set(
+  "i you he she it we they there this that then so yet nor but was were is are be been had has have did does do would could should will shall may might must".split(
+    " ",
+  ),
+);
+/** A preposition inside the item before the conjunction marks a pair. */
+const PAIR_PREPOSITIONS = new Set(
+  "with of full between about by in on at for from to into under over after before like as than without through against among upon".split(
+    " ",
+  ),
+);
+
+const lowerWords = (s: string): string[] =>
+  s
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.toLowerCase().replace(/[^a-z']/g, ""));
+
+/** Does this list item read as a clause (or its tail) rather than a thing? */
+function clauseLike(item: string): boolean {
+  const w = lowerWords(item);
+  if (w.length === 0) return true;
+  if (CLAUSE_OPENERS.has(w[0])) return true;
+  if (w.some((x) => /n't$|'s$|'d$|'ll$|'re$|'ve$/.test(x))) return true;
+  // One adverb standing alone ("eventually", "briefly") is an aside.
+  if (w.length === 1 && /ly$/.test(w[0]) && w[0].length > 4) return true;
+  // A past-tense verb after the first word: "the rain eased", "the door
+  // closed" — a clause with its own subject.
+  return w.length > 1 && w.slice(1).some((x) => /ed$/.test(x) && x.length > 4);
+}
+
+/** The stem's last word is the first item; a verb or adverb there means the
+ *  comma that follows closes a clause ("finally suggested, half joking…"). */
+function stemEndsClause(stem: string): boolean {
+  const w = lowerWords(stem).pop() ?? "";
+  return (
+    (/ed$/.test(w) && w.length > 4) ||
+    (/ly$/.test(w) && w.length > 4) ||
+    /n't$|'d$|'ll$/.test(w) ||
+    CLAUSE_OPENERS.has(w)
+  );
+}
+
+function carriesPreposition(item: string): boolean {
+  return lowerWords(item).some((x) => PAIR_PREPOSITIONS.has(x));
+}
 
 const CLAUSE_BREAKS = new Set([".", "!", "?", ";", ":", "\n"]);
 
@@ -288,7 +368,16 @@ export function detectOxfordComma(md: string): Detection<boolean> {
 
     const trailing = segments[segments.length - 1].trim();
     const oxford = trailing === "";
-    const items = oxford ? segments.slice(0, -1) : segments;
+    let items = oxford ? segments.slice(0, -1) : segments;
+    // A one-word opener ("Slowly,", "Outside,") or a name addressed
+    // ("Elizabeth, easy and unaffected") is not the first item of a list:
+    // it comes off, and the list must still have two items without it.
+    // A two-word opener ("Of course,") comes off when enough follows it.
+    while (
+      items.length > 1 &&
+      (wordCount(items[0]) <= 1 || (wordCount(items[0]) <= 2 && items.length >= 3))
+    )
+      items = items.slice(1);
     // One item means a compound clause ("He ate, and then he left"), not a list.
     if (items.length < 2) continue;
 
@@ -302,6 +391,13 @@ export function detectOxfordComma(md: string): Detection<boolean> {
     });
     if (!shapedLikeAList) continue;
 
+    // The shapes a clause leaves, on either side of the conjunction.
+    if (clauseLike(after)) continue;
+    const rest = items.slice(1);
+    if (rest.some(clauseLike)) continue;
+    if (rest.some(carriesPreposition)) continue;
+    if (stemEndsClause(items[0])) continue;
+
     if (oxford) withComma++;
     else withoutComma++;
   }
@@ -309,10 +405,14 @@ export function detectOxfordComma(md: string): Detection<boolean> {
   const total = withComma + withoutComma;
   const support = Math.max(withComma, withoutComma);
   const against = Math.min(withComma, withoutComma);
-  if (total < OXFORD_MIN_LISTS) return unsure(support, against, total);
-  if (support / total < OXFORD_MIN_SHARE) return unsure(support, against, total);
-
-  return detected(withComma > withoutComma, support, against, total);
+  if (withComma >= OXFORD_MIN_WITH && withComma >= withoutComma * OXFORD_WITH_MARGIN)
+    return detected(true, support, against, total);
+  if (
+    withoutComma >= OXFORD_MIN_WITHOUT &&
+    withComma <= withoutComma * OXFORD_WITHOUT_STRAY_SHARE
+  )
+    return detected(false, support, against, total);
+  return unsure(support, against, total);
 }
 
 // ── Introductory comma ──
