@@ -3,7 +3,7 @@
 // across browser sessions. Transient state (tasks, logs, document text) is not persisted.
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   DocumentMeta,
   Lexicon,
@@ -266,8 +266,26 @@ interface AppState {
    * acceptances themselves.
    */
   decisionLog: { taskId: string; correctionId: string; wasAccepted: boolean }[];
+  /**
+   * The deck's memory, kept with the decisions so a reviewer who leaves and
+   * comes back finds the deck as it was: cards put off for later (keys
+   * `taskId\u0000correctionId`, in the order put off), what Back undoes
+   * (the last thing done, an answer or a postponement), and the chapter
+   * each job was last at.
+   */
+  deckPostponed: string[];
+  deckHistory: { kind: "decide" | "postpone"; taskId: string }[];
+  reviewCursor: Record<string, string>;
+  postponeCard: (key: string) => void;
+  /** Undo the last thing done in the deck of the given tasks (one job's).
+   *  Returns what was undone. */
+  deckBack: (taskIds: string[]) => "decide" | "postpone" | null;
+  setReviewCursor: (jobId: string, taskId: string) => void;
+  /** Drop every review decision — with the runs they were about. */
+  forgetReview: () => void;
   decideCorrection: (taskId: string, correctionId: string, action: "accept" | "dismiss") => void;
-  undoDecision: () => { taskId: string; correctionId: string } | null;
+  /** Take back the last answer — of the given tasks, when a set is given. */
+  undoDecision: (taskIds?: string[]) => { taskId: string; correctionId: string } | null;
   acceptCorrection: (taskId: string, correctionId: string) => void;
   unacceptCorrections: (taskId: string, correctionIds: string[]) => void;
   dismissCorrection: (taskId: string, correctionId: string) => void;
@@ -711,21 +729,15 @@ export const useStore = create<AppState>()(
             const task = tasks[tid];
             if (!task) continue;
             tasks[tid] = { ...task, result };
-            // Tick what Betty stands behind on first hydration (results only
-            // enter the store through this setter). The rule is isReliable —
-            // the same one seedAcceptances uses — and not `!flagged`: the
-            // "unchecked" and "second opinion" flags mark corrections that
-            // measure as right about as often as unflagged ones (see
-            // flagKindOf), and leaving them unticked cost the author a click
-            // on every one. Only the doubted bucket, and a run nothing
-            // reviewed, start unticked.
+            // Nothing is ticked on arrival. Every suggestion — the ones
+            // Betty stands behind included — goes through the reviewer,
+            // where "Betty would accept this" is the hint on the card, not
+            // a decision taken for the author. (They used to be pre-ticked;
+            // that made accepting one leave nothing to offer on its twins,
+            // and put changes in the export nobody had looked at.) The
+            // entry itself is created so a task is seeded once only.
             if (task.status === "done" && !acceptedCorrections[tid]) {
-              acceptedCorrections[tid] = new Set(
-                result.corrections
-                  .filter(isReliable)
-                  .map((c) => c.id ?? "")
-                  .filter(Boolean),
-              );
+              acceptedCorrections[tid] = new Set<string>();
             }
           }
           return { tasks, acceptedCorrections };
@@ -762,26 +774,17 @@ export const useStore = create<AppState>()(
       // Tick everything Betty is confident about, once, when the result
       // first lands. Reviewing is then reading down a list and UNticking what
       // you disagree with, rather than re-entering every verdict the pipeline
-      // already reached. The doubted bucket stays untouched: those are wrong
-      // more often than right, so they are the author's to opt into.
-      //
-      // One-shot on purpose — it must never re-tick something the author has
-      // since dismissed, so a task that has been seeded is left alone.
+      // already reached. Nothing is ticked (see setTaskResults): the entry is
+      // created empty so the task counts as seeded and is left alone after.
       seedAcceptances: (taskId) =>
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
           if (state.acceptedCorrections[taskId]) return state;
-          const ids = new Set(
-            task.result.corrections
-              .filter(isReliable)
-              .map((c) => c.id ?? "")
-              .filter(Boolean),
-          );
           return {
             acceptedCorrections: {
               ...state.acceptedCorrections,
-              [taskId]: ids,
+              [taskId]: new Set<string>(),
             },
           };
         }),
@@ -815,15 +818,60 @@ export const useStore = create<AppState>()(
             ...st.decisionLog.filter((d) => !(d.taskId === taskId && d.correctionId === correctionId)),
             { taskId, correctionId, wasAccepted },
           ],
+          deckHistory: [...st.deckHistory, { kind: "decide", taskId }],
+          // A card answered is no longer put off.
+          deckPostponed: st.deckPostponed.filter((k) => k !== `${taskId}\u0000${correctionId}`),
         }));
       },
-      undoDecision: () => {
+      deckPostponed: [],
+      deckHistory: [],
+      reviewCursor: {},
+      postponeCard: (key) =>
+        set((st) => ({
+          deckPostponed: [...st.deckPostponed.filter((k) => k !== key), key],
+          deckHistory: [...st.deckHistory, { kind: "postpone", taskId: key.split(" ")[0] }],
+        })),
+      deckBack: (taskIds) => {
+        const mine = new Set(taskIds);
+        const history = get().deckHistory;
+        let at = history.length - 1;
+        while (at >= 0 && !mine.has(history[at].taskId)) at--;
+        if (at < 0) return null;
+        const last = history[at];
+        set((st) => ({ deckHistory: st.deckHistory.filter((_, i) => i !== at) }));
+        if (last.kind === "postpone") {
+          set((st) => {
+            let p = st.deckPostponed.length - 1;
+            while (p >= 0 && !mine.has(st.deckPostponed[p].split(" ")[0])) p--;
+            return p < 0 ? st : { deckPostponed: st.deckPostponed.filter((_, i) => i !== p) };
+          });
+        } else get().undoDecision(taskIds);
+        return last.kind;
+      },
+      setReviewCursor: (jobId, taskId) =>
+        set((st) =>
+          st.reviewCursor[jobId] === taskId
+            ? st
+            : { reviewCursor: { ...st.reviewCursor, [jobId]: taskId } },
+        ),
+      forgetReview: () =>
+        set({
+          acceptedCorrections: {},
+          decisionLog: [],
+          deckPostponed: [],
+          deckHistory: [],
+          reviewCursor: {},
+        }),
+      undoDecision: (taskIds) => {
         const state = get();
-        const last = state.decisionLog[state.decisionLog.length - 1];
-        if (!last) return null;
+        const mine = taskIds ? new Set(taskIds) : null;
+        let at = state.decisionLog.length - 1;
+        while (at >= 0 && mine && !mine.has(state.decisionLog[at].taskId)) at--;
+        if (at < 0) return null;
+        const last = state.decisionLog[at];
         if (last.wasAccepted) state.acceptCorrection(last.taskId, last.correctionId);
         else state.dismissCorrection(last.taskId, last.correctionId);
-        set((st) => ({ decisionLog: st.decisionLog.slice(0, -1) }));
+        set((st) => ({ decisionLog: st.decisionLog.filter((_, i) => i !== at) }));
         return { taskId: last.taskId, correctionId: last.correctionId };
       },
       acceptAll: (taskId) =>
@@ -1203,6 +1251,16 @@ export const useStore = create<AppState>()(
         }
         return state as unknown as AppState;
       },
+      // The accepted sets are Sets; JSON has none. They go out as
+      // {__set: [...]} and come back as Sets.
+      storage: createJSONStorage(() => localStorage, {
+        replacer: (_key, value) =>
+          value instanceof Set ? { __set: [...value] } : value,
+        reviver: (_key, value) =>
+          value && typeof value === "object" && Array.isArray((value as { __set?: unknown[] }).__set)
+            ? new Set((value as { __set: string[] }).__set)
+            : value,
+      }),
       partialize: (state) => ({
         // Persisted across sessions
         lang: state.lang,
@@ -1247,6 +1305,14 @@ export const useStore = create<AppState>()(
         showEngineStatus: state.showEngineStatus,
         queueExpanded: state.queueExpanded,
         minorBreakStyle: state.minorBreakStyle,
+        // The review itself: what was accepted, in what order, what was put
+        // off, and where each run was left — so closing the app mid-review
+        // costs nothing. Keyed by task id, so old runs keep theirs.
+        acceptedCorrections: state.acceptedCorrections,
+        decisionLog: state.decisionLog,
+        deckPostponed: state.deckPostponed,
+        deckHistory: state.deckHistory,
+        reviewCursor: state.reviewCursor,
       }),
     },
   ),

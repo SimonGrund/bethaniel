@@ -1771,6 +1771,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       );
   const t = useTranslation(lang);
   const decisionLog = useStore((s) => s.decisionLog);
+  const reviewCursor = useStore((s) => s.reviewCursor);
+  const setReviewCursor = useStore((s) => s.setReviewCursor);
+  const forgetReview = useStore((s) => s.forgetReview);
+  // Bumped by "From the start" in the focus view: the deck starts over.
+  const [deckRestart, setDeckRestart] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
@@ -2276,9 +2281,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   );
   const hydrating = useResultHydration(tasks, eligibleJobIds);
 
-  // Tick the confident corrections as each result lands, so review starts from
-  // Betty's verdicts instead of an empty column the author has to re-enter by
-  // hand. seedAcceptances is one-shot per task and never re-ticks a dismissal.
+  // Mark each result seeded as it lands (nothing is ticked: every suggestion
+  // goes through the reviewer). seedAcceptances is one-shot per task.
   useEffect(() => {
     for (const [tid, task] of Object.entries(tasks)) {
       if (task.result && !acceptedCorrections[tid]) seedAcceptances(tid);
@@ -2353,6 +2357,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 className="btn-primary btn-danger"
                 onClick={() => {
                   setConfirmClear(false);
+                  forgetReview();
                   clearQueue();
                 }}
               >
@@ -2786,6 +2791,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             activeChapter && settledPills.some((p) => p.tid === activeChapter)
               ? activeChapter
               : null;
+          // Where the deck was left, for coming back to it: the chapter
+          // picked now, else the one remembered from last time.
+          const remembered = reviewCursor[jid];
+          const deckCursorId =
+            activeChapterId ??
+            (remembered && editTasks.some(([tid]) => tid === remembered) ? remembered : null);
           const allEditDone = editTasks.every(
             ([, task]) => task.status === "done",
           );
@@ -4103,12 +4114,38 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       open={focusJid === jid}
                       onClose={() => setFocusJid(null)}
                       title={`${t("deck_title")} — ${src}`}
+                      controls={
+                        <select
+                          className="review-focus-jump"
+                          aria-label={t("deck_jump")}
+                          value=""
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "start") {
+                              setActiveChapter(hydrated[0]?.[0] ?? null);
+                              setDeckRestart((n) => n + 1);
+                            } else if (v) {
+                              setActiveChapter(v);
+                            }
+                          }}
+                        >
+                          <option value="">{t("deck_jump")}</option>
+                          <option value="start">{t("deck_jump_start")}</option>
+                          {hydrated.map(([tid, task]) => (
+                            <option key={tid} value={tid}>
+                              {task.name}
+                            </option>
+                          ))}
+                        </select>
+                      }
                     >
                       <ReviewDeck
                         entries={hydrated}
-                        cursorTaskId={activeChapterId}
+                        cursorTaskId={deckCursorId}
+                        restartToken={deckRestart}
                         onChapterChange={(tid) => {
                           if (tid !== activeChapter) setActiveChapter(tid);
+                          setReviewCursor(jid, tid);
                         }}
                         onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
                         notice={focusJid === jid ? renderSameChange(true) : null}

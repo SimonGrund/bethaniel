@@ -3720,6 +3720,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty würde das lassen — sie ist nicht sicher",
     es: "Betty lo dejaría — no está segura",
   },
+  deck_jump: {
+    en: "Jump to…",
+    da: "Gå til…",
+    de: "Springen zu…",
+    es: "Ir a…",
+  },
+  deck_jump_start: {
+    en: "From the start (all suggestions again)",
+    da: "Forfra (alle forslag igen)",
+    de: "Von vorn (alle Vorschläge erneut)",
+    es: "Desde el principio (todas las sugerencias de nuevo)",
+  },
+  deck_earlier_accept: {
+    en: "You accepted this earlier.",
+    da: "Du accepterede denne tidligere.",
+    de: "Das haben Sie vorhin angenommen.",
+    es: "Aceptaste esto antes.",
+  },
+  deck_earlier_dismiss: {
+    en: "You dismissed this earlier.",
+    da: "Du afviste denne tidligere.",
+    de: "Das haben Sie vorhin verworfen.",
+    es: "Descartaste esto antes.",
+  },
   deck_launch: {
     en: "Review suggestions",
     da: "Gennemgå forslag",

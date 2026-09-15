@@ -18,11 +18,14 @@ export default function ReviewFocus({
   open,
   onClose,
   title,
+  controls,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Sits in the header beside the title: the jump-to control. */
+  controls?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
@@ -55,6 +58,7 @@ export default function ReviewFocus({
       <div className="review-focus-panel">
         <header className="review-focus-head">
           <span className="review-focus-title">{title}</span>
+          {controls && <span className="review-focus-controls">{controls}</span>}
           <button
             type="button"
             className="review-focus-close"

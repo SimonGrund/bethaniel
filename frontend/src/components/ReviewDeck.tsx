@@ -74,6 +74,7 @@ export default function ReviewDeck({
   onDecide,
   doneSlot,
   notice,
+  restartToken = 0,
 }: {
   /** Edit tasks of one job, in manuscript order, results hydrated. */
   entries: [string, TaskState][];
@@ -87,12 +88,25 @@ export default function ReviewDeck({
   doneSlot?: React.ReactNode;
   /** A line above the stack, after an answer: "do the same elsewhere?" */
   notice?: React.ReactNode;
+  /** Bump to start over from the first card, answered ones included. */
+  restartToken?: number;
 }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const decisionLog = useStore((s) => s.decisionLog);
   const decideCorrection = useStore((s) => s.decideCorrection);
-  const undoDecision = useStore((s) => s.undoDecision);
+  const acceptedCorrections = useStore((s) => s.acceptedCorrections);
+  // What was put off and what Back undoes live in the store, so the deck
+  // comes back as it was left.
+  const postponed = useStore((s) => s.deckPostponed);
+  const allHistory = useStore((s) => s.deckHistory);
+  const jobTaskIds = useMemo(() => entries.map(([tid]) => tid), [entries]);
+  const history = useMemo(() => {
+    const mine = new Set(jobTaskIds);
+    return allHistory.filter((h) => mine.has(h.taskId));
+  }, [allHistory, jobTaskIds]);
+  const postponeCard = useStore((s) => s.postponeCard);
+  const deckBack = useStore((s) => s.deckBack);
 
   const deck = useMemo(() => buildDeck(entries), [entries]);
   const decided = useMemo(() => {
@@ -106,33 +120,44 @@ export default function ReviewDeck({
   // decision is recorded when it has gone, so the next card slides up under
   // a card that is visibly leaving rather than snapping into an empty slot.
   const [leaving, setLeaving] = useState<{ key: string; action: "accept" | "dismiss" | "postpone" } | null>(null);
-  // Cards put off for later, in the order they were put off: they come
-  // back at the very end of the deck, whatever chapter they belong to.
-  // With them, what Back should undo: the last thing done, whether it was
-  // an answer or a postponement.
-  const [postponed, setPostponed] = useState<string[]>([]);
-  const [history, setHistory] = useState<("decide" | "postpone")[]>([]);
+  // Starting over: every card comes round again, the answered ones with
+  // their earlier answer on them, until each has a fresh one. "Fresh" is
+  // anything logged after the restart — the log is in order, so its length
+  // at that moment is the mark.
+  const [revisit, setRevisit] = useState<{ logLen: number } | null>(null);
+  useEffect(() => {
+    if (restartToken > 0) setRevisit({ logLen: useStore.getState().decisionLog.length });
+  }, [restartToken]);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
   }, []);
 
-  // The queue: undecided items from the cursor chapter onward, then the
+  // Answered since a restart — the only answers that retire a card then.
+  const fresh = useMemo(() => {
+    if (!revisit) return decided;
+    const set = new Set<string>();
+    for (const d of decisionLog.slice(revisit.logLen)) set.add(`${d.taskId}\u0000${d.correctionId}`);
+    return set;
+  }, [revisit, decided, decisionLog]);
+
+  // The queue: unanswered items from the cursor chapter onward, then the
   // ones before it — so picking a chapter starts there, and finishing the
-  // book's last chapter comes back around for anything skipped.
+  // book's last chapter comes back around for anything skipped — and the
+  // cards put off for later at the very end.
   const remaining = useMemo(() => {
     const later = new Set(postponed);
-    const undecided = deck.filter((item) => !decided.has(keyOf(item)) && !later.has(keyOf(item)));
+    const open = deck.filter((item) => !fresh.has(keyOf(item)) && !later.has(keyOf(item)));
     const byKey = new Map(deck.map((item) => [keyOf(item), item]));
-    const tail = postponed.map((k) => byKey.get(k)).filter((item): item is DeckItem => !!item && !decided.has(keyOf(item)));
-    let ordered = undecided;
+    const tail = postponed.map((k) => byKey.get(k)).filter((item): item is DeckItem => !!item && !fresh.has(keyOf(item)));
+    let ordered = open;
     if (cursorTaskId) {
-      const at = undecided.findIndex((item) => item.taskId === cursorTaskId);
-      if (at > 0) ordered = [...undecided.slice(at), ...undecided.slice(0, at)];
+      const at = open.findIndex((item) => item.taskId === cursorTaskId);
+      if (at > 0) ordered = [...open.slice(at), ...open.slice(0, at)];
     }
     return [...ordered, ...tail];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck, decided, cursorTaskId, postponed]);
+  }, [deck, fresh, cursorTaskId, postponed]);
 
   const top = remaining[0] ?? null;
   const total = deck.length;
@@ -154,7 +179,6 @@ export default function ReviewDeck({
     leaveTimer.current = setTimeout(() => {
       decideCorrection(item.taskId, item.correction.id!, action);
       onDecide?.(action, item.taskId, item.correction);
-      setHistory((h) => [...h, "decide"]);
       setLeaving(null);
     }, LEAVE_MS);
   };
@@ -166,18 +190,13 @@ export default function ReviewDeck({
     if (remaining.length === 1) return; // nothing to put it behind
     setLeaving({ key, action: "postpone" });
     leaveTimer.current = setTimeout(() => {
-      setPostponed((p) => [...p.filter((k) => k !== key), key]);
-      setHistory((h) => [...h, "postpone"]);
+      postponeCard(key);
       setLeaving(null);
     }, LEAVE_MS);
   };
   const back = () => {
     if (leaving) return;
-    const last = history[history.length - 1];
-    if (!last) return;
-    setHistory((h) => h.slice(0, -1));
-    if (last === "postpone") setPostponed((p) => p.slice(0, -1));
-    else undoDecision();
+    deckBack(jobTaskIds);
   };
 
   // Keys, for the author who would rather not reach for the mouse: the
@@ -220,6 +239,15 @@ export default function ReviewDeck({
     const ctx = extractSentenceContext(item.correction.original, item.originalText, 0);
     const kind = flagKindOf(item.correction);
     const cameBack = postponed.includes(key);
+    // Starting over: what the author said last time, on the card.
+    const earlier =
+      revisit && decided.has(key) && !fresh.has(key)
+        ? (() => {
+            const set = acceptedCorrections[item.taskId] ?? new Set<string>();
+            const id = item.correction.id ?? "";
+            return set.has(id) || [...set].some((k) => k.startsWith(`${id}:`)) ? "accept" : "dismiss";
+          })()
+        : null;
     // Three things the line under the buttons can say: Betty would take it
     // (a confident reviewer), she is unsure (the middle of the scale — a 3,
     // or a 4 the second check doubted), or she would leave it (a reviewer
@@ -246,6 +274,11 @@ export default function ReviewDeck({
         aria-hidden={!isTop}
       >
         {isTop && cameBack && <p className="deck-came-back small-note">{t("deck_came_back")}</p>}
+        {isTop && earlier && (
+          <p className={`deck-earlier deck-earlier-${earlier} small-note`}>
+            {t(earlier === "accept" ? "deck_earlier_accept" : "deck_earlier_dismiss")}
+          </p>
+        )}
         <div className="deck-card-body">
           <span className="correction-diff">
             {ctx.before && <span className="correction-context">{ctx.before} </span>}

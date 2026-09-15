@@ -2426,6 +2426,19 @@ summary.review-source::before {
   font-style: italic;
 }
 
+.deck-earlier {
+  margin: 0 0 0.4rem;
+  font-style: italic;
+}
+
+.deck-earlier-accept {
+  color: #2d4a1a;
+}
+
+.deck-earlier-dismiss {
+  color: #b5482f;
+}
+
 .deck-card-body {
   display: flex;
   align-items: flex-start;
@@ -2628,6 +2641,21 @@ summary.review-source::before {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.review-focus-controls {
+  margin-left: auto;
+}
+
+.review-focus-jump {
+  font: inherit;
+  font-size: 0.82rem;
+  color: #5a4d3a;
+  background: #fffdf6;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  max-width: 16rem;
 }
 
 .review-focus-close {
