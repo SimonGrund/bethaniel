@@ -3703,10 +3703,22 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Todas las sugerencias decididas",
   },
   deck_done_text: {
-    en: "All {n} suggestions have an answer. Export below, or press Back to revisit one.",
-    da: "Alle {n} forslag har fået et svar. Eksportér nedenfor, eller tryk Tilbage for at se et igen.",
-    de: "Alle {n} Vorschläge sind beantwortet. Unten exportieren, oder mit Zurück einen erneut ansehen.",
-    es: "Las {n} sugerencias tienen respuesta. Exporta abajo, o pulsa Atrás para revisar una.",
+    en: "You've looked through all of Betty's suggestions! Click below to export.",
+    da: "Du har set alle Bettys forslag igennem! Klik nedenfor for at eksportere.",
+    de: "Sie haben alle Vorschläge von Betty durchgesehen! Unten klicken, um zu exportieren.",
+    es: "¡Has revisado todas las sugerencias de Betty! Haz clic abajo para exportar.",
+  },
+  deck_later: {
+    en: "Later",
+    da: "Senere",
+    de: "Später",
+    es: "Después",
+  },
+  deck_came_back: {
+    en: "Put off earlier — back for an answer.",
+    da: "Udskudt tidligere — nu tilbage for et svar.",
+    de: "Vorhin verschoben — jetzt wieder dran.",
+    es: "Aplazada antes — vuelve para una respuesta.",
   },
   // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
   ms_settings_title: {

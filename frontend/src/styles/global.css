@@ -2397,6 +2397,35 @@ summary.review-source::before {
   background: #f8efec;
 }
 
+/* Put off: the card drops down and away, toward the end of the deck. */
+.deck-card-leaving-postpone {
+  transform: translateY(40%) scale(0.94);
+  opacity: 0;
+}
+
+.deck-later {
+  display: block;
+  margin: 0.5rem auto 0;
+  background: none;
+  border: none;
+  padding: 0.2rem 0.6rem;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #8b7355;
+  cursor: pointer;
+}
+
+.deck-later:hover {
+  color: #4a3f2f;
+  text-decoration: underline;
+}
+
+.deck-came-back {
+  margin: 0 0 0.4rem;
+  color: #8b7355;
+  font-style: italic;
+}
+
 .deck-card-body {
   display: flex;
   align-items: flex-start;
