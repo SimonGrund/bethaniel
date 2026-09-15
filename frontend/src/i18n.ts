@@ -927,17 +927,29 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "DOCX herunterladen",
     es: "Descargar DOCX",
   },
-  download_chapter_md: {
-    en: "Download this chapter (.md)",
-    da: "Download dette kapitel (.md)",
-    de: "Dieses Kapitel herunterladen (.md)",
-    es: "Descargar este capítulo (.md)",
+  export_chapters: {
+    en: "Chapters",
+    da: "Kapitler",
+    de: "Kapitel",
+    es: "Capítulos",
   },
-  download_chapter_docx: {
-    en: "Download this chapter (.docx)",
-    da: "Download dette kapitel (.docx)",
-    de: "Dieses Kapitel herunterladen (.docx)",
-    es: "Descargar este capítulo (.docx)",
+  export_whole_book: {
+    en: "Whole book",
+    da: "Hele bogen",
+    de: "Das ganze Buch",
+    es: "Todo el libro",
+  },
+  export_pick_chapter: {
+    en: "Tick at least one chapter to export",
+    da: "Sæt kryds ved mindst ét kapitel for at eksportere",
+    de: "Mindestens ein Kapitel zum Exportieren ankreuzen",
+    es: "Marca al menos un capítulo para exportar",
+  },
+  export_chapters_count: {
+    en: "({n} of {total} chapters)",
+    da: "({n} af {total} kapitler)",
+    de: "({n} von {total} Kapiteln)",
+    es: "({n} de {total} capítulos)",
   },
   download_full_md: {
     en: "Download Full Manuscript (.md)",

@@ -1785,6 +1785,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // Which export options the cog is showing.
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
+  // Which chapters the export covers. null is the whole book — the
+  // default, and what a set that names every chapter collapses back to.
+  const [exportOnly, setExportOnly] = useState<Set<string> | null>(null);
   // Which runs have their details open. Per job, so opening one run's
   // reference does not unfold every other run in the list.
   const [infoJobs, setInfoJobs] = useState<Set<string>>(() => new Set());
@@ -2586,6 +2589,31 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             EDIT_MODES.includes(task.mode),
           );
           const editTaskIds = editTasks.map(([tid]) => tid);
+          // The export's scope: the whole book by default, else the chapters
+          // ticked in the export menu. Unticking "Whole book" clears the
+          // list, so one chapter of thirty is two clicks; with nothing
+          // ticked the export button waits. One chapter keeps the chapter's
+          // own file name.
+          const exportIds = exportOnly
+            ? editTaskIds.filter((id) => exportOnly.has(id))
+            : editTaskIds;
+          const exportAll = exportIds.length === editTaskIds.length;
+          const exportEntries = exportAll
+            ? entries
+            : entries.filter(([tid]) => exportIds.includes(tid));
+          const exportName = exportAll
+            ? `${src}.full`
+            : exportIds.length === 1
+              ? `${editTasks.find(([tid]) => tid === exportIds[0])?.[1].name ?? src}.edited`
+              : `${src}.chapters`;
+          const toggleExportChapter = (tid: string) => {
+            setExportOnly((prev) => {
+              const next = new Set(prev ?? editTaskIds);
+              if (next.has(tid)) next.delete(tid);
+              else next.add(tid);
+              return next.size === editTaskIds.length ? null : next;
+            });
+          };
           // A translation rewrites the whole chunk rather than proposing
           // discrete corrections, so the accept/dismiss machinery has nothing
           // to act on: "Export with accepted changes" and "Accept every change
@@ -4367,69 +4395,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         ))}
                       </div>
                     )}
-
-                    {!isScanJob && (
-                    <div className="export-buttons">
-                      {SHOW_MARKDOWN_DOWNLOADS && (
-                        <button
-                          className="btn-secondary"
-                          disabled={verifying}
-                          onClick={() => {
-                            if (isTranslation) {
-                              downloadFile(
-                                result.editedText,
-                                `${task.name}.edited.md`,
-                              );
-                              return;
-                            }
-                            verifyThenExport(
-                              [tid],
-                              (acc, fixed) =>
-                                fixed[tid] ??
-                                applyAccepted(
-                                  result.originalText,
-                                  corrections,
-                                  acc[tid] ?? new Set<string>(),
-                                ),
-                              (md) => downloadFile(md, `${task.name}.edited.md`),
-                            );
-                          }}
-                        >
-                          {t("download_chapter_md")}
-                        </button>
-                      )}
-                      <button
-                        className="btn-secondary"
-                        disabled={verifying}
-                        onClick={() => {
-                          if (isTranslation) {
-                            handleDownloadDocx(
-                              result.editedText,
-                              `${task.name}.edited.docx`,
-                            );
-                            return;
-                          }
-                          verifyThenExport(
-                            [tid],
-                            (acc, fixed) =>
-                              fixed[tid] ??
-                              applyAccepted(
-                                result.originalText,
-                                corrections,
-                                acc[tid] ?? new Set<string>(),
-                              ),
-                            (md) =>
-                              handleDownloadDocx(
-                                md,
-                                `${task.name}.edited.docx`,
-                              ),
-                          );
-                        }}
-                      >
-                        {t("download_chapter_docx")}
-                      </button>
-                    </div>
-                    )}
                       </>
                     )}
 
@@ -4461,27 +4426,41 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     {isTranslateJob
                       ? t("export_translation")
                       : t("export_with_changes", "Export with accepted changes:")}
+                    {!exportAll && (
+                      <span className="export-row__scope">
+                        {" "}
+                        {t("export_chapters_count")
+                          .replace("{n}", String(exportIds.length))
+                          .replace("{total}", String(editTaskIds.length))}
+                      </span>
+                    )}
                   </span>
 
                   <button
                     className="btn-primary btn-small export-row__go"
-                    disabled={!allEditDone || !editResultsReady || verifying}
-                    title={allEditDone ? undefined : t("full_manuscript_wait")}
+                    disabled={!allEditDone || !editResultsReady || verifying || exportIds.length === 0}
+                    title={
+                      !allEditDone
+                        ? t("full_manuscript_wait")
+                        : exportIds.length === 0
+                          ? t("export_pick_chapter")
+                          : undefined
+                    }
                     onClick={() =>
                       exportFormat === "epub"
                         ? verifyThenExport(
-                            editTaskIds,
-                            (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                            (md) => handleAutoFormatEbook(md, src),
+                            exportIds,
+                            (acc, fixed) => buildFullManuscript(exportEntries, acc, fixed),
+                            (md) => handleAutoFormatEbook(md, exportAll ? src : exportName),
                           )
                         : verifyThenExport(
-                            editTaskIds,
+                            exportIds,
                             (acc, fixed) => ({
-                              md: buildFullManuscript(entries, acc, fixed),
-                              pairs: buildChapterPairs(entries, acc, fixed),
+                              md: buildFullManuscript(exportEntries, acc, fixed),
+                              pairs: buildChapterPairs(exportEntries, acc, fixed),
                             }),
                             ({ md, pairs }) =>
-                              handleDownloadDocxSurgical(pairs, md, `${src}.full.docx`),
+                              handleDownloadDocxSurgical(pairs, md, `${exportName}.docx`),
                           )
                     }
                   >
@@ -4516,6 +4495,33 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                     {exportOptionsOpen && (
                       <div className="export-options" role="menu">
+                        {editTasks.length > 1 && (
+                          <div className="export-options__group">
+                            <span className="export-options__label">
+                              {t("export_chapters")}
+                            </span>
+                            <label className="export-chapter export-chapter--all">
+                              <input
+                                type="checkbox"
+                                checked={exportAll}
+                                onChange={() => setExportOnly(exportAll ? new Set() : null)}
+                              />
+                              {t("export_whole_book")}
+                            </label>
+                            <div className="export-chapter-list">
+                              {editTasks.map(([tid, task]) => (
+                                <label key={tid} className="export-chapter">
+                                  <input
+                                    type="checkbox"
+                                    checked={exportIds.includes(tid)}
+                                    onChange={() => toggleExportChapter(tid)}
+                                  />
+                                  {task.name}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="export-options__group">
                           <span className="export-options__label">
                             {t("export_format", "Format")}

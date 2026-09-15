@@ -8203,6 +8203,41 @@ summary.review-source::before {
   color: #8b7355;
 }
 
+/* Which chapters go out: the whole book by default, ticked off one by one
+   otherwise. A long book scrolls inside the menu rather than growing it. */
+.export-chapter {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #2a2419;
+  cursor: pointer;
+}
+
+.export-chapter input {
+  margin: 0;
+}
+
+.export-chapter--all {
+  font-weight: 600;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #ece0c8;
+}
+
+.export-chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  padding-left: 0.2rem;
+}
+
+.export-row__scope {
+  color: #8b7355;
+  font-weight: 400;
+}
+
 /* The writing report is the tail of the results, not a second export. */
 .writing-report-row {
   margin-top: 0.9rem;
