@@ -261,6 +261,16 @@ for the same thing) with an explicit "not currently supported", so
              '2026-09-14T00:00:00Z', '2026-12-31T23:59:59Z')"
   ```
 
+  `POST /v1/code` answers what a code has left, per product, so the app can
+  put "2 free runs left on this task, up to 200,000 words" on the task cards
+  it can pay for. It takes `{code}` and returns `{known:false}` for anything
+  unusable — unknown, expired, void or fully spent, all identical, so it is no
+  better an oracle for guessing codes than `/v1/quote` already is. It spends
+  nothing and writes no quote row, and `/v1/quote` echoes the same block, so
+  the app re-reads the balance immediately before payment at no extra cost.
+  **No migration** — it reads columns that already exist. But it must be
+  deployed BEFORE an app that calls it, or the notes silently never appear.
+
   The tally lives in `product_uses` on the same row (`{"edit":1,...}`), so
   `SELECT code, uses, product_uses FROM promo_codes` shows what each code
   has left. A quote against an exhausted product is refused with a reason

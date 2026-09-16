@@ -1,6 +1,8 @@
 // ── Pricing ──
 
 import type { Env } from "./env";
+import { parseProductUses } from "./db";
+import type { PromoRow } from "./db";
 
 /** The parts of a promo code that bear on price. */
 export interface PromoTerms {
@@ -44,6 +46,59 @@ export const PRODUCT_NAMES: Record<CloudProduct, string> = {
   translate: "Betty in the Cloud — translation",
   enhance: "Betty in the Cloud — enhanced language analysis",
 };
+
+/**
+ * What a code has left, resolved per product.
+ *
+ * The app puts a note on every task card the code can pay for, so it needs
+ * the answer per product rather than the two raw counters — and it must be
+ * the SAME answer the price is computed from, or a card promises a free run
+ * the checkout then charges for. Hence one function, called by /v1/code and
+ * echoed by /v1/quote.
+ *
+ * `shared` is the distinction that decides the wording. With no per-product
+ * cap the count is one pool spent across every card ("3 free runs left, any
+ * task"); with one, each card counts alone ("1 free run on this task"). An
+ * author told the first as though it were the second reads four cards and
+ * concludes they hold twelve runs.
+ */
+export interface CodeBalance {
+  code: string;
+  maxWords: number | null;
+  /** True only of a code that takes the price to zero — see below. */
+  free: boolean;
+  /** One pool across all products, rather than a count per product. */
+  shared: boolean;
+  runsLeft: Record<CloudProduct, number>;
+}
+
+export function codeBalance(row: PromoRow): CodeBalance {
+  const pool = Math.max(0, row.max_uses - row.uses);
+  const perProduct = row.max_uses_per_product;
+  const taken = parseProductUses(row);
+  const runsLeft = {} as Record<CloudProduct, number>;
+  for (const product of CLOUD_PRODUCTS) {
+    // The total pool caps the per-product count and never the other way
+    // round: two uses left with three allowed per product is two, or the card
+    // offers a third run that redeemPromo refuses.
+    runsLeft[product] =
+      perProduct == null
+        ? pool
+        : Math.max(0, Math.min(pool, perProduct - (taken[product] ?? 0)));
+  }
+  return {
+    code: row.code,
+    maxWords: row.max_words,
+    // Only a full comp is announced as free. A percentage short of 100 would
+    // need the job priced before anything true could be said about it, and
+    // pricing four cards to write four discounted figures is exactly the work
+    // this endpoint exists to avoid. A partial code still discounts at quote
+    // time, where the price is real; it just does not get a note.
+    free: row.discount_pct === 100,
+    shared: perProduct == null,
+    runsLeft,
+  };
+}
 
 export interface PriceQuote {
   product: CloudProduct;

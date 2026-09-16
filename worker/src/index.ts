@@ -8,7 +8,12 @@
 // rewrite.
 
 import type { Env } from "./env";
-import { CLOUD_PRODUCTS, priceJob, type CloudProduct } from "./quote";
+import {
+  CLOUD_PRODUCTS,
+  codeBalance,
+  priceJob,
+  type CloudProduct,
+} from "./quote";
 import {
   insertQuote,
   findPromo,
@@ -288,11 +293,31 @@ export default {
       // anyone can call. Stripe's webhook is exempt: it is signature-gated,
       // and throttling Stripe's retries would drop paid credentials.
       if (
-        (url.pathname === "/v1/quote" || url.pathname === "/v1/checkout") &&
+        (url.pathname === "/v1/quote" ||
+          url.pathname === "/v1/checkout" ||
+          url.pathname === "/v1/code") &&
         request.method === "POST" &&
         !(await rateLimitOk(request, env))
       ) {
         return json({ error: "Too many requests — please slow down." }, 429);
+      }
+
+      // What a code has left, so the app can say "2 free runs left, up to
+      // 200,000 words" on the cards that code can pay for.
+      //
+      // Deliberately says nothing a quote does not already reveal: unknown,
+      // expired, void and fully-spent all answer the same `known: false`, so
+      // this is no better an oracle for guessing codes than /v1/quote is. It
+      // spends nothing, writes nothing, and takes no quote row — the use is
+      // still taken only by redeemPromo at checkout.
+      if (url.pathname === "/v1/code" && request.method === "POST") {
+        const { code } = (await request.json()) as { code?: string };
+        if (typeof code !== "string" || !code.trim()) {
+          return json({ error: "code is required" }, 400);
+        }
+        const row = await findPromo(env, code);
+        if (!row) return json({ known: false });
+        return json({ known: true, ...codeBalance(row) });
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
@@ -392,6 +417,12 @@ export default {
           codeRejectedReason: quote.codeRejectedReason,
           // A code that was sent but matched nothing at all.
           codeUnknown: code && !promoRow ? true : undefined,
+          // What the code has left, from the row already loaded above. The
+          // app shows this on the task cards, and reads it again here — the
+          // quote happens immediately before checkout, so a note that went
+          // stale while another machine spent the code is corrected before
+          // anyone pays.
+          codeBalance: promoRow ? codeBalance(promoRow) : undefined,
         });
       }
 
