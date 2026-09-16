@@ -262,7 +262,7 @@ export default function ReviewDeck({
       <div
         // A card is remounted when it becomes the top card, so the rise
         // animation runs on it once.
-        key={isTop ? `${key} top` : key}
+        key={isTop ? `${key}\u0000top` : key}
         className={[
           "deck-card",
           isTop ? "deck-card-top" : `deck-card-peek deck-card-peek-${position}`,

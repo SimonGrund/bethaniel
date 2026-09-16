@@ -849,7 +849,7 @@ export const useStore = create<AppState>()(
       postponeCard: (key) =>
         set((st) => ({
           deckPostponed: [...st.deckPostponed.filter((k) => k !== key), key],
-          deckHistory: [...st.deckHistory, { kind: "postpone", taskId: key.split(" ")[0] }],
+          deckHistory: [...st.deckHistory, { kind: "postpone", taskId: key.split("\u0000")[0] }],
         })),
       deckBack: (taskIds) => {
         const mine = new Set(taskIds);
@@ -862,7 +862,7 @@ export const useStore = create<AppState>()(
         if (last.kind === "postpone") {
           set((st) => {
             let p = st.deckPostponed.length - 1;
-            while (p >= 0 && !mine.has(st.deckPostponed[p].split(" ")[0])) p--;
+            while (p >= 0 && !mine.has(st.deckPostponed[p].split("\u0000")[0])) p--;
             return p < 0 ? st : { deckPostponed: st.deckPostponed.filter((_, i) => i !== p) };
           });
         } else get().undoDecision(taskIds);
