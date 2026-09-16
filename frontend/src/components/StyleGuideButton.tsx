@@ -34,6 +34,12 @@ export default function StyleGuideButton() {
   const lexiconPending = termCount > 0 && !lexicon?.reviewedAt;
   const lexiconDone = termCount > 0 && !!lexicon?.reviewedAt;
   const done = filled || lexiconDone;
+  // One flag vocabulary across the manuscript column: green when nothing is
+  // waiting, orange when something is. A style sheet is optional, so an empty
+  // one is NOT orange — nobody is waiting on it, and the hint says
+  // "recommended" in words. Terms Betty harvested and the author has not
+  // looked at are the one thing here that is genuinely waiting.
+  const status: "clean" | "attention" = lexiconPending ? "attention" : "clean";
   const tag = lexiconPending
     ? t("lexicon_cta_found").replace("{n}", String(termCount))
     : [
@@ -52,11 +58,14 @@ export default function StyleGuideButton() {
     <>
       <button
         type="button"
-        className={`styleguide-cta${done ? " styleguide-cta-filled" : ""}`}
+        className={`styleguide-cta styleguide-cta-${status}${done ? " styleguide-cta-filled" : ""}`}
         onClick={() => setOpen(true)}
       >
-        <span className="styleguide-cta-mark" aria-hidden="true">
-          {done ? "✓" : "★"}
+        <span
+          className={`styleguide-cta-mark fold-icon-${status}`}
+          aria-hidden="true"
+        >
+          {status === "attention" ? "⚠" : "✓"}
         </span>
         <span className="styleguide-cta-body">
           <span className="styleguide-cta-title">

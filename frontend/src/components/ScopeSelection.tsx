@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import type { EditUnit } from "../types";
+import FoldingPanel from "./FoldingPanel";
+import { scopeSummary } from "../scopeSummary";
 
 type ScopeMode = "whole_book" | "selected_chapters" | "first_n_words";
 
@@ -120,9 +122,21 @@ export default function ScopeSelection() {
   scopeOptions.push({ value: "first_n_words", label: t("first_n_words") });
 
   return (
-    <section className="stage">
-      <div className="section-label">{t("sec_scope")}</div>
-
+    // Folded by default. Scope always has a valid answer — the whole book —
+    // so it is never waiting on the author, and laying three radios, a
+    // chapter list and a word box out full height beside the settings that
+    // ARE waiting buried the ones that matter. The summary carries the shape
+    // of the job so folding it hides nothing the author decided.
+    <FoldingPanel
+      title={t("sec_scope")}
+      summary={scopeSummary(t, {
+        scopeMode,
+        unitCount: units.length,
+        totalWords,
+        chaptersDetected: chapters.length > 0,
+      })}
+      status="clean"
+    >
       <div className="scope-options">
         {scopeOptions.map((opt) => (
           <label
@@ -214,6 +228,6 @@ export default function ScopeSelection() {
           {t("units")}.
         </p>
       )}
-    </section>
+    </FoldingPanel>
   );
 }

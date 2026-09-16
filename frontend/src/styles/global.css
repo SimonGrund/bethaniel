@@ -3199,6 +3199,64 @@ summary.review-source::before {
   border-color: #8a7050;
 }
 
+/* The card is a container now; this is the part that selects it. It fills the
+   card so everything except the Translate dropdown still picks the task. */
+.task-card-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* A translation with nowhere to go. Same orange as a folded panel waiting on
+   the author, because it is the same fact.
+
+   Two classes deep on purpose: a card in this state is always also
+   .task-card-active, which is declared later in this file (twice), and at
+   equal specificity the later rule would paint the border back to brown. */
+.task-card.task-card-attention {
+  border-color: #d69a3c;
+  background: #fffaf0;
+}
+
+.task-card-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid #e5dcc8;
+}
+
+.translate-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.translate-lang-label {
+  font-size: 0.74rem;
+  color: #8a7a5c;
+}
+
+.translate-lang-select {
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #d4c9b0;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: inherit;
+}
+
 .task-card-active {
   border-color: #8a7050;
   background: #fdfaf0;
@@ -3218,109 +3276,19 @@ summary.review-source::before {
   color: #5a4f3f;
 }
 
-/* ── The Settings button under the task cards (ModeSelector.tsx) ──
-   One row, always there; the mark on the left is the state. */
-.task-settings-cta {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  margin-top: 0.9rem;
-  padding: 0.7rem 0.85rem;
-  text-align: left;
-  background: #faf8f4;
-  border: 1px solid #d4c9b0;
-  border-left: 3px solid #b8ad98;
-  border-radius: 8px;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
 
-.task-settings-cta:hover {
-  background: #f5f1e8;
-}
 
-.task-settings-cta-clean {
-  border-left-color: #5c7a52;
-}
 
-.task-settings-cta-attention {
-  background: #fffaf0;
-  border-color: #e6cf9e;
-  border-left-color: #d69a3c;
-}
 
-.task-settings-cta-attention:hover {
-  background: #fdf4e2;
-}
 
-.task-settings-mark {
-  flex: none;
-  width: 1.1rem;
-  text-align: center;
-  font-size: 0.85rem;
-  color: #9a9080;
-}
 
-.task-settings-cta-clean .task-settings-mark {
-  color: #5c7a52;
-}
 
-.task-settings-cta-attention .task-settings-mark {
-  color: #b3781f;
-}
 
-.task-settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-  flex: 1;
-}
 
-.task-settings-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #4a3f2f;
-}
 
-.task-settings-tag {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #8b7355;
-}
 
-.task-settings-hint {
-  font-size: 0.8rem;
-  color: #6b5d47;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-.task-settings-chevron {
-  flex: none;
-  font-size: 1.2rem;
-  color: #9a9080;
-}
 
-.task-settings-dialog {
-  max-width: min(720px, 92vw);
-  width: 100%;
-  max-height: 86vh;
-  overflow-y: auto;
-}
-
-.task-settings-dialog-task {
-  margin-left: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #8b7355;
-}
 
 /* Inside the dialog the controls are the content, not a panel of their own. */
 .task-controls-dialog {

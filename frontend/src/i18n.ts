@@ -273,6 +273,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Kapitel",
     es: "capítulos",
   },
+  lbl_chapter: {
+    en: "chapter",
+    da: "kapitel",
+    de: "Kapitel",
+    es: "capítulo",
+  },
   lbl_model: {
     en: "model",
     da: "model",
@@ -2827,10 +2833,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Una última revisión superficial antes de publicar",
   },
   card_translate_title: {
-    en: "Translate my manuscript",
-    da: "Oversætte mit manuskript",
-    de: "Mein Manuskript übersetzen",
-    es: "Traducir mi manuscrito",
+    en: "Translate Manuscript",
+    da: "Oversæt manuskript",
+    de: "Manuskript übersetzen",
+    es: "Traducir manuscrito",
   },
   card_translate_desc: {
     en: "Into another language",
@@ -3282,6 +3288,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Udtræk en tidslinje over begivenheder.",
     de: "Eine Zeitleiste der Ereignisse extrahieren.",
     es: "Extrae una línea temporal de eventos.",
+  },
+  target_language_pick: {
+    en: "Choose a language…",
+    da: "Vælg et sprog…",
+    de: "Sprache wählen…",
+    es: "Elige un idioma…",
+  },
+  target_language_other: {
+    en: "Other…",
+    da: "Andet…",
+    de: "Andere…",
+    es: "Otro…",
+  },
+  target_language_placeholder: {
+    en: "Type a language",
+    da: "Skriv et sprog",
+    de: "Sprache eingeben",
+    es: "Escribe un idioma",
   },
   target_language: {
     en: "Target language",
@@ -3848,10 +3872,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   },
   // ── Manuscript settings panel (ManuscriptSettings.tsx) ──
   ms_settings_title: {
-    en: "Manuscript settings",
-    da: "Manuskriptindstillinger",
-    de: "Manuskript-Einstellungen",
-    es: "Ajustes del manuscrito",
+    en: "Manuscript format",
+    da: "Manuskriptformat",
+    de: "Manuskriptformat",
+    es: "Formato del manuscrito",
   },
   ms_needs_input: {
     en: "{n} need your input",
