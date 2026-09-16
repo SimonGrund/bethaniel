@@ -12,6 +12,7 @@ import type {
   StorageUsage,
   Lexicon,
 } from "./types";
+import type { CodeBalance } from "./codeBalanceNote";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -563,6 +564,8 @@ export interface CloudEstimateResponse {
   codeRejectedReason?: string;
   /** Set when a code was typed and matched nothing. */
   codeUnknown?: boolean;
+  /** What the code has left, read at the last moment before payment. */
+  codeBalance?: CodeBalance;
 }
 
 /** Ask the backend (which asks the Cloudflare Worker) what this job would
@@ -576,6 +579,30 @@ export async function getCloudEstimate(
     body: JSON.stringify(req),
   });
   return res.json();
+}
+
+/**
+ * What a promo code has left, so the task cards can say it.
+ *
+ * Never throws and never reports a failure: a Worker that predates this
+ * endpoint, an offline machine, or a suspended offer all mean the same thing
+ * to a card — show nothing, which is what it shows today anyway.
+ */
+export async function getCodeBalance(
+  code: string,
+): Promise<CodeBalance | null> {
+  try {
+    const res = await apiFetch("/cloud/code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { known?: boolean } & CodeBalance;
+    return body?.known ? body : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Start a Stripe Checkout session for a previously-fetched quote. Returns a

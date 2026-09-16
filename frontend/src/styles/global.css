@@ -8870,6 +8870,23 @@ summary.review-source::before {
 .cloud-code-ok {
   color: #2a8a7a;
 }
+
+/* "2 free runs left on this task, up to 200,000 words" — on each task card,
+   and under the code box. The same green as an accepted code, because it is
+   the same good news said with the number in it. */
+.cloud-code-runs {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  color: #2a8a7a;
+}
+
+/* Inside a task card the note is the last line of a button, so it needs the
+   card's left alignment rather than the button's centring. */
+.task-card .cloud-code-runs {
+  text-align: left;
+  font-size: 0.74rem;
+}
 .cloud-code-warn {
   color: #b08830;
 }

@@ -2455,6 +2455,7 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       appliedCode?: string;
       codeRejectedReason?: string;
       codeUnknown?: boolean;
+      codeBalance?: unknown;
     };
     res.json({
       estimatedTotalTokens: estimate.estimatedTotalTokens,
@@ -2476,9 +2477,56 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       appliedCode: quote.appliedCode,
       codeRejectedReason: quote.codeRejectedReason,
       codeUnknown: quote.codeUnknown,
+      // What the code has left, read again at the last moment before payment.
+      // The cards were told this when the author landed on them; a run that
+      // starts minutes later must not act on that number if another machine
+      // has spent it since.
+      codeBalance: quote.codeBalance,
     });
   } catch {
     res.status(502).json({ error: "Could not reach the cloud service" });
+  }
+});
+
+// What a promo code has left, so the task cards can say it. Proxied like the
+// other two so the Worker's URL stays out of the renderer.
+//
+// Never fails the caller: the cards degrade to showing nothing at all, which
+// is exactly what they show today. A Worker that predates this endpoint
+// answers 404, which lands here as `{ known: false }` rather than an error —
+// the app must never depend on a field a deployed Worker may not have.
+router.post("/cloud/code", async (req: Request, res: Response) => {
+  if (CLOUD_OFFER_SUSPENDED) {
+    res.status(503).json({
+      error:
+        "Betty in the Cloud is temporarily unavailable while we sort out a speed problem with the provider. Nothing has been charged.",
+    });
+    return;
+  }
+  const { code } = req.body ?? {};
+  if (typeof code !== "string" || !code.trim()) {
+    res.status(400).json({ error: "code is required" });
+    return;
+  }
+  const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+  const workerBaseUrl = cloudEntry?.defaultBaseUrl;
+  if (!workerBaseUrl) {
+    res.status(503).json({ error: "Betty in the Cloud is not configured yet" });
+    return;
+  }
+  try {
+    const codeRes = await fetch(`${workerBaseUrl}/v1/code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if (!codeRes.ok) {
+      res.json({ known: false });
+      return;
+    }
+    res.json(await codeRes.json());
+  } catch {
+    res.json({ known: false });
   }
 });
 

@@ -1161,6 +1161,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "z. B. LAUNCH50",
     es: "p. ej. LAUNCH50",
   },
+  cloud_code_runs_shared: {
+    en: "{n} free runs left (any task)",
+    da: "{n} gratis kørsler tilbage (enhver opgave)",
+    de: "{n} kostenlose Läufe übrig (beliebige Aufgabe)",
+    es: "{n} ejecuciones gratuitas restantes (cualquier tarea)",
+  },
+  cloud_code_runs_shared_one: {
+    en: "1 free run left (any task)",
+    da: "1 gratis kørsel tilbage (enhver opgave)",
+    de: "1 kostenloser Lauf übrig (beliebige Aufgabe)",
+    es: "1 ejecución gratuita restante (cualquier tarea)",
+  },
+  cloud_code_runs_card: {
+    en: "{n} free runs left on this task",
+    da: "{n} gratis kørsler tilbage på denne opgave",
+    de: "{n} kostenlose Läufe übrig für diese Aufgabe",
+    es: "{n} ejecuciones gratuitas restantes en esta tarea",
+  },
+  cloud_code_runs_card_one: {
+    en: "1 free run left on this task",
+    da: "1 gratis kørsel tilbage på denne opgave",
+    de: "1 kostenloser Lauf übrig für diese Aufgabe",
+    es: "1 ejecución gratuita restante en esta tarea",
+  },
+  cloud_code_upto: {
+    en: ", up to {words} words",
+    da: ", op til {words} ord",
+    de: ", bis zu {words} Wörter",
+    es: ", hasta {words} palabras",
+  },
   cloud_code_unknown: {
     en: "That code was not recognised.",
     da: "Koden blev ikke genkendt.",

@@ -13,7 +13,8 @@ import {
   getModelPerf,
 } from "../api";
 import { buildUnits } from "./ScopeSelection";
-import { DETERMINISTIC_MODES } from "../types";
+import { DETERMINISTIC_MODES, frontCardFor } from "../types";
+import CodeBalanceNote from "./CodeBalanceNote";
 import { refreshModelEnvironment } from "../useModelRuntime";
 import { useCloudPurchase } from "../cloudPurchase";
 
@@ -154,12 +155,21 @@ export default function EditTrigger() {
 
   const cloudEntry = catalog.find((e) => e.id === "bethaniel-cloud");
 
+  // Which of the four cards this run is, so the code note beside the button
+  // speaks about the task the button would actually start.
+  const runCard = frontCardFor(selectedModes);
+
   // ── Betty in the Cloud: pre-run estimate + pay-to-run ──
 
-  // Typed by the author, validated by the Worker. Kept out of the persisted
-  // store on purpose: a code is single-use, so remembering it across sessions
-  // would show a discount that no longer exists.
-  const [promoCode, setPromoCode] = useState("");
+  // Typed by the author, validated by the Worker, and now remembered between
+  // sessions — a code can carry several uses, so retyping it every time was
+  // the common case rather than the exception. What is NOT remembered is what
+  // it has left: that is read from the Worker each time it is shown or acted
+  // on, so a code spent on another machine shows nothing rather than a
+  // discount that no longer exists. See the store's promoCode/codeBalance.
+  const promoCode = useStore((s) => s.promoCode);
+  const setPromoCode = useStore((s) => s.setPromoCode);
+  const setCodeBalance = useStore((s) => s.setCodeBalance);
   const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
   // Measured throughput, so the estimate sharpens after the first real run
   // instead of quoting a published figure forever.
@@ -198,6 +208,13 @@ export default function EditTrigger() {
     useStore.getState().setModel("custom:bethaniel-cloud");
     await handleClickRef.current("custom:bethaniel-cloud");
   });
+
+  // The quote carries what the code has left, read Worker-side moments before
+  // the author can pay. It is the last word: a card note written when they
+  // opened the app loses to this if another machine has spent the code since.
+  useEffect(() => {
+    if (cloudEstimate?.codeBalance) setCodeBalance(cloudEstimate.codeBalance);
+  }, [cloudEstimate?.codeBalance, setCodeBalance]);
 
   // Refetch whenever anything that changes the job's shape changes. `units`
   // is recomputed fresh every render, so its content (not identity) drives
@@ -646,6 +663,9 @@ export default function EditTrigger() {
             )}
           </span>
         )}
+        {/* What the code has left for the task actually selected — the same
+            line the cards carry, beside the box it was typed into. */}
+        {runCard && <CodeBalanceNote card={runCard} />}
         {cloudEstimate?.codeRejectedReason && (
           <span className="cloud-code-note cloud-code-warn">
             {cloudEstimate.codeRejectedReason}

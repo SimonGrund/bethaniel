@@ -27,6 +27,7 @@ import type {
   EngineDeviceStatus,
   DetectedSettings,
 } from "./types";
+import type { CodeBalance } from "./codeBalanceNote";
 import {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
@@ -245,6 +246,20 @@ interface AppState {
   // Style guide
   styleGuide: string;
   setStyleGuide: (s: string) => void;
+
+  /**
+   * The author's promo code, and what it has left.
+   *
+   * The CODE persists — it is a string they would otherwise retype every
+   * session. The BALANCE never does: it is shared state between every machine
+   * holding the same code, so a number remembered from last time promises a
+   * free run that checkout may refuse. It is re-read from the Worker whenever
+   * it is about to be shown or acted on, and left null until it arrives.
+   */
+  promoCode: string;
+  setPromoCode: (code: string) => void;
+  codeBalance: CodeBalance | null;
+  setCodeBalance: (balance: CodeBalance | null) => void;
 
   // Queue
   tasks: Record<string, TaskState>;
@@ -703,6 +718,11 @@ export const useStore = create<AppState>()(
 
       styleGuide: "",
       setStyleGuide: (styleGuide) => set({ styleGuide }),
+
+      promoCode: "",
+      setPromoCode: (promoCode) => set({ promoCode }),
+      codeBalance: null,
+      setCodeBalance: (codeBalance) => set({ codeBalance }),
 
       tasks: {},
       setTasks: (incoming) => {
@@ -1286,6 +1306,10 @@ export const useStore = create<AppState>()(
         selectedChapters: state.selectedChapters,
         firstNWords: state.firstNWords,
         styleGuide: state.styleGuide,
+        // The code only. codeBalance is deliberately absent — see the note on
+        // the declaration; a remembered count is a promise another machine
+        // can already have broken.
+        promoCode: state.promoCode,
         document: state.document,
         // Persisted with the document it describes, so the badges survive a
         // refresh exactly as the loaded manuscript does.

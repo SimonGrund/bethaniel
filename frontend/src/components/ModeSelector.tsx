@@ -33,6 +33,7 @@ import type {
 import type React from "react";
 
 // A local const in this file today, and it stays one — nothing else needs it.
+import CodeBalanceNote from "./CodeBalanceNote";
 import FoldingPanel from "./FoldingPanel";
 import StyleGuideButton from "./StyleGuideButton";
 
@@ -271,6 +272,10 @@ export default function ModeSelector({
             {card.descKey && (
               <span className="task-card-desc">{t(card.descKey)}</span>
             )}
+            {/* What the author's code can pay for on THIS card. Silent on the
+                cards it cannot, so a readthrough-only code does not have to
+                apologise on the other three. */}
+            <CodeBalanceNote card={card.id} />
           </button>
         ))}
       </div>

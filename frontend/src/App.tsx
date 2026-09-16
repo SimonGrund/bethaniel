@@ -6,6 +6,7 @@ import { useTranslation } from "./i18n";
 import { getSocket } from "./socket";
 import { getDocument } from "./api";
 import { useModelRuntime } from "./useModelRuntime";
+import { useCodeBalanceSync } from "./useCodeBalance";
 import Sidebar from "./components/Sidebar";
 import ModelSelector from "./components/ModelSelector";
 import ManuscriptUpload from "./components/ManuscriptUpload";
@@ -73,6 +74,10 @@ export default function App() {
   // in ModelSelector because the model step is hidden for most users and a
   // component that never mounts cannot run any of it.
   useModelRuntime();
+  // A saved promo code is re-read against the Worker here, once per app start
+  // and again whenever it is edited. The count is never remembered — another
+  // machine holding the same code may have spent it since.
+  useCodeBalanceSync();
 
   // First-run: open the intro guide once, keyed off the persisted flag.
   useEffect(() => {
