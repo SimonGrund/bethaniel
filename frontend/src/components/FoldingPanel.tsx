@@ -14,7 +14,7 @@
 // A group of plain preferences has no business wearing a green checkmark —
 // nothing checked it.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export type FoldStatus = "clean" | "attention" | "neutral";
 
@@ -28,25 +28,21 @@ export default function FoldingPanel({
   title,
   summary,
   status = "neutral",
-  demandsAttention = false,
-  resetKey,
   children,
 }: {
   title: string;
   /** Stands in for the contents while folded — say what was settled on. */
   summary: string;
   status?: FoldStatus;
-  /** Opens the panel and keeps it open until the reader folds it again. */
-  demandsAttention?: boolean;
-  /** Change this to re-assert `demandsAttention` after the reader folded the
-   *  panel — a fresh upload needs to raise its hand again. */
-  resetKey?: unknown;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(demandsAttention);
-  useEffect(() => {
-    if (demandsAttention) setOpen(true);
-  }, [demandsAttention, resetKey]);
+  // A panel that needs the author never opens itself. It used to: `attention`
+  // threw the panel open and kept it open, so picking a task card — which is
+  // what brings dialect and the commas into scope — made the column opposite
+  // grow a settings form under the cursor. Wanting attention is not the same
+  // as taking it. The orange flag and the "3 need your input" summary say so
+  // from one folded line, and the reader opens it when they are ready.
+  const [open, setOpen] = useState(false);
 
   return (
     <div className={`fold-panel fold-panel-${status}`}>

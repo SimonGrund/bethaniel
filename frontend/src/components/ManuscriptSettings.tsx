@@ -7,11 +7,18 @@
 // only on what Betty genuinely could not tell.
 //
 // Hence the two states (the folding shell itself is FoldingPanel.tsx). A
-// green check means every question that applies was
-// answered from the text; the panel stays shut and the summary line says what
-// was found. An amber triangle means at least one came back "unsure", and the
-// panel opens itself — a warning the user must click to understand is a
-// warning they learn to ignore.
+// green check means every question that applies was answered from the text;
+// the summary line says what was found. An amber triangle means at least one
+// came back "unsure".
+//
+// Neither state opens the panel. The amber one used to, on the reasoning that
+// a warning you must click to understand is a warning you learn to ignore —
+// which is true, and is answered by the summary rather than by the fold:
+// "3 need your input" is the warning, in words, from one closed line. What
+// opening it cost was worse than what it bought. Dialect and the commas come
+// into scope only once an editing task is picked, so the panel sprang open on
+// a click aimed at a card in the other column, growing a form under a cursor
+// that was nowhere near it.
 //
 // A third state carries no icon at all: no detection ran (a document stored
 // before detection existed, or a manuscript Betty could not place). Betty
@@ -198,8 +205,6 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
           : summary
       }
       status={status}
-      demandsAttention={status === "attention"}
-      resetKey={detectedSettings}
     >
       {keys.includes("manuscriptLang") && (
         <div className="fold-row">
