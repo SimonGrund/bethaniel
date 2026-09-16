@@ -2850,18 +2850,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Meine Sprache analysieren",
     es: "Analizar mi lenguaje",
   },
-  opt_also_line_edit: {
-    en: "Also run a line edit",
-    da: "Kør også en stilredigering",
-    de: "Auch eine Stilbearbeitung durchführen",
-    es: "Ejecutar también una edición de estilo",
-  },
-  opt_also_line_edit_hint: {
-    en: "Rewrites for flow and phrasing. Slower, and more of what it suggests is a matter of taste.",
-    da: "Omskrivninger for flow og formuleringer. Langsommere, og mere af det er en smagssag.",
-    de: "Umformulierungen für Fluss und Ausdruck. Langsamer, und vieles davon ist Geschmackssache.",
-    es: "Reescrituras de fluidez y expresión. Más lento, y más sujeto al gusto personal.",
-  },
   beta_disclosure: {
     en: "Experimental — less tested",
     da: "Eksperimentelt — mindre testet",
@@ -3476,18 +3464,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} Wörter",
     es: "{n} palabras",
   },
-  styleguide_cta_blurb: {
-    en: "Tell Betty the names and terms that are meant to look unusual.",
-    da: "Fortæl Betty de navne og ord, der er ment til at se usædvanlige ud.",
-    de: "Nennen Sie Betty die Namen und Begriffe, die ungewöhnlich aussehen sollen.",
-    es: "Dile a Betty los nombres y términos que deben parecer inusuales.",
-  },
-  styleguide_cta_edit: {
-    en: "Read or edit what Betty has been told.",
-    da: "Læs eller ret det, Betty har fået at vide.",
-    de: "Lesen oder ändern, was Betty weiß.",
-    es: "Lee o edita lo que Betty ya sabe.",
-  },
   styleguide_guidance: {
     en: "Anything here is treated as deliberate, so Betty will stop correcting it. A few lines are enough — it does not need to be a document.",
     da: "Alt her betragtes som bevidst, så Betty holder op med at rette det. Nogle få linjer er nok — det behøver ikke være et dokument.",
@@ -3627,12 +3603,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} Namen & Begriffe geschützt",
     es: "{n} nombres y términos protegidos",
   },
-  lexicon_cta_hint: {
-    en: "Betty found names in your manuscript. Check the list so they are never “corrected”.",
-    da: "Betty fandt navne i dit manuskript. Se listen igennem, så de aldrig bliver “rettet”.",
-    de: "Betty hat Namen in Ihrem Manuskript gefunden. Prüfen Sie die Liste, damit sie nie „korrigiert“ werden.",
-    es: "Betty encontró nombres en tu manuscrito. Revisa la lista para que nunca se “corrijan”.",
-  },
   styleguide_notes_hint: {
     en: "Anything the list above cannot say: a rule of the book, a deliberate mistake, a word to leave as it is. Plain sentences are fine.",
     da: "Alt det, listen ovenfor ikke kan sige: en regel for bogen, en bevidst fejl, et ord der skal stå som det er. Almindelige sætninger er fint.",
@@ -3676,55 +3646,7 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "“{term}” añadido — protegido en la próxima ejecución.",
   },
   // ── Folded option groups (FoldingPanel.tsx) ──
-  opt_group_default: {
-    en: "default, click to change",
-    da: "standard, klik for at ændre",
-    de: "Standard, zum Ändern klicken",
-    es: "predeterminado, haz clic para cambiar",
-  },
-  opt_group_none: {
-    en: "nothing selected",
-    da: "intet valgt",
-    de: "nichts ausgewählt",
-    es: "nada seleccionado",
-  },
   // ── The Settings button under the task cards (ModeSelector.tsx) ──
-  task_settings_title: {
-    en: "Settings",
-    da: "Indstillinger",
-    de: "Einstellungen",
-    es: "Ajustes",
-  },
-  task_settings_done: {
-    en: "Done",
-    da: "Færdig",
-    de: "Fertig",
-    es: "Listo",
-  },
-  task_settings_ready: {
-    en: "Everything read off the manuscript",
-    da: "Alt aflæst fra manuskriptet",
-    de: "Alles aus dem Manuskript gelesen",
-    es: "Todo leído del manuscrito",
-  },
-  task_settings_not_detected: {
-    en: "Nothing was detected — check the settings",
-    da: "Intet blev registreret — tjek indstillingerne",
-    de: "Nichts erkannt — Einstellungen prüfen",
-    es: "No se detectó nada — revisa los ajustes",
-  },
-  task_settings_nothing: {
-    en: "Nothing to set for this task",
-    da: "Intet at indstille for denne opgave",
-    de: "Für diese Aufgabe gibt es nichts einzustellen",
-    es: "Nada que ajustar para esta tarea",
-  },
-  task_settings_no_document: {
-    en: "Upload a manuscript and Betty fills these in",
-    da: "Upload et manuskript, så udfylder Betty dem",
-    de: "Manuskript hochladen, Betty füllt sie aus",
-    es: "Sube un manuscrito y Betty los completa",
-  },
   // ── The review deck (ReviewDeck.tsx) ──
   deck_title: {
     en: "Suggestions",

@@ -5993,85 +5993,16 @@ summary.review-source::before {
   color: #9b2335;
 }
 
-/* ── Style guide, as one button ── */
-.styleguide-cta {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  width: 100%;
-  margin-top: 0.85rem;
-  padding: 0.7rem 0.85rem;
-  text-align: left;
-  background: #fffaf0;
-  border: 1px solid #e6cf9e;
-  border-left: 3px solid #d69a3c;
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
-}
-
-.styleguide-cta:hover {
-  background: #fdf4e2;
-}
 
 /* Filled in: it has stopped being a recommendation and become a fact. */
-.styleguide-cta-filled {
-  background: #f7faf4;
-  border-color: #cfe0c4;
-  border-left-color: #7f9c72;
-}
 
-.styleguide-cta-filled:hover {
-  background: #f2f7ee;
-}
 
-.styleguide-cta-mark {
-  flex: none;
-  font-size: 0.95rem;
-  line-height: 1.3;
-  color: #b3781f;
-}
 
-.styleguide-cta-filled .styleguide-cta-mark {
-  color: #5c7a52;
-}
 
-.styleguide-cta-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
 
-.styleguide-cta-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #4a3f2f;
-}
 
-.styleguide-cta-tag {
-  padding: 0.05rem 0.35rem;
-  border-radius: 3px;
-  background: #f3e3c2;
-  color: #8a6520;
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
 
-.styleguide-cta-filled .styleguide-cta-tag {
-  background: #e2eddb;
-  color: #4e6a45;
-}
 
-.styleguide-cta-hint {
-  font-size: 0.8rem;
-  color: #8a7a5f;
-}
 
 /* ── Dialogs opened from the dashboard ──
    Both are reading surfaces rather than confirmations, so they are far wider

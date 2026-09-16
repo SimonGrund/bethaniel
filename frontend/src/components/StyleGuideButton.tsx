@@ -48,33 +48,35 @@ export default function StyleGuideButton() {
       ]
         .filter(Boolean)
         .join(" · ") || t("styleguide_cta_recommended");
-  const hint = lexiconPending
-    ? t("lexicon_cta_hint")
-    : done
-      ? t("styleguide_cta_edit")
-      : t("styleguide_cta_blurb");
 
   return (
     <>
-      <button
-        type="button"
-        className={`styleguide-cta styleguide-cta-${status}${done ? " styleguide-cta-filled" : ""}`}
-        onClick={() => setOpen(true)}
-      >
-        <span
-          className={`styleguide-cta-mark fold-icon-${status}`}
-          aria-hidden="true"
+      {/* A FoldingPanel header that opens a dialog instead of unfolding. The
+          sheet editor and the lexicon are far too tall to fold inline, but the
+          row has no business looking different for that reason — it sits
+          between Scope and Manuscript format and says the same kind of thing.
+          Hence the same markup, the same marks, and a › rather than a ▾: the
+          chevron is the one honest difference, because this one goes
+          somewhere. The hint line is gone with the taller box; neither row
+          above carries one, and the tag already says where the sheet stands. */}
+      <div className={`fold-panel fold-panel-${status}`}>
+        <button
+          type="button"
+          className="fold-header"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
         >
-          {status === "attention" ? "⚠" : "✓"}
-        </span>
-        <span className="styleguide-cta-body">
-          <span className="styleguide-cta-title">
-            {t("style_guide")}
-            <span className="styleguide-cta-tag">{tag}</span>
+          <span className={`fold-icon fold-icon-${status}`} aria-hidden="true">
+            {status === "attention" ? "⚠" : "✓"}
           </span>
-          <span className="styleguide-cta-hint">{hint}</span>
-        </span>
-      </button>
+          <span className="fold-title">{t("style_guide")}</span>
+          <span className="fold-summary">{tag}</span>
+          <span className="fold-chevron" aria-hidden="true">
+            ›
+          </span>
+        </button>
+      </div>
 
       <Modal
         open={open}
