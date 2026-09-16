@@ -378,14 +378,27 @@ export interface ConsistencyReport {
 // ── Publication-readiness structural scan ──
 export type FindingSeverity = "error" | "warning" | "info";
 
+/**
+ * Every structural check the scan can report.
+ *
+ * A list rather than a bare union because the review panel labels each one
+ * with `t("scan_check_" + check)`, and a missing label renders the raw key
+ * instead of failing — so the frontend's strings have to be checkable against
+ * this from a test. See publicationScanLabels.test.ts.
+ */
+export const STRUCTURAL_CHECKS = [
+  "duplicate",
+  "repetition",
+  "empty_chapter",
+  "numbering",
+  "truncation",
+  "dialect",
+] as const;
+
+export type StructuralCheck = (typeof STRUCTURAL_CHECKS)[number];
+
 export interface StructuralFinding {
-  check:
-    | "duplicate"
-    | "repetition"
-    | "empty_chapter"
-    | "numbering"
-    | "truncation"
-    | "dialect";
+  check: StructuralCheck;
   severity: FindingSeverity;
   /** Chapter name, or "Chapter 3 ↔ Chapter 9" for cross-chapter findings. */
   location: string;

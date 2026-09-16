@@ -3193,6 +3193,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Mögliche Kürzung",
     es: "Posible truncamiento",
   },
+  scan_check_dialect: {
+    en: "Dialect consistency",
+    da: "Dialektkonsistens",
+    de: "Dialektkonsistenz",
+    es: "Coherencia dialectal",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",
