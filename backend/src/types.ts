@@ -379,7 +379,13 @@ export interface ConsistencyReport {
 export type FindingSeverity = "error" | "warning" | "info";
 
 export interface StructuralFinding {
-  check: "duplicate" | "empty_chapter" | "numbering" | "truncation" | "dialect";
+  check:
+    | "duplicate"
+    | "repetition"
+    | "empty_chapter"
+    | "numbering"
+    | "truncation"
+    | "dialect";
   severity: FindingSeverity;
   /** Chapter name, or "Chapter 3 ↔ Chapter 9" for cross-chapter findings. */
   location: string;

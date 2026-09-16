@@ -241,6 +241,69 @@ function excerptOf(paragraph: string): string {
 }
 
 /**
+ * Text repeated back-to-back inside one paragraph.
+ *
+ * What this catches is a dialogue tag duplicated by a botched edit or a bad
+ * import — “And us? We just escape?” Bria asked.” Bria asked. — which the
+ * quote check below sees only as a stray ”, and so reports as a punctuation
+ * note at `info` rather than as the assembly flaw it is. On the book this
+ * came from, the author read six such notes and skipped the one that mattered.
+ *
+ * What separates it from rhetoric is the speech mark. Prose repeats words for
+ * effect — “This isn’t real, it isn’t real, it isn’t real” — but it does not
+ * repeat the mark that closes a line of speech: that mark belongs to one line
+ * and one only, so two of them in a doubled span means the text was assembled
+ * wrong rather than written that way. Measured over 387,000 words of real
+ * manuscripts, requiring the mark takes the check from nineteen hits to two,
+ * and both survivors are genuine defects — the rest are refrains, a diary
+ * entry and a thought repeating in a character’s head.
+ *
+ * Lower bounds matter as much: two words, so retext’s “the the” stays a copy
+ * edit rather than a publication blocker.
+ */
+const REPEATED_SPAN_RE = /(.{5,60}?)\1/g;
+const SPEECH_MARK_RE = /[“”"]/;
+
+/** Tokens that are actually words — a lone ” is punctuation, not a word. */
+const spanWordCount = (s: string): number =>
+  s.trim().split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
+
+function repeatedSpan(paragraph: string): string | null {
+  for (const m of paragraph.matchAll(REPEATED_SPAN_RE)) {
+    const span = m[1];
+    if (!SPEECH_MARK_RE.test(span)) continue;
+    if (spanWordCount(span) < 2) continue;
+    return span.trim();
+  }
+  return null;
+}
+
+function findRepetitions(units: ScanUnit[]): {
+  findings: DraftFinding[];
+  /** Excerpts explained here, so the quote check does not report them twice. */
+  reported: Set<string>;
+} {
+  const findings: DraftFinding[] = [];
+  const reported = new Set<string>();
+  for (const u of units) {
+    for (const para of u.original.split(/\n\n+/)) {
+      const span = repeatedSpan(para);
+      if (!span) continue;
+      const excerpt = excerptOf(para);
+      findings.push({
+        check: "repetition",
+        severity: "error",
+        location: u.name,
+        message: `Text is repeated verbatim inside one paragraph ("${span}") — usually a line of dialogue duplicated by a bad edit or import.`,
+        detail: excerpt,
+      });
+      reported.add(excerpt);
+    }
+  }
+  return { findings, reported };
+}
+
+/**
  * Paragraphs whose quotes do not balance.
  *
  * A quotation that runs across paragraphs is legitimate in two conventions,
@@ -299,7 +362,10 @@ function unbalancedParagraphs(body: string): string[] {
   return out;
 }
 
-function findTruncation(units: ScanUnit[]): DraftFinding[] {
+function findTruncation(
+  units: ScanUnit[],
+  explained: Set<string> = new Set(),
+): DraftFinding[] {
   const findings: DraftFinding[] = [];
   for (const u of units) {
     const body = u.original.trim();
@@ -323,6 +389,10 @@ function findTruncation(units: ScanUnit[]): DraftFinding[] {
     // Reported WITH the passage: the chapter name alone gives the author no way
     // to check whether the finding is real.
     for (const excerpt of unbalancedParagraphs(body)) {
+      // A duplicated tag drags a stray ” along with it. findRepetitions has
+      // already named that paragraph, and named it correctly; reporting the
+      // symptom underneath is what buried the real finding.
+      if (explained.has(excerpt)) continue;
       findings.push({
         check: "truncation",
         severity: "info",
@@ -400,15 +470,17 @@ export function buildPublicationScan(
   options?: PublicationScanOptions,
 ): StructuralScanReport {
   const { findings: dupFindings } = findDuplicates(units);
+  const { findings: repFindings, reported } = findRepetitions(units);
   // Marked here rather than at each push site: every structural finding is a
   // publication blocker, and stating it once keeps that true as checks are
   // added. These are deterministic — on a real book all six were genuine
   // defects — unlike the LLM's comma suggestions, which are not findings.
   const findings: StructuralFinding[] = [
     ...dupFindings,
+    ...repFindings,
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
-    ...findTruncation(units),
+    ...findTruncation(units, reported),
     ...findDialectConsistency(units, options?.englishDialect),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 

@@ -3169,6 +3169,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Doppelter Inhalt",
     es: "Contenido duplicado",
   },
+  scan_check_repetition: {
+    en: "Repeated text",
+    da: "Gentaget tekst",
+    de: "Wiederholter Text",
+    es: "Texto repetido",
+  },
   scan_check_empty_chapter: {
     en: "Empty / short chapter",
     da: "Tomt / kort kapitel",
