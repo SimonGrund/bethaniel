@@ -121,8 +121,14 @@ export default function ModeSelector() {
             </button>
 
             {/* The one setting any card still has, in the card it belongs to
-                rather than two clicks away behind a button labelled Settings. */}
-            {card.id === "translate" && activeCard === "translate" && (
+                rather than two clicks away behind a button labelled Settings.
+
+                Always rendered, not only while the card is selected: shown on
+                selection it made the card grow under the cursor that had just
+                clicked it, and with grid-auto-rows: 1fr the other three grew
+                with it. A card that changes size when you click it moves
+                whatever you were about to click next. */}
+            {card.id === "translate" && (
               <span className="task-card-control">
                 <label className="translate-lang">
                   <span className="translate-lang-label">
