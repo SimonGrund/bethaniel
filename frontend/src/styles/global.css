@@ -3168,10 +3168,22 @@ summary.review-source::before {
   color: #2a2419;
 }
 
-/* Equal columns, so no card reads as the default by being wider. */
+/* Two by two, at one size, at every window width.
+
+   The columns used to be fractions of whatever width the task column happened
+   to have, so dragging the window edge stretched and squashed the four cards
+   continuously — and every so often re-wrapped a description and changed
+   their height with it. The cards are the screen's one fixed menu; they are
+   not a paragraph, and they have no reason to reflow while you look at them.
+
+   The track is a length, not a fraction, so the card is the same card at 1280
+   as at 2560. The column around it is sized from the same length (see
+   --task-col-w), so it is not a fixed block floating in a stretching box:
+   width stops here and goes to the manuscript column instead. */
 .task-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, var(--task-card-w));
+  justify-content: start;
   /* Every card the same size, whichever row it lands in: two by two, the
      row with the longest description would otherwise stand taller. */
   grid-auto-rows: 1fr;
@@ -3182,6 +3194,10 @@ summary.review-source::before {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  /* The track is a fixed length, so nothing inside may claim more: a grid
+     item's automatic minimum size is its content, and a <select> holding
+     "Brazilian Portuguese" would otherwise hang out past the card's edge. */
+  min-width: 0;
   text-align: left;
   padding: 1.1rem 1.2rem;
   border: 2px solid #d4c9b0;
@@ -3248,6 +3264,10 @@ summary.review-source::before {
 }
 
 .translate-lang-select {
+  /* Fills the card rather than sizing to its longest option — the card's
+     width is fixed, and the option list is not. */
+  width: 100%;
+  min-width: 0;
   font-family: inherit;
   font-size: 0.85rem;
   padding: 0.3rem 0.4rem;
@@ -3409,16 +3429,13 @@ summary.review-source::before {
   gap: 0.4rem;
 }
 
-/* Narrower windows: two by two, then a single column. */
-@media (max-width: 1100px) {
+/* The one width at which the task column itself can no longer hold two cards
+   side by side. Below it the four stack in a single column, still at their
+   own size — the card does not shrink to make the pair fit, which is the
+   whole point of it. */
+@media (max-width: 480px) {
   .task-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .task-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: var(--task-card-w);
   }
 }
 
@@ -5907,6 +5924,13 @@ summary.review-source::before {
    the pointer. Neither question depends on the other's answer, so neither
    needs to wait its turn. */
 .dashboard {
+  /* The card's one dimension, and the column that holds two of them. Height
+     follows from the width, because at a fixed width the descriptions always
+     wrap the same way. Declared here rather than on .task-cards because the
+     split below sizes its second column from it: card, gap, card, the
+     column's own padding and its 3px border either side. */
+  --task-card-w: 11rem;
+  --task-col-w: calc(2 * var(--task-card-w) + 0.75rem + 2.3rem + 6px);
   position: relative;
   flex: 1;
   display: flex;
@@ -5934,17 +5958,30 @@ summary.review-source::before {
 
 .dashboard-split {
   display: grid;
-  /* Equal halves while there is room. Below this the columns stack, because
-     two narrow columns make the chapter chooser and the task cards both
-     unusable long before the screen runs out of height. */
-  grid-template-columns: 1fr 1fr;
+  /* Not equal halves. The task column holds four cards of a fixed
+     size and has no use for a pixel more; as equal halves it grew a widening
+     strip of empty parchment beside them on any large screen. It is now
+     exactly as wide as the cards it exists to hold, and the manuscript — a
+     chapter list, a file name, a style sheet, all of which do use width —
+     takes everything else. */
+  grid-template-columns: minmax(0, 1fr) var(--task-col-w);
   gap: 1rem;
   /* Equal height rather than each sized to its own content: side by side, two
      cards of different heights read as one unfinished. */
   align-items: stretch;
 }
 
-@media (max-width: 1100px) {
+/* Stacked, the task column would stretch to the full page width and the strip
+   of empty parchment would come back. It keeps its width and sits under the
+   manuscript rather than beside it. */
+.dashboard-col-task {
+  max-width: var(--task-col-w);
+}
+
+/* 1150 rather than 1100: the manuscript column is what the stack is for, and
+   with the task column now taking a fixed share rather than half, 1150 is
+   where what is left of the row falls below the width 1100 used to leave it. */
+@media (max-width: 1150px) {
   .dashboard-split {
     grid-template-columns: 1fr;
   }
@@ -5952,13 +5989,6 @@ summary.review-source::before {
 
 .dashboard-col {
   min-width: 0;
-}
-
-/* Four task cards in one column of a split is four very narrow cards with
-   every title wrapping to three lines. Two rows of two fits the same cards
-   into half the width without shrinking them. */
-.dashboard-split .task-cards {
-  grid-template-columns: repeat(2, 1fr);
 }
 
 .dashboard-col-title {
@@ -8778,6 +8808,12 @@ summary.review-source::before {
   margin-top: 0.3rem;
   font-size: 0.76rem;
   color: #2a8a7a;
+}
+
+/* The card's width is the card's width: the 160px default would sit past its
+   right edge. */
+.task-card .lang-input {
+  width: 100%;
 }
 
 /* Inside a task card the note is the last line of a button, so it needs the
