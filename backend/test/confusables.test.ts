@@ -79,6 +79,26 @@ test("each language gets its own confusable sets", () => {
   const es = findConfusables("No se si el vino, mas tarde lo veremos.", "es");
   assert.ok(es.some((s) => s.includes("si") && s.includes("sí")));
   assert.ok(es.some((s) => s.includes("mas") && s.includes("más")));
+
+  // French says a dozen different words the same way it spells one, which is
+  // why its table is the longest here: a/à and ou/où are the two errors every
+  // French style guide opens with, and no dictionary can see either.
+  const fr = findConfusables("Il a ouvert la porte ou elle attendait, prés du feu.", "fr");
+  assert.ok(fr.some((x) => x.includes("a") && x.includes("à")));
+  assert.ok(fr.some((x) => x.includes("ou") && x.includes("où")));
+
+  // Elided members survive tokenisation as one word, either apostrophe.
+  for (const apostrophe of ["'", "’"]) {
+    const elided = findConfusables(`C${apostrophe}est ce qu${apostrophe}en dit sa sœur.`, "fr");
+    assert.ok(
+      elided.some((x) => x.includes("c'est") && x.includes("s'est")),
+      `c'est set missing with apostrophe ${apostrophe}: ${JSON.stringify(elided)}`,
+    );
+  }
+
+  // And the English table never leaks into it.
+  const leak = findConfusables("Il est past la porte, tout près.", "fr");
+  assert.ok(!leak.some((x) => x.includes("passed")), "English set leaked into French");
 });
 
 test("a language with no table returns nothing rather than English advice", () => {

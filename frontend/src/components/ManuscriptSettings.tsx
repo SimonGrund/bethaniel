@@ -108,7 +108,7 @@ export function attentionCount(
   return waitingKeys(keys, detected, settled).length;
 }
 
-const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es"];
+const KNOWN_MANUSCRIPT_LANGS = ["en", "da", "de", "es", "fr"];
 
 /**
  * The state of a card's manuscript settings, for anything that reports it:

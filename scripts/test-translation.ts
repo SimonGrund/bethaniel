@@ -45,7 +45,14 @@ const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
 const OUT_PATH = join(SAMPLE_DIR, "translation_results.txt");
 
-const TARGET_LANGS = ["Danish", "German", "Spanish"];
+// French joined the grid with the rest of French support. Its reference
+// translation (translation_ref_fr.md) is NOT of the same kind as the other
+// three: it was written by the assistant that added French, not by a human
+// translator, so a French chrF number here compares candidate models against
+// each other honestly and says nothing about human parity. Replace the file
+// with a professional translation of translation_source_en.md and that
+// caveat goes away.
+const TARGET_LANGS = ["Danish", "French", "German", "Spanish"];
 const POLL_INTERVAL = 1500;
 // Translate mode is a 4-stage pipeline (translate, accuracy review +
 // re-translate, monolingual polish, fluency review + re-polish) — much
@@ -271,6 +278,7 @@ async function main() {
   const sourcePath = SOURCE_OVERRIDE ?? join(SAMPLE_DIR, "translation_source_en.md");
   const REF_FILE: Record<string, string> = {
     Danish: "translation_ref_da.md",
+    French: "translation_ref_fr.md",
     German: "translation_ref_de.md",
     Spanish: "translation_ref_es.md",
   };

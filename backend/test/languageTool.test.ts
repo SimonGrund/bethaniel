@@ -91,6 +91,7 @@ test("mapLangToLanguageTool maps manuscript codes to LT language codes", () => {
   assert.equal(mapLangToLanguageTool("da"), "da-DK");
   assert.equal(mapLangToLanguageTool("de"), "de-DE");
   assert.equal(mapLangToLanguageTool("es"), "es");
+  assert.equal(mapLangToLanguageTool("fr"), "fr");
 });
 
 test("mapLangToLanguageTool returns null for unsupported free-text languages", () => {

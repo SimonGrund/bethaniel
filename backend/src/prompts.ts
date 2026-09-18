@@ -187,7 +187,7 @@ OUTPUT RULES — ABSOLUTE:
  */
 export function manuscriptLangName(lang?: string): string | null {
   if (!lang || lang === "en") return null;
-  const NAMES: Record<string, string> = { da: "Danish", de: "German", es: "Spanish" };
+  const NAMES: Record<string, string> = { da: "Danish", de: "German", es: "Spanish", fr: "French" };
   return NAMES[lang] ?? lang; // free-text "Other" values pass through verbatim
 }
 
@@ -211,6 +211,17 @@ export function manuscriptLangName(lang?: string): string | null {
  * and nyt komma, and which one applies is the author's choice — enforcing the
  * wrong one is worse than enforcing neither, so it needs a style-guide option
  * before it needs a prompt rule.
+ *
+ * French is absent for German's reason, and by the same test. On a planted
+ * fixture LanguageTool's French found the elision, the plural agreement, the
+ * gender agreement, the conjugation and the participle-for-infinitive — six of
+ * six — and raised nothing at all on clean prose, which is a better deterministic
+ * base than any other language here starts from. What French does NOT get is a
+ * rule about the space before ; : ! ? or about guillemets: those live in
+ * LanguageTool's TYPOGRAPHY category, which this codebase skips on purpose,
+ * because quotation and spacing style is a house style and the Spanish
+ * COMILLAS_TIPOGRAFICAS ledger above is what happens when a checker overrules
+ * one.
  */
 function commaDirectivesFor(
   manuscriptLang?: string,

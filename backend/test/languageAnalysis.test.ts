@@ -151,3 +151,48 @@ test("headlines are ordered by how far past threshold, at most four", () => {
   const ids = r.headlines.map((h) => h.id);
   assert.ok(ids.includes("crutch_word") && ids.includes("adverbs_high"));
 });
+
+test("French: -ment adverbs are counted, -ment nouns are not", () => {
+  const text =
+    "Elle referma doucement la porte et attendit tranquillement dans le couloir. " +
+    "Le gouvernement avait envoyé un document. Ce moment-là, ce changement, ce sentiment " +
+    "d'appartenance : rien de tout cela n'était un adverbe. ";
+  const r = analyzeLanguage([{ name: "Chapitre", original: text.repeat(20) }], "fr");
+  const adverbs = r.adverbs.top.map((a) => a.word);
+  assert.ok(adverbs.includes("doucement") && adverbs.includes("tranquillement"), JSON.stringify(adverbs));
+  for (const noun of ["gouvernement", "document", "moment", "changement", "sentiment"]) {
+    assert.ok(!adverbs.includes(noun), `${noun} is a noun, not an adverb`);
+  }
+});
+
+test("French: elisions are function words, whichever apostrophe the book uses", () => {
+  // qu'elle, c'était and d'un are "that she", "it was" and "of a" — the
+  // commonest words in any French novel. Counted as vocabulary they would top
+  // the overused table of every manuscript, and a book typeset with ’ would
+  // report different words from the same book typeset with '.
+  const text =
+    "Elle savait qu'elle partirait. C'était l'heure, et d'un geste elle prit son manteau. " +
+    "Il n'avait rien dit ; qu'elle parte ou non, c'était son affaire. ";
+  for (const apostrophe of ["'", "’"]) {
+    const body = text.replace(/'/g, apostrophe).repeat(20);
+    const r = analyzeLanguage([{ name: "Chapitre", original: body }], "fr");
+    const overused = r.overused.map((o) => o.word);
+    for (const w of ["qu'elle", "c'était", "d'un", "qu’elle", "c’était", "d’un"]) {
+      assert.ok(!overused.includes(w), `${w} is a function word (apostrophe ${apostrophe}): ${JSON.stringify(overused)}`);
+    }
+  }
+});
+
+test("French: dialogue tags, including the ones that hide behind a pronoun", () => {
+  const text =
+    "« Nous devrions partir », dit-elle. « Maintenant. »\n\n" +
+    "« Pas encore », murmura-t-il. « Attends la marée », insista-t-il.\n\n" +
+    "« Très bien », lui avait dit sa sœur, et elle se tourna vers la fenêtre.\n\n" +
+    "Le port s'étendait, plat et gris, et personne ne parla pendant un long moment.";
+  const r = analyzeLanguage([{ name: "Chapitre", original: text }], "fr");
+  // "dit-elle" and the postposed "lui avait dit" both count as neutral tags —
+  // the second is three words past the quote, which is why the window is three.
+  assert.equal(r.dialogueTags.said, 2);
+  const others = r.dialogueTags.other.map((o) => o.word);
+  assert.ok(others.includes("murmura") && others.includes("insista"), JSON.stringify(others));
+});

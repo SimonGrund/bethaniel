@@ -177,8 +177,8 @@ interface AppState {
   setLineEditOption: (key: keyof LineEditOptions, val: boolean) => void;
   targetLang: string;
   setTargetLang: (l: string) => void;
-  // Language the manuscript is written in ("en" | "da" | "de" | "es" or
-  // free text from the "Other…" option). "en" = legacy default behavior.
+  // Language the manuscript is written in ("en" | "da" | "de" | "es" | "fr"
+  // or free text from the "Other…" option). "en" = legacy default behavior.
   manuscriptLang: string;
   setManuscriptLang: (l: string) => void;
 

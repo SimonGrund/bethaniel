@@ -78,6 +78,80 @@ Three things in that table are worth naming rather than averaging away:
   Danish miss invisible — no flag for the author to review — which is the one
   failure mode the human-in-the-loop design cannot catch.
 
+## French, added 18 September 2026
+
+French is now a first-class manuscript language everywhere the other four are:
+its own Hunspell dictionary, LanguageTool, language detection, confusable sets,
+writing-report word lists, prompt language block and interface list. What it
+does NOT yet have is a model number, and this section is the honest ledger of
+which is which.
+
+**Measured, deterministic, on this machine:**
+
+| Check | Result |
+|---|---|
+| Hunspell on clean French prose | 0 flags — elisions (`l'aube`, `qu'elle`), either apostrophe, `œ`, accents, `-x` plurals, hyphenated compounds all recognised |
+| Hunspell on planted typos | `levéé`→`levée`, `caffé`→`café`, with the right suggestion first |
+| LanguageTool on planted grammar errors | 6 of 6 — elision, plural agreement, gender agreement, `œ`, conjugation, participle-for-infinitive |
+| LanguageTool on clean French (the 1,684-word fixture) | 9 flags, every one of them `ponctuation_virgule` or equivalent — comma *style*, not error |
+| Language detection | French detected at 31.5% function-word share, ratio 2.21; Italian and Portuguese still "unsure" |
+
+That LanguageTool result is the reason French gets no comma block in
+`prompts.ts`, exactly as German gets none: the roadmap's own finding is that
+comma recall follows the deterministic layer, and French starts from the best
+deterministic base of any language here.
+
+**The 9 clean-text flags are the open question.** All of them are the comma
+rules, and the ledger bar for disabling a rule is *zero real errors found, at
+least one invented* — the first half of which cannot be answered until the
+fixture below has been run against a model. Do not disable anything on the
+strength of the 9 alone.
+
+**Measured, on a model.** `stress100fr` — 1,684 words, 133 planted errors —
+run through Betty in the Cloud (deepseek-v4-flash) on 18 September 2026:
+
+| | French | (same model, `stress300en`) |
+|---|---|---|
+| Fixed / seen | **80% / 84%** | 96% / 99% |
+| Precision | **71%** | 71% |
+| Flags on clean text | **9** | 10 |
+| Broke correct text | **0** | 2 |
+
+By error type, fixed/seen: misspelling **89/95**, wordChoice **86/90**, comma
+**46/46**, capitalization 100/100, duplicateWord 100/100. Every comma in the
+fixture is the `freeAdjunct` kind, scored 42/42.
+
+Read against the by-type table in "Where it stands now" — with the caveat that
+those rows are the bundled models and this one is the cloud edit model —
+French lands where the LanguageTool thesis predicts. Its comma score is second
+only to German's, and its wrong-word score of 86% is the best figure in this
+file: Danish sits at 23% for exactly the reason French does not, which is that
+someone wrote the language its own confusable table. The 42 planted wordChoice
+errors here are `a`/`à`, `ou`/`où`, `ces`/`ses`, `c'est`/`s'est` and the
+participle-for-infinitive — the confusable sets added with this work.
+
+**The 9 clean-text flags are all LanguageTool's, and the model added none of
+its own.** The reviewer marked 7 of the 9 as unnecessary at confidence 1-2,
+including `plus quoi noter` → `plus que noter` at confidence 1. That is the
+review layer doing its job; it is not a reason to disable the rule, because the
+same rule family scored 46% on real planted commas in the same run. Leave it on.
+
+**Still not measured: translation chrF.** The reference
+(`translation_ref_fr.md`) was written by the assistant that added French rather
+than by a human translator — good enough to rank candidate models against each
+other, not good enough to claim human parity, and worth replacing with a
+professional translation before any French translation number is published.
+
+**One thing this work uncovered, which is not about French at all:** the
+packaged app shipped no dictionaries. `electron-builder.yml` copied
+`backend/dist` and not the `dictionaries/` directory beside it, so
+`spellcheck.ts` resolved a path that did not exist and the spell pass found
+nothing in *any* language in every release up to v2.19. Every number in this
+file was measured in dev, where the path resolves, so none of them are wrong —
+but no shipped build has ever reproduced them. Fixed in the same commit as
+French; `initSpellchecker` now logs the dictionaries it found, so the next
+occurrence is visible in the first ten lines of the engine log.
+
 ## Done
 
 **8 September 2026 — the harness itself.** The benchmark now runs one request

@@ -117,3 +117,37 @@ test(
     }
   },
 );
+
+test(
+  "LanguageTool live: French is checked in French, and clean French stays clean",
+  { skip: enabled ? false : "set LT_LIVE_TEST=1 with a bundled LanguageTool to run" },
+  async () => {
+    await ensureLanguageToolRunning();
+    try {
+      // The deterministic layer is the whole argument for adding a language:
+      // French has no comma directive in prompts.ts precisely because this
+      // check carries it, the way German's does. If this test ever goes quiet,
+      // that argument is gone with it.
+      const errored =
+        "Les toits était mouillés et la café refroidissait. Sa soeur lui a dit qu'elle ne dors jamais.";
+      const cs = await checkText(errored, { lang: "fr" });
+      const proposed = cs.map((c) => c.corrected).join(" | ");
+      assert.ok(/étaient/.test(proposed), `plural agreement, got ${proposed}`);
+      assert.ok(/le café/.test(proposed), `gender agreement, got ${proposed}`);
+      assert.ok(/sœur/.test(proposed), `the oe ligature, got ${proposed}`);
+      assert.ok(/ne dort/.test(proposed), `conjugation, got ${proposed}`);
+
+      // Guillemets, and a space before the semicolon and the question mark:
+      // French typographic convention, and NOT something to correct. The
+      // rules that would are LanguageTool's TYPOGRAPHY category, which the
+      // parser skips on purpose — this is the test that keeps it skipped.
+      const clean = `Elle s'était levée avant l'aube, comme toujours. « Tu ne dors jamais »,
+avait dit sa sœur. Peut-être qu'elle avait raison ; peut-être qu'il fallait s'arrêter.
+Qui pouvait le dire ?`;
+      const noise = await checkText(clean, { lang: "fr" });
+      assert.deepEqual(noise, [], `clean French must raise nothing, got ${JSON.stringify(noise)}`);
+    } finally {
+      await shutdownLanguageTool();
+    }
+  },
+);

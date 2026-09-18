@@ -204,7 +204,9 @@ export function mapLangToLanguageTool(
     if (lang === "en_GB" || dialect === "british") return "en-GB";
     return "en-US";
   }
-  const MAP: Record<string, string> = { da: "da-DK", de: "de-DE", es: "es" };
+  // "fr" rather than "fr-FR": LanguageTool's French is one variant, and the
+  // regional codes are aliases of it.
+  const MAP: Record<string, string> = { da: "da-DK", de: "de-DE", es: "es", fr: "fr" };
   return MAP[lang] ?? null;
 }
 

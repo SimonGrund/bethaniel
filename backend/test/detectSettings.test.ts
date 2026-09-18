@@ -74,6 +74,16 @@ algún lugar por encima de ella crujió una tabla del suelo. Era la clase de
 sonido que una casa vieja hace por su cuenta, pero ella no se lo creía.
 `;
 
+const FRENCH = `
+Elle ne s'attendait pas à ce que la maison soit aussi silencieuse. Le couloir
+était sombre, et la porte de la cuisine restait ouverte, comme toujours. Rien
+dans la pièce n'avait bougé depuis la dernière fois qu'elle était venue, et
+c'était précisément cela qui lui faisait peur. Elle posa son sac sur la table
+et écouta. Quelque part au-dessus d'elle, une lame de parquet craqua. C'était
+le genre de bruit qu'une vieille maison fait toute seule, mais elle n'y
+croyait pas, et elle n'avait aucune envie de monter voir.
+`;
+
 // ── language ──
 
 test("English prose is read as English", () => {
@@ -90,6 +100,31 @@ test("German prose is read as German", () => {
 
 test("Spanish prose is read as Spanish", () => {
   assert.equal(value(detectManuscriptLanguage(SPANISH)), "es");
+});
+
+test("French prose is read as French", () => {
+  assert.equal(value(detectManuscriptLanguage(FRENCH)), "fr");
+});
+
+test("French does not steal the Romance languages it borders", () => {
+  // The French list is curated against Spanish and Portuguese rather than for
+  // coverage: "de", "la", "le", "les", "en", "un" and "que" — the commonest
+  // French words there are — are exactly what a Spanish or Portuguese novel is
+  // full of, so none of them is in it. This is the test that says so.
+  assert.equal(value(detectManuscriptLanguage(SPANISH)), "es");
+  const portuguese = `
+    Ela não esperava que a casa estivesse tão silenciosa. O corredor estava
+    escuro e a porta da cozinha continuava aberta, como sempre esteve. Nada no
+    quarto tinha se movido desde a última vez que ela estivera ali, e era
+    justamente isso que a assustava. Deixou a bolsa sobre a mesa e escutou.
+    Em algum lugar acima dela uma tábua do assoalho rangeu. Era o tipo de som
+    que uma casa velha faz sozinha, mas ela não acreditava nisso, e não tinha
+    nenhuma intenção de subir para ver o que havia lá em cima naquela noite.
+  `;
+  assertUnsure(
+    detectManuscriptLanguage(portuguese),
+    "Portuguese must not be pulled into French by the words the two share",
+  );
 });
 
 test("a title page is too little text to call", () => {
@@ -121,7 +156,7 @@ test("a language Betty ships no dictionary for is not forced into one", () => {
   `;
   assertUnsure(
     detectManuscriptLanguage(italian),
-    "Italian shares too little with the four shipped languages to win one",
+    "Italian shares too little with the five shipped languages to win one",
   );
 });
 

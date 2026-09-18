@@ -1250,6 +1250,9 @@ async function processPublicationScanJob(
           declaredDialect === "american" || declaredDialect === "british"
             ? declaredDialect
             : undefined,
+        // So the English dialect check can stand down on a manuscript that is
+        // not in English.
+        manuscriptLang: job.manuscriptLang,
       },
     );
     abortControllers.delete(taskId);

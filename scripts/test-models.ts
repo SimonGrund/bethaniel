@@ -120,6 +120,7 @@ const LANG_FLAGS: Record<string, string> = {
   "--stress-da": "stress100da",
   "--stress-de": "stress100de",
   "--stress-es": "stress100es",
+  "--stress-fr": "stress100fr",
 };
 const SELECTED_LANGS = Object.entries(LANG_FLAGS)
   .filter(([flag]) => process.argv.includes(flag))
@@ -138,6 +139,7 @@ const LANG_CODE: Record<string, string> = {
   stress100da: "da",
   stress100de: "de",
   stress100es: "es",
+  stress100fr: "fr",
 };
 
 function parseMaxSize(): number | null {

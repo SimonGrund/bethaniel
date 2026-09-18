@@ -37,7 +37,7 @@ export type Detection<T> =
     }
   | { status: "unsure"; support: number; against: number; sample: number };
 
-export type ManuscriptLangCode = "en" | "da" | "de" | "es";
+export type ManuscriptLangCode = "en" | "da" | "de" | "es" | "fr";
 
 const detected = <T>(
   value: T,
@@ -77,8 +77,8 @@ export function tokenize(text: string): string[] {
 // ── Language ──
 //
 // Function-word frequency, not dictionary lookup. Dictionaries would mean
-// loading four Hunspell instances just to answer one question, and the
-// function words of these four languages are near-disjoint anyway.
+// loading five Hunspell instances just to answer one question, and the
+// function words of these five languages are near-disjoint anyway.
 //
 // The lists are curated for DISCRIMINATION, not for completeness. Words a
 // neighbouring language shares are actively harmful here and are left out:
@@ -121,6 +121,24 @@ const STOPWORDS: Record<ManuscriptLangCode, readonly string[]> = {
     "sobre", "hasta", "desde", "entre", "también", "donde", "quien", "ella",
     "ellos", "este", "esta", "eso", "esa", "ese", "aquí", "allí", "nada",
   ],
+  fr: [
+    // Curated against Spanish, Portuguese and Italian rather than for
+    // coverage, on the same principle as the Spanish list above. The
+    // commonest French words of all — "de", "la", "le", "les", "en", "un",
+    // "que", "a" — are exactly the ones a Spanish, Portuguese or Italian
+    // manuscript is full of, so none of them is here: what discriminates is
+    // French's own grammar words (est, dans, avec, qui, pas), its elided
+    // forms, and its accented inflections.
+    "et", "est", "dans", "pour", "avec", "qui", "pas", "plus", "sur", "ne",
+    "elle", "elles", "ils", "je", "tu", "nous", "vous", "lui", "leur", "leurs",
+    "cette", "ces", "sa", "ses", "était", "étaient", "avait", "avaient",
+    "être", "avoir", "fait", "faire", "dit", "tout", "tous", "toute", "toutes",
+    "très", "bien", "aussi", "encore", "déjà", "toujours", "jamais", "quand",
+    "comme", "alors", "puis", "depuis", "avant", "après", "chez", "sans",
+    "sous", "vers", "peut", "pouvait", "voulait", "devait", "quelque",
+    "quelques", "rien", "même", "autre", "autres", "où", "dont", "pendant",
+    "beaucoup", "moins", "aux", "ceux", "celle", "cet",
+  ],
 };
 
 const LANG_CODES = Object.keys(STOPWORDS) as ManuscriptLangCode[];
@@ -137,7 +155,7 @@ const LANG_MIN_SHARE = 0.18;
 const LANG_MIN_RATIO = 1.25;
 
 /**
- * Identify the manuscript's language among the four Betty ships dictionaries
+ * Identify the manuscript's language among the five Betty ships dictionaries
  * for. Returns "unsure" for anything else, which correctly leaves an author's
  * own "other" selection alone rather than forcing it into the nearest match.
  */

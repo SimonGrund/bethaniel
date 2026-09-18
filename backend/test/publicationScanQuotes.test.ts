@@ -124,3 +124,40 @@ test("a block quotation never closed is reported at its opening", async () => {
   assert.equal(f.length, 1, JSON.stringify(f));
   assert.match(f[0].message, /Old Wars/);
 });
+
+// ── Quote conventions other than English ──
+//
+// The balance check counted “ and ” and nothing else, which on a French
+// manuscript meant it found no quotation marks at all and passed every chapter
+// in silence, and on a German one meant every „…“ line read as two openers and
+// no closer. The convention is now read off the manuscript.
+
+import { detectQuoteFamily } from "../src/publicationScan.ts";
+
+test("the quote family is read off the manuscript, not assumed", () => {
+  assert.deepEqual(detectQuoteFamily("“We can try,” he said."), { open: "“", close: "”" });
+  assert.deepEqual(detectQuoteFamily("« On peut essayer », dit-il."), { open: "«", close: "»" });
+  assert.deepEqual(detectQuoteFamily("„Wir können es versuchen“, sagte er."), { open: "„", close: "“" });
+  // Narration with no dialogue at all falls back to the English pair rather
+  // than throwing or picking at random.
+  assert.deepEqual(detectQuoteFamily(PROSE), { open: "“", close: "”" });
+});
+
+test("balanced French guillemets are not reported", () => {
+  const french = `${PROSE}\n\n« Tu ne dors jamais », dit sa sœur.\n\n« Je dors », répondit-elle. « Un peu. »`;
+  assert.deepEqual(truncations(french), [], "correct French dialogue is not a finding");
+});
+
+test("an unclosed French guillemet IS reported", () => {
+  const french = `${PROSE}\n\n« Tu ne dors jamais, dit sa sœur.\n\nLe jour se levait sur les toits.`;
+  const f = truncations(french);
+  assert.equal(f.length, 1, JSON.stringify(f));
+  assert.match(f[0].message, /Unbalanced quotation marks/);
+});
+
+test("balanced German quotes are not reported", () => {
+  // „…“ closes with the character English opens with, so this is the case that
+  // decides the family by its opener rather than by counting both marks.
+  const german = `${PROSE}\n\n„Du schläfst nie“, sagte ihre Schwester.\n\n„Ich schlafe“, antwortete sie.`;
+  assert.deepEqual(truncations(german), [], "correct German dialogue is not a finding");
+});

@@ -230,10 +230,46 @@ test("Danish: findNewSuspectWords flags an introduced non-word, accepts real Dan
 });
 
 test("unsupported free-text language: spell-check is skipped, not English-checked", () => {
-  const text = "Le cheval courait dans le pré.";
-  assert.deepEqual(getSpellCorrections(text, "French", {}), []);
-  assert.equal(getWordValidator("French"), null);
-  assert.equal(findNewSuspectWords("a", "a b", "French"), null);
+  // Italian, and the display name rather than a code: the "Other…" box takes
+  // free text, and neither "Italian" nor "it" has a dictionary behind it.
+  const text = "Il cavallo correva nel prato.";
+  assert.deepEqual(getSpellCorrections(text, "Italian", {}), []);
+  assert.equal(getWordValidator("Italian"), null);
+  assert.equal(findNewSuspectWords("a", "a b", "Italian"), null);
+});
+
+// ── French ──
+//
+// The dictionary is Grammalecte's "classique" (MPL-2.0, see
+// dictionaries/README.md). What makes French different from the other four is
+// that its function words are glued to the front of the word — l'aube,
+// qu'elle, s'était — and that a manuscript may spell that apostrophe ' or ’.
+// The .aff maps ’ to ' before lookup, and these are the tests that hold both
+// ends of that together.
+
+test("French: elisions, accents and ligatures are words, either apostrophe", () => {
+  const ok = getWordValidator("fr");
+  assert.ok(ok, "a French validator is available");
+  for (const w of [
+    "l'homme", "l’homme", "aujourd'hui", "qu'elle", "d'un", "s'était",
+    "n'avait", "jusqu'à", "être", "cœur", "français", "déjà", "Noël",
+    "bateaux", "chevaux", "peut-être", "arrière-grand-mère",
+  ]) {
+    assert.ok(ok!(w), `${w} should be a French word`);
+  }
+});
+
+test("French: clean prose is clean, and real typos are caught", () => {
+  const clean = `Elle s'était levée avant l'aube, comme toujours. La lumière
+d'octobre tombait sur les toits mouillés, et le café refroidissait dans sa
+tasse. « Tu ne dors jamais », avait dit sa sœur, la veille au téléphone.`;
+  assert.deepEqual(getSpellCorrections(clean, "fr", {}), [], "no false positives on correct French");
+
+  const typos = "Elle s'était levéé avant l'aube. Le caffé refroidissait.";
+  assert.deepEqual(
+    getSpellCorrections(typos, "fr", {}).map((c) => [c.original, c.corrected]),
+    [["levéé", "levée"], ["caffé", "café"]],
+  );
 });
 
 // ── attributeSuspects (shared by applyCorrectionsVerified and the

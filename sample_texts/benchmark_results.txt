@@ -1,5 +1,5 @@
 BETHANIEL MODEL BENCHMARK RESULTS
-Report generated: 2026-09-09T19:56:08.350Z
+Report generated: 2026-09-18T11:27:35.237Z
 ════════════════════════════════════════════════════════════════════════════════
 
 SCORECARDS
@@ -9,17 +9,17 @@ False-positive-clean and consistency are reported separately, not folded
 into "overall" — they're diagnostic, not part of the headline number.
 
 ────────────────────────────────────────────────────────────────────────────────
-MODEL: Qwen3.5-4B-Q4_K_M.gguf
+MODEL: custom:bethaniel-cloud (deepseek-v4-flash)
 ────────────────────────────────────────────────────────────────────────────────
   Mode       Recall  Prec.    F1  Time  FP-clean  Consist.  OVERALL
-  copy_edit    57%   70%   62   88         0       n/a       67
-             false positives: avg 11.9 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 6.8 hallucinated (no error there at all)
-             reviewer quality: 79/100 avg confidence, 47% of SCORED flagged (4% went unscored — reviewer didn't get to them)
-  line_edit    52%   38%   44  100         0       n/a       55
-             false positives: avg 22.3 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 3.3 hallucinated (no error there at all)
-             reviewer quality: 40/100 avg confidence, 71% of SCORED flagged
+  copy_edit    59%   70%   61   97        17       n/a       68
+             false positives: avg 15.4 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 6.3 hallucinated (no error there at all)
+             reviewer quality: 78/100 avg confidence, 26% of SCORED flagged (19% went unscored — reviewer didn't get to them)
+  line_edit    58%   48%   52  100         0       n/a       61
+             false positives: avg 19.5 wrong-fix (right spot, wrong guess — reviewer-catchable) + avg 1.3 hallucinated (no error there at all)
+             reviewer quality: 82/100 avg confidence, 1% of SCORED flagged
   ────────────────────────────────────────────────────────────────────────────
-  MODEL OVERALL (mean of the modes above): 61
+  MODEL OVERALL (mean of the modes above): 65
 
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -34,166 +34,233 @@ copy_edit
 
   danish — 25 planted errors  (95% interval ±20 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    68%    68%    65%       3.0    2.0     6.0    2.0       0.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      wordChoice                     5       40/40%
-      comma                         18       72/72%
-      punctuation                    1     100/100%
+    custom:bethaniel-cloud (deepseek-v4-flash)     8%     8%    67%       0.0    0.0     1.0    2.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      wordChoice                     5       20/20%
+      comma                         18         0/0%
+      punctuation                    1         0/0%
       other                          1     100/100%
+    commas (fixed/seen)        planted    v4-flash)
+      ! seriesInner                  1         0/0%
+      ? subordDa                     4         0/0%
+        seriesOxford                 2         0/0%
+        coordClause                  3         0/0%
+        freeAdjunct                  8         0/0%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   english — 14 planted errors  (95% interval ±27 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    43%    50%    50%       3.0    1.0     3.0    3.0       1.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                    2      50/100%
-      wordChoice                     4       75/75%
-      comma                          7       29/29%
+    custom:bethaniel-cloud (deepseek-v4-flash)    57%    64%    57%       4.0    1.0     2.0    2.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                    2     100/100%
+      wordChoice                     4      75/100%
+      comma                          7       43/43%
       punctuation                    1         0/0%
+    commas (fixed/seen)        planted    v4-flash)
+        seriesOxford                 1     100/100%
+        coordClause                  2         0/0%
+        freeAdjunct                  4       50/50%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   german — 26 planted errors  (95% interval ±20 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    42%    50%    79%       2.0    1.0     1.0    1.0       0.0
-    by error type (fixed/seen) planted    wen3.5-4B
+    custom:bethaniel-cloud (deepseek-v4-flash)    31%    42%    67%       3.0    1.0     1.0    2.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
       misspelling                    3     100/100%
-      wordChoice                     1     100/100%
-      comma                         19       32/42%
+      wordChoice                     1       0/100%
+      comma                         19       21/32%
       capitalization                 2       50/50%
       punctuation                    1         0/0%
+    commas (fixed/seen)        planted    v4-flash)
+      ! seriesInner                  1     100/100%
+      ! subordDe                     7       29/43%
+        seriesOxford                 1         0/0%
+        coordClause                  4         0/0%
+        freeAdjunct                  6       17/33%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   spanish — 15 planted errors  (95% interval ±26 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    40%    60%    67%       1.0    1.0     2.0    2.0       0.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                    7      71/100%
-      wordChoice                     3        0/33%
-      comma                          5       20/20%
+    custom:bethaniel-cloud (deepseek-v4-flash)    73%    80%    85%       1.0    1.0     1.0    1.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                    7     100/100%
+      wordChoice                     3       33/67%
+      comma                          5       60/60%
+    commas (fixed/seen)        planted    v4-flash)
+        seriesOxford                 1     100/100%
+        coordClause                  2         0/0%
+        freeAdjunct                  2     100/100%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   stress100 — 101 planted errors  (95% interval ±10 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    68%    72%    76%      21.0    2.0     1.0    2.0       1.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                   17      94/100%
-      wordChoice                    15       80/80%
-      dialect                        9     100/100%
-      comma                         37       35/35%
-      capitalization                 7       86/86%
-      duplicateWord                  2     100/100%
-      punctuation                    2     100/100%
-      other                         12      75/100%
+    custom:bethaniel-cloud (deepseek-v4-flash)    60%    73%    61%      29.0    5.0    10.0    1.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   17       65/76%
+      wordChoice                    15       67/80%
+      dialect                        9       78/89%
+      comma                         37       49/51%
+      capitalization                 7      71/100%
+      duplicateWord                  2      50/100%
+      punctuation                    2       50/50%
+      other                         12      67/100%
+    commas (fixed/seen)        planted    v4-flash)
+        seriesOxford                12       42/42%
+        coordClause                 13       62/62%
+        freeAdjunct                 12       42/50%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   stress100b — 64 planted errors  (95% interval ±13 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    50%    61%    56%      11.0    1.0    14.0   15.0       3.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                   20      85/100%
-      wordChoice                     9       33/44%
+    custom:bethaniel-cloud (deepseek-v4-flash)    63%    70%    59%      14.0    1.0    14.0   23.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   20     100/100%
+      wordChoice                     9       56/89%
       dialect                        6      83/100%
-      comma                         23       13/22%
-      capitalization                 4       50/50%
+      comma                         23       22/26%
+      capitalization                 4       75/75%
       duplicateWord                  2     100/100%
+    commas (fixed/seen)        planted    v4-flash)
+      ! spurious                     3       33/33%
+      ! seriesInner                  1     100/100%
+      ! relativeEn                   6         0/0%
+        seriesOxford                 1         0/0%
+        coordClause                  7       43/43%
+        freeAdjunct                  5        0/20%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   stress100da — 101 planted errors  (95% interval ±10 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    54%    57%    86%       5.0    1.0     4.0    4.0       0.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                   26      88/100%
-      wordChoice                    13       23/23%
-      comma                         47       34/34%
-      capitalization                10     100/100%
+    custom:bethaniel-cloud (deepseek-v4-flash)    58%    67%    79%      11.0    1.0     5.0    0.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   26       81/88%
+      wordChoice                    13       62/62%
+      comma                         47       49/51%
+      capitalization                10      40/100%
       duplicateWord                  3     100/100%
       punctuation                    2         0/0%
+    commas (fixed/seen)        planted    v4-flash)
+      ! spurious                     6       17/17%
+      ! seriesInner                  3       33/33%
+      ? subordDa                    24       67/67%
+        seriesOxford                 3         0/0%
+        coordClause                  2       50/50%
+        freeAdjunct                  9       44/56%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   stress100de — 106 planted errors  (95% interval ±10 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    71%    76%    73%      12.0    4.0    16.0    8.0       1.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                   34       88/97%
-      wordChoice                    13       38/54%
-      comma                         37       57/57%
-      capitalization                14       86/93%
+    custom:bethaniel-cloud (deepseek-v4-flash)    66%    73%    74%      14.0    4.0    11.0    7.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   34       91/97%
+      wordChoice                    13       38/77%
+      comma                         37       41/41%
+      capitalization                14       86/86%
       duplicateWord                  3     100/100%
       punctuation                    5       80/80%
+    commas (fixed/seen)        planted    v4-flash)
+      ! spurious                     2         0/0%
+      ! seriesInner                  3         0/0%
+      ! subordDe                    27       56/56%
+        seriesOxford                 1         0/0%
+        freeAdjunct                  4         0/0%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
   stress100es — 109 planted errors  (95% interval ±10 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    63%    67%    76%      14.0    1.0     8.0   12.0       0.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                   43      93/100%
-      wordChoice                    12       92/92%
-      comma                         38       11/13%
-      capitalization                10     100/100%
+    custom:bethaniel-cloud (deepseek-v4-flash)    60%    65%    76%      18.0    1.0     3.0    4.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   43      98/100%
+      wordChoice                    12      92/100%
+      comma                         38         3/5%
+      capitalization                10      70/100%
       duplicateWord                  4     100/100%
       punctuation                    2         0/0%
+    commas (fixed/seen)        planted    v4-flash)
+      ! spurious                     8       13/13%
+      ! seriesInner                  8        0/13%
+        seriesOxford                 1         0/0%
+        coordClause                  5         0/0%
+        freeAdjunct                 16         0/0%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
 
-  stress300en — 190 planted errors  (95% interval ±7 points)
+  stress100fr — 133 planted errors  (95% interval ±9 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    67%    70%    68%      47.0    2.0    13.0   20.0       1.0
-    by error type (fixed/seen) planted    wen3.5-4B
-      misspelling                  134       94/99%
-      other                         56         2/2%
+    custom:bethaniel-cloud (deepseek-v4-flash)    80%    84%    71%      33.0    0.0    11.0    9.0       2.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                   56       89/95%
+      wordChoice                    42       86/90%
+      comma                         26       46/46%
+      capitalization                 4     100/100%
+      duplicateWord                  5     100/100%
+    commas (fixed/seen)        planted    v4-flash)
+      ! spurious                     1     100/100%
+      ! seriesInner                  1     100/100%
+        freeAdjunct                 24       42/42%
+      ! rule-governed   ? two sanctioned systems (Danish)   blank: discretionary
+
+  stress300en — 136 planted errors  (95% interval ±9 points)
+    model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
+    custom:bethaniel-cloud (deepseek-v4-flash)    96%    99%    71%      42.0    2.0    10.0   10.0       0.0
+    by error type (fixed/seen) planted    v4-flash)
+      misspelling                  136       96/99%
 
 ────────────────────────────────────────────────────────────────────────────────
 line_edit
 ────────────────────────────────────────────────────────────────────────────────
 
-  danish — 30 planted errors  (95% interval ±18 points)
+  danish — 29 planted errors  (95% interval ±19 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    63%    93%    43%      24.0    6.0     1.0    5.0       0.0
+    custom:bethaniel-cloud (deepseek-v4-flash)    66%    93%    40%      26.0    1.0     3.0    3.0       0.0
 
   english — 35 planted errors  (95% interval ±17 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    51%    80%    39%      22.0    6.0     6.0   17.0       4.0
+    custom:bethaniel-cloud (deepseek-v4-flash)    57%    63%    61%      13.0    2.0     0.0   12.0       6.0
 
   german — 31 planted errors  (95% interval ±18 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    29%    61%    30%      18.0    6.0     3.0   12.0       8.0
+    custom:bethaniel-cloud (deepseek-v4-flash)    48%    58%    47%      16.0    1.0     1.0    2.0       2.0
 
   spanish — 32 planted errors  (95% interval ±18 points)
     model                       fixed   seen  prec.  wrongFix  broke  halluc  clean  unmarked
-    Qwen3.5-4B                    63%    78%    42%      25.0    5.0     3.0   15.0       3.0
+    custom:bethaniel-cloud (deepseek-v4-flash)    59%    72%    44%      23.0    2.0     1.0    1.0       0.0
 ════════════════════════════════════════════════════════════════════════════════
 DETAIL — missed planted errors and false positives (run 1 of each task)
 ════════════════════════════════════════════════════════════════════════════════
 
-[Qwen3.5-4B-Q4_K_M.gguf] danish_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] danish_copy_edit.md (copy_edit):
+  MISSED:  "støvler og" → "støvler, og"
   MISSED:  "gammel påtrængende" → "gammel, påtrængende"
+  MISSED:  "årtier og" → "årtier, og"
+  MISSED:  "begravelse var" → "begravelse, var"
   MISSED:  "præcis som" → "præcis, som"
   MISSED:  "for nyligt." → "for nylig."
   MISSED:  "navn skreven på" → "navn skrevet på"
-  MISSED:  "kvinden han" → "kvinden, han"
-  MISSED:  "valg han" → "valg, han"
-  MISSED:  "jeg viste," → "jeg vidste,"
-  MISSED:  "ligegyldigt og" → "ligegyldigt, og"
-  WRONG-FIX:    "dør" → "dør," (right spot, wrong guess)
-  WRONG-FIX:    "hånd" → "hånd," (right spot, wrong guess)
-  WRONG-FIX:    ""let" → ""Let" (right spot, wrong guess)
+  MISSED:  "sig før" → "sig, før"
+  MISSED:  "ryste og" → "ryste, og"
+  MISSED:  ""Mara, begyndte" → ""Mara," begyndte"
+  …and 13 more missed
   HALLUCINATED: "år. Jerntrinene knagede" → "år. Jernringene knagede" (no error there)
-  HALLUCINATED: "vinduer" → "vinduer," (no error there)
-  HALLUCINATED: "Nogen" → "Nogle" (no error there)
-  HALLUCINATED: "brevet, "hvis" → "brevet. "Hvis" (no error there)
-  HALLUCINATED: "lyst og ligegyldigt" → "lyst, ligegyldigt," (no error there)
-  HALLUCINATED: "derude," → "derude;" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] english_copy_edit.md (copy_edit):
-  MISSED:  "old insistent" → "old, insistent"
+[custom:bethaniel-cloud (deepseek-v4-flash)] english_copy_edit.md (copy_edit):
   MISSED:  "decades and" → "decades, and"
   MISSED:  "funeral the" → "funeral, the"
   MISSED:  "top the" → "top, the"
   MISSED:  ""Mara, the" → ""Mara," the"
   MISSED:  ""You was three" → ""You were three"
   MISSED:  "water and" → "water, and"
-  MISSED:  "and shakey, he had written: "wind light" → "and shaky, he had written: "Wind light"
-  WRONG-FIX:    "shakey" → "shake" (right spot, wrong guess)
+  WRONG-FIX:    "You was three years old" → "You were three years old" (right spot, wrong guess)
   WRONG-FIX:    "writen" → "write" (right spot, wrong guess)
+  WRONG-FIX:    "shakey" → "shake" (right spot, wrong guess)
   WRONG-FIX:    "and shakey," → "and Shaka," (right spot, wrong guess)
   HALLUCINATED: "unmoored" → "unmourned" (no error there)
   HALLUCINATED: "tremble and she" → "tremble, and she" (no error there)
-  HALLUCINATED: "vast and bright" → "vast, bright," (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] german_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] german_copy_edit.md (copy_edit):
   MISSED:  "Stiefeln und" → "Stiefeln, und"
   MISSED:  "alter beharrlicher" → "alter, beharrlicher"
   MISSED:  "geführt und" → "geführt, und"
+  MISSED:  "Beerdigung war" → "Beerdigung, war"
   MISSED:  "so wie" → "so, wie"
   MISSED:  "sich bevor" → "sich, bevor"
   MISSED:  "begonnen und" → "begonnen, und"
@@ -204,65 +271,73 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
 „Mara","
   MISSED:  "Nacht in" → "Nacht, in"
   MISSED:  "Sturm der" → "Sturm, der"
-  MISSED:  "Frau die" → "Frau, die"
-  …and 5 more missed
-  WRONG-FIX:    "Laternenraum genau so wie" → "Laternenraum genauso wie" (right spot, wrong guess)
+  …and 8 more missed
   WRONG-FIX:    "eine Tür die sie" → "eine Tür, die sie" (right spot, wrong guess)
+  WRONG-FIX:    "Du wart drei Jahre alt" → "Du warst drei Jahre alt" (right spot, wrong guess)
+  WRONG-FIX:    "Laternenraum genau so wie" → "Laternenraum genauso wie" (right spot, wrong guess)
   HALLUCINATED: "hatte: die Messingbeschläge" → "hatte: Die Messingbeschläge" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] spanish_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] spanish_copy_edit.md (copy_edit):
   MISSED:  "botas y" → "botas, y"
   MISSED:  "el alfeizar." → "el alféizar."
-  MISSED:  "las escusas para" → "las excusas para"
   MISSED:  "«Tenia tres" → "«Tenías tres"
   MISSED:  "agua y" → "agua, y"
-  MISSED:  "sorprendente como" → "sorprendente, como"
-  MISSED:  "temblorosa, habia escrito: «viento ligero" → "temblorosa, había escrito: «Viento ligero"
-  MISSED:  "indiferente y" → "indiferente, y"
-  MISSED:  "apenas habia comenzado" → "apenas había comenzado"
   WRONG-FIX:    "«Tenia tres" → "«Tenía tres" (right spot, wrong guess)
   HALLUCINATED: "temblarle" → "temblare" (no error there)
-  HALLUCINATED: "Tenia tres años" → "Tenía tres años" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress100_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100_copy_edit.md (copy_edit):
   MISSED:  "rare and" → "rare, and"
   MISSED:  "yellowed brittle" → "yellowed, brittle"
+  MISSED:  "modern atlus." → "modern atlas."
   MISSED:  "small careful" → "small, careful"
   MISSED:  "tall weathered" → "tall, weathered"
   MISSED:  "down and" → "down, and"
-  MISSED:  "old careful" → "old, careful"
+  MISSED:  "by than," → "by then,"
+  MISSED:  "the provokation." → "the provocation."
   MISSED:  "shelf and" → "shelf, and"
-  MISSED:  "fragile forgotten" → "fragile, forgotten"
-  MISSED:  "islands and" → "islands, and"
-  MISSED:  "with with streets, buildings and" → "with streets, buildings, and"
-  …and 22 more missed
-  WRONG-FIX:    "was a a joke" → "was a joke" (right spot, wrong guess)
+  MISSED:  "paper.
+
+constance opened" → "paper.
+
+Constance opened"
+  …and 30 more missed
+  WRONG-FIX:    "elias harrow drew maps" → "Elias Harrow drew maps" (right spot, wrong guess)
   WRONG-FIX:    "against the the front" → "against the front" (right spot, wrong guess)
-  WRONG-FIX:    "been surveyd once," → "been survey once," (right spot, wrong guess)
+  WRONG-FIX:    "a long absense" → "a long absence" (right spot, wrong guess)
+  WRONG-FIX:    "they agreed, eventually" → "They agreed, eventually" (right spot, wrong guess)
+  WRONG-FIX:    "further back then that" → "further back than that" (right spot, wrong guess)
+  WRONG-FIX:    "had been surveyd once, breifly" → "had been surveyed once, briefly" (right spot, wrong guess)
   WRONG-FIX:    "was clutered with" → "was clustered with" (right spot, wrong guess)
   WRONG-FIX:    "streets, buildings and even" → "streets, buildings, and even" (right spot, wrong guess)
-  WRONG-FIX:    "be the the last" → "be the last" (right spot, wrong guess)
-  WRONG-FIX:    "atlus" → "talus" (right spot, wrong guess)
-  WRONG-FIX:    "grey" → "Grey" (right spot, wrong guess)
-  WRONG-FIX:    "margens" → "mangers" (right spot, wrong guess)
-  WRONG-FIX:    "compas" → "comps" (right spot, wrong guess)
-  …and 11 more wrong-fix
+  WRONG-FIX:    "certain of that at at all" → "certain of that at all" (right spot, wrong guess)
+  WRONG-FIX:    "constance opened the satchel" → "Constance opened the satchel" (right spot, wrong guess)
+  …and 19 more wrong-fix
+  HALLUCINATED: "say it allowed" → "say it aloud" (no error there)
+  HALLUCINATED: "end of the jorney" → "end of the journey" (no error there)
+  HALLUCINATED: "buried for generatons" → "buried for generations" (no error there)
+  HALLUCINATED: "family were sailers" → "family were sailors" (no error there)
+  HALLUCINATED: "might actually be write" → "might actually be right" (no error there)
+  HALLUCINATED: "her own judgment completly" → "her own judgment completely" (no error there)
+  HALLUCINATED: "in the margens" → "in the margins" (no error there)
+  HALLUCINATED: "no matter the provokation" → "no matter the provocation" (no error there)
+  HALLUCINATED: "The rain had stopped by than" → "The rain had stopped by then" (no error there)
   HALLUCINATED: "woodsmoke" → "wood smoke" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress100b_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100b_copy_edit.md (copy_edit):
   MISSED:  "winter and" → "winter, and"
   MISSED:  "portside three" → "portside, three"
   MISSED:  "ceremony and" → "ceremony, and"
-  MISSED:  "polite brief," → "polite, brief,"
   MISSED:  "Lund who" → "Lund, who"
-  MISSED:  "the Western end" → "the western end"
   MISSED:  "the harbour." → "the harbor."
   MISSED:  "quay which" → "quay, which"
-  MISSED:  "stepping of the" → "stepping off the"
   MISSED:  "village where" → "village, where"
-  …and 22 more missed
-  WRONG-FIX:    "village in the dark,." → "village in the dark," (right spot, wrong guess)
-  WRONG-FIX:    "pretending to be a rode" → "pretending to be a road" (right spot, wrong guess)
+  MISSED:  "head, and" → "head and"
+  MISSED:  "hip which" → "hip, which"
+  MISSED:  "her heals." → "her heels."
+  …and 14 more missed
+  WRONG-FIX:    "right the reply" → "write the reply" (right spot, wrong guess)
+  WRONG-FIX:    "stair of an eleven-year-old" → "stare of an eleven-year-old" (right spot, wrong guess)
+  WRONG-FIX:    "a small breathe" → "a small breath" (right spot, wrong guess)
   WRONG-FIX:    "portside" → "port side" (right spot, wrong guess)
   WRONG-FIX:    "grey" → "Grey" (right spot, wrong guess)
   WRONG-FIX:    "tryed" → "trued" (right spot, wrong guess)
@@ -270,10 +345,9 @@ DETAIL — missed planted errors and false positives (run 1 of each task)
   WRONG-FIX:    "discused" → "discuses" (right spot, wrong guess)
   WRONG-FIX:    "cleerest" → "cleverest" (right spot, wrong guess)
   WRONG-FIX:    "reliabley" → "reliable" (right spot, wrong guess)
-  WRONG-FIX:    "slighest" → "sliest" (right spot, wrong guess)
-  …and 1 more wrong-fix
+  …and 4 more wrong-fix
   HALLUCINATED: ""That depends how" → ""That depends on how" (no error there)
-  HALLUCINATED: "made either of them flintch" → "made either of them flinch" (no error there)
+  HALLUCINATED: "on her heals" → "on her heels" (no error there)
   HALLUCINATED: "about Mrs Lund" → "about Mrs. Lund" (no error there)
   HALLUCINATED: ""Mrs Lund." → ""Mrs. Lund." (no error there)
   HALLUCINATED: "know."
@@ -288,290 +362,268 @@ Mrs. Lund" (no error there)
   HALLUCINATED: "when Mrs Lund" → "when Mrs. Lund" (no error there)
   …and 4 more hallucinated
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress100da_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100da_copy_edit.md (copy_edit):
+  MISSED:  "op og" → "op, og"
   MISSED:  "gammel omhyggelig" → "gammel, omhyggelig"
+  MISSED:  "kun fordi" → "kun, fordi"
   MISSED:  "Støvet lagde tykt" → "Støvet lå tykt"
-  MISSED:  "har der" → "har, der"
-  MISSED:  "mindre end" → "mindre, end"
+  MISSED:  "dig at" → "dig, at"
   MISSED:  "da, forstod" → "da forstod"
-  MISSED:  "seks udkats til" → "seks udkast til"
   MISSED:  "gange og" → "gange, og"
-  MISSED:  "luften og" → "luften, og"
+  MISSED:  "mod ruderrne," → "mod ruderne,"
+  MISSED:  "bogen."
+
+de arbejdede" → "bogen."
+
+De arbejdede"
   MISSED:  "vinkler, fastlagt" → "vinkler fastlagt"
-  MISSED:  "sætninger som" → "sætninger, som"
-  …and 36 more missed
+  …and 32 more missed
+  WRONG-FIX:    "Sytten sting rene stramme fuldstændig ubrugelige" → "Sytten sting rene, stramme, fuldstændig ubrugelige" (right spot, wrong guess)
+  WRONG-FIX:    "om morgenen ringede hun til Ejnar" → "Om morgenen ringede hun til Ejnar" (right spot, wrong guess)
+  WRONG-FIX:    "solveig sov næsten ikke den nat" → "Solveig sov næsten ikke den nat" (right spot, wrong guess)
+  WRONG-FIX:    "om aftenen lavede hun te" → "Om aftenen lavede hun te" (right spot, wrong guess)
+  WRONG-FIX:    "de arbejdede hele eftermiddagen" → "De arbejdede hele eftermiddagen" (right spot, wrong guess)
   WRONG-FIX:    "udkats" → "dukats" (right spot, wrong guess)
   WRONG-FIX:    "hændene" → "hængene" (right spot, wrong guess)
   WRONG-FIX:    "ældeste" → "ædleste" (right spot, wrong guess)
   WRONG-FIX:    "steder, men stregene stod" → "steder, mens tregene stod" (right spot, wrong guess)
-  WRONG-FIX:    "gav arkkene efter af sig selv" → "gav arkken efter af sig selv" (right spot, wrong guess)
-  HALLUCINATED: "vane" → "vanen" (no error there)
-  HALLUCINATED: "der har holdt" → "holdt" (no error there)
-  HALLUCINATED: "Hun lagde fingeren på ryggen" → "Hun lagde fingeren på lægget" (no error there)
-  HALLUCINATED: "Solveig sin mors" → "Solveig hendes mors" (no error there)
+  WRONG-FIX:    "værkstedet er der stadig" → "Værkstedet er der stadig" (right spot, wrong guess)
+  …and 1 more wrong-fix
+  HALLUCINATED: "syet med hørgardn" → "syet med hørgarn" (no error there)
+  HALLUCINATED: "Hun drejede koppen mellem hændene" → "Hun drejede koppen mellem hænderne" (no error there)
+  HALLUCINATED: "hvor lyset var varmerre" → "hvor lyset var varmere" (no error there)
+  HALLUCINATED: "Udenfor slog vinden mod ruderrne" → "Udenfor slog vinden mod ruderne" (no error there)
+  HALLUCINATED: "Hun byggede fejlen." → "Hun byggede fejlen ind." (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress100de_copy_edit.md (copy_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100de_copy_edit.md (copy_edit):
+  MISSED:  "Weber seid elf" → "Weber seit elf"
   MISSED:  "Händen bevor" → "Händen, bevor"
   MISSED:  "zeigen bevor" → "zeigen, bevor"
+  MISSED:  "Regen der" → "Regen, der"
   MISSED:  "Angewohnheit sich" → "Angewohnheit, sich"
   MISSED:  "nie das Stimme," → "nie die Stimme,"
   MISSED:  "Menschen der" → "Menschen, der"
+  MISSED:  "verblasst als" → "verblasst, als"
+  MISSED:  "Papier das" → "Papier, das"
   MISSED:  "Feder die" → "Feder, die"
-  MISSED:  "Notizen klein und dicht die" → "Notizen, klein und dicht, die"
-  MISSED:  "hatte. Der Tinte" → "hatte. Die Tinte"
-  MISSED:  "sagen, das dieses" → "sagen, dass dieses"
-  MISSED:  "Zahnräder grifen ineinander" → "Zahnräder griffen ineinander"
-  …and 21 more missed
+  …and 26 more missed
+  WRONG-FIX:    "das sie über ihren eigenen Vater" → "dass sie über ihren eigenen Vater" (right spot, wrong guess)
   WRONG-FIX:    "Largen" → "Lagen" (right spot, wrong guess)
-  WRONG-FIX:    "besteh" → "besteht" (right spot, wrong guess)
-  WRONG-FIX:    "stand unter der dritte Zeichnung" → "stand unter der dritten Zeichnung" (right spot, wrong guess)
   WRONG-FIX:    "Zahnräder grifen ineinander" → "Zahnräder greifen ineinander" (right spot, wrong guess)
+  WRONG-FIX:    "das dieses Werk" → "dass dieses Werk" (right spot, wrong guess)
   WRONG-FIX:    "Er hob nie das Stimme" → "Er hob nie die Stimme" (right spot, wrong guess)
+  WRONG-FIX:    "seid elf Jahren" → "seit elf Jahren" (right spot, wrong guess)
+  WRONG-FIX:    "besteh" → "beste" (right spot, wrong guess)
+  WRONG-FIX:    "stelte" → "stete" (right spot, wrong guess)
   WRONG-FIX:    "Werbank" → "Wehrbank" (right spot, wrong guess)
   WRONG-FIX:    "Band zusammengebungen." → "Band Zusammengebungen." (right spot, wrong guess)
-  WRONG-FIX:    "den Largen zäh" → "den Lärchen zäh" (right spot, wrong guess)
-  WRONG-FIX:    "der Werbank an." → "der Werbung an." (right spot, wrong guess)
-  WRONG-FIX:    "gereicht"
-
-Konrad" → "gereicht".
-
-Konrad" (right spot, wrong guess)
-  …and 2 more wrong-fix
-  HALLUCINATED: "Warum haben Sie aufgehört" → "Warum haben Sie aufgehört?" (no error there)
-  HALLUCINATED: "die er nie habe erschüttern können" → "die er nie hätte erschüttern können" (no error there)
-  HALLUCINATED: "Wohin wandert es." → "Wohin wandert es?" (no error there)
+  …and 4 more wrong-fix
+  HALLUCINATED: "die elf Monaten" → "die elf Monate" (no error there)
+  HALLUCINATED: "was falsch waren" → "was falsch war" (no error there)
+  HALLUCINATED: "las sie sie nicht" → "las sie nicht" (no error there)
+  HALLUCINATED: "kochte sie tee" → "kochte sie Tee" (no error there)
+  HALLUCINATED: "nicht weg.." → "nicht weg." (no error there)
   HALLUCINATED: "Rothenfels" → "Rotgenfels" (no error there)
   HALLUCINATED: "tintenfleckigen" → "grünfleckigen" (no error there)
   HALLUCINATED: "Zehntelgrad" → "Zehntelegrad" (no error there)
   HALLUCINATED: "mit tintenfleckigen Fingern" → "mit binde-fleckigen Fingern" (no error there)
-  HALLUCINATED: "las sie sie nicht" → "las sie nicht" (no error there)
-  HALLUCINATED: "zwischen Regalen voller stummer Gehäuse" → "zwischen Regalen voller stummer Gehäusen" (no error there)
-  HALLUCINATED: "die wartende Feder" → "die wartende Feder," (no error there)
-  …and 6 more hallucinated
+  HALLUCINATED: "siebzehnzähnige" → "siebzehnjährige" (no error there)
+  …and 1 more hallucinated
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress100es_copy_edit.md (copy_edit):
-  MISSED:  "de tapaz mudas," → "de tapas mudas,"
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100es_copy_edit.md (copy_edit):
+  MISSED:  "decía, sí a" → "decía, si a"
+  MISSED:  "veces la" → "veces, la"
   MISSED:  "ventoso con" → "ventoso, con"
+  MISSED:  "cuidadoso con" → "cuidadoso, con"
   MISSED:  "admitió dejando" → "admitió, dejando"
+  MISSED:  "pliegos cada" → "pliegos, cada"
   MISSED:  "era inconfundibemente la" → "era inconfundiblemente la"
+  MISSED:  "enrevesada una" → "enrevesada, una"
   MISSED:  "notas pequeñas" → "notas, pequeñas"
   MISSED:  "asintió como" → "asintió, como"
-  MISSED:  "la lus de" → "la luz de"
-  MISSED:  ""Encontró" → ""¿Encontró"
-  MISSED:  "cristal y" → "cristal, y"
-  MISSED:  "colas sobre" → "colas, sobre"
-  …and 30 more missed
-  WRONG-FIX:    "la lus de" → "la las de" (right spot, wrong guess)
-  WRONG-FIX:    "entre estantes llenos de tapaz mudas" → "entre estantes llenos de tapas mudas" (right spot, wrong guess)
+  …and 34 more missed
+  WRONG-FIX:    "se vieron aquel mismo día" → "Se vieron aquel mismo día" (right spot, wrong guess)
+  WRONG-FIX:    "por la mañana llamó" → "Por la mañana llamó" (right spot, wrong guess)
+  WRONG-FIX:    "su madre no había sido" → "Su madre no había sido" (right spot, wrong guess)
+  WRONG-FIX:    "la carta dos veces la dejó" → "la carta dos veces y la dejó" (right spot, wrong guess)
+  WRONG-FIX:    "sí a ella le parecía bien" → "si a ella le parecía bien" (right spot, wrong guess)
   WRONG-FIX:    "taler" → "telar" (right spot, wrong guess)
   WRONG-FIX:    "tapaz" → "rapaz" (right spot, wrong guess)
   WRONG-FIX:    "gargarta" → "gargarea" (right spot, wrong guess)
   WRONG-FIX:    "inconfundibemente" → "incontinentemente" (right spot, wrong guess)
-  WRONG-FIX:    "desplasado" → "despasado" (right spot, wrong guess)
-  WRONG-FIX:    "empesado" → "empesador" (right spot, wrong guess)
-  WRONG-FIX:    "el taler de" → "el tales de" (right spot, wrong guess)
-  WRONG-FIX:    "de tapaz mudas," → "de tapás mudas," (right spot, wrong guess)
-  …and 4 more wrong-fix
-  HALLUCINATED: "aun" → "aún" (no error there)
+  WRONG-FIX:    "lus" → "lis" (right spot, wrong guess)
+  …and 8 more wrong-fix
   HALLUCINATED: "responderle" → "responderla" (no error there)
-  HALLUCINATED: "alta," → "alta" (no error there)
-  HALLUCINATED: "de tinta y" → "de tinta, y" (no error there)
-  HALLUCINATED: ""Ésta" → ""Esta" (no error there)
-  HALLUCINATED: "aguantar." → "aguantar."" (no error there)
-  HALLUCINATED: "pliego en pliego."" → "pliegos en pliegos."" (no error there)
+  HALLUCINATED: ""Ésta es" → ""Esta es" (no error there)
   HALLUCINATED: "se rió," → "se rio," (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] stress300en_copy_edit.md (copy_edit):
-  MISSED:  "Station
-
-## One
-
-The" → "Station
-
-## One
-
-The"
-  MISSED:  "submitting.
-
-The" → "submitting.
-
-The"
-  MISSED:  "the sumit." → "the summit."
-  MISSED:  "truck.
-
-The" → "truck.
-
-The"
-  MISSED:  "report.
-
-The" → "report.
-
-The"
-  MISSED:  "know.
-
-## Two
-
-Her" → "know.
-
-## Two
-
-Her"
-  MISSED:  "read.
-
-She" → "read.
-
-She"
-  MISSED:  "sentence.
-
-The" → "sentence.
-
-The"
-  MISSED:  "observations.
-
-Marta" → "observations.
-
-Marta"
-  MISSED:  "it.
-
-Outside," → "it.
-
-Outside,"
-  …and 53 more missed
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress300en_copy_edit.md (copy_edit):
+  MISSED:  "the cheracter of" → "the character of"
+  MISSED:  "repaired colapsed to" → "repaired collapsed to"
+  MISSED:  "have horrifeid the" → "have horrified the"
+  MISSED:  "had enticipated," → "had anticipated,"
+  MISSED:  "an argumant," → "an argument,"
+  MISSED:  "a spreadshet and" → "a spreadsheet and"
   WRONG-FIX:    "stoped" → "stooped" (right spot, wrong guess)
   WRONG-FIX:    "busines" → "busies" (right spot, wrong guess)
   WRONG-FIX:    "sumit" → "suit" (right spot, wrong guess)
   WRONG-FIX:    "importent" → "impotent" (right spot, wrong guess)
   WRONG-FIX:    "humed" → "hued" (right spot, wrong guess)
+  WRONG-FIX:    "manualy" → "manual" (right spot, wrong guess)
   WRONG-FIX:    "evidance" → "deviance" (right spot, wrong guess)
   WRONG-FIX:    "institutional yelow that" → "institutional below that" (right spot, wrong guess)
-  WRONG-FIX:    "Marta always stoped" → "Marta always stopped" (right spot, wrong guess)
   WRONG-FIX:    "visated" → "vitiated" (right spot, wrong guess)
-  WRONG-FIX:    "anual" → "anal" (right spot, wrong guess)
-  …and 37 more wrong-fix
-  HALLUCINATED: "# The Weather Station" → "# The weather station" (no error there)
+  WRONG-FIX:    "carefuly" → "careful" (right spot, wrong guess)
+  …and 32 more wrong-fix
   HALLUCINATED: "uplink" → "up link" (no error there)
+  HALLUCINATED: "corkboard" → "cardboard" (no error there)
   HALLUCINATED: "real and it" → "real, and it" (no error there)
   HALLUCINATED: "Erik and he" → "Erik, and he" (no error there)
-  HALLUCINATED: "facileis" → "facilities" (no error there)
-  HALLUCINATED: "cancels" → "cancel" (no error there)
   HALLUCINATED: "afterwards" → "afterward" (no error there)
-  HALLUCINATED: "recognise" → "recognize" (no error there)
   HALLUCINATED: "reorganised" → "reorganized" (no error there)
-  HALLUCINATED: "snow before the wekend" → "snow before the weekend" (no error there)
-  …and 3 more hallucinated
+  HALLUCINATED: "recognise" → "recognize" (no error there)
+  HALLUCINATED: "constructing an argumant" → "constructing an argument" (no error there)
+  HALLUCINATED: "than she had enticipated" → "than she had anticipated" (no error there)
+  HALLUCINATED: "corkboard" → "cork board" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] danish_line_edit.md (line_edit):
-  MISSED:  "præcis sådan, som hun huskede, at det var:" → "præcis, som hun huskede det:"
+[custom:bethaniel-cloud (deepseek-v4-flash)] stress100fr_copy_edit.md (copy_edit):
+  MISSED:  "qu'il etait mort," → "qu'il était mort,"
+  MISSED:  "père etait un" → "père était un"
+  MISSED:  "Il etait sonneur" → "Il était sonneur"
+  MISSED:  "sourit et" → "sourit, et"
+  MISSED:  "gens croisé sur" → "gens croisés sur"
+  MISSED:  "ne rassemblait pas" → "ne ressemblait pas"
+  MISSED:  "mardi la" → "mardi, la"
+  MISSED:  "Marthe qui" → "Marthe, qui"
+  MISSED:  "le couteaux en" → "le couteau en"
+  MISSED:  "ajouta sous" → "ajouta, sous"
+  …and 16 more missed
+  WRONG-FIX:    "mantau" → "manta" (right spot, wrong guess)
+  WRONG-FIX:    "s'arreta" → "s’arrêta" (right spot, wrong guess)
+  WRONG-FIX:    "n'etait" → "n’était" (right spot, wrong guess)
+  WRONG-FIX:    "revin" → "devin" (right spot, wrong guess)
+  WRONG-FIX:    "france" → "franque" (right spot, wrong guess)
+  WRONG-FIX:    "papié" → "pépia" (right spot, wrong guess)
+  WRONG-FIX:    "temp" → "tempe" (right spot, wrong guess)
+  WRONG-FIX:    "l'idee" → "l’idée" (right spot, wrong guess)
+  WRONG-FIX:    "l'etagère" → "l’étagère" (right spot, wrong guess)
+  WRONG-FIX:    "Sainte-Anne sonait faux" → "Sainte-Anne son ait faux" (right spot, wrong guess)
+  …and 23 more wrong-fix
+  HALLUCINATED: "mars, et personne" → "mars et personne" (no error there)
+  HALLUCINATED: "matin elle notait" → "matin, elle notait" (no error there)
+  HALLUCINATED: "jamais trompée sous" → "jamais trompé sous" (no error there)
+  HALLUCINATED: "Puis elle écrivit" → "Puis, elle écrivit" (no error there)
+  HALLUCINATED: "neuve, et la" → "neuve et la" (no error there)
+  HALLUCINATED: "plus quoi noter :" → "plus que noter :" (no error there)
+  HALLUCINATED: "Puis elle se" → "Puis, elle se" (no error there)
+  HALLUCINATED: "rouvrit, et nota" → "rouvrit et nota" (no error there)
+  HALLUCINATED: "Alors elle fit" → "Alors, elle fit" (no error there)
+  HALLUCINATED: "c'est jamais trompée" → "s'est jamais trompée" (no error there)
+  …and 1 more hallucinated
+
+[custom:bethaniel-cloud (deepseek-v4-flash)] danish_line_edit.md (line_edit):
+  MISSED:  "for allerførste gang i tyve lange år. Jerntrinene lavede en knagende lyd under" → "for første gang i tyve år. Jerntrinene knagede under"
+  MISSED:  "pudset op til" → "pudset til"
+  MISSED:  "linse, der var tavs og vågen, og en logbog, der lå" → "linse lå tavs og vågen, og en logbog lå"
   MISSED:  "sig der og" → "sig og"
-  MISSED:  "brevet at sige, "hvis du læser dette brev," → "brevet, "hvis du læser dette,"
   MISSED:  "sandheden personligt selv. Vær venlig at tilgive en gammel mand for hans" → "sandheden selv. Tilgiv en gammel mand hans"
-  MISSED:  "langsomt og forsigtigt." → "langsomt."
+  MISSED:  "rejst, og han skrev om" → "rejst, om"
   MISSED:  "skrænten, og han skrev om kvinden, som han selv havde" → "skrænten, om kvinden, han havde"
   MISSED:  "valg, som han" → "valg, han"
   MISSED:  "var præcis det, jeg bad dig om at kalde mig. Jeg er meget ked" → "var det, jeg bad dig kalde mig. Jeg er ked"
-  MISSED:  "for den løgn, jeg fortalte, og måske en lille smule mere, fordi jeg vidste godt, hvad den kostede mig at gøre."" → "for løgnens skyld, og måske en smule mere, fordi jeg vidste, hvad den kostede.""
   MISSED:  "ømhed, næsten som om en dør, som hun aldrig nogensinde før havde" → "ømhed, som om en dør, hun aldrig havde"
-  …and 1 more missed
-  WRONG-FIX:    "år. Jerntrinene lavede" → "år. Jernringene lavede" (right spot, wrong guess)
-  WRONG-FIX:    "lange år." → "år." (right spot, wrong guess)
-  WRONG-FIX:    "huskede, at det var:" → "huskede:" (right spot, wrong guess)
-  WRONG-FIX:    "linse, der var" → "linse var" (right spot, wrong guess)
-  WRONG-FIX:    "der på det sted for" → "her for" (right spot, wrong guess)
-  WRONG-FIX:    "af det med" → "med" (right spot, wrong guess)
-  WRONG-FIX:    "selv ned," → "ned," (right spot, wrong guess)
-  WRONG-FIX:    "var begyndt at starte med at ryste," → "startede at ryste," (right spot, wrong guess)
-  WRONG-FIX:    "sig selv hvorfor." → "sig selv, hvorfor." (right spot, wrong guess)
-  WRONG-FIX:    "begyndte brevet at sige," → "sagde brevet," (right spot, wrong guess)
-  …and 14 more wrong-fix
-  HALLUCINATED: "eller forrådt," → "forrådt" (no error there)
+  WRONG-FIX:    "netop kun var" → "var" (right spot, wrong guess)
+  WRONG-FIX:    "det forstod" → "forstod" (right spot, wrong guess)
+  WRONG-FIX:    "glas på den" → "glas" (right spot, wrong guess)
+  WRONG-FIX:    "bogen i en lukkende bevægelse." → "bogen." (right spot, wrong guess)
+  WRONG-FIX:    "rum, som hun kendte godt" → "rum" (right spot, wrong guess)
+  WRONG-FIX:    "som hun aldrig nogensinde før" → "hun aldrig før" (right spot, wrong guess)
+  WRONG-FIX:    "tidspunktet for hendes" → "hendes" (right spot, wrong guess)
+  WRONG-FIX:    "mig at gøre" → "mig" (right spot, wrong guess)
+  WRONG-FIX:    "Jeg er meget ked af det." → "Jeg er ked af det." (right spot, wrong guess)
+  WRONG-FIX:    "dengang på det tidspunkt" → "dengang" (right spot, wrong guess)
+  …and 16 more wrong-fix
+  HALLUCINATED: "sin håndflade fladt mod" → "håndfladen mod" (no error there)
+  HALLUCINATED: "trapper" → "trin" (no error there)
+  HALLUCINATED: "Øverst oppe var lanternerummet" → "Øverst var lanternerummet" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] english_line_edit.md (line_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] english_line_edit.md (line_edit):
   MISSED:  "Mara went up the" → "Mara climbed the"
   MISSED:  "remembered it to be:" → "remembered:"
   MISSED:  "logbook that was open" → "logbook open"
-  MISSED:  "windowsill. There was no dust there. Someone had been there in that place recently." → "windowsill. No dust. Someone had been here recently."
-  MISSED:  "began to say," → "began,"
+  MISSED:  "logbook, with her" → "logbook, her"
+  MISSED:  "this letter," → "this,"
   MISSED:  "truth by myself in person. Please forgive an old man for his" → "truth myself. Forgive an old man his"
   MISSED:  "slowly and carefully." → "slowly."
   MISSED:  "left, and he wrote about" → "left, about"
   MISSED:  "cliff, and he wrote about the woman that he" → "cliff, about the woman he"
   MISSED:  "choice that he" → "choice he"
-  …and 7 more missed
-  WRONG-FIX:    "that she had only just barely begun" → "which she'd only just begun" (right spot, wrong guess)
+  …and 5 more missed
+  WRONG-FIX:    "barely begun" → "begun" (right spot, wrong guess)
   WRONG-FIX:    "understood at this point," → "understood," (right spot, wrong guess)
-  WRONG-FIX:    "single direction, and somewhere" → "direction; somewhere" (right spot, wrong guess)
-  WRONG-FIX:    "book in a closing motion. She stood up, walked over to the great lens, and" → "book, stood, and" (right spot, wrong guess)
-  WRONG-FIX:    "room that she knew" → "room she knew" (right spot, wrong guess)
-  WRONG-FIX:    "before had opened up in a" → "had opened in the" (right spot, wrong guess)
-  WRONG-FIX:    "almost as though a door that she had never" → "as if a door she'd never" (right spot, wrong guess)
-  WRONG-FIX:    "me to do."" → "me."" (right spot, wrong guess)
-  WRONG-FIX:    "that I told, and perhaps" → "I told, perhaps" (right spot, wrong guess)
-  WRONG-FIX:    "secret, and he wrote about the" → "secret and the" (right spot, wrong guess)
-  …and 12 more wrong-fix
-  HALLUCINATED: "or betrayed," → "betrayed," (no error there)
-  HALLUCINATED: "I am sorry" → "I'm sorry" (no error there)
-  HALLUCINATED: "that is what" → "that's what" (no error there)
-  HALLUCINATED: "had driven a" → "drove a" (no error there)
-  HALLUCINATED: "decades, and now, three" → "decades; three" (no error there)
-  HALLUCINATED: "salt air" → "air" (no error there)
+  WRONG-FIX:    "room that she knew well." → "room." (right spot, wrong guess)
+  WRONG-FIX:    "before had opened up in" → "had opened in" (right spot, wrong guess)
+  WRONG-FIX:    "door that she had" → "door she had" (right spot, wrong guess)
+  WRONG-FIX:    "really want" → "want" (right spot, wrong guess)
+  WRONG-FIX:    "the process of trembling and" → "to tremble and" (right spot, wrong guess)
+  WRONG-FIX:    "herself down" → "down" (right spot, wrong guess)
+  WRONG-FIX:    "handwriting hand." → "handwriting." (right spot, wrong guess)
+  WRONG-FIX:    "of it in" → "in" (right spot, wrong guess)
+  …and 3 more wrong-fix
 
-[Qwen3.5-4B-Q4_K_M.gguf] german_line_edit.md (line_edit):
-  MISSED:  "zum allerersten Mal seit zwanzig langen Jahren" → "zum ersten Mal seit zwanzig Jahren"
+[custom:bethaniel-cloud (deepseek-v4-flash)] german_line_edit.md (line_edit):
   MISSED:  "Stufen machten ein ächzendes Geräusch unter" → "Stufen ächzten unter"
-  MISSED:  "Freund war. Ihr Großvater, der ihr Großvater war, hatte diesen Leuchtturm einen Zeitraum von vier Jahrzehnten lang" → "Freund. Ihr Großvater hatte diesen Leuchtturm vier Jahrzehnte lang"
-  MISSED:  "in ihrer Erinnerung in Erinnerung hatte: die Messingbeschläge, die zu" → "in Erinnerung hatte: die Messingbeschläge zu"
-  MISSED:  "poliert worden waren, die große Linse, die still und wachsam war, ein Logbuch, das aufgeschlagen auf dem kleinen Eichentisch lag. Sie stellte ihre Tasche dort ab" → "poliert, die große Linse still und wachsam, ein Logbuch aufgeschlagen auf dem kleinen Eichentisch. Sie stellte ihre Tasche ab"
+  MISSED:  "Luft mit Salz darin drückte gegen die schmalen Fenster auf eine Art und Weise, die wie" → "Luft drückte gegen die schmalen Fenster wie"
   MISSED:  "die Kante der Fensterbank gleiten. Es gab dort keinen Staub. Irgendjemand war vor Kurzem dort an diesem Ort gewesen." → "die Fensterbank gleiten. Kein Staub. Jemand war vor Kurzem hier gewesen."
   MISSED:  "Brief zu sagen, „wenn du diesen Brief gerade liest," → "Brief, „wenn du dies liest,"
-  MISSED:  "Wahrheit persönlich selbst zu sagen. Bitte vergib einem alten Mann für seine" → "Wahrheit selbst zu sagen. Vergib einem alten Mann seine"
   MISSED:  "langsam und sorgfältig." → "langsam."
+  MISSED:  "war, und er schrieb über" → "war, über"
+  MISSED:  "hatte, und er schrieb über die Frau, die er selbst aus" → "hatte, über die Frau, die er aus"
+  MISSED:  "und er schrieb über" → "und über"
   MISSED:  "hatte, damit er auf sie aufpasste.
 
 „Du warst damals zu jenem Zeitpunkt drei" → "hatte.
 
 „Du warst drei"
-  …and 12 more missed
-  WRONG-FIX:    "legte die flache" → "legte ihre flache" (right spot, wrong guess)
-  WRONG-FIX:    "Mara legte den Brief auf dem Eichentisch beiseite." → "Mara legte den Brief auf den Eichentisch." (right spot, wrong guess)
-  WRONG-FIX:    "hatte. Er schrieb über" → "hatte, über" (right spot, wrong guess)
-  WRONG-FIX:    "Sie las langsam und sorgfältig. Er" → "Er" (right spot, wrong guess)
-  WRONG-FIX:    "machten ein ächzendes Geräusch unter" → "knisterten unter" (right spot, wrong guess)
-  WRONG-FIX:    "auf eine" → "mit einer" (right spot, wrong guess)
-  WRONG-FIX:    "vor Kurzem dort an diesem Ort gewesen." → "kürzlich dort gewesen." (right spot, wrong guess)
-  WRONG-FIX:    "sich selbst hin," → "sich," (right spot, wrong guess)
-  WRONG-FIX:    "hatten begonnen, anzufangen zu zittern, und" → "zitterten bereits, und" (right spot, wrong guess)
-  WRONG-FIX:    "wirklich eingestehen," → "eingestehen," (right spot, wrong guess)
-  …and 8 more wrong-fix
-  HALLUCINATED: "geführt, und nun," → "geführt; nun," (no error there)
-  HALLUCINATED: "jene Frau in" → "er in" (no error there)
-  HALLUCINATED: "aus, und irgendwo" → "aus; irgendwo" (no error there)
+  MISSED:  "er in seiner Schrift." → "er."
+  …and 6 more missed
+  WRONG-FIX:    "hatte, anzufangen, kennenzulernen" → "hatte kennenzulernen" (right spot, wrong guess)
+  WRONG-FIX:    "dachte bei sich selbst, dass sie wirklich wütend, oder verraten," → "dachte, dass sie wütend, verraten" (right spot, wrong guess)
+  WRONG-FIX:    "Wasser zu ziehen" → "Wasser" (right spot, wrong guess)
+  WRONG-FIX:    "waren die Möwen dabei, langsame" → "zogen die Möwen langsame" (right spot, wrong guess)
+  WRONG-FIX:    "kostete zu tun" → "kostete" (right spot, wrong guess)
+  WRONG-FIX:    "Es tut mir sehr leid darüber" → "Es tut mir sehr leid" (right spot, wrong guess)
+  WRONG-FIX:    "selbst zu" → "zu" (right spot, wrong guess)
+  WRONG-FIX:    "begann der Brief zu sagen" → "stand in dem Brief" (right spot, wrong guess)
+  WRONG-FIX:    "hatten begonnen, anzufangen zu zittern" → "hatten begonnen zu zittern" (right spot, wrong guess)
+  WRONG-FIX:    "aufmachte und öffnete" → "öffnete" (right spot, wrong guess)
+  …and 6 more wrong-fix
+  HALLUCINATED: "einem sanften Glanz" → "sanftem Glanz" (no error there)
 
-[Qwen3.5-4B-Q4_K_M.gguf] spanish_line_edit.md (line_edit):
+[custom:bethaniel-cloud (deepseek-v4-flash)] spanish_line_edit.md (line_edit):
   MISSED:  "subió por la" → "subió la"
-  MISSED:  "pasado finalmente por" → "pasado por"
   MISSED:  "hasta llegar a un" → "hasta un"
-  MISSED:  "bitácora que estaba abierto" → "bitácora abierto"
   MISSED:  "bolso allí y" → "bolso y"
-  MISSED:  "allí en ese lugar hacía poco tiempo." → "allí hacía poco."
+  MISSED:  "alféizar de la ventana. No había nada de polvo allí." → "alféizar. No había polvo."
   MISSED:  "descansaba debajo del cuaderno," → "descansaba bajo el cuaderno,"
+  MISSED:  "marchado, y escribía sobre" → "marchado, sobre"
   MISSED:  "que él había" → "que había"
+  MISSED:  "y escribía sobre" → "y sobre"
   MISSED:  "escritorio de roble. Afuera, las gaviotas estaban trazando círculos" → "escritorio. Afuera, las gaviotas trazaban círculos"
-  MISSED:  "se estaba moviendo con" → "se movía con"
-  …and 2 more missed
-  WRONG-FIX:    "a mí hacerlo»." → "hacerlo.»" (right spot, wrong guess)
-  WRONG-FIX:    "hicieron un sonido de gemido" → "emitieron un gemido" (right spot, wrong guess)
-  WRONG-FIX:    "un período de cuatro" → "cuatro" (right spot, wrong guess)
-  WRONG-FIX:    "recordaba que era:" → "recordaba:" (right spot, wrong guess)
-  WRONG-FIX:    "nada de polvo" → "polvo" (right spot, wrong guess)
-  WRONG-FIX:    "allí en ese lugar hacía poco tiempo." → "hace poco." (right spot, wrong guess)
-  WRONG-FIX:    "a sí misma antes de proceder a abrirla," → "antes de abrirla," (right spot, wrong guess)
-  WRONG-FIX:    "las rodillas le habían comenzado a empezar a temblar y ella no quería admitirse a sí misma por qué estaba sucediendo eso." → "sus rodillas empezaban a temblar y no quería admitir por qué sucedía eso." (right spot, wrong guess)
-  WRONG-FIX:    "a decir la" → "la" (right spot, wrong guess)
-  WRONG-FIX:    "esta carta," → "esto," (right spot, wrong guess)
-  …and 15 more wrong-fix
-  HALLUCINATED: "por fin a" → "a" (no error there)
-  HALLUCINATED: "o traicionada," → "traicionada," (no error there)
-  HALLUCINATED: "solo una" → "una" (no error there)
+  MISSED:  "deriva de alguna forma." → "deriva."
+  …and 3 more missed
+  WRONG-FIX:    "encendería la lámpara hacia arriba" → "encendería la lámpara" (right spot, wrong guess)
+  WRONG-FIX:    "entendía en ese momento," → "entendía," (right spot, wrong guess)
+  WRONG-FIX:    "y cada una de las" → "las" (right spot, wrong guess)
+  WRONG-FIX:    "su mano plana contra" → "la mano contra" (right spot, wrong guess)
+  WRONG-FIX:    "familiar que ella conocía bien" → "familiar" (right spot, wrong guess)
+  WRONG-FIX:    "del momento en que ella había nacido" → "de que ella naciera" (right spot, wrong guess)
+  WRONG-FIX:    "a mí hacerlo" → "hacerlo" (right spot, wrong guess)
+  WRONG-FIX:    "llamaras a mí" → "llamaras" (right spot, wrong guess)
+  WRONG-FIX:    "a mí porque" → "porque" (right spot, wrong guess)
+  WRONG-FIX:    "—escribió en su escritura—" → "—escribió—" (right spot, wrong guess)
+  …and 13 more wrong-fix
+  HALLUCINATED: "a pasar la" → "la" (no error there)
 
 
 ── END OF REPORT ──

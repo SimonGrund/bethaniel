@@ -1,11 +1,11 @@
 [
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "danish_copy_edit.md",
     "language": "danish",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 3,
     "runtimeMs": 44031,
     "corrections": [
@@ -47,12 +47,12 @@
     "runDate": "2026-09-09T14:30:59.872Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "danish_correct.md",
     "language": "danish",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 2,
     "runtimeMs": 53103,
     "corrections": [
@@ -84,12 +84,12 @@
     "runDate": "2026-09-09T14:30:59.875Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "danish_correct.md",
     "language": "danish",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 3,
     "runtimeMs": 65161,
     "corrections": [
@@ -132,12 +132,12 @@
     "runDate": "2026-09-09T14:30:59.887Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "danish_line_edit.md",
     "language": "danish",
     "variant": "line_edit",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 48,
     "runtimeMs": 137544,
     "corrections": [
@@ -628,12 +628,12 @@
     "runDate": "2026-09-09T14:30:59.902Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "english_copy_edit.md",
     "language": "english",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 14,
     "runtimeMs": 95323,
     "corrections": [
@@ -797,12 +797,12 @@
     "runDate": "2026-09-09T14:30:59.917Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "english_correct.md",
     "language": "english",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 2,
     "runtimeMs": 41015,
     "corrections": [
@@ -835,12 +835,12 @@
     "runDate": "2026-09-09T14:30:59.932Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "english_correct.md",
     "language": "english",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 12,
     "runtimeMs": 62153,
     "corrections": [
@@ -977,12 +977,12 @@
     "runDate": "2026-09-09T14:30:59.948Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "english_line_edit.md",
     "language": "english",
     "variant": "line_edit",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 33,
     "runtimeMs": 98338,
     "corrections": [
@@ -1324,12 +1324,12 @@
     "runDate": "2026-09-09T14:30:59.964Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "german_copy_edit.md",
     "language": "german",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 12,
     "runtimeMs": 59138,
     "corrections": [
@@ -1469,12 +1469,12 @@
     "runDate": "2026-09-09T14:30:59.980Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "german_correct.md",
     "language": "german",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 2,
     "runtimeMs": 28953,
     "corrections": [
@@ -1506,12 +1506,12 @@
     "runDate": "2026-09-09T14:30:59.995Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "german_correct.md",
     "language": "german",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 2,
     "runtimeMs": 53092,
     "corrections": [
@@ -1541,12 +1541,12 @@
     "runDate": "2026-09-09T14:31:00.011Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "german_line_edit.md",
     "language": "german",
     "variant": "line_edit",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 32,
     "runtimeMs": 95321,
     "corrections": [
@@ -1875,12 +1875,12 @@
     "runDate": "2026-09-09T14:31:00.012Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "spanish_copy_edit.md",
     "language": "spanish",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 13,
     "runtimeMs": 59131,
     "corrections": [
@@ -2029,12 +2029,12 @@
     "runDate": "2026-09-09T14:31:00.026Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "spanish_correct.md",
     "language": "spanish",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 1,
     "runtimeMs": 34974,
     "corrections": [
@@ -2055,12 +2055,12 @@
     "runDate": "2026-09-09T14:31:00.027Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "spanish_correct.md",
     "language": "spanish",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 1,
     "runtimeMs": 68174,
     "corrections": [
@@ -2081,12 +2081,12 @@
     "runDate": "2026-09-09T14:31:00.042Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "spanish_line_edit.md",
     "language": "spanish",
     "variant": "line_edit",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 43,
     "runtimeMs": 74202,
     "corrections": [
@@ -2525,12 +2525,12 @@
     "runDate": "2026-09-09T14:31:00.058Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100_copy_edit.md",
     "language": "stress100",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 100,
     "runtimeMs": 336235,
     "corrections": [
@@ -3636,12 +3636,12 @@
     "runDate": "2026-09-09T14:31:00.073Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100_correct.md",
     "language": "stress100",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 1,
     "runtimeMs": 31960,
     "corrections": [
@@ -3662,12 +3662,12 @@
     "runDate": "2026-09-09T14:31:00.089Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100_correct.md",
     "language": "stress100",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 60,
     "runtimeMs": 179725,
     "corrections": [
@@ -4323,12 +4323,12 @@
     "runDate": "2026-09-09T14:31:00.105Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100b_copy_edit.md",
     "language": "stress100b",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 68,
     "runtimeMs": 206828,
     "corrections": [
@@ -5103,12 +5103,12 @@
     "runDate": "2026-09-09T14:31:00.120Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100b_correct.md",
     "language": "stress100b",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 23,
     "runtimeMs": 95315,
     "corrections": [
@@ -5384,12 +5384,12 @@
     "runDate": "2026-09-09T14:31:00.136Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100b_correct.md",
     "language": "stress100b",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 29,
     "runtimeMs": 74199,
     "corrections": [
@@ -5714,12 +5714,12 @@
     "runDate": "2026-09-09T14:31:00.152Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100da_copy_edit.md",
     "language": "stress100da",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 75,
     "runtimeMs": 330226,
     "corrections": [
@@ -6512,12 +6512,12 @@
     "runDate": "2026-09-09T14:31:00.168Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100da_correct.md",
     "language": "stress100da",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 0,
     "runtimeMs": 197786,
     "corrections": [],
@@ -6525,12 +6525,12 @@
     "runDate": "2026-09-09T14:31:00.184Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100da_correct.md",
     "language": "stress100da",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 0,
     "runtimeMs": 248946,
     "corrections": [],
@@ -6538,12 +6538,12 @@
     "runDate": "2026-09-09T14:31:00.199Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100de_copy_edit.md",
     "language": "stress100de",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 95,
     "runtimeMs": 300114,
     "corrections": [
@@ -7593,12 +7593,12 @@
     "runDate": "2026-09-09T14:31:00.215Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100de_correct.md",
     "language": "stress100de",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 7,
     "runtimeMs": 59125,
     "corrections": [
@@ -7691,12 +7691,12 @@
     "runDate": "2026-09-09T14:31:00.230Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100de_correct.md",
     "language": "stress100de",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 19,
     "runtimeMs": 282050,
     "corrections": [
@@ -7918,12 +7918,12 @@
     "runDate": "2026-09-09T14:31:00.246Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100es_copy_edit.md",
     "language": "stress100es",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 86,
     "runtimeMs": 282049,
     "corrections": [
@@ -8882,12 +8882,12 @@
     "runDate": "2026-09-09T14:31:00.247Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100es_correct.md",
     "language": "stress100es",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 4,
     "runtimeMs": 68169,
     "corrections": [
@@ -8944,12 +8944,12 @@
     "runDate": "2026-09-09T14:31:00.263Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress100es_correct.md",
     "language": "stress100es",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 12,
     "runtimeMs": 215839,
     "corrections": [
@@ -9092,12 +9092,12 @@
     "runDate": "2026-09-09T14:31:00.277Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress300en_copy_edit.md",
     "language": "stress300en",
     "variant": "copy_edit",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 182,
     "runtimeMs": 604192,
     "corrections": [
@@ -11130,12 +11130,12 @@
     "runDate": "2026-09-09T14:31:00.293Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress300en_correct.md",
     "language": "stress300en",
     "variant": "correct",
     "mode": "copy_edit",
-    "repeatIndex": 1,
     "correctionsFound": 10,
     "runtimeMs": 221851,
     "corrections": [
@@ -11261,12 +11261,12 @@
     "runDate": "2026-09-09T14:31:00.308Z"
   },
   {
+    "repeatIndex": 1,
     "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
     "file": "stress300en_correct.md",
     "language": "stress300en",
     "variant": "correct",
     "mode": "line_edit",
-    "repeatIndex": 1,
     "correctionsFound": 61,
     "runtimeMs": 233892,
     "corrections": [
@@ -11939,5 +11939,1814 @@
     ],
     "errors": [],
     "runDate": "2026-09-09T14:31:00.324Z"
+  },
+  {
+    "repeatIndex": 1,
+    "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
+    "file": "stress100fr_correct.md",
+    "language": "stress100fr",
+    "variant": "correct",
+    "mode": "copy_edit",
+    "correctionsFound": 9,
+    "runtimeMs": 93467,
+    "corrections": [
+      {
+        "original": "rouvrit, et nota",
+        "corrected": "rouvrit et nota",
+        "reason": "grammar:ponctuation_style_os",
+        "confidence": 4,
+        "reviewReason": "Removes a comma before 'et nota' — cleaner and grammatically fine.",
+        "chunk": "Chunk 1/1",
+        "id": "3181d3cd-e3ad-4d8d-a6fd-11209a29e85b",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "matin elle notait",
+        "corrected": "matin, elle notait",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 4,
+        "reviewReason": "Adds a comma after the introductory adverb 'matin' — improves clarity.",
+        "chunk": "Chunk 1/1",
+        "id": "c322f5c7-046f-411a-b9cf-7c4bd8b3f115",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "mars, et personne",
+        "corrected": "mars et personne",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Removes a comma that is grammatically acceptable and stylistically fine — unnecessary change.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "76c2e85d-879a-4f15-b932-9a988c07835d",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "ans, et le",
+        "corrected": "ans et le",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Removes a comma that is acceptable and aids readability — unnecessary change.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "9831b2cf-65b4-4a1e-bef1-9409c5bb5e7d",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "Puis elle écrivit",
+        "corrected": "Puis, elle écrivit",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Adds a comma after 'Puis' where the original was already correct — unnecessary punctuation.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "34d55b7d-1051-4404-a4eb-1df24437990f",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "neuve, et la",
+        "corrected": "neuve et la",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Removes a comma that is acceptable and aids readability — unnecessary change.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "9059011b-0abf-4f6c-862b-2cb452c8edf4",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "plus quoi noter :",
+        "corrected": "plus que noter :",
+        "reason": "grammar:cat_regles_de_base",
+        "confidence": 1,
+        "reviewReason": "Changes 'quoi' to 'que' — alters meaning; 'plus quoi noter' is correct French here.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "c1f753ea-276c-4dea-ab55-e10433ac56b4",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Puis elle se",
+        "corrected": "Puis, elle se",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Adds a comma after 'Puis' where the original was already correct — unnecessary punctuation.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "022638b5-b419-40ee-b19d-e8dbc13cd54a",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "Alors elle fit",
+        "corrected": "Alors, elle fit",
+        "reason": "grammar:ponctuation_virgule",
+        "confidence": 2,
+        "reviewReason": "Adds a comma after 'Alors' where the original was already correct — unnecessary punctuation.",
+        "flagged": true,
+        "chunk": "Chunk 1/1",
+        "id": "35234810-f7b2-4d53-8940-a87d3077ad84",
+        "blocksPublication": false,
+        "polishOnly": true
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-09-18T11:25:09.994Z",
+    "env": {
+      "languageTool": true,
+      "parallel": 24,
+      "editOptions": {
+        "spelling": true,
+        "punctuation": true,
+        "capitalization": true,
+        "duplicateWords": true,
+        "englishDialect": "american",
+        "oxfordComma": true,
+        "dialogueTags": false
+      },
+      "resolvedModel": null
+    }
+  },
+  {
+    "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
+    "file": "stress100fr_copy_edit.md",
+    "language": "stress100fr",
+    "variant": "copy_edit",
+    "mode": "copy_edit",
+    "repeatIndex": 1,
+    "correctionsFound": 151,
+    "runtimeMs": 16760,
+    "corrections": [
+      {
+        "original": "sonait",
+        "corrected": "sonnait",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "2f9c53f4-8ff0-4ddf-a63a-6d72dc935173",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "vilage",
+        "corrected": "village",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "ed330baf-3487-4766-9d52-48c868b3a217",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "felée",
+        "corrected": "fêlée",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "3d01d87e-4c47-4e72-bab8-f6a8ec45c2fb",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "cuisinne",
+        "corrected": "cuisine",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "8f7e864e-da9e-442c-8edb-2bacae6029cf",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "carnnet",
+        "corrected": "carnet",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "cc0c3337-6062-4ca8-ab38-ff13577d5c44",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "deuxieme",
+        "corrected": "deuxième",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "792fa1a9-e4b9-4e22-bbb7-4aa8d55a508f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "ecrivit",
+        "corrected": "écrivit",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "915afd16-d1bc-478f-a2de-453d30290f88",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "mantau",
+        "corrected": "manta",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9e897f37-7f6e-4470-82cf-966e409bcb5f",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "pere",
+        "corrected": "père",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "811555b7-c045-423d-babb-6de8f00fbd4f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "cièrges",
+        "corrected": "cierges",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c7a71f6b-4947-4c8d-b2a6-8da2c32d0a81",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "mecanisme",
+        "corrected": "mécanisme",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7c7c7417-044a-4734-b99c-8f52da380943",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "repondit",
+        "corrected": "répondit",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "a49062a1-3363-43a3-8cc0-6a3dfcb3b453",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "penombre",
+        "corrected": "pénombre",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "6ecebf49-b5c7-4bbd-bb95-fa4f75164b10",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "eclairer",
+        "corrected": "éclairer",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "eeee26d6-e993-427b-a089-04b6543ffb4e",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "deja",
+        "corrected": "déjà",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "fbf02e16-b836-48ea-98a1-0e2549e3239e",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "etaient",
+        "corrected": "étaient",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "33144853-575a-4b57-b699-aeecbdd7aadb",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "s'arreta",
+        "corrected": "s’arrêta",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "bfa9ce4a-e09d-4e39-86b9-e8505a483733",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "n'etait",
+        "corrected": "n’était",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9a40a4ed-f9e8-4b90-8526-678d25c94e1c",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "ecrites",
+        "corrected": "écrites",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "8e6b9b35-3db2-4bbf-b1a6-388a5ddf3582",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "journee",
+        "corrected": "journée",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "4365d8e6-1aa4-472b-b2f0-0c2f8d97b4a2",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "peut-etre",
+        "corrected": "peut-être",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "61e65017-2102-4b2e-8af1-71d69c3361a8",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "ecrit",
+        "corrected": "écrit",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "80936a61-894a-4ac9-a235-62d735de83ff",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "plui",
+        "corrected": "plu",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c8afc981-4eb3-44b1-af36-9dea8d1fcca9",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "echelle",
+        "corrected": "échelle",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "cd53bddf-d984-4f49-a492-83343dbdb731",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "vehicule",
+        "corrected": "véhicule",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "693da3c1-d6aa-4cd2-bbf3-9c08d50ffe08",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "fenetre",
+        "corrected": "fenêtre",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "fcf3ac74-4ddd-4557-8285-8082bb14f7f4",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "clochet",
+        "corrected": "clocher",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "8b36c4ea-8e94-49bc-b2a1-20ca2ddc3870",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "revin",
+        "corrected": "devin",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "659d2546-38e1-42b7-8cb0-77748ecc4d0c",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "pagge",
+        "corrected": "page",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "b0817ce8-1674-4eae-9f85-c1d60e721807",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "cafe",
+        "corrected": "café",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d30c282e-1257-4f11-a158-f3f44fe02169",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "france",
+        "corrected": "franque",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "13e27b89-7d3d-4433-99d5-b9677c6e5771",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "déja",
+        "corrected": "déjà",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "aaea4db6-cee4-4891-a5ff-1fe1f8b3f53f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "cimetiere",
+        "corrected": "cimetière",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "b3be2f08-3015-48f6-a789-7b633c9be885",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "epoque",
+        "corrected": "époque",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "97108d4d-08b7-480b-932d-44ecd5b50a17",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "prètre",
+        "corrected": "prêtre",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d40a8c9b-69f6-4806-aec1-e6692ff64ec5",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "papié",
+        "corrected": "pépia",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "00b270c3-91d7-4359-b885-41a5d2449e4c",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "repondre",
+        "corrected": "répondre",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "888cfef6-d40d-40a8-8567-e9e7c5da3d70",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "bache",
+        "corrected": "bâche",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "78188be8-2cf2-4f9a-80cc-38d163a1f5b5",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "ecouta",
+        "corrected": "écouta",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7a2c40fb-9678-4e7a-b1bf-58737b285074",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "ecrire",
+        "corrected": "écrire",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "e0b9d46c-c738-4f23-a461-9866a3c539e1",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "temp",
+        "corrected": "tempe",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "52efa521-56fa-47d9-8fb3-a52c18da6a1b",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "nombreu",
+        "corrected": "nombre",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "758bb67c-a590-4ff9-8f01-20348f41faf1",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "l'idee",
+        "corrected": "l’idée",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "60fcde8a-3cee-4459-b1d2-be019855543c",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "fevrier",
+        "corrected": "février",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "24a1899f-384b-40a2-8f22-662f0ffa46f5",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "inquieta",
+        "corrected": "inquiéta",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d06ee5e3-18a5-4c81-9b1f-016e62bd8bee",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "testement",
+        "corrected": "testament",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "47ae64c6-da4e-4e02-beae-be084c90277d",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "meme",
+        "corrected": "même",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "939cad56-a4fb-4729-917d-87c93c29e630",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "tete",
+        "corrected": "tête",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "93dcff72-b985-48b3-85ca-b47e42fc62f5",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "pluspart",
+        "corrected": "plupart",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d0dddf3b-6a6d-4505-a7af-941486ef649d",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "l'etagère",
+        "corrected": "l’étagère",
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "984850d5-4f4c-4378-908a-97e486c24cee",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "recite",
+        "corrected": "récite",
+        "preApproved": true,
+        "reason": "spell-check",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d423a0bf-fab6-4032-b621-f7b7a36d34e3",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Sainte-Anne sonait faux",
+        "corrected": "Sainte-Anne son ait faux",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d5c22d03-61e9-48f7-a876-aee4cc188461",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "mars, et personne",
+        "corrected": "mars et personne",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "1f5f8f0e-a505-4310-9014-bbe8b997a7be",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "vieil homme homme répète",
+        "corrected": "vieil homme répète",
+        "reason": "grammar:cat_regles_de_base",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9bc78f7d-ebe9-4359-8f2b-23375851b76d",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "matin elle notait",
+        "corrected": "matin, elle notait",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "bbaa9526-2467-4d65-8358-728ba65b1b86",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "carnet a couverture",
+        "corrected": "carnet à couverture",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "2c19519a-a3db-4e88-b267-1c27cba8c56f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "entrouverte elle voyait",
+        "corrected": "entrouverte, elle voyait",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "14e45121-a20d-4db6-b839-d3511b87ea07",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "ne c'est jamais",
+        "corrected": "ne s'est jamais",
+        "reason": "grammar:cat_homonymes_paronymes",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "74cc5fe1-729c-427b-a928-39d73cce0488",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "jamais trompée sous",
+        "corrected": "jamais trompé sous",
+        "reason": "grammar:cat_calques",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "85b81452-8f0e-4bd4-91e0-4d41af47dee8",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "faisaient tout les",
+        "corrected": "faisaient tous les",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "557a9dc3-3605-4d5e-bcf0-6e7f292d075c",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "ans, et le",
+        "corrected": "ans et le",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "147bb644-de40-417d-876c-f053923052cd",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "s'arreta devant",
+        "corrected": "s'arrêta devant",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "6b204201-1cff-4d22-bc58-0aa24bb17654",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "n'etait pas",
+        "corrected": "n'était pas",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "6c4c427d-33f9-4645-bc08-7cd9d87285cb",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "jeudi elle sonna",
+        "corrected": "jeudi, elle sonna",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "20ce1bcd-db03-4fb6-9427-cfa655054019",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "s'arrêta le couteaux en",
+        "corrected": "s'arrêta les couteaux en",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "023445b3-ebd1-4d34-9042-0fe2cbfc9c09",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "place. deux hommes",
+        "corrected": "place. Deux hommes",
+        "reason": "grammar:casing",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "91978c37-a9fd-40f5-8f42-3b99c099beec",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "mains a un",
+        "corrected": "mains à un",
+        "reason": "grammar:cat_homonymes_paronymes",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "eb8cfa72-e073-4108-a0e8-df73604057cd",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "silence revin.",
+        "corrected": "silence Revin.",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "73ffa72b-ab85-401d-876e-aac5276cca0b",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Puis elle écrivit",
+        "corrected": "Puis, elle écrivit",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "2eb9f2e5-a905-4b5c-b714-ebcded6a2432",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "s'assit a la",
+        "corrected": "s'assit à la",
+        "reason": "grammar:cat_homonymes_paronymes",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7f6d5c70-1aeb-4ff3-9340-ec19839e6d3d",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "avaient trouver :",
+        "corrected": "avaient trouvé :",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "3590254b-7abe-4121-aafe-a199032ed8c1",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "neuve, et la",
+        "corrected": "neuve et la",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "5adcbdc5-825d-41fd-b2e4-54ed00a3957b",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "la seconde prêt.",
+        "corrected": "la second prêt.",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d563fc73-ae07-4f3b-8f59-cf3ad7386120",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "on employé.",
+        "corrected": "on employait.",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d5fcb99a-adbb-4893-b3b2-586db3fd7270",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "se leva alla jusqu'au",
+        "corrected": "se leva aller jusqu'au",
+        "reason": "grammar:cat_tours_critiques",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "596092f2-436a-4634-a7ca-6dab511cc8a6",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "avait perdue sa",
+        "corrected": "avait perdu sa",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9e1e1e8b-1647-4324-a93e-8cef7be4ef61",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "le papié.",
+        "corrected": "le pape.",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "64d8c564-97ae-4fdd-9db9-1ca0f5e0e0e6",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "l'heure des cloche parce",
+        "corrected": "l'heure de la cloche parce",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "60a09acd-af09-4b66-a632-2dddfd715ccf",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "faux je savais",
+        "corrected": "faux, je savais",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "372615c2-4fd8-4bf3-8543-79b22a1e3272",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "plus grand grand que",
+        "corrected": "plus immense que",
+        "reason": "grammar:cat_regles_de_base",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "e4b5f8a7-303d-4f14-888b-b32c11c0478a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "dans les poche,",
+        "corrected": "dans la poche,",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "cfde3766-6a83-4244-854d-31c040c16088",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "soir-la,",
+        "corrected": "soir-là,",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "cc8d8fc1-a559-4f0a-b6d8-f851470ed760",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "plus quoi noter :",
+        "corrected": "plus que noter :",
+        "reason": "grammar:cat_regles_de_base",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d0a705de-9ea7-4244-b9f8-f4fa6f1fec9a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Puis elle se",
+        "corrected": "Puis, elle se",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c074935a-1b63-4205-ba53-060c938cbed1",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "rouvrit, et nota",
+        "corrected": "rouvrit et nota",
+        "reason": "grammar:ponctuation_style_os",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "908fc905-6c1c-463b-aa23-c732433a3421",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "l'hiver elle continua.",
+        "corrected": "l'hiver, elle continua.",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "4aa0c836-80fe-472f-8803-24969215e635",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "moins nombreu à",
+        "corrected": "moins n'ombres à",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "87a666db-2c0f-46e5-b153-2dc47a9712ac",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "l'idee lui",
+        "corrected": "l'idée lui",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "21bd0c22-48b7-46ad-a06c-5f7a2a4abe16",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "lendemain elle écrivit",
+        "corrected": "lendemain, elle écrivit",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "424e62f5-983e-4312-8768-23263ee49626",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "suivante elle nota",
+        "corrected": "suivante, elle nota",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "942e5666-aff1-479d-82d5-26770b9906c6",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "un testement.",
+        "corrected": "un t'estiment.",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "31a85333-78f9-46d7-8d2e-018e94fbbb83",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "Alors elle fit",
+        "corrected": "Alors, elle fit",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "2004748a-9f33-41b3-a4af-d5c5b4dfbc76",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "fini il resta",
+        "corrected": "fini, il resta",
+        "reason": "grammar:ponctuation_virgule",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "bf8bdee1-0f1a-4148-836e-cb5f354ce0b0",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "couverture verte verte comme",
+        "corrected": "couverture vert vert comme",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "727500a3-7557-4562-bf44-a24a3c5bbe2a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "avec les registre.",
+        "corrected": "avec le registre.",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "aa24db2b-22ba-4f17-a8ee-1e68ae27e53e",
+        "blocksPublication": true,
+        "polishOnly": false
+      },
+      {
+        "original": "ouvrira un jours,",
+        "corrected": "ouvrira des jours,",
+        "reason": "grammar:agreement",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "35095913-1fa6-4fb8-abed-850817127c1f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "l'etagère du",
+        "corrected": "l'étagère du",
+        "reason": "grammar:typos",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "e0d68ab8-f818-4e99-bfad-e4c3a37c5eae",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Mais a sept",
+        "corrected": "Mais à sept",
+        "reason": "grammar:cat_grammaire",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "8728cbbf-0cd7-4289-a38d-96b5196e9844",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "moqué moqué",
+        "corrected": "moqué",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "8124016a-7dde-4908-ad31-6e2f5581ab75",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "tasse écouta",
+        "corrected": "tasse, écouta",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "97d70e1f-ede2-4628-b30a-3e237bb7e03c",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "mantau",
+        "corrected": "manteau",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "ece60f45-149f-434b-9849-cc140bd16bd5",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "vie a se pencher",
+        "corrected": "vie à se pencher",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "43ed0474-a432-4386-bc52-3239f5126e1f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "lentement une main",
+        "corrected": "lentement, une main",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "b043d89a-6c77-4c53-a5b0-18354f012ee1",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "aussi aussi",
+        "corrected": "aussi",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "737ceddb-2f40-4af9-9f21-c1f767774de6",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "ce trompe",
+        "corrected": "se trompe",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "f2a81df4-9a27-495b-bce4-37377559fe5d",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "c'est jamais trompée",
+        "corrected": "s'est jamais trompée",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "fcc08ccd-1d41-4540-b0c5-5e4ea24f0738",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "plus longue",
+        "corrected": "plus long",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "b54d27ab-2cdf-4dd3-8218-22e3f4b18985",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "tout les ans",
+        "corrected": "tous les ans",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c401e346-0820-4cae-8308-821bbb9dfb91",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "salle a manger",
+        "corrected": "salle à manger",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "ac382001-4206-4d46-9f41-be773ee09762",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "couteaux en l'air",
+        "corrected": "couteau en l'air",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "5057e254-e09e-4563-8a00-a7b6850b6f62",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "plui",
+        "corrected": "pluie",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "da2ae08a-4b2c-45ee-9532-0a829e34b4ca",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "deux hommes en descendirent",
+        "corrected": "Deux hommes en descendirent",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "a89f177f-f6d4-48c7-9882-bfed0faf8f35",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "revin",
+        "corrected": "revint",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "142d3e18-3080-467f-961b-15be05be2c19",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "trouver",
+        "corrected": "trouvés",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c60bc77f-a6d9-4914-8994-93ffc01d3b57",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "datais",
+        "corrected": "datait",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "894b6efa-140b-48e4-b098-f1eb85db33aa",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "france",
+        "corrected": "France",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "4baf1aed-fa1d-496e-b800-df6907fc0cca",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "prêt",
+        "corrected": "près",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7e14dbe6-578a-47bf-a4b2-a170661ddaee",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "on employé",
+        "corrected": "ont employé",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "ee2f276f-3e21-4e06-a9cf-fcb6fc707240",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "se leva alla",
+        "corrected": "se leva, alla",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9cc0af2d-d402-457e-be4b-a6c42ebf1140",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "perdue sa couleur",
+        "corrected": "perdu sa couleur",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "4e51914c-e710-4848-9bec-7fb483d9c631",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "papié",
+        "corrected": "papier",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "72405c43-6ad4-4308-82e8-7aa9cd76a77b",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "commencer",
+        "corrected": "commencé",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "d29628b0-90a6-4569-b430-149dab032f96",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "cloche",
+        "corrected": "cloches",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "0e5bd8a2-10b7-4e69-9418-b0f222265c3a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "prouvé",
+        "corrected": "prouver",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "a7424f2e-72ba-454a-aa7a-e88ac8bc7341",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "demander",
+        "corrected": "demandé",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "f64e0a1d-d400-4162-85ef-430054a8de20",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "page",
+        "corrected": "pages",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "12db8029-64be-4b41-bc42-e6a520cee918",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "on à compris",
+        "corrected": "on a compris",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "416eb7e1-b3ac-48e3-be86-57d66e0c1df4",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "installé",
+        "corrected": "installée",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "93600931-f06d-4e72-adc4-f565fd09b94f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "grand grand",
+        "corrected": "grand",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "21bea0f9-4837-493e-b93e-3e89ed872c8e",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "personne",
+        "corrected": "personnes",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "a154437a-6b05-4771-b1c4-a97cba5c700b",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "sonné",
+        "corrected": "sonner",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "aba8cb0a-532f-4cef-af04-3fa9e7fcc98d",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "rond plein",
+        "corrected": "rond, plein",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "6d4bb62f-5bb2-493d-9d37-acc68ebd21e5",
+        "blocksPublication": false,
+        "polishOnly": true
+      },
+      {
+        "original": "poche",
+        "corrected": "poches",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "0c459052-f506-474c-911b-6a89ca88daf3",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "colle",
+        "corrected": "col",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "9ddc46f4-eebb-4e4c-8dc7-24a595ed3f67",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "sa changeait",
+        "corrected": "ça changeait",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7e3bc581-7b1b-4fa9-adee-ab2e8119fc45",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Ce soir-la",
+        "corrected": "Ce soir-là",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "7e5a0f10-d36d-41f5-8b28-f600bba6e9f1",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "l'aire",
+        "corrected": "l'air",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "3449c5d1-d054-4533-8a09-8311f59d5f7b",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "temp",
+        "corrected": "temps",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "1dc5d56b-2a83-4f41-bf3f-b8dd65eb94e2",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "nombreu",
+        "corrected": "nombreux",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "b14876ea-018b-44f1-9b39-a259dab7124a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Janvier",
+        "corrected": "janvier",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "3951848c-6da0-4a8f-a751-3ea37874d74a",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "Jeudi",
+        "corrected": "jeudi",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "6166f2e6-a5a8-48f9-87df-eaa31f0f2f2c",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "se qu'elle",
+        "corrected": "ce qu'elle",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "bafe8fb5-2edf-476b-a129-9855955fbb3f",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "carnet a l'église",
+        "corrected": "carnet à l'église",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "c4654881-46eb-4d01-bf58-704426bce103",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "posées a plat",
+        "corrected": "posées à plat",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "19d5aad0-7bea-4e1b-8e4c-50685dcfcc8e",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "verte verte",
+        "corrected": "verte",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "84ea1792-c7b2-4bdd-977e-0c4e059f30a9",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "sa existe",
+        "corrected": "ça existe",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "193e9a4a-9733-474d-9835-210d5228ba10",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "registre",
+        "corrected": "registres",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "832e3783-ce4b-4b45-926f-87cad7b89032",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "un jours",
+        "corrected": "un jour",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "e57cac94-2e51-4d8b-b1d7-82b28e45a615",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "carnet le dimanche",
+        "corrected": "carnets le dimanche",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "be9e1437-15c1-4505-82c0-638adff4d107",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "plus courte",
+        "corrected": "plus courtes",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "a04e7f64-1add-4e22-8495-39561d61fb43",
+        "blocksPublication": false,
+        "polishOnly": false
+      },
+      {
+        "original": "a sept heures",
+        "corrected": "à sept heures",
+        "flagged": true,
+        "reviewReason": "reviewer unavailable — not auto-applied",
+        "chunk": "Chunk 1/1",
+        "id": "ca0751b6-159a-40e1-a706-180d2a2d23fc",
+        "blocksPublication": false,
+        "polishOnly": false
+      }
+    ],
+    "errors": [],
+    "runDate": "2026-09-18T11:27:35.051Z",
+    "env": {
+      "languageTool": true,
+      "parallel": 24,
+      "editOptions": {
+        "spelling": true,
+        "punctuation": true,
+        "capitalization": true,
+        "duplicateWords": true,
+        "englishDialect": "american",
+        "oxfordComma": true,
+        "dialogueTags": false
+      },
+      "resolvedModel": null
+    }
   }
 ]

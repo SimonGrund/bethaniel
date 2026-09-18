@@ -81,7 +81,11 @@ function parseChapterNumber(name: string): number | null {
   return null;
 }
 
-const TERMINAL_END_RE = /[.!?…"'”’)\]]$/;
+// A chapter may close on the quotation mark of its last line of dialogue, and
+// which mark that is depends on the manuscript's convention — » in French,
+// “ in German, ” in English. All of them are here, because a closing mark is
+// the one thing this check must never read as a cut-off chapter.
+const TERMINAL_END_RE = /[.!?…"'”’»«“)\]]$/;
 
 function findDuplicates(units: ScanUnit[]): {
   findings: DraftFinding[];
@@ -225,12 +229,60 @@ interface QuoteBalance {
   startsWithOpen: boolean;
 }
 
-function quoteBalance(paragraph: string): QuoteBalance {
+/**
+ * The pair of marks a manuscript opens and closes speech with.
+ *
+ * English curly quotes were hard-coded here, which on a French novel meant the
+ * check found no quotation marks at all and passed every chapter in silence —
+ * the dialogue was in guillemets. The convention is the manuscript's, not the
+ * language's (a French author may well use “ ”, a German one » «), so it is
+ * counted off the text rather than looked up from a language code.
+ */
+const QUOTE_FAMILIES = [
+  { open: "\u201C", close: "\u201D" }, // “ ”  English, and French houses that follow it
+  { open: "\u00AB", close: "\u00BB" }, // « »  French, and the continental default
+  { open: "\u201E", close: "\u201C" }, // „ “  German
+  { open: "\u00BB", close: "\u00AB" }, // » «  German reversed guillemets
+] as const;
+
+type QuoteFamily = (typeof QUOTE_FAMILIES)[number];
+
+function countOf(text: string, ch: string): number {
+  let n = 0;
+  for (const c of text) if (c === ch) n++;
+  return n;
+}
+
+/**
+ * Which family this manuscript speaks in: whichever opener it uses most.
+ *
+ * „ “ is decided before “ ”, because a German manuscript contains both — its
+ * closer IS the English opener — and counting openers alone would call it
+ * English and then report every closed line as unbalanced.
+ */
+export function detectQuoteFamily(text: string): QuoteFamily {
+  const german = countOf(text, "\u201E");
+  if (german > 0 && german >= countOf(text, "\u201C") - german) return QUOTE_FAMILIES[2];
+  let best: QuoteFamily = QUOTE_FAMILIES[0];
+  let bestCount = -1;
+  for (const f of QUOTE_FAMILIES) {
+    // » « is only ever the right reading when « is not itself the opener.
+    if (f.open === "\u00BB" && countOf(text, "\u00AB") >= countOf(text, "\u00BB")) continue;
+    const n = countOf(text, f.open);
+    if (n > bestCount) {
+      best = f;
+      bestCount = n;
+    }
+  }
+  return best;
+}
+
+function quoteBalance(paragraph: string, family: QuoteFamily): QuoteBalance {
   const text = paragraph.trim();
   return {
-    opens: (text.match(/“/g) ?? []).length,
-    closes: (text.match(/”/g) ?? []).length,
-    startsWithOpen: /^[_*]*“/.test(text),
+    opens: countOf(text, family.open),
+    closes: countOf(text, family.close),
+    startsWithOpen: new RegExp(`^[_*]*${family.open}`).test(text),
   };
 }
 
@@ -324,13 +376,13 @@ function findRepetitions(units: ScanUnit[]): {
  * open at the end of the chapter. Each is reported with the paragraph that
  * opened it, since that is where the fix goes.
  */
-function unbalancedParagraphs(body: string): string[] {
+function unbalancedParagraphs(body: string, family: QuoteFamily): string[] {
   const paragraphs = body.split(/\n\n+/);
   const out: string[] = [];
   // The paragraph whose quote is still open, if any, and how it opened.
   let carried: { excerpt: string; startsWithOpen: boolean } | null = null;
   for (const p of paragraphs) {
-    const { opens, closes, startsWithOpen } = quoteBalance(p);
+    const { opens, closes, startsWithOpen } = quoteBalance(p, family);
     const balance = opens - closes;
     if (carried) {
       // No quotes at all: the middle of a block quotation.
@@ -365,6 +417,7 @@ function unbalancedParagraphs(body: string): string[] {
 function findTruncation(
   units: ScanUnit[],
   explained: Set<string> = new Set(),
+  family: QuoteFamily = QUOTE_FAMILIES[0],
 ): DraftFinding[] {
   const findings: DraftFinding[] = [];
   for (const u of units) {
@@ -388,7 +441,7 @@ function findTruncation(
     // Unbalanced quotes hint at a mid-scene cut or a mistyped closing mark.
     // Reported WITH the passage: the chapter name alone gives the author no way
     // to check whether the finding is real.
-    for (const excerpt of unbalancedParagraphs(body)) {
+    for (const excerpt of unbalancedParagraphs(body, family)) {
       // A duplicated tag drags a stray ” along with it. findRepetitions has
       // already named that paragraph, and named it correctly; reporting the
       // symptom underneath is what buried the real finding.
@@ -420,7 +473,13 @@ function findTruncation(
 function findDialectConsistency(
   units: ScanUnit[],
   declared?: "american" | "british",
+  manuscriptLang?: string,
 ): DraftFinding[] {
+  // A French or German novel has no English dialect to be inconsistent about.
+  // The evidence table would score it near zero and stay quiet in practice,
+  // but one quoted English letter in a French book is all it takes to advise
+  // a French author to standardise their spelling on American.
+  if (manuscriptLang && !manuscriptLang.toLowerCase().startsWith("en")) return [];
   const combined = units.map((u) => u.original).join("\n\n");
   const { dialect, americanHits, britishHits, mixed } = detectDialect(combined);
   if (!mixed) return [];
@@ -463,6 +522,13 @@ function findDialectConsistency(
 export interface PublicationScanOptions {
   /** The dialect the author declared in the copy-edit panel. */
   englishDialect?: "american" | "british";
+  /**
+   * The manuscript's language, when the job knows it. Only the English
+   * dialect check consults it — the quote check reads the manuscript's own
+   * convention off the page instead, which is the honest source for a
+   * question the language does not settle.
+   */
+  manuscriptLang?: string;
 }
 
 export function buildPublicationScan(
@@ -471,6 +537,10 @@ export function buildPublicationScan(
 ): StructuralScanReport {
   const { findings: dupFindings } = findDuplicates(units);
   const { findings: repFindings, reported } = findRepetitions(units);
+  // Read once, off the whole book: a chapter of pure narration has no quotes
+  // to judge by, and would otherwise be read against a different convention
+  // from the chapter before it.
+  const family = detectQuoteFamily(units.map((u) => u.original).join("\n\n"));
   // Marked here rather than at each push site: every structural finding is a
   // publication blocker, and stating it once keeps that true as checks are
   // added. These are deterministic — on a real book all six were genuine
@@ -480,8 +550,8 @@ export function buildPublicationScan(
     ...repFindings,
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
-    ...findTruncation(units, reported),
-    ...findDialectConsistency(units, options?.englishDialect),
+    ...findTruncation(units, reported, family),
+    ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 
   const summary: Record<FindingSeverity, number> = {

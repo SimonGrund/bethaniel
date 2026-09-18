@@ -56,6 +56,7 @@ const LANG_CODE: Record<string, string> = {
   stress100da: "da",
   stress100de: "de",
   stress100es: "es",
+  stress100fr: "fr",
 };
 
 function checksFor(lang: string): WordChecks | null {

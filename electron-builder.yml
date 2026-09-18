@@ -62,6 +62,14 @@ extraResources:
     to: backend/public/
     filter:
       - "**/*"
+  # The Hunspell dictionaries. Left out until v2.19, which meant the spell
+  # pass loaded nothing in every packaged build and silently found no
+  # misspellings in any language — spellcheck.ts resolves them relative to
+  # backend/dist, and nothing put them beside it. ~12 MB for the five.
+  - from: backend/dictionaries/
+    to: backend/dictionaries/
+    filter:
+      - "**/*"
   # The one native module is left out here and laid in per arch below:
   # macOS builds two apps from this one node_modules, and a .node compiled
   # for the build host is wrong for the other one. scripts/build.mjs sets a

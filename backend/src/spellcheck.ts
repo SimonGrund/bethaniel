@@ -57,6 +57,11 @@ const LANG_MAP: Record<string, string> = {
   da: "da_DK",
   de: "de_DE",
   es: "es_ES",
+  // Grammalecte's "classique" French (MPL-2.0, see dictionaries/README.md).
+  // Its .aff carries an ICONV mapping the typographic apostrophe to the
+  // straight one, so "l’homme" is looked up as "l'homme" — which is what the
+  // dictionary stores, and what WORD_RE hands it.
+  fr: "fr_FR",
 };
 
 // We expect the LLM UI language to match the text language. If the user
@@ -112,12 +117,45 @@ export async function initSpellchecker(): Promise<boolean> {
     const loadModule = mod.loadModule ?? mod.default?.loadModule;
     if (!loadModule) throw new Error("hunspell-asm exposes no loadModule");
     hunspellFactory = await loadModule();
+    reportDictionaries();
     return true;
   } catch (err) {
     console.warn("[spellcheck] Hunspell failed to load; spell-check is off:", err);
     hunspellFactory = null;
     return false;
   }
+}
+
+/**
+ * Say out loud, once at startup, which dictionaries are actually on disk.
+ *
+ * Every function in this file degrades to "found nothing" when a dictionary is
+ * missing, which is indistinguishable from a clean manuscript. That is how the
+ * packaged app shipped for months with no dictionaries at all: the build
+ * copied backend/dist and not the directory beside it, and the only symptom
+ * was a spell pass that never found a misspelling in any language. The line
+ * below is what makes that visible the next time it happens.
+ */
+function reportDictionaries(): void {
+  let names: string[] = [];
+  try {
+    names = fs
+      .readdirSync(DICT_DIR)
+      .filter((f) => f.endsWith(".dic"))
+      .map((f) => f.replace(/\.dic$/, ""))
+      .sort();
+  } catch {
+    // The directory itself is missing — the packaging failure, exactly.
+  }
+  if (names.length === 0) {
+    console.warn(
+      `[spellcheck] No dictionaries found in ${DICT_DIR} — the spell pass will ` +
+        "find nothing in any language. In a packaged build this means the " +
+        "dictionaries were not copied next to backend/dist.",
+    );
+    return;
+  }
+  console.log(`[spellcheck] Dictionaries: ${names.join(", ")} (${DICT_DIR})`);
 }
 
 /** Whether the spell pass can run. False if the WebAssembly module failed. */

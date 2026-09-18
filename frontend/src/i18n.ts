@@ -3327,12 +3327,13 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   lang_da: { en: "Danish", da: "Dansk", de: "Dänisch", es: "Danés" },
   lang_de: { en: "German", da: "Tysk", de: "Deutsch", es: "Alemán" },
   lang_es: { en: "Spanish", da: "Spansk", de: "Spanisch", es: "Español" },
+  lang_fr: { en: "French", da: "Fransk", de: "Französisch", es: "Francés" },
   lang_other: { en: "Other…", da: "Andet…", de: "Andere…", es: "Otro…" },
   lang_other_placeholder: {
-    en: "e.g. French",
-    da: "f.eks. Fransk",
-    de: "z. B. Französisch",
-    es: "p. ej. Francés",
+    en: "e.g. Italian",
+    da: "f.eks. Italiensk",
+    de: "z. B. Italienisch",
+    es: "p. ej. Italiano",
   },
   analysis_local_warning: {
     en: "Analysis works best with External Betty (API model). Local models often struggle to follow the analysis contract — expect lower-quality catalogs, timelines and summaries.",

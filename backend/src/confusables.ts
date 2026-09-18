@@ -90,7 +90,7 @@ export const CONFUSABLE_SETS: readonly (readonly string[])[] = [
 ];
 
 /**
- * The same idea in the other three bundled languages.
+ * The same idea in the other four bundled languages.
  *
  * Wrong-word recall is the weakest category in every language, and it was
  * weakest of all where this pass did not run: Danish scored 12% against 53%
@@ -149,6 +149,49 @@ export const CONFUSABLE_SETS_BY_LANG: Readonly<
     ["wieso", "wie so"],
     ["als", "wie"],
     ["scheinbar", "anscheinend"],
+  ],
+  fr: [
+    // French wrong words are homophones, and there are more of them here than
+    // in any other language on this list: the language spells a dozen
+    // different words the same way it says one. Every pair below is both
+    // members real, both common in fiction, and the confusion the one French
+    // style guides lead with.
+    ["a", "à"],
+    ["ou", "où"],
+    ["ce", "se"],
+    ["ces", "ses"],
+    ["c'est", "s'est", "sais", "sait"],
+    ["son", "sont"],
+    ["on", "ont"],
+    ["et", "est"],
+    ["la", "là", "l'a"],
+    ["peu", "peut", "peux"],
+    ["sur", "sûr"],
+    ["près", "prêt"],
+    ["quand", "quant", "qu'en"],
+    ["plutôt", "plus tôt"],
+    ["leur", "leurs"],
+    ["tout", "tous"],
+    ["mes", "mais", "met", "mets"],
+    ["ni", "n'y"],
+    ["si", "s'y"],
+    ["dans", "d'en"],
+    ["voir", "voire"],
+    ["censé", "sensé"],
+    ["davantage", "d'avantage"],
+    ["quelque", "quel que"],
+    ["sans", "s'en", "sang", "cent"],
+    ["temps", "tant", "t'en"],
+    ["différent", "différend"],
+    // Homophone nouns, the other half: a dictionary reads every one of these
+    // as a perfectly good word, because it is one.
+    ["mer", "mère", "maire"],
+    ["ver", "vers", "verre", "vert"],
+    ["cours", "court", "cour"],
+    ["conte", "compte", "comte"],
+    ["chant", "champ"],
+    ["pair", "paire", "père", "perd"],
+    ["fin", "faim"],
   ],
   es: [
     // Accent pairs where BOTH forms are real words, so no dictionary sees the

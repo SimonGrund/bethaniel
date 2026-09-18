@@ -28,7 +28,7 @@ export interface AnalysisUnit {
 
 // ── Word lists ──
 //
-// Four languages, three lists each. STOP is what a frequency table ignores;
+// Five languages, three lists each. STOP is what a frequency table ignores;
 // CRUTCH is the words writers reach for without noticing (each counted on its
 // own, since "very" at 4 per thousand is a habit whatever the rest of the
 // table says); FILTER is the perception verbs that put the narrator between
@@ -37,9 +37,11 @@ export interface AnalysisUnit {
 // dialogue is counted against it.
 //
 // Danish and German mark few adverbs morphologically, so ADVERB_SUFFIX is
-// null there and the intensifier habit is caught by CRUTCH alone. English
-// and Spanish have a reliable suffix, with an exclusion list for the
-// adjectives that happen to end the same way.
+// null there and the intensifier habit is caught by CRUTCH alone. English,
+// Spanish and French have a reliable suffix, with an exclusion list for the
+// words that happen to end the same way — in French those are nouns
+// (moment, gouvernement, sentiment) rather than adjectives, and there are a
+// great many of them, which is why that list is the longest of the three.
 
 interface LangLists {
   /** Never reported as a sentence opener: "The" starting a sixth of all
@@ -51,6 +53,16 @@ interface LangLists {
   said: Set<string>;
   adverbSuffix: RegExp | null;
   notAdverbs: Set<string>;
+  /**
+   * Speech verbs other than the neutral one, when a suffix cannot find them.
+   *
+   * The shared fallback recognises a tag verb by its ending (-ed, -te, -ó,
+   * -aba). French inflects its narrative past as -a and -it — endings shared
+   * with half the nouns in the language ("la nuit", "un petit") — so a suffix
+   * rule there would read ordinary narration as dialogue tags. A curated list
+   * is the only precise answer, and this is what French uses instead.
+   */
+  tagVerbs?: Set<string>;
 }
 
 // One word per entry, by construction: a phrase like "ein wenig" split into
@@ -105,6 +117,32 @@ const LISTS: Record<string, LangLists> = {
     adverbSuffix: null,
     notAdverbs: new Set(),
   },
+  fr: {
+    articles: words("le la les un une des du de"),
+    stop: words(
+      "le la les un une des du de et est sont était étaient a ai as ont avait avaient être avoir été fait faire dit que qui quoi dont où ne pas plus moins rien jamais toujours dans sur sous vers chez sans pour par avec en au aux il elle ils elles je tu nous vous on lui leur leurs me te se moi toi son sa ses mon ma mes ton ta tes notre nos votre vos ce cet cette ces celui celle ceux celles cela ça ici là si mais ou donc or car quand comme alors puis depuis avant après pendant tout tous toute toutes autre autres même mêmes chaque quelque quelques beaucoup peu très bien mal encore déjà aussi non oui peut pouvait pouvoir veut voulait vouloir doit devait devoir va allait aller vient venait venir y qu'il qu'elle qu'ils qu'elles qu'on c'est c'était n'est n'était n'a n'avait n'y s'il s'y s'est s'était d'un d'une d'être d'avoir l'un l'une j'ai j'avais j'étais m'a m'avait t'a qu'un qu'une lorsqu'il lorsqu'elle jusqu'à jusqu'au d'abord",
+    ),
+    crutch: words(
+      "très vraiment juste simplement plutôt assez soudain soudainement brusquement immédiatement finalement enfin littéralement absolument complètement totalement évidemment certainement sûrement franchement carrément commença commençait sembla semblait parut sentit regarda hocha sourit soupira haussa tourna comprit réalisa presque quasiment quand-même toutefois néanmoins encore toujours",
+    ),
+    filter: words(
+      "vit voir vu voyait regarda regardait entendit entendre entendait écouta sentit sentir sentait ressentit remarqua remarquait aperçut apercevait semblait parut songea comprit réalisa",
+    ),
+    // Inverted tags are one token to the tokeniser ("dit-il"), but the
+    // dialogue-tag scan captures letters only and so reads the verb up to the
+    // hyphen — the bare forms cover both "dit-il" and ", dit Marie".
+    said: words("dit dis disait demanda demandait répondit répond répondait"),
+    tagVerbs: words(
+      "murmura murmurait chuchota souffla soupira cria criait hurla gronda grommela marmonna bredouilla balbutia bafouilla s'exclama exclama ajouta ajoutait reprit repris insista protesta objecta rétorqua riposta lança lançait coupa interrompit renchérit rugit gémit siffla susurra articula déclara annonça observa remarqua constata expliqua précisa avoua confia admit concéda suggéra proposa ordonna commanda supplia implora",
+    ),
+    adverbSuffix: /ment$/,
+    // French builds adverbs on -ment and also builds a very large class of
+    // ordinary nouns on it. Without these the report would read a page of
+    // plain narration as an adverb habit.
+    notAdverbs: words(
+      "moment moments vêtement vêtements gouvernement gouvernements document documents monument monuments sentiment sentiments appartement appartements changement changements mouvement mouvements instrument instruments élément éléments argument arguments comment département départements parlement régiment testament tempérament bâtiment bâtiments compartiment compartiments ciment froment tourment tourments serment serments firmament aliment aliments médicament médicaments événement événements enterrement logement logements jugement jugements règlement règlements remerciement remerciements commencement achèvement traitement traitements équipement équipements environnement raisonnement raisonnements comportement comportements étonnement emplacement emplacements placement remplacement engagement engagements chargement campement hurlement hurlements grognement grognements craquement craquements gémissement gémissements frémissement frémissements battement battements claquement claquements roulement ruissellement tremblement tremblements tressaillement glissement pincement serrement déchirement soulagement dégagement renseignement renseignements enseignement établissement établissements investissement appartenance ferment garnement",
+    ),
+  },
   es: {
     articles: words("el la los las un una unos unas"),
     stop: words(
@@ -143,8 +181,24 @@ const LANG_OF = (lang: string | undefined) => LISTS[(lang ?? "en").slice(0, 2)] 
 
 const WORD_RE = /[\p{L}\p{M}][\p{L}\p{M}'’-]*/gu;
 
+/**
+ * One spelling per word, whatever the manuscript's apostrophe.
+ *
+ * French carries its function words INSIDE the token — qu'elle, c'était,
+ * d'un, s'il — so a list that spells them with ' would miss every one of them
+ * in a manuscript typeset with ’, and the frequency table would report
+ * "qu'elle" as the author's most overused word. The straight apostrophe is
+ * the spelling the lists use, so it is the one every token is folded to.
+ */
+function normWord(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[’ʼ]/g, "'")
+    .replace(/^['-]+|['-]+$/g, "");
+}
+
 function wordsOf(text: string): string[] {
-  return (text.match(WORD_RE) ?? []).map((w) => w.toLowerCase().replace(/^['’-]+|['’-]+$/g, "")).filter(Boolean);
+  return (text.match(WORD_RE) ?? []).map(normWord).filter(Boolean);
 }
 
 // A sentence ends at . ! ? … followed by whitespace (or a closing quote then
@@ -232,7 +286,7 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
 
     // Word frequencies.
     for (const raw of text.match(WORD_RE) ?? []) {
-      const w = raw.toLowerCase().replace(/^['’-]+|['’-]+$/g, "");
+      const w = normWord(raw);
       if (!w) continue;
       freq.set(w, (freq.get(w) ?? 0) + 1);
       if (L.crutch.has(w)) crutchFreq.set(w, (crutchFreq.get(w) ?? 0) + 1);
@@ -298,16 +352,23 @@ export function analyzeLanguage(units: AnalysisUnit[], lang?: string): LanguageA
     // a line closed with a full stop is followed by an action beat, which is
     // not a tag however many verbs it has. Counting beats as tags made every
     // Danish chapter read as 96% "ornate".
-    // The two words after the comma are "she said" in English and "sagte
-    // sie" on the continent, so both are tried: whichever is the verb.
-    for (const m of text.matchAll(/(?:,\s*["”“»«]|["”“»«]\s*,)\s*(\p{L}+)(?:\s+(\p{L}+))?/gu)) {
-      const pair = [m[1], m[2]].filter(Boolean).map((w) => w.toLowerCase());
-      if (pair.some((w) => L.said.has(w))) {
+    // The words after the comma are "she said" in English and "sagte sie" on
+    // the continent, so each is tried: whichever is the verb. Three of them
+    // rather than two, because French puts the pronoun and the auxiliary in
+    // front of the verb — », lui avait dit sa sœur — and at two words the tag
+    // that matters was always the one just out of reach. The third word is a
+    // spare in every other language: an adverb or a name, neither of which
+    // can pass the verb test below.
+    for (const m of text.matchAll(/(?:,\s*["”“»«]|["”“»«]\s*,)\s*(\p{L}+)(?:\s+(\p{L}+))?(?:\s+(\p{L}+))?/gu)) {
+      const window = [m[1], m[2], m[3]].filter(Boolean).map(normWord);
+      if (window.some((w) => L.said.has(w))) {
         saidCount++;
         continue;
       }
-      const verb = pair.find(
-        (w) => w.length > 3 && !L.stop.has(w) && /(ed|te|ó|ió|de|aba)$/.test(w),
+      const verb = window.find((w) =>
+        L.tagVerbs
+          ? L.tagVerbs.has(w)
+          : w.length > 3 && !L.stop.has(w) && /(ed|te|ó|ió|de|aba)$/.test(w),
       );
       if (verb) tagFreq.set(verb, (tagFreq.get(verb) ?? 0) + 1);
     }

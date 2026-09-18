@@ -34,7 +34,28 @@ test("manuscriptLangName: maps codes, passes free text, null for English/unset",
   assert.equal(manuscriptLangName("en"), null);
   assert.equal(manuscriptLangName(undefined), null);
   assert.equal(manuscriptLangName(""), null);
-  assert.equal(manuscriptLangName("French"), "French");
+  assert.equal(manuscriptLangName("fr"), "French");
+  // A free-text language Betty ships nothing for still reaches the prompt as
+  // itself: the model knows Italian even where the deterministic layer does not.
+  assert.equal(manuscriptLangName("Italian"), "Italian");
+});
+
+test("copy-edit prompt: French takes the non-English path, with no English comma rules", () => {
+  const p = buildCopyEditCorrectionsPrompt(
+    DEFAULT_COPY_EDIT_OPTIONS,
+    undefined,
+    undefined,
+    "fr",
+  );
+  assert.match(p, /MANUSCRIPT LANGUAGE: French/);
+  assert.match(p, /NEVER translate/);
+  // The English coordinate-adjective and independent-clause comma rules are
+  // English conventions, and French punctuates neither the same way.
+  assert.ok(!/COORDINATE adjectives/.test(p), "no English comma rules on a French manuscript");
+  assert.ok(!/OXFORD COMMA/.test(p), "no Oxford comma on a French manuscript");
+  // And no French comma block either: LanguageTool's French carries that
+  // layer, exactly as it does for German. See commaDirectivesFor.
+  assert.ok(!/inciso/.test(p), "the Spanish block belongs to Spanish");
 });
 
 test("copy-edit prompt: Danish language block present, never-translate rule stated", () => {
