@@ -36,11 +36,11 @@ const CARDS: { id: FrontCard; titleKey: string; descKey?: string }[] = [
     titleKey: "card_readthrough_title",
     descKey: "card_readthrough_desc",
   },
-  {
-    id: "translate",
-    titleKey: "card_translate_title",
-    descKey: "card_translate_desc",
-  },
+  // "Into another language" said what the target-language control directly
+  // beneath it already says, and it said it in the one card that carries a
+  // control — so it was the line that decided how tall the bottom row of
+  // cards had to be.
+  { id: "translate", titleKey: "card_translate_title" },
   // The title says it all; a line under it only made this card taller than
   // the three beside it.
   { id: "language", titleKey: "card_language_title" },

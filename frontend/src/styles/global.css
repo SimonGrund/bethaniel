@@ -46,8 +46,13 @@ h4 {
   flex-direction: column;
   /* Top inset matches .sidebar's 1rem: the two columns each open with a
      header ruled off by a border, and 1.25rem here started the main one 4px
-     lower than the rail's, so the two rules could never line up. */
-  padding: 1rem 2rem 2.5rem;
+     lower than the rail's, so the two rules could never line up.
+
+     The bottom used to be 2.5rem. The footer is the page's own closing rule
+     and carries 0.75rem of padding under its text already, so most of that
+     was parchment below a line below the content — and it was the difference
+     between the setup page ending above the fold and not, in German. */
+  padding: 1rem 2rem 1rem;
   min-width: 0;
   position: relative;
 }
@@ -3199,7 +3204,10 @@ summary.review-source::before {
      "Brazilian Portuguese" would otherwise hang out past the card's edge. */
   min-width: 0;
   text-align: left;
-  padding: 1.1rem 1.2rem;
+  /* A little less than the 1.1rem it was: the four cards decide how tall the
+     setup page is, and the page is meant to end above the fold on the window
+     the app opens at. */
+  padding: 0.9rem 1.1rem;
   border: 2px solid #d4c9b0;
   border-radius: 12px;
   background: #faf8f4;
@@ -5927,15 +5935,21 @@ summary.review-source::before {
   /* The card's one dimension, and the column that holds two of them. Height
      follows from the width, because at a fixed width the descriptions always
      wrap the same way. Declared here rather than on .task-cards because the
-     split below sizes its second column from it: card, gap, card, the
-     column's own padding and its 3px border either side. */
+     split below sizes BOTH its columns from it: card, gap, card, the column's
+     own padding and its 3px border either side. */
   --task-card-w: 11rem;
-  --task-col-w: calc(2 * var(--task-card-w) + 0.75rem + 2.3rem + 6px);
+  --dash-col-w: calc(2 * var(--task-card-w) + 0.75rem + 2.3rem + 6px);
+  /* The whole composition: two columns and the gap between them. The run row
+     beneath is bound to the same width, so the page is one block of a known
+     size rather than three things that each end somewhere different. */
+  --dash-row-w: calc(2 * var(--dash-col-w) + 1rem);
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  /* Wider than the 1rem it was, because the run row's step seal hangs into
+     this gap and must not crowd the columns above it. */
+  gap: 1.25rem;
   animation: menu-panel-in 0.3s ease-out;
 }
 
@@ -5953,37 +5967,96 @@ summary.review-source::before {
    gold accent, so the weight is new but the colour is not. */
 .dashboard-col {
   border: 3px solid #b08830;
-  padding: 1rem 1.15rem;
+  /* A little more air at the top than the 1rem it was: the numbered seal
+     hangs into it. */
+  padding: 1.35rem 1.15rem 1rem;
+  /* The seal is placed against this corner. */
+  position: relative;
+}
+
+/* ── "Step 1" / "Step 2" / "Step 3" ──
+   A seal on the top-left corner of each block, straddling its edge the way a
+   tab straddles the edge of a page. Absolute, so the order of events costs the
+   page no height, and filled with the parchment of the card it sits on so the
+   gold rule appears to pass behind it rather than under it. */
+.step-badge {
+  position: absolute;
+  top: -0.72rem;
+  left: 1.1rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.32rem;
+  padding: 0.1rem 0.62rem 0.16rem;
+  border: 2px solid #b08830;
+  border-radius: 999px;
+  background: #fdfbf4;
+  box-shadow: 0 1px 3px rgba(60, 45, 20, 0.14);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  line-height: 1.1;
+  white-space: nowrap;
+  /* Decoration in the ordinary sense — the reader is told the order, not
+     invited to click it. */
+  pointer-events: none;
+  user-select: none;
+}
+
+.step-badge-word {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a7758;
+}
+
+/* The numeral is the part that is read at a glance, so it is the part that is
+   drawn: the theme's gold, a size up, and the serif's own figures. */
+.step-badge-n {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #8a6a1e;
 }
 
 .dashboard-split {
   display: grid;
-  /* Not equal halves. The task column holds four cards of a fixed
-     size and has no use for a pixel more; as equal halves it grew a widening
-     strip of empty parchment beside them on any large screen. It is now
-     exactly as wide as the cards it exists to hold, and the manuscript — a
-     chapter list, a file name, a style sheet, all of which do use width —
-     takes everything else. */
-  grid-template-columns: minmax(0, 1fr) var(--task-col-w);
+  /* Two columns of one length — the same length, the same at every window
+     width. Neither is a fraction of anything: the task column holds four
+     cards of a fixed size and has no use for a pixel more, and the manuscript
+     column, given the rest of the screen, spent it on a widening field of
+     empty parchment beside a file name. The two questions are asked with
+     equal weight, so they are now drawn at equal size, and dragging the
+     window edge no longer reflows either of them. */
+  grid-template-columns: repeat(2, var(--dash-col-w));
+  /* Fixed width in a stretching page: centred, rather than pinned left with
+     the slack piling up on one side. */
+  justify-content: center;
   gap: 1rem;
   /* Equal height rather than each sized to its own content: side by side, two
      cards of different heights read as one unfinished. */
   align-items: stretch;
 }
 
-/* Stacked, the task column would stretch to the full page width and the strip
-   of empty parchment would come back. It keeps its width and sits under the
-   manuscript rather than beside it. */
+/* Stacked, a column would stretch to the full page width and the field of
+   empty parchment would come back. Both keep their width and sit one above
+   the other. */
+.dashboard-col-manuscript,
 .dashboard-col-task {
-  max-width: var(--task-col-w);
+  max-width: var(--dash-col-w);
 }
 
-/* 1150 rather than 1100: the manuscript column is what the stack is for, and
-   with the task column now taking a fixed share rather than half, 1150 is
-   where what is left of the row falls below the width 1100 used to leave it. */
-@media (max-width: 1150px) {
+/* The width at which the row itself no longer fits: two columns, the gap, the
+   wizard card's padding, the page's padding and the 300px rail. Below it the
+   two stack — at their own size, because a column that shrinks to keep the
+   pair side by side is the reflow this is here to stop. */
+/* The run row follows them down to one column, under the launch-row rules
+   further down — those have to come after the two-column placement they undo. */
+@media (max-width: 1244px) {
   .dashboard-split {
-    grid-template-columns: 1fr;
+    /* minmax, not the bare length: on a window narrower than one column the
+       track gives way rather than pushing a horizontal scrollbar under the
+       page. Everywhere there is room for it — which is every window the app
+       is used in — it is the same column as before. */
+    grid-template-columns: minmax(0, var(--dash-col-w));
   }
 }
 
@@ -6482,6 +6555,22 @@ summary.review-source::before {
    arrived: the page has stopped asking and is offering to start. */
 .wizard-launch {
   animation: launch-slide-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  /* The same block as the two columns above it, and the containing block for
+     the step seal on its corner: without this the row is the full page width
+     and the seal would sit inches to the left of the button it belongs to. */
+  position: relative;
+  width: 100%;
+  max-width: var(--dash-row-w);
+  margin: 0 auto;
+}
+
+/* On the dark slab rather than on parchment: the seal keeps its parchment
+   face, which is what makes it read as laid on top of the run row rather than
+   printed in it. It hangs from the row's top edge, so it needs the gap above
+   to be a little wider than the 1rem the dashboard used to use. */
+.wizard-launch > .step-badge {
+  top: -0.78rem;
+  left: 1.1rem;
 }
 
 @keyframes launch-slide-in {
@@ -6515,7 +6604,10 @@ summary.review-source::before {
   grid-template-columns: 1fr 1fr;
   align-items: stretch;
   gap: 0.6rem 0.75rem;
-  max-width: 46rem;
+  /* The width of the two columns above it, so the run row ends where they end
+     and each button sits under the question it answers. It was 46rem, which
+     matched neither. */
+  max-width: var(--dash-row-w, 46rem);
   margin: 0 auto;
 }
 
@@ -6524,6 +6616,22 @@ summary.review-source::before {
   grid-row: 1;
   width: 100%;
   min-width: 0;
+}
+
+/* Shorter here than anywhere else the same button appears. On this page it
+   shares the window with the two columns above it and the page is meant to
+   end above the fold; in the rail, where it is the only thing in a narrow
+   column, it keeps its full padding. Here it is a 400px-wide slab either way —
+   what makes it the obvious thing to press is its width, not its height. */
+.wizard-launch .btn-run,
+.wizard-launch .btn-run-cloud {
+  padding: 0.8rem 1.5rem;
+}
+
+.wizard-launch .btn-run-icon,
+.wizard-launch .btn-run-spinner {
+  width: 30px;
+  height: 30px;
 }
 
 /* The wrapper stops being a box so its children join the grid directly —
@@ -6546,18 +6654,101 @@ summary.review-source::before {
 /* Notes belonging to the whole launch rather than to one side of it. */
 .wizard-launch .run-actions > .run-download-note,
 .wizard-launch .run-actions > .cloud-wait-note,
-.wizard-launch .run-actions > .cloud-claim-hint,
 .wizard-launch .run-actions > .cloud-claim,
 .wizard-launch .run-actions > .api-error {
   grid-column: 1 / -1;
 }
 
-.wizard-launch .run-actions > .cloud-claim-hint {
+/* ── "or" ──
+   A token laid over the seam between the two run buttons, in the same
+   parchment-and-gold as the step seals: the two slabs are one step taken
+   either of two ways, not two steps. It spans both columns and centres
+   itself, which puts it in the gap; self-aligned rather than stretched, so
+   the row it sits in is still as tall as the buttons and nothing else moves. */
+.wizard-launch .run-actions > .run-or {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  align-self: center;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.05rem;
+  height: 2.05rem;
+  padding: 0 0.35rem;
+  border: 2px solid #b08830;
+  border-radius: 999px;
+  background: #fdfbf4;
+  box-shadow: 0 1px 4px rgba(26, 20, 10, 0.3);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b5636;
+  /* A label on a seam, not a third button. */
+  pointer-events: none;
+  user-select: none;
+}
+
+/* "Paid, but Betty didn't open?" — it now lives inside the cloud block (see
+   EditTrigger), directly under the code box it is about, so the grid places it
+   in the cloud column like the rest of that block's small print. What is left
+   here is the shape of the line: centred under the button, and without the
+   1.5rem of air it used to carry as the last line of the whole launch row. */
+.wizard-launch .cloud-claim-hint {
+  margin-bottom: 0;
   text-align: center;
+}
+
+/* The cloud button's small print — the code box, the line about a code that
+   did not arrive, the expectations drawer — each carries a top margin from
+   the days when the three stacked in a block. In the launch grid the row gap
+   already spaces them, and the two together spaced them twice. */
+.wizard-launch .run-actions .cloud-code,
+.wizard-launch .run-actions .cloud-claim-hint,
+.wizard-launch .run-actions .cloud-expect {
+  margin-top: 0;
 }
 
 .wizard-launch .run-actions > .cloud-claim {
   align-items: center;
+}
+
+/* The width at which the two columns above stack (see .dashboard-split): the
+   run row follows them into one column of the same width. Two buttons sharing
+   a single column's width would have to break "Run Betty locally" across two
+   lines to fit, and the page stops being one block of a known width the moment
+   the run row is wider than the questions it answers. */
+@media (max-width: 1244px) {
+  .wizard-launch {
+    max-width: var(--dash-col-w);
+  }
+
+  .wizard-launch .run-actions {
+    grid-template-columns: minmax(0, var(--dash-col-w));
+    max-width: var(--dash-col-w);
+  }
+
+  /* Everything into that column, in the order it is written. The placements
+     above pin the cloud button and its small print to a second column that no
+     longer exists, and a pinned row would sit on top of whatever the auto-flow
+     put there. */
+  .wizard-launch .run-actions > .btn-run,
+  .wizard-launch .run-actions > .run-or,
+  .wizard-launch .run-actions > .cloud-block > .btn-run-cloud,
+  .wizard-launch .run-actions > .cloud-block > :not(.btn-run-cloud),
+  .wizard-launch .run-actions > .cloud-claim-hint {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  /* One above the other, the seam between the buttons is a row of its own, so
+     the token sits in it rather than on top of anything. */
+  .wizard-launch .run-actions > .run-or {
+    margin: -0.1rem 0;
+  }
 }
 
 @media (max-width: 700px) {

@@ -14,6 +14,7 @@ import BetaFeatures from "./components/BetaFeatures";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ModelDownloadStrip from "./components/ModelDownloadStrip";
+import StepBadge from "./components/StepBadge";
 import { CLOUD_TERMS_URL } from "./components/CloudCheckoutModal";
 import ReviewExport from "./components/ReviewExport";
 import BettyWorking from "./components/BettyWorking";
@@ -379,6 +380,13 @@ export default function App() {
                     depends on the other's answer, so neither needs to wait. */}
                 <div className="dashboard-split">
                   <section className="dashboard-col dashboard-col-manuscript">
+                    {/* The order of events, on the corner of each block that
+                        carries out one of them: the manuscript, the task, the
+                        run. Both columns are open at once, which is what makes
+                        the sequence worth stating — side by side they would
+                        otherwise read as a choice between two things rather
+                        than two halves of one job. */}
+                    <StepBadge n={1} />
                     <h2 className="dashboard-col-title">
                       {t("step_name_upload")}
                     </h2>
@@ -386,6 +394,7 @@ export default function App() {
                   </section>
 
                   <section className="dashboard-col dashboard-col-task">
+                    <StepBadge n={2} />
                     <h2 className="dashboard-col-title">{t("tasks_heading")}</h2>
                     <ModeSelector />
                     {/* Inside the task column, not after it: an experimental
@@ -407,6 +416,7 @@ export default function App() {
                   role="group"
                   aria-label={t("btn_add_to_queue")}
                 >
+                  <StepBadge n={3} />
                   <ModelDownloadStrip />
                   <EditTrigger />
                 </div>

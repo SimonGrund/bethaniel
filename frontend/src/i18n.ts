@@ -2808,6 +2808,22 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ich möchte…",
     es: "Quiero…",
   },
+  /* The word on the numbered seal in each block's top-left corner. The
+     numeral is set beside it rather than inside the string: it is styled
+     apart from the word, and it is the same character in all four. */
+  step_word: {
+    en: "Step",
+    da: "Trin",
+    de: "Schritt",
+    es: "Paso",
+  },
+  /* Between the two run buttons: one step, either way of taking it. */
+  run_or: {
+    en: "or",
+    da: "eller",
+    de: "oder",
+    es: "o",
+  },
   card_edit_title: {
     en: "Edit my manuscript",
     da: "Redigere mit manuskript",
@@ -2837,12 +2853,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Oversæt manuskript",
     de: "Manuskript übersetzen",
     es: "Traducir manuscrito",
-  },
-  card_translate_desc: {
-    en: "Into another language",
-    da: "Til et andet sprog",
-    de: "In eine andere Sprache",
-    es: "A otro idioma",
   },
   card_language_title: {
     en: "Analyse my language",

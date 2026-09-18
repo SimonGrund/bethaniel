@@ -566,6 +566,13 @@ export default function EditTrigger() {
 
       {activeDownload && <DownloadBar download={activeDownload} />}
 
+      {/* One step, two ways to take it. The two slabs side by side read as a
+          sequence — do this, then that — which is exactly wrong: they are the
+          same run, on this machine or on ours, and the author picks one. The
+          word sits between them rather than under either, and is placed by the
+          grid so it costs the row no height. */}
+      {cloudEntry && <span className="run-or">{t("run_or")}</span>}
+
       {cloudEntry && (
         <div className="cloud-block">
         <button
@@ -676,6 +683,12 @@ export default function EditTrigger() {
             {t("cloud_code_unknown", "That code was not recognised.")}
           </span>
         )}
+        {/* Under the cloud button with the code box, not on a line of its own
+            under the whole launch row: a code that was paid for and did not
+            arrive is the same subject as the box it should have arrived in,
+            and neither has anything to do with running locally. */}
+        <CloudCodeClaim pending={cloudCheckoutPending} onClaim={claimCode} lang={lang} />
+
         {/* What the paid option is and is not. Collapsed by default so it does
             not shout at someone who has already decided, but present before
             payment rather than after it — the headline is that this is not a
@@ -788,10 +801,6 @@ export default function EditTrigger() {
           </button>
         </p>
       )}
-      {cloudEntry && (
-        <CloudCodeClaim pending={cloudCheckoutPending} onClaim={claimCode} lang={lang} />
-      )}
-
       <CloudCheckoutModal
         open={cloudConfirmOpen}
         estimate={cloudEstimate}
