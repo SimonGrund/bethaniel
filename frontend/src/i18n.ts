@@ -1609,11 +1609,17 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty wird geladen…",
     es: "Cargando a Betty…",
   },
+  /* What the "Improve my writing" card produces, named for the artefact
+     rather than the intent: this string titles the exported PDF and labels
+     the task in the queue, and "Improve my writing — My Novel.docx" is not a
+     document title. What it must NOT say is "Language analysis", which is the
+     wording the card was renamed away from — an author who clicks one word
+     should not be handed the other. */
   mode_language_analysis: {
-    en: "Language analysis",
-    da: "Sproganalyse",
-    de: "Sprachanalyse",
-    es: "Análisis del lenguaje",
+    en: "Writing report",
+    da: "Skriverapport",
+    de: "Schreibbericht",
+    es: "Informe de escritura",
   },
   la_scope: {
     en: "{chapters} chapters · {words} words · {sentences} sentences",
@@ -2851,11 +2857,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Übersetzen nach",
     es: "Traducir a",
   },
+  /* Not "Analyse my language", which reads as grammar — the neighbouring
+     card's job — and named the machinery rather than the point. This card is
+     the only one about the WRITER: habits, rhythm, showing against telling.
+     None of what it reports is an error, and improving is what the author
+     does with it. */
   card_language_title: {
-    en: "Analyse my language",
-    da: "Analysere mit sprog",
-    de: "Meine Sprache analysieren",
-    es: "Analizar mi lenguaje",
+    en: "Improve my writing",
+    da: "Bliv en bedre skribent",
+    de: "Mein Schreiben verbessern",
+    es: "Mejorar mi escritura",
   },
   beta_disclosure: {
     en: "Experimental — less tested",
