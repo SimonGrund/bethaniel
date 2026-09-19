@@ -29,21 +29,23 @@ import {
 } from "../translationLanguages";
 import CodeBalanceNote from "./CodeBalanceNote";
 
+// Reading order is the order of the work: look at the language first, then
+// find the errors, then read the whole thing through, then translate what is
+// finished. Two of the four now say everything in their title — a description
+// under a title that already covers it is a line that only makes the card
+// taller, and with grid-auto-rows: 1fr it makes ALL FOUR cards taller.
 const CARDS: { id: FrontCard; titleKey: string; descKey?: string }[] = [
-  { id: "edit", titleKey: "card_edit_title", descKey: "card_edit_desc" },
+  { id: "language", titleKey: "card_language_title" },
+  { id: "edit", titleKey: "card_edit_title" },
   {
     id: "readthrough",
     titleKey: "card_readthrough_title",
     descKey: "card_readthrough_desc",
   },
-  // "Into another language" said what the target-language control directly
-  // beneath it already says, and it said it in the one card that carries a
-  // control — so it was the line that decided how tall the bottom row of
-  // cards had to be.
+  // The title runs straight into the control below it — "Translate into",
+  // then the language — so the card reads as one sentence and needs neither a
+  // description nor a label on the select.
   { id: "translate", titleKey: "card_translate_title" },
-  // The title says it all; a line under it only made this card taller than
-  // the three beside it.
-  { id: "language", titleKey: "card_language_title" },
 ];
 
 export default function ModeSelector() {
@@ -131,11 +133,15 @@ export default function ModeSelector() {
             {card.id === "translate" && (
               <span className="task-card-control">
                 <label className="translate-lang">
-                  <span className="translate-lang-label">
-                    {t("target_language")}
-                  </span>
+                  {/* No visible label: the card's title is the label — "
+                      Translate into" / [French]. The accessible name has to
+                      come from somewhere all the same, so it comes from
+                      aria-label; a select whose only name is its current
+                      value reads as "English, combo box" and says nothing
+                      about what choosing does. */}
                   <select
                     className="translate-lang-select"
+                    aria-label={t("target_language")}
                     value={freeText ? OTHER_LANGUAGE : targetLang}
                     onChange={(e) => pickLanguage(e.target.value)}
                   >

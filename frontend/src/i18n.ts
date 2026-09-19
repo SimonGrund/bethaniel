@@ -2825,16 +2825,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "o",
   },
   card_edit_title: {
-    en: "Edit my manuscript",
-    da: "Redigere mit manuskript",
-    de: "Mein Manuskript bearbeiten",
-    es: "Editar mi manuscrito",
-  },
-  card_edit_desc: {
-    en: "Copy and line edit",
-    da: "Korrektur og stilredigering",
-    de: "Korrektur und Stilbearbeitung",
-    es: "Corrección de texto y de estilo",
+    en: "Find errors (copy edits)",
+    da: "Find fejl (korrektur)",
+    de: "Fehler finden (Korrektur)",
+    es: "Encontrar errores (corrección)",
   },
   card_readthrough_title: {
     en: "Final readthrough",
@@ -2848,11 +2842,14 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ein letzter Oberflächencheck vor der Veröffentlichung",
     es: "Una última revisión superficial antes de publicar",
   },
+  /* Runs straight into the language selector under it: "Translate into" /
+     [French]. Every translation of it has to survive that, which is why none
+     of them names the manuscript — "Oversæt til", not "Oversæt manuskript til". */
   card_translate_title: {
-    en: "Translate Manuscript",
-    da: "Oversæt manuskript",
-    de: "Manuskript übersetzen",
-    es: "Traducir manuscrito",
+    en: "Translate into",
+    da: "Oversæt til",
+    de: "Übersetzen nach",
+    es: "Traducir a",
   },
   card_language_title: {
     en: "Analyse my language",

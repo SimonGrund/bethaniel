@@ -3251,24 +3251,23 @@ summary.review-source::before {
   background: #fffaf0;
 }
 
+/* No rule above it any more. The divider made sense while the control was a
+   labelled field bolted under a card that said something else ("Translate
+   Manuscript" / "Target language"); now the title IS the label — "Translate
+   into" / [French] — and a line drawn between a phrase and the rest of it
+   breaks the one sentence the card is. */
 .task-card-control {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin-top: 0.55rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid #e5dcc8;
+  margin-top: 0.4rem;
 }
 
+/* The title above it is the label now, so this is a control on its own line
+   rather than a labelled field. */
 .translate-lang {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-}
-
-.translate-lang-label {
-  font-size: 0.74rem;
-  color: #8a7a5c;
 }
 
 .translate-lang-select {
