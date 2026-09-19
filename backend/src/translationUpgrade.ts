@@ -36,6 +36,55 @@ export function upgradeGuard(
   return { ok: true };
 }
 
+/** Below this draft/source length ratio we assume the chunk was truncated.
+ *  Looser than MIN_LENGTH_RATIO: that compares a polish against its own
+ *  draft, where the text should barely move, while a translation legitimately
+ *  changes length — Danish and German run long, English runs short. This is
+ *  only meant to catch a chunk that stopped a paragraph in. */
+const MIN_DRAFT_RATIO = 0.4;
+
+/** Short enough that the length ratio says nothing. A heading or a line of
+ *  dialogue can halve in translation without anything being wrong. */
+const LENGTH_CHECK_MIN_CHARS = 80;
+
+/**
+ * The draft translation's own guard, run before the polish pass ever sees it.
+ *
+ * Until this existed nothing checked the draft: `upgradeGuard` vets the polish
+ * against the draft, but the draft itself was taken on trust, and the chunk
+ * loop's only failure path pushes the SOURCE text into the output. So a chunk
+ * that came back empty produced an empty chapter, and one that came back in
+ * the source language produced an untranslated chapter — both on a task that
+ * finished "done" with no errors recorded, which is how a book gets downloaded
+ * with its first chapter translated and the rest still in English.
+ *
+ * Deterministic and conservative on purpose: it answers "this is certainly not
+ * a translation", never "this is a good one". Judging the quality is the
+ * fluency reviewer's job, and judging the language is not something a
+ * five-language word-frequency detector should be trusted to veto a paid run
+ * over.
+ */
+export function draftGuard(
+  source: string,
+  draft: string,
+): { ok: true } | { ok: false; reason: string } {
+  const d = draft.trim();
+  if (!d) return { ok: false, reason: "empty translation output" };
+
+  const normalize = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+  if (normalize(d) === normalize(source))
+    return { ok: false, reason: "untranslated — the source text came back unchanged" };
+
+  const src = source.trim();
+  if (src.length >= LENGTH_CHECK_MIN_CHARS && d.length < src.length * MIN_DRAFT_RATIO)
+    return {
+      ok: false,
+      reason: `translation too short (${d.length}/${src.length} chars) — the chunk was probably truncated`,
+    };
+
+  return { ok: true };
+}
+
 export interface FluencyScore {
   confidence: number;
   reason: string;

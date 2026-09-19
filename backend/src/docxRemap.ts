@@ -57,39 +57,98 @@ function loose(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+/** Start/end offset of every blank-line-separated block in `text`. */
+function blockSpans(text: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  const re = /[^\n][\s\S]*?(?=\n\s*\n|$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (!m[0].trim()) continue;
+    spans.push([m.index, m.index + m[0].length]);
+  }
+  return spans;
+}
+
 /**
  * Monotone offset map from the original chapter text to the edited one.
  *
  * Used only to slice the edited counterpart of a paragraph — never to decide
- * what to replace.
+ * what to replace. Both offsets it is ever asked for are block boundaries, so
+ * pairing the blocks up by index answers every real query exactly.
+ *
+ * The word diff below is the fallback, and it is a fallback for a reason: on a
+ * translation no two words match, which is Myers' O(n·d) worst case. A chapter
+ * cost over a second there, so a novel's export blocked the backend for
+ * minutes — the "download takes forever" report. Blocks align in O(n), and for
+ * the edit modes (which never merge or split paragraphs) and for a translation
+ * (whose prompts forbid it, and whose upgrade pass is guarded on it) the counts
+ * match, so the fast path is the path taken.
  */
 function buildOffsetMap(original: string, edited: string): (pos: number) => number {
   const points: Array<[number, number]> = [[0, 0]];
-  let o = 0;
-  let e = 0;
-  for (const part of diffWordsWithSpace(original, edited)) {
-    if (part.added) {
-      e += part.value.length;
-    } else if (part.removed) {
-      o += part.value.length;
-    } else {
-      o += part.value.length;
-      e += part.value.length;
+
+  const oBlocks = blockSpans(original);
+  const eBlocks = blockSpans(edited);
+  if (oBlocks.length > 0 && oBlocks.length === eBlocks.length) {
+    for (let i = 0; i < oBlocks.length; i++) {
+      points.push([oBlocks[i][0], eBlocks[i][0]]);
+      points.push([oBlocks[i][1], eBlocks[i][1]]);
     }
-    points.push([o, e]);
+  } else {
+    let o = 0;
+    let e = 0;
+    for (const part of diffWordsWithSpace(original, edited)) {
+      if (part.added) {
+        e += part.value.length;
+      } else if (part.removed) {
+        o += part.value.length;
+      } else {
+        o += part.value.length;
+        e += part.value.length;
+      }
+      points.push([o, e]);
+    }
   }
+  points.push([original.length, edited.length]);
+
   return (pos: number) => {
-    let best = 0;
-    for (const [op, ep] of points) {
-      if (op <= pos) best = ep + (pos - op);
-      else break;
+    // Binary search for the last point at or before `pos`. The linear scan
+    // this replaced ran once per paragraph over a points array that grew with
+    // the chapter, which is a second quadratic term on the same hot path.
+    let lo = 0;
+    let hi = points.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (points[mid][0] <= pos) lo = mid;
+      else hi = mid - 1;
     }
-    return Math.max(0, Math.min(edited.length, best));
+    const [op, ep] = points[lo];
+    return Math.max(0, Math.min(edited.length, ep + (pos - op)));
   };
 }
 
+/**
+ * How far a character diff may wander before the paragraph is treated as
+ * rewritten outright. A correction edits a word or a clause, so its distance
+ * is a handful of characters; a translated paragraph shares nothing but its
+ * punctuation, and diffing it produced a hundred-odd one-character spans that
+ * cost real time to compute and shredded the Word paragraph into as many runs.
+ * Past this point one whole-paragraph replacement is smaller, faster and truer
+ * to what actually happened.
+ */
+const REWRITE_DISTANCE_RATIO = 0.5;
+
 /** Character-level spans between two plain-text versions of one paragraph. */
 function paragraphEdits(before: string, after: string): ParagraphTextEdit[] {
+  const parts = diffChars(before, after, {
+    maxEditLength: Math.max(
+      32,
+      Math.round(Math.max(before.length, after.length) * REWRITE_DISTANCE_RATIO),
+    ),
+  });
+  // Over the cap: too different to be an edit of this paragraph. Replace it.
+  if (!parts) return [{ start: 0, end: before.length, replacement: after }];
+
   const edits: ParagraphTextEdit[] = [];
   let pos = 0;
   let pendingStart = -1;
@@ -108,7 +167,7 @@ function paragraphEdits(before: string, after: string): ParagraphTextEdit[] {
     added = "";
   };
 
-  for (const part of diffChars(before, after)) {
+  for (const part of parts) {
     if (part.added) {
       if (pendingStart < 0) pendingStart = pos;
       added += part.value;

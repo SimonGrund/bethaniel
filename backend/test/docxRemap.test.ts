@@ -11,7 +11,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import JSZip from "jszip";
 
-import { docxToMarkdownMapped } from "../src/conversion.ts";
+import { docxToMarkdownMapped, markdownToDocx } from "../src/conversion.ts";
 import { indexDocumentXml, rewriteDocxText } from "../src/docxSurgery.ts";
 import {
   remapChaptersToParagraphEdits,
@@ -139,4 +139,75 @@ test("several corrections in one document all land", async () => {
   const after = await documentXmlOf(buffer);
   assert.match(after, /shaky/);
   assert.match(after, /written/);
+});
+
+// ── Translation-shaped remaps ──────────────────────────────────────────────
+// A translation replaces every word, which is the worst case for the diff the
+// offset map is built from: nothing matches, so Myers runs at its O(n·d) worst
+// and a chapter-sized call costs seconds. Exported for real books that is
+// minutes of a blocked backend, which is what "the download takes forever"
+// was. These pin both halves: the paragraph counterparts still line up, and
+// the work stays proportional to the text.
+
+/** A chapter of `paras` paragraphs, and its translation — no shared words. */
+function translatedChapter(paras: number): { original: string; edited: string } {
+  const en =
+    "the ferry stopped running in october and by november the river had frozen hard enough to walk on for thirty one years she had never once crossed it".split(
+      " ",
+    );
+  const da =
+    "færgen holdt op med at sejle i oktober og november var floden frosset så hårdt til man kunne gå på den i enogtredive år havde hun aldrig krydset isen".split(
+      " ",
+    );
+  const build = (words: string[], salt: number) =>
+    Array.from({ length: paras }, (_, p) =>
+      Array.from({ length: 60 }, (_, i) => words[(i * 7 + p + salt) % words.length]).join(
+        " ",
+      ) + ".",
+    ).join("\n\n");
+  return { original: build(en, 0), edited: build(da, 0) };
+}
+
+test("a translated chapter maps paragraph-to-paragraph, not word-to-word", async () => {
+  const { original, edited } = translatedChapter(6);
+  const docxBuf = await markdownToDocx(original);
+  const input = Buffer.from(docxBuf);
+  const { md, paragraphMap } = await docxToMarkdownMapped(input);
+  const index = indexDocumentXml(await documentXmlOf(input));
+
+  const { edits, unmapped } = remapChaptersToParagraphEdits(
+    md,
+    paragraphMap,
+    index,
+    [{ original: md, edited }],
+  );
+  assert.deepEqual(unmapped, []);
+
+  const { buffer } = await rewriteDocxText(input, edits);
+  const out = indexDocumentXml(await documentXmlOf(buffer));
+  const got = out.paragraphs.map((p) => p.text).filter((t) => t.trim());
+  assert.deepEqual(got, edited.split("\n\n"));
+});
+
+test("remapping a translated chapter stays proportional to the text", async () => {
+  // Doubling the chapter must not quadruple the work. The word diff this
+  // replaced went from ~0.4 s to ~1.5 s across exactly this step.
+  const time = async (paras: number) => {
+    const { original, edited } = translatedChapter(paras);
+    const input = Buffer.from(await markdownToDocx(original));
+    const { md, paragraphMap } = await docxToMarkdownMapped(input);
+    const index = indexDocumentXml(await documentXmlOf(input));
+    const t0 = performance.now();
+    remapChaptersToParagraphEdits(md, paragraphMap, index, [
+      { original: md, edited },
+    ]);
+    return performance.now() - t0;
+  };
+  const small = await time(10);
+  const large = await time(40);
+  // 4x the text, generously under 4x the quadratic blow-up it used to cost.
+  assert.ok(
+    large < Math.max(small * 8, 250),
+    `remap scaled badly: ${small.toFixed(0)} ms for 10 paragraphs, ${large.toFixed(0)} ms for 40`,
+  );
 });

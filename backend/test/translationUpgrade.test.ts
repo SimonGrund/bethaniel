@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  draftGuard,
   splitIntoParas,
   upgradeGuard,
 } from "../src/translationUpgrade.ts";
@@ -263,4 +264,51 @@ test("orchestrator: one reviewer runs, and its score decides", async () => {
     out,
     "Para one re-polished sentence.\n\nPara two polished sentence.\n\nPara three polished sentence.",
   );
+});
+
+
+// ── The draft translation's own guard ──────────────────────────────────────
+// Nothing used to check the draft at all: the polish pass had upgradeGuard,
+// but the translation it polishes was taken on trust. A chunk that came back
+// empty became an empty chapter, and a chunk that came back in the source
+// language became an untranslated one — both on a task that reported "done",
+// so the author downloaded a finished-looking book with English in it.
+
+const SOURCE =
+  "The ferry stopped running in October, and by November the river had frozen hard enough to walk on.\n\nHer father had drowned under it when she was nine, and she had never once crossed the ice.";
+const DANISH =
+  "Færgen holdt op med at sejle i oktober, og i november var floden frosset så hårdt til, at man kunne gå på den.\n\nHendes far var druknet under den, da hun var ni, og hun havde aldrig krydset isen.";
+
+test("draftGuard: accepts a real translation", () => {
+  assert.deepEqual(draftGuard(SOURCE, DANISH), { ok: true });
+});
+
+test("draftGuard: rejects an empty draft", () => {
+  const r = draftGuard(SOURCE, "   \n  ");
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /empty/i);
+});
+
+test("draftGuard: rejects a draft that is the source text echoed back", () => {
+  const r = draftGuard(SOURCE, SOURCE);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /untranslated/i);
+});
+
+test("draftGuard: the echo check ignores whitespace and case differences", () => {
+  const r = draftGuard(SOURCE, `  ${SOURCE.toUpperCase()}  `);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /untranslated/i);
+});
+
+test("draftGuard: rejects a draft far shorter than its source", () => {
+  const r = draftGuard(SOURCE, "Færgen.");
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /too short/i);
+});
+
+test("draftGuard: a short source is not judged on length", () => {
+  // Target languages compress; the length rule must not fire on a one-liner
+  // where a few characters either way is a large ratio.
+  assert.deepEqual(draftGuard("Yes.", "Ja."), { ok: true });
 });

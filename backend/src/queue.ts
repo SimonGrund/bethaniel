@@ -78,7 +78,7 @@ import {
   buildFluencyReviewerPrompt,
   buildSpellHintBlock,
 } from "./prompts.js";
-import { runTranslationUpgrade } from "./translationUpgrade.js";
+import { draftGuard, runTranslationUpgrade } from "./translationUpgrade.js";
 import {
   appendLog,
   clearLogs,
@@ -2613,6 +2613,19 @@ async function processJob(job: JobData): Promise<void> {
           // (the entire text is "changed" source → target language), and
           // the reviewer would flag every word as "changing meaning".
           if (mode === "translate") {
+            // The draft is checked before anything is built on it. The
+            // chunk loop's only failure path pushes the SOURCE text into the
+            // output, so an empty or echoed-back draft used to leave an empty
+            // or untranslated chapter on a task that finished "done" — a
+            // finished-looking book with the source language still in it.
+            // Raised as a chunk error instead, which is what it is.
+            const draftCheck = draftGuard(chunk.body, rewritten);
+            if (!draftCheck.ok) {
+              throw new Error(
+                `translation rejected for chunk ${chunkLabel}: ${draftCheck.reason}`,
+              );
+            }
+
             // ONE reviewer, not two. The draft reviewer — which scored the
             // translation against its source — is gone, on the same evidence
             // that retired the reviewer-scored copy/line edits. The FLUENCY

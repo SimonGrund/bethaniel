@@ -293,10 +293,23 @@ const appDataDir = (): string =>
 const repoDataDir = (): string =>
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
 
+/**
+ * Does this data dir hold a usable API key?
+ *
+ * api-config.json has two shapes (modelConfig.ts's readApiConfigStore): the
+ * legacy flat `{apiKey, model}`, and the current store keyed by catalog entry
+ * id, which is what the desktop app writes and the only shape a Betty in the
+ * Cloud credential is ever saved in. Checking only the flat one meant the CLI
+ * refused to start on a machine whose app was signed in to the cloud —
+ * `--model bethaniel-cloud` could not run at all.
+ */
 function apiKeyIn(dir: string): boolean {
   try {
     const cfg = JSON.parse(readFileSync(path.join(dir, "api-config.json"), "utf8"));
-    return Boolean(cfg?.apiKey);
+    if (typeof cfg?.apiKey === "string" && cfg.apiKey) return true;
+    return Object.values(cfg ?? {}).some(
+      (v) => typeof (v as { apiKey?: unknown })?.apiKey === "string" && (v as { apiKey: string }).apiKey,
+    );
   } catch {
     return false;
   }
