@@ -225,6 +225,33 @@ export function useModelRuntime(): void {
     setModel("");
   }, [modelEnvLoaded, model, models, setModel]);
 
+  // ── A Betty-in-the-Cloud selection never survives a restart ──
+  //
+  // The same reasoning as the block above, for a selection that is stale in a
+  // different way: the file is there, but the thing it names is a single job
+  // that has already been paid for and run. A cloud credential carries one
+  // job's token budget; once spent it can serve nothing, and with the model
+  // selector hidden outside advanced mode a user cannot see that this is what
+  // the run button is pointed at. The symptom reported from a live install was
+  // "local Betty fails to start" — every chunk coming back "out of credit"
+  // from a model the author never knowingly chose.
+  //
+  // Clearing hands over to the auto-select below, which picks an installed
+  // local model. The purchase flow sets this selection again, explicitly, for
+  // the job it belongs to.
+  useEffect(() => {
+    if (!modelEnvLoaded) return;
+    if (model !== "custom:bethaniel-cloud") return;
+    console.warn(
+      "[models] Betty in the Cloud is a per-job purchase, not a standing " +
+        "selection — clearing it so the next run goes to a model that can run it",
+    );
+    setModel("");
+    // Deliberately once per load, not on every change: the purchase flow sets
+    // this model on purpose mid-session and must be allowed to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelEnvLoaded]);
+
   // ── Auto-select ──
   // Only on first use. Once the user has any selection (persisted) keep it,
   // including custom/External Betty models absent from the installed-GGUF list.

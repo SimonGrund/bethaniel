@@ -205,8 +205,22 @@ export default function EditTrigger() {
     cancelWait: cancelCloudWait,
   } = useCloudPurchase("run", async () => {
     await refreshModelEnvironment();
+    // Betty in the Cloud is bought one job at a time, so it is the selected
+    // model for exactly one job. It used to stay selected afterwards, and
+    // because the model selector is hidden outside advanced mode, nothing said
+    // so: the next press of "Run Betty locally" went to a cloud credential
+    // whose budget was already spent, and the run died with "out of credit" on
+    // every chunk. Reported from a real install. The selection goes back to
+    // whatever it was as soon as the paid job is submitted.
+    const previousModel = useStore.getState().model;
     useStore.getState().setModel("custom:bethaniel-cloud");
-    await handleClickRef.current("custom:bethaniel-cloud");
+    try {
+      await handleClickRef.current("custom:bethaniel-cloud");
+    } finally {
+      if (previousModel && previousModel !== "custom:bethaniel-cloud") {
+        useStore.getState().setModel(previousModel);
+      }
+    }
   });
 
   // The quote carries what the code has left, read Worker-side moments before

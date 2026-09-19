@@ -129,6 +129,12 @@ export async function initSpellchecker(): Promise<boolean> {
 /**
  * Say out loud, once at startup, which dictionaries are actually on disk.
  *
+ * Twice over: to stdout for a terminal, and — via index.ts, which owns the log
+ * bus — to the engine log the app itself shows. The first version only did the
+ * former, which in a packaged build is a stream nobody reads: the author who
+ * went looking for this line after the fix shipped could not find it, because
+ * console.log has never reached the Engine panel.
+ *
  * Every function in this file degrades to "found nothing" when a dictionary is
  * missing, which is indistinguishable from a clean manuscript. That is how the
  * packaged app shipped for months with no dictionaries at all: the build
@@ -136,26 +142,33 @@ export async function initSpellchecker(): Promise<boolean> {
  * was a spell pass that never found a misspelling in any language. The line
  * below is what makes that visible the next time it happens.
  */
-function reportDictionaries(): void {
-  let names: string[] = [];
+export function listDictionaries(): { names: string[]; dir: string } {
   try {
-    names = fs
-      .readdirSync(DICT_DIR)
-      .filter((f) => f.endsWith(".dic"))
-      .map((f) => f.replace(/\.dic$/, ""))
-      .sort();
+    return {
+      dir: DICT_DIR,
+      names: fs
+        .readdirSync(DICT_DIR)
+        .filter((f) => f.endsWith(".dic"))
+        .map((f) => f.replace(/\.dic$/, ""))
+        .sort(),
+    };
   } catch {
     // The directory itself is missing — the packaging failure, exactly.
+    return { dir: DICT_DIR, names: [] };
   }
+}
+
+function reportDictionaries(): void {
+  const { names, dir } = listDictionaries();
   if (names.length === 0) {
     console.warn(
-      `[spellcheck] No dictionaries found in ${DICT_DIR} — the spell pass will ` +
+      `[spellcheck] No dictionaries found in ${dir} — the spell pass will ` +
         "find nothing in any language. In a packaged build this means the " +
         "dictionaries were not copied next to backend/dist.",
     );
     return;
   }
-  console.log(`[spellcheck] Dictionaries: ${names.join(", ")} (${DICT_DIR})`);
+  console.log(`[spellcheck] Dictionaries: ${names.join(", ")} (${dir})`);
 }
 
 /** Whether the spell pass can run. False if the WebAssembly module failed. */

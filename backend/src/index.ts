@@ -20,7 +20,7 @@ import { closeDb } from "./db.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
 import { shutdownLanguageTool } from "./languageToolServer.js";
 import { setLogIo, getLogSnapshot, appendLog } from "./logBus.js";
-import { initSpellchecker } from "./spellcheck.js";
+import { initSpellchecker, listDictionaries } from "./spellcheck.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -90,6 +90,28 @@ async function start() {
   // spell-check call downstream is synchronous, so it has to happen here.
   // A failure is not fatal — the pass degrades to a no-op and logs why.
   await initSpellchecker();
+  // Into the log the APP shows, not just the terminal. Which dictionaries are
+  // loaded decides whether the spell pass can find anything at all, and its
+  // failure mode is silence — a packaged build shipped without them looks
+  // exactly like a manuscript with no misspellings. Every release up to v2.19
+  // was that build; the fix is only verifiable if this line is somewhere the
+  // person running the app can actually read it.
+  {
+    const { names, dir } = listDictionaries();
+    appendLog(
+      names.length > 0
+        ? {
+            level: "info",
+            source: "engine",
+            message: `Spelling dictionaries loaded: ${names.join(", ")}`,
+          }
+        : {
+            level: "warn",
+            source: "engine",
+            message: `No spelling dictionaries found in ${dir} — spell-check will find nothing in any language.`,
+          },
+    );
+  }
   initQueue(io, 1);
 
   httpServer.listen(PORT, HOST, () => {
