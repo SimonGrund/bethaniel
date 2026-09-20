@@ -1463,8 +1463,12 @@ Deploying the Worker before the table exists means every `/v1/failure` call 500s
 
 Verify:
 ```bash
+# Through a variable, not a literal: gitleaks' curl-auth-header rule fires on
+# the shape `Authorization: Bearer <value>` regardless of what the value says,
+# and a doc that trips the repo's own secret scan is a doc nobody can commit.
+BOGUS=not-a-real-token
 curl -s -X POST https://bethaniel-cloud.cloudwatcher.workers.dev/v1/failure \
-  -H "Authorization: Bearer not-a-real-token" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BOGUS" -H "Content-Type: application/json" \
   -d '{"reason":"empty_output","attempts":2}' -o /dev/null -w '%{http_code}\n'
 ```
 Expected: `401`. A `404` means the route did not deploy; a `500` means the table is missing.

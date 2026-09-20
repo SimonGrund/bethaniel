@@ -1,0 +1,15 @@
+# Findings the secret scan is right to flag by shape and wrong to flag in fact.
+#
+# Each line is a fingerprint: <commit>:<file>:<rule>:<line>. Add one only when
+# the finding is demonstrably not a secret, and say why — an ignore file nobody
+# can audit is worse than a scan nobody runs.
+
+# A verification step in a plan document:
+#   curl ... -H "Authorization: Bearer not-a-real-token"
+# The rule fires on the SHAPE `Authorization: Bearer <value>`, whatever the
+# value is; here the value is the words "not-a-real-token", used to prove the
+# endpoint answers 401. The doc has since been rewritten to pass the value
+# through a shell variable (which is why the real `Bearer ${ADMIN_TOKEN}` in
+# cloud-sweep.yml never tripped this), but the string stays in this commit's
+# history and the scan reads history.
+0b005a217dbd1b7196dc9ab930e5476822e19dcc:docs/superpowers/plans/2026-09-20-free-retry-and-failure-alerts.md:curl-auth-header:1452
