@@ -98,7 +98,12 @@ async function getTurndown(): Promise<TurndownService> {
 async function getDocxParagraphInfo(
   docxBuffer: Buffer,
 ): Promise<
-  Array<{ isPageBreak: boolean; isEmpty: boolean; inTable: boolean }>
+  Array<{
+    isPageBreak: boolean;
+    isEmpty: boolean;
+    inTable: boolean;
+    hasText: boolean;
+  }>
 > {
   try {
     const zip = await JSZip.loadAsync(docxBuffer);
@@ -114,6 +119,11 @@ async function getDocxParagraphInfo(
       isPageBreak: p.isPageBreak,
       isEmpty: p.isEmpty,
       inTable: p.inTable,
+      // `isEmpty` is text.length === 0, and a bare page-break paragraph is not
+      // empty by that measure: <w:br> contributes "\n". The loop below needs
+      // to tell "a break marker on its own" from "a heading that starts a new
+      // page", so it needs the visible text, not just the length.
+      hasText: p.text.trim().length > 0,
     }));
   } catch {
     return [];
@@ -301,9 +311,25 @@ export async function docxToMarkdownMapped(
     const info = paragraphInfo[docxParaIndex];
     if (info.isPageBreak) {
       pendingPageBreak = true;
-      continue;
-    }
-    if (info.isEmpty) {
+      // A page break is a paragraph PROPERTY (w:pageBreakBefore) at least as
+      // often as it is a standalone marker, and in a book it sits on the
+      // chapter heading itself — every chapter starts on a new page.
+      //
+      // Skipping such a paragraph wholesale dropped the heading from the
+      // paragraph map AND left its HTML block unconsumed, so every paragraph
+      // after the first chapter heading was recorded against the previous
+      // paragraph's docx index. Surgical export then found the text it
+      // expected nowhere, refused those paragraphs, and shipped a translation
+      // in which only the front matter — everything before the first page
+      // break — had been replaced.
+      //
+      // So: note the break, but only skip the paragraph if it carries nothing.
+      // `isEmpty` will not do here — a bare <w:br type="page"/> paragraph has
+      // text "\n" and so is not empty by that test, and letting it through
+      // would consume an HTML block that mammoth never emitted for it,
+      // shifting everything the other way.
+      if (!info.hasText) continue;
+    } else if (info.isEmpty) {
       pendingEmptyParagraphs += 1;
       continue;
     }
