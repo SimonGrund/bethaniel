@@ -7,6 +7,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
+import { settingsRowFor, isQueueBusy } from "../updateStatus";
+import { getUpdateBridge } from "../updateBridge";
 import { useTranslation } from "../i18n";
 import StorageSettings from "./StorageSettings";
 import Modal from "./Modal";
@@ -73,6 +75,13 @@ export default function HeaderSettingsMenu() {
     if (next) setWizardStep("edits");
     setOpen(false);
   };
+
+  const updateStatus = useStore((s) => s.updateStatus);
+  const tasks = useStore((s) => s.tasks);
+  const updateBusy = isQueueBusy(Object.values(tasks).map((x) => x.status));
+  const updateRow = settingsRowFor(updateStatus, updateBusy);
+  // No updater outside the desktop app, so no button that cannot work.
+  const updateBridge = getUpdateBridge();
 
   const LANGS: { code: typeof lang; label: string }[] = [
     { code: "en", label: "English" },
@@ -152,6 +161,29 @@ export default function HeaderSettingsMenu() {
           >
             {t("storage_title")}
           </button>
+          {updateBridge && (
+            <div className="header-settings-update">
+              <button
+                type="button"
+                role="menuitem"
+                className="header-settings-item"
+                disabled={updateStatus.phase === "checking"}
+                onClick={() => void updateBridge.checkForUpdates()}
+              >
+                {t(updateRow.key).replace("{v}", updateRow.version ?? "")}
+              </button>
+              {updateRow.showRestart && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="header-settings-item header-settings-item-strong"
+                  onClick={() => void updateBridge.restartToUpdate()}
+                >
+                  {t("update_restart")}
+                </button>
+              )}
+            </div>
+          )}
           {/* Language last: it is the one thing here that is a preference
               rather than an action, and it needs its own row of choices. */}
           <div className="header-settings-langs" role="group" aria-label="Language">

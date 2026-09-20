@@ -5710,6 +5710,20 @@ summary.review-source::before {
   font-weight: 600;
 }
 
+/* The update rows, kept together so the Restart that may follow the status
+   reads as part of the same answer rather than a separate menu entry. */
+.header-settings-update {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The Restart row, when an update is waiting. Weightier than its neighbours
+   because it is the one row here that does something irreversible. */
+.header-settings-item-strong {
+  font-weight: 600;
+  color: #6b4f2a;
+}
+
 .header-settings-item {
   padding: 0.45rem 0.6rem;
   border: none;
