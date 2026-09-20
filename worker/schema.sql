@@ -90,3 +90,29 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_campaign ON promo_codes(campaign);
+
+-- Chunks that failed twice on a paid job.
+--
+-- Diagnostics only: `reason` is a closed enum (coerceFailureReason in
+-- src/db.ts) because these rows are rendered into a GitHub issue on a PUBLIC
+-- repository, and a free-text error string eventually carries a fragment of
+-- the manuscript that caused it. No manuscript text and no customer email are
+-- stored here, deliberately — the credential id is the handle for looking a
+-- customer up in Stripe.
+CREATE TABLE IF NOT EXISTS job_failures (
+  id TEXT PRIMARY KEY,
+  credential_id TEXT NOT NULL,
+  product TEXT NOT NULL,
+  unit_label TEXT,
+  reason TEXT NOT NULL,
+  attempts INTEGER NOT NULL,
+  tokens_spent INTEGER,
+  token_budget INTEGER,
+  created_at TEXT NOT NULL,
+  reported_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_failures_unreported
+  ON job_failures(reported_at);
+CREATE INDEX IF NOT EXISTS idx_failures_credential
+  ON job_failures(credential_id);
