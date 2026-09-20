@@ -12,11 +12,30 @@ instance:
 
 - When a chunk fails, the pipeline pushes the **source** text into the output
   and moves on. One bad roll of the dice costs the author a chapter.
-- There is no second attempt at chunk level. `retryPolicy.ts` retries whole
-  chapters, but only for local engine faults (crash, unreachable, timeout, port
-  conflict) — not for API faults, and not for bad model output.
 - Nobody is told. A paying cloud customer hits this and Bethaniel learns about
   it only if they write in.
+
+### Correction, 2026-09-20: chunk retry already exists
+
+An earlier draft of this spec claimed there was no chunk-level retry. That was
+wrong, and the correction makes Part 1 much smaller.
+
+`queue.ts:1916` already runs a five-attempt ladder around the streaming call,
+with backoff from `retryWaitMs` and — importantly — a seed that already varies
+by attempt: `deriveSeed(mode, job.name, j, "rewrite", attempt)`. So a retry
+already re-rolls the dice rather than reproducing the same response.
+
+What it retries on is `isTransientFetchError`: network faults and 429. That is
+the whole gap. The loop breaks on `lastErr = null; break` the moment the
+**stream completes**, and every check of what the model actually *said* —
+including `draftGuard` — runs *after* the loop has exited. A request that
+succeeds and returns rubbish is therefore not a retryable event; it falls
+straight through to the outer `catch` at `queue.ts:2743`, which pushes the
+source text.
+
+So Part 1 is not "add a retry". It is: **move output validation inside the
+ladder that already exists**, so a rejected draft is a failed attempt rather
+than a failed chunk.
 
 There are real paying customers now, so a single flaky response should not
 reach an author, and when one does reach them Bethaniel should already know.
@@ -53,42 +72,65 @@ Actual spend is a stable ~117% of estimate and does not degrade with size. The
 1.5x headroom absorbs that comfortably; it cannot absorb a whole-job re-run
 (200%), which is a second reason the retry is scoped to the chunk.
 
-## Part 1 — Chunk retry
+## Part 1 — Retry bad output, not just failed requests
 
 **Files:** `backend/src/retryPolicy.ts`, `backend/src/queue.ts`
 
-`retryPolicy.ts` gains one pure, dependency-free function beside the existing
-`isRetryableHint` and `isRateLimitError`:
+### The change
+
+Validate the draft translation *inside* the existing attempt loop, immediately
+before `lastErr = null; break` at `queue.ts:2342`, instead of after it. A
+`draftGuard` rejection becomes a thrown `DraftRejectedError`, which the loop's
+own `catch` already stands ready to handle.
+
+This deletes the need for a new retry mechanism entirely. The ladder, the
+backoff, the phase updates and the varying seed are all in place and correct.
+
+### Two ceilings, not one
+
+`MAX_ATTEMPTS = 5` is right for a network fault: a retry costs one failed
+socket. It is wrong for bad output, where every attempt is a **complete
+re-translation of the chunk** and therefore real tokens.
+
+So the loop carries a second, lower ceiling:
 
 ```ts
-export function shouldRetryChunk(err: unknown): boolean
+const MAX_OUTPUT_ATTEMPTS = 2;   // one retry, as specified
 ```
 
-| Retried once | Fails immediately |
+A `DraftRejectedError` may retry only while `attempt < MAX_OUTPUT_ATTEMPTS`.
+Network faults keep all five. Both are enforced in the same `catch`.
+
+### Classification
+
+`retryPolicy.ts` gains one pure function beside `isRetryableHint` and
+`isRateLimitError`:
+
+```ts
+export function chunkRetryLimit(err: unknown): number
+```
+
+| Error | Limit |
 |---|---|
-| network / socket faults | `ApiAccountError` (402 no credit, 401 bad key) |
-| HTTP 5xx | abort / cancellation |
-| timeouts and stalls | context-too-large |
-| `draftGuard` rejections (empty, echoed, truncated) | |
+| `DraftRejectedError` (empty, echoed, truncated) | 2 |
+| transient fetch fault (`isTransientFetchError`) — network, 429 | 5 |
+| everything else — `ApiAccountError`, abort, context-too-large | 1 (no retry) |
 
-In `queue.ts` the per-chunk body is wrapped so that a retryable failure logs,
-waits a short backoff, and runs the chunk once more. A second failure falls
-back exactly as today: source text into `pieces`, reason into `errors`, task
-ends `error`.
+Returning a number rather than a boolean keeps the two ceilings in one place
+instead of spreading `if (err instanceof …)` across the catch.
 
-### The seed is load-bearing
+### The seed is already load-bearing, and already correct
 
-`deriveSeed(mode, job.name, j, "rewrite", attempt)` already takes `attempt`.
-The retry MUST pass `attempt + 1`. With the same seed a deterministic model
-reproduces the same empty or echoed response, and the retry is pure waste —
-which is exactly the failure class being retried. A test pins this: two
-attempts must derive different seeds.
+`deriveSeed(mode, job.name, j, "rewrite", attempt)` varies by attempt today. It
+matters more once output is being retried — with a fixed seed a deterministic
+model reproduces the same empty response and the retry is pure waste — so a
+test pins it rather than leaving it to survive by luck.
 
-### 429 stays out
+### 429 stays as it is
 
-Rate limits are already absorbed by `isRateLimitError` plus backoff. A 429 is
-pacing, not failure; counting it here would spend the one retry on a queue that
-was going to clear by itself.
+Already absorbed by `isRateLimitError` plus the longer `retryWaitMs` ladder,
+and counted against the network ceiling, not the output one. A rate limit is
+pacing, not bad output.
 
 ## Part 2 — Budget overdraft
 
@@ -229,7 +271,7 @@ behaviour, driven by assignment and participation.
 
 | Scope | Test |
 |---|---|
-| `retryPolicy.ts` | Classification table for `shouldRetryChunk`: each retryable and each hopeless class. Pure, no network. |
+| `retryPolicy.ts` | Classification table for `chunkRetryLimit`: 2 for a draft rejection, 5 for a transient fault, 1 for the hopeless classes. Pure, no network. |
 | Seed | Attempts 1 and 2 derive different seeds — the guard against a deterministic repeat. |
 | Pipeline | The stub OpenAI-compatible server built during the v2.22.1 investigation drives the **real** queue. Program it to fail once then succeed; assert the chapter comes out translated, the task ends `done`, and one retry is logged. Then program it to fail twice; assert `error` and one `/v1/failure` call. |
 | `worker/` | Ledger stops at exactly `budgetTotal * 1.2`. `/v1/failure` rejects a bad token, enforces the per-credential cap, and coerces an unknown reason to `other`. |
