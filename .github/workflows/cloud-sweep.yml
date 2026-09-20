@@ -155,12 +155,94 @@ jobs:
                   } > body.md
 
                   if [ -n "$existing" ]; then
+                    # The body always shows current state. But a body edit
+                    # sends NO notification, so on its own this queue grows in
+                    # silence — which is exactly how it has behaved until now:
+                    # one email when the issue was first opened, and nothing
+                    # since. A comment notifies. Gating on a CHANGE keeps it
+                    # from emailing hourly and becoming a filter rule, which
+                    # would lose the one that mattered just as thoroughly.
+                    previous=$(gh issue view "$existing" --json body --jq '.body' \
+                      | grep -oE '<!-- count:[0-9]+ -->' | grep -oE '[0-9]+' | head -1 || true)
+                    printf '<!-- count:%s -->\n' "$count" | cat - body.md > body-stamped.md
+                    mv body-stamped.md body.md
                     gh issue edit "$existing" --body-file body.md
+                    if [ "$previous" != "$count" ]; then
+                      gh issue comment "$existing" \
+                        --body "Queue changed: now $count credential(s) awaiting a decision."
+                    fi
                     echo "updated issue #$existing"
                   else
                     gh label create refund-review --color B60205 \
                       --description "A cloud credential is waiting on a refund decision" \
                       2>/dev/null || true
+                    # Stamped so the next sweep can see what the count WAS.
+                    printf '<!-- count:%s -->\n' "$count" | cat - body.md > body-stamped.md
+                    mv body-stamped.md body.md
+                    # Assigned, because GitHub emails assignees. A queue nobody
+                    # is told about is a column value nobody reads.
                     gh issue create --label refund-review \
+                      --assignee SimonGrund \
                       --title "Refunds awaiting a decision" --body-file body.md
                   fi
+            - name: Raise chunks that failed twice
+              env:
+                  ADMIN_TOKEN: ${{ secrets.CLOUD_ADMIN_TOKEN }}
+                  GH_TOKEN: ${{ github.token }}
+                  GH_REPO: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+
+                  # A chunk that failed twice on a PAID job. The author received
+                  # source text where a translation should have been, and this
+                  # is the only way that fact reaches anyone without them
+                  # writing in.
+                  curl --silent --show-error --fail-with-body --max-time 60 \
+                    "$WORKER/admin/failures" \
+                    -H "Authorization: Bearer ${ADMIN_TOKEN}" > failures.json
+
+                  count=$(jq -r '.count' failures.json)
+                  echo "$count unreported failure(s)"
+                  if [ "$count" -eq 0 ]; then
+                    exit 0
+                  fi
+
+                  # Built as a file, not an inline string: the body carries
+                  # JSON, backticks and quotes, each of which is a way for a
+                  # shell to misread it.
+                  {
+                    echo "These chunks failed twice on paid cloud jobs since the last"
+                    echo "sweep. Each one is an author who received source text where a"
+                    echo "translation should have been."
+                    echo
+                    echo "Diagnostics only — no manuscript text and no customer email are"
+                    echo "recorded, deliberately: this repository is public. Find the"
+                    echo "customer through the credential id in Stripe."
+                    echo
+                    echo '```json'
+                    jq '.failures' failures.json
+                    echo '```'
+                    echo
+                    echo "empty_output and echoed_source mean the model answered badly"
+                    echo "twice. truncated means the chunk hit the output cap. network,"
+                    echo "provider_5xx and timeout point at the provider, not at Betty."
+                  } > failures.md
+
+                  gh label create job-failure --color D93F0B \
+                    --description "A paid cloud chunk failed twice" 2>/dev/null || true
+
+                  # A NEW issue per sweep that has failures, rather than one
+                  # running issue: each batch is a distinct incident with its
+                  # own customers, and creating it is what sends the email.
+                  gh issue create --label job-failure --assignee SimonGrund \
+                    --title "$count cloud chunk(s) failed twice" --body-file failures.md
+
+                  # Acked only AFTER the issue exists. If raising it failed,
+                  # the rows stay unreported and the next sweep tries again —
+                  # losing a report is worse than sending one twice.
+                  jq -c '[.failures[].id]' failures.json > ids.json
+                  curl --silent --show-error --fail-with-body --max-time 60 \
+                    -X POST "$WORKER/admin/failures/ack" \
+                    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"ids\": $(cat ids.json)}"

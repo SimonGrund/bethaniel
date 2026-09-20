@@ -371,3 +371,139 @@ export async function redeemPromo(env: Env, code: string, product: CloudProduct)
     .run();
   return (res.meta?.changes ?? 0) > 0;
 }
+
+// ── Failure reports ────────────────────────────────────────────────────────
+
+/**
+ * Every reason a failure report may carry.
+ *
+ * Closed on purpose, and this is a privacy control rather than a tidiness one:
+ * these rows are rendered into a GitHub issue on a public repository, and a
+ * free-text field fed by error messages will eventually carry the text that
+ * caused the error — a customer's unpublished prose.
+ */
+export const FAILURE_REASONS = [
+  "empty_output",
+  "echoed_source",
+  "truncated",
+  "network",
+  "provider_5xx",
+  "timeout",
+  "other",
+] as const;
+
+/**
+ * Anything not on the list becomes "other". The count survives; the words
+ * do not.
+ *
+ * Exact membership, never a substring test: "empty_output: <the author's
+ * prose>" must not be waved through on the strength of its first word.
+ */
+export function coerceFailureReason(raw: unknown): string {
+  return typeof raw === "string" &&
+    (FAILURE_REASONS as readonly string[]).includes(raw)
+    ? raw
+    : "other";
+}
+
+/** The products a job can be, mirroring CloudProduct in the app's cloudEstimate.ts. */
+export const FAILURE_PRODUCTS = [
+  "edit",
+  "readthrough",
+  "translate",
+  "enhance",
+  "unknown",
+] as const;
+
+/**
+ * Coerce the client's product label.
+ *
+ * The credentials table has no product column — product is a property of the
+ * quote, and a promo credential reaches it only through a synthetic session
+ * id — so the client names it. Closed for the same reason as the reason enum:
+ * a client-supplied string must never become free text in a public issue,
+ * however harmless this particular one looks.
+ */
+export function coerceProduct(raw: unknown): string {
+  return typeof raw === "string" &&
+    (FAILURE_PRODUCTS as readonly string[]).includes(raw)
+    ? raw
+    : "unknown";
+}
+
+/**
+ * How many failures one credential may file.
+ *
+ * A job failing every chunk of a long book would otherwise write a row per
+ * chunk, and the twentieth adds nothing the first did not already say.
+ */
+export const MAX_FAILURES_PER_CREDENTIAL = 20;
+
+export interface JobFailureRow {
+  credentialId: string;
+  product: string;
+  unitLabel: string | null;
+  reason: string;
+  attempts: number;
+  tokensSpent: number | null;
+  tokenBudget: number | null;
+}
+
+/** Record one failure. Returns false once this credential has filed enough. */
+export async function recordJobFailure(
+  env: Env,
+  row: JobFailureRow,
+): Promise<boolean> {
+  const seen = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM job_failures WHERE credential_id = ?`,
+  )
+    .bind(row.credentialId)
+    .first<{ n: number }>();
+  if ((seen?.n ?? 0) >= MAX_FAILURES_PER_CREDENTIAL) return false;
+
+  await env.DB.prepare(
+    `INSERT INTO job_failures
+       (id, credential_id, product, unit_label, reason, attempts,
+        tokens_spent, token_budget, created_at, reported_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      row.credentialId,
+      coerceProduct(row.product),
+      row.unitLabel,
+      coerceFailureReason(row.reason),
+      row.attempts,
+      row.tokensSpent,
+      row.tokenBudget,
+      new Date().toISOString(),
+    )
+    .run();
+  return true;
+}
+
+/** Failures no sweep has raised yet. */
+export async function listUnreportedFailures(env: Env) {
+  const res = await env.DB.prepare(
+    `SELECT id, credential_id, product, unit_label, reason, attempts,
+            tokens_spent, token_budget, created_at
+       FROM job_failures
+      WHERE reported_at IS NULL
+      ORDER BY created_at ASC
+      LIMIT 200`,
+  ).all();
+  return res.results ?? [];
+}
+
+/** Mark rows raised, so the next sweep does not report them again. */
+export async function ackFailures(env: Env, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const marks = ids.map(() => "?").join(",");
+  const res = await env.DB.prepare(
+    `UPDATE job_failures SET reported_at = ?
+      WHERE id IN (${marks}) AND reported_at IS NULL`,
+  )
+    .bind(new Date().toISOString(), ...ids)
+    .run();
+  return res.meta?.changes ?? 0;
+}

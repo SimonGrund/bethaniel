@@ -108,10 +108,14 @@ import {
   recordJobThroughput,
 } from "./db.js";
 import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
+import { readApiConfig } from "./modelConfig.js";
+import { failureReasonFor, reportCloudFailure } from "./cloudFailureReport.js";
 import { estimateTaskOutputTokens } from "./cloudEstimate.js";
 import {
   shouldAutoRetry,
   MAX_AUTO_ATTEMPTS,
+  chunkRetryLimit,
+  DraftRejectedError,
   isRateLimitError,
   retryWaitMs,
 } from "./retryPolicy.js";
@@ -169,6 +173,39 @@ function isTransientFetchError(err: unknown): boolean {
     msg.includes("etimedout") ||
     msg.includes("epipe")
   );
+}
+
+/**
+ * Report a twice-failed chunk, if this is a Betty in the Cloud job.
+ *
+ * Silent for a local run and for a user's own API key: neither has a
+ * Bethaniel credential to authenticate with, and a local manuscript must
+ * never generate network traffic on account of a failure.
+ */
+async function reportChunkFailureIfCloud(
+  model: string,
+  job: JobData,
+  chunkLabel: string,
+  err: unknown,
+  attempts: number,
+): Promise<void> {
+  const entry = getModelByFileName(model);
+  if (entry?.id !== "bethaniel-cloud") return;
+  const cfg = readApiConfig("bethaniel-cloud");
+  if (!cfg?.apiKey) return;
+  const baseUrl = cfg.baseUrl ?? entry.defaultBaseUrl;
+  if (!baseUrl) return;
+  await reportCloudFailure({
+    baseUrl,
+    apiKey: cfg.apiKey,
+    // The chapter's NAME, never its text. A name is the author's words too,
+    // but it is already on the receipt and in the queue, and without one the
+    // report cannot be matched to anything.
+    unitLabel: `${job.name} · chunk ${chunkLabel}`,
+    reason: failureReasonFor(err),
+    attempts,
+    product: job.mode === "translate" ? "translate" : "edit",
+  });
 }
 
 const REVIEWER_MAX_ATTEMPTS = 3;
@@ -1898,6 +1935,10 @@ async function processJob(job: JobData): Promise<void> {
           : `${j + 1}/${chunks.length}`;
       let acc = "";
       let tokCount = 0;
+      // The outer catch reports how many goes this chunk actually had, and the
+      // loop counter is out of scope by then. Reporting the class ceiling
+      // instead would put a number in the failure record that never happened.
+      let attemptsMade = 0;
       const chunkStart = performance.now();
       let firstTokenAt = 0;
       let spellCorrections: Correction[] = [];
@@ -1920,6 +1961,7 @@ async function processJob(job: JobData): Promise<void> {
           firstTokenAt = 0;
           _dualMergedCorrections = null;
           chunkPrompt = prompt;
+          attemptsMade = attempt;
           const phasePrefix = attempt === 1 ? "" : `retry ${attempt - 1} — `;
           try {
             updateTask(taskId, {
@@ -2339,12 +2381,27 @@ async function processJob(job: JobData): Promise<void> {
                 updateProgress(taskId, tokenProgress());
               }
             }
+            // The stream finished, which is not the same as the model having
+            // answered. For a translation, judge the draft HERE — inside the
+            // ladder — so a rejected one is a failed attempt that re-rolls
+            // with a fresh seed, not a failed chunk that ships the source
+            // text. Everything downstream (the polish pass, the fluency
+            // reviewer) is built on this draft, so nothing should be built
+            // until it is worth building on.
+            if (mode === "translate") {
+              const check = draftGuard(chunk.body, acc.trim());
+              if (!check.ok) throw new DraftRejectedError(check.reason);
+            }
             lastErr = null;
             break; // success
           } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);
-            if (!isTransientFetchError(err) || attempt === MAX_ATTEMPTS) {
+            // Two ceilings: five goes at a failed socket, two at a bad
+            // answer. A re-translation costs tokens the author has already
+            // paid for, so it is allowed one retry and then has to be honest.
+            const limit = chunkRetryLimit(err, isTransientFetchError(err));
+            if (attempt >= limit) {
               throw err;
             }
             const waitMs = retryWaitMs(err, attempt);
@@ -2613,19 +2670,6 @@ async function processJob(job: JobData): Promise<void> {
           // (the entire text is "changed" source → target language), and
           // the reviewer would flag every word as "changing meaning".
           if (mode === "translate") {
-            // The draft is checked before anything is built on it. The
-            // chunk loop's only failure path pushes the SOURCE text into the
-            // output, so an empty or echoed-back draft used to leave an empty
-            // or untranslated chapter on a task that finished "done" — a
-            // finished-looking book with the source language still in it.
-            // Raised as a chunk error instead, which is what it is.
-            const draftCheck = draftGuard(chunk.body, rewritten);
-            if (!draftCheck.ok) {
-              throw new Error(
-                `translation rejected for chunk ${chunkLabel}: ${draftCheck.reason}`,
-              );
-            }
-
             // ONE reviewer, not two. The draft reviewer — which scored the
             // translation against its source — is gone, on the same evidence
             // that retired the reviewer-scored copy/line edits. The FLUENCY
@@ -2745,6 +2789,12 @@ async function processJob(job: JobData): Promise<void> {
         errors.push(
           `chunk ${j + 1}: ${err instanceof Error ? err.message : String(err)}`,
         );
+        // The retries are spent and the author is getting source text where a
+        // translation should be. On a paid cloud job, say so — this is the
+        // only way Bethaniel learns a customer's run broke without them
+        // writing in. Not awaited: the chapter's outcome does not depend on
+        // it, and the report can never fail the job.
+        void reportChunkFailureIfCloud(model, job, chunkLabel, err, attemptsMade);
       }
 
       // Per-chunk timing summary

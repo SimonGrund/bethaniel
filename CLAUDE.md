@@ -154,6 +154,20 @@ The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over tok
 - `worker/` — a **separate deployable package** (own `package.json`/`wrangler.toml`, not part of the root npm workspaces) implementing the Worker: Stripe Checkout, a per-credential Durable Object ledger (`worker/src/ledger.ts`) that hard-caps total exposure via reserve/commit/release, and a metering proxy in front of OVHcloud AI Endpoints that returns a 402 on budget exhaustion — which `llm.ts`'s existing `ApiAccountError` already surfaces gracefully. See `worker/README.md` for deployment.
 - `electron/main.ts` registers `bethaniel://` and handles the paid-credential handoff (`claimCloudCredential`) once the Worker's hosted success page redirects there after a completed Stripe Checkout; the app's own `PUT /api/models/custom/config` (now `entryId`-aware) saves it exactly like an External Betty key.
 - **Products.** `/v1/quote` takes `product` — `edit`, `readthrough` (same band price, told apart on the receipt), `translate` (its own dearer band, `PRICE_TRANSLATE_EUR_CENTS`, because it is the one product that still needs a large model) or `enhance` (flat `PRICE_ENHANCE_EUR_CENTS` per band, its own tighter token guard); `cloudProductFor` in `cloudEstimate.ts` derives it with the app's card precedence. The Worker must be deployed before an app that sends a new product name, or every such quote 400s.
+- **When a chunk fails twice.** `queue.ts`'s attempt ladder judges the
+  translation draft *inside* the loop (`draftGuard` → `DraftRejectedError`), so
+  an unusable answer re-rolls with a fresh seed instead of costing the chapter —
+  the ladder already varied its seed by attempt, which is what makes a retry
+  worth running. Two ceilings, from `chunkRetryLimit` in `retryPolicy.ts`: five
+  goes at a network fault, two at a bad answer, because a re-translation costs
+  tokens the author has already paid for. When both are spent on a cloud job,
+  `cloudFailureReport.ts` files a diagnostics-only row via `POST /v1/failure`
+  and the hourly `cloud-sweep` workflow raises a GitHub issue. `reason` and
+  `product` are closed enums matched exactly, never by substring: this repo is
+  public, and a free-text error string eventually carries the manuscript that
+  caused it. The ledger carries a flat 20% overdraft (`OVERDRAFT_FRACTION` in
+  `worker/src/ledger.ts`) so a retry is never refused for want of budget;
+  `DAILY_TOKEN_CEILING` is unchanged, so total exposure is not.
 - **The language card in the cloud.** "Run in Cloud" on the language card is the free local counts plus the enhanced analysis: `/queue/add` on the cloud model submits a `language_analysis` task and a `language_enhance` sibling on the same job, `estimateCloudJob` prices the same pair as `enhance`, and `LanguageAnalysisPanel` folds the result (showing-vs-telling notes with verbatim quotes, never rewrites, plus one advice paragraph — `backend/src/languageEnhance.ts`, sampled like the writing report) into the counts report. `POST /api/queue/job/:jobId/language-enhance` adds the enhance task to an existing local run. `frontend/src/cloudPurchase.ts` (`useCloudPurchase`) owns estimate → checkout → credential claim, and `CloudCodeClaim` is the fallback field for the code on the success page when the `bethaniel://` link back fails. The credential handler passes the cloud model into the submission explicitly — reading it from the render closure after `setModel` sends a paid run to the local model.
 
 ### Electron packaging

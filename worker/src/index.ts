@@ -32,6 +32,12 @@ import {
   setRefundStatus,
   findRefundReviews,
   findCredentialById,
+  findCredentialByTokenHash,
+  recordJobFailure,
+  coerceFailureReason,
+  coerceProduct,
+  listUnreportedFailures,
+  ackFailures,
 } from "./db";
 import {
   assertPaymentsAllowed,
@@ -222,6 +228,22 @@ export default {
         // auto-refunded — that rule is farmable — so they land here instead.
         // Until something reads this, the author it concerns is waiting on a
         // decision that exists only as a column value.
+        if (url.pathname === "/admin/failures" && request.method === "GET") {
+          const rows = await listUnreportedFailures(env);
+          return json({ ok: true, count: rows.length, failures: rows });
+        }
+
+        if (
+          url.pathname === "/admin/failures/ack" &&
+          request.method === "POST"
+        ) {
+          const { ids } = (await request.json().catch(() => ({}))) as {
+            ids?: string[];
+          };
+          const acked = await ackFailures(env, Array.isArray(ids) ? ids : []);
+          return json({ ok: true, acked });
+        }
+
         if (url.pathname === "/admin/refunds" && request.method === "GET") {
           const rows = await findRefundReviews(env);
           return json({
@@ -640,6 +662,49 @@ export default {
           tokenBudget: claim.tokenBudget,
           model: env.PROVIDER_MODEL,
         });
+      }
+
+      if (url.pathname === "/v1/failure" && request.method === "POST") {
+        // Authenticated exactly as the proxy is (handleChatCompletions in
+        // src/proxy.ts): bearer token -> hash -> credential row. Spend and
+        // budget are read from our own record; the client is trusted only for
+        // the chunk label, the reason and the product, and all three are
+        // clamped or coerced below.
+        const authHeader = request.headers.get("Authorization") ?? "";
+        const bearer = /^Bearer\s+(.+)$/i.exec(authHeader);
+        if (!bearer) return json({ error: "Unauthorized" }, 401);
+        const credential = await findCredentialByTokenHash(
+          env,
+          await hashToken(bearer[1]),
+        );
+        if (!credential) return json({ error: "Unauthorized" }, 401);
+
+        const failureBody = (await request.json().catch(() => ({}))) as {
+          unitLabel?: unknown;
+          reason?: unknown;
+          attempts?: unknown;
+          product?: unknown;
+        };
+        await recordJobFailure(env, {
+          credentialId: credential.id,
+          product: coerceProduct(failureBody.product),
+          unitLabel:
+            typeof failureBody.unitLabel === "string"
+              ? failureBody.unitLabel.slice(0, 80)
+              : null,
+          reason: coerceFailureReason(failureBody.reason),
+          attempts:
+            typeof failureBody.attempts === "number" &&
+            Number.isFinite(failureBody.attempts)
+              ? Math.max(1, Math.min(99, Math.trunc(failureBody.attempts)))
+              : 1,
+          tokensSpent: credential.spent ?? null,
+          tokenBudget: credential.token_budget ?? null,
+        });
+        // 204 whether it was stored or dropped at the per-credential cap. A
+        // failure report must never become a second failure for the caller to
+        // handle.
+        return new Response(null, { status: 204 });
       }
 
       if (

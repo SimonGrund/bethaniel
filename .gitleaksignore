@@ -1,0 +1,24 @@
+# Findings the secret scan is right to flag by shape and wrong to flag in fact.
+#
+# Each line is a fingerprint: <commit>:<file>:<rule>:<line>. Add one only when
+# the finding is demonstrably not a secret, and say why — an ignore file nobody
+# can audit is worse than a scan nobody runs.
+#
+# Describe the offending text; never quote it. The rules match on shape, so a
+# comment reproducing the pattern reproduces the finding, in this file, at a
+# new fingerprint. That is not hypothetical: it is how the second line below
+# came to exist.
+
+# A verification step in a plan document: a curl that proves POST /v1/failure
+# answers 401, carrying a bearer credential header whose value is the literal
+# words "not a real token". The curl-auth-header rule matches the header's
+# shape whatever the value is. The document has since been rewritten to pass
+# the value through a shell variable — which is why the genuine credential
+# header in cloud-sweep.yml, written the same way, has never been flagged —
+# but the original text stays in this commit and the scan reads history.
+0b005a217dbd1b7196dc9ab930e5476822e19dcc:docs/superpowers/plans/2026-09-20-free-retry-and-failure-alerts.md:curl-auth-header:1452
+
+# The first version of THIS file, whose comment quoted the line above verbatim
+# while explaining it, and so tripped the same rule on the same shape. The
+# comment no longer quotes anything; the commit still does.
+bfc7364dac4ea3588bd63e5575705e50e42d9248:.gitleaksignore:curl-auth-header:8
