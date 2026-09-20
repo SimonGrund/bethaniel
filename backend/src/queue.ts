@@ -108,6 +108,8 @@ import {
   recordJobThroughput,
 } from "./db.js";
 import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
+import { readApiConfig } from "./modelConfig.js";
+import { failureReasonFor, reportCloudFailure } from "./cloudFailureReport.js";
 import { estimateTaskOutputTokens } from "./cloudEstimate.js";
 import {
   shouldAutoRetry,
@@ -171,6 +173,39 @@ function isTransientFetchError(err: unknown): boolean {
     msg.includes("etimedout") ||
     msg.includes("epipe")
   );
+}
+
+/**
+ * Report a twice-failed chunk, if this is a Betty in the Cloud job.
+ *
+ * Silent for a local run and for a user's own API key: neither has a
+ * Bethaniel credential to authenticate with, and a local manuscript must
+ * never generate network traffic on account of a failure.
+ */
+async function reportChunkFailureIfCloud(
+  model: string,
+  job: JobData,
+  chunkLabel: string,
+  err: unknown,
+  attempts: number,
+): Promise<void> {
+  const entry = getModelByFileName(model);
+  if (entry?.id !== "bethaniel-cloud") return;
+  const cfg = readApiConfig("bethaniel-cloud");
+  if (!cfg?.apiKey) return;
+  const baseUrl = cfg.baseUrl ?? entry.defaultBaseUrl;
+  if (!baseUrl) return;
+  await reportCloudFailure({
+    baseUrl,
+    apiKey: cfg.apiKey,
+    // The chapter's NAME, never its text. A name is the author's words too,
+    // but it is already on the receipt and in the queue, and without one the
+    // report cannot be matched to anything.
+    unitLabel: `${job.name} · chunk ${chunkLabel}`,
+    reason: failureReasonFor(err),
+    attempts,
+    product: job.mode === "translate" ? "translate" : "edit",
+  });
 }
 
 const REVIEWER_MAX_ATTEMPTS = 3;
@@ -2754,6 +2789,12 @@ async function processJob(job: JobData): Promise<void> {
         errors.push(
           `chunk ${j + 1}: ${err instanceof Error ? err.message : String(err)}`,
         );
+        // The retries are spent and the author is getting source text where a
+        // translation should be. On a paid cloud job, say so — this is the
+        // only way Bethaniel learns a customer's run broke without them
+        // writing in. Not awaited: the chapter's outcome does not depend on
+        // it, and the report can never fail the job.
+        void reportChunkFailureIfCloud(model, job, chunkLabel, err, attemptsMade);
       }
 
       // Per-chunk timing summary
