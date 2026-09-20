@@ -120,3 +120,51 @@ test("retryWaitMs: grows with the attempt number", () => {
   assert.ok(retryWaitMs(new Error("429"), 2) > retryWaitMs(new Error("429"), 1));
   assert.ok(retryWaitMs(new Error("boom"), 2) > retryWaitMs(new Error("boom"), 1));
 });
+
+// ── How many goes each kind of failure gets ──
+//
+// A network fault costs a failed socket, so it can afford the full ladder. A
+// rejected draft costs a whole re-translation of the chunk — real tokens
+// against a budget the author has already paid for — so it gets one retry and
+// then has to be honest.
+
+import { chunkRetryLimit, DraftRejectedError } from "../src/retryPolicy.ts";
+import { ApiAccountError } from "../src/llm.ts";
+
+test("chunkRetryLimit: a rejected draft gets exactly one retry", () => {
+  assert.equal(
+    chunkRetryLimit(new DraftRejectedError("empty translation output"), false),
+    2,
+  );
+});
+
+test("chunkRetryLimit: a transient fault keeps the full network ladder", () => {
+  assert.equal(chunkRetryLimit(new Error("fetch failed"), true), 5);
+});
+
+test("chunkRetryLimit: a draft rejection is capped even if also transient", () => {
+  // Defensive: the cheaper ceiling must win, or a mis-set flag buys five
+  // re-translations of the same chunk.
+  assert.equal(
+    chunkRetryLimit(new DraftRejectedError("empty translation output"), true),
+    2,
+  );
+});
+
+test("chunkRetryLimit: no credit is not retried", () => {
+  assert.equal(
+    chunkRetryLimit(new ApiAccountError(402, "Insufficient Balance"), false),
+    1,
+  );
+});
+
+test("chunkRetryLimit: an unknown error is not retried", () => {
+  assert.equal(chunkRetryLimit(new Error("context length exceeded"), false), 1);
+});
+
+test("DraftRejectedError carries its reason for the failure report", () => {
+  const err = new DraftRejectedError("echoed source");
+  assert.equal(err.reason, "echoed source");
+  assert.equal(err.name, "DraftRejectedError");
+  assert.ok(err instanceof Error);
+});

@@ -28,9 +28,16 @@
 Pure, dependency-free classification. Nothing wired up yet.
 
 **Files:**
-- Modify: `backend/src/translationUpgrade.ts` (add `DraftRejectedError`)
-- Modify: `backend/src/retryPolicy.ts` (add `chunkRetryLimit`)
+- Modify: `backend/src/retryPolicy.ts` (add `DraftRejectedError` and `chunkRetryLimit`)
 - Test: `backend/test/retryPolicy.test.ts`
+
+> **Revised during execution.** An earlier draft put `DraftRejectedError` in
+> `translationUpgrade.ts` and had `retryPolicy.ts` import it. That breaks a
+> stated property of the module — `retryPolicy.ts` has zero imports and its
+> header says it is "pure and dependency-free so the policy can be tested on
+> its own" — and a runtime import would have pulled the whole upgrade
+> orchestrator in behind it. The error is a retry-classification concern, so it
+> lives here; `draftGuard` keeps returning `{ok, reason}` and is not touched.
 
 **Interfaces:**
 - Consumes: `isRateLimitError` (already exported from `backend/src/retryPolicy.ts`), `ApiAccountError` (already exported from `backend/src/llm.ts`).

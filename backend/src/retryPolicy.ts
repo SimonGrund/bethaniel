@@ -68,3 +68,52 @@ export function isRateLimitError(err: unknown): boolean {
 export function retryWaitMs(err: unknown, attempt: number): number {
   return isRateLimitError(err) ? 5000 * attempt : 750 * attempt;
 }
+
+// ── Bad answers, as distinct from failed requests ──
+
+/**
+ * A draft translation that `draftGuard` refused.
+ *
+ * A distinct type because the chunk loop has to tell it apart from a failed
+ * request: the request succeeded, and what came back was unusable. That
+ * distinction is what sets how many more goes it gets.
+ *
+ * Declared here rather than beside `draftGuard` in translationUpgrade.ts to
+ * keep this module's one useful property — it imports nothing, so the policy
+ * can be tested without dragging the upgrade orchestrator in behind it.
+ */
+export class DraftRejectedError extends Error {
+  constructor(public readonly reason: string) {
+    super(`translation rejected: ${reason}`);
+    this.name = "DraftRejectedError";
+  }
+}
+
+/** Total attempts allowed for a chunk whose model output was unusable. */
+export const MAX_OUTPUT_ATTEMPTS = 2;
+
+/** Total attempts allowed for a chunk that failed to reach the model at all. */
+export const MAX_TRANSIENT_ATTEMPTS = 5;
+
+/**
+ * How many times in total this chunk may be attempted, given what went wrong.
+ *
+ * Two ceilings, not one. A transient fetch fault costs a failed socket, so it
+ * can afford the full ladder. A rejected draft costs a complete
+ * re-translation of the chunk — real tokens against a budget the author has
+ * already paid for — so it gets one retry and then tells the truth.
+ *
+ * A number rather than a boolean so both ceilings live in one place instead of
+ * spreading `instanceof` checks through the chunk loop's catch.
+ *
+ * `isTransient` is supplied by the caller: the classifier that knows the
+ * network signatures lives in queue.ts, and importing it would cost this
+ * module the independence described above.
+ */
+export function chunkRetryLimit(err: unknown, isTransient: boolean): number {
+  // Checked before the transient test on purpose. If a rejection ever also
+  // matches a network signature, the cheaper ceiling must still win.
+  if (err instanceof DraftRejectedError) return MAX_OUTPUT_ATTEMPTS;
+  if (isTransient) return MAX_TRANSIENT_ATTEMPTS;
+  return 1;
+}
