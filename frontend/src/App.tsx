@@ -331,7 +331,6 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <UpdateStrip />
       <WelcomeModal />
       <ModelIntroModal />
       <ModelReadyModal />
@@ -361,6 +360,11 @@ export default function App() {
             <HeaderSettingsMenu />
           </div>
         </div>
+
+        {/* Directly under the header, not above it: .title-header is
+            height-matched to the sidebar's logo so the two columns' rules line
+            up, and anything stacked on top of it breaks that. */}
+        <UpdateStrip />
 
         {/* Wizard setup phase — step navigation lives in the sidebar rail */}
         {isSetupPhase && (
