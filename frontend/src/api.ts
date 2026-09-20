@@ -384,6 +384,9 @@ export async function exportDocx(
 export interface SurgicalReport {
   applied: number;
   skipped: number;
+  /** Paragraphs replaced whole (a translation) whose internal emphasis — an
+   *  italic word, a highlight — could not survive the replacement. */
+  flattened: number;
   detail: {
     skipped: {
       reason: string;
@@ -449,6 +452,7 @@ export async function exportDocxSurgical(
     report: {
       applied: Number(res.headers.get("X-Bethaniel-Applied") ?? 0),
       skipped: Number(res.headers.get("X-Bethaniel-Skipped") ?? 0),
+      flattened: Number(res.headers.get("X-Bethaniel-Flattened") ?? 0),
       detail,
     },
   };

@@ -2069,6 +2069,26 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           });
           return;
         }
+        // Not a skip — every word is in the file — but a translation that
+        // replaced a whole paragraph could not keep the emphasis inside it.
+        // Said before the download, for the same reason the skip warning is:
+        // afterwards it is behind the save dialog and gone.
+        if (report.flattened > 0) {
+          setExportWarning({
+            message: t("surgical_flattened").replace(
+              "{count}",
+              String(report.flattened),
+            ),
+            confirmLabel: t("surgical_download_anyway"),
+            onConfirm: () => downloadBlob(blob, filename),
+            unapplied: [],
+            unmappedCount: 0,
+            truncated: false,
+            totalSkipped: 0,
+            baseName: filename.replace(/\.docx$/i, ""),
+          });
+          return;
+        }
         downloadBlob(blob, filename);
       } catch (err) {
         if (!(err instanceof NoOriginalDocxError)) {

@@ -1631,7 +1631,7 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       indexDocumentXml(xml),
       chapters,
     );
-    const { buffer, applied, skipped } = await rewriteDocxText(
+    const { buffer, applied, skipped, flattened } = await rewriteDocxText(
       original.value.buffer,
       edits,
     );
@@ -1645,6 +1645,10 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     res.setHeader("Content-Disposition", 'attachment; filename="edited.docx"');
     res.setHeader("X-Bethaniel-Applied", String(applied));
     res.setHeader("X-Bethaniel-Skipped", String(skipped.length + unmapped.length));
+    // Paragraphs replaced wholesale whose internal emphasis could not survive
+    // the replacement. Not a skip — the text IS there — but a loss the author
+    // would otherwise discover by reading their own book.
+    res.setHeader("X-Bethaniel-Flattened", String(flattened));
     // Sized to fit the header; see surgicalReport.ts for why that is a budget.
     res.setHeader("X-Bethaniel-Report", buildReportHeader(skipped, unmapped));
     res.send(buffer);

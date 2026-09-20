@@ -62,6 +62,18 @@ export interface ParagraphTextEdit {
   start: number;
   end: number;
   replacement: string;
+  /**
+   * This edit replaces the paragraph outright — a translation, not a
+   * correction.
+   *
+   * It changes one decision below: a span crossing runs whose formatting
+   * differs is normally REFUSED, because a correction cannot know which
+   * formatting its replacement should take. For a whole-paragraph replacement
+   * there is nothing to preserve — every word is going — and refusing leaves
+   * the paragraph in the source language. So it is collapsed to the
+   * paragraph's first formatting and counted, rather than dropped.
+   */
+  wholeParagraph?: boolean;
 }
 
 export interface Splice {
@@ -366,9 +378,11 @@ export function excerpt(text: string, start: number, end: number): string {
 export function planParagraphSplices(
   p: DocxParagraph,
   edits: ParagraphTextEdit[],
-): { splices: Splice[]; skipped: SkippedEdit[] } {
+): { splices: Splice[]; skipped: SkippedEdit[]; flattened: number } {
   const splices: Splice[] = [];
   const skipped: SkippedEdit[] = [];
+  /** Whole-paragraph replacements that lost intra-paragraph formatting. */
+  let flattened = 0;
   /** Per node: the local replacements it must absorb, applied together below. */
   const pending = new Map<
     TextNode,
@@ -419,8 +433,16 @@ export function planParagraphSplices(
     if (touched.length > 1) {
       const fmt = new Set(touched.map((n) => n.rPrXml));
       if (fmt.size > 1) {
-        skip(raw, "mixed-formatting");
-        continue;
+        // A correction must not guess which formatting to keep — refusing is
+        // the guarantee this export exists for. A translation has no such
+        // choice to get wrong: the paragraph is going regardless, and
+        // refusing it hands the author their own language back. Collapse to
+        // the first run's formatting, and count it so they can be told.
+        if (!raw.wholeParagraph) {
+          skip(raw, "mixed-formatting");
+          continue;
+        }
+        flattened++;
       }
     }
 
@@ -453,7 +475,7 @@ export function planParagraphSplices(
     });
   }
 
-  return { splices, skipped };
+  return { splices, skipped, flattened };
 }
 
 /** Apply splices end-to-start so earlier offsets stay valid. */
@@ -483,7 +505,14 @@ export function applySplices(xml: string, splices: Splice[]): string {
 export async function rewriteDocxText(
   docxBuffer: Buffer,
   edits: Array<{ paragraphIndex: number } & ParagraphTextEdit>,
-): Promise<{ buffer: Buffer; applied: number; skipped: SkippedEdit[] }> {
+): Promise<{
+  buffer: Buffer;
+  applied: number;
+  skipped: SkippedEdit[];
+  /** Paragraphs whose intra-paragraph formatting was collapsed to apply a
+   *  whole-paragraph replacement. A real loss, so it is reported. */
+  flattened: number;
+}> {
   const zip = await JSZip.loadAsync(docxBuffer);
   const file = zip.file("word/document.xml");
   if (!file) throw new Error("Not a Word document: word/document.xml is missing");
@@ -513,16 +542,18 @@ export async function rewriteDocxText(
 
   const allSplices: Splice[] = [];
   let applied = 0;
+  let flattened = 0;
   for (const [paragraphIndex, list] of byParagraph) {
     const res = planParagraphSplices(index.paragraphs[paragraphIndex], list);
     allSplices.push(...res.splices);
     skipped.push(...res.skipped);
     applied += list.length - res.skipped.length;
+    flattened += res.flattened;
   }
 
   zip.file("word/document.xml", applySplices(xml, allSplices));
   const buffer = Buffer.from(
     await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }),
   );
-  return { buffer, applied, skipped };
+  return { buffer, applied, skipped, flattened };
 }

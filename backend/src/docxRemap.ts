@@ -146,8 +146,14 @@ function paragraphEdits(before: string, after: string): ParagraphTextEdit[] {
       Math.round(Math.max(before.length, after.length) * REWRITE_DISTANCE_RATIO),
     ),
   });
-  // Over the cap: too different to be an edit of this paragraph. Replace it.
-  if (!parts) return [{ start: 0, end: before.length, replacement: after }];
+  // Over the cap: too different to be an edit of this paragraph. Replace it
+  // outright, and say so — docxSurgery treats a whole-paragraph replacement
+  // differently when the paragraph's runs are not uniformly formatted, because
+  // refusing one leaves the source language in the author's book.
+  if (!parts)
+    return [
+      { start: 0, end: before.length, replacement: after, wholeParagraph: true },
+    ];
 
   const edits: ParagraphTextEdit[] = [];
   let pos = 0;
