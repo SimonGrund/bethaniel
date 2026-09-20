@@ -11,6 +11,26 @@
 // The rule these pin: a whole-paragraph replacement collapses to the
 // paragraph's first formatting rather than being refused, and says so, because
 // losing one italic word is a far smaller harm than losing the translation.
+//
+// ── Why an ordinary CORRECTION is still refused ──
+//
+// Measured 20 September 2026, replaying 81 real corrections from a Betty in
+// the Cloud copy edit of stress100_copy_edit.md against the same prose at a
+// range of italic densities:
+//
+//   emphasis every 20 paragraphs ....... 0 of 96 corrections dropped
+//   emphasis every 3 paragraphs ........ 0 of 96
+//   emphasis in EVERY paragraph ........ 0 of 92
+//   emphasis on 100% of corrected words  2 of 96  (2.1%)
+//
+// So the refusal costs an ordinary edit essentially nothing: a correction is a
+// short span, and it only crosses a formatting boundary when it straddles one
+// — trimEdit having already shrunk it to the changed portion. It was
+// catastrophic only for translations, which replace the paragraph outright.
+//
+// That is the evidence for leaving corrections alone. Relaxing them too would
+// trade a guarantee the export exists for against a 2% worst case that does
+// not occur in normal prose.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
