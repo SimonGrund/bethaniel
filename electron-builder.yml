@@ -89,7 +89,20 @@ publish:
   owner: SimonGrund
   repo: bethaniel
   channel: latest
-  releaseType: release
+  # DRAFT, not release, and the difference is load-bearing.
+  #
+  # The three platforms build in parallel and publish independently. Windows
+  # and Linux finish in ~4 minutes; macOS takes ~18, because notarization does.
+  # With releaseType: release the GitHub release went live the moment the FIRST
+  # platform finished — so for a quarter of an hour the "latest" release
+  # existed with no latest-mac.yml in it, and every Mac asking for an update
+  # got a 404 and gave up silently. Measured on v2.24.2: GitHub reported it as
+  # latest while that file 404'd.
+  #
+  # A draft is invisible to /releases/latest, so an app keeps seeing the last
+  # COMPLETE release until this one is whole. The publish job in build.yml
+  # flips it, and only after every platform has uploaded.
+  releaseType: draft
 
 asar: true
 asarUnpack:

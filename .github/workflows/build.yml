@@ -80,3 +80,43 @@ jobs:
             dist/Bethaniel-linux.AppImage
             dist/Bethaniel-linux.deb
           retention-days: 30
+
+  # ── Make the release visible, once it is complete ──
+  #
+  # `needs: build` means every platform succeeded. If macOS failed to notarize,
+  # this never runs, the release stays a draft, and users keep the last good
+  # version rather than being offered one that is missing their installer.
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job never checks the repo out — it only makes API calls — so
+          # gh has no working directory to infer the repo from. Same reason
+          # cloud-sweep.yml sets it.
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Every platform's updater manifest must be present before anyone is
+          # told this release exists. A release missing one is worse than no
+          # release: the app sees a new version, asks for a manifest that is
+          # not there, and fails silently.
+          missing=""
+          for f in latest.yml latest-mac.yml latest-linux.yml; do
+            gh release view "$TAG" --json assets \
+              --jq '.assets[].name' | grep -qx "$f" || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::$TAG is missing updater manifest(s):$missing — leaving it a draft."
+            exit 1
+          fi
+
+          gh release edit "$TAG" --draft=false --latest
+          echo "Published $TAG"
