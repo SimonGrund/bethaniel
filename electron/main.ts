@@ -48,44 +48,85 @@ const IS_DEV = process.env.NODE_ENV === "development";
 
 // ── Auto-updater ──
 // Only runs in packaged builds; skipped silently in dev mode.
+
+/** Mirrors UpdateStatus in frontend/src/updateStatus.ts, which owns the
+ *  decisions this only reports. Kept as a literal rather than imported:
+ *  electron/ does not build against frontend/src. */
+type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "up-to-date"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+interface UpdateStatus {
+  phase: UpdatePhase;
+  version?: string;
+  percent?: number;
+  message?: string;
+  manual: boolean;
+}
+
+let updateStatus: UpdateStatus = { phase: "idle", manual: false };
+
+/** True while a check the USER asked for is in flight. Latched at the request
+ *  and read by the events that follow, because electron-updater's events carry
+ *  no idea of who asked. */
+let updateAskedByUser = false;
+
+function setUpdateStatus(next: Omit<UpdateStatus, "manual">): void {
+  updateStatus = { ...next, manual: updateAskedByUser };
+  mainWindow?.webContents.send("updates:status", updateStatus);
+}
+
 if (!IS_DEV) {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("checking-for-update", () => {
     console.log("[updater] checking for update...");
+    setUpdateStatus({ phase: "checking" });
   });
 
   autoUpdater.on("update-available", (info) => {
     console.log("[updater] update available:", info.version);
+    // The point of the whole change: say so HERE, when the check returns,
+    // rather than when the download finishes. The wait people reported was
+    // the download — a hundred-odd megabytes — not the check.
+    setUpdateStatus({ phase: "available", version: info.version });
   });
 
-  autoUpdater.on("update-not-available", (info) => {
-    console.log("[updater] up to date:", info.version);
+  autoUpdater.on("update-not-available", () => {
+    console.log("[updater] up to date:", app.getVersion());
+    setUpdateStatus({ phase: "up-to-date", version: app.getVersion() });
+    updateAskedByUser = false;
   });
 
   autoUpdater.on("download-progress", (progress) => {
     console.log(`[updater] download: ${progress.percent.toFixed(1)}%`);
+    setUpdateStatus({
+      phase: "downloading",
+      version: updateStatus.version,
+      percent: Math.round(progress.percent),
+    });
   });
 
-  autoUpdater.on("update-downloaded", () => {
-    console.log("[updater] update downloaded, prompting user");
-    dialog
-      .showMessageBox({
-        type: "info",
-        title: "Update ready",
-        message:
-          "A new version of Bethaniel has been downloaded. It will be installed the next time you restart the app.",
-        buttons: ["Restart now", "Later"],
-        defaultId: 0,
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall();
-      });
+  autoUpdater.on("update-downloaded", (info) => {
+    console.log("[updater] update downloaded");
+    // No dialog. It used to fire here and offer "Restart now", which calls
+    // quitAndInstall() and kills whatever job is running — possibly a cloud
+    // run the author has paid for. The renderer's banner says the same thing
+    // without interrupting, and withholds the button while tasks are running.
+    setUpdateStatus({ phase: "downloaded", version: info.version });
+    updateAskedByUser = false;
   });
 
   autoUpdater.on("error", (err) => {
     console.error("[updater] error:", err?.message ?? err);
+    setUpdateStatus({ phase: "error", message: err?.message ?? String(err) });
+    updateAskedByUser = false;
   });
 }
 
@@ -732,6 +773,32 @@ ipcMain.handle(
   },
 );
 
+// ── Updates ──
+
+ipcMain.handle("app:version", () => app.getVersion());
+
+ipcMain.handle("updates:check", () => {
+  // Dev has no updater. Answer honestly rather than leaving the button
+  // spinning forever on a promise nothing will settle.
+  if (IS_DEV) {
+    updateAskedByUser = true;
+    setUpdateStatus({ phase: "up-to-date", version: app.getVersion() });
+    updateAskedByUser = false;
+    return;
+  }
+  updateAskedByUser = true;
+  void autoUpdater.checkForUpdates();
+});
+
+ipcMain.handle("updates:restart", () => {
+  if (IS_DEV) return;
+  // Only reachable from a button the renderer draws when no task is running.
+  autoUpdater.quitAndInstall();
+});
+
+/** The current status, for a renderer that loaded after the last event. */
+ipcMain.handle("updates:current", () => updateStatus);
+
 // ── Betty in the Cloud: bethaniel:// deep-link handoff ──
 
 let pendingDeepLink: string | null = null;
@@ -925,12 +992,12 @@ app.whenReady().then(async () => {
       pendingDeepLink = null;
       void claimCloudCredential(url);
     }
+    // The moment the renderer can receive an answer. The five-second timer
+    // this replaces bought nothing: it delayed asking a question whose answer
+    // had nowhere to go, and the delay people actually noticed was the
+    // download that follows.
+    if (!IS_DEV) void autoUpdater.checkForUpdates();
   });
-
-  // Check for updates a few seconds after launch so the window is settled
-  if (!IS_DEV) {
-    setTimeout(() => autoUpdater.checkForUpdates(), 5000);
-  }
 
   // Kick off the on-demand CUDA engine download (Windows + NVIDIA GPU only,
   // no-op otherwise) well after launch so it never competes with startup.

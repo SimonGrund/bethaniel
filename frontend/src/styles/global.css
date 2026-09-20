@@ -5414,6 +5414,47 @@ summary.review-source::before {
 }
 
 /* ── Model download strip (sidebar, above Run) ── */
+/* ── The update bar ──
+   Quieter than the dialog it replaces, and deliberately so: this is news, not
+   a question. It sits above everything because it must be findable whatever
+   step the author is on, and it must never cover what they are reading.
+   Palette taken from the model-download strip below, which is the same kind
+   of thing said about a different download. */
+.update-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.9rem;
+  background: #f4ead8;
+  border-bottom: 1px solid #e8dcc4;
+  font-size: 0.82rem;
+  color: #6b5844;
+}
+
+.update-strip-label {
+  flex: 0 1 auto;
+}
+
+.update-strip-bar {
+  flex: 0 0 120px;
+  height: 4px;
+  border-radius: 999px;
+  background: #e8dcc4;
+  overflow: hidden;
+}
+
+.update-strip-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #8b7355;
+  transition: width 0.3s ease;
+}
+
+.update-strip-restart {
+  margin-left: auto;
+}
+
 .model-download-strip {
   display: flex;
   flex-direction: column;
@@ -5667,6 +5708,20 @@ summary.review-source::before {
   background: #e8dfc8;
   color: #2a2419;
   font-weight: 600;
+}
+
+/* The update rows, kept together so the Restart that may follow the status
+   reads as part of the same answer rather than a separate menu entry. */
+.header-settings-update {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The Restart row, when an update is waiting. Weightier than its neighbours
+   because it is the one row here that does something irreversible. */
+.header-settings-item-strong {
+  font-weight: 600;
+  color: #6b4f2a;
 }
 
 .header-settings-item {

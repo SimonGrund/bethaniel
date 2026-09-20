@@ -2,6 +2,7 @@
 // Settings, model selection, edit options, scope, and wizard state persist
 // across browser sessions. Transient state (tasks, logs, document text) is not persisted.
 
+import type { UpdateStatus } from "./updateStatus";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
@@ -326,6 +327,12 @@ interface AppState {
     model: string | null,
     status: "warming" | "ready" | "error" | null,
   ) => void;
+
+  // Update status — transient, pushed from the Electron main process. Not in
+  // `partialize`, so it never persists: a status restored from last session
+  // would describe a download that is no longer happening.
+  updateStatus: UpdateStatus;
+  setUpdateStatus: (s: UpdateStatus) => void;
 
   // Model downloads — transient (NOT persisted). Lifted out of ModelSelector so
   // progress keeps accruing while the user navigates between setup menus.
@@ -768,6 +775,8 @@ export const useStore = create<AppState>()(
       setWarming: (warmingModel, warmingStatus) =>
         set({ warmingModel, warmingStatus }),
 
+      updateStatus: { phase: "idle", manual: false },
+      setUpdateStatus: (updateStatus) => set({ updateStatus }),
       downloads: {},
       setDownloadProgress: (p) =>
         set((state) => ({

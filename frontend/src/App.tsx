@@ -14,6 +14,8 @@ import BetaFeatures from "./components/BetaFeatures";
 import ModeSelector from "./components/ModeSelector";
 import EditTrigger from "./components/EditTrigger";
 import ModelDownloadStrip from "./components/ModelDownloadStrip";
+import UpdateStrip from "./components/UpdateStrip";
+import { getUpdateBridge } from "./updateBridge";
 import StepBadge from "./components/StepBadge";
 import { CLOUD_TERMS_URL } from "./components/CloudCheckoutModal";
 import ReviewExport from "./components/ReviewExport";
@@ -84,6 +86,18 @@ export default function App() {
   useEffect(() => {
     if (!useStore.getState().hasSeenIntro) setIntroOpen(true);
   }, [setIntroOpen]);
+
+  // Update status is pushed from the Electron main process. Ask once on mount
+  // too: a reload lands after any event already sent, and without this the
+  // banner would stay blank until the next one — which may never come.
+  useEffect(() => {
+    const bridge = getUpdateBridge();
+    if (!bridge) return;
+    void bridge.currentUpdateStatus().then((s) => {
+      if (s) useStore.getState().setUpdateStatus(s);
+    });
+    return bridge.onUpdateStatus((s) => useStore.getState().setUpdateStatus(s));
+  }, []);
 
   // Grammar checking (LanguageTool) may not be installed on this build — a
   // silent degrade otherwise. Record whether it is; the offer to fetch it now
@@ -317,6 +331,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      <UpdateStrip />
       <WelcomeModal />
       <ModelIntroModal />
       <ModelReadyModal />
