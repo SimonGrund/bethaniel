@@ -96,6 +96,31 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/**
+ * How far past its budget a credential may spend.
+ *
+ * The budget is already the estimate times TOKEN_BUDGET_HEADROOM, and measured
+ * runs land at 63-79% of it, so this is rarely touched. It exists for the job
+ * that overran: without it a chunk retry late in a nearly-spent credential is
+ * refused, and the author gets exactly the broken result the retry was added
+ * to prevent. They have paid a flat band price; absorbing a bounded token
+ * overrun is cheaper than a refund and far cheaper than a bad review.
+ *
+ * Flat rather than retry-only on purpose. This Worker proxies inference calls
+ * and has no concept of a job or a retry, so a "this is a retry" flag could
+ * only come from the client, and a client-asserted privilege is not a control.
+ * The cap is the control.
+ *
+ * DAILY_TOKEN_CEILING is unchanged, so total exposure is unchanged — this
+ * moves the per-credential bound only.
+ */
+export const OVERDRAFT_FRACTION = 0.2;
+
+/** The most a credential may ever spend: its budget plus the overdraft. */
+export function spendCeiling(budgetTotal: number): number {
+  return Math.ceil(budgetTotal * (1 + OVERDRAFT_FRACTION));
+}
+
 export class CredentialLedger {
   private state: DurableObjectState;
   private env: Env;
@@ -175,7 +200,9 @@ export class CredentialLedger {
     if (url.pathname === "/reserve" && request.method === "POST") {
       const { holdTokens } = (await request.json()) as { holdTokens: number };
       const remaining =
-        this.ledger.budgetTotal - this.ledger.reserved - this.ledger.spent;
+        spendCeiling(this.ledger.budgetTotal) -
+        this.ledger.reserved -
+        this.ledger.spent;
       if (holdTokens > remaining) {
         return jsonResponse(
           { ok: false, reason: "insufficient_balance", remaining },
@@ -224,7 +251,9 @@ export class CredentialLedger {
         reserved: this.ledger.reserved,
         spent: this.ledger.spent,
         remaining:
-          this.ledger.budgetTotal - this.ledger.reserved - this.ledger.spent,
+          spendCeiling(this.ledger.budgetTotal) -
+          this.ledger.reserved -
+          this.ledger.spent,
         status: this.ledger.status,
         expiresAt: this.ledger.expiresAt,
       });
