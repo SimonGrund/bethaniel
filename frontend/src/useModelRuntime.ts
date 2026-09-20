@@ -22,6 +22,14 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
 // the hardware recommendation (≤3 — single-GPU decode is bandwidth-bound).
 export const API_MAX_PARALLEL = 24;
 
+/**
+ * The most a LOCAL model is ever given (single-GPU decode is bandwidth-bound).
+ *
+ * Used to spot a `parallel` that was chosen for local hardware and carried
+ * into a cloud session by the persisted store — see the note where it is read.
+ */
+const LOCAL_MAX_PARALLEL = 3;
+
 // Words-per-chunk defaults by tier. Big models are slow per token and have
 // stricter context budgets, so they get smaller chunks.
 const TIER_WPC_DEFAULTS: Record<string, number> = {
@@ -295,6 +303,22 @@ export function useModelRuntime(): void {
       setMaxParallel(API_MAX_PARALLEL);
       if (modelSwitched) {
         setRunMode("speed");
+        setParallel(API_MAX_PARALLEL);
+        return;
+      }
+      // Not a switch — the cloud model was already selected when the app
+      // opened, restored from the persisted store along with `parallel`.
+      //
+      // That combination used to leave a returning user at 3, because the
+      // raise above only ever ran on a switch: they would run a whole book
+      // three chapters at a time against a provider sized for twenty-four,
+      // and nothing in the UI said why it was slow.
+      //
+      // A value at or below the LOCAL ceiling cannot have been chosen for a
+      // cloud model — that slider goes to 24 — so it is a local setting that
+      // outlived its model, and the cloud ceiling is the right answer. A
+      // value above it was set here deliberately and is left alone.
+      if (useStore.getState().parallel <= LOCAL_MAX_PARALLEL) {
         setParallel(API_MAX_PARALLEL);
       }
       return;
