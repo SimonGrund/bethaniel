@@ -17,6 +17,21 @@ contextBridge.exposeInMainWorld("bethaniel", {
   // where to save it. Resolves to the path written, or null if they cancelled.
   exportPdf: (html: string, suggestedName: string) =>
     ipcRenderer.invoke("report:exportPdf", html, suggestedName) as Promise<string | null>,
+  // ── Updates ──
+  // appVersion is a FUNCTION, not a static string: process.env.npm_package_version
+  // is set by npm scripts and empty in a packaged app, which would make the
+  // settings row read "Up to date (v)". The main process is the only place
+  // that knows.
+  appVersion: () => ipcRenderer.invoke("app:version") as Promise<string>,
+  checkForUpdates: () => ipcRenderer.invoke("updates:check") as Promise<void>,
+  restartToUpdate: () => ipcRenderer.invoke("updates:restart") as Promise<void>,
+  currentUpdateStatus: () =>
+    ipcRenderer.invoke("updates:current") as Promise<unknown>,
+  onUpdateStatus: (listener: (status: unknown) => void) => {
+    const handler = (_event: unknown, status: unknown) => listener(status);
+    ipcRenderer.on("updates:status", handler);
+    return () => ipcRenderer.removeListener("updates:status", handler);
+  },
   onCloudCredentialClaimed: (
     listener: (result: { ok: boolean; error?: string }) => void,
   ) => {
