@@ -174,6 +174,23 @@ The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over tok
 
 `electron/main.ts` forks the compiled backend at a random free port, sets `LLAMA_BASE_URL` so the backend knows how to reach llama-server (managed by the backend's own supervisor), and opens a BrowserWindow at the backend URL. `electron-builder.yml` configures platform targets. The bundled `llama-server` binary lives under `electron/resources/llama/<platform-arch>/`.
 
+**Updates.** `electron/main.ts` keeps one `UpdateStatus` and broadcasts it on
+`updates:status`; the check fires on `did-finish-load` rather than a timer,
+because the delay users reported was the *download* (`autoDownload` pulls the
+whole installer, ~100-200 MB) and not the check. There is no update dialog: it
+used to fire on `update-downloaded` and its "Restart now" called
+`quitAndInstall()`, which kills a running job — possibly a paid cloud one —
+while saying nothing about it. `UpdateStrip.tsx` says the same things without
+interrupting and withholds the Restart button while any task is non-terminal;
+the update installs on the next ordinary quit regardless
+(`autoInstallOnAppQuit`), so the absence costs nothing. An automatic check that
+fails is silent, a manual one always answers — which is why the status carries
+who asked. Every decision about what to say lives in
+`frontend/src/updateStatus.ts`, pure and tested from
+`backend/test/updateStatus.test.ts`: the updater is skipped in dev and needs a
+signed published build, so that module is the only part testable before a
+release.
+
 ### Uninstall & user data
 
 All runtime data lives under `app.getPath("userData")` — `~/Library/Application Support/Bethaniel` (macOS), `%APPDATA%\Bethaniel` (Windows), `~/.config/Bethaniel` (Linux) — with `data/` and `models/` subdirs. Downloaded GGUFs make this large: a full catalog exceeds 20 GB.
