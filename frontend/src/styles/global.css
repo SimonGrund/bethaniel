@@ -9176,6 +9176,18 @@ summary.review-source::before {
   color: #4a3728;
 }
 
+/* The note under a translation that failed both its attempts. Quieter than
+   the head above it: the pill already carries the alarm, and what this adds
+   is reassurance — the author's own text is untouched. */
+.review-chapter-failed {
+  margin: 0 0 0.5rem;
+  padding: 0 0 0 0.1rem;
+  max-width: 62ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #6b5844;
+}
+
 /* ── Closing a chapter, not deleting it ──
    This was a × wired to "delete these results, cannot be undone" — a
    destructive act one mis-click away from someone whose only intent was to

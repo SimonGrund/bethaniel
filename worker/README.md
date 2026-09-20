@@ -27,6 +27,17 @@ the deploy checklist.
    ```
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN max_uses_per_product INTEGER; ALTER TABLE promo_codes ADD COLUMN product_uses TEXT NOT NULL DEFAULT '{}'"
    ```
+
+   A database that predates failure reporting needs the `job_failures` table
+   before a Worker that writes to it is deployed. Without it every
+   `/v1/failure` call 500s — harmlessly for the caller, which swallows the
+   result by design, but the reports are lost and nobody learns a customer's
+   job broke:
+   ```
+   npx wrangler d1 execute bethaniel-cloud --remote --file ./schema.sql
+   ```
+   `schema.sql` is `CREATE TABLE IF NOT EXISTS` throughout, so replaying the
+   whole file is safe.
 3. Set secrets (never committed — these live only in Cloudflare):
    ```
    npx wrangler secret put PROVIDER_API_KEY

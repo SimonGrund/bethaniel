@@ -4337,6 +4337,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         </button>
                       </div>
                     )}
+                    {/* Only for a translation. The promise that the original
+                        is safe is true here — a failed chunk falls back to the
+                        source text — and would be a lie on a mode that edits
+                        in place. */}
+                    {task.status === "error" && task.mode === "translate" && (
+                      <p className="review-chapter-failed">
+                        {t("chapter_failed_twice")}
+                      </p>
+                    )}
 
                     {isTranslation ? (
                       /* Translation: show a preview of the translated text */

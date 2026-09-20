@@ -1356,9 +1356,16 @@ git commit -m "feat(cloud): raise twice-failed chunks, and actually email about 
   },
 ```
 
-All five languages, `fr` included. Note that `export_translation` itself is
-missing `fr` — do **not** copy that omission; French is supported (commit
-43eb6bf) and a missing key silently falls back to English.
+**Corrected during execution: four languages, not five.**
+`Lang` in `frontend/src/types.ts:513` is `"en" | "da" | "de" | "es"`, and
+`TRANSLATIONS` is typed `Record<string, Record<Lang, string>>`, so adding `fr`
+is a type error — `tsc -b` rejects it.
+
+An earlier draft of this step claimed `export_translation` was wrongly missing
+`fr`. It is not: **no** UI string has one. Commit 43eb6bf added French as a
+*manuscript* language — dictionaries, LanguageTool, `detectSettings` — which
+is a different axis from the language the interface is drawn in. Betty can
+edit a French novel while speaking English to its author.
 
 - [ ] **Step 2: Show it on a failed chapter**
 

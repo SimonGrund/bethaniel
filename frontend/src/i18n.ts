@@ -3446,6 +3446,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dieses Manuskript entfernen",
     es: "Quitar este manuscrito",
   },
+  chapter_failed_twice: {
+    en: "Betty tried this chapter twice and could not finish it. Nothing has been changed — your original text is safe. Bethaniel has been notified.",
+    da: "Betty forsøgte dette kapitel to gange og kunne ikke gøre det færdigt. Intet er ændret — din originaltekst er uberørt. Bethaniel er blevet underrettet.",
+    de: "Betty hat dieses Kapitel zweimal versucht und konnte es nicht abschließen. Es wurde nichts geändert — Ihr Originaltext ist unversehrt. Bethaniel wurde benachrichtigt.",
+    es: "Betty intentó este capítulo dos veces y no pudo terminarlo. No se ha cambiado nada: tu texto original está intacto. Bethaniel ha sido notificado.",
+  },
   export_translation: {
     en: "Export the translation:",
     da: "Eksportér oversættelsen:",
