@@ -537,6 +537,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{count} fehlgeschlagen",
     es: "{count} fallaron",
   },
+  surgical_partial_translation: {
+    en: "The translation is in the file, apart from {count} paragraph(s) that could not be replaced without changing your formatting. Those paragraphs are still in the original language.",
+    da: "Oversættelsen er i filen, bortset fra {count} afsnit, der ikke kunne erstattes uden at ændre din formatering. De afsnit er stadig på originalsproget.",
+    de: "Die Übersetzung ist in der Datei, bis auf {count} Absatz/Absätze, die sich nicht ersetzen ließen, ohne deine Formatierung zu verändern. Diese Absätze sind noch in der Ausgangssprache.",
+    es: "La traducción está en el archivo, salvo {count} párrafo(s) que no se pudieron sustituir sin alterar tu formato. Esos párrafos siguen en el idioma original.",
+  },
   surgical_flattened: {
     en: "Your original formatting is kept. In {count} paragraph(s) the translation replaced the whole paragraph, so emphasis inside them — an italic word, a highlight — has been lost. The text itself is complete.",
     da: "Din oprindelige formatering bevares. I {count} afsnit erstattede oversættelsen hele afsnittet, så fremhævning inde i dem — et kursiveret ord, en markering — er gået tabt. Selve teksten er komplet.",

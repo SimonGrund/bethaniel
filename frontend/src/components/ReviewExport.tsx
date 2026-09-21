@@ -20,6 +20,7 @@ import {
   spawnJobSummary,
   putLexicon,
 } from "../api";
+import { exportWarningFor } from "../exportWarningCopy";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResult } from "../types";
 import {
@@ -2041,6 +2042,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       pairs: { original: string; edited: string }[],
       markdown: string,
       filename: string,
+      isTranslation: boolean,
     ) => {
       const docId = useStore.getState().document?.id;
       const name = useStore.getState().document?.name ?? "";
@@ -2053,38 +2055,27 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         // Warn BEFORE handing the file over. A toast raised after the download
         // starts is covered by the system save dialog and gone by the time it
         // closes, so the one caveat that matters was never actually read.
-        if (report.skipped > 0) {
+        const warning = exportWarningFor({
+          skipped: report.skipped,
+          flattened: report.flattened,
+          isTranslation,
+        });
+        if (warning) {
           setExportWarning({
-            message: t("surgical_partial").replace(
-              "{count}",
-              String(report.skipped),
-            ),
+            message: warning.parts
+              .map((p) => t(p.key).replace("{count}", String(p.count)))
+              .join(" "),
             confirmLabel: t("surgical_download_anyway"),
             onConfirm: () => downloadBlob(blob, filename),
-            unapplied: report.detail.skipped,
-            unmappedCount: report.detail.unmapped.length,
-            truncated: report.detail.truncated,
-            totalSkipped: report.detail.totalSkipped,
-            baseName: filename.replace(/\.docx$/i, ""),
-          });
-          return;
-        }
-        // Not a skip — every word is in the file — but a translation that
-        // replaced a whole paragraph could not keep the emphasis inside it.
-        // Said before the download, for the same reason the skip warning is:
-        // afterwards it is behind the save dialog and gone.
-        if (report.flattened > 0) {
-          setExportWarning({
-            message: t("surgical_flattened").replace(
-              "{count}",
-              String(report.flattened),
-            ),
-            confirmLabel: t("surgical_download_anyway"),
-            onConfirm: () => downloadBlob(blob, filename),
-            unapplied: [],
-            unmappedCount: 0,
-            truncated: false,
-            totalSkipped: 0,
+            // A translation's refused edits are whole paragraphs, so the
+            // "replace X with Y" table and its CSV are withheld — see
+            // exportWarningCopy.ts.
+            unapplied: warning.showUnapplied ? report.detail.skipped : [],
+            unmappedCount: warning.showUnapplied
+              ? report.detail.unmapped.length
+              : 0,
+            truncated: warning.showUnapplied ? report.detail.truncated : false,
+            totalSkipped: warning.showUnapplied ? report.detail.totalSkipped : 0,
             baseName: filename.replace(/\.docx$/i, ""),
           });
           return;
@@ -2681,6 +2672,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             : exportIds.length === 1
               ? `${editTasks.find(([tid]) => tid === exportIds[0])?.[1].name ?? src}.edited`
               : `${src}.chapters`;
+          // A translation rewrites the whole chunk rather than proposing
+          // discrete corrections, so the accept/dismiss machinery has nothing
+          // to act on: "Export with accepted changes" and "Accept every change
+          // in this run" both describe work this run did not do. The export
+          // itself is still wanted — it is how the translation leaves Betty.
+          const isTranslateJob =
+            editTasks.length > 0 &&
+            editTasks.every(([, task]) => task.mode === "translate");
+
           const runExport = () =>
             exportFormat === "epub"
               ? verifyThenExport(
@@ -2694,7 +2694,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     md: buildFullManuscript(exportEntries, acc, fixed),
                     pairs: buildChapterPairs(exportEntries, acc, fixed),
                   }),
-                  ({ md, pairs }) => handleDownloadDocxSurgical(pairs, md, `${exportName}.docx`),
+                  ({ md, pairs }) =>
+                    handleDownloadDocxSurgical(
+                      pairs,
+                      md,
+                      `${exportName}.docx`,
+                      isTranslateJob,
+                    ),
                 );
           const exportButtonLabel = formattingEbook
             ? t("formatting_ebook")
@@ -2709,14 +2715,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               return next.size === editTaskIds.length ? null : next;
             });
           };
-          // A translation rewrites the whole chunk rather than proposing
-          // discrete corrections, so the accept/dismiss machinery has nothing
-          // to act on: "Export with accepted changes" and "Accept every change
-          // in this run" both describe work this run did not do. The export
-          // itself is still wanted — it is how the translation leaves Betty.
-          const isTranslateJob =
-            editTasks.length > 0 &&
-            editTasks.every(([, task]) => task.mode === "translate");
           // One pill per editable chapter, carrying how many changes it
           // proposes. Deliberately the total rather than what is still
           // unticked: corrections arrive already accepted, so an "outstanding"
