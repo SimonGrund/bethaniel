@@ -21,6 +21,10 @@ import {
   putLexicon,
 } from "../api";
 import { exportWarningFor } from "../exportWarningCopy";
+import {
+  refundMailto,
+  translationOutcome,
+} from "../translationOutcome";
 import type { DocxExportOptions } from "../api";
 import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResult } from "../types";
 import {
@@ -2680,6 +2684,21 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const isTranslateJob =
             editTasks.length > 0 &&
             editTasks.every(([, task]) => task.mode === "translate");
+          // A finished translation is not reviewed — it is read in Word. Once
+          // every chapter has settled, the picker and the per-chapter column
+          // are not drawn at all and one button takes their place. Failures
+          // are the exception: a paid job that did not deliver is not review,
+          // and the author must not meet it by finding English in their book.
+          const translation = isTranslateJob
+            ? translationOutcome(
+                editTasks.map(([, task]) => ({
+                  name: task.name,
+                  status: task.status,
+                  errors: task.result?.errors,
+                })),
+              )
+            : null;
+          const translationSettled = translation?.settled === true;
 
           const runExport = () =>
             exportFormat === "epub"
@@ -2968,7 +2987,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               )}
 
 
-              {failedChapters.length > 0 && (
+              {/* A settled translation says this once, in its own block, with
+                  the refund link beside it. Two banners describing the same
+                  failed chapters read as two problems. */}
+              {failedChapters.length > 0 && !translationSettled && (
                 <div className="review-warning-banner">
                   <strong>⚠ {t("partial_failure_title")}</strong>
                   <p>
@@ -3974,7 +3996,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   outstanding count, and the column below shows one chapter's
                   corrections, flat and already open. Nothing is nested and
                   nothing has to be hunted for. */}
-              {(chapterPills.length > 0 || !isOldResults) && (
+              {!translationSettled && (chapterPills.length > 0 || !isOldResults) && (
                 <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
 
                   {/* Once every chapter has settled the row of pills gives way
@@ -4186,6 +4208,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   </>
                 );
               })()}
+              {!translationSettled && (
               <div className="chapters-scroll">
               {entries.map(([tid, task]) => {
                 // One chapter at a time. The pill bar above is the navigation;
@@ -4589,6 +4612,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
               })}
               </div>
+              )}
               </>
               )}
 
@@ -4607,7 +4631,87 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   met them with an edit. One bar holds all three and stays put
                   at the bottom of the view, reachable from anywhere in the
                   review without scrolling to the end of it. */}
-              {editTasks.length > 0 && !isScanJob && allEditDone && (
+              {/* ── A finished translation: the file, and nothing else ──
+                  No accept-all, no chapter picking, no per-chapter anything.
+                  The author reads it in Word; Betty's job here is to hand it
+                  over and to admit anything that did not translate. */}
+              {translationSettled && !isScanJob && (
+                <div className="translation-done">
+                  <p className="translation-done__lede">
+                    {t("translation_read_in_word")}
+                  </p>
+
+                  {translation!.failures.length > 0 && (
+                    <div className="translation-done__failed" role="alert">
+                      <p>
+                        {t("translation_incomplete").replace(
+                          "{count}",
+                          String(translation!.failures.length),
+                        )}
+                      </p>
+                      <ul className="translation-done__errors">
+                        {translation!.failures.map((f) => (
+                          <li key={f.name}>
+                            <strong>{f.name}</strong>
+                            {f.error ? ` — ${f.error}` : null}
+                          </li>
+                        ))}
+                      </ul>
+                      {/* Prefilled, because asking an author to describe a
+                          failure is asking them to diagnose it too. */}
+                      <a
+                        className="btn-secondary translation-done__refund"
+                        href={refundMailto({
+                          outcome: translation!,
+                          source: src,
+                          targetLang: editTasks[0]?.[1].targetLang,
+                          jobId: jid,
+                        })}
+                      >
+                        {t("translation_request_refund")}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Deliberately NOT gated on allEditDone. A chapter that
+                      failed is warned about directly above, and withholding
+                      the other twelve helps nobody — the point of the warning
+                      is that the file is worth having and partly in the wrong
+                      language. */}
+                  <button
+                    type="button"
+                    className="btn-primary translation-done__download"
+                    disabled={!editResultsReady || verifying}
+                    onClick={runExport}
+                  >
+                    {formattingEbook
+                      ? t("formatting_ebook")
+                      : t("download_translated_manuscript")}
+                  </button>
+
+                  {/* Format is a real choice about the file, so it sits in the
+                      open as two options rather than behind a cog. Chapter
+                      picking is gone with the rest of the per-chapter view. */}
+                  <div className="option-toggle-group translation-done__format">
+                    <button
+                      type="button"
+                      className={`toggle-btn${exportFormat === "docx" ? " active" : ""}`}
+                      onClick={() => setExportFormat("docx")}
+                    >
+                      {t("download_full_docx")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn${exportFormat === "epub" ? " active" : ""}`}
+                      onClick={() => setExportFormat("epub")}
+                    >
+                      {t("auto_format_ebook")}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {editTasks.length > 0 && !isScanJob && allEditDone && !translationSettled && (
                 <div className="review-actionbar">
                   <span className="export-row__label">
                     {isTranslateJob

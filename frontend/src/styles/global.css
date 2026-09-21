@@ -9145,6 +9145,74 @@ summary.review-source::before {
    at the foot of the view while the author scrolls the edits above it. It is
    the one piece of chrome on this screen that earns being always visible:
    every other control belongs to a chapter and travels with it. */
+/* ── A finished translation ──
+   One thing to do, so it is drawn as one thing: a wide primary button with
+   room around it, rather than a row of controls competing for the same
+   attention. The per-chapter view this replaces is not hidden here — it is
+   not rendered at all. */
+.translation-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 1rem 2.5rem;
+  text-align: center;
+}
+
+.translation-done__lede {
+  max-width: 46ch;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #6b5844;
+}
+
+.translation-done__download {
+  min-width: min(420px, 90%);
+  padding: 0.9rem 2rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.translation-done__format {
+  margin-top: 0.25rem;
+}
+
+/* Chapters that did not translate. Louder than the rest of this screen on
+   purpose: the file is about to be downloaded with the original language
+   still in it, and that must not be discovered by reading the book. */
+.translation-done__failed {
+  width: min(560px, 100%);
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9b8a8;
+  border-radius: 6px;
+  background: #fbf0ea;
+  text-align: left;
+  font-size: 0.86rem;
+  color: #6b4636;
+}
+
+.translation-done__failed p {
+  margin: 0 0 0.5rem;
+}
+
+.translation-done__errors {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.translation-done__errors li {
+  margin-bottom: 0.2rem;
+  word-break: break-word;
+}
+
+.translation-done__refund {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .review-actionbar {
   position: sticky;
   bottom: 0;

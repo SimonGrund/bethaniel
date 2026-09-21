@@ -537,6 +537,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{count} fehlgeschlagen",
     es: "{count} fallaron",
   },
+  download_translated_manuscript: {
+    en: "Download translated manuscript",
+    da: "Hent det oversatte manuskript",
+    de: "Übersetztes Manuskript herunterladen",
+    es: "Descargar el manuscrito traducido",
+  },
+  translation_read_in_word: {
+    en: "Your translation is ready. Read it in Word — Betty has nothing left to show you here.",
+    da: "Din oversættelse er klar. Læs den i Word — Betty har ikke mere at vise dig her.",
+    de: "Deine Übersetzung ist fertig. Lies sie in Word — Betty hat dir hier nichts mehr zu zeigen.",
+    es: "Tu traducción está lista. Léela en Word: Betty ya no tiene nada más que mostrarte aquí.",
+  },
+  translation_incomplete: {
+    en: "{count} chapter(s) did not translate. The file will contain those chapters in the original language.",
+    da: "{count} kapitel/kapitler blev ikke oversat. Filen vil indeholde de kapitler på originalsproget.",
+    de: "{count} Kapitel wurden nicht übersetzt. Die Datei enthält diese Kapitel in der Ausgangssprache.",
+    es: "{count} capítulo(s) no se tradujeron. El archivo contendrá esos capítulos en el idioma original.",
+  },
+  translation_request_refund: {
+    en: "Ask about a refund",
+    da: "Spørg om refusion",
+    de: "Nach einer Rückerstattung fragen",
+    es: "Solicitar un reembolso",
+  },
   surgical_partial_translation: {
     en: "The translation is in the file, apart from {count} paragraph(s) that could not be replaced without changing your formatting. Those paragraphs are still in the original language.",
     da: "Oversættelsen er i filen, bortset fra {count} afsnit, der ikke kunne erstattes uden at ændre din formatering. De afsnit er stadig på originalsproget.",
