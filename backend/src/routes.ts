@@ -1625,9 +1625,43 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       return;
     }
 
+    // ── Re-derive the map, do not trust the stored one ──
+    //
+    // `doc.md` and `paragraph-map.json` were written by whichever importer was
+    // current when the document was uploaded. An importer fix therefore does
+    // nothing for a document already on disk, and the author has no way to
+    // know their manuscript needs re-importing — they re-run the job, get the
+    // same broken export, and reasonably conclude nothing was fixed.
+    //
+    // That is not hypothetical: the page-break mapping fix (v2.24.4) left
+    // every existing document exporting exactly as badly as before, 472
+    // paragraphs refused on a real manuscript, because its map predated the
+    // fix. Re-deriving here from the original .docx — which is the source of
+    // truth and is right there — costs one conversion and makes every fix to
+    // the importer apply to every document, not only to new ones.
+    //
+    // The stored pair remains the fallback: a document whose original cannot
+    // be re-read should still export as well as it did before.
+    let remapMd = doc.md;
+    let remapParagraphs = original.value.paragraphMap;
+    try {
+      // docId matters: image references resolve against it, so this must be
+      // derived exactly as /upload derived it or the two would disagree.
+      const fresh = await docxToMarkdownMapped(original.value.buffer, { docId });
+      if (fresh.paragraphMap.length > 0) {
+        remapMd = fresh.md;
+        remapParagraphs = fresh.paragraphMap;
+      }
+    } catch (err) {
+      console.warn(
+        "[export] could not re-derive the paragraph map, using the stored one:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+
     const { edits, unmapped } = remapChaptersToParagraphEdits(
-      doc.md,
-      original.value.paragraphMap,
+      remapMd,
+      remapParagraphs,
       indexDocumentXml(xml),
       chapters,
     );
