@@ -49,7 +49,27 @@ export function stripMarkdown(md: string): string {
     .replace(/(\*\*\*|___)(.+?)\1/gs, "$2")
     .replace(/(\*\*|__)(.+?)\1/gs, "$2")
     .replace(/(\*|_)(.+?)\1/gs, "$2")
-    .replace(/\\([_*`])/g, "$1");
+    // Every punctuation character CommonMark lets a backslash escape, not just
+    // the three emphasis ones. Turndown escapes a list marker as "1\." so it is
+    // not re-parsed as a list, and leaving that backslash in made the text
+    // differ from what Word holds ("1.  Listen…") — so every numbered list item
+    // failed to verify and stayed in the source language. The escape is
+    // markdown's, not the author's; the text Word holds never contains it.
+    .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1");
+}
+
+/**
+ * A leading list marker: "1. ", "12) ", "- ", "* ", bullets.
+ *
+ * Word renders an auto-number into the paragraph's text, and turndown writes
+ * its own number when it re-emits the list — so the two disagree the moment a
+ * list does not start at one, or is split, or is nested. The prose after the
+ * marker is identical; only the number differs.
+ */
+const LIST_MARKER_RE = /^\s*(?:\d+\s*[.)]|[-*\u2022\u25CF\u25AA])\s+/;
+
+function withoutListMarker(s: string): string {
+  return s.replace(LIST_MARKER_RE, "");
 }
 
 /** Whitespace-insensitive comparison, for the tolerant second attempt. */
@@ -250,10 +270,28 @@ export function remapChaptersToParagraphEdits(
       // Verify before acting. If the markdown we located does not match what
       // the docx actually holds, we do not understand this paragraph well
       // enough to edit it — leave it exactly as the author wrote it.
-      if (
-        beforePlain !== paragraph.text &&
-        loose(beforePlain) !== loose(paragraph.text)
-      ) {
+      const matches =
+        beforePlain === paragraph.text ||
+        loose(beforePlain) === loose(paragraph.text);
+
+      // A list item is the one routine exception. Word renders its auto-number
+      // into the text ("1.  Let relationships change") and turndown writes its
+      // own when it re-emits the list ("3. Let relationships change"), so the
+      // two disagree on the number while the prose is identical. Refusing
+      // those left every numbered list in the source language — nine of them
+      // in the manuscript this was found on, and a list is exactly the kind of
+      // passage a reader notices is untranslated.
+      //
+      // The marker is matched on BOTH sides and then left alone: the docx's
+      // own number stays, and only the prose after it is replaced. Writing
+      // markdown's number into the document would renumber the author's list.
+      const listMatches =
+        !matches &&
+        LIST_MARKER_RE.test(paragraph.text) &&
+        loose(withoutListMarker(beforePlain)) ===
+          loose(withoutListMarker(paragraph.text));
+
+      if (!matches && !listMatches) {
         unmapped.push({
           reason: "paragraph-mismatch",
           detail: paragraph.text.slice(0, 60),
@@ -262,6 +300,25 @@ export function remapChaptersToParagraphEdits(
         continue;
       }
       if (beforePlain === afterPlain) continue;
+
+      if (listMatches) {
+        // Replace only what follows the docx's own marker.
+        const marker = paragraph.text.match(LIST_MARKER_RE)?.[0] ?? "";
+        const afterProse = withoutListMarker(afterPlain);
+        for (const e of paragraphEdits(
+          paragraph.text.slice(marker.length),
+          afterProse,
+        )) {
+          edits.push({
+            paragraphIndex: entry.docxParaIndex,
+            start: e.start + marker.length,
+            end: e.end + marker.length,
+            replacement: e.replacement,
+            wholeParagraph: e.wholeParagraph,
+          });
+        }
+        continue;
+      }
 
       // Diff against the docx's own text, so offsets are in its coordinates
       // even when whitespace differed from the markdown.
