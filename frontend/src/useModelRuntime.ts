@@ -329,6 +329,14 @@ export function useModelRuntime(): void {
     if (activeModel.startsWith("custom:")) return; // custom GGUF: no HW rec
     fetchSystemRecommendation(activeModel)
       .then((r) => {
+        // The model may have changed while this was in flight. Without this
+        // guard a hardware recommendation for a LOCAL model — three, because
+        // single-GPU decode is bandwidth-bound — lands after the switch to a
+        // cloud model and stamps three over the twenty-four the cloud branch
+        // above had just set. The job then runs three chapters at a time
+        // against a provider sized for twenty-four, and the setting the user
+        // can see in the slider is the one that lost the race.
+        if (lastAutoTuned.current !== activeModel) return;
         setParallel(r.recommendedParallel);
         setMaxParallel(r.recommendedParallel);
       })
