@@ -19,6 +19,7 @@ import {
   deleteJob,
   spawnJobSummary,
   putLexicon,
+  exportFormattingNotes,
 } from "../api";
 import { exportWarningFor } from "../exportWarningCopy";
 import {
@@ -2102,6 +2103,35 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       }
     },
     [handleDownloadDocx, t],
+  );
+
+  // The sidecar listing emphasis the translation could not carry across.
+  // Recomputed server-side from the same inputs the export used, so it always
+  // describes the file the author just downloaded.
+  const [notesBusy, setNotesBusy] = useState(false);
+  const handleFormattingNotes = useCallback(
+    async (pairs: { original: string; edited: string }[], baseName: string) => {
+      const docId = useStore.getState().document?.id;
+      if (!docId) return;
+      setNotesBusy(true);
+      try {
+        const blob = await exportFormattingNotes(docId, pairs, {
+          title: t("notes_title"),
+          intro: t("notes_intro"),
+          summary: t("notes_summary"),
+          wasEmphasised: t("notes_was_emphasised"),
+          noneRecorded: t("notes_none_recorded"),
+          paragraphLabel: t("notes_paragraph_label"),
+        });
+        // 204: nothing was lost, so there is nothing to hand over.
+        if (blob) downloadBlob(blob, `${baseName}.formatting-notes.docx`);
+      } catch (err) {
+        console.error("Formatting notes failed:", err);
+      } finally {
+        setNotesBusy(false);
+      }
+    },
+    [t],
   );
 
   const [formattingEbook, setFormattingEbook] = useState(false);
@@ -4687,6 +4717,30 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     {formattingEbook
                       ? t("formatting_ebook")
                       : t("download_translated_manuscript")}
+                  </button>
+
+                  {/* The sidecar. Offered beside the manuscript rather than
+                      forced into it: a hundred comments inside a document
+                      someone is about to publish is a change they did not ask
+                      for. Always available — the author cannot know whether
+                      anything was lost until they look, and the server answers
+                      204 and downloads nothing when nothing was. */}
+                  <button
+                    type="button"
+                    className="btn-secondary translation-done__notes"
+                    disabled={notesBusy || !editResultsReady}
+                    onClick={() =>
+                      void handleFormattingNotes(
+                        buildChapterPairs(
+                          exportEntries,
+                          useStore.getState().acceptedCorrections,
+                          {},
+                        ),
+                        exportName,
+                      )
+                    }
+                  >
+                    {t("download_formatting_notes")}
                   </button>
 
                   {/* Format is a real choice about the file, so it sits in the

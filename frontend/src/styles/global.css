@@ -9174,6 +9174,12 @@ summary.review-source::before {
   letter-spacing: 0.01em;
 }
 
+/* Quieter than the manuscript button above it: this is a reference file, not
+   the thing the author came for. */
+.translation-done__notes {
+  font-size: 0.85rem;
+}
+
 .translation-done__format {
   margin-top: 0.25rem;
 }

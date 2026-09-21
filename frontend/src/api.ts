@@ -458,6 +458,27 @@ export async function exportDocxSurgical(
   };
 }
 
+/**
+ * The sidecar listing emphasis a translation could not carry across.
+ *
+ * Resolves to null when nothing was lost — the server answers 204 rather than
+ * sending an empty document, and the caller should offer no download.
+ */
+export async function exportFormattingNotes(
+  docId: string,
+  chapters: { original: string; edited: string }[],
+  strings: Record<string, string>,
+): Promise<Blob | null> {
+  const res = await fetch(`${BASE}/api/export/formatting-notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ docId, chapters, strings }),
+  });
+  if (res.status === 204) return null;
+  if (!res.ok) throw new Error(`Formatting notes failed: ${res.status}`);
+  return res.blob();
+}
+
 /** Export markdown to EPUB. `docId` resolves embedded images (media/<docId>/…). */
 export async function exportEpub(
   markdown: string,

@@ -567,6 +567,48 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Die Übersetzung ist in der Datei, bis auf {count} Absatz/Absätze, die sich nicht ersetzen ließen, ohne deine Formatierung zu verändern. Diese Absätze sind noch in der Ausgangssprache.",
     es: "La traducción está en el archivo, salvo {count} párrafo(s) que no se pudieron sustituir sin alterar tu formato. Esos párrafos siguen en el idioma original.",
   },
+  download_formatting_notes: {
+    en: "Download formatting notes",
+    da: "Hent formateringsnoter",
+    de: "Formatierungsnotizen herunterladen",
+    es: "Descargar notas de formato",
+  },
+  notes_title: {
+    en: "Formatting notes",
+    da: "Formateringsnoter",
+    de: "Formatierungsnotizen",
+    es: "Notas de formato",
+  },
+  notes_intro: {
+    en: "A translation replaces whole paragraphs, so emphasis inside them could not be carried across. The text is complete; these are the places where an italic word or a highlight was lost.",
+    da: "En oversættelse erstatter hele afsnit, så fremhævning inde i dem kunne ikke føres med over. Teksten er komplet; her er de steder, hvor et kursiveret ord eller en markering gik tabt.",
+    de: "Eine Übersetzung ersetzt ganze Absätze, deshalb konnten Hervorhebungen darin nicht übernommen werden. Der Text ist vollständig; hier stehen die Stellen, an denen ein kursives Wort oder eine Markierung verloren ging.",
+    es: "Una traducción sustituye párrafos enteros, así que el énfasis dentro de ellos no se pudo conservar. El texto está completo; estos son los lugares donde se perdió una palabra en cursiva o un resaltado.",
+  },
+  notes_summary: {
+    en: "{count} paragraph(s) lost emphasis.",
+    da: "{count} afsnit mistede fremhævning.",
+    de: "{count} Absatz/Absätze haben Hervorhebungen verloren.",
+    es: "{count} párrafo(s) perdieron énfasis.",
+  },
+  notes_was_emphasised: {
+    en: "These were emphasised:",
+    da: "Disse var fremhævet:",
+    de: "Das war hervorgehoben:",
+    es: "Esto estaba resaltado:",
+  },
+  notes_none_recorded: {
+    en: "The emphasis carried no text of its own.",
+    da: "Fremhævningen indeholdt ingen egen tekst.",
+    de: "Die Hervorhebung enthielt keinen eigenen Text.",
+    es: "El énfasis no contenía texto propio.",
+  },
+  notes_paragraph_label: {
+    en: "Paragraph {n}",
+    da: "Afsnit {n}",
+    de: "Absatz {n}",
+    es: "Párrafo {n}",
+  },
   surgical_flattened: {
     en: "Your original formatting is kept. In {count} paragraph(s) the translation replaced the whole paragraph, so emphasis inside them — an italic word, a highlight — has been lost. The text itself is complete.",
     da: "Din oprindelige formatering bevares. I {count} afsnit erstattede oversættelsen hele afsnittet, så fremhævning inde i dem — et kursiveret ord, en markering — er gået tabt. Selve teksten er komplet.",

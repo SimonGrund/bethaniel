@@ -17,6 +17,10 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { execFileSync } from "child_process";
 import {
+  buildFormattingNotes,
+  type NotesStrings,
+} from "./formattingNotes.js";
+import {
   docxToMarkdown,
   docxToMarkdownMapped,
   markdownToDocx,
@@ -1709,6 +1713,91 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Surgical export failed",
+    });
+  }
+});
+
+// ── Export: the formatting a translation could not carry across ──
+//
+// A sidecar, not comments in the manuscript: a hundred comments inserted into
+// a document someone is about to publish is a change they did not ask for, and
+// the surgical export's whole promise is that it does not make those.
+//
+// Recomputes the remap rather than caching it from the export call. The inputs
+// are the same, so the answer is the same, and a cache keyed on a job would
+// have to be invalidated by every edit the author makes in the review screen.
+router.post("/export/formatting-notes", async (req: Request, res: Response) => {
+  try {
+    const { docId, chapters } = req.body as {
+      docId?: string;
+      chapters?: Array<{ original: string; edited: string }>;
+    };
+    if (typeof docId !== "string" || !Array.isArray(chapters)) {
+      res.status(400).json({ error: "docId and chapters are required" });
+      return;
+    }
+    const doc = getDocument(docId);
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const original = await loadOriginalDocx(docId);
+    if (!original.ok) {
+      res.status(409).json({ error: "No original document available" });
+      return;
+    }
+    const xml = await (await JSZip.loadAsync(original.value.buffer))
+      .file("word/document.xml")
+      ?.async("string");
+    if (!xml) {
+      res.status(409).json({ error: "Malformed original" });
+      return;
+    }
+
+    const fresh = await docxToMarkdownMapped(original.value.buffer, { docId });
+    const { edits } = remapChaptersToParagraphEdits(
+      fresh.md,
+      fresh.paragraphMap,
+      indexDocumentXml(xml),
+      chapters,
+    );
+    const { flattenedDetail } = await rewriteDocxText(
+      original.value.buffer,
+      edits,
+    );
+
+    const strings = (req.body?.strings ?? {}) as Partial<NotesStrings>;
+    const md = buildFormattingNotes(flattenedDetail, doc.name, {
+      title: strings.title ?? "Formatting notes",
+      intro:
+        strings.intro ??
+        "A translation replaces whole paragraphs, so emphasis inside them could not be carried across. The text is complete; these are the places where an italic word or a highlight was lost.",
+      summary: strings.summary ?? "{count} paragraph(s) lost emphasis.",
+      wasEmphasised: strings.wasEmphasised ?? "These were emphasised:",
+      noneRecorded:
+        strings.noneRecorded ?? "The emphasis carried no text of its own.",
+      paragraphLabel: strings.paragraphLabel ?? "Paragraph {n}",
+    });
+
+    if (!md) {
+      // Nothing was lost. Say so plainly rather than sending an empty file.
+      res.status(204).end();
+      return;
+    }
+
+    const buffer = await markdownToDocx(md);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="formatting-notes.docx"',
+    );
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Could not build the notes",
     });
   }
 });

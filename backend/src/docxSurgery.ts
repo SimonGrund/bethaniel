@@ -58,6 +58,23 @@ export interface DocxTextIndex {
 }
 
 /** A replacement expressed in a paragraph's plain-text coordinates. */
+/**
+ * A paragraph whose internal emphasis was given up so its text could be
+ * replaced, and what that emphasis was.
+ *
+ * The count alone told an author that 112 paragraphs had lost something
+ * without saying which, or what — so the only way to find out was to read the
+ * book against the original. This carries enough to put it back by hand.
+ */
+export interface FlattenedParagraph {
+  paragraphIndex: number;
+  /** The paragraph as it read before, so it can be found in the original. */
+  before: string;
+  /** The runs that differed from the paragraph's first formatting: the
+   *  italic word, the highlighted phrase — whatever was distinct. */
+  emphasised: string[];
+}
+
 export interface ParagraphTextEdit {
   start: number;
   end: number;
@@ -378,11 +395,17 @@ export function excerpt(text: string, start: number, end: number): string {
 export function planParagraphSplices(
   p: DocxParagraph,
   edits: ParagraphTextEdit[],
-): { splices: Splice[]; skipped: SkippedEdit[]; flattened: number } {
+): {
+  splices: Splice[];
+  skipped: SkippedEdit[];
+  flattened: number;
+  flattenedDetail: FlattenedParagraph[];
+} {
   const splices: Splice[] = [];
   const skipped: SkippedEdit[] = [];
   /** Whole-paragraph replacements that lost intra-paragraph formatting. */
   let flattened = 0;
+  const flattenedDetail: FlattenedParagraph[] = [];
   /** Per node: the local replacements it must absorb, applied together below. */
   const pending = new Map<
     TextNode,
@@ -443,6 +466,18 @@ export function planParagraphSplices(
           continue;
         }
         flattened++;
+        // Record WHAT was given up, not just that something was. The first
+        // run's formatting is the one being kept, so everything that differs
+        // from it is what the author loses.
+        const kept = touched[0]?.rPrXml;
+        flattenedDetail.push({
+          paragraphIndex: p.index,
+          before: p.text,
+          emphasised: touched
+            .filter((n) => n.kind !== "virtual" && n.rPrXml !== kept)
+            .map((n) => n.text.trim())
+            .filter(Boolean),
+        });
       }
     }
 
@@ -475,7 +510,7 @@ export function planParagraphSplices(
     });
   }
 
-  return { splices, skipped, flattened };
+  return { splices, skipped, flattened, flattenedDetail };
 }
 
 /** Apply splices end-to-start so earlier offsets stay valid. */
@@ -512,6 +547,8 @@ export async function rewriteDocxText(
   /** Paragraphs whose intra-paragraph formatting was collapsed to apply a
    *  whole-paragraph replacement. A real loss, so it is reported. */
   flattened: number;
+  /** What each of those gave up, for the notes document. */
+  flattenedDetail: FlattenedParagraph[];
 }> {
   const zip = await JSZip.loadAsync(docxBuffer);
   const file = zip.file("word/document.xml");
@@ -543,17 +580,19 @@ export async function rewriteDocxText(
   const allSplices: Splice[] = [];
   let applied = 0;
   let flattened = 0;
+  const flattenedDetail: FlattenedParagraph[] = [];
   for (const [paragraphIndex, list] of byParagraph) {
     const res = planParagraphSplices(index.paragraphs[paragraphIndex], list);
     allSplices.push(...res.splices);
     skipped.push(...res.skipped);
     applied += list.length - res.skipped.length;
     flattened += res.flattened;
+    flattenedDetail.push(...res.flattenedDetail);
   }
 
   zip.file("word/document.xml", applySplices(xml, allSplices));
   const buffer = Buffer.from(
     await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }),
   );
-  return { buffer, applied, skipped, flattened };
+  return { buffer, applied, skipped, flattened, flattenedDetail };
 }
