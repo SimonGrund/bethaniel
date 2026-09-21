@@ -71,6 +71,18 @@ interface UpdateStatus {
 
 let updateStatus: UpdateStatus = { phase: "idle", manual: false };
 
+/**
+ * Set while electron-updater is quitting the app to install.
+ *
+ * quitAndInstall() closes the windows and quits the app itself. This app has
+ * three other paths that call app.quit() — window-all-closed, the backend's
+ * exit handler, and the uninstall flow — and window-all-closed fires as the
+ * updater closes the last window. A second quit arriving mid-sequence can
+ * short-circuit the installer, which is how an update downloads cleanly and
+ * then relaunches the version it was replacing.
+ */
+let quittingForUpdate = false;
+
 /** True while a check the USER asked for is in flight. Latched at the request
  *  and read by the events that follow, because electron-updater's events carry
  *  no idea of who asked. */
@@ -128,6 +140,18 @@ if (!IS_DEV) {
     setUpdateStatus({ phase: "error", message: err?.message ?? String(err) });
     updateAskedByUser = false;
   });
+
+  // The install step used to be entirely silent: if quitAndInstall failed, the
+  // app simply reopened on the old version with nothing written anywhere. Route
+  // electron-updater's own log through ours so the next failure leaves a trace.
+  autoUpdater.logger = {
+    info: (m: unknown) => console.log("[updater]", m),
+    warn: (m: unknown) => console.warn("[updater]", m),
+    error: (m: unknown) => console.error("[updater]", m),
+    debug: (m: unknown) => console.log("[updater:debug]", m),
+  };
+
+
 }
 
 function resourcePath(...segments: string[]): string {
@@ -793,7 +817,19 @@ ipcMain.handle("updates:check", () => {
 ipcMain.handle("updates:restart", () => {
   if (IS_DEV) return;
   // Only reachable from a button the renderer draws when no task is running.
-  autoUpdater.quitAndInstall();
+  //
+  // Deferred rather than called here: quitAndInstall tears down the windows
+  // and the app, and doing that inside an IPC handler means it runs while the
+  // renderer is still waiting for this call to return. setImmediate lets the
+  // reply go first, so the quit begins from a clean tick.
+  // Set before the quit begins rather than from app's
+  // "before-quit-for-update" event, which is not in Electron's type
+  // definitions. Here is both earlier and honest about who decided to quit.
+  quittingForUpdate = true;
+  setImmediate(() => {
+    console.log("[updater] quitAndInstall requested");
+    autoUpdater.quitAndInstall();
+  });
 });
 
 /** The current status, for a renderer that loaded after the last event. */
@@ -1026,6 +1062,11 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
+  // Not while the updater is quitting us: it closes the windows itself as part
+  // of installing, and a second app.quit() arriving here can cut the installer
+  // off before it has staged the new version — the app then reopens on the old
+  // one, having downloaded the new one perfectly.
+  if (quittingForUpdate) return;
   app.quit();
 });
 
