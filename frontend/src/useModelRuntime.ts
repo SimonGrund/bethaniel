@@ -300,27 +300,18 @@ export function useModelRuntime(): void {
     // local models (see docs/run-modes.md: a heavier pipeline was benchmarked
     // for External Betty too and removed anyway, for one predictable pipeline).
     if (isApiModel(activeModel)) {
+      // The slider's ceiling still moves, because a user's OWN API key is
+      // bounded by their provider's limits rather than this machine's, and the
+      // slider is how they say what those are.
       setMaxParallel(API_MAX_PARALLEL);
-      if (modelSwitched) {
-        setRunMode("speed");
-        setParallel(API_MAX_PARALLEL);
-        return;
-      }
-      // Not a switch — the cloud model was already selected when the app
-      // opened, restored from the persisted store along with `parallel`.
-      //
-      // That combination used to leave a returning user at 3, because the
-      // raise above only ever ran on a switch: they would run a whole book
-      // three chapters at a time against a provider sized for twenty-four,
-      // and nothing in the UI said why it was slow.
-      //
-      // A value at or below the LOCAL ceiling cannot have been chosen for a
-      // cloud model — that slider goes to 24 — so it is a local setting that
-      // outlived its model, and the cloud ceiling is the right answer. A
-      // value above it was set here deliberately and is left alone.
-      if (useStore.getState().parallel <= LOCAL_MAX_PARALLEL) {
-        setParallel(API_MAX_PARALLEL);
-      }
+      // But `parallel` itself is NOT set here any more. For Betty in the Cloud
+      // the concurrency is decided server-side from the catalog entry
+      // (routes.ts, /queue/add), because Bethaniel knows its own provider's
+      // limits and the author does not — and because every attempt to drive it
+      // from here lost a race sooner or later: a persisted value, or a local
+      // hardware recommendation resolving late, would put it back to three and
+      // a paid job would crawl.
+      if (modelSwitched) setRunMode("speed");
       return;
     }
 

@@ -664,7 +664,27 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     const hasAuthorSheet = authorStyleGuide.trim().length > 0;
 
     // Update concurrency
-    setConcurrency(parallel ?? 1);
+    // ── Concurrency ──
+    //
+    // The parallel slider is a LOCAL control: it exists so an author can trade
+    // their own machine's memory and bandwidth against speed. It has no
+    // business deciding how hard Bethaniel leans on its own cloud provider,
+    // whose limits Bethaniel knows and the author does not.
+    //
+    // Deciding it here rather than in the renderer also ends a whole class of
+    // bug: a persisted slider value, or a hardware recommendation resolving
+    // late and overwriting one, used to leave a paid cloud job running three
+    // chapters at a time against a provider sized for twenty-four. No client
+    // state can cause that now.
+    //
+    // A user's OWN API key is deliberately left alone — that is their account
+    // and their rate limit, and the slider is the only way they have to say so.
+    const cloudEntry = MODEL_CATALOG.find((e) => e.id === "bethaniel-cloud");
+    const isCloudRun = !!cloudEntry && model === cloudEntry.fileName;
+    const effectiveParallel = isCloudRun
+      ? (cloudEntry.recommendedParallel ?? parallel ?? 1)
+      : (parallel ?? 1);
+    setConcurrency(effectiveParallel);
 
     // One jobId per /queue/add call — groups all per-chapter sub-tasks.
     const jobId = uuidv4();
