@@ -24,13 +24,21 @@ export const PRODUCT_FOR_CARD: Record<FrontCard, CloudProduct> = {
 
 /** The Worker's answer — see codeBalance() in worker/src/quote.ts. */
 export interface CodeBalance {
-  code: string;
-  maxWords: number | null;
+  code?: string;
+  maxWords?: number | null;
   /** Only a code that takes the price to zero. A partial discount is not one. */
   free: boolean;
   /** One pool spent across every card, rather than a count per card. */
-  shared: boolean;
-  runsLeft: Record<CloudProduct, number>;
+  shared?: boolean;
+  runsLeft?: Record<CloudProduct, number>;
+  /**
+   * The code is real but every use is gone.
+   *
+   * Carried so the box can say "used up" rather than leaving the author to
+   * wonder whether they mistyped it — the two were indistinguishable, and
+   * that confused the person who minted the codes, twice.
+   */
+  spent?: boolean;
 }
 
 /**

@@ -589,6 +589,8 @@ export interface CloudEstimateResponse {
   codeRejectedReason?: string;
   /** Set when a code was typed and matched nothing. */
   codeUnknown?: boolean;
+  /** The code is real but every use is gone. */
+  spent?: boolean;
   /** What the code has left, read at the last moment before payment. */
   codeBalance?: CodeBalance;
 }
@@ -623,8 +625,16 @@ export async function getCodeBalance(
       body: JSON.stringify({ code }),
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { known?: boolean } & CodeBalance;
-    return body?.known ? body : null;
+    const body = (await res.json()) as {
+      known?: boolean;
+      spent?: boolean;
+    } & CodeBalance;
+    if (body?.known) return body;
+    // A code that exists but has nothing left. Carried through rather than
+    // flattened to null, so the box can say "used up" instead of leaving the
+    // author to wonder whether they mistyped it.
+    if (body?.spent) return { free: false, spent: true } as CodeBalance;
+    return null;
   } catch {
     return null;
   }

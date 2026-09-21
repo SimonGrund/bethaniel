@@ -17,6 +17,7 @@ import {
 import {
   insertQuote,
   findPromo,
+  isPromoSpent,
   parseProductUses,
   redeemPromo,
   releasePromo,
@@ -327,9 +328,11 @@ export default {
       // What a code has left, so the app can say "2 free runs left, up to
       // 200,000 words" on the cards that code can pay for.
       //
-      // Deliberately says nothing a quote does not already reveal: unknown,
-      // expired, void and fully-spent all answer the same `known: false`, so
-      // this is no better an oracle for guessing codes than /v1/quote is. It
+      // Unknown, expired and void all answer the same `known: false`, so this
+      // is no better an oracle for guessing codes than /v1/quote is. A code
+      // that is merely SPENT also answers false but says so, because it is
+      // worth nothing and the alternative left its holder unable to tell it
+      // from a typo. It
       // spends nothing, writes nothing, and takes no quote row — the use is
       // still taken only by redeemPromo at checkout.
       if (url.pathname === "/v1/code" && request.method === "POST") {
@@ -338,7 +341,16 @@ export default {
           return json({ error: "code is required" }, 400);
         }
         const row = await findPromo(env, code);
-        if (!row) return json({ known: false });
+        if (!row) {
+          // Spent is told apart from unknown: a code with nothing left is
+          // worth nothing, so saying so gives a guesser nothing, while
+          // silence leaves someone holding a used code unable to tell it from
+          // a typo. Expired and void stay opaque — those can be reinstated.
+          if (await isPromoSpent(env, code)) {
+            return json({ known: false, spent: true });
+          }
+          return json({ known: false });
+        }
         return json({ known: true, ...codeBalance(row) });
       }
 

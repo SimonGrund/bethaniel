@@ -1233,6 +1233,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{code} angewendet",
     es: "{code} aplicado",
   },
+  cloud_code_spent: {
+    en: "That code has been used up.",
+    da: "Den kode er brugt op.",
+    de: "Dieser Code ist aufgebraucht.",
+    es: "Ese código ya se ha agotado.",
+  },
   cloud_code_label: {
     en: "Have a code?",
     da: "Har du en kode?",

@@ -318,6 +318,30 @@ export async function findPromo(env: Env, code: string): Promise<PromoRow | null
 }
 
 /**
+ * Is this a real code that simply has nothing left?
+ *
+ * Told apart from "unknown" so the app can say so. A spent code reads exactly
+ * like a typo today — `known: false` for both — and someone holding a code
+ * they have used cannot tell which it is. That has now confused the person who
+ * MINTED the codes, twice.
+ *
+ * Safe to reveal where expiry and voiding are not: a spent code is worth
+ * nothing, so confirming one exists gives a guesser nothing they can spend.
+ * Expired and void codes stay opaque, because those can be reinstated.
+ */
+export async function isPromoSpent(env: Env, code: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `SELECT uses, max_uses, status, expires_at FROM promo_codes WHERE code = ?`,
+  )
+    .bind(code.trim().toUpperCase())
+    .first<Pick<PromoRow, "uses" | "max_uses" | "status" | "expires_at">>();
+  if (!row) return false;
+  if (row.status !== "active") return false;
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return false;
+  return row.uses >= row.max_uses;
+}
+
+/**
  * Consume one use, atomically.
  *
  * The WHERE clause carries the guard rather than a prior SELECT, so two

@@ -170,6 +170,7 @@ export default function EditTrigger() {
   const promoCode = useStore((s) => s.promoCode);
   const setPromoCode = useStore((s) => s.setPromoCode);
   const setCodeBalance = useStore((s) => s.setCodeBalance);
+  const codeBalance = useStore((s) => s.codeBalance);
   const [cloudConfirmOpen, setCloudConfirmOpen] = useState(false);
   // Measured throughput, so the estimate sharpens after the first real run
   // instead of quoting a published figure forever.
@@ -683,6 +684,11 @@ export default function EditTrigger() {
               cloudEstimate.appliedCode ?? "",
             )}
           </span>
+        )}
+        {/* A real code with nothing left says so. It used to be silent, which
+            reads exactly like a typo — and cost two support round trips. */}
+        {codeBalance?.spent && (
+          <span className="cloud-code-note">{t("cloud_code_spent")}</span>
         )}
         {/* What the code has left for the task actually selected — the same
             line the cards carry, beside the box it was typed into. */}
