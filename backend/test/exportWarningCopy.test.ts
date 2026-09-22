@@ -82,3 +82,37 @@ test("every key it can return exists in all four languages", async () => {
     assert.ok(entry.en.includes("{count}"), `key ${k} has no {count} placeholder`);
   }
 });
+
+// ── After restoration, the warning counts what is still lost ──
+//
+// Emphasis is now put back into the author's own italic run wherever the
+// translation's shape agrees with the paragraph's runs. So the warning is no
+// longer "112 paragraphs lost emphasis" but the handful that could not be
+// placed — and it is counted in PHRASES, because one paragraph can hold two
+// and the author has to restore each of them.
+
+test("a translation with nothing lost warns about nothing", () => {
+  assert.equal(
+    exportWarningFor({ skipped: 0, flattened: 0, isTranslation: true }),
+    null,
+  );
+});
+
+test("a translation reports the phrases it could not place", () => {
+  const v = exportWarningFor({ skipped: 0, flattened: 2, isTranslation: true });
+  assert.deepEqual(v?.parts, [{ key: "surgical_flattened", count: 2 }]);
+  assert.equal(v?.showUnapplied, false);
+});
+
+test("the emphasis copy points at the notes and counts phrases", async () => {
+  // The wording is the whole deliverable of this change, so it is asserted:
+  // a count of phrases, and where to find them. A future edit that reverts to
+  // counting paragraphs fails here rather than shipping.
+  const { default: TRANSLATIONS } = await import("../../frontend/src/i18n.ts");
+  const entry = (TRANSLATIONS as Record<string, Record<string, string>>)
+    .surgical_flattened;
+  assert.match(entry.en, /phrase/);
+  assert.doesNotMatch(entry.en, /paragraph/);
+  for (const lang of ["en", "da", "de", "es"])
+    assert.ok(entry[lang].includes("{count}"), `${lang} lost its {count}`);
+});

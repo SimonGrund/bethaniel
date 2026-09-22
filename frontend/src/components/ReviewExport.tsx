@@ -2062,7 +2062,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         // closes, so the one caveat that matters was never actually read.
         const warning = exportWarningFor({
           skipped: report.skipped,
-          flattened: report.flattened,
+          // Phrases, not paragraphs: the copy counts what the author has to
+          // put back, and one paragraph can hold two.
+          flattened: report.lostPhrases,
           isTranslation,
         });
         if (warning) {
