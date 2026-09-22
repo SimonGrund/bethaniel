@@ -91,6 +91,15 @@ export interface ParagraphTextEdit {
    * paragraph's first formatting and counted, rather than dropped.
    */
   wholeParagraph?: boolean;
+  /**
+   * One string per folded segment of this paragraph, in order — set only when
+   * a translation's emphasis could be matched to the runs already present.
+   *
+   * With it, each segment's runs receive their own text and the emphasised
+   * translation lands in the author's own italic run, keeping their font and
+   * size. Without it the paragraph is flattened as before.
+   */
+  segments?: string[];
 }
 
 export interface Splice {
