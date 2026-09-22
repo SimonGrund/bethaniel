@@ -53,3 +53,75 @@ export function splitEmphasis(md: string): EmphasisPiece[] {
   // A paragraph of nothing but whitespace has no pieces to give.
   return pieces.length === 1 && !pieces[0].text.trim() ? [] : pieces;
 }
+
+/** The part of a docx text node this module needs. Structural, so the module
+ *  stays free of docxSurgery's types and can be tested on plain objects. */
+export interface RunLike {
+  rPrXml: string;
+  text: string;
+  kind: string;
+}
+
+/** Consecutive runs that share formatting, as one stretch of text. */
+export interface Segment {
+  rPrXml: string;
+  text: string;
+}
+
+/**
+ * Fold a paragraph's runs into segments.
+ *
+ * Word splits runs for reasons of its own — a spell-check marker, a language
+ * tag — that carry no formatting difference. Folding by rPrXml means those
+ * splits do not make the paragraph look more complicated than it reads.
+ *
+ * Virtual nodes (a tab, a line break) are dropped: they hold a character but
+ * no replaceable range, so they are not a place text can be put.
+ */
+export function foldSegments(nodes: readonly RunLike[]): Segment[] {
+  const segments: Segment[] = [];
+  for (const n of nodes) {
+    if (n.kind === "virtual") continue;
+    const last = segments[segments.length - 1];
+    if (last && last.rPrXml === n.rPrXml) last.text += n.text;
+    else segments.push({ rPrXml: n.rPrXml, text: n.text });
+  }
+  return segments;
+}
+
+/**
+ * Which text each segment should receive, or null if that cannot be known.
+ *
+ * The paragraph's base formatting is taken from the first segment the
+ * MARKDOWN calls unemphasised — not from the first segment positionally. A
+ * paragraph that opens with an italic phrase has the italic run first, and
+ * reading that as the base inverts the whole comparison: every emphasised
+ * segment then looks plain and vice versa, and a paragraph that matched
+ * perfectly would be refused.
+ *
+ * Refuses unless the two shapes agree completely: same number of parts, every
+ * unemphasised segment sharing the base formatting, every emphasised one
+ * differing from it, and nothing empty. That strictness is the whole safety
+ * argument — a partial match would put translated text in the wrong run and
+ * italicise the wrong phrase, which is worse than losing the emphasis. Losing
+ * it is what happens today, so refusing costs nothing.
+ */
+export function allocateEmphasis(
+  segments: readonly Segment[],
+  pieces: readonly EmphasisPiece[],
+): string[] | null {
+  if (segments.length === 0 || pieces.length === 0) return null;
+  if (segments.length !== pieces.length) return null;
+
+  // No unemphasised piece means no base to compare against — a paragraph
+  // entirely in italics, where there is nothing to tell apart.
+  const baseIndex = pieces.findIndex((p) => !p.emphasised);
+  if (baseIndex < 0) return null;
+  const base = segments[baseIndex].rPrXml;
+
+  for (let i = 0; i < segments.length; i++) {
+    if ((segments[i].rPrXml !== base) !== pieces[i].emphasised) return null;
+    if (pieces[i].text.length === 0) return null;
+  }
+  return pieces.map((p) => p.text);
+}
