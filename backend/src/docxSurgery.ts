@@ -14,6 +14,7 @@
 // policy parameter — a guarantee you can switch off is not one.
 
 import JSZip from "jszip";
+import { foldSegments } from "./emphasisSpans.js";
 
 export interface TextNode {
   /** Ordinal of the containing <w:r> within its paragraph. */
@@ -409,12 +410,15 @@ export function planParagraphSplices(
   skipped: SkippedEdit[];
   flattened: number;
   flattenedDetail: FlattenedParagraph[];
+  restored: number;
 } {
   const splices: Splice[] = [];
   const skipped: SkippedEdit[] = [];
   /** Whole-paragraph replacements that lost intra-paragraph formatting. */
   let flattened = 0;
   const flattenedDetail: FlattenedParagraph[] = [];
+  /** Whole-paragraph replacements whose emphasis was put back. */
+  let restored = 0;
   /** Per node: the local replacements it must absorb, applied together below. */
   const pending = new Map<
     TextNode,
@@ -442,7 +446,14 @@ export function planParagraphSplices(
       continue;
     }
 
-    const e = trimEdit(p.text, raw);
+    // Trimming shrinks an edit to the span that actually changed, which is
+    // right for a correction and wrong for an allocated translation: the
+    // allocation describes every segment of the paragraph, and trimming a
+    // shared prefix or suffix (a trailing full stop is enough) drops a run out
+    // of `touched`, leaving fewer segments than the allocation has parts. The
+    // paragraph would then be refused for a difference that is not real.
+    const e =
+      raw.segments && raw.wholeParagraph ? raw : trimEdit(p.text, raw);
     if (e.start === e.end && e.replacement === "") continue; // no-op
 
     // Nodes the trimmed span touches. A zero-width insert attaches to the node
@@ -462,42 +473,74 @@ export function planParagraphSplices(
       skip(raw, "virtual-node");
       continue;
     }
+    /** Text per segment, when this translation's emphasis could be placed. */
+    let allocation: string[] | null = null;
+
     if (touched.length > 1) {
       const fmt = new Set(touched.map((n) => n.rPrXml));
       if (fmt.size > 1) {
         // A correction must not guess which formatting to keep — refusing is
         // the guarantee this export exists for. A translation has no such
         // choice to get wrong: the paragraph is going regardless, and
-        // refusing it hands the author their own language back. Collapse to
-        // the first run's formatting, and count it so they can be told.
+        // refusing it hands the author their own language back.
         if (!raw.wholeParagraph) {
           skip(raw, "mixed-formatting");
           continue;
         }
-        flattened++;
-        // Record WHAT was given up, not just that something was. The first
-        // run's formatting is the one being kept, so everything that differs
-        // from it is what the author loses.
-        const kept = touched[0]?.rPrXml;
-        flattenedDetail.push({
-          paragraphIndex: p.index,
-          before: p.text,
-          emphasised: touched
-            .filter((n) => n.kind !== "virtual" && n.rPrXml !== kept)
-            .map((n) => n.text.trim())
-            .filter(Boolean),
-        });
+
+        // The translation carries its own emphasis, and this paragraph
+        // already has the runs to hold it. Checked again here rather than
+        // trusted: a mis-sized allocation would put text in the wrong run,
+        // which is the one outcome worse than losing the emphasis.
+        const segments = foldSegments(touched);
+        if (raw.segments && raw.segments.length === segments.length) {
+          allocation = raw.segments;
+          restored++;
+        } else {
+          flattened++;
+          // Record WHAT was given up, not just that something was. The first
+          // run's formatting is the one being kept, so everything that
+          // differs from it is what the author loses.
+          const kept = touched[0]?.rPrXml;
+          flattenedDetail.push({
+            paragraphIndex: p.index,
+            before: p.text,
+            emphasised: touched
+              .filter((n) => n.kind !== "virtual" && n.rPrXml !== kept)
+              .map((n) => n.text.trim())
+              .filter(Boolean),
+          });
+        }
       }
     }
 
-    // Record each node's share. The first touched node receives the whole
-    // replacement; later ones simply lose their overlapped characters.
+    // Record each node's share.
+    //
+    // With an allocation, the first node of each SEGMENT takes that segment's
+    // text and the rest of the segment is emptied — so the emphasised
+    // translation lands in the run that was already emphasised. Without one,
+    // the first node takes everything, exactly as before.
+    let segmentIndex = -1;
+    let lastRPr: string | null = null;
     touched.forEach((n, i) => {
       const nEnd = n.textStart + n.text.length;
       const from = Math.max(e.start, n.textStart) - n.textStart;
       const to = Math.min(e.end, nEnd) - n.textStart;
+
+      // No virtual-node case: an edit touching one was skipped as
+      // "virtual-node" further up, so none can reach here.
+      let insert: string;
+      if (!allocation) {
+        insert = i === 0 ? e.replacement : "";
+      } else {
+        const startsSegment = lastRPr === null || n.rPrXml !== lastRPr;
+        if (startsSegment) segmentIndex++;
+        lastRPr = n.rPrXml;
+        insert = startsSegment ? (allocation[segmentIndex] ?? "") : "";
+      }
+
       const list = pending.get(n) ?? [];
-      list.push({ from, to, insert: i === 0 ? e.replacement : "" });
+      list.push({ from, to, insert });
       pending.set(n, list);
     });
   }
@@ -519,7 +562,7 @@ export function planParagraphSplices(
     });
   }
 
-  return { splices, skipped, flattened, flattenedDetail };
+  return { splices, skipped, flattened, flattenedDetail, restored };
 }
 
 /** Apply splices end-to-start so earlier offsets stay valid. */
@@ -558,6 +601,8 @@ export async function rewriteDocxText(
   flattened: number;
   /** What each of those gave up, for the notes document. */
   flattenedDetail: FlattenedParagraph[];
+  /** Paragraphs whose emphasis was put back into the author's own run. */
+  restored: number;
 }> {
   const zip = await JSZip.loadAsync(docxBuffer);
   const file = zip.file("word/document.xml");
@@ -589,6 +634,7 @@ export async function rewriteDocxText(
   const allSplices: Splice[] = [];
   let applied = 0;
   let flattened = 0;
+  let restored = 0;
   const flattenedDetail: FlattenedParagraph[] = [];
   for (const [paragraphIndex, list] of byParagraph) {
     const res = planParagraphSplices(index.paragraphs[paragraphIndex], list);
@@ -596,6 +642,7 @@ export async function rewriteDocxText(
     skipped.push(...res.skipped);
     applied += list.length - res.skipped.length;
     flattened += res.flattened;
+    restored += res.restored;
     flattenedDetail.push(...res.flattenedDetail);
   }
 
@@ -603,5 +650,5 @@ export async function rewriteDocxText(
   const buffer = Buffer.from(
     await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }),
   );
-  return { buffer, applied, skipped, flattened, flattenedDetail };
+  return { buffer, applied, skipped, flattened, flattenedDetail, restored };
 }
