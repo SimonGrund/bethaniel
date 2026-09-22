@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld("bethaniel", {
   // that knows.
   appVersion: () => ipcRenderer.invoke("app:version") as Promise<string>,
   checkForUpdates: () => ipcRenderer.invoke("updates:check") as Promise<void>,
-  restartToUpdate: () => ipcRenderer.invoke("updates:restart") as Promise<void>,
+  restartToUpdate: (copy?: { title?: string; body?: string }) =>
+    ipcRenderer.invoke("updates:restart", copy) as Promise<void>,
   currentUpdateStatus: () =>
     ipcRenderer.invoke("updates:current") as Promise<unknown>,
   onUpdateStatus: (listener: (status: unknown) => void) => {

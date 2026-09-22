@@ -20,6 +20,7 @@ import * as http from "http";
 import * as net from "net";
 import { autoUpdater } from "electron-updater";
 import { downloadCudaEngine, hasCudaEngineInstalled } from "./gpuEngine";
+import { installVerdict, type InstallMarker } from "./updateInstallMarker";
 
 // ── Betty in the Cloud: bethaniel:// protocol handoff ──
 //
@@ -59,6 +60,8 @@ type UpdatePhase =
   | "available"
   | "downloading"
   | "downloaded"
+  /** Quit to install; the swap is still running and this is the old app. */
+  | "installing"
   | "error";
 
 interface UpdateStatus {
@@ -70,6 +73,70 @@ interface UpdateStatus {
 }
 
 let updateStatus: UpdateStatus = { phase: "idle", manual: false };
+
+// ── The note left behind while an update installs ──
+//
+// On macOS the install runs AFTER the app exits: Squirrel unpacks a 440 MB zip
+// and swaps the bundle, which takes minutes. Measured on 2.27.0 — the click at
+// ~10:30, the binary replaced at 10:33, the bundle finished at 10:34. Reopen
+// inside that window and you get the OLD app, which sees the new version on
+// the feed and offers the very update being installed; pressing the button
+// again just quits into the same wait.
+//
+// So the version being installed is written down before quitting and read on
+// the way back up. The reading is in updateInstallMarker.ts, pure, because the
+// only other way to test it is to cut a release and wait three minutes.
+
+const INSTALL_MARKER = "installing-update.json";
+
+function installMarkerPath(): string {
+  return path.join(app.getPath("userData"), INSTALL_MARKER);
+}
+
+function readInstallMarker(): InstallMarker | null {
+  try {
+    return JSON.parse(fs.readFileSync(installMarkerPath(), "utf-8"));
+  } catch {
+    // Absent is the ordinary case, and unreadable is handled the same way: a
+    // half-written file must not strand the app on a banner.
+    return null;
+  }
+}
+
+function writeInstallMarker(version: string | undefined, at: number): void {
+  if (!version) return;
+  try {
+    const marker: InstallMarker = { version, startedAt: at };
+    fs.writeFileSync(installMarkerPath(), JSON.stringify(marker));
+  } catch (err) {
+    // Best effort: losing the note costs a confusing banner, not the update.
+    console.error("[updater] could not record the install:", err);
+  }
+}
+
+function clearInstallMarker(): void {
+  try {
+    fs.unlinkSync(installMarkerPath());
+  } catch {
+    /* already gone */
+  }
+}
+
+/**
+ * Is an install from the previous run still finishing?
+ *
+ * True means the caller must NOT check for updates: the answer is already
+ * known, and acting on it would offer the update being installed right now.
+ */
+function resumeInstallNotice(): boolean {
+  const marker = readInstallMarker();
+  const verdict = installVerdict(marker, app.getVersion(), Date.now());
+  if (verdict === "finished") clearInstallMarker();
+  if (verdict !== "installing") return false;
+  console.log("[updater] an install of", marker?.version, "is still finishing");
+  setUpdateStatus({ phase: "installing", version: marker?.version });
+  return true;
+}
 
 
 /** True while a check the USER asked for is in flight. Latched at the request
@@ -803,7 +870,7 @@ ipcMain.handle("updates:check", () => {
   void autoUpdater.checkForUpdates();
 });
 
-ipcMain.handle("updates:restart", () => {
+ipcMain.handle("updates:restart", (_event, copy?: GoodbyeCopy) => {
   if (IS_DEV) return;
   // An ORDINARY quit, not autoUpdater.quitAndInstall().
   //
@@ -822,11 +889,100 @@ ipcMain.handle("updates:restart", () => {
   // Deliberately no special casing around the quit: the ordinary path is the
   // one that is known to work, and making it less ordinary is what got us
   // here.
-  setImmediate(() => {
+  // Write down what is being installed. Reopening during the swap gets the OLD
+  // app, which would otherwise offer this same update again; the note is how
+  // the next launch knows better.
+  writeInstallMarker(updateStatus.version, Date.now());
+
+  // Somewhere to say goodbye. The main window is about to go and the install
+  // then runs for minutes with nothing on screen, which is the whole reason
+  // people reopen too early.
+  //
+  // Guarded: this panel is cosmetic, and failing to draw it must not be the
+  // thing that stops an update from installing.
+  try {
+    showQuittingWindow(copy);
+  } catch (err) {
+    console.error("[updater] could not show the quitting window:", err);
+  }
+
+  setTimeout(() => {
     console.log("[updater] quitting to let the staged update install");
     app.quit();
-  });
+  }, GOODBYE_MS);
 });
+
+/** Already translated by the renderer, where the four languages live. */
+interface GoodbyeCopy {
+  title?: string;
+  body?: string;
+}
+
+/** Long enough to read two sentences, short enough not to feel stuck. */
+const GOODBYE_MS = 4000;
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Replace the main window with a small panel saying what is happening.
+ *
+ * The English fallbacks are for a renderer that calls without copy — an older
+ * preload should still say something true rather than nothing.
+ */
+function showQuittingWindow(copy?: GoodbyeCopy): void {
+  const version = updateStatus.version ?? "";
+  const title = copy?.title ?? `Installing Bethaniel ${version}`.trim();
+  const body =
+    copy?.body ??
+    "Bethaniel is closing so the update can install. Unpacking takes a few " +
+      "minutes — wait a little before opening it again.";
+
+  // Inlined into a data URL: no file to package, and no server to reach in the
+  // seconds after the backend has been told to stop.
+  const html = `<!doctype html><meta charset="utf-8"><style>
+    :root { color-scheme: light }
+    body { margin:0; height:100vh; display:flex; gap:18px; align-items:center;
+      padding:0 28px; box-sizing:border-box;
+      background:#f6efe2; color:#3b2f24;
+      font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-user-select:none; -webkit-app-region:drag }
+    .spinner { width:26px; height:26px; flex:0 0 26px; border-radius:50%;
+      border:3px solid rgba(59,47,36,.18); border-top-color:#8a6a3b;
+      animation:spin 1s linear infinite }
+    @keyframes spin { to { transform:rotate(360deg) } }
+    h1 { margin:0 0 4px; font-size:15px; font-weight:600 }
+    p { margin:0; opacity:.78 }
+  </style>
+  <div class="spinner"></div>
+  <div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p></div>`;
+
+  const win = new BrowserWindow({
+    width: 470,
+    height: 150,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    title: "Bethaniel",
+    backgroundColor: "#f6efe2",
+    show: false,
+    webPreferences: { sandbox: true, nodeIntegration: false },
+  });
+  win.setMenuBarVisibility(false);
+  void win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+  win.once("ready-to-show", () => win.show());
+
+  // Created BEFORE the main window closes: window-all-closed quits the app,
+  // and quitting there would skip the goodbye entirely.
+  mainWindow?.close();
+}
 
 /** The current status, for a renderer that loaded after the last event. */
 ipcMain.handle("updates:current", () => updateStatus);
@@ -1028,7 +1184,9 @@ app.whenReady().then(async () => {
     // this replaces bought nothing: it delayed asking a question whose answer
     // had nowhere to go, and the delay people actually noticed was the
     // download that follows.
-    if (!IS_DEV) void autoUpdater.checkForUpdates();
+    // An install still finishing answers the question already, and checking
+    // would offer the very update that is at this moment being installed.
+    if (!IS_DEV && !resumeInstallNotice()) void autoUpdater.checkForUpdates();
   });
 
   // Kick off the on-demand CUDA engine download (Windows + NVIDIA GPU only,

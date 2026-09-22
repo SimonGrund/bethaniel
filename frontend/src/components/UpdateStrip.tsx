@@ -42,7 +42,17 @@ export default function UpdateStrip() {
         <button
           type="button"
           className="btn-small update-strip-restart"
-          onClick={() => void getUpdateBridge()?.restartToUpdate()}
+          onClick={() =>
+            void getUpdateBridge()?.restartToUpdate({
+              // The window that says this outlives the app's own UI, so it
+              // cannot ask for a translation once it is up.
+              title: t("update_quitting_title").replace(
+                "{v}",
+                view.version ?? "",
+              ),
+              body: t("update_quitting_body"),
+            })
+          }
         >
           {t("update_restart")}
         </button>

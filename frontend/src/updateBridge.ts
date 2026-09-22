@@ -11,7 +11,9 @@ import type { UpdateStatus } from "./updateStatus";
 
 export interface UpdateBridge {
   checkForUpdates: () => Promise<void>;
-  restartToUpdate: () => Promise<void>;
+  /** `copy` is the goodbye panel's text, translated here: the main process
+   *  has no i18n of its own and should not grow a second copy of it. */
+  restartToUpdate: (copy?: { title: string; body: string }) => Promise<void>;
   currentUpdateStatus: () => Promise<UpdateStatus | null>;
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void;
   appVersion: () => Promise<string>;

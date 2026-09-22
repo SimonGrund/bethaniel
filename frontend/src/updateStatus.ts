@@ -13,6 +13,8 @@ export type UpdatePhase =
   | "available"
   | "downloading"
   | "downloaded"
+  /** Quit to install; the swap is still running and the app is the old one. */
+  | "installing"
   | "error";
 
 export interface UpdateStatus {
@@ -63,6 +65,11 @@ export function isQueueBusy(statuses: readonly string[]): boolean {
  * saying it twice in two places reads as two problems.
  */
 export function bannerFor(s: UpdateStatus, busy: boolean): BannerView | null {
+  // Said even mid-run, and said first. Nothing is going to quit, so no job is
+  // at risk; and the author is reading this precisely because they reopened
+  // the app during the install and found the old one.
+  if (s.phase === "installing")
+    return { key: "update_installing", version: s.version, showRestart: false };
   if (s.phase === "downloading")
     return {
       key: "update_downloading",
@@ -99,6 +106,9 @@ export function settingsRowFor(
       return { ...base, key: "update_found" };
     case "downloaded":
       return { ...base, key: "update_ready", showRestart: !busy };
+    case "installing":
+      // No button: the thing it would do is already happening.
+      return { ...base, key: "update_installing" };
     case "error":
       // Only when asked. An automatic failure leaves the row resting, so a
       // button nobody pressed never reports a problem.

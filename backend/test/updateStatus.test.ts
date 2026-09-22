@@ -145,3 +145,34 @@ test("every key the views can return exists in all four languages", async () => 
       assert.ok(entry[lang], `key ${k} missing ${lang}`);
   }
 });
+
+// ── While the update is still installing ──
+//
+// The install runs after the app exits and takes minutes. Reopen inside that
+// window and the old app sees the new version on the feed and offers the very
+// update being installed — pressing it again just quits into the same wait.
+// So the app remembers what it is installing, and this phase says so instead.
+
+test("installing says so and never offers the button", () => {
+  const v = bannerFor(st({ phase: "installing", version: "2.27.0" }), false);
+  assert.deepEqual(v, {
+    key: "update_installing",
+    version: "2.27.0",
+    showRestart: false,
+  });
+});
+
+test("installing is not silenced by a running job", () => {
+  // The job is not at risk here — nothing is going to quit. The author needs
+  // this message precisely because they have just reopened the app.
+  assert.equal(
+    bannerFor(st({ phase: "installing", version: "2.27.0" }), true)?.key,
+    "update_installing",
+  );
+});
+
+test("the settings row says installing too, and offers no button", () => {
+  const row = settingsRowFor(st({ phase: "installing", version: "2.27.0" }), false);
+  assert.equal(row.key, "update_installing");
+  assert.equal(row.showRestart, false);
+});

@@ -211,6 +211,24 @@ who asked. Every decision about what to say lives in
 signed published build, so that module is the only part testable before a
 release.
 
+The install itself happens **after** the app exits, and takes minutes: Squirrel
+unpacks a ~440 MB zip and swaps the bundle. Measured on 2.27.0 — the click at
+~10:30, the binary replaced at 10:33, the bundle finished at 10:34. Reopening
+inside that window launches the OLD app, which sees the new version on the feed
+and offers the very update being installed; pressing the button again just
+quits into the same wait, which is exactly what a user reported. Two things
+cover it, and neither tries to hold the app open — nothing installs until it is
+gone. `updates:restart` writes `installing-update.json` (version + time) into
+userData and shows a small always-on-top panel with a spinner for four seconds
+before quitting, its copy translated by the renderer because the main process
+has no i18n. On the next launch `updateInstallMarker.ts` reads that note: a
+version at or below the running one means the install landed and the note is
+deleted, one over half an hour old is given up on, and anything else means
+still installing — the `installing` phase says so and the automatic check is
+**skipped**, because checking would offer the update being installed. Versions
+compare numerically: as text "2.9.0" sorts above "2.10.0", and the banner would
+never clear.
+
 ### Uninstall & user data
 
 All runtime data lives under `app.getPath("userData")` — `~/Library/Application Support/Bethaniel` (macOS), `%APPDATA%\Bethaniel` (Windows), `~/.config/Bethaniel` (Linux) — with `data/` and `models/` subdirs. Downloaded GGUFs make this large: a full catalog exceeds 20 GB.

@@ -3584,6 +3584,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Beenden und installieren",
     es: "Salir e instalar",
   },
+  update_installing: {
+    en: "Bethaniel {v} is still installing — unpacking it takes a few minutes. Quit Bethaniel and open it again shortly.",
+    da: "Bethaniel {v} installeres stadig — udpakningen tager et par minutter. Afslut Bethaniel, og åbn den igen om lidt.",
+    de: "Bethaniel {v} wird noch installiert — das Entpacken dauert einige Minuten. Beende Bethaniel und öffne es gleich wieder.",
+    es: "Bethaniel {v} todavía se está instalando: descomprimirla tarda unos minutos. Cierra Bethaniel y vuelve a abrirla en un momento.",
+  },
+  update_quitting_title: {
+    en: "Installing Bethaniel {v}",
+    da: "Installerer Bethaniel {v}",
+    de: "Bethaniel {v} wird installiert",
+    es: "Instalando Bethaniel {v}",
+  },
+  update_quitting_body: {
+    en: "Bethaniel is closing so the update can install. Unpacking takes a few minutes — wait a little before opening it again.",
+    da: "Bethaniel lukker, så opdateringen kan installeres. Udpakningen tager et par minutter — vent lidt, før du åbner den igen.",
+    de: "Bethaniel schließt, damit das Update installiert werden kann. Das Entpacken dauert einige Minuten — warte kurz, bevor du es wieder öffnest.",
+    es: "Bethaniel se está cerrando para que se instale la actualización. Descomprimirla tarda unos minutos: espera un poco antes de volver a abrirla.",
+  },
   update_error: {
     en: "Could not check for updates",
     da: "Kunne ikke søge efter opdateringer",
