@@ -1689,9 +1689,13 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       indexDocumentXml(xml),
       chapters,
     );
-    const { buffer, applied, skipped, flattened } = await rewriteDocxText(
-      original.value.buffer,
-      edits,
+    const { buffer, applied, skipped, flattened, flattenedDetail } =
+      await rewriteDocxText(original.value.buffer, edits);
+    // Phrases, not paragraphs: one paragraph can hold two italic phrases, and
+    // "2 paragraphs" would understate what the author has to put back.
+    const lostPhrases = flattenedDetail.reduce(
+      (n, f) => n + f.emphasised.length,
+      0,
     );
 
     // The guarantee is that formatting is never altered; it is only meaningful
@@ -1707,6 +1711,9 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     // the replacement. Not a skip — the text IS there — but a loss the author
     // would otherwise discover by reading their own book.
     res.setHeader("X-Bethaniel-Flattened", String(flattened));
+    // Counted in phrases because one paragraph can hold two, and each is a
+    // separate thing the author has to put back by hand.
+    res.setHeader("X-Bethaniel-Lost-Phrases", String(lostPhrases));
     // Sized to fit the header; see surgicalReport.ts for why that is a budget.
     res.setHeader("X-Bethaniel-Report", buildReportHeader(skipped, unmapped));
     res.send(buffer);

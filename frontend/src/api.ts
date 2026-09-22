@@ -387,6 +387,9 @@ export interface SurgicalReport {
   /** Paragraphs replaced whole (a translation) whose internal emphasis — an
    *  italic word, a highlight — could not survive the replacement. */
   flattened: number;
+  /** Emphasised phrases that could not be placed. Counted in phrases because
+   *  one paragraph can hold two, and the author has to restore each. */
+  lostPhrases: number;
   detail: {
     skipped: {
       reason: string;
@@ -453,6 +456,7 @@ export async function exportDocxSurgical(
       applied: Number(res.headers.get("X-Bethaniel-Applied") ?? 0),
       skipped: Number(res.headers.get("X-Bethaniel-Skipped") ?? 0),
       flattened: Number(res.headers.get("X-Bethaniel-Flattened") ?? 0),
+      lostPhrases: Number(res.headers.get("X-Bethaniel-Lost-Phrases") ?? 0),
       detail,
     },
   };

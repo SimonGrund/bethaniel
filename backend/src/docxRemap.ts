@@ -18,6 +18,11 @@ import { diffWordsWithSpace, diffChars } from "diff";
 
 import type { ParagraphMapEntry } from "./conversion.js";
 import type { DocxTextIndex, ParagraphTextEdit } from "./docxSurgery.js";
+import {
+  allocateEmphasis,
+  foldSegments,
+  splitEmphasis,
+} from "./emphasisSpans.js";
 
 export interface ChapterExport {
   original: string;
@@ -323,7 +328,19 @@ export function remapChaptersToParagraphEdits(
       // Diff against the docx's own text, so offsets are in its coordinates
       // even when whitespace differed from the markdown.
       for (const e of paragraphEdits(paragraph.text, afterPlain)) {
-        edits.push({ paragraphIndex: entry.docxParaIndex, ...e });
+        // Only a whole-paragraph replacement — a translation — can carry
+        // emphasis across, and only it has a paragraph's worth of text to
+        // distribute. A correction edits a span and leaves the rest alone.
+        //
+        // Read from newMd, not afterPlain: the markers are still in newMd and
+        // are exactly what is being read. afterPlain has had them stripped.
+        const segments = e.wholeParagraph
+          ? (allocateEmphasis(
+              foldSegments(paragraph.nodes),
+              splitEmphasis(newMd),
+            ) ?? undefined)
+          : undefined;
+        edits.push({ paragraphIndex: entry.docxParaIndex, ...e, segments });
       }
     }
   }
