@@ -152,3 +152,27 @@ test("a shared trailing full stop does not cost the paragraph its emphasis", () 
     assert.match(xml, /<w:i\/><\/w:rPr><w:t[^>]*>l'amour se multiplie</);
   })();
 });
+
+test("a bold lead-in is reported as the lost emphasis, not the rest of the paragraph", async () => {
+  // Measured on a real manuscript: a definition paragraph opens with its term
+  // in bold, so the bold run comes FIRST. Reading the first run as the base
+  // reported the whole remaining paragraph as the emphasis that was lost —
+  // backwards, and it filled the formatting notes with entries quoting a
+  // paragraph each. The base is the formatting covering the most text.
+  const input = await docxOf(
+    "<w:p>" +
+      '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Monogamish</w:t></w:r>' +
+      '<w:r><w:t xml:space="preserve"> relationships allow limited flexibility.</w:t></w:r>' +
+      "</w:p>",
+  );
+  const { flattenedDetail } = await rewriteDocxText(input, [
+    {
+      paragraphIndex: 0,
+      start: 0,
+      end: "Monogamish relationships allow limited flexibility.".length,
+      wholeParagraph: true,
+      replacement: "Les relations monogamish admettent une souplesse limitée.",
+    },
+  ]);
+  assert.deepEqual(flattenedDetail[0].emphasised, ["Monogamish"]);
+});

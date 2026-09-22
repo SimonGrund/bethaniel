@@ -498,10 +498,27 @@ export function planParagraphSplices(
           restored++;
         } else {
           flattened++;
-          // Record WHAT was given up, not just that something was. The first
-          // run's formatting is the one being kept, so everything that
-          // differs from it is what the author loses.
-          const kept = touched[0]?.rPrXml;
+          // Record WHAT was given up, not just that something was.
+          //
+          // The formatting being kept is the one covering most of the
+          // paragraph, NOT the first run's. A paragraph opening with a bold
+          // term — "**Monogamish** relationships are primarily monogamous…" —
+          // has the bold run first, and reading that as the base reports the
+          // whole rest of the paragraph as the lost emphasis: backwards, and
+          // it turns a two-word note into a note quoting the entire
+          // paragraph. Measured on a real manuscript, three of twelve notes
+          // were inverted this way.
+          const byLength = new Map<string, number>();
+          for (const n of touched)
+            if (n.kind !== "virtual")
+              byLength.set(n.rPrXml, (byLength.get(n.rPrXml) ?? 0) + n.text.length);
+          let kept = touched[0]?.rPrXml;
+          let widest = -1;
+          for (const [rPr, len] of byLength)
+            if (len > widest) {
+              widest = len;
+              kept = rPr;
+            }
           flattenedDetail.push({
             paragraphIndex: p.index,
             before: p.text,
