@@ -264,6 +264,7 @@ export default function LanguageAnalysisPanel({
           onClick={() => void exportPdf()}
           disabled={exporting === "busy"}
         >
+          {exporting === "busy" && <span className="btn-spinner" aria-hidden />}
           {exportLabel(exporting, t)}
         </button>
       </div>

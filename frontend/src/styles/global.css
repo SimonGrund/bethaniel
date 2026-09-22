@@ -7252,6 +7252,25 @@ summary.review-source::before {
   animation: spin 0.6s linear infinite;
 }
 
+/* A button that is working says so.
+ *
+ * The exports behind these buttons are a round trip through the whole
+ * manuscript — a second or two, long enough that nothing appeared to happen
+ * and the button got pressed again. currentColor so one rule serves the
+ * primary and secondary buttons both. */
+.btn-spinner {
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-right: 0.45em;
+  vertical-align: -0.04em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.65;
+  animation: spin 0.6s linear infinite;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

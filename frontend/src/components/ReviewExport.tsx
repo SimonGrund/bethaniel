@@ -22,6 +22,7 @@ import {
   exportFormattingNotes,
 } from "../api";
 import { exportWarningFor } from "../exportWarningCopy";
+import { exportBaseName, sidecarName } from "../exportFilename";
 import {
   refundMailto,
   translationOutcome,
@@ -1207,6 +1208,7 @@ function PublicationReadinessPanel({
           onClick={() => void exportPdf()}
           disabled={exporting === "busy"}
         >
+          {exporting === "busy" && <span className="btn-spinner" aria-hidden />}
           {exportLabel(exporting, t)}
         </button>
       </div>
@@ -2042,6 +2044,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     );
   };
 
+  // The surgical export is a round trip through the whole manuscript and takes
+  // a second or two. `verifying` deliberately does NOT cover it (see
+  // verifyThenExport), so without this the button sat there looking unpressed.
+  const [exportingDocx, setExportingDocx] = useState(false);
+
   const handleDownloadDocxSurgical = useCallback(
     async (
       pairs: { original: string; edited: string }[],
@@ -2055,6 +2062,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         await handleDownloadDocx(markdown, filename);
         return;
       }
+      setExportingDocx(true);
       try {
         const { blob, report } = await exportDocxSurgical(docId, pairs);
         // Warn BEFORE handing the file over. A toast raised after the download
@@ -2102,6 +2110,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           confirmLabel: t("surgical_export_plain"),
           onConfirm: () => handleDownloadDocx(markdown, filename),
         });
+      } finally {
+        setExportingDocx(false);
       }
     },
     [handleDownloadDocx, t],
@@ -2126,7 +2136,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           paragraphLabel: t("notes_paragraph_label"),
         });
         // 204: nothing was lost, so there is nothing to hand over.
-        if (blob) downloadBlob(blob, `${baseName}.formatting-notes.docx`);
+        if (blob)
+          downloadBlob(blob, `${sidecarName(baseName, t("notes_filename"))}.docx`);
       } catch (err) {
         console.error("Formatting notes failed:", err);
       } finally {
@@ -2703,11 +2714,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const exportEntries = exportAll
             ? entries
             : entries.filter(([tid]) => exportIds.includes(tid));
-          const exportName = exportAll
-            ? `${src}.full`
-            : exportIds.length === 1
-              ? `${editTasks.find(([tid]) => tid === exportIds[0])?.[1].name ?? src}.edited`
-              : `${src}.chapters`;
+          // Named for the manuscript, not for the run. A translation used to
+          // come out as "book 2.docx.full.docx" — import extension kept, a
+          // word from the export code appended, and no sign of the language,
+          // which is the one thing an author with four translations in a
+          // folder needs to see. See exportFilename.ts.
+          const exportTargetLang = editTasks.every(
+            ([, task]) => task.mode === "translate",
+          )
+            ? editTasks[0]?.[1].targetLang
+            : undefined;
+          const exportName = exportBaseName({
+            source: src,
+            scope: exportAll ? "full" : exportIds.length === 1 ? "one" : "chapters",
+            chapterName: editTasks.find(([tid]) => tid === exportIds[0])?.[1].name,
+            targetLang: exportTargetLang,
+          });
           // A translation rewrites the whole chunk rather than proposing
           // discrete corrections, so the accept/dismiss machinery has nothing
           // to act on: "Export with accepted changes" and "Accept every change
@@ -2737,7 +2759,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               ? verifyThenExport(
                   exportIds,
                   (acc, fixed) => buildFullManuscript(exportEntries, acc, fixed),
-                  (md) => handleAutoFormatEbook(md, exportAll ? src : exportName),
+                  // exportName covers every scope now, source extension
+                  // stripped — `src` here meant "book 2.docx.ebook.epub".
+                  (md) => handleAutoFormatEbook(md, exportName),
                 )
               : verifyThenExport(
                   exportIds,
@@ -2753,6 +2777,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       isTranslateJob,
                     ),
                 );
+          // One flag for every export button: the fast rebuild, the surgical
+          // round trip and the ebook pass are all "this is working".
+          const exportBusy = verifying || exportingDocx || formattingEbook;
           const exportButtonLabel = formattingEbook
             ? t("formatting_ebook")
             : exportFormat === "epub"
@@ -4225,13 +4252,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           <button
                             type="button"
                             className="btn-primary"
-                            disabled={!exportReady}
+                            disabled={!exportReady || exportBusy}
                             title={allEditDone ? undefined : t("full_manuscript_wait")}
                             onClick={() => {
                               setFocusJid(null);
                               runExport();
                             }}
                           >
+                            {exportBusy && (
+                              <span className="btn-spinner" aria-hidden />
+                            )}
                             {exportButtonLabel}
                           </button>
                         }
@@ -4713,9 +4743,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   <button
                     type="button"
                     className="btn-primary translation-done__download"
-                    disabled={!editResultsReady || verifying}
+                    disabled={!editResultsReady || exportBusy}
                     onClick={runExport}
                   >
+                    {exportBusy && <span className="btn-spinner" aria-hidden />}
                     {formattingEbook
                       ? t("formatting_ebook")
                       : t("download_translated_manuscript")}
@@ -4742,6 +4773,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       )
                     }
                   >
+                    {notesBusy && <span className="btn-spinner" aria-hidden />}
                     {t("download_formatting_notes")}
                   </button>
 

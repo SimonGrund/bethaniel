@@ -3584,6 +3584,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Beenden und installieren",
     es: "Salir e instalar",
   },
+  notes_filename: {
+    en: "formatting notes",
+    da: "formateringsnoter",
+    de: "Formatierungsnotizen",
+    es: "notas de formato",
+  },
   update_installing: {
     en: "Bethaniel {v} is still installing — unpacking it takes a few minutes. Quit Bethaniel and open it again shortly.",
     da: "Bethaniel {v} installeres stadig — udpakningen tager et par minutter. Afslut Bethaniel, og åbn den igen om lidt.",

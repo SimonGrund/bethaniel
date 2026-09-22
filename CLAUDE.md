@@ -188,6 +188,17 @@ The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over tok
   French words — including four book titles italicised separately in one
   paragraph.
 
+- **What an export is called.** `frontend/src/exportFilename.ts`
+  (`exportBaseName`, `sidecarName`, tested from
+  `backend/test/exportFilename.test.ts`) names a download after the manuscript
+  rather than after the run. A French translation of `book 2.docx` came out as
+  `book 2.docx.full.docx` — import extension kept, a word from the export code
+  appended, and no sign of the language, which is the one thing an author with
+  four translations in a folder needs to see. It is now `book 2 (French).docx`,
+  its sidecar `book 2 (French) formatting notes.docx`. The module also strips
+  the characters a file system refuses: chapter titles carry colons, which are
+  Finder's own path separator in display and illegal on Windows outright.
+
 - **The language card in the cloud.** "Run in Cloud" on the language card is the free local counts plus the enhanced analysis: `/queue/add` on the cloud model submits a `language_analysis` task and a `language_enhance` sibling on the same job, `estimateCloudJob` prices the same pair as `enhance`, and `LanguageAnalysisPanel` folds the result (showing-vs-telling notes with verbatim quotes, never rewrites, plus one advice paragraph — `backend/src/languageEnhance.ts`, sampled like the writing report) into the counts report. `POST /api/queue/job/:jobId/language-enhance` adds the enhance task to an existing local run. `frontend/src/cloudPurchase.ts` (`useCloudPurchase`) owns estimate → checkout → credential claim, and `CloudCodeClaim` is the fallback field for the code on the success page when the `bethaniel://` link back fails. The credential handler passes the cloud model into the submission explicitly — reading it from the render closure after `setModel` sends a paid run to the local model.
 
 ### Electron packaging
