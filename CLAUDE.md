@@ -168,6 +168,26 @@ The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over tok
   caused it. The ledger carries a flat 20% overdraft (`OVERDRAFT_FRACTION` in
   `worker/src/ledger.ts`) so a retry is never refused for want of budget;
   `DAILY_TOKEN_CEILING` is unchanged, so total exposure is not.
+- **A translation keeps its emphasis.** The model preserves the Markdown
+  emphasis markers it is given and wraps the TARGET language's words in them.
+  A flattened paragraph already holds the runs those belong in — holding more
+  than one formatting is *why* it is flattened — so `emphasisSpans.ts` folds
+  the runs into segments, splits the translated Markdown into pieces, and
+  distributes one to each when the shapes agree in count and order. The
+  emphasised text lands in the author's own italic run, keeping their font and
+  size, and no XML is created. The base formatting is the one covering the
+  most text, never the first run's: a paragraph opening with a bold term has
+  the bold run first, and reading that as the base inverts every comparison.
+  When the shapes disagree the paragraph is flattened exactly as before, and
+  what is left is reported in PHRASES — one paragraph can hold two, and each
+  is a separate thing the author has to put back. A loose match would
+  italicise the wrong words, which is worse than losing the emphasis, so
+  anything short of complete agreement refuses. Measured on a real French
+  translation: 115 emphasised paragraphs, 103 restored, 12 left (15 phrases),
+  and the ones checked by hand carried the emphasis onto the corresponding
+  French words — including four book titles italicised separately in one
+  paragraph.
+
 - **The language card in the cloud.** "Run in Cloud" on the language card is the free local counts plus the enhanced analysis: `/queue/add` on the cloud model submits a `language_analysis` task and a `language_enhance` sibling on the same job, `estimateCloudJob` prices the same pair as `enhance`, and `LanguageAnalysisPanel` folds the result (showing-vs-telling notes with verbatim quotes, never rewrites, plus one advice paragraph — `backend/src/languageEnhance.ts`, sampled like the writing report) into the counts report. `POST /api/queue/job/:jobId/language-enhance` adds the enhance task to an existing local run. `frontend/src/cloudPurchase.ts` (`useCloudPurchase`) owns estimate → checkout → credential claim, and `CloudCodeClaim` is the fallback field for the code on the success page when the `bethaniel://` link back fails. The credential handler passes the cloud model into the submission explicitly — reading it from the render closure after `setModel` sends a paid run to the local model.
 
 ### Electron packaging
