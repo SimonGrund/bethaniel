@@ -185,7 +185,7 @@ jobs:
                       --assignee SimonGrund \
                       --title "Refunds awaiting a decision" --body-file body.md
                   fi
-            - name: Raise chunks that failed twice
+            - name: Raise chunks that exhausted their retries
               env:
                   ADMIN_TOKEN: ${{ secrets.CLOUD_ADMIN_TOKEN }}
                   GH_TOKEN: ${{ github.token }}
@@ -193,10 +193,14 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  # A chunk that failed twice on a PAID job. The author received
-                  # source text where a translation should have been, and this
-                  # is the only way that fact reaches anyone without them
-                  # writing in.
+                  # A chunk that exhausted its retries on a cloud job. The
+                  # author did not get that unit back, and this is the only way
+                  # that fact reaches anyone without them writing in.
+                  #
+                  # NOT "failed twice": the ladder allows five goes at a network
+                  # fault and two at a bad answer (chunkRetryLimit), so the
+                  # count is in each row's `attempts`. And not necessarily a
+                  # translation — `product` says which kind of job it was.
                   curl --silent --show-error --fail-with-body --max-time 60 \
                     "$WORKER/admin/failures" \
                     -H "Authorization: Bearer ${ADMIN_TOKEN}" > failures.json
@@ -211,31 +215,44 @@ jobs:
                   # JSON, backticks and quotes, each of which is a way for a
                   # shell to misread it.
                   {
-                    echo "These chunks failed twice on paid cloud jobs since the last"
-                    echo "sweep. Each one is an author who received source text where a"
-                    echo "translation should have been."
+                    echo "These chunks exhausted their retries on cloud jobs since the"
+                    echo "last sweep. Each row is a unit the author did not get back."
+                    echo "\`product\` says which kind of job it was, and \`attempts\` how"
+                    echo "many tries it had — the ladder allows five at a network fault"
+                    echo "and two at a bad answer."
                     echo
                     echo "Diagnostics only — no manuscript text and no customer email are"
-                    echo "recorded, deliberately: this repository is public. Find the"
-                    echo "customer through the credential id in Stripe."
+                    echo "recorded, deliberately: this repository is public."
+                    echo
+                    echo "To find the customer, look the credential id up in Stripe."
+                    echo "A FREE credential finds nothing there: when a promo code brings"
+                    echo "the price to zero the Worker skips Stripe entirely and mints the"
+                    echo "credential with a \`promo_\` session id and no payment intent."
+                    echo "An id that Stripe does not know is almost certainly one of those,"
+                    echo "and there is no charge behind it to refund."
                     echo
                     echo '```json'
                     jq '.failures' failures.json
                     echo '```'
                     echo
                     echo "empty_output and echoed_source mean the model answered badly"
-                    echo "twice. truncated means the chunk hit the output cap. network,"
-                    echo "provider_5xx and timeout point at the provider, not at Betty."
+                    echo "every time. truncated means the chunk hit the output cap."
+                    echo "network, provider_5xx and timeout point at the provider, not at"
+                    echo "Betty."
+                    echo
+                    echo "A cancelled job does not appear here: an aborted chunk is the"
+                    echo "author stopping, the app quitting or the backend being killed,"
+                    echo "and none of those is a failure anybody is owed an apology for."
                   } > failures.md
 
                   gh label create job-failure --color D93F0B \
-                    --description "A paid cloud chunk failed twice" 2>/dev/null || true
+                    --description "A cloud chunk exhausted its retries" 2>/dev/null || true
 
                   # A NEW issue per sweep that has failures, rather than one
                   # running issue: each batch is a distinct incident with its
                   # own customers, and creating it is what sends the email.
                   gh issue create --label job-failure --assignee SimonGrund \
-                    --title "$count cloud chunk(s) failed twice" --body-file failures.md
+                    --title "$count cloud chunk(s) did not complete" --body-file failures.md
 
                   # Acked only AFTER the issue exists. If raising it failed,
                   # the rows stay unreported and the next sweep tries again —

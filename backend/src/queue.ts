@@ -110,7 +110,11 @@ import {
 } from "./db.js";
 import { isApiModel, isCustomGgufModel, getModelByFileName } from "./modelCatalog.js";
 import { readApiConfig } from "./modelConfig.js";
-import { failureReasonFor, reportCloudFailure } from "./cloudFailureReport.js";
+import {
+  failureReasonFor,
+  isCancellation,
+  reportCloudFailure,
+} from "./cloudFailureReport.js";
 import { estimateTaskOutputTokens } from "./cloudEstimate.js";
 import {
   shouldAutoRetry,
@@ -190,6 +194,12 @@ async function reportChunkFailureIfCloud(
   err: unknown,
   attempts: number,
 ): Promise<void> {
+  // A stopped job is not a failed one. An abort is the author pressing
+  // cancel, the app quitting, or the backend being killed — no defect, nobody
+  // owed anything, and the chunk was never going to finish. Reporting one
+  // raises a GitHub issue and mails a customer-impact alert about a run that
+  // simply stopped. See isCancellation.
+  if (isCancellation(err)) return;
   const entry = getModelByFileName(model);
   if (entry?.id !== "bethaniel-cloud") return;
   const cfg = readApiConfig("bethaniel-cloud");

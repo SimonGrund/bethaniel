@@ -22,6 +22,33 @@ import { DraftRejectedError } from "./retryPolicy.js";
  * Mirrors FAILURE_REASONS in worker/src/db.ts. Anything unmapped becomes
  * "other" here as well as there, so a drift costs detail, never privacy.
  */
+/**
+ * Whether this "failure" is the job being stopped rather than breaking.
+ *
+ * An abort is the author pressing cancel, the app quitting, or the backend
+ * being killed. It is not a defect, nobody is owed an apology for it, and the
+ * chunk was never going to finish. Reporting one files a diagnostics row,
+ * raises a GitHub issue on the hourly sweep, and sends an email saying an
+ * author received source text where a translation should have been — none of
+ * which is true.
+ *
+ * Measured from a real alert: 24 chunks reported within 250ms of each other,
+ * 26 tokens apiece, every one carrying "This operation was aborted". The
+ * backend had been killed mid-run. That is the whole shape of it — a torn
+ * down batch, not a provider rejecting work.
+ */
+export function isCancellation(err: unknown): boolean {
+  if (err instanceof Error && err.name === "AbortError") return true;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("aborted") ||
+    msg.includes("abort error") ||
+    msg === "cancelled" ||
+    msg.includes("operation was canceled") ||
+    msg.includes("operation was cancelled")
+  );
+}
+
 export function failureReasonFor(err: unknown): string {
   if (err instanceof DraftRejectedError) {
     const r = err.reason.toLowerCase();

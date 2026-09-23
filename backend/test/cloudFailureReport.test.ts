@@ -8,7 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { failureReasonFor } from "../src/cloudFailureReport.ts";
+import {
+  failureReasonFor,
+  isCancellation,
+} from "../src/cloudFailureReport.ts";
 import { DraftRejectedError } from "../src/retryPolicy.ts";
 
 test("an empty draft reports empty_output", () => {
@@ -83,4 +86,39 @@ test("every mapped reason is one the Worker will accept", () => {
     null,
   ];
   for (const s of samples) assert.ok(accepted.has(failureReasonFor(s)));
+});
+
+// ── A stopped job is not a failed one ──
+//
+// From a real alert: 24 chunks reported within 250ms of each other, 26 tokens
+// apiece, every one carrying "This operation was aborted". The backend had
+// been killed mid-run. Each row raised a GitHub issue and an email saying an
+// author received source text where a translation should have been — none of
+// which was true, and the job in question was the developer's own.
+
+test("an abort is not a failure worth reporting", () => {
+  assert.equal(isCancellation(new Error("This operation was aborted")), true);
+  assert.equal(isCancellation("cancelled"), true);
+  const abort = new Error("aborted");
+  abort.name = "AbortError";
+  assert.equal(isCancellation(abort), true);
+});
+
+test("both spellings of cancel", () => {
+  assert.equal(isCancellation(new Error("The operation was canceled")), true);
+  assert.equal(isCancellation(new Error("The operation was cancelled")), true);
+});
+
+test("a real failure still is one", () => {
+  assert.equal(isCancellation(new Error("fetch failed")), false);
+  assert.equal(isCancellation(new Error("503 Service Unavailable")), false);
+  assert.equal(isCancellation(new Error("ETIMEDOUT")), false);
+  assert.equal(isCancellation(new Error("model returned an empty answer")), false);
+});
+
+test("and its reason is still mapped for the ones that are", () => {
+  // The guard sits in front of failureReasonFor, not inside it: the mapping
+  // is still the mapping.
+  assert.equal(failureReasonFor(new Error("fetch failed")), "network");
+  assert.equal(failureReasonFor(new Error("504 gateway timeout")), "timeout");
 });
