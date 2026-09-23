@@ -840,8 +840,16 @@ export const useStore = create<AppState>()(
           const corrections = task.result.corrections.map((c) =>
             c.id === correctionId
               ? // The reason changes with it: this is no longer a word
-                // reported without a guess, it is the author's own fix.
-                { ...c, corrected, reason: "author-correction", flagged: false }
+                // reported without a guess, it is the author's own fix. The
+                // reviewReason goes too — "no replacement is proposed" is
+                // false the moment the author proposes one.
+                {
+                  ...c,
+                  corrected,
+                  reason: "author-correction",
+                  flagged: false,
+                  reviewReason: undefined,
+                }
               : c,
           );
           const accepted = new Set(state.acceptedCorrections[taskId] ?? []);

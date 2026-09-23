@@ -10073,3 +10073,61 @@ summary.review-source::before {
   outline: 2px solid #b9a06a;
   outline-offset: 1px;
 }
+
+/* ── The deck's version of a finding with no fix ──
+   Same two actions as the list card, sized for the deck: the word is marked
+   in its sentence rather than diffed, because there is no change to diff. */
+.deck-unfixable-word {
+  background: #f4e3ad;
+  padding: 0 0.15rem;
+  font-weight: 600;
+}
+
+.deck-unfixable-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+.deck-btn-dictionary {
+  border-color: #8a6d1f;
+  color: #6b5518;
+}
+
+.deck-unfixable-correct {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.deck-unfixable-correct label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: #4a4335;
+}
+
+.deck-unfixable-correct input {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 2px;
+  background: #fffdf7;
+  min-width: 10rem;
+}
+
+.deck-unfixable-correct input:focus {
+  outline: 2px solid #b9a06a;
+  outline-offset: 1px;
+}
+
+.deck-btn-accept:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

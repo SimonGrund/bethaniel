@@ -22,6 +22,7 @@ import { useTranslation } from "../i18n";
 import { certaintyPercent, flagKindOf, isReliable } from "../types";
 import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
+import { putLexicon } from "../api";
 import { extractSentenceContext, InlineDiff, VerdictBadge } from "./ReviewExport";
 
 export interface DeckItem {
@@ -95,6 +96,12 @@ export default function ReviewDeck({
   const t = useTranslation(lang);
   const decisionLog = useStore((s) => s.decisionLog);
   const decideCorrection = useStore((s) => s.decideCorrection);
+  const amendCorrection = useStore((s) => s.amendCorrection);
+  const dismissFindingsForWord = useStore((s) => s.dismissFindingsForWord);
+  const addLexiconTerm = useStore((s) => s.addLexiconTerm);
+  /** What the author has typed into the "correct to" field of the top card.
+   *  Keyed by correction id so moving through the deck does not carry it. */
+  const [typedFix, setTypedFix] = useState<Record<string, string>>({});
   const acceptedCorrections = useStore((s) => s.acceptedCorrections);
   // What was put off and what Back undoes live in the store, so the deck
   // comes back as it was left.
@@ -109,6 +116,34 @@ export default function ReviewDeck({
   const deckBack = useStore((s) => s.deckBack);
 
   const deck = useMemo(() => buildDeck(entries), [entries]);
+  /**
+   * The author typed a replacement.
+   *
+   * Amend the correction, then answer the card with it. Without the second
+   * half the card stayed on top of the deck and turned back into an ordinary
+   * Accept/Dismiss suggestion — so supplying a fix meant answering the same
+   * finding twice. Typing a correction IS the answer.
+   */
+  const applyTypedFix = (item: DeckItem) => {
+    const id = item.correction.id;
+    if (!id || leaving) return;
+    const value = (typedFix[id] ?? "").trim();
+    if (!value || value === item.correction.original.trim()) return;
+    amendCorrection(item.taskId, id, value);
+    setTypedFix((m) => {
+      const next = { ...m };
+      delete next[id];
+      return next;
+    });
+    const key = keyOf(item);
+    setLeaving({ key, action: "accept" });
+    leaveTimer.current = setTimeout(() => {
+      decideCorrection(item.taskId, id, "accept");
+      onDecide?.("accept", item.taskId, item.correction);
+      setLeaving(null);
+    }, LEAVE_MS);
+  };
+
   const decided = useMemo(() => {
     const set = new Set<string>();
     for (const d of decisionLog) set.add(`${d.taskId}\u0000${d.correctionId}`);
@@ -211,6 +246,16 @@ export default function ReviewDeck({
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!top) return;
+      // A finding that proposes nothing has no verdict to give: accepting it
+      // would change the text not at all and dismissing it would throw the
+      // finding away. The card offers a dictionary entry or a typed fix
+      // instead, so the arrows that mean those two things do nothing here.
+      // Later (↓) and Back (↑) still work — they are about the deck, not the
+      // correction.
+      const topUnfixable = top.correction.corrected === top.correction.original;
+      if (topUnfixable && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+        return;
+      }
       if (e.key === "ArrowRight") {
         e.preventDefault();
         decide(top, "accept");
@@ -252,6 +297,9 @@ export default function ReviewDeck({
     // (a confident reviewer), she is unsure (the middle of the scale — a 3,
     // or a 4 the second check doubted), or she would leave it (a reviewer
     // who scored it low, or nothing reviewed it).
+    // A finding that proposes nothing. Accept would change the text not at
+    // all; dismiss would throw away a real finding.
+    const unfixable = item.correction.corrected === item.correction.original;
     const pct = certaintyPercent(item.correction);
     const hint = !isReliable(item.correction)
       ? t("deck_betty_would_leave")
@@ -282,7 +330,13 @@ export default function ReviewDeck({
         <div className="deck-card-body">
           <span className="correction-diff">
             {ctx.before && <span className="correction-context">{ctx.before} </span>}
-            <InlineDiff before={item.correction.original} after={item.correction.corrected} />
+            {unfixable ? (
+              // Nothing is proposed, so there is nothing to diff. The word
+              // itself is the finding.
+              <mark className="deck-unfixable-word">{item.correction.original}</mark>
+            ) : (
+              <InlineDiff before={item.correction.original} after={item.correction.corrected} />
+            )}
             {ctx.after && <span className="correction-context"> {ctx.after}</span>}
           </span>
         </div>
@@ -294,7 +348,66 @@ export default function ReviewDeck({
             {item.correction.reviewReason ? `“${item.correction.reviewReason}”` : t("flag_doubted_why")}
           </p>
         )}
-        {isTop && (
+        {isTop && unfixable && (
+          // Accept and dismiss are both wrong here: accepting changes nothing
+          // and dismissing throws away a real finding. What the author wants
+          // is to vouch for the word or to supply the fix themselves.
+          <div className="deck-unfixable-actions">
+            <button
+              type="button"
+              className="deck-btn deck-btn-dictionary"
+              onClick={() => {
+                const word = item.correction.original.trim();
+                addLexiconTerm(word);
+                const lex = useStore.getState().lexicon;
+                const docId = useStore.getState().document?.id;
+                if (lex && docId) void putLexicon(docId, lex).catch(() => {});
+                dismissFindingsForWord(word);
+              }}
+              title={t("unfixable_add_hint")}
+            >
+              {t("unfixable_add_to_dictionary")}
+            </button>
+            <span className="deck-unfixable-correct">
+              <label>
+                {t("unfixable_correct_to")}
+                <input
+                  type="text"
+                  value={typedFix[item.correction.id ?? ""] ?? ""}
+                  placeholder={item.correction.original.trim()}
+                  onChange={(e) =>
+                    setTypedFix((m) => ({
+                      ...m,
+                      [item.correction.id ?? ""]: e.target.value,
+                    }))
+                  }
+                  // The deck answers ← → ↑ ↓ globally; while a field has focus
+                  // those are cursor keys, not verdicts.
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyTypedFix(item);
+                    }
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="deck-btn deck-btn-accept"
+                disabled={
+                  !(typedFix[item.correction.id ?? ""] ?? "").trim() ||
+                  (typedFix[item.correction.id ?? ""] ?? "").trim() ===
+                    item.correction.original.trim()
+                }
+                onClick={() => applyTypedFix(item)}
+              >
+                {t("unfixable_apply")}
+              </button>
+            </span>
+          </div>
+        )}
+        {isTop && !unfixable && (
           <>
           <div className="deck-actions">
             <button
@@ -388,8 +501,20 @@ export default function ReviewDeck({
       </div>
 
       {top && history.length === 0 && (
+        // A card with no fix to accept advertises only the keys that work on
+        // it. Listing Dismiss and Accept there would promise two answers it
+        // does not take — see the ArrowLeft/ArrowRight guard above.
         <p className="deck-keys small-note">
-          <kbd>←</kbd> {t("deck_dismiss")} · <kbd>→</kbd> {t("deck_accept")} · <kbd>↑</kbd> {t("deck_back")} · <kbd>↓</kbd> {t("deck_later")}
+          {top.correction.corrected === top.correction.original ? (
+            <>
+              <kbd>↑</kbd> {t("deck_back")} · <kbd>↓</kbd> {t("deck_later")}
+            </>
+          ) : (
+            <>
+              <kbd>←</kbd> {t("deck_dismiss")} · <kbd>→</kbd> {t("deck_accept")} ·{" "}
+              <kbd>↑</kbd> {t("deck_back")} · <kbd>↓</kbd> {t("deck_later")}
+            </>
+          )}
         </p>
       )}
       {top && chapterLeft === 1 && nextChapter && (
