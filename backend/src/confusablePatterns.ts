@@ -41,6 +41,14 @@
 //   - A bare Danish verb stem is usually also a noun: `forsøg og skrive`
 //     matched "et sidste Forsøg og skrive". Only INFLECTED forms are listed.
 //
+// MEASURED (2026-09-23):
+//   planted sentences caught           27/27  (10 English, 17 Danish)
+//   hits on 203,000 words of English    0
+//   hits on 333,455 words of Danish     4, all da-i-saer, all archaic
+//
+// The bar for adding one is those two numbers, and the tests that enforce it
+// are confusableCorpus.test.ts.
+//
 // CORPUS CAVEAT: the only public-domain Danish available is 19th and
 // early-20th century — `aa` for `å`, capitalised nouns, older usage. A
 // zero-hit result there is weaker evidence than on the English side, which is
