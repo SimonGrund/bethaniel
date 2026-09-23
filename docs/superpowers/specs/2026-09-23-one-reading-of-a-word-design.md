@@ -309,6 +309,79 @@ run.
 The list is meant to grow. Each addition is cheap to justify: it must catch
 its planted sentence and fire zero times on the corpus.
 
+### 7b. Danish, where nothing else covers the ground
+
+LanguageTool catches none of the four canonical Danish confusions, so these
+patterns are the only deterministic Danish coverage there is. Seventeen
+candidates, each catching its planted sentence, scored against **333,455
+words** of public-domain Danish prose:
+
+```
+pattern              planted  hits  per-100k   says
+da-lide-og           yes      0     0.0        og → at
+da-for-og            yes      0     0.0        for og → for at
+da-verb-og           yes      0     0.0        og → at
+da-komparativ-en     yes      0     0.0        en → end
+da-vaer-gang         yes      0     0.0        vær/værd → hver
+da-hver-saa-god      yes      0     0.0        hver → vær
+da-ligge-maerke      yes      0     0.0        ligge → lægge
+da-ligge-objekt      yes      0     0.0        ligge → lægge
+da-sidde-objekt      yes      0     0.0        sidde → sætte
+da-staa-objekt       yes      0     0.0        stå → stille
+da-nogen-gange       yes      0     0.0        nogen → nogle
+da-en-man            yes      0     0.0        man → mand
+da-mand-modal        yes      0     0.0        mand → man
+da-hen-ned-af        yes      0     0.0        af → ad
+da-til-bage          yes      0     0.0        til bage → tilbage
+da-i-saer            yes      4     1.2        i sær → især
+da-al-tid            yes      0     0.0        al tid → altid
+```
+
+Sixteen of seventeen are silent. `da-i-saer`'s four hits are all archaic
+usage (*"i sær indre Bevægelse"*, and one line of 17th-century spelling from
+Leonora Christina); in modern Danish `i sær` is an error, so it is kept with
+this noted.
+
+**What the corpus taught, which is the point of running it.** Three
+candidates were wrong and the measurement said so:
+
+- `\bud\s+af\s+(døren|vinduet)\b` → `ud ad` fired four times. Prescriptive
+  Danish wants `ud ad døren`, but `ud af døren` is ordinary usage. **Dropped**
+  — it is a style preference, not an error.
+- `(en|den|denne|…)\s+man` → `mand` fired on *"den man vil se"*. `den man` is
+  a valid relative construction in modern Danish too (*den man elsker*).
+  **`den` removed** from the determiner list.
+- The comparative rule first read `snarere en Grød` and `større en Dag` as
+  errors; both are a comparative followed by an article. **Narrowed** to
+  comparative + `en` + pronoun (`større en ham`), and `snarere` dropped, which
+  takes `en` legitimately.
+
+Two further traps, recorded so the next person does not re-learn them:
+
+- `og`/`at` cannot be separated by verb morphology. An exclusion for past
+  tense written as `-te` also excludes the infinitives `hente`, `vente` and
+  `lytte`. The patterns use a **closed list of infinitives** after `og`
+  instead.
+- A bare Danish verb stem is usually also a noun. `forsøg og skrive` matched
+  *"et sidste Forsøg og skrive"*, a noun. Only **inflected** forms
+  (`forsøger`, `forsøgte`) are listed.
+
+**Corpus caveat, stated plainly.** The only public-domain Danish available is
+19th and early-20th century: `aa` for `å`, capitalised nouns, older usage.
+Zero hits here is weaker evidence than zero hits on the English corpus, which
+is contemporary. Before shipping, these should be re-scored on a modern
+Danish manuscript — the app has never had one uploaded, so none was
+available. A pattern firing heavily here is still a warning worth heeding,
+which is how the three above were caught.
+
+### 7c. The run-together forms need no patterns
+
+Measured against the shipped `da_DK` dictionary: `idag`, `imorgen`, `iaften`,
+`igår`, `istedet`, `pågrund`, `iforvejen`, `ihvertfald`, `tilgengæld`,
+`iøvrigt` are **all absent from it**, so the speller already reports every
+one. Only the confusable pairs — where both members are real words — need
+patterns. That division is what keeps the list short.
+
 ### 8. The rare member of a live confusable set
 
 Where a book uses one member of a set overwhelmingly and another barely at
@@ -353,7 +426,9 @@ Measured on the two manuscripts:
 7. Every confusable pattern catches its planted sentence and fires zero times
    across both manuscripts — the one `form-det` hit excluded by the
    modal/auxiliary rule.
-8. `mand`/`man` is covered for Danish.
+8. `mand`/`man` is covered for Danish, and every Danish pattern catches its
+   planted sentence while firing at most `da-i-saer`'s four archaic hits
+   across 333,455 words.
 
 ## Out of scope
 
@@ -364,10 +439,10 @@ Measured on the two manuscripts:
 
 ## Ranked backlog
 
-0. **Grow the pattern list (rule 7), Danish first.** It is the only
-   deterministic real-word coverage, and LanguageTool's Danish rules catch
-   none of the four canonical confusions. Each addition costs one planted
-   sentence and one corpus run.
+0. **Re-score the Danish patterns on a modern manuscript.** The set is
+   measured only against 19th-century prose because no modern Danish corpus
+   was available — the app has never had a Danish document uploaded. This is
+   the one open risk in the Danish half.
 1. **Promote `nearMisses`.** Rage's lexicon carries two
    (`Drylander` beside `Drylanders`, `Tiranins` beside `Tiranin`) and they
    are the highest-precision typo signal in the system. Once rule 2 extends
