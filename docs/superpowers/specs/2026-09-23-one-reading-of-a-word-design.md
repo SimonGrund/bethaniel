@@ -1,230 +1,256 @@
-# One reading of a word
+# Catching every spelling error
 
 **Date:** 2026-09-23
 **Status:** proposed, not yet approved
 
-## Summary
+## What this replaces
 
-The spell layer reports 125 corrections across two real novels. Around two of
-them are genuine typos. The dominant cause is the same defect the quotation
-work just fixed, in a different place: **two components each hold half the
-answer to "is this a word", and the false positives live in the gap.**
+An earlier draft of this spec optimised for **precision** — it led with "five
+deterministic rules remove 105 of 125 findings". That was the wrong objective.
+The readthrough is the last check before a book is published; a missed
+misspelling is a printed misspelling, and a noisy finding only costs the
+author a moment. **Recall is the goal.** Precision matters only where noise
+buries a real finding, or where a wrong suggestion gets auto-applied.
 
-The run-to-run variation that prompted this — "a few extra spelling errors
-come up on the second run" — is real, and is *not* what I first said it was.
-It is not the LLM reviewer. It is deterministic code carrying chunk-dependent
-state.
+Two rules from that draft are withdrawn outright, because they cost recall:
 
-## Measured
+- suppressing a rare capitalised word Hunspell guessed at (`Krogman` →
+  `Frogman`) would bury a misspelled character name, which is among the most
+  important things to catch before publishing;
+- suppressing a closed compound (`sworddancers` → `sword dancers`) would bury
+  a real error whenever the author did mean two words.
 
-Both manuscripts from the last two runs, spell-checked exactly as `queue.ts`
-does it — per chunk, deduped, then through `gateProtectedTerms` with the
-lexicon each book actually has:
+What those two rules were right about is narrower and is kept: **the
+suggestion is wrong, not the finding.** Report the word; withhold the guess.
 
-| | corrections reaching the author |
+## Where spelling actually happens
+
+The readthrough card submits two tasks:
+
+- **`proofread`** — the chunk pipeline, carrying Hunspell (`queue.ts:1989`),
+  LanguageTool, retext, and an LLM pass;
+- **`publication_scan`** — `buildPublicationScan`, deterministic and
+  structural only. It has no spell check at all.
+
+Everything below concerns the deterministic spelling in the `proofread` task.
+
+## Measured: recall is already high
+
+400 typos injected into the two manuscripts of the last two runs — common
+dictionary words corrupted by doubling, dropping, transposing and
+adjacent-key slips, keeping only corruptions that are genuinely not words —
+then run through the pipeline exactly as `queue.ts` does it (per chunk,
+through `gateProtectedTerms` with each book's real lexicon):
+
+| | caught |
 |---|---|
-| Rage of the Rule (2,715 paragraphs) | 73 |
-| Path of the Taker (3,339 paragraphs) | 52 |
-| **total** | **125** |
+| Rage of the Rule | 196 / 200 (98.0%) |
+| Path of the Taker | 194 / 200 (97.0%) |
 
-Five deterministic rules account for 105 of them:
+By kind, every category is at or near 100%: dropped-letter 93/93,
+transposed 94/94, doubled-letter 102/105, adjacent-key 101/108.
 
-| rule | removed |
-|---|---|
-| A — the other English dictionary knows the word | 75 |
-| C — closed compound; the suggestion only inserts a space | 11 |
-| D — eye-dialect (`Per’aps`, `s’pose`, `Mhmm`, `Shhh`) | 7 |
-| E — a capitalised name Hunspell guessed at | 5 |
-| B — reported only because of chunking | 5 |
-| F — lowercase word, Capitalised suggestion | 2 |
-| **survive all six** | **20** |
+So the deterministic layer is not broadly leaky. The misses are one specific
+thing.
 
-Of those 20, most are still author coinages — `unknighted`, `unalignment`,
-`hammerboy`, `lifeforce`, `manyfold`, `bloodthirst`, `bladesmen`,
-`unplaceable`, `captainly`, `plantlife` — plus `snuck`, which is ordinary
-informal English. The plausible genuine typos are `skulled` → `skilled` and
-`undeterminable` → `indeterminable`.
+## The hole: a typo made three times disappears
 
-**Roughly 2 useful findings in 125.**
-
-## Root cause 1: two dictionaries
+Every miss was a typo injected **three or more times**. Reproducible on the
+real manuscript, injecting the same slip a varying number of times:
 
 ```
-routes.ts:316   harvestForUpload   isWord = en_US(w) OR en_GB(w)
+"woth" ×1  | lexicon: not harvested        | speller flags it: yes | reaches author: yes
+"woth" ×2  | lexicon: not harvested        | speller flags it: yes | reaches author: yes
+"woth" ×3  | lexicon: PROTECTED (word x3)  | speller flags it: yes | reaches author: NO
+"woth" ×5  | lexicon: PROTECTED (word x5)  | speller flags it: yes | reaches author: NO
+```
+
+`harvestLexicon` collects lowercase non-dictionary words occurring at least
+`DEFAULT_MIN_COUNT` (3) times as the author's coinages — "a spell, a coined
+verb, a made-up drink" (`lexicon.ts:248`). `gateProtectedTerms` then removes
+any correction touching one. Hunspell flags the typo correctly every time;
+the gate deletes it.
+
+The rule is right for what it was built for and wrong at its edge. A typo
+repeated three times is not rarer than a coinage — it is a find-and-replace
+slip, a habitual misspelling, or a character's name consistently misspelled.
+**Those are the errors most worth catching, and they are the only ones the
+layer is blind to.**
+
+The lexicon already carries the right idea in `nearMisses` — "`Silverhnad`
+beside forty `Silverhand`s is the typo the author wants caught"
+(`lexicon.ts:254`) — but it only compares a rare token against a frequent
+**harvested name**. A typo of an ordinary dictionary word is not covered.
+
+### The fix, measured
+
+A harvested coinage that is one edit from a dictionary word the book uses at
+least 20× more often is a near-miss, not a word. Run over both manuscripts
+with one repeated typo injected into each:
+
+```
+rage    warhammer x31  -> kept as the author's word
+        chokehold x3   -> kept as the author's word
+        woth      x3   -> NEAR-MISS of "with" (x708) — report it
+
+taker   blackwood x19  -> kept as the author's word
+        snuck     x6   -> kept as the author's word
+        lordling  x3   -> kept as the author's word
+        woth      x3   -> NEAR-MISS of "with" (x917) — report it
+```
+
+Both injections caught; all seven genuine coinages untouched. The threshold
+is a ratio rather than an absolute count, so it scales with the book.
+
+## The second hole: chunk-scoped protection
+
+`collectMidSentenceCapitals` (`spellcheck.ts:489`) protects a capitalised word
+appearing mid-sentence in **the text it is handed** — and `queue.ts` hands it
+`chunk.body`, about 2,500 words. A name that happens to fall only at sentence
+starts inside one chunk is unprotected in that chunk and protected in the
+next.
+
+This is the run-to-run variation reported as "a few extra spelling errors come
+up on the second run". Chunk boundaries move when the text changes, and the
+text changes between runs because the author accepted the previous run's
+corrections. Different names then land in the unprotected slot. No randomness
+is involved — my earlier answer, that the LLM reviewer was the cause, was
+wrong. The reviewer changes how a finding is *presented* (applied vs flagged,
+`queue.ts:2556`); it never changes whether the finding exists.
+
+Fix: compute the protected-capitals set once per manuscript and pass it into
+each chunk's run — the same move `buildPublicationScan` already makes by
+reading the quote convention off the whole book rather than per chapter.
+
+## The third hole: two dictionaries, one question
+
+```
+routes.ts:316   harvestForUpload     isWord = en_US(w) OR en_GB(w)
 queue.ts:1989   getSpellCorrections(chunk.body, "en_US")
 ```
 
-`Tobias` appears **610 times** in Path of the Taker. It is in `en_GB` and not
-in `en_US`. So:
+`Tobias` appears **610 times** in Path of the Taker. It is in `en_GB`, not in
+`en_US`. The lexicon asks "is this a word?", gets yes, and does not harvest
+it — correctly, by its own rule. Nothing then protects it. The speller asks
+the same question of `en_US` alone, gets no, and proposes **`Tobias` → `To
+bias`**. The same chain yields `Anima` → `Anita`, `Scarface` → `Scarce`,
+`barque` → `baroque`, `sigil` → `vigil`. 75 of 125 findings.
 
-1. the lexicon harvest asks "is this a word?", gets **yes**, and does not
-   harvest it — correctly, by its own rule: it only collects what no
-   dictionary knows;
-2. nothing therefore protects it;
-3. the spell check asks the same question of `en_US` alone, gets **no**, and
-   proposes **`Tobias` → `To bias`**.
+This is the defect the quotation work just fixed, one module over: two
+components each holding half an answer.
 
-The same chain produces `Anima` → `Anita`, `Scarface` → `Scarce`, `Sian` →
-`Siam`, `barque` → `baroque`, `sigil` → `vigil`, `grey` → `Grey`. 75 of 125.
+**Re-scoped for recall.** The fix is not to silence these. It is that the two
+must ask one question, and that a word the *other* English dictionary knows
+is reported as what it is rather than as a misspelling with a fabricated
+replacement:
 
-This is `quoteRepair` counting a straight mark while `publicationScan` did
-not, one module over. The fix is the same shape: one reading, consumed by
-both.
-
-## Root cause 2: chunk-scoped name protection
-
-`spellcheck.ts:489`'s `collectMidSentenceCapitals(text)` protects a
-capitalised word that appears mid-sentence in **the text it is handed** — and
-`queue.ts` hands it `chunk.body`, about 2,500 words. A name that happens to
-fall only at sentence starts within one chunk is unprotected *in that chunk*
-and protected in the next.
-
-Measured: 5 corrections exist only because of chunking, including `Tobias` →
-`To bias` and `Tails’s` → `Tail's`.
-
-**This is the run-to-run variation.** Chunk boundaries move when the text
-changes — and the text changes between runs, because the author accepted
-corrections from the first one. Different names then fall into the
-unprotected position, so a second run surfaces findings the first did not,
-from code with no randomness in it at all.
-
-My earlier answer — that the variation came from the LLM reviewer deciding
-applied-vs-flagged — was wrong as a primary cause. The reviewer effect is
-real (`queue.ts:2556`; only editor-confirmed spell fixes are `preApproved`
-and skip it, `correctionHygiene.ts:511`) but it changes how a finding is
-*presented*, never whether it exists. Chunk scope changes whether it exists.
-
-## Root cause 3: the wrong frame
-
-For secondary-world fiction, "this word is not in the dictionary" is almost
-never "this word is misspelled". It is "this is the author's word". Hunspell's
-suggestion for such a word is not a correction but a guess, and the guesses
-are actively harmful: `sworddancers` → `sword dancers`, `lifeforce` →
-`lifeforms`, `Krogman` → `Frogman`, `Sjöblom` → `Blossom`.
-
-The app already has the right home for this — the lexicon, "the author's
-confirmed list for one document" (`routes.ts:331`). Its `nearMisses` field is
-already exactly the right idea: `Drylander` beside forty `Drylanders` is the
-typo worth catching. What is missing is that unknown words currently reach the
-author as *corrections with a guessed replacement* instead of as *a list to
-confirm once*.
+- if it is a dialect marker (`grey`, `travelled`, `onwards`, `amidst`), the
+  dialect pass owns it and proposes the right word — `gray`, not `Grey`;
+- otherwise it is reported **without a suggestion**, as a word one dictionary
+  does not recognise. The author decides. Nothing is auto-applied, so a name
+  can never be rewritten to `To bias`.
 
 ## Design
 
 ### 1. `backend/src/wordKnowledge.ts` — the single reading
 
 One module answers "is this a word, and to whom", consumed by
-`spellcheck.ts`, `lexicon.ts` and `routes.ts`:
+`spellcheck.ts`, `lexicon.ts` and `routes.ts`. No caller loads a validator of
+its own — that is what let the two drift.
 
-- `knownTo(word)` → `{ inDeclared: boolean; inOtherEnglish: boolean }` for
-  English; a single verdict for every other language.
-- The declared dialect decides which dictionary is `declared` — from
-  `editOptions.englishDialect`, the same precedence the quote work
-  established, falling back to `detectEnglishDialect`.
+- `knownTo(word)` → `{ inDeclared, inOtherEnglish }` for English; one verdict
+  for every other language.
+- Which dictionary is `declared` comes from `editOptions.englishDialect`,
+  falling back to `detectEnglishDialect` — the precedence the quotation work
+  established.
 
-No caller may load a validator of its own. That is what let the two drift.
+### 2. Near-miss beats coinage
 
-### 2. A word the other dialect knows is never a spelling error
+`harvestLexicon` keeps collecting coinages, but a candidate one edit from a
+dictionary word the manuscript uses ≥20× more often is filed as a near-miss
+instead, and near-misses are **never** used to gate a correction. Closes the
+recall hole above.
 
-It is one of two other things, and both already have owners:
+### 3. Protected capitals are manuscript-wide
 
-- **a dialect marker** (`grey`, `travelled`, `onwards`, `amidst`) — routed to
-  the dialect pass, which knows the declared dialect and proposes the right
-  word. `dialectEvidence.ts` already owns this reading;
-- **anything else** (`Tobias`, `barque`, `sigil`) — not an error at all.
-  Silent.
+Computed once per task, passed into each chunk. Closes the determinism hole.
 
-Removes 75 of 125 and, more importantly, stops proposing `To bias` for a
-character who appears on almost every page.
+### 4. A finding is not a suggestion
 
-### 3. Name protection is computed once per manuscript
+Two fields, not one. The deterministic layer keeps reporting every word it
+does not recognise; it offers a replacement only when it can vouch for one.
+Never a bare space-insertion into a closed compound, never a capitalisation
+flip on a lowercase word (`seagrass` → `Seagram`), never against eye-dialect
+(`Per’aps`, `s’pose`, `Mhmm`), never a guess at a capitalised name
+(`Krogman` → `Frogman`).
 
-`collectMidSentenceCapitals` moves out of the per-chunk call: computed once
-for the whole manuscript and passed into each chunk's spell run, exactly as
-`buildPublicationScan` reads the quote convention off the whole book rather
-than per chapter.
-
-This is the determinism fix. The deterministic layer becomes chunk-independent
-and therefore stable across runs, whatever the author accepted last time.
-
-### 4. Unknown words become a list, not corrections
-
-A word no dictionary knows and that the lexicon did not harvest (below
-`minCount`) is reported as **a word to confirm**, with its occurrences and no
-suggested replacement — feeding the same panel the lexicon already owns. The
-author confirms it once and it is protected for every future run of that
-document.
-
-A suggestion is offered only when it is worth offering, which the existing
-`isConfidentSuggestion` already tries to judge and which rules C, D, E and F
-sharpen: never a bare space-insertion into a closed compound, never a
-capitalisation flip on a lowercase word, never against eye-dialect.
+The word is still reported in every one of those cases. Only the guess is
+withheld.
 
 ### 5. Deterministic findings are not judged by a model
 
-The original ask, and it stands on its own. `isDeterministicCorrection`
-(`correctionSeverity.ts:48`) already stops the precision pass *deleting* a
-Hunspell finding — measured, deleting them cost German misspelling recall
-68% → 30%. The same argument applies to flagging: whether a dictionary
-finding reads as a finding or as a suggestion should not vary between two
-runs over the same text.
+`isDeterministicCorrection` (`correctionSeverity.ts:48`) already stops the
+precision pass *deleting* a Hunspell finding — deleting them cost German
+misspelling recall 68% → 30%. The same argument covers flagging: whether a
+dictionary finding reads as a finding or a suggestion should not vary between
+two runs over identical text. Deterministic corrections become `preApproved`
+and skip the reviewer, as editor-confirmed spell fixes already do — which
+also saves the tokens spent asking a model to second-guess a dictionary.
 
-Deterministic corrections become `preApproved` and skip the reviewer
-altogether, as editor-confirmed spell fixes already do. That also saves the
-tokens currently spent asking a model to second-guess a dictionary.
+`reason: "quote-style"` (shipped) should be added to
+`isDeterministicCorrection`; today it is safe only because it is
+independently `preApproved`.
 
-Note `reason: "quote-style"` (just shipped) is not in
-`isDeterministicCorrection` and should be added; it is safe today only
-because it is independently `preApproved`.
+## The ceiling, stated plainly
+
+No dictionary catches a **real-word error** — `form` for `from`, `their` for
+`there`, `desert` for `dessert`. Both are words. That is what the LLM
+proofread pass is for, and it is why the deterministic layer's job is to be
+exhaustive about the errors it *can* see rather than clever about the ones it
+cannot.
 
 ## Acceptance
 
-Measured on the same two manuscripts:
+Measured on the two manuscripts:
 
-1. `Tobias` → `To bias` is not proposed. Nor `Anima`, `Scarface`, `Sian`.
-2. Spell output is **identical whatever the chunk size**, which is the
-   property that makes it identical across runs.
-3. Corrections reaching the author drop from 125 to at most 25, and
-   `skulled` → `skilled` and `undeterminable` → `indeterminable` are still
-   among them.
-4. German misspelling recall does not regress — the benchmark that governs
-   `isDeterministicCorrection` (`benchScoring.test.ts`) still passes.
-5. No dictionary finding's presence or flagged state changes between two runs
+1. **Recall does not drop.** The 400-typo injection still catches ≥ 98%.
+2. **The repeated-typo hole closes.** A typo injected 3, 5 and 10 times is
+   reported every time, and all seven genuine coinages
+   (`warhammer`, `chokehold`, `blackwood`, `snuck`, `lordling`, and both
+   books' names) remain protected.
+3. **Output is chunk-independent** — identical findings at chunk sizes 1,500,
+   2,500 and 5,000 words, which is the property that makes it identical
+   across runs.
+4. **`Tobias` → `To bias` is never proposed.** `Tobias` may still be
+   reported; the fabricated replacement may not.
+5. German misspelling recall does not regress (`benchScoring.test.ts`).
+6. No dictionary finding's presence or flagged state differs between two runs
    over identical text.
 
 ## Out of scope
 
 - Adding words to the shipped dictionaries.
-- The LLM proofread agent's own spelling suggestions. It is a separate
-  producer with separate behaviour; this spec is about the deterministic
-  layer only.
-- Languages other than English for rule 2 — `knownTo` reports a single
-  verdict elsewhere, and the dialect question does not arise.
+- The LLM proofread agent's own suggestions — a separate producer.
+- Real-word errors; see the ceiling above.
 
-## Ranked backlog — other measured candidates
+## Ranked backlog
 
-Not specced here; listed with what is actually known about each.
-
-1. **The lexicon is not offered per run.** Both books have a harvested
-   lexicon (73 and 71 terms) and it does real work — it gated 26 of the 151
-   raw corrections. Nothing measured about whether authors ever see or
-   confirm it. Worth instrumenting before building anything.
-2. **`nearMisses` is underused.** Rage's lexicon carries exactly two
-   (`Drylander` beside `Drylanders`, `Tiranins` beside `Tiranin`) and these
-   are the highest-precision typo signal in the whole system — a rare token
-   one edit from a term used hundreds of times. Two findings, both plausible,
-   against Hunspell's 125 for two. Deserves to be promoted, not buried.
+1. **Promote `nearMisses`.** Rage's lexicon carries two
+   (`Drylander` beside `Drylanders`, `Tiranins` beside `Tiranin`) and they
+   are the highest-precision typo signal in the system. Once rule 2 extends
+   them to dictionary words they become the most valuable output of the
+   spelling layer, and they currently have no surface of their own.
+2. **Is the lexicon ever confirmed?** Both books have a harvested lexicon
+   (73 and 71 terms) doing real work — it gated 26 of 151 raw corrections.
+   Nothing is known about whether authors see or confirm it. Instrument
+   before building.
 3. **Scene-break consistency.** `sceneBreaks.ts` normalises on upload; no
-   check reports a manuscript that mixes markers. Unmeasured — would need
-   counting on the corpus first.
-4. **Chapter-title casing drift.** `chapters.ts` already extracts every
-   title; comparing their shape is cheap. Rage's are lowercase
-   ("Chapter six"), Taker's are title case ("Chapter Four") — each internally
-   consistent, so there is nothing to report on this corpus. Build only if a
-   manuscript that mixes them turns up.
-5. **Heading-level jumps** (h1 → h3). Deterministic and cheap; occurrences on
-   the corpus not yet counted.
+   check reports a manuscript that mixes markers. Occurrences not yet counted.
+4. **Heading-level jumps** (h1 → h3). Cheap and deterministic; not yet
+   counted on the corpus.
+5. **Chapter-title casing drift.** Rage is lowercase ("Chapter six"), Taker
+   title case ("Chapter Four"), each internally consistent — nothing to
+   report on this corpus. Build only if a mixed manuscript turns up.
 
-Nothing above needs a cloud run to evaluate. The offer to use cloud credit on
-smaller texts was not taken up: every number in this document came from
-deterministic code run locally, which is also why they can be pinned in tests.
+Every number here came from deterministic code run locally, which is why each
+can be pinned in a test. No cloud credit was spent.
