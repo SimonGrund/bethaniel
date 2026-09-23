@@ -1632,6 +1632,16 @@ async function processJob(job: JobData): Promise<void> {
     // (not per chunk) for a consistent choice across the whole pass.
     const detectedDialect =
       mode === "proofread" ? detectDialect(sourceText) : null;
+    // Collected once over the WHOLE unit, not per chunk. Per chunk it
+    // protected only what that chunk happened to show mid-sentence, which
+    // made the findings depend on where the boundaries fell — and they move
+    // whenever the author accepts the previous run's corrections. That is
+    // where "a few extra spelling errors on the second run" came from.
+    const { collectMidSentenceCapitals } = await import("./spellcheck.js");
+    const protectedNames = collectMidSentenceCapitals(
+      sourceText,
+      job.manuscriptLang ?? "en",
+    );
     const passPrefix = pass.total > 1 ? `pass ${pass.n}/${pass.total} — ` : "";
     const chunks = splitIntoChunks(sourceText, wpc, overlap);
     totalChunks += chunks.length;
@@ -1988,6 +1998,7 @@ async function processJob(job: JobData): Promise<void> {
                 // style sheet so listed character/place names aren't flagged.
                 spellCorrections = getSpellCorrections(chunk.body, spellLang, {
                   styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
+                  protectedNames,
                 });
                 if (spellCorrections.length > 0) {
                   appendLog({

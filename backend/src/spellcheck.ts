@@ -485,8 +485,19 @@ export function capitalisesNouns(lang?: string): boolean {
  * or more occurrences protects the names and exposes the typos. Everywhere
  * else the original rule stands, because there capitalisation really is the
  * signal.
+ *
+ * EXPORTED, and computed once per MANUSCRIPT by the caller rather than per
+ * chunk. Handed one ~2,500-word chunk it protects whatever that chunk
+ * happened to show mid-sentence, so a name sitting only at sentence starts in
+ * one chunk was reported there and silent next door — and chunk boundaries
+ * move whenever the author accepts the previous run's corrections. That is
+ * where "a few extra spelling errors on the second run" came from:
+ * deterministic code carrying chunk-dependent state.
  */
-function collectMidSentenceCapitals(text: string, lang?: string): Set<string> {
+export function collectMidSentenceCapitals(
+  text: string,
+  lang?: string,
+): Set<string> {
   const minOccurrences = capitalisesNouns(lang) ? 2 : 1;
 
   const counts = new Map<string, number>();
@@ -705,6 +716,12 @@ export function getSpellCorrections(
     englishDialect?: string;
     styleGuideNames?: string[];
     maxHints?: number;
+    /**
+     * Names to protect, collected once over the whole manuscript. When absent
+     * the set is computed from `text` alone, which is correct for a caller
+     * passing a whole document and wrong for one passing a chunk.
+     */
+    protectedNames?: Set<string>;
   },
 ): Correction[] {
   const dictName = langToDictName(lang, opts?.englishDialect);
@@ -727,7 +744,7 @@ export function getSpellCorrections(
 
   // Proper nouns to protect everywhere (see collectMidSentenceCapitals).
   // The language matters: in German a mid-sentence capital is every noun.
-  const nameSet = collectMidSentenceCapitals(text, lang);
+  const nameSet = opts?.protectedNames ?? collectMidSentenceCapitals(text, lang);
   const nounCapitalising = capitalisesNouns(lang);
 
   const corrections: Correction[] = [];
