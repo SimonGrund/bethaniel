@@ -511,6 +511,53 @@ function findTruncation(
 }
 
 /**
+ * Marks that are not in the manuscript's own quotation-mark style.
+ *
+ * Curly or straight is the author's choice and both are correct; only
+ * inconsistency is an error. So this reports nothing at all unless there is a
+ * style to conform to — declared in the settings panel, or a clear majority
+ * in the text. An evenly mixed manuscript with no declared style is exactly
+ * the book this would do most damage to, and is left alone: the panel asks
+ * its author instead.
+ *
+ * Its own check rather than another truncation finding. A straight mark among
+ * curly ones is a house-style inconsistency, and on two real books every one
+ * of them was BALANCED — `“But—"` has two marks — which is why no balance
+ * check, however strict, could ever have found them.
+ *
+ * One finding per paragraph, not per mark. A line like `"We can try,"` has two
+ * off-style marks and is one thing to fix.
+ */
+function findQuoteStyle(
+  units: ScanUnit[],
+  convention: QuoteConvention,
+): DraftFinding[] {
+  if (!convention.style) return [];
+  const wanted = convention.style;
+  const findings: DraftFinding[] = [];
+  for (const u of units) {
+    for (const paragraph of u.original.split(/\n\n+/)) {
+      const text = paragraph.trim();
+      if (!text) continue;
+      const offStyle = readMarks(text, convention).filter((m) =>
+        wanted === "curly" ? m.char === '"' : m.char !== '"',
+      );
+      if (offStyle.length === 0) continue;
+      findings.push({
+        check: "quote_style",
+        severity: "info",
+        location: u.name,
+        message:
+          wanted === "curly"
+            ? `Straight quotation mark in a book that uses curly ones: "${excerptOf(paragraph)}"`
+            : `Curly quotation mark in a book that uses straight ones: "${excerptOf(paragraph)}"`,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
  * Manuscript-wide English dialect consistency. A professionally edited
  * manuscript uses one dialect throughout; genuinely mixed usage (not one stray
  * outlier) is worth catching before publication.
@@ -615,6 +662,7 @@ export function buildPublicationScan(
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
     ...findTruncation(units, reported, convention),
+    ...findQuoteStyle(units, convention),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 

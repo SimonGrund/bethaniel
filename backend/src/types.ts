@@ -406,6 +406,7 @@ export const STRUCTURAL_CHECKS = [
   "numbering",
   "truncation",
   "dialect",
+  "quote_style",
 ] as const;
 
 export type StructuralCheck = (typeof STRUCTURAL_CHECKS)[number];

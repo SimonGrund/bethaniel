@@ -3325,6 +3325,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dialektkonsistenz",
     es: "Coherencia dialectal",
   },
+  scan_check_quote_style: {
+    en: "Quotation-mark style",
+    da: "Anførselstegnsstil",
+    de: "Anführungszeichen-Stil",
+    es: "Estilo de comillas",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",
