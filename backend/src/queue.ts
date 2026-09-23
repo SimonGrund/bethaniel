@@ -1280,6 +1280,8 @@ async function processPublicationScanJob(
     // majority vote and can advise the opposite of the setting.
     const declaredDialect = (job.editOptions as Record<string, unknown>)
       ?.englishDialect;
+    const declaredQuoteStyle = (job.editOptions as Record<string, unknown>)
+      ?.quoteStyle;
     const report = buildPublicationScan(
       units.map((u) => ({ name: u.name, original: u.original })),
       {
@@ -1290,6 +1292,12 @@ async function processPublicationScanJob(
         // So the English dialect check can stand down on a manuscript that is
         // not in English.
         manuscriptLang: job.manuscriptLang,
+        // The style the author declared. Without it the scan falls back to
+        // the manuscript's own majority, which on a 60/40 book is a guess.
+        quoteStyle:
+          declaredQuoteStyle === "curly" || declaredQuoteStyle === "straight"
+            ? declaredQuoteStyle
+            : undefined,
       },
     );
     abortControllers.delete(taskId);
@@ -2063,7 +2071,19 @@ async function processJob(job: JobData): Promise<void> {
               // it splicing duplicates against existing ones.
               {
                 const { getQuoteCorrections } = await import("./quoteRepair.js");
-                const quoteCs = getQuoteCorrections(chunk.body);
+                // The style the author declared. Without it the repair falls
+                // back to this chunk's own majority, which on a chapter of
+                // mixed dialogue is a guess.
+                const declaredQuoteStyle = (
+                  job.editOptions as Record<string, unknown>
+                )?.quoteStyle;
+                const quoteCs = getQuoteCorrections(
+                  chunk.body,
+                  declaredQuoteStyle === "curly" ||
+                    declaredQuoteStyle === "straight"
+                    ? declaredQuoteStyle
+                    : undefined,
+                );
                 if (quoteCs.length > 0) {
                   spellCorrections = [...spellCorrections, ...quoteCs];
                   appendLog({

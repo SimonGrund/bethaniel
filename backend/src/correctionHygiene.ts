@@ -570,13 +570,24 @@ function normalizeForComparison(s: string): string {
     .replace(/\s+/g, " ");
 }
 
-/** Corrections that change nothing — or nothing but the style of a quotation
- *  mark or apostrophe, which is the author's to choose. */
+/**
+ * Corrections that change nothing — or nothing but the style of a quotation
+ * mark or apostrophe, which is the author's to choose.
+ *
+ * The one exception is the deterministic normalisation pass (quoteRepair.ts,
+ * reason "quote-style"), whose ENTIRE job is that difference. It runs only
+ * against a style the author declared or the manuscript's own clear majority,
+ * which is what makes it a fix rather than the preference this filter exists
+ * to drop. An LLM's quote-style change still goes, because nothing vouches
+ * for it.
+ */
 export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
-  return corrections.filter(
-    (c) =>
-      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected),
-  );
+  return corrections.filter((c) => {
+    if (c.reason === "quote-style") return c.original !== c.corrected;
+    return (
+      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected)
+    );
+  });
 }
 
 const TRAILING_PUNCT_RE = /^[.!?,:;…]+$/;

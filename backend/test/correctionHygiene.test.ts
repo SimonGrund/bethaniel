@@ -542,3 +542,31 @@ test("a correction that only swaps quote or apostrophe style is a no-op", () => 
   ]);
   assert.deepEqual(kept.map((c) => c.corrected), ["its"]);
 });
+
+// Quote-style normalisation survives the no-op filter.
+//
+// a342be5 added that filter deliberately: a correction whose only difference
+// is the style of a quotation mark was noise. It still is, from an LLM — but
+// the deterministic normalisation pass is now the one thing in the run whose
+// ENTIRE job is that difference, and the filter would delete all of it.
+
+test("a quote-style correction is not dropped as a no-op", () => {
+  const kept = dropNoOpCorrections([
+    {
+      original: '"We can try," she said.',
+      corrected: "“We can try,” she said.",
+      reason: "quote-style",
+    } as never,
+  ]);
+  assert.equal(kept.length, 1);
+});
+
+test("an LLM's quote-style change is still dropped", () => {
+  const kept = dropNoOpCorrections([
+    {
+      original: '"We can try," she said.',
+      corrected: "“We can try,” she said.",
+    } as never,
+  ]);
+  assert.equal(kept.length, 0);
+});
