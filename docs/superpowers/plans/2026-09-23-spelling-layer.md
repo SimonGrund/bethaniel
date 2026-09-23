@@ -14,6 +14,19 @@
 - **Recall is the objective.** This is the last check before publication: a missed misspelling is a printed misspelling, a noisy finding costs a moment. Never suppress a *finding* to reduce noise — suppress the *suggestion*.
 - **Never delete a deterministic finding on a model's say-so.** Measured: doing so cost German misspelling recall 68% → 30% and German comma recall 68% → 5% (`reviewResilience.ts:228-240`).
 - **Double quotes only** in any quotation handling touched here; single quotes and apostrophes are out of scope.
+- **This runs in COPY AND LINE EDITS too, not just the readthrough.**
+  `isCorrectionsMode = mode !== "translate"` (`queue.ts:1547`) and
+  `spellCheck`/`retextCheck` are `true` in every preset, so the deterministic
+  bucket runs for `copy_edit`, `line_edit`, `combined_edit` and `proofread`
+  alike. Two consequences that must be held in mind at every step:
+  - a `preApproved` correction skips the reviewer, and
+    `toApply = pr.cs.filter((c) => !c.flagged)` then **applies it to the
+    text**. Anything marked deterministic is therefore an automatic rewrite of
+    the author's manuscript in a copy edit, not merely a line in a report.
+    That is why every pattern is scored on a corpus before it is added.
+  - a finding with no suggestion (`corrected === original`) must be
+    `flagged: true`, never applied. Applying it is a silent no-op the author
+    never sees — the opposite of what a finding is for.
 - **Corpus:** `/tmp/quote-corpus/{rage,taker}.md`, obtained by `scripts/fetch-confusable-corpus.sh` (written by the confusable-patterns plan; if that has not run, the sqlite3 commands are in its Task 1). 203,000 words, contemporary.
 - **Baselines to beat, measured 2026-09-23:**
   - 400 injected non-word typos → 196/200 and 194/200 caught. Must not drop.
@@ -962,6 +975,13 @@ test("a word the other English knows is reported without a guess", async () => {
   assert.equal(c.reason, "spell-check-unknown");
 });
 
+test("a finding with no suggestion is flagged, never applied", async () => {
+  // Copy edits auto-apply anything unflagged. Applying a no-op would file it
+  // as a completed correction the author never saw.
+  const c = await only("Then Tobias spoke again to the captain of the ship.");
+  assert.equal(c.flagged, true);
+});
+
 test("a lowercase word is never given a Capitalised replacement", async () => {
   const c = await only("The seagrass swayed in the shallow water below them.");
   if (c && c.corrected !== c.original) {
@@ -1067,10 +1087,18 @@ suggestion separately from the finding:
         verdict?.inOtherEnglish || !suggestionIsWorthOffering(word, best)
           ? word
           : best;
+      const withheld = suggestion === word;
       out.push({
         original: word,
         corrected: suggestion,
-        reason: suggestion === word ? "spell-check-unknown" : "spell-check",
+        reason: withheld ? "spell-check-unknown" : "spell-check",
+        // A finding with no suggestion is something to LOOK at, not a change
+        // to make. Copy edits auto-apply anything unflagged, and applying a
+        // no-op would file it as a completed correction the author never saw.
+        flagged: withheld ? true : undefined,
+        reviewReason: withheld
+          ? "No dictionary recognises this word. Check it — no replacement is proposed."
+          : undefined,
       } as Correction);
 ```
 
@@ -1191,6 +1219,14 @@ test("so do the other deterministic producers", () => {
   for (const c of cs) assert.equal(c.preApproved, true, c.reason);
 });
 
+test("a finding that proposes nothing stays flagged", () => {
+  const cs = markDeterministicPreApproved([
+    { original: "Tobias", corrected: "Tobias", reason: "spell-check-unknown" },
+  ] as never);
+  assert.equal(cs[0].preApproved, true);
+  assert.equal(cs[0].flagged, true, "an unflagged correction would be applied");
+});
+
 test("an editor's own correction is untouched", () => {
   const cs = markDeterministicPreApproved([
     { original: "a", corrected: "b" },
@@ -1235,7 +1271,12 @@ In `backend/src/queue.ts`, near the other correction helpers, add:
  */
 export function markDeterministicPreApproved(cs: Correction[]): Correction[] {
   for (const c of cs) {
-    if (isDeterministicCorrection(c)) c.preApproved = true;
+    if (!isDeterministicCorrection(c)) continue;
+    c.preApproved = true;
+    // A finding that proposes nothing must stay flagged. preApproved skips
+    // the reviewer, and an unflagged correction is APPLIED — which for a
+    // no-op means filing it as done without the author ever seeing it.
+    if (c.corrected === c.original) c.flagged = true;
   }
   return cs;
 }

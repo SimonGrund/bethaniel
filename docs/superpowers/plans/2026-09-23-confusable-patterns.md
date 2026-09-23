@@ -14,6 +14,19 @@
 - **Every pattern must earn its place with two numbers:** it catches its planted sentence, and it fires as close to zero as possible on the corpus. A pattern with neither is not added.
 - **Precision over coverage here.** These run on every proofread of every manuscript. A pattern that fires on correct prose trains the author to ignore the whole category — the opposite of the spec's recall goal, which is about the *dictionary* layer.
 - **Deterministic.** No LLM, no randomness, no clock. Identical output for identical input, whatever the chunk size.
+- **This runs in COPY AND LINE EDITS too, not just the readthrough.**
+  `isCorrectionsMode = mode !== "translate"` (`queue.ts:1547`) and
+  `spellCheck`/`retextCheck` are `true` in every preset, so the deterministic
+  bucket runs for `copy_edit`, `line_edit`, `combined_edit` and `proofread`
+  alike. Two consequences that must be held in mind at every step:
+  - a `preApproved` correction skips the reviewer, and
+    `toApply = pr.cs.filter((c) => !c.flagged)` then **applies it to the
+    text**. Anything marked deterministic is therefore an automatic rewrite of
+    the author's manuscript in a copy edit, not merely a line in a report.
+    That is why every pattern is scored on a corpus before it is added.
+  - a finding with no suggestion (`corrected === original`) must be
+    `flagged: true`, never applied. Applying it is a silent no-op the author
+    never sees — the opposite of what a finding is for.
 - **Existing module untouched in spirit:** `confusables.ts` stays exactly as it is. It answers "which confusable sets does this text use", for the LLM prompt hint. This plan adds a *second, independent* answer: "this specific phrasing is wrong". Do not merge them.
 - **English corpus:** the two manuscripts at `/tmp/quote-corpus/{rage,taker}.md` — 203,000 words, contemporary. Extract per Task 1.
 - **Danish corpus:** six public-domain texts, 333,455 words, Gutenberg ids `24747 33360 34178 35102 36942 41072`. Extract per Task 1. **19th/early-20th century orthography** — zero hits there is weaker evidence than on the English corpus. This is recorded in the spec and must be repeated in the module header.
