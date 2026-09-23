@@ -13,6 +13,10 @@
 - **Tests:** `cd backend && npm test`. Single file: `cd backend && npx tsx --test test/<name>.test.ts`. `node:test` + `node:assert/strict` only.
 - **Recall is the objective.** This is the last check before publication: a missed misspelling is a printed misspelling, a noisy finding costs a moment. Never suppress a *finding* to reduce noise — suppress the *suggestion*.
 - **Never delete a deterministic finding on a model's say-so.** Measured: doing so cost German misspelling recall 68% → 30% and German comma recall 68% → 5% (`reviewResilience.ts:228-240`).
+- **Every deterministic finding must reach the author.** For the publication
+  readthrough this is the governing requirement: it is the last check before
+  printing. A path that discards a finding must file it in `skipped[]`, which
+  the review screen renders (`ReviewExport.tsx:4622`) — never delete it.
 - **Double quotes only** in any quotation handling touched here; single quotes and apostrophes are out of scope.
 - **This runs in COPY AND LINE EDITS too, not just the readthrough.**
   `isCorrectionsMode = mode !== "translate"` (`queue.ts:1547`) and
@@ -48,6 +52,10 @@
 Tasks 1–2 are independent. Task 3 depends on 1. Tasks 4–5 depend on 2.
 Task 6 depends on 1 and 4, Task 7 on 6. Task 8 depends on everything and must
 run last.
+
+**Task 7 was changed mid-execution on the author's instruction.** It was
+"deterministic findings skip the reviewer"; the reviewer keeps scoring them,
+and the task is now the display guarantee that matters instead.
 
 ---
 
@@ -1169,152 +1177,176 @@ eye-dialect, or a capitalised unknown."
 
 ---
 
-### Task 7: Deterministic findings skip the reviewer
+### Task 7: Nothing is dropped from display
 
 **Files:**
-- Modify: `backend/src/queue.ts` (where `spellCorrections` are merged, around `:2485`)
-- Test: `backend/test/spellPreApproved.test.ts`
+- Modify: `backend/src/correctionHygiene.ts` (`dropNoOpCorrections`)
+- Test: `backend/test/nothingSilentlyDropped.test.ts`
 
 **Interfaces:**
-- Consumes: `isDeterministicCorrection` from `./correctionSeverity.js`.
+- Consumes: `dropNoOpCorrections`, `isDeterministicCorrection`.
 - Produces: nothing new.
 
-Whether a dictionary finding reads as a finding or as a suggestion should not
-vary between two runs over identical text. It currently does: the reviewer
-decides applied-vs-flagged, and the reviewer is an LLM.
+**This task replaces "deterministic findings skip the reviewer".** That change
+was dropped on the author's instruction: the reviewer keeps scoring them. It
+was never load-bearing for display anyway — `applied` and `flagged`
+corrections are pushed into the SAME `corrections` array (`queue.ts:1878` and
+`:1884`), the frontend has no `preApproved` logic at all, and `flagKindOf`
+returns null for an unscored correction so the card renders plainly. The
+reviewer therefore changes how a finding READS, never whether it appears.
+
+What does need fixing is one real hole, found by auditing every path that can
+discard a correction:
+
+| path | fate | displayed? |
+|---|---|---|
+| `gateProtectedTerms` dropped | → `skipped[]` | yes (`ReviewExport:4622`) |
+| precision pass `removed` | deterministic ones spared + flagged | yes |
+| `applyCorrectionsVerified` skipped | → `skipped[]` | yes |
+| `buildPublicationScan` findings | into the report, uncapped | yes |
+| **`dropNoOpCorrections` (`queue.ts:3028`)** | **deleted, no trace** | **NO** |
+
+That filter runs over the whole chapter and discards anything whose only
+difference is quote style — or, after Task 6, anything where `corrected ===
+original`, which is the shape of a withheld guess. A finding the author must
+see would vanish there.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `backend/test/spellPreApproved.test.ts`:
+Create `backend/test/nothingSilentlyDropped.test.ts`:
 
 ```ts
-// A dictionary is not an opinion to be out-voted.
+// The guarantee: a deterministic finding never disappears without trace.
 //
-// isDeterministicCorrection already stops the PRECISION pass deleting these —
-// doing so cost German misspelling recall 68% -> 30%. The same argument
-// covers flagging: whether a dictionary finding reads as a finding or as a
-// suggestion should not differ between two runs over the same text, and the
-// reviewer that decides it is an LLM.
+// The publication readthrough is the last check before printing, so a finding
+// the author never sees is worse than a noisy one. Every path that can discard
+// a correction either keeps it or files it in `skipped[]`, which the review
+// screen renders — except dropNoOpCorrections, which deleted outright.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isDeterministicCorrection } from "../src/correctionSeverity.ts";
-import { markDeterministicPreApproved } from "../src/queue.ts";
+import { dropNoOpCorrections } from "../src/correctionHygiene.ts";
 
-test("a spell-check correction comes back pre-approved", () => {
-  const cs = markDeterministicPreApproved([
-    { original: "thruogh", corrected: "through", reason: "spell-check" },
-  ] as never);
-  assert.equal(cs[0].preApproved, true);
+test("a withheld-guess finding survives the no-op filter", () => {
+  // "report the word, withhold the guess" produces corrected === original.
+  const kept = dropNoOpCorrections([
+    {
+      original: "Tobias",
+      corrected: "Tobias",
+      reason: "spell-check-unknown",
+    } as never,
+  ]);
+  assert.equal(kept.length, 1, "the author must still see this word");
 });
 
-test("so do the other deterministic producers", () => {
-  const cs = markDeterministicPreApproved([
-    { original: "a", corrected: "b", reason: "spell-check-unknown" },
-    { original: "c", corrected: "d", reason: "retext:doubled-word" },
-    { original: "e", corrected: "f", reason: "grammar:COMMA" },
-    { original: "g", corrected: "h", reason: "dialect" },
-  ] as never);
-  for (const c of cs) assert.equal(c.preApproved, true, c.reason);
-});
-
-test("a finding that proposes nothing stays flagged", () => {
-  const cs = markDeterministicPreApproved([
-    { original: "Tobias", corrected: "Tobias", reason: "spell-check-unknown" },
-  ] as never);
-  assert.equal(cs[0].preApproved, true);
-  assert.equal(cs[0].flagged, true, "an unflagged correction would be applied");
-});
-
-test("an editor's own correction is untouched", () => {
-  const cs = markDeterministicPreApproved([
-    { original: "a", corrected: "b" },
-  ] as never);
-  assert.equal(cs[0].preApproved, undefined);
-});
-
-test("the guard and the marker agree", () => {
-  for (const reason of ["spell-check", "dialect", "retext:x", "grammar:y"]) {
-    const c = { original: "a", corrected: "b", reason } as never;
-    assert.equal(
-      isDeterministicCorrection(c),
-      markDeterministicPreApproved([c])[0].preApproved === true,
-      reason,
-    );
+test("every deterministic reason survives it", () => {
+  const reasons = [
+    "spell-check",
+    "spell-check-uncommon",
+    "spell-check-unknown",
+    "dialect",
+    "quote-style",
+    "grammar:COMMA_PARENTHESIS_WHITESPACE",
+    "retext:doubled-word",
+    "confusable:form-det",
+  ];
+  for (const reason of reasons) {
+    const kept = dropNoOpCorrections([
+      { original: "a", corrected: "a", reason } as never,
+    ]);
+    assert.equal(kept.length, 1, `${reason} was dropped`);
   }
+});
+
+test("an editor's genuine no-op is still dropped", () => {
+  // A model returning the text unchanged is noise, not a finding.
+  assert.deepEqual(
+    dropNoOpCorrections([{ original: "a", corrected: "a" } as never]),
+    [],
+  );
+});
+
+test("an editor's quote-style-only change is still dropped", () => {
+  assert.deepEqual(
+    dropNoOpCorrections([
+      { original: '"a"', corrected: "\u201Ca\u201D" } as never,
+    ]),
+    [],
+  );
 });
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && npx tsx --test test/spellPreApproved.test.ts`
-Expected: FAIL — `markDeterministicPreApproved` is not exported from
-`queue.ts`.
+Run: `cd backend && npx tsx --test test/nothingSilentlyDropped.test.ts`
+Expected: FAIL on the first two — a withheld guess is dropped as a no-op.
 
-- [ ] **Step 3: Add the marker**
+- [ ] **Step 3: Carve the deterministic producers out of the filter**
 
-In `backend/src/queue.ts`, near the other correction helpers, add:
+In `backend/src/correctionHygiene.ts`, replace `dropNoOpCorrections`:
 
 ```ts
 /**
- * Mark every deterministic finding pre-approved, so the reviewer never sees
- * it.
+ * Corrections that change nothing — or nothing but the style of a quotation
+ * mark or apostrophe, which is the author's to choose.
  *
- * A dictionary saying a word is absent, LanguageTool saying a comma is
- * missing, or a confusable pattern scored on a corpus, are not judgements for
- * a model to second-guess. The precision pass already refuses to DELETE
- * them — measured, deleting them cost German misspelling recall 68% -> 30%
- * and German comma recall 68% -> 5%. This extends the same reasoning to
- * flagging, which is what made two runs over identical text present the same
- * finding differently. It also saves the tokens spent asking.
+ * A DETERMINISTIC finding is exempt, and the exemption is the point of this
+ * function's existence being narrow. This filter runs over the whole chapter
+ * (queue.ts:3028) and deletes outright — nothing lands in `skipped[]`, so
+ * anything it removes the author never sees. That is right for a model
+ * returning the text unchanged, and wrong for:
+ *
+ *   - quote-style normalisation, whose ENTIRE job is that difference;
+ *   - a withheld guess ("report the word, withhold the guess"), where
+ *     corrected === original ON PURPOSE because no replacement is worth
+ *     proposing for a name like "Tobias".
+ *
+ * The readthrough is the last check before printing. A finding the author
+ * never sees is worse than a noisy one.
  */
-export function markDeterministicPreApproved(cs: Correction[]): Correction[] {
-  for (const c of cs) {
-    if (!isDeterministicCorrection(c)) continue;
-    c.preApproved = true;
-    // A finding that proposes nothing must stay flagged. preApproved skips
-    // the reviewer, and an unflagged correction is APPLIED — which for a
-    // no-op means filing it as done without the author ever seeing it.
-    if (c.corrected === c.original) c.flagged = true;
-  }
-  return cs;
+export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
+  return corrections.filter((c) => {
+    if (isDeterministicCorrection(c)) return true;
+    return (
+      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected)
+    );
+  });
 }
 ```
 
-Import `isDeterministicCorrection` in `queue.ts` if it is not already there.
-
-- [ ] **Step 4: Call it where the deterministic bucket is assembled**
-
-In `backend/src/queue.ts`, at the merge site (around line 2485, immediately
-after the `for (const sc of spellCorrections) sc.reason ??= "spell-check";`
-loop):
+Add the import at the top of `backend/src/correctionHygiene.ts`:
 
 ```ts
-          markDeterministicPreApproved(spellCorrections);
+import { isDeterministicCorrection } from "./correctionSeverity.js";
 ```
 
-- [ ] **Step 5: Run the tests, suite and build**
+If that introduces an import cycle (`correctionSeverity` importing from
+`correctionHygiene`), check with
+`grep -n "correctionHygiene" backend/src/correctionSeverity.ts` — if it does,
+move `isDeterministicCorrection` into its own module rather than duplicating
+the reason list.
 
-Run: `cd backend && npx tsx --test test/spellPreApproved.test.ts && npm test && npm run build`
+- [ ] **Step 4: Run the tests, suite and build**
+
+Run: `cd backend && npx tsx --test test/nothingSilentlyDropped.test.ts && npm test && npm run build`
 Expected: PASS, exit 0.
 
-If a queue test asserts a reviewer score on a spell correction, it was
-pinning the old routing — read it, and update it to assert `preApproved`
-instead.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/queue.ts backend/test/spellPreApproved.test.ts
-git commit -m "fix(review): a dictionary is not an opinion to be out-voted
+git add backend/src/correctionHygiene.ts backend/test/nothingSilentlyDropped.test.ts
+git commit -m "fix(review): a deterministic finding is never silently dropped
 
-The precision pass already refused to delete a deterministic finding —
-deleting them cost German misspelling recall 68% -> 30%. But the reviewer
-still decided applied-vs-flagged, so the same finding over the same text read
-differently between two runs. Deterministic findings are pre-approved now and
-skip the reviewer, which also saves the tokens spent asking a model to
-second-guess a dictionary."
+dropNoOpCorrections runs over the whole chapter and deletes outright —
+nothing lands in skipped[], so anything it removes the author never sees.
+That is right for a model returning the text unchanged and wrong for quote
+normalisation, whose entire job is that difference, and for a withheld guess,
+where corrected === original on purpose because no replacement is worth
+proposing for a name.
+
+The readthrough is the last check before printing. A finding the author never
+sees is worse than a noisy one."
 ```
 
 ---
