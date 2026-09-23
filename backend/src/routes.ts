@@ -1,5 +1,6 @@
 // ── API routes ──
 
+import { isWordAnywhere } from "./wordKnowledge.js";
 import { Router, Request, Response } from "express";
 import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
@@ -54,7 +55,7 @@ import {
   reviewCorrectionsStream,
   parseReviewScores,
 } from "./llm.js";
-import { findNewSuspectWords, getWordValidator } from "./spellcheck.js";
+import { findNewSuspectWords } from "./spellcheck.js";
 import {
   buildLexiconSheetBlock,
   harvestLexicon,
@@ -313,14 +314,16 @@ function harvestForUpload(md: string, detected: DetectedSettings): Lexicon | und
   try {
     const lang =
       detected.manuscriptLang?.status === "detected" ? detected.manuscriptLang.value : "en";
-    let isWord: ((w: string) => boolean) | null = null;
-    if (lang === "en") {
-      const us = getWordValidator("en", { englishDialect: "american" });
-      const gb = getWordValidator("en", { englishDialect: "british" });
-      if (us || gb) isWord = (w) => !!(us?.(w) || gb?.(w));
-    } else {
-      isWord = getWordValidator(lang);
-    }
+    // The SAME question the speller asks, from the same module. These two
+    // used to build their own validators and disagree: the harvest accepted
+    // en_US OR en_GB, the speller only en_US, and every word in the gap
+    // (Tobias, Anima, Scarface, barque) was unprotected here and a
+    // misspelling there. See wordKnowledge.ts.
+    const declared =
+      detected.englishDialect?.status === "detected"
+        ? detected.englishDialect.value
+        : "american";
+    const isWord = isWordAnywhere(lang, declared);
     return harvestLexicon(md, { lang, isWord });
   } catch (err) {
     console.warn("[lexicon] harvest failed:", err);
