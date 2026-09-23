@@ -180,6 +180,144 @@ export const CONFUSABLE_PATTERNS: readonly ConfusablePattern[] = [
     note: 'Efter en artikel er det "mand", ikke pronominet "man".',
     planted: "Der stod en man ved døren.",
   },
+  // ── og / at — the error Danish style guides lead with ──
+  {
+    id: "da-lide-og",
+    lang: "da",
+    source: `\\b(?:lide|lyst til)\\s+og\\s+${DA_INFINITIVE}\\b`,
+    wrong: "og",
+    right: "at",
+    note: 'Infinitiv styres af "at", ikke "og".',
+    planted: "Jeg kan godt lide og læse bøger om aftenen.",
+  },
+  {
+    id: "da-for-og",
+    lang: "da",
+    source: `\\bfor\\s+og\\s+${DA_INFINITIVE}\\b`,
+    wrong: "og",
+    right: "at",
+    note: 'Hensigt udtrykkes med "for at".',
+    planted: "Han gik ud for og hente vand ved brønden.",
+  },
+  {
+    id: "da-verb-og",
+    lang: "da",
+    // Inflected forms only: a bare stem like "forsøg" is also a noun, and
+    // "et sidste Forsøg og skrive" matched when stems were listed.
+    source: `\\b(?:begynder|begyndte|prøver|prøvede|forsøger|forsøgte|nægter|nægtede|lover|lovede|beslutter|besluttede|glemmer|glemte|husker|huskede|ønsker|ønskede|lærer|lærte)\\s+og\\s+${DA_INFINITIVE}\\b`,
+    wrong: "og",
+    right: "at",
+    note: 'Disse verber styrer infinitiv med "at".',
+    planted: "Han begyndte og græde ved bordet.",
+  },
+  // ── end / en ──
+  {
+    id: "da-komparativ-en",
+    lang: "da",
+    // Narrowed to a following PRONOUN: "snarere en Grød" and "større en Dag"
+    // are a comparative plus an article and perfectly correct.
+    source:
+      "\\b(?:mere|mindre|bedre|værre|større|hurtigere|langsommere|ældre|yngre|højere|lavere|flere|færre|anderledes)\\s+en\\s+(?:jeg|du|han|hun|vi|de|mig|dig|ham|hende|os|jer|dem|sin|sit|sine|min|din|hans|hendes|vores|deres)\\b",
+    wrong: "en",
+    right: "end",
+    note: 'Sammenligning bruger "end".',
+    planted: "Han var større en ham.",
+  },
+  // ── hver / vær / værd ──
+  {
+    id: "da-vaer-gang",
+    lang: "da",
+    source:
+      "\\b(?:vær|værd)\\s+(?:gang|dag|uge|måned|morgen|aften|nat|time|år)\\b",
+    wrong: "vær",
+    right: "hver",
+    note: '"hver gang", ikke "vær gang".',
+    planted: "Vær gang han kom, sang hun for ham.",
+  },
+  {
+    id: "da-hver-saa-god",
+    lang: "da",
+    source: "\\bhver\\s+så\\s+(?:god|venlig|artig)\\b",
+    wrong: "hver",
+    right: "vær",
+    note: '"vær så god" er imperativ af "være".',
+    planted: "Hver så god, sagde hun og rakte ham brødet.",
+  },
+  // ── the three transitive/intransitive pairs ──
+  {
+    id: "da-ligge-maerke",
+    lang: "da",
+    source: "\\bligge\\s+mærke\\s+til\\b",
+    wrong: "ligge",
+    right: "lægge",
+    note: 'Det faste udtryk er "lægge mærke til".',
+    planted: "Han kunne ikke ligge mærke til nogen forskel.",
+  },
+  {
+    id: "da-ligge-objekt",
+    lang: "da",
+    source:
+      "\\b(?:vil|ville|skal|skulle|kan|kunne|må|måtte|at)\\s+ligge\\s+(?:den|det|dem|sig|bogen|hånden|brevet|hovedet)\\b",
+    wrong: "ligge",
+    right: "lægge",
+    note: 'Med objekt er verbet "lægge"; "ligge" er intransitivt.',
+    planted: "Han ville ligge bogen på bordet ved vinduet.",
+  },
+  {
+    id: "da-sidde-objekt",
+    lang: "da",
+    source:
+      "\\b(?:vil|ville|skal|skulle|kan|kunne|må|måtte|at)\\s+sidde\\s+(?:den|det|dem|sig|barnet|koppen|kanden)\\b",
+    wrong: "sidde",
+    right: "sætte",
+    note: 'Med objekt er verbet "sætte"; "sidde" er intransitivt.',
+    planted: "Han ville sidde koppen på bordet ved vinduet.",
+  },
+  {
+    id: "da-staa-objekt",
+    lang: "da",
+    source:
+      "\\b(?:vil|ville|skal|skulle|kan|kunne|må|måtte|at)\\s+stå\\s+(?:den|det|dem|bogen|flasken|kurven)\\b",
+    wrong: "stå",
+    right: "stille",
+    note: 'Med objekt er verbet "stille"; "stå" er intransitivt.',
+    planted: "Han ville stå flasken ind i skabet igen.",
+  },
+  // ── nogen / nogle ──
+  {
+    id: "da-nogen-gange",
+    lang: "da",
+    source: "\\bnogen\\s+gange\\b",
+    wrong: "nogen",
+    right: "nogle",
+    note: 'Flertal tager "nogle".',
+    planted: "Han kom nogen gange om ugen.",
+  },
+  // ── mand / man ──
+  {
+    id: "da-mand-modal",
+    lang: "da",
+    source:
+      "(?:^|(?<=[.!?]\\s)|(?<=\\n))[Mm]and\\s+(?:kan|skal|vil|må|bør|ved|siger)\\b",
+    wrong: "mand",
+    right: "man",
+    note: 'Uden artikel er det pronominet "man".',
+    planted: "Mand kan ikke vide det på forhånd.",
+  },
+  // ── ad / af ──
+  {
+    id: "da-hen-ned-af",
+    lang: "da",
+    // Only these motion phrases. "ud af døren" is deliberately NOT here:
+    // prescriptive Danish wants "ud ad", but "ud af" is ordinary usage and
+    // the pattern fired four times on the corpus.
+    source:
+      "\\b(?:hen|ned)\\s+af\\s+(?:vejen|gaden|trappen|bakken|stien|gangen)\\b",
+    wrong: "af",
+    right: "ad",
+    note: 'Bevægelse langs noget tager "ad".',
+    planted: "Han gik ned af trappen.",
+  },
   {
     id: "da-til-bage",
     lang: "da",
@@ -188,6 +326,24 @@ export const CONFUSABLE_PATTERNS: readonly ConfusablePattern[] = [
     right: "tilbage",
     note: '"tilbage" skrives i ét ord.',
     planted: "Han kom til bage om aftenen.",
+  },
+  {
+    id: "da-i-saer",
+    lang: "da",
+    source: "\\bi\\s+sær\\b",
+    wrong: "i sær",
+    right: "især",
+    note: '"især" skrives i ét ord.',
+    planted: "Det gjaldt i sær om vinteren.",
+  },
+  {
+    id: "da-al-tid",
+    lang: "da",
+    source: "\\bal\\s+tid\\b",
+    wrong: "al tid",
+    right: "altid",
+    note: '"altid" skrives i ét ord.',
+    planted: "Han var al tid træt om morgenen.",
   },
 ];
 

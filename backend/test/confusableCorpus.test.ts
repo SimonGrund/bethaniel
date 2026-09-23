@@ -83,3 +83,23 @@ test("the English table is silent on 203,000 words of clean prose", { skip: en.l
     .join(" ");
   assert.equal(total, 0, `English patterns fired on clean prose — ${detail}`);
 });
+
+// Danish. Weaker evidence than the English row above — the only
+// public-domain Danish is 19th/early-20th century — but it is what killed
+// three candidate patterns during design, so it is worth running.
+//
+// One pattern is expected to fire: da-i-saer hits 4 times, all archaic
+// ("i sær indre Bevægelse", and a line of 17th-century spelling from Leonora
+// Christina). In modern Danish "i sær" is an error, so it is kept and the
+// hits are allowed for by name rather than by raising a global threshold.
+const DA_ALLOWED: Record<string, number> = { "da-i-saer": 4 };
+
+test("the Danish table is silent on 333,455 words, bar the archaic i sær", { skip: da.length < 6 }, () => {
+  const offenders: string[] = [];
+  for (const p of CONFUSABLE_PATTERNS.filter((x) => x.lang === "da")) {
+    const n = hitsFor(p.id, da);
+    const allowed = DA_ALLOWED[p.id] ?? 0;
+    if (n > allowed) offenders.push(`${p.id}: ${n} hits (allowed ${allowed})`);
+  }
+  assert.deepEqual(offenders, [], offenders.join("; "));
+});

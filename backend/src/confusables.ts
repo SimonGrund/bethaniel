@@ -109,6 +109,9 @@ export const CONFUSABLE_SETS_BY_LANG: Readonly<
   Record<string, readonly (readonly string[])[]>
 > = {
   da: [
+    // The error Danish style guides lead with, and LanguageTool catches none
+    // of it — measured 0/4 on the canonical Danish confusions.
+    ["mand", "man"],
     // The two that Danish style guides lead with.
     ["nogen", "nogle"],
     ["ad", "af"],
