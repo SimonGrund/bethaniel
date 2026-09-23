@@ -302,6 +302,22 @@ interface AppState {
   decideCorrection: (taskId: string, correctionId: string, action: "accept" | "dismiss") => void;
   /** Take back the last answer — of the given tasks, when a set is given. */
   undoDecision: (taskIds?: string[]) => { taskId: string; correctionId: string } | null;
+  /**
+   * Give a fix-less finding the replacement the author typed.
+   *
+   * A finding reported with no guess ("spell-check-unknown") has
+   * corrected === original, so there is nothing to accept — accepting it
+   * would change nothing. This is how the author supplies the word
+   * themselves: the correction is amended in place and accepted, so
+   * applyAccepted splices it on export like any other.
+   */
+  amendCorrection: (taskId: string, correctionId: string, corrected: string) => void;
+  /**
+   * Withdraw every fix-less finding for one word, across every task in this
+   * review — what "add to dictionary" means in the moment. The word is the
+   * author's; saying so once should not have to be said again per chapter.
+   */
+  dismissFindingsForWord: (word: string) => void;
   acceptCorrection: (taskId: string, correctionId: string) => void;
   unacceptCorrections: (taskId: string, correctionIds: string[]) => void;
   dismissCorrection: (taskId: string, correctionId: string) => void;
@@ -816,6 +832,51 @@ export const useStore = create<AppState>()(
               [taskId]: new Set<string>(),
             },
           };
+        }),
+      amendCorrection: (taskId, correctionId, corrected) =>
+        set((state) => {
+          const task = state.tasks[taskId];
+          if (!task?.result) return state;
+          const corrections = task.result.corrections.map((c) =>
+            c.id === correctionId
+              ? // The reason changes with it: this is no longer a word
+                // reported without a guess, it is the author's own fix.
+                { ...c, corrected, reason: "author-correction", flagged: false }
+              : c,
+          );
+          const accepted = new Set(state.acceptedCorrections[taskId] ?? []);
+          accepted.add(correctionId);
+          return {
+            tasks: {
+              ...state.tasks,
+              [taskId]: { ...task, result: { ...task.result, corrections } },
+            },
+            acceptedCorrections: {
+              ...state.acceptedCorrections,
+              [taskId]: accepted,
+            },
+          };
+        }),
+      dismissFindingsForWord: (word) =>
+        set((state) => {
+          const target = word.trim().toLowerCase();
+          if (!target) return state;
+          const tasks = { ...state.tasks };
+          let touched = false;
+          for (const [tid, task] of Object.entries(state.tasks)) {
+            if (!task.result) continue;
+            const corrections = task.result.corrections.filter(
+              (c) =>
+                !(
+                  c.corrected === c.original &&
+                  c.original.trim().toLowerCase() === target
+                ),
+            );
+            if (corrections.length === task.result.corrections.length) continue;
+            touched = true;
+            tasks[tid] = { ...task, result: { ...task.result, corrections } };
+          }
+          return touched ? { tasks } : state;
         }),
       toggleCorrection: (taskId, correctionId) =>
         set((state) => {

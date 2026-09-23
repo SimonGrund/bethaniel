@@ -9974,3 +9974,102 @@ summary.review-source::before {
     display: none;
   }
 }
+
+/* ── A finding neither the dictionaries nor the model could fix ──
+   The base .correction-card is a flex row built around a diff and a
+   checkbox. This one has neither: nothing is proposed, so there is nothing to
+   accept, and the card is a small form instead — the word, where it sits, and
+   the two things the author can actually do about it. */
+.correction-card--unfixable {
+  display: block;
+  cursor: default;
+  border-left-color: #8a6d1f;
+  background: #fdf9ec;
+}
+
+.unfixable-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.unfixable-word {
+  font-weight: 600;
+  font-size: 1.15rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.unfixable-badge {
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6b5518;
+  background: #f2e6c4;
+  border: 1px solid #ddc98d;
+  border-radius: 2px;
+  padding: 0.05rem 0.35rem;
+}
+
+.unfixable-count {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: #6b6455;
+}
+
+.unfixable-context {
+  margin: 0.35rem 0 0;
+  font-size: 0.98rem;
+  color: #4a4335;
+}
+
+.unfixable-context mark {
+  background: #f4e3ad;
+  padding: 0 0.1rem;
+}
+
+.unfixable-why {
+  margin: 0.4rem 0 0.55rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #6b6455;
+}
+
+.unfixable-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.unfixable-correct {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.unfixable-correct label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+  color: #4a4335;
+}
+
+.unfixable-correct input {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 2px;
+  background: #fffdf7;
+  min-width: 9rem;
+}
+
+.unfixable-correct input:focus {
+  outline: 2px solid #b9a06a;
+  outline-offset: 1px;
+}

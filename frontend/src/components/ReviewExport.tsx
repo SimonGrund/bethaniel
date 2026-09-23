@@ -366,6 +366,112 @@ export function VerdictBadge({
   );
 }
 
+/**
+ * A finding neither the dictionaries nor the model could fix.
+ *
+ * Accept and dismiss make no sense here: the correction proposes nothing, so
+ * accepting it would change the text not at all and dismissing it would throw
+ * away a real finding. What the author actually wants is one of two things —
+ * to say the word is theirs, or to supply the correction themselves.
+ *
+ * "Add to dictionary" does both halves of the first: the word joins the
+ * document's names & terms list (so future runs leave it alone) and every
+ * other fix-less finding for the same word in this review is withdrawn. Saying
+ * "that's my word" once should not have to be said again per chapter.
+ */
+function UnfixableCard({
+  correction,
+  originalText,
+  onAddToDictionary,
+  onCorrectTo,
+  readOnly,
+}: {
+  correction: Correction;
+  originalText?: string;
+  onAddToDictionary: (word: string) => void;
+  onCorrectTo: (fix: string) => void;
+  readOnly?: boolean;
+}) {
+  const lang = useStore((s) => s.lang);
+  const t = useTranslation(lang);
+  const [fix, setFix] = useState("");
+  const word = correction.original.trim();
+
+  const occurrences = originalText
+    ? findAllOccurrences(originalText, correction.original)
+    : [];
+  const context =
+    originalText && occurrences.length > 0
+      ? extractSentenceContext(correction.original, originalText, occurrences[0])
+      : null;
+
+  const submit = () => {
+    const value = fix.trim();
+    if (!value || value === word) return;
+    onCorrectTo(value);
+  };
+
+  return (
+    <div className="correction-card correction-card--unfixable">
+      <div className="unfixable-head">
+        <span className="unfixable-word">{word}</span>
+        <span className="unfixable-badge">{t("unfixable_label")}</span>
+        {occurrences.length > 1 && (
+          <span className="unfixable-count">×{occurrences.length}</span>
+        )}
+      </div>
+
+      {context && (
+        <div className="unfixable-context">
+          {context.before}
+          <mark>{word}</mark>
+          {context.after}
+        </div>
+      )}
+
+      <p className="unfixable-why">{t("unfixable_why")}</p>
+
+      {!readOnly && (
+        <div className="unfixable-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => onAddToDictionary(word)}
+            title={t("unfixable_add_hint")}
+          >
+            {t("unfixable_add_to_dictionary")}
+          </button>
+          <span className="unfixable-correct">
+            <label>
+              {t("unfixable_correct_to")}
+              <input
+                type="text"
+                value={fix}
+                placeholder={word}
+                onChange={(e) => setFix(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!fix.trim() || fix.trim() === word}
+              onClick={submit}
+            >
+              {t("unfixable_apply")}
+            </button>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CorrectionCard({
   correction,
   taskId,
@@ -1767,6 +1873,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     acceptAllJob,
     acceptCorrection,
     dismissCorrection,
+    amendCorrection,
     toggleOccurrence,
     minorBreakStyle,
     setMinorBreakStyle,
@@ -1939,6 +2046,43 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     if (lexicon) putLexicon(docId, lexicon).catch(() => {});
     setToast({ msg: t("lexicon_added_toast").replace("{term}", term), kind: "dismiss" });
   };
+  /**
+   * "Add to dictionary", from a fix-less finding.
+   *
+   * Two halves, and the second is the one that matters in the moment: the word
+   * joins the document's list so future runs leave it alone, AND every other
+   * fix-less finding for the same word in this review is withdrawn. Saying
+   * "that is my word" once should not have to be said again per chapter.
+   */
+  const addWordToDictionary = (word: string) => {
+    const before = countUnfixableFor(word);
+    addTermToLexicon(word);
+    useStore.getState().dismissFindingsForWord(word);
+    setToast({
+      msg: t("unfixable_added_toast")
+        .replace("{term}", word)
+        .replace("{n}", String(before)),
+      kind: "dismiss",
+    });
+  };
+
+  /** How many fix-less findings this review holds for one word. */
+  const countUnfixableFor = (word: string): number => {
+    const target = word.trim().toLowerCase();
+    let n = 0;
+    for (const task of Object.values(useStore.getState().tasks)) {
+      for (const c of task.result?.corrections ?? []) {
+        if (
+          c.corrected === c.original &&
+          c.original.trim().toLowerCase() === target
+        ) {
+          n++;
+        }
+      }
+    }
+    return n;
+  };
+
   const lexiconOfferFor = (fromTid: string, c: Correction): string | null => {
     const state = useStore.getState();
     const task = state.tasks[fromTid];
@@ -4525,6 +4669,40 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               result.originalText,
                               c.original,
                             ).length;
+                            // A finding that proposes nothing. Accept and
+                            // dismiss are both wrong for it — see UnfixableCard.
+                            if (c.corrected === c.original) {
+                              return (
+                                <UnfixableCard
+                                  key={c.id ?? i}
+                                  correction={c}
+                                  originalText={result.originalText}
+                                  // Interactive even on a scan job, where
+                                  // every other card is a report. The
+                                  // read-only rule is there because scan
+                                  // findings are not a worklist — but this
+                                  // card offers no accept or dismiss either
+                                  // way. Its two actions are a dictionary
+                                  // edit, which governs FUTURE runs, and the
+                                  // author's own fix. Both mean something in
+                                  // a report, and the readthrough is where a
+                                  // word no dictionary knows matters most.
+                                  onAddToDictionary={(word) =>
+                                    addWordToDictionary(word)
+                                  }
+                                  onCorrectTo={(fix) => {
+                                    if (!c.id) return;
+                                    amendCorrection(tid, c.id, fix);
+                                    setToast({
+                                      msg: t("unfixable_corrected_toast")
+                                        .replace("{term}", c.original.trim())
+                                        .replace("{fix}", fix),
+                                      kind: "accept",
+                                    });
+                                  }}
+                                />
+                              );
+                            }
                             return (
                               <CorrectionCard
                                 key={c.id ?? i}

@@ -3319,6 +3319,58 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Mögliche Kürzung",
     es: "Posible truncamiento",
   },
+  // ── A finding reported with no fix ──
+  // Neither the dictionaries nor the model could suggest a replacement, so
+  // there is nothing to accept or dismiss. The author either vouches for the
+  // word or supplies the correction themselves.
+  unfixable_label: {
+    en: "No suggestion available",
+    da: "Intet forslag",
+    de: "Kein Vorschlag verf\u00fcgbar",
+    es: "Sin sugerencia disponible",
+  },
+  unfixable_why: {
+    en: "No dictionary recognises this word, and no replacement could be suggested. Either it is yours, or type the correction.",
+    da: "Ingen ordbog kender dette ord, og der kunne ikke foresl\u00e5s en erstatning. Ordet er enten dit eget, eller du kan skrive rettelsen.",
+    de: "Kein W\u00f6rterbuch kennt dieses Wort, und es konnte kein Ersatz vorgeschlagen werden. Entweder ist es Ihres, oder Sie geben die Korrektur ein.",
+    es: "Ning\u00fan diccionario reconoce esta palabra y no se pudo sugerir un reemplazo. O es tuya, o escribe la correcci\u00f3n.",
+  },
+  unfixable_add_to_dictionary: {
+    en: "Add to dictionary",
+    da: "Tilf\u00f8j til ordbog",
+    de: "Zum W\u00f6rterbuch hinzuf\u00fcgen",
+    es: "A\u00f1adir al diccionario",
+  },
+  unfixable_add_hint: {
+    en: "Keeps this word everywhere in this review, and in future runs.",
+    da: "Beholder ordet overalt i denne gennemgang og i fremtidige k\u00f8rsler.",
+    de: "Beh\u00e4lt dieses Wort \u00fcberall in dieser Durchsicht und in k\u00fcnftigen L\u00e4ufen.",
+    es: "Mantiene esta palabra en toda esta revisi\u00f3n y en ejecuciones futuras.",
+  },
+  unfixable_correct_to: {
+    en: "Correct to",
+    da: "Ret til",
+    de: "Korrigieren zu",
+    es: "Corregir a",
+  },
+  unfixable_apply: {
+    en: "Apply",
+    da: "Anvend",
+    de: "\u00dcbernehmen",
+    es: "Aplicar",
+  },
+  unfixable_added_toast: {
+    en: "\u201c{term}\u201d added to your dictionary \u2014 {n} finding(s) withdrawn.",
+    da: "\u201c{term}\u201d tilf\u00f8jet til din ordbog \u2014 {n} fund trukket tilbage.",
+    de: "\u201e{term}\u201c zum W\u00f6rterbuch hinzugef\u00fcgt \u2014 {n} Fund(e) zur\u00fcckgezogen.",
+    es: "\u00ab{term}\u00bb a\u00f1adida a tu diccionario: {n} hallazgo(s) retirado(s).",
+  },
+  unfixable_corrected_toast: {
+    en: "\u201c{term}\u201d will be corrected to \u201c{fix}\u201d.",
+    da: "\u201c{term}\u201d bliver rettet til \u201c{fix}\u201d.",
+    de: "\u201e{term}\u201c wird zu \u201e{fix}\u201c korrigiert.",
+    es: "\u00ab{term}\u00bb se corregir\u00e1 a \u00ab{fix}\u00bb.",
+  },
   scan_check_dialect: {
     en: "Dialect consistency",
     da: "Dialektkonsistens",
