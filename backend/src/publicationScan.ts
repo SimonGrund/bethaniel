@@ -1,4 +1,28 @@
 // ── Publication-readiness structural scan ──
+//
+// The quotation checks were scored against two real manuscripts (Rage of the
+// Rule, Path of the Taker, 2026-09-23), and the numbers are the reason the
+// rules below look the way they do.
+//
+//   BEFORE   Rage   5 findings, of 15 genuinely unbalanced paragraphs
+//            Taker  0 findings, of 8
+//            Every miss was a curly opener closed by a STRAIGHT mark, which
+//            the family-only counting could not see at all.
+//
+//   AFTER    Rage   6 balance (2 "does not re-open", 1 never closed,
+//                   3 genuinely unbalanced) + 5 style
+//            Taker  0 balance + 15 style, including an entire Prologue
+//                   typed in straight quotes that no run had ever mentioned
+//
+// Two cases keep the tolerances honest, and both must stay as they are:
+//   - Taker, Chapter Four #83–#89: a story told aloud over seven paragraphs,
+//     each re-opening, the last closing. Silent. A scan that reports this is
+//     worse than the one this replaced.
+//   - Rage, Frontmatter #35/#36 and #38/#39: a quotation closing on the next
+//     paragraph without re-opening. Reported ONCE, in its own words — not as
+//     an unclosed opener plus a stray closer, which is one fault read twice.
+//
+// Read the header of quoteMarks.ts before changing a rule here.
 // Deterministic (no-LLM) whole-manuscript check for obvious assembly flaws:
 // duplicate chapters/blocks, empty or dropped chapters, chapter-numbering gaps,
 // and content cut off mid-sentence (a proxy for a missing page). Mirrors the
@@ -345,6 +369,7 @@ function shapeOf(
  */
 type RunOutcome =
   | { kind: "closed"; resumeAt: number }
+  | { kind: "no-reopen"; resumeAt: number }
   | { kind: "broken"; brokeAt: number };
 
 function runEnd(
@@ -369,6 +394,21 @@ function runEnd(
     }
     // Ran off the end of the chapter, never closed.
     return { kind: "broken", brokeAt: paragraphs.length };
+  }
+  // A quotation that runs into the very next paragraph and closes there
+  // without re-opening. Standard style repeats the opening mark; this does
+  // not, and Rage of the Rule's frontmatter legend does it twice —
+  //
+  //   “This era we call the Old Wars, …
+  //   As a last act, … letting the sea separate the land into islands.”
+  //
+  // Recognised as a run rather than left to the broken path, because that
+  // reported ONE quotation twice: the opener as unclosed and the closer as a
+  // stray. The closer is not independently wrong. It is still reported, once
+  // and in its own words — the shape is non-standard, and an author who does
+  // it by accident should hear so.
+  if (nextShape.opens === 0 && nextShape.closes === 1) {
+    return { kind: "no-reopen", resumeAt: opener + 2 };
   }
   // Block quotation: one opening mark where it starts — which may sit
   // mid-paragraph, "The page read: “This era…" — nothing on the paragraphs
@@ -417,12 +457,19 @@ function runEnd(
  * resumes at the paragraph that BROKE it, so one defect never hides the next
  * and a run that never closed is one finding rather than one per paragraph.
  */
+/** A paragraph the balance check wants to say something about, and which of
+ *  the two things it has to say. */
+interface QuoteRunFinding {
+  excerpt: string;
+  kind: "unbalanced" | "no-reopen";
+}
+
 function unbalancedParagraphs(
   body: string,
   convention: QuoteConvention,
-): string[] {
+): QuoteRunFinding[] {
   const paragraphs = body.split(/\n\n+/);
-  const out: string[] = [];
+  const out: QuoteRunFinding[] = [];
   let i = 0;
   while (i < paragraphs.length) {
     const shape = shapeOf(paragraphs[i], convention);
@@ -434,7 +481,7 @@ function unbalancedParagraphs(
     // More than one unmatched mark, or an unmatched CLOSING mark: a defect
     // that no multi-paragraph convention explains. Report and move on.
     if (shape.balance !== 1) {
-      out.push(excerptOf(paragraphs[i]));
+      out.push({ excerpt: excerptOf(paragraphs[i]), kind: "unbalanced" });
       i++;
       continue;
     }
@@ -443,7 +490,7 @@ function unbalancedParagraphs(
     const opener = i;
     const next = paragraphs[i + 1];
     if (next === undefined) {
-      out.push(excerptOf(paragraphs[opener]));
+      out.push({ excerpt: excerptOf(paragraphs[opener]), kind: "unbalanced" });
       break;
     }
     const outcome = runEnd(
@@ -453,8 +500,13 @@ function unbalancedParagraphs(
       shape,
       shapeOf(next, convention),
     );
+    if (outcome.kind === "no-reopen") {
+      out.push({ excerpt: excerptOf(paragraphs[opener]), kind: "no-reopen" });
+      i = outcome.resumeAt;
+      continue;
+    }
     if (outcome.kind === "broken") {
-      out.push(excerptOf(paragraphs[opener]));
+      out.push({ excerpt: excerptOf(paragraphs[opener]), kind: "unbalanced" });
       // Resume at the paragraph that broke the run, not at the one after the
       // opener: everything in between belonged to the quotation that was
       // never closed, and reading it again would report one missing mark
@@ -494,7 +546,7 @@ function findTruncation(
     // Unbalanced quotes hint at a mid-scene cut or a mistyped closing mark.
     // Reported WITH the passage: the chapter name alone gives the author no way
     // to check whether the finding is real.
-    for (const excerpt of unbalancedParagraphs(body, convention)) {
+    for (const { excerpt, kind } of unbalancedParagraphs(body, convention)) {
       // A duplicated tag drags a stray ” along with it. findRepetitions has
       // already named that paragraph, and named it correctly; reporting the
       // symptom underneath is what buried the real finding.
@@ -503,7 +555,10 @@ function findTruncation(
         check: "truncation",
         severity: "info",
         location: u.name,
-        message: `Unbalanced quotation marks — a line of dialogue may be unclosed: "${excerpt}"`,
+        message:
+          kind === "no-reopen"
+            ? `Quotation continues into the next paragraph without re-opening — standard style repeats the opening mark: "${excerpt}"`
+            : `Unbalanced quotation marks — a line of dialogue may be unclosed: "${excerpt}"`,
       });
     }
   }

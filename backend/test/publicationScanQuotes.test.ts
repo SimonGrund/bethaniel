@@ -258,3 +258,50 @@ test("a straight closing mark balances the paragraph", () => {
   const found = quoteFindings(['“But—"', "“I know the dangers,” he said."]);
   assert.equal(found.length, 0);
 });
+
+// ── A quotation that closes without re-opening ──
+//
+// From Rage of the Rule's frontmatter legend, which does it twice. Standard
+// style repeats the opening mark on the second paragraph. Left to the broken
+// path this reported ONE quotation twice — the opener as unclosed and the
+// closer as a stray — and the closer is not independently wrong.
+
+function allQuoteFindings(paragraphs: string[]) {
+  const body = [FILLER, ...paragraphs, FILLER].join("\n\n");
+  return scan(body).findings.filter(
+    (f) =>
+      f.check === "truncation" && /quotation|Unbalanced/i.test(f.message),
+  );
+}
+
+test("a quotation that closes without re-opening is reported once", () => {
+  const found = allQuoteFindings([
+    "“This era we call the Old Wars, and it brought us to the brink.",
+    "As a last act, they tore the world into pieces, letting the sea in.”",
+    "The whole world shook as vast masses of land broke free.",
+  ]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /without re-opening/);
+  assert.match(found[0].message, /This era we call/);
+});
+
+test("its closing paragraph is not reported as a stray as well", () => {
+  const found = allQuoteFindings([
+    "“This era we call the Old Wars, and it brought us to the brink.",
+    "As a last act, they tore the world into pieces, letting the sea in.”",
+  ]);
+  assert.equal(found.length, 1);
+  assert.doesNotMatch(found[0].message, /As a last act/);
+});
+
+test("it does not forgive a quotation that never closes at all", () => {
+  // Rage's frontmatter #41: six paragraphs of narration follow and no
+  // closing mark ever arrives.
+  const found = allQuoteFindings([
+    "“Ages passed in peace. We kept our promise and our distance.",
+    "However, the powers seeped back among the Drylanders in time.",
+    "Finally, two thousand years ago, a pair of siblings emerged.",
+  ]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /may be unclosed/);
+});
