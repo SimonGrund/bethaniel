@@ -658,6 +658,20 @@ export function gateProtectedTerms(
 
   for (const c of corrections) {
     let hit: string | null = null;
+    // A correction that proposes NOTHING — "report the word, withhold the
+    // guess" sets corrected === original — changes no token, so the
+    // deletion-side scan below has nothing to look at and would keep it. But
+    // the lexicon is the author saying "this is my word", and telling them
+    // afterwards that no dictionary recognises it is precisely the noise the
+    // list exists to stop. Dropped, and handed back with the term, so it is
+    // listed as left alone rather than vanishing.
+    if (c.original === c.corrected) {
+      const term = protectedIn(c.original.trim(), words);
+      if (term) {
+        dropped.push({ correction: c, term });
+        continue;
+      }
+    }
     const { del, ins } = changed(c);
     for (const d of del) {
       const term = protectedIn(d, words);

@@ -37,6 +37,30 @@
 // from ISO-8859-1 to UTF-8 (SET line included) rather than decoded at load.
 // Every bundled dictionary is now UTF-8.
 
+// MEASURED on two real manuscripts (2026-09-23).
+//
+//   BEFORE  one-off typos caught          196/200 and 194/200
+//           typos repeated 3+ times       0 — harvested as coinages, and
+//                                         gateProtectedTerms then deleted the
+//                                         corrections
+//           corrections reaching author   73 and 52, EVERY one carrying a
+//                                         replacement, of which ~2 were
+//                                         genuine typos
+//           worst finding                 "Tobias" (610 occurrences)
+//                                         -> "To bias"
+//
+//   AFTER   one-off typos caught          >= 97% (pinned, spellRecall.test.ts)
+//           typos repeated 3, 5, 10 times caught every time
+//           corrections reaching author   65 and 49 — but only 16 and 11
+//                                         carry a replacement. The rest are
+//                                         reported with no guess attached,
+//                                         which is the damaging half removed.
+//           "To bias"                     never proposed
+//
+// The tests that hold this are spellRecall.test.ts (recall, by injection) and
+// spellChunkIndependence.test.ts (the same findings at any chunk size, which
+// is what makes two runs over one text agree).
+
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";

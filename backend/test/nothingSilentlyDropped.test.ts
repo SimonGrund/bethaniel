@@ -58,3 +58,41 @@ test("an editor's quote-style-only change is still dropped", () => {
     [],
   );
 });
+
+// ── The one place a finding SHOULD be withdrawn ──
+
+test("a withheld guess on the author's own word is dropped, and listed", async () => {
+  // The lexicon is the author saying "this is my word". Telling them
+  // afterwards that no dictionary recognises it is the noise the list exists
+  // to stop. It is handed back with the term, so the review screen lists it
+  // as left alone rather than making it vanish.
+  const { gateProtectedTerms } = await import("../src/lexicon.ts");
+  const res = gateProtectedTerms(
+    [
+      {
+        original: "warhammer",
+        corrected: "warhammer",
+        reason: "spell-check-unknown",
+      } as never,
+    ],
+    { words: ["warhammer"], phrases: [] },
+  );
+  assert.equal(res.kept.length, 0);
+  assert.equal(res.dropped.length, 1, "listed, not vanished");
+  assert.equal(res.dropped[0].term, "warhammer");
+});
+
+test("a withheld guess on a word the author has NOT vouched for survives", async () => {
+  const { gateProtectedTerms } = await import("../src/lexicon.ts");
+  const res = gateProtectedTerms(
+    [
+      {
+        original: "barque",
+        corrected: "barque",
+        reason: "spell-check-unknown",
+      } as never,
+    ],
+    { words: ["warhammer"], phrases: [] },
+  );
+  assert.equal(res.kept.length, 1);
+});
