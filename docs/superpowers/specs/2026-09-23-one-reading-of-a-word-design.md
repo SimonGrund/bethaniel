@@ -227,18 +227,39 @@ No dictionary catches `form` for `from`, `their` for `there`, `mand` for
 `man`. Both members are words. The existing coverage is two layers, and
 neither is sufficient.
 
-**LanguageTool**, measured against planted sentences on the bundled jar:
+**LanguageTool**, measured on the bundled jar against planted sentences —
+twice, once through raw `/v2/check` and once through the app's own
+`checkText`, which agree:
 
 | | caught |
 |---|---|
-| English | 6 / 12 |
+| English | 6 / 12 and 6 / 10 |
 | Danish | **0 / 4** |
 
-Caught: `their is`, `new`/`knew`, `here`/`hear`, `its`/`it's`, `then`/`than`,
-`were`/`where`. Missed: `there`→`their`, `form`→`from` (both sentences),
-`quite`→`quiet`, `weather`→`whether`, `past`→`passed`. The Danish misses are
-the canonical four — `man`/`mand`, `mand`/`man`, `ligge`/`lægge`,
-`nogen`/`nogle` — so a Danish author gets essentially nothing here.
+Reliably caught: `their is`, `new`/`knew`, `here`/`hear`, `its`/`it's`,
+`then`/`than`, `were`/`where`. Never caught: `form`→`from` (three different
+sentences), `weather`→`whether`, `past`→`passed`.
+
+**The coverage is patchy per sentence, not per pair**, which matters more
+than the ratio:
+
+```
+"on there own shelf"       CAUGHT      "left there boots on the deck"   missed
+"too quite"                CAUGHT      "very quite"                      missed
+```
+
+A rule set that catches one phrasing of an error and not another cannot be
+reasoned about from the pair alone, and that is the argument for adding
+deterministic patterns beside it rather than tuning it.
+
+One caution for whoever measures this next: LanguageTool returns a match for
+`"The ship past the harbour at dawn."` — but the match is `harbour` →
+`harbor`, a dialect hit, not `past` → `passed`. Counting "any match" as a
+catch scores this 7/10 instead of 6/10. Check what the match actually says.
+
+The Danish misses are the canonical four — `man`/`mand`, `mand`/`man`,
+`ligge`/`lægge`, `nogen`/`nogle` — so a Danish author gets essentially
+nothing here.
 
 **`confusables.ts`** detects sets deterministically but only ever builds a
 hint block appended to the LLM prompt (`queue.ts:2031`). Whether the error is
@@ -264,8 +285,8 @@ pattern            planted  rage  taker
 form-det           yes      0     1     form → from
 weather-or-not     yes      0     0     weather → whether
 intensifier-quite  yes      0     0     quite → quiet
-there-own          yes      0     0     there → their
-their-be           yes      0     0     their → there
+there-own          yes      0     0     there → their   (also caught by LT)
+their-be           yes      0     0     their → there   (also caught by LT)
 modal-of           yes      0     0     of → have
 loose-verb         yes      0     0     loose → lose
 its-a              yes      0     0     its → it's
@@ -275,7 +296,13 @@ da-mand-modal      yes      0     0     mand → man
 
 The single hit is a genuine false positive — *"couldn't form the words"*,
 `form` as a verb — and is excluded by requiring that `form` not follow a
-modal or auxiliary. These run in the `proofread` task beside the retext
+modal or auxiliary.
+
+Two of the ten overlap LanguageTool (`there-own`, `their-be`) and one
+partially (`intensifier-quite`: LT catches `too quite`, not `very quite`).
+They are kept regardless — they cost nothing, they fire zero times on clean
+prose, and they hold when LanguageTool is absent, which it is whenever Java
+or the jar is missing (`languageToolServer.ts` degrades to a no-op). These run in the `proofread` task beside the retext
 checks, and because they are deterministic they behave identically on every
 run.
 
