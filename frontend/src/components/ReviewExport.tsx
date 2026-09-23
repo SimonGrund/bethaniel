@@ -415,7 +415,9 @@ function UnfixableCard({
     <div className="correction-card correction-card--unfixable">
       <div className="unfixable-head">
         <span className="unfixable-word">{word}</span>
-        <span className="unfixable-badge">{t("unfixable_label")}</span>
+        <span className="unfixable-badge">
+          {readOnly ? t("unfixable_label_scan") : t("unfixable_label")}
+        </span>
         {occurrences.length > 1 && (
           <span className="unfixable-count">×{occurrences.length}</span>
         )}
@@ -429,7 +431,9 @@ function UnfixableCard({
         </div>
       )}
 
-      <p className="unfixable-why">{t("unfixable_why")}</p>
+      <p className="unfixable-why">
+        {readOnly ? t("unfixable_why_scan") : t("unfixable_why")}
+      </p>
 
       {!readOnly && (
         <div className="unfixable-actions">
@@ -4677,16 +4681,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                   key={c.id ?? i}
                                   correction={c}
                                   originalText={result.originalText}
-                                  // Interactive even on a scan job, where
-                                  // every other card is a report. The
-                                  // read-only rule is there because scan
-                                  // findings are not a worklist — but this
-                                  // card offers no accept or dismiss either
-                                  // way. Its two actions are a dictionary
-                                  // edit, which governs FUTURE runs, and the
-                                  // author's own fix. Both mean something in
-                                  // a report, and the readthrough is where a
-                                  // word no dictionary knows matters most.
+                                  // A scan is a report: the word is named as
+                                  // an unknown spelling and nothing more. The
+                                  // two actions belong to the copy-edit
+                                  // reviewer, which is where corrections are
+                                  // decided.
+                                  readOnly={isScanJob}
                                   onAddToDictionary={(word) =>
                                     addWordToDictionary(word)
                                   }

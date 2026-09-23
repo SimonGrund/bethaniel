@@ -16,6 +16,10 @@ const LANGS = ["en", "da", "de", "es"] as const;
 
 const KEYS = [
   "unfixable_label",
+  // The scan says only what the word is; the two actions belong to the
+  // copy-edit reviewer, so its wording must not invite a decision.
+  "unfixable_label_scan",
+  "unfixable_why_scan",
   "unfixable_why",
   "unfixable_add_to_dictionary",
   "unfixable_add_hint",
@@ -32,6 +36,14 @@ test("every string the unfixable card renders exists in every language", () => {
     for (const lang of LANGS) {
       assert.ok(entry[lang]?.trim(), `${key} has no ${lang} translation`);
     }
+  }
+});
+
+test("the scan wording does not invite an action it does not offer", () => {
+  for (const lang of LANGS) {
+    const scan = TRANSLATIONS.unfixable_why_scan[lang]!;
+    const interactive = TRANSLATIONS.unfixable_why[lang]!;
+    assert.notEqual(scan, interactive, `${lang} reuses the interactive copy`);
   }
 });
 

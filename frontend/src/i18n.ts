@@ -3329,6 +3329,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Kein Vorschlag verf\u00fcgbar",
     es: "Sin sugerencia disponible",
   },
+  unfixable_label_scan: {
+    en: "Unknown spelling",
+    da: "Ukendt stavem\u00e5de",
+    de: "Unbekannte Schreibweise",
+    es: "Ortograf\u00eda desconocida",
+  },
+  unfixable_why_scan: {
+    en: "No dictionary recognises this word. It may be a name or a term of yours \u2014 or a misspelling. Run a copy edit to decide it.",
+    da: "Ingen ordbog kender dette ord. Det kan v\u00e6re et navn eller en term \u2014 eller en stavefejl. K\u00f8r en korrektur for at afg\u00f8re det.",
+    de: "Kein W\u00f6rterbuch kennt dieses Wort. Es kann ein Name oder Fachbegriff sein \u2014 oder ein Schreibfehler. F\u00fcr die Entscheidung eine Korrektur laufen lassen.",
+    es: "Ning\u00fan diccionario reconoce esta palabra. Puede ser un nombre o un t\u00e9rmino tuyo, o una falta de ortograf\u00eda. Ejecuta una correcci\u00f3n para decidirlo.",
+  },
   unfixable_why: {
     en: "No dictionary recognises this word, and no replacement could be suggested. Either it is yours, or type the correction.",
     da: "Ingen ordbog kender dette ord, og der kunne ikke foresl\u00e5s en erstatning. Ordet er enten dit eget, eller du kan skrive rettelsen.",
