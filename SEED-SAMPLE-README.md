@@ -5,7 +5,13 @@ screens can be looked at without running a model.
 
 ## To see them
 
+**Restart the app if it is already running.** The backend reads finished tasks
+from the database only at startup (`loadTaskStates`, queue.ts) and then serves
+its in-memory copy, so a server that was up before these rows were written
+will not know about them — the run simply does not appear.
+
 ```bash
+pkill -f "tsx src/index.ts"   # only if something is already on :4000
 npm run dev
 ```
 
