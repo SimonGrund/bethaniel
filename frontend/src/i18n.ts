@@ -3389,6 +3389,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dialektkonsistenz",
     es: "Coherencia dialectal",
   },
+  scan_check_quote_style: {
+    en: "Quotation-mark style",
+    da: "Anførselstegnsstil",
+    de: "Anführungszeichen-Stil",
+    es: "Estilo de comillas",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",
@@ -3569,6 +3575,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Britisk",
     de: "Britisch",
     es: "Británico",
+  },
+  opt_quoteStyle: {
+    en: "Quotation marks",
+    da: "Anførselstegn",
+    de: "Anführungszeichen",
+    es: "Comillas",
+  },
+  opt_quoteCurly: {
+    en: "Curly “ ”",
+    da: "Krøllede “ ”",
+    de: "Typografisch “ ”",
+    es: "Tipográficas “ ”",
+  },
+  opt_quoteStraight: {
+    en: 'Straight " "',
+    da: 'Lige " "',
+    de: 'Gerade " "',
+    es: 'Rectas " "',
   },
   opt_oxfordComma: {
     en: "Oxford comma",

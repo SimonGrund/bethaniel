@@ -167,6 +167,9 @@ export interface CopyEditOptions {
   capitalization: boolean;
   duplicateWords: boolean;
   englishDialect: "american" | "british";
+  /** Curly “ ” or straight " ". Both are correct; only inconsistency is an
+   *  error — see backend/src/types.ts and quoteMarks.ts. */
+  quoteStyle: "curly" | "straight";
   oxfordComma: boolean;
   introductoryComma: boolean;
   /** Which Danish comma system the manuscript follows. Danish sanctions two,
@@ -181,6 +184,7 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   capitalization: true,
   duplicateWords: true,
   englishDialect: "american",
+  quoteStyle: "curly",
   oxfordComma: true,
   // Every pass on by default; the manuscript's own detection (detectSettings)
   // still moves the comma conventions to what the book actually does.
@@ -269,6 +273,7 @@ export interface DetectedSettings {
   oxfordComma?: Detection<boolean>;
   introductoryComma?: Detection<boolean>;
   danishComma?: Detection<"grammatisk" | "nyt">;
+  quoteStyle?: Detection<"curly" | "straight">;
 }
 
 export interface DocumentMeta {

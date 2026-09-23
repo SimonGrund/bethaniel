@@ -34,27 +34,40 @@ test("a closing mark typed as an opening one is corrected", () => {
   assert.match(cs[0].corrected, /“Good\.”/);
 });
 
-test("a straight quote in a curly manuscript is left as typed", () => {
-  // Straight or curly is the author's choice, not an error. This used to be
-  // converted, and a book with a few hundred of them got a few hundred
-  // corrections about nothing.
+test("a straight quote in a curly manuscript is normalised", () => {
+  // This test used to assert the opposite, and the reason it did still
+  // stands: a book with a few hundred straight marks got a few hundred
+  // corrections about nothing (a342be5). What changed is that the style is
+  // now DECLARED — read off the manuscript at upload and confirmed by the
+  // author — and that all of these carry reason "quote-style", so the review
+  // screen answers them as one decision instead of a few hundred.
   const text = `${CURLY_CONTEXT}\n\n“I am here to… To save you," Bria finished quietly.`;
-  assert.deepEqual(getQuoteCorrections(text), []);
-  const line = `${CURLY_CONTEXT}\n\n"We can try," Aaron said with a shrug.`;
-  assert.deepEqual(getQuoteCorrections(line), []);
-});
-
-test("a straight mark still counts for alternation, and a wrong-way curly one beside it is fixed", () => {
-  const text = `${CURLY_CONTEXT}\n\n"First," she said.\n\n"Second,“ he replied.`;
   const cs = getQuoteCorrections(text);
   assert.equal(cs.length, 1, JSON.stringify(cs));
+  assert.equal(cs[0].reason, "quote-style");
+  assert.match(cs[0].corrected, /To save you,” Bria finished quietly\./);
+
+  const line = `${CURLY_CONTEXT}\n\n"We can try," Aaron said with a shrug.`;
+  const lineCs = getQuoteCorrections(line);
+  assert.equal(lineCs.length, 1, JSON.stringify(lineCs));
+  assert.match(lineCs[0].corrected, /“We can try,” Aaron said with a shrug\./);
+});
+
+test("a paragraph needing both repairs gets one correction that does both", () => {
+  // `"Second,“` is a straight opener AND a wrong-way closer. Normalising the
+  // straight mark alone would leave `“Second,“` — two openers — and a second
+  // correction over the same paragraph would overlap the first. One pass,
+  // one correction, both faults.
+  const text = `${CURLY_CONTEXT}\n\n"First," she said.\n\n"Second,“ he replied.`;
+  const cs = getQuoteCorrections(text);
+  assert.equal(cs.length, 2, JSON.stringify(cs));
   let applied = text;
   for (const c of cs) {
     assert.ok(applied.includes(c.original), `span lost: ${c.original}`);
     applied = applied.replace(c.original, c.corrected);
   }
-  assert.match(applied, /"First," she said/, "straight marks survive");
-  assert.match(applied, /"Second,” he replied/);
+  assert.match(applied, /“First,” she said/, "normalised to the book's style");
+  assert.match(applied, /“Second,” he replied/);
 });
 
 test("a manuscript written in straight quotes is left alone", () => {
@@ -150,11 +163,78 @@ test("a paragraph needing several marks turned round is left alone", () => {
   assert.deepEqual(getQuoteCorrections(text), []);
 });
 
-test("a paragraph of straight marks in a curly manuscript is not touched at all", () => {
-  // Once, these converted in bulk. Now the style is the author's: nothing
-  // about a straight mark is a fault to fix.
+test("a paragraph of straight marks in a curly manuscript converts in bulk", () => {
+  // Four marks, one correction. Converting in bulk is safe precisely because
+  // the style is not in doubt — and where it IS in doubt (no declared style,
+  // no clear majority) nothing here runs at all.
   const text = `${CURLY_CONTEXT}
 
 "No!" Laura said. "That's what we were told, and I believed it."`;
-  assert.deepEqual(getQuoteCorrections(text), []);
+  const cs = getQuoteCorrections(text);
+  assert.equal(cs.length, 1, JSON.stringify(cs));
+  assert.equal(cs[0].reason, "quote-style");
+  assert.equal(
+    cs[0].corrected,
+    "“No!” Laura said. “That's what we were told, and I believed it.”",
+  );
+});
+
+// ── Normalising to the book's own style ──
+//
+// This was removed in a342be5 ("straight or curly is the author's choice, not
+// an error") because dozens of separate quote corrections read as noise. It
+// comes back because the style is now DECLARED rather than guessed, and
+// because it arrives as one grouped decision — reason "quote-style" — rather
+// than as dozens of independent ones.
+
+const styleCs = (text: string, declared?: "curly" | "straight") =>
+  getQuoteCorrections(text, declared).filter((c) => c.reason === "quote-style");
+
+test("a straight mark in a curly book is normalised", () => {
+  const text = `${"“Yes,” she said. ".repeat(10)}\n\n“But—"`;
+  const cs = styleCs(text);
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].corrected, "“But—”");
+});
+
+test("normalisation changes only quotation marks", () => {
+  const text = `${"“Yes,” she said. ".repeat(10)}\n\n"We can try," she said.`;
+  const cs = styleCs(text);
+  assert.equal(cs.length, 1);
+  assert.equal(cs[0].corrected, "“We can try,” she said.");
+  const strip = (s: string) => s.replace(/["“”]/g, "");
+  assert.equal(strip(cs[0].original), strip(cs[0].corrected));
+});
+
+test("one correction per paragraph, not per mark", () => {
+  const text = `${"“Yes,” she said. ".repeat(10)}\n\n"We can try," she said. "Or not."`;
+  assert.equal(styleCs(text).length, 1);
+});
+
+test("a consistently straight book is left alone", () => {
+  assert.equal(
+    styleCs('"Yes," she said. "No," he answered. "Maybe," they said.').length,
+    0,
+  );
+});
+
+test("an evenly mixed book with no declared style is left alone", () => {
+  const text = `${"“Yes,” she said. ".repeat(5)}${'"No," he said. '.repeat(5)}`;
+  assert.equal(styleCs(text).length, 0);
+});
+
+test("a declared style normalises the same book the other way", () => {
+  const cs = styleCs("“Yes,” she said. ".repeat(10), "straight");
+  assert.ok(cs.length >= 1);
+  assert.match(cs[0].corrected, /"Yes," she said\./);
+});
+
+test("normalisation is pre-approved — there is no judgement to review", () => {
+  const text = `${"“Yes,” she said. ".repeat(10)}\n\n“But—"`;
+  assert.equal(styleCs(text)[0].preApproved, true);
+});
+
+test("apostrophes are never touched", () => {
+  const text = `${"“Yes,” she said. ".repeat(10)}\n\nIt’s Bria’s ‘thing’.`;
+  assert.equal(styleCs(text).length, 0);
 });

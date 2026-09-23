@@ -23,7 +23,8 @@ test("a withheld-guess finding survives the no-op filter", () => {
   assert.equal(kept.length, 1, "the author must still see this word");
 });
 
-test("every deterministic reason survives it", () => {
+test("every deterministic producer's real finding survives it", () => {
+  // A finding that CHANGES something is never dropped, whoever produced it.
   const reasons = [
     "spell-check",
     "spell-check-uncommon",
@@ -36,10 +37,32 @@ test("every deterministic reason survives it", () => {
   ];
   for (const reason of reasons) {
     const kept = dropNoOpCorrections([
-      { original: "a", corrected: "a", reason } as never,
+      { original: "a", corrected: "b", reason } as never,
     ]);
     assert.equal(kept.length, 1, `${reason} was dropped`);
   }
+});
+
+test("a deterministic no-op goes, EXCEPT a withheld guess", () => {
+  // The two cases differ, which is why the filter does not simply keep
+  // anything deterministic. A quote-style correction that changes nothing is
+  // a bug — it would show the author an empty change. A withheld guess that
+  // changes nothing is the finding itself: the word is what is being
+  // reported, and there is deliberately no replacement.
+  for (const reason of ["quote-style", "dialect", "retext:doubled-word"]) {
+    assert.deepEqual(
+      dropNoOpCorrections([{ original: "a", corrected: "a", reason } as never]),
+      [],
+      `${reason} no-op should go`,
+    );
+  }
+  assert.equal(
+    dropNoOpCorrections([
+      { original: "barque", corrected: "barque", reason: "spell-check-unknown" } as never,
+    ]).length,
+    1,
+    "the author must still see the word",
+  );
 });
 
 test("an editor's genuine no-op is still dropped", () => {

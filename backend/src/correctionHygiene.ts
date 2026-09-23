@@ -578,10 +578,21 @@ function normalizeForComparison(s: string): string {
  * A DETERMINISTIC finding is exempt, and that exemption is load-bearing. This
  * filter runs over the WHOLE chapter (queue.ts) and deletes outright —
  * nothing lands in `skipped[]`, so anything it removes the author never sees.
- * That is right for a model returning the text unchanged, and wrong for a
- * withheld guess: "report the word, withhold the guess" sets
- * corrected === original ON PURPOSE, because no replacement is worth
- * proposing for a term the other English knows.
+ * That is right for a model returning the text unchanged, and wrong for two
+ * deterministic producers:
+ *
+ *   - quote-style normalisation (quoteRepair.ts), whose ENTIRE job is the
+ *     difference this filter is built to ignore. It runs only against a style
+ *     the author declared or the manuscript's own clear majority, which is
+ *     what makes it a fix rather than the preference this filter drops;
+ *   - a withheld guess ("report the word, withhold the guess"), where
+ *     corrected === original ON PURPOSE, because no replacement is worth
+ *     proposing for a term the other English knows.
+ *
+ * Those two differ on one point, which is why the test below is not simply
+ * "keep anything deterministic": a quote-style correction that changes
+ * nothing is a bug and still goes, while a withheld guess that changes
+ * nothing is the finding itself.
  *
  * The readthrough is the last check before printing. A finding the author
  * never sees is worse than a noisy one. An LLM's no-op still goes, because
@@ -589,7 +600,8 @@ function normalizeForComparison(s: string): string {
  */
 export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
   return corrections.filter((c) => {
-    if (isDeterministicCorrection(c)) return true;
+    if (c.reason === "spell-check-unknown") return true;
+    if (isDeterministicCorrection(c)) return c.original !== c.corrected;
     return (
       normalizeForComparison(c.original) !== normalizeForComparison(c.corrected)
     );
