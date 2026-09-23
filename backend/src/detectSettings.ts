@@ -13,6 +13,7 @@
 
 import { DIALECT_EVIDENCE } from "./dialect.js";
 import { scoreDialectEvidence } from "./dialectEvidence.js";
+import type { QuoteStyle } from "./quoteMarks.js";
 
 // Re-exported so the settings detectors present one surface to callers and
 // tests, while the word list stays next to the conversion table it filters.
@@ -580,12 +581,42 @@ export function detectDanishComma(md: string): Detection<"grammatisk" | "nyt"> {
  * at all, which is how the UI knows to render no badge rather than an unsure
  * one: Danish comma systems are not a question an English novel can answer.
  */
+/**
+ * Curly or straight quotation marks.
+ *
+ * Counted rather than inferred from anything else: a word processor decides
+ * this as often as an author does, and both answers are correct. What is NOT
+ * correct is a book that is mostly one and occasionally the other, which is
+ * what the publication scan reports and the copy edit offers to normalise —
+ * but only ever to the style the author confirms here.
+ *
+ * Not gated on English, unlike the dialect and comma detectors: a French
+ * novel in guillemets still has a curly-vs-straight answer, and the scan
+ * needs it in every language.
+ */
+export function detectQuoteStyle(md: string): Detection<QuoteStyle> {
+  const text = sampleText(md);
+  const curly = (text.match(/[\u201C\u201D\u201E\u00AB\u00BB]/g) ?? []).length;
+  const straight = (text.match(/"/g) ?? []).length;
+  const sample = curly + straight;
+  // Matches quoteMarks.detectDominantStyle: four marks to judge by, three
+  // quarters to agree. Kept in step deliberately — a setting detected here
+  // and a majority computed there that disagreed would be worse than either.
+  if (sample < 4) return unsure(0, 0, sample);
+  if (curly / sample >= 0.75) return detected("curly", curly, straight, sample);
+  if (straight / sample >= 0.75) {
+    return detected("straight", straight, curly, sample);
+  }
+  return unsure(Math.max(curly, straight), Math.min(curly, straight), sample);
+}
+
 export interface DetectedSettings {
   manuscriptLang?: Detection<ManuscriptLangCode>;
   englishDialect?: Detection<"american" | "british">;
   oxfordComma?: Detection<boolean>;
   introductoryComma?: Detection<boolean>;
   danishComma?: Detection<"grammatisk" | "nyt">;
+  quoteStyle?: Detection<QuoteStyle>;
 }
 
 /**
@@ -601,6 +632,9 @@ export interface DetectedSettings {
 export function detectSettings(md: string): DetectedSettings {
   const manuscriptLang = detectManuscriptLanguage(md);
   const found: DetectedSettings = { manuscriptLang };
+  // Read for every manuscript, not only English ones: a book in guillemets
+  // still has a curly-vs-straight answer, and the scan needs it.
+  found.quoteStyle = detectQuoteStyle(md);
   if (manuscriptLang.status !== "detected") return found;
 
   if (manuscriptLang.value === "en") {

@@ -3,6 +3,7 @@
 // Type-only, so the detectSettings -> dialect -> types cycle (and the
 // lexicon -> types one) is erased at runtime and never becomes a real
 // import cycle.
+import type { QuoteStyle } from "./quoteMarks.js";
 import type { DetectedSettings } from "./detectSettings.js";
 import type { Lexicon, ProtectedTerms } from "./lexicon.js";
 
@@ -52,6 +53,14 @@ export interface CopyEditOptions {
   capitalization: boolean;
   duplicateWords: boolean;
   englishDialect: "american" | "british";
+  /**
+   * The quotation-mark style the manuscript is held to — curly “ ” or
+   * straight " ". Both are correct; only inconsistency is an error. Declared
+   * here rather than decided by majority inside each check, for the same
+   * reason englishDialect is: a 60/40 book would otherwise be normalised
+   * against its author's wishes.
+   */
+  quoteStyle: QuoteStyle;
   oxfordComma: boolean;
   /** Insert a comma after an introductory word/adverb/phrase ("Finally, she…").
    *  Off by default — many fiction authors omit it for flow. */
@@ -89,6 +98,10 @@ export const DEFAULT_COPY_EDIT_OPTIONS: CopyEditOptions = {
   capitalization: true,
   duplicateWords: true,
   englishDialect: "american",
+  // Curly is the default only in the sense that a word processor produces it.
+  // detectQuoteStyle overwrites this from the manuscript itself at upload, and
+  // a book with no clear convention leaves the author to answer.
+  quoteStyle: "curly",
   oxfordComma: true,
   // Every pass on by default; the manuscript's own detection (detectSettings)
   // still moves the comma conventions to what the book actually does.
