@@ -14,6 +14,7 @@
 //     results (doubled quote pairs, introduced misspellings that no single
 //     accepted correction can be blamed for).
 
+import { isDeterministicCorrection } from "./correctionSeverity.js";
 import { diffWordsWithSpace } from "diff";
 import type { Correction } from "./types.js";
 
@@ -570,13 +571,29 @@ function normalizeForComparison(s: string): string {
     .replace(/\s+/g, " ");
 }
 
-/** Corrections that change nothing — or nothing but the style of a quotation
- *  mark or apostrophe, which is the author's to choose. */
+/**
+ * Corrections that change nothing — or nothing but the style of a quotation
+ * mark or apostrophe, which is the author's to choose.
+ *
+ * A DETERMINISTIC finding is exempt, and that exemption is load-bearing. This
+ * filter runs over the WHOLE chapter (queue.ts) and deletes outright —
+ * nothing lands in `skipped[]`, so anything it removes the author never sees.
+ * That is right for a model returning the text unchanged, and wrong for a
+ * withheld guess: "report the word, withhold the guess" sets
+ * corrected === original ON PURPOSE, because no replacement is worth
+ * proposing for a term the other English knows.
+ *
+ * The readthrough is the last check before printing. A finding the author
+ * never sees is worse than a noisy one. An LLM's no-op still goes, because
+ * nothing vouches for that one.
+ */
 export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
-  return corrections.filter(
-    (c) =>
-      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected),
-  );
+  return corrections.filter((c) => {
+    if (isDeterministicCorrection(c)) return true;
+    return (
+      normalizeForComparison(c.original) !== normalizeForComparison(c.corrected)
+    );
+  });
 }
 
 const TRAILING_PUNCT_RE = /^[.!?,:;…]+$/;
