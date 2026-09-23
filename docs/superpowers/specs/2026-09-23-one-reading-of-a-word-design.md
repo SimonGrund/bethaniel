@@ -201,13 +201,110 @@ also saves the tokens spent asking a model to second-guess a dictionary.
 `isDeterministicCorrection`; today it is safe only because it is
 independently `preApproved`.
 
-## The ceiling, stated plainly
+### 6. Raise the coinage bar from 3 to 5
 
-No dictionary catches a **real-word error** — `form` for `from`, `their` for
-`there`, `desert` for `dessert`. Both are words. That is what the LLM
-proofread pass is for, and it is why the deterministic layer's job is to be
-exhaustive about the errors it *can* see rather than clever about the ones it
-cannot.
+`DEFAULT_MIN_COUNT` (`lexicon.ts:68`) goes from 3 to 5. Measured, with one
+repeated typo injected into each book:
+
+```
+rage   minCount 3: 74 terms (3 coinages) | 63 corrections | repeated typo caught: no
+       minCount 5: 49 terms (1 coinage)  | 65 corrections | repeated typo caught: YES
+taker  minCount 3: 74 terms (4 coinages) | 48 corrections | repeated typo caught: no
+       minCount 5: 48 terms (2 coinages) | 50 corrections | repeated typo caught: YES
+```
+
+It closes the 3-and-4-occurrence case on its own, for **two extra findings
+per book**. Note it does not reduce false positives — it slightly increases
+them — it removes false *negatives*, which is the trade this spec wants.
+
+It narrows the hole rather than closing it: a typo repeated five or more
+times is still swallowed. Rule 2 covers that tail, and the two compose —
+minCount 5 handles 3–4 repetitions, the near-miss rule handles 5+.
+
+## Real-word errors
+
+No dictionary catches `form` for `from`, `their` for `there`, `mand` for
+`man`. Both members are words. The existing coverage is two layers, and
+neither is sufficient.
+
+**LanguageTool**, measured against planted sentences on the bundled jar:
+
+| | caught |
+|---|---|
+| English | 6 / 12 |
+| Danish | **0 / 4** |
+
+Caught: `their is`, `new`/`knew`, `here`/`hear`, `its`/`it's`, `then`/`than`,
+`were`/`where`. Missed: `there`→`their`, `form`→`from` (both sentences),
+`quite`→`quiet`, `weather`→`whether`, `past`→`passed`. The Danish misses are
+the canonical four — `man`/`mand`, `mand`/`man`, `ligge`/`lægge`,
+`nogen`/`nogle` — so a Danish author gets essentially nothing here.
+
+**`confusables.ts`** detects sets deterministically but only ever builds a
+hint block appended to the LLM prompt (`queue.ts:2031`). Whether the error is
+caught is then the model's decision, which is not reproducible — the same
+class of variation as the chunking bug. Its `da` list also has no
+`mand`/`man`, the error Danish style guides lead with.
+
+### Why "report every occurrence" cannot work
+
+Confusable words are **1 in every 20** words of these manuscripts — 4,251
+occurrences in Rage, 5,776 in Path of the Taker, with `to`/`too` alone at
+2,413 and 3,478. A per-occurrence finding would be some five thousand
+findings a book.
+
+### 7. Targeted patterns, deterministic
+
+A short list of high-precision patterns, in the shape `retextChecks.ts`
+already uses. Measured: each catches its planted error, and across **203,000
+words of clean prose they fire once in total**:
+
+```
+pattern            planted  rage  taker
+form-det           yes      0     1     form → from
+weather-or-not     yes      0     0     weather → whether
+intensifier-quite  yes      0     0     quite → quiet
+there-own          yes      0     0     there → their
+their-be           yes      0     0     their → there
+modal-of           yes      0     0     of → have
+loose-verb         yes      0     0     loose → lose
+its-a              yes      0     0     its → it's
+da-en-man          yes      0     0     man → mand
+da-mand-modal      yes      0     0     mand → man
+```
+
+The single hit is a genuine false positive — *"couldn't form the words"*,
+`form` as a verb — and is excluded by requiring that `form` not follow a
+modal or auxiliary. These run in the `proofread` task beside the retext
+checks, and because they are deterministic they behave identically on every
+run.
+
+The list is meant to grow. Each addition is cheap to justify: it must catch
+its planted sentence and fire zero times on the corpus.
+
+### 8. The rare member of a live confusable set
+
+Where a book uses one member of a set overwhelmingly and another barely at
+all, the rare one is worth a look. At a 1:20 ratio that is a handful per
+book:
+
+```
+rage    write:3 vs right:72     breathe:2 vs breath:54     = 5 occurrences
+taker   write:2 vs right:97     reign:1 vs rain:23         = 3 occurrences
+```
+
+At 1:10 it is 177 and 250 — too many. 1:20 is the usable line, and it is a
+listing to inspect rather than corrections to accept.
+
+This does **not** serve `their`/`there` (313 vs 191) or `to`/`too`. Nothing
+frequency-based can; those need rule 7.
+
+### 9. Danish coverage
+
+`mand`/`man` joins `CONFUSABLE_SETS_BY_LANG.da`. Given LanguageTool catches
+none of the four canonical Danish confusions, the patterns in rule 7 are the
+only deterministic Danish coverage there is, and the list should grow fastest
+there.
 
 ## Acceptance
 
@@ -226,15 +323,24 @@ Measured on the two manuscripts:
 5. German misspelling recall does not regress (`benchScoring.test.ts`).
 6. No dictionary finding's presence or flagged state differs between two runs
    over identical text.
+7. Every confusable pattern catches its planted sentence and fires zero times
+   across both manuscripts — the one `form-det` hit excluded by the
+   modal/auxiliary rule.
+8. `mand`/`man` is covered for Danish.
 
 ## Out of scope
 
 - Adding words to the shipped dictionaries.
 - The LLM proofread agent's own suggestions — a separate producer.
-- Real-word errors; see the ceiling above.
+- Real-word errors beyond the pattern list and the rare-member listing — the
+  general case needs the LLM pass.
 
 ## Ranked backlog
 
+0. **Grow the pattern list (rule 7), Danish first.** It is the only
+   deterministic real-word coverage, and LanguageTool's Danish rules catch
+   none of the four canonical confusions. Each addition costs one planted
+   sentence and one corpus run.
 1. **Promote `nearMisses`.** Rage's lexicon carries two
    (`Drylander` beside `Drylanders`, `Tiranins` beside `Tiranin`) and they
    are the highest-precision typo signal in the system. Once rule 2 extends
