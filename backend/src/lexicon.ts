@@ -80,6 +80,16 @@ export interface HarvestOptions {
  */
 const DEFAULT_MIN_COUNT = 5;
 const DEFAULT_MAX_TERMS = 400;
+
+/**
+ * How much more common a dictionary word must be before a coinage one edit
+ * from it reads as a typo of it rather than a word of its own.
+ *
+ * Measured on two real manuscripts: at 20x an injected repeated typo is
+ * caught in both books and all seven genuine coinages — warhammer, chokehold,
+ * blackwood, snuck, lordling and the two books' names — are left alone.
+ */
+const NEAR_MISS_RATIO = 20;
 const MAX_PHRASE_WORDS = 5;
 
 // Same token shape as spellcheck.ts: letters, inner apostrophes and hyphens.
@@ -336,6 +346,9 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
 
   const terms: LexiconTerm[] = [];
   const nameKeys = new Map<string, LexiconTerm>();
+  // Coinage candidates that turned out to be typos of a frequent dictionary
+  // word. Merged into nearMisses below.
+  const coinageNearMisses: LexiconNearMiss[] = [];
 
   for (const [key, s] of stats) {
     // A pronoun the book has made a name of — see PRONOUN_CLASS.
@@ -375,6 +388,36 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
       if (key.length < 4) continue;
       // Hyphenated compounds of real words are spelling, not vocabulary.
       if (key.includes("-") && key.split("-").every((p) => p.length >= 2 && isWord!(p))) continue;
+      // A coinage one edit from a dictionary word the book uses far more often
+      // is a repeated typo, not a word — a find-and-replace slip, or a
+      // habitual misspelling. Protecting it is what made the spell layer blind
+      // to exactly the errors most worth catching: the correction was flagged
+      // every time and gateProtectedTerms then deleted it.
+      //
+      // Collected here rather than in the nearMisses pass below because that
+      // one compares against harvested NAMES and requires a rare token
+      // (total <= 2); this is the opposite case — a token frequent enough to
+      // look deliberate, beside an ordinary dictionary word.
+      if (isWord) {
+        let neighbour: { word: string; count: number } | null = null;
+        for (const [otherKey, otherStats] of stats) {
+          if (otherKey === key) continue;
+          if (otherStats.total < canonicalCount * NEAR_MISS_RATIO) continue;
+          if (!isWord(otherKey)) continue;
+          if (!editDistance1(key, otherKey)) continue;
+          if (!neighbour || otherStats.total > neighbour.count) {
+            neighbour = { word: otherKey, count: otherStats.total };
+          }
+        }
+        if (neighbour) {
+          coinageNearMisses.push({
+            term: canonical,
+            of: neighbour.word,
+            count: canonicalCount,
+          });
+          continue;
+        }
+      }
       const t: LexiconTerm = {
         term: canonical,
         count: canonicalCount,
@@ -394,7 +437,7 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
 
   // Near misses: rare, name-shaped, one edit from a well-attested name, and
   // not a word in its own right.
-  const nearMisses: LexiconNearMiss[] = [];
+  const nearMisses: LexiconNearMiss[] = [...coinageNearMisses];
   for (const [key, s] of stats) {
     if (s.total > 2 || key.length < 4) continue;
     if (nameKeys.has(key)) continue;
