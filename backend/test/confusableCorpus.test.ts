@@ -1,0 +1,69 @@
+// Every confusable pattern is scored twice: it must catch its planted
+// sentence, and it must fire as close to zero as possible on real prose.
+//
+// Skipped unless the corpora are present — they are not checked in. Get them
+// with scripts/fetch-confusable-corpus.sh.
+//
+// The Danish corpus is 19th/early-20th century, so a zero-hit result there is
+// weaker evidence than on the contemporary English manuscripts. Three
+// candidate patterns were nonetheless killed by it during design; see the
+// header of confusablePatterns.ts.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+
+import {
+  CONFUSABLE_PATTERNS,
+  findConfusablePatterns,
+} from "../src/confusablePatterns.ts";
+
+const DIR = "/tmp/quote-corpus";
+
+function loadEnglish(): string[] {
+  return ["rage.md", "taker.md"]
+    .filter((f) => existsSync(`${DIR}/${f}`))
+    .map((f) => readFileSync(`${DIR}/${f}`, "utf8"));
+}
+
+function loadDanish(): string[] {
+  if (!existsSync(DIR)) return [];
+  return readdirSync(DIR)
+    .filter((f) => /^da_\d+\.txt$/.test(f))
+    .map((f) => readFileSync(`${DIR}/${f}`, "utf8"))
+    // The Gutenberg search returns the odd English-language title; a Danish
+    // text is identifiable by its æ/ø/å.
+    .filter((raw) => (raw.match(/[æøåÆØÅ]/g) ?? []).length > 500);
+}
+
+const en = loadEnglish();
+const da = loadDanish();
+
+/** Total hits for one pattern id across a set of texts. */
+function hitsFor(id: string, texts: string[]): number {
+  let n = 0;
+  for (const t of texts) {
+    n += findConfusablePatterns(t, id.startsWith("da-") ? "da" : "en").filter(
+      (c) => c.reason === `confusable:${id}`,
+    ).length;
+  }
+  return n;
+}
+
+test("every pattern catches its own planted sentence", () => {
+  for (const p of CONFUSABLE_PATTERNS) {
+    const found = findConfusablePatterns(p.planted, p.lang);
+    assert.ok(
+      found.some((c) => c.reason === `confusable:${p.id}`),
+      `${p.id} did not catch its planted sentence: ${p.planted}`,
+    );
+  }
+});
+
+test("every pattern proposes a correction that differs from the original", () => {
+  for (const p of CONFUSABLE_PATTERNS) {
+    for (const c of findConfusablePatterns(p.planted, p.lang)) {
+      assert.notEqual(c.original, c.corrected, `${p.id} proposed a no-op`);
+    }
+  }
+});
