@@ -10,6 +10,7 @@
 
 import { useEffect, useRef } from "react";
 import { useStore } from "./store";
+import { shouldPreloadModel } from "./modelPreload";
 import {
   fetchModelEnvironment,
   fetchModelRecommendation,
@@ -344,8 +345,18 @@ export function useModelRuntime(): void {
     if (!activeModel) return;
     const prev = prevModelRef.current;
     prevModelRef.current = activeModel;
-    // Cloud/Ollama/API models have no cold-load problem to mitigate.
-    if (activeModel.startsWith("ollama:") || isApiModel(activeModel)) return;
+    // Cloud/Ollama/API models have no cold-load problem to mitigate — and
+    // nothing is warmed while a job is in flight. A cloud run restores the
+    // author's previous (local) model the instant it submits, which used to
+    // land here and start llama.cpp beside a job running in the cloud. See
+    // modelPreload.ts; the rule is pure and tested from
+    // backend/test/modelPreload.test.ts.
+    const statuses = Object.values(useStore.getState().tasks).map(
+      (t) => t.status as string,
+    );
+    if (!shouldPreloadModel({ model: activeModel, taskStatuses: statuses })) {
+      return;
+    }
 
     // Flush the engine feed on a real switch so it shows only events for the
     // newly chosen model — but not on the initial auto-select after boot, where
