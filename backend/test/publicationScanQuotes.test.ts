@@ -305,3 +305,43 @@ test("it does not forgive a quotation that never closes at all", () => {
   assert.equal(found.length, 1);
   assert.match(found[0].message, /may be unclosed/);
 });
+
+// ── A convention is not a blocker ──
+//
+// Every structural finding is stamped blocking on the way out, and the
+// readiness verdict counts those as "N things to check before publishing".
+// That is right for a defect. Closing a quotation without re-opening it is a
+// house style — applied consistently, corrupting nothing, and recognised by
+// some houses as their convention. It is still reported; it does not gate the
+// verdict.
+
+test("a quotation that does not re-open is reported but does not block", () => {
+  const body = [
+    FILLER,
+    "“This era we call the Old Wars, and it brought us to the brink.",
+    "As a last act, they tore the world into pieces, letting the sea in.”",
+    FILLER,
+  ].join("\n\n");
+  const f = scan(body).findings.find((x) => /without re-opening/.test(x.message));
+  assert.ok(f, "still reported");
+  assert.equal(f.blocking, false);
+});
+
+test("a genuinely unclosed quotation still blocks", () => {
+  const body = [
+    FILLER,
+    "“And that was when everything changed and nothing was the same.",
+    FILLER,
+  ].join("\n\n");
+  const f = scan(body).findings.find((x) => /may be unclosed/.test(x.message));
+  assert.ok(f, "still reported");
+  assert.equal(f.blocking, true, "this one is a defect");
+});
+
+test("and so does every other structural check", () => {
+  const body = [FILLER, "He turned away.”", FILLER].join("\n\n");
+  for (const f of scan(body).findings) {
+    if (/without re-opening/.test(f.message)) continue;
+    assert.equal(f.blocking, true, `${f.check}: ${f.message.slice(0, 50)}`);
+  }
+});

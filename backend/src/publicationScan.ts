@@ -57,8 +57,16 @@ const SHORT_THRESHOLD = 30;
 // so shared short lines (chapter epigraphs, refrains) aren't false positives.
 const BLOCK_MIN_WORDS = 40;
 
-/** A finding before the assembler stamps its publication verdict on it. */
-type DraftFinding = Omit<StructuralFinding, "blocking">;
+/**
+ * A finding before the assembler stamps its publication verdict on it.
+ *
+ * `blocking` is optional and almost always absent: the assembler's default is
+ * that a structural finding blocks publication. A check sets it explicitly
+ * only to opt OUT — see the quotation convention in findTruncation.
+ */
+type DraftFinding = Omit<StructuralFinding, "blocking"> & {
+  blocking?: boolean;
+};
 
 const normalize = (s: string): string =>
   s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -559,6 +567,12 @@ function findTruncation(
           kind === "no-reopen"
             ? `Quotation continues into the next paragraph without re-opening — standard style repeats the opening mark: "${excerpt}"`
             : `Unbalanced quotation marks — a line of dialogue may be unclosed: "${excerpt}"`,
+        // A house style, not a defect: applied consistently, corrupting
+        // nothing, and the convention some houses use throughout. It is worth
+        // saying once; it is not worth counting in "N things to check before
+        // publishing", which is what blocking feeds. The genuinely unclosed
+        // quotation beside it still blocks.
+        ...(kind === "no-reopen" ? { blocking: false } : {}),
       });
     }
   }
@@ -707,10 +721,15 @@ export function buildPublicationScan(
     units.map((u) => u.original).join("\n\n"),
     options?.quoteStyle,
   );
-  // Marked here rather than at each push site: every structural finding is a
-  // publication blocker, and stating it once keeps that true as checks are
-  // added. These are deterministic — on a real book all six were genuine
+  // The default is stated here rather than at each push site: a structural
+  // finding blocks publication, and saying it once keeps that true as checks
+  // are added. These are deterministic — on a real book all six were genuine
   // defects — unlike the LLM's comma suggestions, which are not findings.
+  //
+  // A check may opt OUT by setting blocking itself, and exactly one does: a
+  // quotation that closes without re-opening is a house style rather than a
+  // defect, and counting a convention among "things to check before
+  // publishing" overstates it.
   const findings: StructuralFinding[] = [
     ...dupFindings,
     ...repFindings,
@@ -719,7 +738,7 @@ export function buildPublicationScan(
     ...findTruncation(units, reported, convention),
     ...findQuoteStyle(units, convention),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
-  ].map((f): StructuralFinding => ({ ...f, blocking: true }));
+  ].map((f): StructuralFinding => ({ ...f, blocking: f.blocking ?? true }));
 
   const summary: Record<FindingSeverity, number> = {
     error: 0,
