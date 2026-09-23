@@ -23,6 +23,34 @@ test("a withheld-guess finding survives the no-op filter", () => {
   assert.equal(kept.length, 1, "the author must still see this word");
 });
 
+test("an apostrophe-only change is dropped, whoever produced it", () => {
+  // The regression this pins. Exempting every deterministic producer let
+  // retext's contraction check through — `wasn’t` to `wasn't`, an apostrophe
+  // style change and nothing else — and it reached a real manuscript's review
+  // screen, where the diff rendered as `wasn’'t`. a342be5 dropped these
+  // deliberately: the style of an apostrophe is the author's to choose.
+  assert.deepEqual(
+    dropNoOpCorrections([
+      {
+        original: "it wasn’t enough.",
+        corrected: "it wasn't enough.",
+        reason: "retext:contractions",
+      } as never,
+    ]),
+    [],
+  );
+  // The same change from the spell layer, and from an editor, goes too.
+  for (const reason of ["spell-check", "grammar:APOS", undefined]) {
+    assert.deepEqual(
+      dropNoOpCorrections([
+        { original: "wasn’t", corrected: "wasn't", reason } as never,
+      ]),
+      [],
+      `${reason} apostrophe flip survived`,
+    );
+  }
+});
+
 test("every deterministic producer's real finding survives it", () => {
   // A finding that CHANGES something is never dropped, whoever produced it.
   const reasons = [

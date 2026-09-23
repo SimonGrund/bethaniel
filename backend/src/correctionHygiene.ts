@@ -575,11 +575,15 @@ function normalizeForComparison(s: string): string {
  * Corrections that change nothing — or nothing but the style of a quotation
  * mark or apostrophe, which is the author's to choose.
  *
- * A DETERMINISTIC finding is exempt, and that exemption is load-bearing. This
- * filter runs over the WHOLE chapter (queue.ts) and deletes outright —
- * nothing lands in `skipped[]`, so anything it removes the author never sees.
- * That is right for a model returning the text unchanged, and wrong for two
- * deterministic producers:
+ * TWO producers are exempt, named one by one rather than by asking
+ * isDeterministicCorrection. That broader test was tried and reverted: it
+ * exempted every deterministic producer, so retext's contraction check
+ * flipping `wasn’t` to `wasn't` — an apostrophe-style change and nothing
+ * else — survived and reached a real manuscript's review screen. This filter
+ * runs over the WHOLE chapter (queue.ts) and deletes outright, so what it
+ * keeps is what the author reads.
+ *
+ * The two: 
  *
  *   - quote-style normalisation (quoteRepair.ts), whose ENTIRE job is the
  *     difference this filter is built to ignore. It runs only against a style
@@ -589,10 +593,9 @@ function normalizeForComparison(s: string): string {
  *     corrected === original ON PURPOSE, because no replacement is worth
  *     proposing for a term the other English knows.
  *
- * Those two differ on one point, which is why the test below is not simply
- * "keep anything deterministic": a quote-style correction that changes
- * nothing is a bug and still goes, while a withheld guess that changes
- * nothing is the finding itself.
+ * They differ on one point: a quote-style correction that changes nothing is
+ * a bug and still goes, while a withheld guess that changes nothing IS the
+ * finding.
  *
  * The readthrough is the last check before printing. A finding the author
  * never sees is worse than a noisy one. An LLM's no-op still goes, because
@@ -600,8 +603,15 @@ function normalizeForComparison(s: string): string {
  */
 export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
   return corrections.filter((c) => {
+    // A withheld guess: corrected === original ON PURPOSE, because no
+    // replacement is worth proposing for a term the other English knows. The
+    // word is the finding, and the author must see it.
     if (c.reason === "spell-check-unknown") return true;
-    if (isDeterministicCorrection(c)) return c.original !== c.corrected;
+    // Quote-style normalisation, whose ENTIRE job is the difference this
+    // filter ignores. It runs only against a style the author declared or the
+    // manuscript's own clear majority, which is what makes it a fix rather
+    // than the preference this filter drops.
+    if (c.reason === "quote-style") return c.original !== c.corrected;
     return (
       normalizeForComparison(c.original) !== normalizeForComparison(c.corrected)
     );
