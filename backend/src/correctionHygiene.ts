@@ -621,21 +621,55 @@ export function dropNoOpCorrections(corrections: Correction[]): Correction[] {
 const TRAILING_PUNCT_RE = /^[.!?,:;…]+$/;
 
 /**
- * Drop corrections that only APPEND terminal punctuation (e.g. adding a
- * period) when that exact punctuation already exists as the very next
- * character(s) in the source, right after the correction's own span. This is
- * an editor "fixing" a sentence that already properly ends — its local
- * context window just cuts off before the real punctuation — and applying
- * the correction as given would double it up ("..").
+ * The terminal punctuation a correction ADDS at the end, or "" if it adds
+ * none.
+ *
+ * Only an addition counts: the original must end on a word, the correction on
+ * punctuation. A correction that REPLACES one mark with another ("sense," ->
+ * "sense.") is a judgement about which mark belongs and is none of this
+ * function's business.
+ */
+function trailingPunctuationAdded(original: string, corrected: string): string {
+  const o = original.trimEnd();
+  const c = corrected.trimEnd();
+  const tail = /[.!?,:;…]+$/.exec(c)?.[0] ?? "";
+  if (!tail) return "";
+  if (/[.!?,:;…]$/.test(o)) return "";
+  // What is left of the correction once the tail is removed must still end on
+  // the same word the original does, or this is some larger rewrite.
+  return c.slice(0, c.length - tail.length).trimEnd().endsWith(o.slice(-1))
+    ? tail
+    : "";
+}
+
+/**
+ * Correct a sentence the editor "finished" for you.
+ *
+ * An editor's local context window often cuts off before a sentence's own
+ * full stop, so it appends one — and applying that gives "sense..". Where the
+ * source already has that punctuation immediately after the correction's own
+ * span, the addition is removed.
+ *
+ * The correction is TRIMMED rather than dropped, which is the part that took
+ * a real run to get right. This used to require a pure append
+ * (`corrected.startsWith(original)`) and so missed the common shape, where
+ * the editor fixes something else in the same breath:
+ *
+ *   original : 'And all of it, made sense'
+ *   corrected: 'And all of it made sense.'
+ *
+ * The comma removal is a real fix and the period is already there. Dropping
+ * the whole correction would throw the fix away; keeping it whole doubles the
+ * period. Only the period goes. A correction that was ONLY the redundant
+ * punctuation trims down to its own original and is dropped, as before.
  */
 export function dropRedundantPunctuationAppends(
   chapterText: string,
   corrections: Correction[],
 ): Correction[] {
-  return corrections.filter((c) => {
-    if (!c.corrected.startsWith(c.original)) return true;
-    const added = c.corrected.slice(c.original.length);
-    if (!added || !TRAILING_PUNCT_RE.test(added)) return true;
+  return corrections.flatMap((c) => {
+    const added = trailingPunctuationAdded(c.original, c.corrected);
+    if (!added || !TRAILING_PUNCT_RE.test(added)) return [c];
     const positions = boundaryOccurrences(chapterText, c.original);
     const redundant = positions.some(
       (pos) =>
@@ -644,7 +678,12 @@ export function dropRedundantPunctuationAppends(
           pos + c.original.length + added.length,
         ) === added,
     );
-    return !redundant;
+    if (!redundant) return [c];
+    const trimmed = c.corrected.slice(0, c.corrected.lastIndexOf(added));
+    // Nothing left but the original: the correction WAS the redundant
+    // punctuation.
+    if (trimmed.trimEnd() === c.original.trimEnd()) return [];
+    return [{ ...c, corrected: trimmed }];
   });
 }
 

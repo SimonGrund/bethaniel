@@ -570,3 +570,65 @@ test("an LLM's quote-style change is still dropped", () => {
   ]);
   assert.equal(kept.length, 0);
 });
+
+// ── A period the sentence already has ──
+//
+// From a real run. The editor's context window ends before the sentence's
+// own full stop, so it "finishes" the sentence for you:
+//
+//   original : 'And all of it, made sense'
+//   corrected: 'And all of it made sense.'
+//   source   : '…And all of it, made sense.\n\n“Let’s go,” Karim said.'
+//
+// The comma removal is a real fix; the period is already there. Applying it
+// whole gives "made sense..", and the review screen renders the pair adjacent
+// so it reads as "made sense. .".
+//
+// The guard used to require a PURE append (corrected.startsWith(original)),
+// which this is not — so it sailed through.
+
+const SOURCE =
+  "Even the heartbeats were clear to him. And all of it, made sense.\n\n“Let’s go,” Karim said.";
+
+test("a redundant period is trimmed, and the real fix survives", () => {
+  const [c] = dropRedundantPunctuationAppends(SOURCE, [
+    {
+      original: "And all of it, made sense",
+      corrected: "And all of it made sense.",
+    } as never,
+  ]);
+  assert.ok(c, "the comma fix must not be thrown away with the period");
+  assert.equal(c.corrected, "And all of it made sense");
+});
+
+test("a correction that was ONLY the redundant period is dropped whole", () => {
+  assert.deepEqual(
+    dropRedundantPunctuationAppends(SOURCE, [
+      { original: "made sense", corrected: "made sense." } as never,
+    ]),
+    [],
+  );
+});
+
+test("a period the sentence does NOT have is left alone", () => {
+  const text = "He walked on. And all of it made sense\n\nThe end.";
+  const [c] = dropRedundantPunctuationAppends(text, [
+    {
+      original: "And all of it made sense",
+      corrected: "And all of it made sense.",
+    } as never,
+  ]);
+  assert.equal(c.corrected, "And all of it made sense.", "a real fix");
+});
+
+test("punctuation the correction did not add is untouched", () => {
+  // The original already ends in a full stop; nothing was appended.
+  const text = "And all of it, made sense. The end.";
+  const [c] = dropRedundantPunctuationAppends(text, [
+    {
+      original: "And all of it, made sense.",
+      corrected: "And all of it made sense.",
+    } as never,
+  ]);
+  assert.equal(c.corrected, "And all of it made sense.");
+});
