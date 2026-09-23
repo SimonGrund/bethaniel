@@ -19,59 +19,15 @@
 // into the middle of someone's prose.
 
 import type { Correction } from "./types.js";
-
-/**
- * Whether each double-quote mark in a paragraph opens a quotation.
- *
- * Decided by alternation, not by the preceding character. The character before
- * a mark cannot tell you: “But sir—” is speech cut off mid-sentence and ends,
- * correctly, with an em-dash and a CLOSING mark. A rule that read the dash as
- * opening context flipped 61 correct marks in one book.
- *
- * State resets at every paragraph, which is also what the continued-speech
- * convention needs: each paragraph of a long speech opens with a mark.
- */
-function marksOpen(paragraph: string): boolean[] {
-  const out: boolean[] = [];
-  let inside = false;
-  for (const ch of paragraph) {
-    if (ch !== '"' && ch !== "\u201C" && ch !== "\u201D") continue;
-    out.push(!inside);
-    inside = !inside;
-  }
-  return out;
-}
+import {
+  expectedRoles,
+  readMarks,
+  resolveConvention,
+  type QuoteStyle,
+} from "./quoteMarks.js";
 
 /** Words of context kept either side, so the pair can be located in the text. */
 const CONTEXT_CHARS = 32;
-
-/** Share of marks that must agree before a style counts as the manuscript's. */
-const STYLE_MAJORITY = 0.75;
-
-/** Below this many double-quote marks there is no style to infer. */
-const MIN_MARKS_TO_JUDGE = 4;
-
-type Style = "curly" | "straight";
-
-/**
- * The manuscript's prevailing double-quote style.
- *
- * Style is the author's choice; only inconsistency is an error. A book set in
- * straight quotes throughout is correct and must be left alone.
- */
-function dominantStyle(text: string): Style | null {
-  const curly = (text.match(/[“”]/g) ?? []).length;
-  const straight = (text.match(/"/g) ?? []).length;
-  const total = curly + straight;
-  // Too few marks to call it a style. One straight quote in a passage with no
-  // others is not evidence of anything, and flipping it would be a guess.
-  if (total < MIN_MARKS_TO_JUDGE) return null;
-  if (curly / total >= STYLE_MAJORITY) return "curly";
-  if (straight / total >= STYLE_MAJORITY) return "straight";
-  // Genuinely mixed: the manuscript has no convention to conform to, and
-  // picking one would rewrite half the dialogue in the book.
-  return null;
-}
 
 /**
  * A snippet around an index, trimmed to whole words, WITH the offset of the
@@ -117,63 +73,130 @@ function contextAround(
  * it was cut from. A paragraph is unique enough to locate and cannot collide
  * with its neighbour.
  */
-export function getQuoteCorrections(text: string): Correction[] {
-  // Orientation is only a thing curly marks have. A manuscript in straight
-  // quotes — or one with no clear style — has nothing here to repair.
-  if (dominantStyle(text) !== "curly") return [];
+export function getQuoteCorrections(
+  text: string,
+  declared?: QuoteStyle | null,
+): Correction[] {
+  const convention = resolveConvention(text, declared);
+  const style = convention.style;
+  // No convention to conform to and no orientation to judge: a manuscript in
+  // straight quotes has no wrong-way marks, and one with no clear style has
+  // nothing to be normalised towards.
+  if (!style) return [];
 
-  const paragraphs = text.split(/\n\n+/);
   const out: Correction[] = [];
 
-  for (const paragraph of paragraphs) {
-    const opens = marksOpen(paragraph);
+  for (const paragraph of text.split(/\n\n+/)) {
+    const marks = readMarks(paragraph, convention);
+    if (marks.length === 0) continue;
     // An odd number of marks means the paragraph is genuinely unbalanced —
     // a mark missing, or duplicated text carrying a stray one. Alternation
     // cannot tell WHICH mark is the faulty one, and on a real book it "fixed"
     // the wrong one every time. These are exactly what the publication scan
     // reports, with the passage attached, for a human to look at.
-    if (opens.length % 2 !== 0) continue;
-    let seen = 0;
-    let changed = false;
-    // Curly marks facing the wrong way. Converting a straight mark to curly is
-    // safe in bulk — the style is not in doubt — but a curly mark pointing the
-    // wrong way is a typo, and more than one of them in a paragraph means the
-    // fault is something else. "…change of plans. “You are going…criminals.”
-    // Couldn't very well…" needs a mark DELETED, not turned round; alternation
-    // wanted two flips and would have put an opening mark mid-sentence.
-    let orientationFixes = 0;
+    if (marks.length % 2 !== 0) continue;
+
+    // What each mark SHOULD be, by position. Not what readMarks says it IS:
+    // this pass repairs marks whose character is wrong, and reading the
+    // character would only confirm the typo. See expectedRoles.
+    const want = expectedRoles(marks);
     const chars = [...paragraph];
-    for (let i = 0; i < chars.length; i++) {
-      const ch = chars[i];
-      if (ch !== '"' && ch !== "\u201C" && ch !== "\u201D") continue;
-      const want = opens[seen] ? "\u201C" : "\u201D";
-      seen++;
-      // A straight mark still counts for alternation — it opens or closes
-      // like any other — but is never itself rewritten.
-      if (ch === '"' || ch === want) continue;
+    let restyled = false;
+    // A curly mark pointing the wrong way is a typo, and more than one of
+    // them in a paragraph means the fault is something else. "…change of
+    // plans. “You are going…criminals.” Couldn't very well…" needs a mark
+    // DELETED, not turned round; alternation wanted two flips and would have
+    // put an opening mark mid-sentence. One is a typo; two is a different
+    // defect, and the whole paragraph is left for a human.
+    let orientationFixes = 0;
+
+    for (let i = 0; i < marks.length; i++) {
+      const m = marks[i];
+      const wantChar =
+        style === "straight"
+          ? '"'
+          : want[i] === "open"
+            ? convention.family.open
+            : convention.family.close;
+      if (m.char === wantChar) continue;
+      const at = codePointIndex(paragraph, m.index);
+      // A mark of the wrong STYLE is normalised outright: the style is not in
+      // doubt, and its role comes from the same alternation as everything
+      // else. A mark of the right style facing the wrong way is a typo, and
+      // is held to the vetoes below.
+      const wrongStyle = (m.char === '"') !== (style === "straight");
+      if (wrongStyle) {
+        chars[at] = wantChar;
+        restyled = true;
+        continue;
+      }
+      // Counted before the vetoes: a flip we decline to make is still
+      // evidence that the paragraph is not a simple typo.
+      orientationFixes++;
+      const nextCh = chars[at + 1] ?? "";
+      const prevCh = chars[at - 1] ?? "";
       // Refuse a placement the surrounding text contradicts. Two opening marks
       // in a row are malformed, and alternation would turn the second into a
       // closing mark sitting directly against a word — worse than the fault it
       // set out to fix, and not something to guess at.
-      // Counted before the veto below: a flip we decline to make is still
-      // evidence that the paragraph is not a simple typo.
-      orientationFixes++;
-      const nextCh = chars[i + 1] ?? "";
-      const prevCh = chars[i - 1] ?? "";
-      if (want === "\u201D" && /[\p{L}\p{N}]/u.test(nextCh)) continue;
-      if (want === "\u201C" && /[\p{L}\p{N}]/u.test(prevCh)) continue;
-      chars[i] = want;
-      changed = true;
+      if (wantChar === convention.family.close && /[\p{L}\p{N}]/u.test(nextCh)) {
+        continue;
+      }
+      if (wantChar === convention.family.open && /[\p{L}\p{N}]/u.test(prevCh)) {
+        continue;
+      }
+      chars[at] = wantChar;
     }
-    if (!changed || orientationFixes > 1) continue;
-    out.push({
-      original: paragraph,
-      corrected: chars.join(""),
-      kind: "copy",
-      confidence: 1,
-      note: "A quotation mark facing the wrong way.",
-    } as Correction);
+
+    if (orientationFixes > 1) continue;
+    const corrected = chars.join("");
+    if (corrected === paragraph) continue;
+
+    // One correction per paragraph, never one per mark. A line like
+    // `"We can try,"` has two marks to fix, and emitting them separately
+    // produced two corrections whose spans overlapped — apply the first and
+    // the second no longer matches the text it was cut from. A paragraph is
+    // unique enough to locate and cannot collide with its neighbour.
+    //
+    // A paragraph that needed both kinds of repair is reported as a style
+    // one: the author answers the style question once for the whole book,
+    // and a wrong-way mark inside such a paragraph rides along with it.
+    out.push(
+      restyled
+        ? ({
+            original: paragraph,
+            corrected,
+            kind: "copy",
+            confidence: 1,
+            // The manuscript's own convention decides this, so there is no
+            // judgement for a reviewer to add and no tokens to spend on one.
+            preApproved: true,
+            reason: "quote-style",
+            note: "A quotation mark that is not the style this book uses.",
+          } as Correction)
+        : ({
+            original: paragraph,
+            corrected,
+            kind: "copy",
+            confidence: 1,
+            note: "A quotation mark facing the wrong way.",
+          } as Correction),
+    );
   }
 
   return out;
+}
+
+/** `readMarks` reports UTF-16 indexes; `[...paragraph]` is code points. This
+ *  converts one to the other so a surrogate pair earlier in the paragraph
+ *  cannot shift which character gets rewritten. */
+function codePointIndex(paragraph: string, utf16Index: number): number {
+  let cp = 0;
+  let i = 0;
+  for (const ch of paragraph) {
+    if (i >= utf16Index) break;
+    i += ch.length;
+    cp++;
+  }
+  return cp;
 }

@@ -179,3 +179,23 @@ export function readMarks(
   }
   return out;
 }
+
+/**
+ * The role each mark SHOULD play, by alternation.
+ *
+ * Deliberately a different question from the one `readMarks` answers, and the
+ * distinction is load-bearing. `readMarks` says what a mark IS: a “ opens
+ * because that is what a “ does, which is what the publication scan needs —
+ * a paragraph holding two closers is a defect, not an instruction to
+ * alternate. This says what a mark OUGHT to be given its position, which is
+ * what the quote repair needs: `“Good.“` is a closing mark typed the wrong
+ * way round, and reading its character would only confirm the typo.
+ *
+ * Shared here so that "which characters are quotation marks" has one answer
+ * even though "what role does this one play" has two. The drift that this
+ * module exists to end was the former — quoteRepair counted a straight mark
+ * and publicationScan did not — never the latter.
+ */
+export function expectedRoles(marks: QuoteMark[]): ("open" | "close")[] {
+  return marks.map((_, i) => (i % 2 === 0 ? "open" : "close"));
+}

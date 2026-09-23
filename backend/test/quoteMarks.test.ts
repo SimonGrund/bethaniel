@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  expectedRoles,
   detectQuoteFamily,
   detectDominantStyle,
   resolveConvention,
@@ -97,4 +98,17 @@ test("indexes point at the marks themselves", () => {
 test("apostrophes and single quotes are not marks", () => {
   const conv = resolveConvention("“a” “b” “c” “d”");
   assert.equal(readMarks("It’s Bria’s ‘thing’, he said.", conv).length, 0);
+});
+
+test("expected roles alternate, whatever the characters say", () => {
+  const conv = resolveConvention("“a” “b” “c” “d”");
+  // “Good.“ — the closing mark typed the wrong way round. readMarks reports
+  // what it IS (two openers); expectedRoles reports what it SHOULD be, which
+  // is how the quote repair knows to turn the second one around.
+  const marks = readMarks("“Good.“", conv);
+  assert.deepEqual(
+    marks.map((m) => m.role),
+    ["open", "open"],
+  );
+  assert.deepEqual(expectedRoles(marks), ["open", "close"]);
 });
