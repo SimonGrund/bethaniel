@@ -49,11 +49,28 @@
 // The bar for adding one is those two numbers, and the tests that enforce it
 // are confusableCorpus.test.ts.
 //
-// CORPUS CAVEAT: the only public-domain Danish available is 19th and
-// early-20th century — `aa` for `å`, capitalised nouns, older usage. A
-// zero-hit result there is weaker evidence than on the English side, which is
-// contemporary. The Danish patterns should be re-scored on a modern Danish
-// manuscript before anyone leans on them hard.
+// THE DANISH CORPUS, and why there are three of it. The only public-domain
+// Danish is 19th and early-20th century — `aa` for `å`, capitalised nouns,
+// older usage — so a zero-hit result there was weaker evidence than the
+// English side, which is contemporary. Two modern corpora were added rather
+// than one, because neither is sufficient alone:
+//
+//   old    337,489 words  public domain, 19th/early-20th century
+//   wiki    25,554 words  contemporary human Danish (Wikipedia) — but
+//                         encyclopedic, so dialogue-shaped patterns like
+//                         da-hver-saa-god barely get the chance to fire
+//   mt      86,107 words  Betty's own Danish, a cloud translation of a real
+//                         novel — fiction WITH dialogue, the register the
+//                         patterns were built for, but machine-produced and
+//                         so more standardised than a human author's prose
+//
+// All seventeen patterns fire ZERO times on both modern corpora, 111,661
+// words between them. da-i-saer's four hits are all in the old corpus and all
+// archaic ("i sær indre Bevægelse", and 17th-century spelling from Leonora
+// Christina); in modern Danish `i sær` is an error, which is why it is kept.
+//
+// What is still missing, and would be the ideal corpus: human-written MODERN
+// Danish FICTION. It is not in the public domain and none was available.
 
 import type { Correction } from "./types.js";
 

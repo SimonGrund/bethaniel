@@ -439,10 +439,16 @@ Measured on the two manuscripts:
 
 ## Ranked backlog
 
-0. **Re-score the Danish patterns on a modern manuscript.** The set is
-   measured only against 19th-century prose because no modern Danish corpus
-   was available — the app has never had a Danish document uploaded. This is
-   the one open risk in the Danish half.
+0. ~~**Re-score the Danish patterns on a modern manuscript.**~~ **Done.**
+   Two modern corpora, because neither is sufficient alone: 25,554 words of
+   contemporary human Danish (Wikipedia — but encyclopedic, so
+   dialogue-shaped patterns barely get the chance to fire) and 86,107 words
+   of Betty's own Danish from a cloud translation of a real novel (fiction
+   with dialogue, but machine-produced and so more standardised than a human
+   author's prose). All seventeen patterns fire **zero** times on both.
+   `da-i-saer`'s four hits are all in the old corpus and all archaic. What is
+   still missing is human-written modern Danish FICTION, which is not in the
+   public domain.
 1. **Promote `nearMisses`.** Rage's lexicon carries two
    (`Drylander` beside `Drylanders`, `Tiranins` beside `Tiranin`) and they
    are the highest-precision typo signal in the system. Once rule 2 extends
