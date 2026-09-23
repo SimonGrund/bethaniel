@@ -1,7 +1,14 @@
 # Sample review data (temporary — delete this file when done)
 
-Three finished tasks are seeded into `backend/data/bethaniel.db` so the review
+Three finished tasks are seeded into the INSTALLED app's database
+(`~/Library/Application Support/Bethaniel/data/bethaniel.db`) so the review
 screens can be looked at without running a model.
+
+That is the database the Electron window uses. `npm run dev` starts TWO
+backends: the workspace one on :4000 against `backend/data` (what a browser at
+:5173 talks to), and a second forked by Electron against Application Support
+(what the app window talks to). The sample is in the second, so it shows up in
+the app window.
 
 ## To see them
 
@@ -42,6 +49,18 @@ under the same "Former Runs" view.
 ## To remove
 
 ```bash
-sqlite3 backend/data/bethaniel.db "delete from tasks where id like 'seed-%';"
+sqlite3 ~/Library/Application\ Support/Bethaniel/data/bethaniel.db \
+  "delete from tasks where id like 'seed-%';"
 rm backend/seed-sample.mjs SEED-SAMPLE-README.md
 ```
+
+A backup of the database as it was before seeding is in `/tmp` —
+`bethaniel-appsupport-backup-*.db` — if anything looks wrong.
+
+## One side effect worth knowing
+
+The app keeps the newest 200 finished tasks and prunes the rest at startup
+(`MAX_KEPT_TASKS`). The database held 233; adding three pushes three of the
+oldest out on the next launch — proofread tasks for *Hand of the Giver V2*
+from 16 September. They were already past the limit and would have gone at the
+next prune regardless, but the seeding brings it forward by three.
