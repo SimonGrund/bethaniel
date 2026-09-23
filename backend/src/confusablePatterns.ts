@@ -42,12 +42,15 @@
 //     matched "et sidste Forsøg og skrive". Only INFLECTED forms are listed.
 //
 // MEASURED (2026-09-23):
-//   planted sentences caught           27/27  (10 English, 17 Danish)
-//   hits on 203,000 words of English    0
-//   hits on 333,455 words of Danish     4, all da-i-saer, all archaic
+//   planted sentences caught          27/27  (10 English, 17 Danish)
+//   English, 203,000 words                0
+//   Danish, old corpus, 337,489 words     4  all da-i-saer, all archaic
+//   Danish, MODERN, 111,661 words         0  see THE DANISH CORPUS below
 //
-// The bar for adding one is those two numbers, and the tests that enforce it
-// are confusableCorpus.test.ts.
+// The bar for adding one is those numbers, and the tests that enforce it are
+// confusableCorpus.test.ts. (Counts are whitespace-split words, the same way
+// the scoring script counts them — an earlier note said 333,455 for the old
+// Danish corpus, which was the same text tokenised by word-regex instead.)
 //
 // THE DANISH CORPUS, and why there are three of it. The only public-domain
 // Danish is 19th and early-20th century — `aa` for `å`, capitalised nouns,
