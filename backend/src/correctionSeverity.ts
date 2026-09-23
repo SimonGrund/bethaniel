@@ -56,6 +56,9 @@ export function isDeterministicCorrection(c: Correction): boolean {
     // stop. The tag records lower confidence in the FIX, not doubt about
     // who produced it.
     reason === "spell-check-uncommon" ||
+    // A word no dictionary knows, reported with no replacement. Still the
+    // dictionary talking, and the author must see it.
+    reason === "spell-check-unknown" ||
     reason === "dialect" ||
     // Normalising a quotation mark to the manuscript's declared style is the
     // manuscript's own convention talking, not a model's. Safe today only

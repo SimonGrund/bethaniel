@@ -1999,6 +1999,10 @@ async function processJob(job: JobData): Promise<void> {
                 spellCorrections = getSpellCorrections(chunk.body, spellLang, {
                   styleGuideNames: job.styleGuide ? [job.styleGuide] : undefined,
                   protectedNames,
+                  // So a word the OTHER English knows can be told from one no
+                  // dictionary knows: "barque" is in en_GB and not en_US, and
+                  // "baroque" is not a fix worth proposing for it.
+                  englishDialect: dialect,
                 });
                 if (spellCorrections.length > 0) {
                   appendLog({

@@ -709,6 +709,47 @@ export function findNewSuspectWords(
  * merged directly into the editor/reviewer pipeline so the user sees
  * every spell-check hit in the accept/dismiss list.
  */
+/**
+ * Whether a proposed replacement is worth showing at all.
+ *
+ * The word is reported either way — this decides only whether a REPLACEMENT
+ * rides along with it. Measured on two real manuscripts, the suggestions were
+ * the damaging part of this layer while the findings were merely noisy:
+ * "Tobias" (610 occurrences) -> "To bias", "seagrass" -> "Seagram",
+ * "Krogman" -> "Frogman", "sworddancers" -> "sword dancers".
+ *
+ * There is deliberately NO rule about capitalised words here. It was tried and
+ * removed: in English a mid-sentence capital never reaches this point at all
+ * (it is skipped outright as a proper noun, see the isCapitalized branch
+ * below), so every capitalised word that does reach it is SENTENCE-INITIAL —
+ * which is a typo candidate, not a name. Suppressing those guesses withheld
+ * "Teh" -> "The", the most basic fix the layer makes.
+ */
+export function suggestionIsWorthOffering(
+  original: string,
+  suggestion: string,
+): boolean {
+  const o = original.trim();
+  const sg = suggestion.trim();
+  if (!sg || sg === o) return false;
+  // A lowercase word never wants a Capitalised replacement: "seagrass" ->
+  // "Seagram", "southlander's" -> "Netherlander's".
+  if (/^\p{Ll}/u.test(o) && /^\p{Lu}/u.test(sg)) return false;
+  // A bare space insertion into a closed compound: "sworddancers" ->
+  // "sword dancers", "woodsmoke" -> "wood smoke". The author wrote one word
+  // on purpose often enough that guessing otherwise is not worth it.
+  if (o.replace(/\s+/g, "") === sg.replace(/\s+/g, "")) return false;
+  // Eye-dialect: an inner apostrophe standing in for dropped letters
+  // ("Per'aps", "s'pose", "G'evening"), or a stretched interjection ("Shhh",
+  // "Mhmm"). Deliberate, every time. A trailing possessive is not eye-dialect.
+  if (/[’'\u02BC]/.test(o) && !/[’'\u02BC]s$/i.test(o)) return false;
+  if (/(.)\1{2,}/iu.test(o)) return false;
+  // An interjection has no vowel to misspell: Mhmm, Shh, Pfft, Hmph. A
+  // dictionary's nearest word ("Mhmm" -> "Hmm") is a guess about a noise.
+  if (/^[\p{L}]+$/u.test(o) && !/[aeiouyæøåäöü]/i.test(o)) return false;
+  return true;
+}
+
 export function getSpellCorrections(
   text: string,
   lang: string,
@@ -741,6 +782,17 @@ export function getSpellCorrections(
         .filter(Boolean),
     ),
   );
+
+  // The OTHER English dictionary, for telling a name from a misspelling.
+  // getWordValidator lives in this module, so this avoids an import cycle
+  // with wordKnowledge.ts — which asks the same question for callers outside.
+  const otherEnglish =
+    lang.toLowerCase().startsWith("en")
+      ? getWordValidator("en", {
+          englishDialect:
+            opts?.englishDialect === "british" ? "american" : "british",
+        })
+      : null;
 
   // Proper nouns to protect everywhere (see collectMidSentenceCapitals).
   // The language matters: in German a mid-sentence capital is every noun.
@@ -793,8 +845,33 @@ export function getSpellCorrections(
       const confident = suggestions.find((sg) =>
         isConfidentSuggestion(norm, sg, dict),
       );
-      const corrected = confident ?? suggestions[0] ?? word;
+      const guess = confident ?? suggestions[0] ?? word;
+      // A word the OTHER English knows is not a misspelling at all — it is a
+      // name or a term, and the dictionary has nothing to offer for it.
+      // "Tobias" is in en_GB and not en_US; "To bias" is never right for it.
+      // Not applied to a plausible inflection: "storages" is in en_GB, but it
+      // is a near-miss of a word THIS dictionary has, and the
+      // spell-check-uncommon path below is the deliberate handling for that.
+      // This rule is about names and terms — barque, sigil, Tobias.
+      const knownElsewhere =
+        otherEnglish?.(norm) === true && !isValidInflection(norm, dict);
+      const withheld =
+        knownElsewhere || !suggestionIsWorthOffering(word, guess);
+      const corrected = withheld ? word : guess;
       const correction: Correction = { original: word, corrected };
+      if (withheld) {
+        // Still REPORTED — an unrecognised word is worth the author's eye —
+        // but flagged rather than applied. Copy edits auto-apply anything
+        // unflagged, and applying a no-op would file it as a completed
+        // correction the author never saw.
+        correction.reason = "spell-check-unknown";
+        correction.flagged = true;
+        correction.reviewReason =
+          "No dictionary recognises this word. Check it — no replacement is proposed.";
+        corrections.push(correction);
+        if (corrections.length >= maxHints) break;
+        continue;
+      }
       // An unhyphenated coinage in a compounding language is still worth
       // reporting — `Zederholz` is a real slip for `Zedernholz` — but it must
       // not carry the authority of a fix for "teh". Decomposable words and
