@@ -67,3 +67,19 @@ test("every pattern proposes a correction that differs from the original", () =>
     }
   }
 });
+
+// The measured ceiling. English is contemporary prose, so this is the strong
+// evidence: across 203,000 words the whole English table fired ONCE during
+// design, on "couldn't form the words", which the modal exclusion now covers.
+test("the English table is silent on 203,000 words of clean prose", { skip: en.length < 2 }, () => {
+  const perPattern = new Map<string, number>();
+  for (const p of CONFUSABLE_PATTERNS.filter((x) => x.lang === "en")) {
+    perPattern.set(p.id, hitsFor(p.id, en));
+  }
+  const total = [...perPattern.values()].reduce((a, b) => a + b, 0);
+  const detail = [...perPattern]
+    .filter(([, n]) => n > 0)
+    .map(([id, n]) => `${id}:${n}`)
+    .join(" ");
+  assert.equal(total, 0, `English patterns fired on clean prose — ${detail}`);
+});

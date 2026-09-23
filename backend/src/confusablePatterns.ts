@@ -75,8 +75,12 @@ export const CONFUSABLE_PATTERNS: readonly ConfusablePattern[] = [
     // "form" is a noun and a verb; before a determiner it is almost always
     // "from". Excluded after a modal or auxiliary, which is the one real
     // false positive the corpus produced: "couldn't form the words".
+    // The apostrophe class is ['\u2019\u02BC], not a bare '. The corpus hit was
+    // "couldn\u2019t form the words" with a CURLY apostrophe, and a straight-only
+    // exclusion sailed straight past it — the same straight-vs-curly gap the
+    // quotation work closed one module over.
     source:
-      "(?<!\\b(?:to|can|could|couldn't|will|would|might|must|may|should|helps?|helped|began|begin|begins)\\s)\\bform\\s+(?:the|a|an|his|her|their|its|my|your|our|this|that|these|those)\\b",
+      "(?<!\\b(?:to|can|could|will|would|might|must|may|should|helps?|helped|began|begin|begins)\\s)(?<!\\b(?:could|would|should|must|might|can|do|does|did)n['\u2019\u02BC]t\\s)\\bform\\s+(?:the|a|an|his|her|their|its|my|your|our|this|that|these|those)\\b",
     wrong: "form",
     right: "from",
     note: '"form" before a determiner is almost always "from".',
@@ -108,6 +112,63 @@ export const CONFUSABLE_PATTERNS: readonly ConfusablePattern[] = [
     right: "it's",
     note: '"its" is possessive; before an article it is "it\'s".',
     planted: "Its a long way to the isles.",
+  },
+  {
+    id: "intensifier-quite",
+    lang: "en",
+    // LanguageTool catches "too quite" and misses "very quite"; this covers
+    // both, which is the point of not relying on its per-sentence coverage.
+    source: "\\b(?:very|so|too|really|dead|awfully)\\s+quite\\b",
+    wrong: "quite",
+    right: "quiet",
+    note: 'An intensifier before "quite" almost always wants "quiet".',
+    planted: "The hall was very quite that evening.",
+  },
+  {
+    id: "there-own",
+    lang: "en",
+    source: "\\bthere\\s+own\\b",
+    wrong: "there",
+    right: "their",
+    note: '"their own" is the possessive.',
+    planted: "They left there own boots behind.",
+  },
+  {
+    id: "their-be",
+    lang: "en",
+    source: "\\btheir\\s+(?:is|are|was|were)\\b",
+    wrong: "their",
+    right: "there",
+    note: '"there is/are" is the existential.',
+    planted: "Their is a ship on the horizon.",
+  },
+  {
+    id: "loose-verb",
+    lang: "en",
+    source: "\\b(?:to|will|would|might|can|could|may|must)\\s+loose\\b",
+    wrong: "loose",
+    right: "lose",
+    note: '"loose" is the adjective; the verb is "lose".',
+    planted: "We might loose the ship in this wind.",
+  },
+  {
+    id: "then-comparative",
+    lang: "en",
+    source:
+      "\\b(?:more|less|better|worse|bigger|smaller|taller|shorter|older|younger|faster|slower|higher|lower|greater|fewer)\\s+then\\b",
+    wrong: "then",
+    right: "than",
+    note: 'A comparative takes "than", not "then".',
+    planted: "He was taller then his brother.",
+  },
+  {
+    id: "have-went",
+    lang: "en",
+    source: "\\b(?:have|has|had)\\s+went\\b",
+    wrong: "went",
+    right: "gone",
+    note: 'The participle of "go" is "gone".',
+    planted: "They have went to the harbour already.",
   },
   {
     id: "da-en-man",
