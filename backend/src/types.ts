@@ -263,6 +263,14 @@ export interface TaskState {
   targetLang?: string;
   manuscriptLang?: string;
   model?: string;
+  /**
+   * Which Betty produced this run — "2.27.0", or "2.27.0-dev" for a
+   * development build. Recorded rather than inferred: a dev run and the
+   * installed app share a data directory and can report the same version, so
+   * a defect reported from a run could not otherwise be placed. See
+   * appVersion.ts.
+   */
+  appVersion?: string;
   tokPerSec?: string;
   /** Estimated seconds remaining, from the current tok/s and the task's
    *  estimated output-token budget (see cloudEstimate.ts's estimateTaskOutputTokens). */

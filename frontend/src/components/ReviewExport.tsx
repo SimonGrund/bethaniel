@@ -2823,6 +2823,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             ),
           ).map((m) => modelNames[m] ?? m);
 
+          // Which Betty produced this run. Recorded on the task rather than
+          // read from the running app: results outlive the build that made
+          // them, and a dev run and the installed app can report the same
+          // version. Usually one value; a job spanning an update shows both.
+          const jobVersions = Array.from(
+            new Set(
+              entries
+                .map(([, t]) => t.appVersion)
+                .filter(
+                  (v): v is string => typeof v === "string" && v.length > 0,
+                ),
+            ),
+          );
+
           // ── Publication Scan: a verdict, not a manual-review workbench ──
           // The publication verdict is the output. Objective/mechanical
           // corrections from the proofread tasks that ran beside it (typos,
@@ -3182,6 +3196,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     <div>
                       <dt>{t("run_info_changes", "Proposed changes")}</dt>
                       <dd>{totalCorrections}</dd>
+                    </div>
+                  )}
+                  {jobVersions.length > 0 && (
+                    <div>
+                      <dt>{t("run_info_version", "Betty")}</dt>
+                      <dd>{jobVersions.join(", ")}</dd>
                     </div>
                   )}
                   <div>

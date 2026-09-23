@@ -1533,6 +1533,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Vorgeschlagene Änderungen",
     es: "Cambios propuestos",
   },
+  run_info_version: {
+    en: "Betty",
+    da: "Betty",
+    de: "Betty",
+    es: "Betty",
+  },
   run_info_id: {
     en: "Job",
     da: "Job",

@@ -506,6 +506,9 @@ export interface TaskState {
   /** The language the manuscript is written in, as the run was told. */
   manuscriptLang?: string;
   model?: string;
+  /** Which Betty produced this run — "2.27.0", or "2.27.0-dev" for a dev
+   *  build. See backend/src/appVersion.ts. */
+  appVersion?: string;
   tokPerSec?: string;
   etaSeconds?: number;
 }

@@ -15,6 +15,7 @@ import type {
 import { ANALYSIS_MODES, DEFAULT_COPY_EDIT_OPTIONS } from "./types.js";
 import { splitIntoChunks, stripOverlapFromResponse } from "./chunking.js";
 import { buildPublicationScan } from "./publicationScan.js";
+import { runVersionLabel } from "./appVersion.js";
 import { analyzeLanguage } from "./languageAnalysis.js";
 import {
   runLanguageEnhance,
@@ -3335,6 +3336,9 @@ export async function submitTask(
     targetLang: data.targetLang,
     manuscriptLang: data.manuscriptLang,
     model: data.model,
+    // Stamped at creation, not at completion: a cancelled or failed run is
+    // exactly the one someone needs to place against a build.
+    appVersion: runVersionLabel(),
     retrySpec: {
       name: data.name,
       source: data.source,

@@ -1088,6 +1088,11 @@ app.whenReady().then(async () => {
     // reservation but was not one, and the engine died binding a port that had
     // since been handed to someone else. See backend/src/enginePort.ts.
     NODE_ENV: IS_DEV ? "development" : "production",
+    // The only source that knows the SHIPPED version: a packaged app has no
+    // repo to read a package.json from, and the one in the repo lags anyway
+    // because CI tags releases without committing a bump back. Stamped on
+    // every task so a reported defect can be placed against a build.
+    BETHANIEL_VERSION: app.getVersion(),
   };
 
   // LanguageTool (optional grammar server). Point the backend at the bundled
