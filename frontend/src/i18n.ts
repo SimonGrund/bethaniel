@@ -3512,6 +3512,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Britisch",
     es: "Británico",
   },
+  opt_quoteStyle: {
+    en: "Quotation marks",
+    da: "Anførselstegn",
+    de: "Anführungszeichen",
+    es: "Comillas",
+  },
+  opt_quoteCurly: {
+    en: "Curly “ ”",
+    da: "Krøllede “ ”",
+    de: "Typografisch “ ”",
+    es: "Tipográficas “ ”",
+  },
+  opt_quoteStraight: {
+    en: 'Straight " "',
+    da: 'Lige " "',
+    de: 'Gerade " "',
+    es: 'Rectas " "',
+  },
   opt_oxfordComma: {
     en: "Oxford comma",
     da: "Oxford-komma",

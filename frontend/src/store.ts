@@ -620,6 +620,9 @@ export const useStore = create<AppState>()(
           if (detected.danishComma?.status === "detected") {
             copyEditOptions.danishComma = detected.danishComma.value;
           }
+          if (detected.quoteStyle?.status === "detected") {
+            copyEditOptions.quoteStyle = detected.quoteStyle.value;
+          }
           return {
             detectedSettings: detected,
             settledSettings: [],
@@ -1250,7 +1253,7 @@ export const useStore = create<AppState>()(
       // knobs (extraPass and the since-removed editor/reviewer fan-out)
       // forever, since
       // those are persisted independently of the runMode label itself.
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         let state = persisted as Partial<AppState> & { runMode?: string };
         if (version < 1 && state?.runMode && state.runMode !== "speed" && state.runMode !== "custom") {
@@ -1275,6 +1278,21 @@ export const useStore = create<AppState>()(
               sentenceRhythm: true,
               dialogueNaturalness: true,
               tightenProse: true,
+            },
+          };
+        }
+        // v3: quoteStyle is new. A persisted options object from before it
+        // existed would otherwise leave the control with neither answer
+        // selected — and the scan falling back to the manuscript's majority.
+        // "curly" is the placeholder detectQuoteStyle overwrites on the next
+        // upload; it is not a claim about the book already loaded.
+        if (version < 3) {
+          state = {
+            ...state,
+            copyEditOptions: {
+              ...DEFAULT_COPY_EDIT_OPTIONS,
+              ...(state.copyEditOptions ?? {}),
+              quoteStyle: state.copyEditOptions?.quoteStyle ?? "curly",
             },
           };
         }

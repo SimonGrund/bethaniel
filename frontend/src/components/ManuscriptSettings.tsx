@@ -59,11 +59,12 @@ export const CARD_SETTINGS: Record<FrontCard, SettingKey[]> = {
   edit: [
     "manuscriptLang",
     "englishDialect",
+    "quoteStyle",
     "oxfordComma",
     "introductoryComma",
     "danishComma",
   ],
-  readthrough: ["manuscriptLang", "englishDialect"],
+  readthrough: ["manuscriptLang", "englishDialect", "quoteStyle"],
   translate: ["manuscriptLang"],
   language: ["manuscriptLang"],
 };
@@ -146,6 +147,10 @@ export function useManuscriptSettingsState(card: FrontCard) {
             ? "opt_british"
             : "opt_american",
         );
+      if (key === "quoteStyle")
+        return copyEditOptions.quoteStyle === "curly"
+          ? t("opt_quoteCurly")
+          : t("opt_quoteStraight");
       if (key === "oxfordComma")
         return copyEditOptions.oxfordComma ? t("opt_oxfordComma") : null;
       if (key === "introductoryComma")
@@ -268,6 +273,37 @@ export default function ManuscriptSettings({ card }: { card: FrontCard }) {
               </button>
             </span>
             {badgeFor("englishDialect", copyEditOptions.englishDialect)}
+          </span>
+        </div>
+      )}
+
+      {keys.includes("quoteStyle") && (
+        <div className="fold-row">
+          <span className="fold-label">{t("opt_quoteStyle")}</span>
+          <span className="fold-control">
+            <span className="option-toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.quoteStyle === "curly" ? " active" : ""}`}
+                onClick={() => {
+                  setCopyEditOption("quoteStyle", "curly");
+                  answer("quoteStyle");
+                }}
+              >
+                {t("opt_quoteCurly")}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn${copyEditOptions.quoteStyle === "straight" ? " active" : ""}`}
+                onClick={() => {
+                  setCopyEditOption("quoteStyle", "straight");
+                  answer("quoteStyle");
+                }}
+              >
+                {t("opt_quoteStraight")}
+              </button>
+            </span>
+            {badgeFor("quoteStyle", copyEditOptions.quoteStyle)}
           </span>
         </div>
       )}
