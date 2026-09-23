@@ -14,6 +14,7 @@ import {
   inDialogue,
   isPunctuationOnlyChange,
   fixesCommaSplice,
+  isDeterministicCorrection,
 } from "../src/correctionSeverity.ts";
 import type { Correction } from "../src/types.ts";
 
@@ -312,4 +313,40 @@ test("certainty follows the reviewer; a low second check shaves, never halves", 
   assert.equal(at(2, 5), 53, "a high second check lifts a doubtful reviewer a little");
   assert.equal(at(1, 1), 10);
   assert.equal(certainty({ original: "a", corrected: "b" }), null);
+});
+
+// A confusable pattern is a deterministic checker, not a model's opinion, so
+// the precision pass must not delete its findings. The guard already covers
+// spell-check, dialect, grammar and retext; deleting deterministic findings
+// on a model's say-so cost German misspelling recall 68% -> 30%.
+
+test("a confusable-pattern correction counts as deterministic", () => {
+  assert.equal(
+    isDeterministicCorrection({
+      original: "form the",
+      corrected: "from the",
+      reason: "confusable:form-det",
+    } as never),
+    true,
+  );
+});
+
+test("quote-style normalisation counts as deterministic too", () => {
+  // It is safe today only because it is independently preApproved; the guard
+  // should say so in its own right.
+  assert.equal(
+    isDeterministicCorrection({
+      original: '"a"',
+      corrected: "“a”",
+      reason: "quote-style",
+    } as never),
+    true,
+  );
+});
+
+test("an unlabelled correction is still not deterministic", () => {
+  assert.equal(
+    isDeterministicCorrection({ original: "a", corrected: "b" } as never),
+    false,
+  );
 });

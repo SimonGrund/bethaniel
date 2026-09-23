@@ -2055,6 +2055,36 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── Confusable phrasings: real-word errors a dictionary
+              // cannot see — form/from, their/there, mand/man. Deterministic
+              // and unconditional: there is no knob because there is nothing
+              // to tune. Every pattern was scored on a corpus before it was
+              // added, and the table is empty for a language that has none.
+              //
+              // These are deterministic, so they are pre-approved and APPLIED
+              // rather than merely reported — in copy and line edits as well
+              // as the readthrough. That is why the corpus scoring is not
+              // optional; see confusablePatterns.ts.
+              {
+                const { findConfusablePatterns } = await import(
+                  "./confusablePatterns.js"
+                );
+                const confusableCs = findConfusablePatterns(
+                  chunk.body,
+                  job.manuscriptLang,
+                );
+                if (confusableCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...confusableCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `confusable patterns produced ${confusableCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── Quotation marks: deterministic, because the model does not
               // do this reliably. Measured on three real defects: it fixed the
               // missing closing mark and missed both the mark typed the wrong

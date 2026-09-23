@@ -57,8 +57,15 @@ export function isDeterministicCorrection(c: Correction): boolean {
     // who produced it.
     reason === "spell-check-uncommon" ||
     reason === "dialect" ||
+    // Normalising a quotation mark to the manuscript's declared style is the
+    // manuscript's own convention talking, not a model's. Safe today only
+    // because these are independently preApproved; stated here in its own
+    // right so that stays true if that changes.
+    reason === "quote-style" ||
     reason.startsWith("grammar:") ||
-    reason.startsWith("retext:")
+    reason.startsWith("retext:") ||
+    // A narrow phrasing pattern, scored on a corpus before it was added.
+    reason.startsWith("confusable:")
   );
 }
 
