@@ -132,7 +132,7 @@ test("a block quotation never closed is reported at its opening", async () => {
 // in silence, and on a German one meant every „…“ line read as two openers and
 // no closer. The convention is now read off the manuscript.
 
-import { detectQuoteFamily } from "../src/publicationScan.ts";
+import { detectQuoteFamily } from "../src/quoteMarks.ts";
 
 test("the quote family is read off the manuscript, not assumed", () => {
   assert.deepEqual(detectQuoteFamily("“We can try,” he said."), { open: "“", close: "”" });
@@ -160,4 +160,101 @@ test("balanced German quotes are not reported", () => {
   // decides the family by its opener rather than by counting both marks.
   const german = `${PROSE}\n\n„Du schläfst nie“, sagte ihre Schwester.\n\n„Ich schlafe“, antwortete sie.`;
   assert.deepEqual(truncations(german), [], "correct German dialogue is not a finding");
+});
+
+// ── Committed readings ──
+//
+// The tolerances that let a quotation run across paragraphs used to be
+// re-decided at EVERY paragraph, so a run could switch readings mid-way and
+// be forgiven by whichever one happened to fit. On a real book that absorbed
+// almost everything: an unclosed line followed by a narration paragraph was
+// read as a block quotation's middle, then cleared by the next line of
+// dialogue read as continued speech, and nothing was ever reported.
+
+const FILLER = Array.from(
+  { length: 14 },
+  (_, i) => `Filler paragraph ${i}, ordinary narration carrying the chapter.`,
+).join("\n\n");
+
+function quoteFindings(paragraphs: string[]) {
+  const body = [FILLER, ...paragraphs, FILLER].join("\n\n");
+  return scan(body).findings.filter(
+    (f) => f.check === "truncation" && /Unbalanced/.test(f.message),
+  );
+}
+
+test("an unclosed line followed by narration is reported", () => {
+  const found = quoteFindings([
+    "“That will never work.",
+    "She turned to the window and said nothing for a long moment.",
+    "“Fine,” he said.",
+  ]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /That will never work/);
+});
+
+test("a block quotation that actually closes stays silent", () => {
+  const found = quoteFindings([
+    "“The letter began on a morning much like this one.",
+    "It went on for some length about the weather and the harvest.",
+    "And it ended, as such letters do, with a request for money.”",
+    "She folded it away.",
+  ]);
+  assert.equal(found.length, 0);
+});
+
+test("continued speech that re-opens every paragraph stays silent", () => {
+  const found = quoteFindings([
+    "“My story unfolds seven hundred years ago, in the early days.",
+    "“Prince Tua ruled his people and their fleet from the far isles.",
+    "“Prince Tua had a wife, a dangerous but beautiful woman.",
+    "“This was when Prince Tua realized his mistake, and surrendered.”",
+  ]);
+  assert.equal(found.length, 0);
+});
+
+test("continued speech that never closes is reported at its opener", () => {
+  const found = quoteFindings([
+    "“My story unfolds seven hundred years ago, in the early days.",
+    "“Prince Tua ruled his people and their fleet from the far isles.",
+    "She stopped there, and would say no more about it that night.",
+  ]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /My story unfolds/);
+});
+
+test("a block quotation whose closer also opens is reported", () => {
+  // The closer carries an opening mark, so it is a new line of dialogue and
+  // not the end of the block. The block never closed.
+  const found = quoteFindings([
+    "“The letter began on a morning much like this one.",
+    "It went on for some length about the weather and the harvest.",
+    "“Fine,” he said.",
+  ]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /The letter began/);
+});
+
+test("one defect does not hide the next", () => {
+  const found = quoteFindings([
+    "“That will never work.",
+    "She turned to the window and said nothing for a long moment.",
+    "“Fine,” he said.",
+    "He left the room.”",
+  ]);
+  assert.equal(found.length, 2);
+});
+
+test("a quote left open at the end of the chapter is reported", () => {
+  const found = quoteFindings(["“And that was when everything changed."]);
+  assert.equal(found.length, 1);
+});
+
+test("a straight closing mark balances the paragraph", () => {
+  // “But—" is BALANCED: two marks. It is wrong in style, not in balance, and
+  // the style check reports it. A balance check that counted only the curly
+  // family read it as one open and no close, and the tolerances then ate it —
+  // which is how five defects survived every run on two real books.
+  const found = quoteFindings(['“But—"', "“I know the dangers,” he said."]);
+  assert.equal(found.length, 0);
 });

@@ -7,6 +7,13 @@
 import { createHash } from "crypto";
 import { splitIntoParagraphs } from "./chunking.js";
 import { detectDialect } from "./dialect.js";
+import {
+  QUOTE_FAMILIES,
+  readMarks,
+  resolveConvention,
+  type QuoteConvention,
+  type QuoteStyle,
+} from "./quoteMarks.js";
 import type {
   FindingSeverity,
   StructuralFinding,
@@ -222,70 +229,6 @@ function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
  */
 const TRAILING_MARKUP_RE = /[_*`\s]+$/;
 
-/** One paragraph's quote balance, and whether it opens a continued speech. */
-interface QuoteBalance {
-  opens: number;
-  closes: number;
-  startsWithOpen: boolean;
-}
-
-/**
- * The pair of marks a manuscript opens and closes speech with.
- *
- * English curly quotes were hard-coded here, which on a French novel meant the
- * check found no quotation marks at all and passed every chapter in silence —
- * the dialogue was in guillemets. The convention is the manuscript's, not the
- * language's (a French author may well use “ ”, a German one » «), so it is
- * counted off the text rather than looked up from a language code.
- */
-const QUOTE_FAMILIES = [
-  { open: "\u201C", close: "\u201D" }, // “ ”  English, and French houses that follow it
-  { open: "\u00AB", close: "\u00BB" }, // « »  French, and the continental default
-  { open: "\u201E", close: "\u201C" }, // „ “  German
-  { open: "\u00BB", close: "\u00AB" }, // » «  German reversed guillemets
-] as const;
-
-type QuoteFamily = (typeof QUOTE_FAMILIES)[number];
-
-function countOf(text: string, ch: string): number {
-  let n = 0;
-  for (const c of text) if (c === ch) n++;
-  return n;
-}
-
-/**
- * Which family this manuscript speaks in: whichever opener it uses most.
- *
- * „ “ is decided before “ ”, because a German manuscript contains both — its
- * closer IS the English opener — and counting openers alone would call it
- * English and then report every closed line as unbalanced.
- */
-export function detectQuoteFamily(text: string): QuoteFamily {
-  const german = countOf(text, "\u201E");
-  if (german > 0 && german >= countOf(text, "\u201C") - german) return QUOTE_FAMILIES[2];
-  let best: QuoteFamily = QUOTE_FAMILIES[0];
-  let bestCount = -1;
-  for (const f of QUOTE_FAMILIES) {
-    // » « is only ever the right reading when « is not itself the opener.
-    if (f.open === "\u00BB" && countOf(text, "\u00AB") >= countOf(text, "\u00BB")) continue;
-    const n = countOf(text, f.open);
-    if (n > bestCount) {
-      best = f;
-      bestCount = n;
-    }
-  }
-  return best;
-}
-
-function quoteBalance(paragraph: string, family: QuoteFamily): QuoteBalance {
-  const text = paragraph.trim();
-  return {
-    opens: countOf(text, family.open),
-    closes: countOf(text, family.close),
-    startsWithOpen: new RegExp(`^[_*]*${family.open}`).test(text),
-  };
-}
-
 /** A short, readable excerpt of the paragraph a finding refers to. */
 function excerptOf(paragraph: string): string {
   const flat = paragraph.replace(/\s+/g, " ").trim();
@@ -356,68 +299,178 @@ function findRepetitions(units: ScanUnit[]): {
 }
 
 /**
+ * How a paragraph reads on its own, for the run-tracking below.
+ */
+interface ParagraphShape {
+  opens: number;
+  closes: number;
+  balance: number;
+  marks: number;
+  startsWithOpen: boolean;
+}
+
+function shapeOf(
+  paragraph: string,
+  convention: QuoteConvention,
+): ParagraphShape {
+  const text = paragraph.trim();
+  const marks = readMarks(text, convention);
+  const opens = marks.filter((m) => m.role === "open").length;
+  const closes = marks.filter((m) => m.role === "close").length;
+  // Emphasis markers can sit between the paragraph's start and its mark:
+  // _"Share your knowledge…"_ opens with an underscore.
+  const first = marks[0];
+  const startsWithOpen =
+    first !== undefined &&
+    first.role === "open" &&
+    /^[_*]*$/.test(text.slice(0, first.index));
+  return {
+    opens,
+    closes,
+    balance: opens - closes,
+    marks: marks.length,
+    startsWithOpen,
+  };
+}
+
+/**
+ * What became of a multi-paragraph quotation that started at `opener`.
+ *
+ * `closed` carries the index to resume at — the paragraph after the closer.
+ * `broken` carries the index of the paragraph that broke the run, which is
+ * where the caller resumes: everything between the opener and the break
+ * belongs to the one quotation that was never closed, and reporting each of
+ * its paragraphs separately would turn a single missing mark into six
+ * findings on a six-paragraph legend.
+ */
+type RunOutcome =
+  | { kind: "closed"; resumeAt: number }
+  | { kind: "broken"; brokeAt: number };
+
+function runEnd(
+  paragraphs: string[],
+  opener: number,
+  convention: QuoteConvention,
+  openerShape: ParagraphShape,
+  nextShape: ParagraphShape,
+): RunOutcome {
+  // Continued speech: every paragraph re-opens with the mark, and the one
+  // that balances is the last. The OPENER has to have opened that way too —
+  // "Aaron shrugged. “We can try." is a quotation opened mid-paragraph, and
+  // the line of dialogue after it is a new speaker rather than the rest of
+  // Aaron's speech. Without this the two are indistinguishable and a real
+  // missing mark is forgiven.
+  if (openerShape.startsWithOpen && nextShape.startsWithOpen) {
+    for (let j = opener + 1; j < paragraphs.length; j++) {
+      const s = shapeOf(paragraphs[j], convention);
+      if (!s.startsWithOpen) return { kind: "broken", brokeAt: j };
+      if (s.balance === 0) return { kind: "closed", resumeAt: j + 1 };
+      if (s.balance !== 1) return { kind: "broken", brokeAt: j };
+    }
+    // Ran off the end of the chapter, never closed.
+    return { kind: "broken", brokeAt: paragraphs.length };
+  }
+  // Block quotation: one opening mark where it starts — which may sit
+  // mid-paragraph, "The page read: “This era…" — nothing on the paragraphs
+  // between, and one closing mark where it ends.
+  if (nextShape.marks === 0) {
+    for (let j = opener + 1; j < paragraphs.length; j++) {
+      const s = shapeOf(paragraphs[j], convention);
+      if (s.marks === 0) continue;
+      if (s.opens === 0 && s.closes === 1) {
+        return { kind: "closed", resumeAt: j + 1 };
+      }
+      return { kind: "broken", brokeAt: j };
+    }
+    return { kind: "broken", brokeAt: paragraphs.length };
+  }
+  // The next paragraph carries marks but opens no run this opener could
+  // legitimately have started.
+  return { kind: "broken", brokeAt: opener + 1 };
+}
+
+/**
  * Paragraphs whose quotes do not balance.
  *
- * A quotation that runs across paragraphs is legitimate in two conventions,
- * and the check carries the open quote from one paragraph to the next so
- * that both pass:
+ * A quotation that runs across paragraphs is legitimate in two conventions:
  *
- *   - continued speech: every paragraph re-opens with “ and only the last
- *     one closes;
+ *   - continued speech: every paragraph re-opens with the opening mark and
+ *     only the last one closes;
  *   - a block quotation (a letter, a legend read aloud, a page of lore):
- *     one “ where it starts, one ” where it ends, and nothing on the
- *     paragraphs between.
+ *     one opening mark where it starts, one closing mark where it ends, and
+ *     nothing on the paragraphs between.
  *
  * Judging each paragraph on its own reported the second kind twice — the
  * opener as unclosed, the closer as a stray — on a manuscript that was right.
  *
- * What still counts as wrong: two opens in one paragraph, a close with
- * nothing open, a quote left open when other speech begins, and one left
- * open at the end of the chapter. Each is reported with the paragraph that
- * opened it, since that is where the fix goes.
+ * But the first version of that tolerance re-decided WHICH convention it was
+ * looking at on every paragraph, so a run could be opened as continued
+ * speech, carried by a block-quotation rule, and cleared by a continued-speech
+ * rule. Almost nothing survived it: an unclosed line followed by any
+ * quote-free paragraph and then any ordinary line of dialogue was forgiven
+ * entirely. Measured on two real books, 5 of 15 unbalanced paragraphs were
+ * reported in one and 0 of 8 in the other.
+ *
+ * So the reading is COMMITTED at the first paragraph after the opener, and
+ * the rest of the run must conform to it. When a run breaks, the paragraph
+ * that OPENED it is reported — that is where the fix goes — and the scan
+ * resumes at the paragraph that BROKE it, so one defect never hides the next
+ * and a run that never closed is one finding rather than one per paragraph.
  */
-function unbalancedParagraphs(body: string, family: QuoteFamily): string[] {
+function unbalancedParagraphs(
+  body: string,
+  convention: QuoteConvention,
+): string[] {
   const paragraphs = body.split(/\n\n+/);
   const out: string[] = [];
-  // The paragraph whose quote is still open, if any, and how it opened.
-  let carried: { excerpt: string; startsWithOpen: boolean } | null = null;
-  for (const p of paragraphs) {
-    const { opens, closes, startsWithOpen } = quoteBalance(p, family);
-    const balance = opens - closes;
-    if (carried) {
-      // No quotes at all: the middle of a block quotation.
-      if (opens === 0 && closes === 0) continue;
-      // One close and nothing opened: the block quotation ends here.
-      if (opens === 0 && closes === 1) {
-        carried = null;
-        continue;
-      }
-      // Continued speech, paragraph by paragraph — only when the speech
-      // was opened that way too.
-      if (carried.startsWithOpen && startsWithOpen && (balance === 0 || balance === 1)) {
-        if (balance === 0) carried = null;
-        continue;
-      }
-      // Anything else while a quote is open means the open one was never
-      // closed: report it, and read this paragraph on its own.
-      out.push(carried.excerpt);
-      carried = null;
-    }
-    if (balance === 0) continue;
-    if (balance === 1) {
-      carried = { excerpt: excerptOf(p), startsWithOpen };
+  let i = 0;
+  while (i < paragraphs.length) {
+    const shape = shapeOf(paragraphs[i], convention);
+    // Balanced and self-contained: nothing to carry.
+    if (shape.balance === 0) {
+      i++;
       continue;
     }
-    out.push(excerptOf(p));
+    // More than one unmatched mark, or an unmatched CLOSING mark: a defect
+    // that no multi-paragraph convention explains. Report and move on.
+    if (shape.balance !== 1) {
+      out.push(excerptOf(paragraphs[i]));
+      i++;
+      continue;
+    }
+    // One unmatched opening mark: a run starts here. Which convention it is
+    // is decided by the very next paragraph, and never revisited.
+    const opener = i;
+    const next = paragraphs[i + 1];
+    if (next === undefined) {
+      out.push(excerptOf(paragraphs[opener]));
+      break;
+    }
+    const outcome = runEnd(
+      paragraphs,
+      opener,
+      convention,
+      shape,
+      shapeOf(next, convention),
+    );
+    if (outcome.kind === "broken") {
+      out.push(excerptOf(paragraphs[opener]));
+      // Resume at the paragraph that broke the run, not at the one after the
+      // opener: everything in between belonged to the quotation that was
+      // never closed, and reading it again would report one missing mark
+      // once per paragraph.
+      i = outcome.brokeAt;
+      continue;
+    }
+    i = outcome.resumeAt;
   }
-  if (carried) out.push(carried.excerpt);
   return out;
 }
 
 function findTruncation(
   units: ScanUnit[],
   explained: Set<string> = new Set(),
-  family: QuoteFamily = QUOTE_FAMILIES[0],
+  convention: QuoteConvention = { family: QUOTE_FAMILIES[0], style: null },
 ): DraftFinding[] {
   const findings: DraftFinding[] = [];
   for (const u of units) {
@@ -441,7 +494,7 @@ function findTruncation(
     // Unbalanced quotes hint at a mid-scene cut or a mistyped closing mark.
     // Reported WITH the passage: the chapter name alone gives the author no way
     // to check whether the finding is real.
-    for (const excerpt of unbalancedParagraphs(body, family)) {
+    for (const excerpt of unbalancedParagraphs(body, convention)) {
       // A duplicated tag drags a stray ” along with it. findRepetitions has
       // already named that paragraph, and named it correctly; reporting the
       // symptom underneath is what buried the real finding.
@@ -529,6 +582,12 @@ export interface PublicationScanOptions {
    * question the language does not settle.
    */
   manuscriptLang?: string;
+  /**
+   * The quotation-mark style the author declared, when the scan belongs to a
+   * job that has one. Falls back to the manuscript's own majority, which on a
+   * 60/40 book is a guess.
+   */
+  quoteStyle?: QuoteStyle;
 }
 
 export function buildPublicationScan(
@@ -540,7 +599,12 @@ export function buildPublicationScan(
   // Read once, off the whole book: a chapter of pure narration has no quotes
   // to judge by, and would otherwise be read against a different convention
   // from the chapter before it.
-  const family = detectQuoteFamily(units.map((u) => u.original).join("\n\n"));
+  // The author's declared style wins over the manuscript's own majority —
+  // see resolveConvention.
+  const convention = resolveConvention(
+    units.map((u) => u.original).join("\n\n"),
+    options?.quoteStyle,
+  );
   // Marked here rather than at each push site: every structural finding is a
   // publication blocker, and stating it once keeps that true as checks are
   // added. These are deterministic — on a real book all six were genuine
@@ -550,7 +614,7 @@ export function buildPublicationScan(
     ...repFindings,
     ...findEmptyChapters(units),
     ...findNumberingIssues(units),
-    ...findTruncation(units, reported, family),
+    ...findTruncation(units, reported, convention),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
   ].map((f): StructuralFinding => ({ ...f, blocking: true }));
 
