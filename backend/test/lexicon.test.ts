@@ -5,6 +5,15 @@
 // the gate must stop the exact corrections that prompted this ("Petran" →
 // "Petra", "Gata" → "Data") while letting a typo of a name be fixed to it.
 
+// NOTE ON minCount. Every harvest here passes minCount: 3 explicitly.
+// DEFAULT_MIN_COUNT moved from 3 to 5 when it turned out that a typo made
+// three times was harvested as one of the author's coinages and then deleted
+// from the corrections by gateProtectedTerms — so the layer was blind to the
+// systematic errors most worth catching. These tests are about harvest
+// MECHANICS (a name versus a dictionary word, casing variants, possessives
+// folding in), and the threshold is incidental to each of them; stating it
+// keeps every test about its own subject. The default itself is pinned by
+// lexiconMinCount.test.ts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -55,7 +64,7 @@ Then came Grace, and Grace was ordinary, so Grace went out. The little house was
 `;
 
 test("harvest: names spelled consistently mid-sentence, not dictionary words", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord, minCount: 3 });
   const names = lex.terms.filter((t) => t.kind === "name").map((t) => t.term);
   assert.ok(names.includes("Gata"), `Gata in ${names}`);
   assert.ok(names.includes("Petran"), `Petran in ${names}`);
@@ -69,7 +78,7 @@ test("harvest: names spelled consistently mid-sentence, not dictionary words", (
 });
 
 test("harvest: a lowercase coinage is a word; a run of capitals is a phrase", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord, minCount: 3 });
   const words = lex.terms.filter((t) => t.kind === "word").map((t) => t.term);
   assert.deepEqual(words, ["vaelfyre"]);
   const phrases = lex.terms.filter((t) => t.kind === "phrase").map((t) => t.term);
@@ -80,7 +89,7 @@ test("harvest: a lowercase coinage is a word; a run of capitals is a phrase", ()
 });
 
 test("harvest: a rare token one edit from a frequent name is a near miss, not a term", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord, minCount: 3 });
   assert.deepEqual(
     lex.nearMisses.map((n) => [n.term, n.of]),
     [["Silverhnad", "Silverhand"]],
@@ -89,7 +98,7 @@ test("harvest: a rare token one edit from a frequent name is a near miss, not a 
 });
 
 test("harvest: counts and order", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord, minCount: 3 });
   const gata = lex.terms.find((t) => t.term === "Gata")!;
   // Five bare "Gata"s and one "Gata's": the possessive is the same name.
   assert.equal(gata.count, 6);
@@ -97,7 +106,7 @@ test("harvest: counts and order", () => {
 });
 
 test("harvest: without a dictionary, capitalised evidence still works and coinages are skipped", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord: null });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord: null, minCount: 3 });
   const names = lex.terms.filter((t) => t.kind === "name").map((t) => t.term);
   assert.ok(names.includes("Gata"));
   assert.ok(names.includes("Grace"), "nothing says Grace is a word now");
@@ -118,7 +127,7 @@ test("harvest: German capitalises every noun, so without a dictionary there are 
 
 test("harvest: casing variants ride along; the dominant one is canonical", () => {
   const text = "Zorak came. Then zorak left, and Zorak returned; Zorak, Zorak, ZORAK.";
-  const lex = harvestLexicon(text, { lang: "en", isWord: () => false });
+  const lex = harvestLexicon(text, { lang: "en", isWord: () => false, minCount: 3 });
   const z = lex.terms.find((t) => t.term === "Zorak")!;
   assert.ok(z, "Zorak harvested");
   assert.deepEqual([...(z.variants ?? [])].sort(), ["ZORAK", "zorak"]);
@@ -130,7 +139,7 @@ test("harvest: possessives fold into the name; contractions are not names", () =
     Then Zorak's hand closed on it, and Zorak's voice said, "I'm here. I've come. I'll stay." So Zorak stayed.
     I'm not sure. I've never been. Later O'Brien came, and O'Brien's dog, and O'Brien laughed.
   `;
-  const lex = harvestLexicon(text, { lang: "en", isWord: (w) => ["peter", "hat", "she", "took"].includes(w.toLowerCase()) });
+  const lex = harvestLexicon(text, { lang: "en", isWord: (w) => ["peter", "hat", "she", "took"].includes(w.toLowerCase()), minCount: 3 });
   const names = Object.fromEntries(lex.terms.filter((t) => t.kind === "name").map((t) => [t.term, t.count]));
   assert.equal(names["Zorak"], 3, "Zorak's ×2 and Zorak ×1 are one name");
   assert.equal(names["O'Brien"], 3, "an apostrophe inside a name stays");
@@ -145,7 +154,7 @@ test("harvest: a capital after an opening quote or a colon is not a name", () =>
     I said, "Then run." We said, "Then hide." The note read: Sure thing.
     He wrote: Sure. She wrote: Sure. It said: Sure. They said: Sure, later.
   `;
-  const lex = harvestLexicon(text, { lang: "en", isWord: () => false });
+  const lex = harvestLexicon(text, { lang: "en", isWord: () => false, minCount: 3 });
   const names = lex.terms.filter((t) => t.kind === "name").map((t) => t.term);
   assert.ok(!names.includes("Then"), `Then in ${names}`);
   assert.ok(!names.includes("Sure"), `Sure in ${names}`);
@@ -154,12 +163,12 @@ test("harvest: a capital after an opening quote or a colon is not a name", () =>
 test("harvest: a book can make a name of a word — It — but never of a title", () => {
   const dict = (w: string) => ["it", "the", "they", "saw", "came", "for", "them", "and", "aunt", "captain", "waited", "again", "in", "sewer", "dark"].includes(w.toLowerCase());
   const it = "They saw It in the dark. It came for them, and It waited. They ran from It. It followed. It laughed. It was hungry, and It fed. They feared It. ".repeat(3);
-  const lex = harvestLexicon(it, { lang: "en", isWord: dict });
+  const lex = harvestLexicon(it, { lang: "en", isWord: dict, minCount: 3 });
   assert.ok(lex.terms.some((t) => t.term === "It" && t.kind === "name"), "It, mid-sentence over and over, is a name");
   const plain = "It was late. It rained. She said, \"It is over.\" It was. ".repeat(6);
-  assert.ok(!harvestLexicon(plain, { lang: "en", isWord: dict }).terms.some((t) => t.term === "It"), "the pronoun is not");
+  assert.ok(!harvestLexicon(plain, { lang: "en", isWord: dict, minCount: 3 }).terms.some((t) => t.term === "It"), "the pronoun is not");
   const titles = "They told Aunt Mae and Captain Roe. Aunt Mae wept; Captain Roe did not. Aunt Mae, Captain Roe, Aunt Mae, Captain Roe. ".repeat(4);
-  const names = harvestLexicon(titles, { lang: "en", isWord: dict }).terms.map((t) => t.term);
+  const names = harvestLexicon(titles, { lang: "en", isWord: dict, minCount: 3 }).terms.map((t) => t.term);
   assert.ok(!names.includes("Aunt") && !names.includes("Captain"), `honorifics in ${names}`);
 });
 
@@ -235,7 +244,7 @@ test("gate: an unrelated correction, and an empty lexicon, pass everything", () 
 // ── Round trip ──
 
 test("protectedTermsOf honours enabled and splits phrases; parseLexicon rejects junk", () => {
-  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord });
+  const lex = harvestLexicon(CHAPTER, { lang: "en", isWord, minCount: 3 });
   lex.terms.find((t) => t.term === "Petran")!.enabled = false;
   const p = protectedTermsOf(lex)!;
   assert.ok(!p.words.includes("Petran"));

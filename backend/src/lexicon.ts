@@ -65,7 +65,20 @@ export interface HarvestOptions {
   maxTerms?: number;
 }
 
-const DEFAULT_MIN_COUNT = 3;
+/**
+ * Occurrences before a spelling counts as the author's own word.
+ *
+ * Was 3. A typo made three times — a find-and-replace slip, a habitual
+ * misspelling, a character's name consistently misspelled — was harvested as
+ * a coinage and then deleted from the corrections by gateProtectedTerms, so
+ * the layer was blind to exactly the errors most worth catching. Measured on
+ * two real manuscripts, raising it to 5 closes that case for two extra
+ * findings per book.
+ *
+ * It narrows the hole rather than closing it: a typo repeated five or more
+ * times is still swallowed. The near-miss rule covers that tail.
+ */
+const DEFAULT_MIN_COUNT = 5;
 const DEFAULT_MAX_TERMS = 400;
 const MAX_PHRASE_WORDS = 5;
 
