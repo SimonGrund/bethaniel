@@ -173,6 +173,7 @@ import {
 } from "./storage.js";
 import type { DocumentMeta } from "./types.js";
 import { digestCorrections } from "./textEvaluator.js";
+import { uploadFileName } from "./uploadFileName.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -205,7 +206,7 @@ router.post(
         return;
       }
 
-      const fileName = req.file.originalname;
+      const fileName = uploadFileName(req.file.originalname);
       // Generate the document id up front so .docx image extraction can write
       // media into MEDIA_DIR/<docId>/ and the markdown can reference it.
       const docId = uuidv4();
