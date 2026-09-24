@@ -156,3 +156,53 @@ test("the book that prompted the rescale", () => {
   assert.equal(qualityTier(score), "ok", `scored ${score}`);
   assert.ok(score >= 85, `expected a high yellow, got ${score}`);
 });
+
+// ── What one more fault is worth ──
+
+test("a fault costs less the worse the manuscript already is", () => {
+  // The whole point of the curve. Measured over ten faults at a time rather
+  // than one, because the displayed score is an integer and a single fault
+  // deep in the tail is worth a fraction of a point — which is the property
+  // being asserted, and rounding would hide it.
+  const at = (faults: number) =>
+    computeQualityScore({ wordCount: 100000, confirmedCount: faults, ...clean });
+  const tenMoreFrom = (faults: number) => at(faults) - at(faults + 10);
+
+  const early = tenMoreFrom(0);
+  const middle = tenMoreFrom(100);
+  const late = tenMoreFrom(300);
+
+  assert.ok(early > middle, `early ${early} vs middle ${middle}`);
+  assert.ok(middle > late, `middle ${middle} vs late ${late}`);
+  // The tail is genuinely flat, not merely shallower: ten more faults in an
+  // already-broken text move the number by less than a point.
+  assert.ok(late <= 1, `ten late faults still cost ${late}`);
+  // And the first ten are worth having: this must not soften into no scale.
+  assert.ok(early >= 8, `first ten faults only cost ${early}`);
+});
+
+test("the score never reaches zero", () => {
+  // Zero is a verdict, not a measurement: it says nothing here is worth
+  // opening, which is never true of a book someone finished writing.
+  for (const faults of [500, 5000, 50000]) {
+    const score = computeQualityScore({
+      wordCount: 10000,
+      confirmedCount: faults,
+      ...clean,
+    });
+    assert.ok(score > 0, `${faults} faults scored ${score}`);
+  }
+});
+
+test("the score never goes up when a fault is added", () => {
+  let previous = 101;
+  for (let faults = 0; faults <= 300; faults++) {
+    const score = computeQualityScore({
+      wordCount: 60000,
+      confirmedCount: faults,
+      ...clean,
+    });
+    assert.ok(score <= previous, `${faults} faults scored ${score} after ${previous}`);
+    previous = score;
+  }
+});
