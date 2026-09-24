@@ -1159,17 +1159,6 @@ function BlockingIssueRow({
   );
 }
 
-/** Text form of a correction issue, for the markdown export (no JSX there). */
-function correctionIssueText(correction: Correction, originalText: string): string {
-  const { before, after } = extractSentenceContext(correction.original, originalText, 0);
-  const change = `"${correction.original}" → "${correction.corrected}"`;
-  const ctx = bracketedContext(correction.original, before, after);
-  // Change first, then the passage — the same order as the panel and the PDF.
-  // This used to read as the whole sentence arrowed at the replacement, which
-  // said the sentence became the replacement.
-  return ctx ? `${change} — ${ctx}` : change;
-}
-
 /**
  * A heuristic 0-100 publication-quality score. Structural defects are rare
  * and always serious (a duplicated chapter, a truncated ending), so each one
@@ -1269,8 +1258,6 @@ function PublicationReadinessPanel({
   polishOnlyTotal,
   polishOnlyChapters,
   wordCount,
-  onReviewMinor,
-  minorOpen,
   source,
   t,
 }: {
@@ -1287,9 +1274,6 @@ function PublicationReadinessPanel({
   polishOnlyChapters: number;
   /** Manuscript word count the score's error-density penalty is scaled by. */
   wordCount: number;
-  onReviewMinor?: () => void;
-  /** Whether the per-chapter minor list below is currently unfolded. */
-  minorOpen?: boolean;
   /** The manuscript's name, for the export's title and file name. */
   source?: string;
   t: (key: string, fallback?: string) => string;
@@ -1351,17 +1335,10 @@ function PublicationReadinessPanel({
 
   return (
     <div className="readiness" ref={rootRef}>
-      <div className="report-toolbar">
-        <button
-          type="button"
-          className="btn-secondary btn-small"
-          onClick={() => void exportPdf()}
-          disabled={exporting === "busy"}
-        >
-          {exporting === "busy" && <span className="btn-spinner" aria-hidden />}
-          {exportLabel(exporting, t)}
-        </button>
-      </div>
+      {/* The report is the thing to take away from a scan, and the button
+          that produces it was a small ghost control in the corner. It sits in
+          the headline now, on the score's own line, as the one action the
+          panel offers. */}
       <div className="readiness-headline">
         <QualityScoreRing score={score} t={t} />
         <p className={`readiness-verdict ${ready ? "is-ready" : "is-check"}`}>
@@ -1369,6 +1346,17 @@ function PublicationReadinessPanel({
             ? `✅ ${t("readiness_ready")}`
             : `⚠️ ${t("readiness_check").replace("{n}", String(blocking.length))}`}
         </p>
+        <div className="report-toolbar">
+          <button
+            type="button"
+            className="btn-primary readiness-export"
+            onClick={() => void exportPdf()}
+            disabled={exporting === "busy"}
+          >
+            {exporting === "busy" && <span className="btn-spinner" aria-hidden />}
+            {exportLabel(exporting, t)}
+          </button>
+        </div>
       </div>
 
       {/* The report's two sections, in the report's order. A defect in the
@@ -1409,28 +1397,18 @@ function PublicationReadinessPanel({
           : t("readiness_minor")
               .replace("{n}", String(minorTotal))
               .replace("{m}", String(minorChapters))}
-        {minorTotal > 0 && onReviewMinor && (
-          <>
-            {" "}
-            <button
-              type="button"
-              className="btn-link readiness-review"
-              aria-expanded={minorOpen ?? false}
-              onClick={onReviewMinor}
-            >
-              {minorOpen
-                ? t("readiness_hide_minor")
-                : t("readiness_review_all")}
-            </button>
-          </>
-        )}
       </p>
 
+      {/* The one thing this panel points at. A scan does not apply anything,
+          so the way to act on a suggestion is to run the copy edit — named
+          here by the title of its own card on the front page, so the author
+          is looking for the words they will actually see. */}
       {polishOnlyTotal >= POLISH_NUDGE_THRESHOLD && (
         <p className="readiness-polish-nudge small-note">
           {t("readiness_polish_nudge")
             .replace("{n}", String(polishOnlyTotal))
-            .replace("{m}", String(polishOnlyChapters))}
+            .replace("{m}", String(polishOnlyChapters))
+            .replace("{card}", t("card_edit_title"))}
         </p>
       )}
 
@@ -1829,86 +1807,6 @@ function buildFullManuscript(
   return chapters.join(`\n\n${PAGEBREAK_MARKER}\n\n`);
 }
 
-/**
- * Serializes a Publication Scan verdict into a standalone Markdown report:
- * structural findings, blocking corrections, and a minor-suggestion summary,
- * so the verdict can be handed to someone who isn't looking at the app.
- */
-function buildReadinessReportMarkdown(
-  src: string,
-  report: StructuralScanReport | null,
-  blockingCorrections: BlockingIssue[],
-  minorTotal: number,
-  minorChapters: number,
-  polishOnlyTotal: number,
-  polishOnlyChapters: number,
-  wordCount: number,
-  t: (key: string) => string,
-): string {
-  const structuralCount = (report?.findings ?? []).filter((f) => f.blocking).length;
-  const score = computeQualityScore({
-    wordCount,
-    structuralCount,
-    confirmedCount: blockingCorrections.length,
-  });
-  const ready = blockingCorrections.length === 0 && structuralCount === 0;
-  const lines: string[] = [`# ${t("readiness_report_title")}: ${src}`, ""];
-  lines.push(`**${t("quality_score_label")}: ${score}/100**`, "");
-  lines.push(
-    ready
-      ? `**${t("readiness_ready")}**`
-      : `**${t("readiness_check").replace(
-          "{n}",
-          String(blockingCorrections.length + structuralCount),
-        )}**`,
-  );
-  lines.push("");
-
-  const structuralBlocking = (report?.findings ?? []).filter((f) => f.blocking);
-  if (structuralBlocking.length > 0) {
-    lines.push(`## ${t("readiness_report_structural")}`, "");
-    for (const f of structuralBlocking) {
-      lines.push(`- **${f.location}** — ${f.message}${f.detail ? ` (${f.detail})` : ""}`);
-    }
-    lines.push("");
-  }
-
-  if (blockingCorrections.length > 0) {
-    lines.push(`## ${t("readiness_report_corrections")}`, "");
-    for (const issue of blockingCorrections) {
-      const text =
-        issue.kind === "correction"
-          ? correctionIssueText(issue.correction, issue.originalText)
-          : issue.message;
-      const detail = issue.kind === "correction" ? issue.correction.reason : issue.detail;
-      lines.push(`- **${issue.location}** — ${text}${detail ? ` (${detail})` : ""}`);
-    }
-    lines.push("");
-  }
-
-  lines.push(`## ${t("readiness_report_minor")}`, "");
-  lines.push(
-    minorTotal === 0
-      ? t("readiness_no_minor")
-      : t("readiness_minor")
-          .replace("{n}", String(minorTotal))
-          .replace("{m}", String(minorChapters)),
-  );
-  if (polishOnlyTotal >= POLISH_NUDGE_THRESHOLD) {
-    lines.push(
-      t("readiness_polish_nudge")
-        .replace("{n}", String(polishOnlyTotal))
-        .replace("{m}", String(polishOnlyChapters)),
-    );
-  }
-  lines.push("");
-
-  if (report) {
-    lines.push(`${report.chaptersScanned} ${t("scan_chapters")}`);
-  }
-
-  return lines.join("\n");
-}
 
 export default function ReviewExport({ isOldResults }: { isOldResults?: boolean }) {
   const {
@@ -1969,12 +1867,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
-  // Which publication-scan jobs have their per-chapter proofread detail
-  // expanded under the verdict. Keyed by job so opening one scan's minor list
-  // doesn't unfold every other scan in the old-results list.
-  const [minorDetailJobs, setMinorDetailJobs] = useState<Set<string>>(
-    () => new Set(),
-  );
   // The same change proposed elsewhere in the run, offered once the author
   // has answered one of them: a name fixed nine times is one decision, and
   // asking it nine times is the kind of tedium that makes a reviewer stop
@@ -2906,7 +2798,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             !!scanTaskEntry &&
             scanTaskEntry[1].status !== "error" &&
             scanTaskEntry[1].status !== "cancelled";
-          const showMinorDetail = minorDetailJobs.has(jid);
 
           // ── Shared manuscript-wide edit state (accept-all toggle + downloads) ──
           const editTasks = entries.filter(([, task]) =>
@@ -3088,6 +2979,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const settledPills = chapterPills.filter(
             (p) => p.status === "done" || p.status === "error" || p.status === "cancelled",
           );
+          // Every chapter finished, one way or another — the run is over and
+          // the pills have nothing left to report.
+          const chaptersSettled =
+            chapterPills.length > 0 && settledPills.length === chapterPills.length;
           // Nothing opens on its own, during the run or after it. The pills
           // are the review surface; a chapter unfolds when the author asks for
           // that chapter, and until then the screen is the bar and nothing
@@ -3728,102 +3623,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       polishOnlyTotal={polishOnlyTotal}
                       polishOnlyChapters={polishOnlyChapters}
                       wordCount={scanWordCount}
-                      onReviewMinor={() =>
-                        setMinorDetailJobs((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(jid)) next.delete(jid);
-                          else next.add(jid);
-                          return next;
-                        })
-                      }
-                      minorOpen={showMinorDetail}
                       source={src}
                       t={t}
                     />
-                    {editTaskIds.length > 0 && (
-                      <div className="export-buttons full-manuscript-export">
-                        {SHOW_MARKDOWN_DOWNLOADS && (
-                          <button
-                            className="btn-primary"
-                            disabled={!allEditDone || !editResultsReady || verifying}
-                            title={allEditDone ? undefined : t("full_manuscript_wait")}
-                            onClick={() => {
-                              editTaskIds.forEach((tid) => acceptAll(tid));
-                              void verifyThenExport(
-                                editTaskIds,
-                                (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                                (md) => downloadFile(md, `${src}.safe-fixes.md`),
-                              );
-                            }}
-                          >
-                            {t("download_safe_fixes_md")}
-                          </button>
-                        )}
-                        <button
-                          className="btn-primary"
-                          disabled={!allEditDone || !editResultsReady || verifying}
-                          title={allEditDone ? undefined : t("full_manuscript_wait")}
-                          onClick={() => {
-                            editTaskIds.forEach((tid) => acceptAll(tid));
-                            void verifyThenExport(
-                              editTaskIds,
-                              (acc, fixed) => buildFullManuscript(entries, acc, fixed),
-                              (md) => handleDownloadDocx(md, `${src}.safe-fixes.docx`),
-                            );
-                          }}
-                        >
-                          {t("download_safe_fixes_docx")}
-                        </button>
-                        {SHOW_MARKDOWN_DOWNLOADS && (
-                          <button
-                            className="btn-secondary"
-                            onClick={() =>
-                              downloadFile(
-                                buildReadinessReportMarkdown(
-                                  src,
-                                  (scanTask.result?.structuredData as
-                                    | StructuralScanReport
-                                    | undefined) ?? null,
-                                  blockingCorrections,
-                                  minorTotal,
-                                  minorChapters,
-                                  polishOnlyTotal,
-                                  polishOnlyChapters,
-                                  scanWordCount,
-                                  t,
-                                ),
-                                `${src}.readiness-report.md`,
-                              )
-                            }
-                          >
-                            {t("download_readiness_report_md")}
-                          </button>
-                        )}
-                        <button
-                          className="btn-secondary"
-                          onClick={() =>
-                            void handleDownloadDocx(
-                              buildReadinessReportMarkdown(
-                                src,
-                                (scanTask.result?.structuredData as
-                                  | StructuralScanReport
-                                  | undefined) ?? null,
-                                blockingCorrections,
-                                minorTotal,
-                                minorChapters,
-                                polishOnlyTotal,
-                                polishOnlyChapters,
-                                scanWordCount,
-                                t,
-                              ),
-                              `${src}.readiness-report.docx`,
-                            )
-                          }
-                        >
-                          {t("download_readiness_report_docx")}
-                        </button>
-                      </div>
-                    )}
+                    {/* No downloads here. A scan reports — the report is the
+                        PDF above, and the way to APPLY any of this is a copy
+                        edit, which the panel now says in so many words. The
+                        two buttons that used to sit here offered a manuscript
+                        with "safe fixes applied" from a run whose whole point
+                        is that it changes nothing. */}
                   </details>
                 );
               })()}
@@ -4272,28 +4080,27 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   outstanding count, and the column below shows one chapter's
                   corrections, flat and already open. Nothing is nested and
                   nothing has to be hunted for. */}
-              {!translationSettled && (chapterPills.length > 0 || !isOldResults) && (
+              {!translationSettled &&
+                (chapterPills.length > 0 || !isOldResults) &&
+                !(isScanJob && chaptersSettled) && (
                 <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
 
                   {/* Once every chapter has settled the row of pills gives way
                       to one control: pick a chapter. The pills are the
                       progress display — a row of them filling in is the run
                       — and after the run a row of twenty buttons is a lot of
-                      chrome for "which chapter". */}
-                  {chapterPills.length > 0 &&
-                  chapterPills.every((p) => p.status === "done" || p.status === "error" || p.status === "cancelled") ? (
+                      chrome for "which chapter".
+
+                      A finished SCAN gets neither. There is no chapter to open:
+                      the verdict above is the whole result, and the chapter
+                      picker only ever led to a read-only list of the very
+                      suggestions the panel says to run a copy edit for. */}
+                  {chaptersSettled ? (
                     <select
                       className="review-chapter-select"
                       aria-label={t("sec_chapters")}
                       value={activeChapterId ?? ""}
-                      onChange={(e) => {
-                        const tid = e.target.value || null;
-                        setActiveChapter(tid);
-                        if (tid && isScanJob)
-                          setMinorDetailJobs((prev) =>
-                            prev.has(jid) ? prev : new Set(prev).add(jid),
-                          );
-                      }}
+                      onChange={(e) => setActiveChapter(e.target.value || null)}
                     >
                       <option value="">{t("chapter_select_placeholder")}</option>
                       {chapterPills.map((pill) => {
@@ -4340,13 +4147,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         onClick={() => {
                           if (!settled) return;
                           setActiveChapter(pill.tid);
-                          // A scan keeps its chapter column folded behind the
-                          // verdict, so a pill has to open it on the way in —
-                          // otherwise clicking one does nothing visible.
-                          if (isScanJob)
-                            setMinorDetailJobs((prev) =>
-                              prev.has(jid) ? prev : new Set(prev).add(jid),
-                            );
                         }}
                       >
                         <span className="chapter-pill-name">{pill.name}</span>
@@ -4383,19 +4183,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   )}
                 </div>
               )}
-              {/* On a scan job the chapter-by-chapter minor fixes stay folded
-                  behind the verdict's "Review all" link — unfolding them is a
-                  read-only look, never a fixing surface. The pills above sit
-                  outside that fold: they are the run's progress display, and
-                  while a scan is running there is no verdict yet to fold them
-                  behind — which left a scan showing no progress at all. */}
-              {(!isScanJob || showMinorDetail) && (
+              {/* A scan stops at the verdict. The per-chapter surface below is
+                  where corrections are accepted, dismissed and exported, and a
+                  scan does none of that — it reports, and the panel above says
+                  to run a copy edit to act on what it found. It used to be
+                  reachable behind a "Review all" link, which offered the
+                  author a fixing surface that could not fix anything. The
+                  pills stay outside this: while a scan is running they are its
+                  only progress display. */}
+              {!isScanJob && (
               <>
-              {isScanJob && (
-                <p className="small-note readiness-readonly-note">
-                  {t("readiness_read_only")}
-                </p>
-              )}
               {/* The suggestions of an edit job go through the deck, one at a
                   time, chapters running into each other. The chapter column
                   below keeps each chapter's skipped list and exports; its

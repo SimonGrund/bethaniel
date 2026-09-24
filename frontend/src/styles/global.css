@@ -8897,6 +8897,21 @@ summary.review-source::before {
   margin-bottom: 0.6rem;
 }
 
+/* The verdict takes the room; the export button is pushed to the far edge of
+   the same line, where a reader's eye ends up after reading the score. */
+.readiness-headline .readiness-verdict {
+  flex: 1;
+}
+
+.readiness-headline .report-toolbar {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.readiness-export {
+  white-space: nowrap;
+}
+
 .readiness-verdict {
   margin: 0;
   font-size: 0.95rem;
@@ -9054,29 +9069,10 @@ summary.review-source::before {
   color: #6b5a1f;
 }
 
-.readiness-review {
-  background: none;
-  border: none;
-  padding: 0;
-  color: #6b5d43;
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: inherit;
-}
-
 .readiness-scanned { margin-top: 0.35rem; opacity: 0.75; }
 
 /* Sits above the unfolded per-chapter minor list on a scan run, where nothing
    can be accepted or exported — say why before the read-only cards start. */
-.readiness-readonly-note {
-  margin: 0.6rem 0 0.4rem;
-  padding: 0.4rem 0.6rem;
-  border-left: 3px solid #d9b98a;
-  border-radius: 4px;
-  background: #fdfbf6;
-  font-style: italic;
-}
-
 /* ── Cloud promo code ──
    Sits under the Run-in-Cloud button rather than beside it: a code is optional
    and most authors will never type one, so it must not compete with the action
