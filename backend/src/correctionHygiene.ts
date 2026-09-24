@@ -688,6 +688,47 @@ export function dropRedundantPunctuationAppends(
 }
 
 /**
+ * Split off corrections whose `original` is not in the manuscript.
+ *
+ * An editor sometimes quotes a sentence slightly differently from how the
+ * author wrote it and then "corrects" the difference. From a real run, the
+ * model dropped the stammer the author had written and proposed putting it
+ * back:
+ *
+ *   manuscript: Tobias paused his struggling too. “I… I’ll tell you later. …
+ *   original  : “I’ll tell you later. There’s a lot to tell you.”
+ *   corrected : “I… I’ll tell you later. There’s a lot to tell you.”
+ *
+ * `original` does not occur, so applying it finds nothing and accepting it
+ * changes nothing — yet it was offered as a decision and counted as a
+ * publication blocker. It also rendered garbled, because the review card
+ * builds its context from locateInText, whose last-ditch fallback matched the
+ * single word "There’s" and so wrapped the diff in context repeating it.
+ *
+ * Whitespace is normalised before the comparison: a chunk boundary can turn a
+ * newline into a space, and that is a real correction quoted slightly
+ * differently rather than an invented one.
+ *
+ * The unlocatable ones are RETURNED, not dropped, so the caller can list them
+ * as left alone. A finding the author never sees is worse than a noisy one.
+ */
+export function partitionUnlocatable(
+  chapterText: string,
+  corrections: Correction[],
+): { kept: Correction[]; unlocatable: Correction[] } {
+  const flat = (s: string) => s.replace(/\s+/g, " ").trim();
+  const haystack = flat(chapterText);
+  const kept: Correction[] = [];
+  const unlocatable: Correction[] = [];
+  for (const c of corrections) {
+    const needle = flat(c.original);
+    if (!needle || haystack.includes(needle)) kept.push(c);
+    else unlocatable.push(c);
+  }
+  return { kept, unlocatable };
+}
+
+/**
  * Chapter-level correction dedup, run once all of a chapter's chunk
  * corrections are assembled. Overlapping chunks and chunk boundaries can
  * produce the same correction multiple times, sometimes with extra context.

@@ -18,6 +18,7 @@ import {
   reconcileSpellWithEditor,
   dropNoOpCorrections,
   dropRedundantPunctuationAppends,
+  partitionUnlocatable,
   boundaryOccurrences,
   dedupeChapterCorrections,
 } from "../src/correctionHygiene.ts";
@@ -631,4 +632,64 @@ test("punctuation the correction did not add is untouched", () => {
     } as never,
   ]);
   assert.equal(c.corrected, "And all of it made sense.");
+});
+
+// ── A correction whose text is not in the manuscript ──
+//
+// From a real run. The model quoted the sentence without the stammer the
+// author wrote, then "corrected" it by putting the stammer back:
+//
+//   manuscript: Tobias paused his struggling too. “I… I’ll tell you later. …
+//   original  : “I’ll tell you later. There’s a lot to tell you.”
+//   corrected : “I… I’ll tell you later. There’s a lot to tell you.”
+//
+// `original` does not occur, so findAllOccurrences returns [] and accepting
+// it changes nothing — but it was still offered as a decision AND counted as
+// a publication blocker. It also rendered garbled: the card's context comes
+// from locateInText, whose last-ditch fallback matched the single word
+// "There’s", so the surrounding context repeated the very text the diff was
+// showing.
+//
+// It is moved to `skipped` rather than deleted: the review screen lists those
+// ("left alone"), and a finding the author never sees is worse than a noisy
+// one.
+
+const MANUSCRIPT =
+  "Tobias paused his struggling too. “I… I’ll tell you later. There’s a lot to tell you.”\n\nThe masses continued yelling.";
+
+test("a correction that cannot be located is not offered as a decision", () => {
+  const { kept, unlocatable } = partitionUnlocatable(MANUSCRIPT, [
+    {
+      original: "“I’ll tell you later. There’s a lot to tell you.”",
+      corrected: "“I… I’ll tell you later. There’s a lot to tell you.”",
+    } as never,
+  ]);
+  assert.equal(kept.length, 0, "it can never be applied");
+  assert.equal(unlocatable.length, 1, "and it is listed, not deleted");
+});
+
+test("a correction that IS in the manuscript is untouched", () => {
+  const { kept, unlocatable } = partitionUnlocatable(MANUSCRIPT, [
+    { original: "The masses continued yelling.", corrected: "The masses kept yelling." } as never,
+  ]);
+  assert.equal(kept.length, 1);
+  assert.equal(unlocatable.length, 0);
+});
+
+test("whitespace differences do not make a correction unlocatable", () => {
+  // A chunk boundary can normalise a newline into a space. That is a real
+  // correction quoted slightly differently, not a hallucinated one.
+  const { kept } = partitionUnlocatable("one two\nthree four", [
+    { original: "two three", corrected: "two, three" } as never,
+  ]);
+  assert.equal(kept.length, 1);
+});
+
+test("a withheld guess is never called unlocatable", () => {
+  // corrected === original, and the word is in the text; it is a finding
+  // about a word, not a rewrite.
+  const { kept } = partitionUnlocatable(MANUSCRIPT, [
+    { original: "Tobias", corrected: "Tobias", reason: "spell-check-unknown" } as never,
+  ]);
+  assert.equal(kept.length, 1);
 });

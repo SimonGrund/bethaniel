@@ -59,6 +59,7 @@ import {
   reconcileSpellWithEditor,
   dropNoOpCorrections,
   dedupeChapterCorrections,
+  partitionUnlocatable,
 } from "./correctionHygiene.js";
 import { gateProtectedTerms } from "./lexicon.js";
 import type { ProtectedTerms } from "./lexicon.js";
@@ -3063,8 +3064,28 @@ async function processJob(job: JobData): Promise<void> {
     const deduped = dropNoOpCorrections(
       dedupeChapterCorrections(original, corrections),
     );
+    // A correction whose `original` is not in the manuscript can never be
+    // applied — accepting it changes nothing — so offering it as a decision
+    // is a question with no answer, and counting it as a publication blocker
+    // is worse. It is listed as left alone rather than deleted; see
+    // partitionUnlocatable for the run that produced one.
+    const { kept, unlocatable } = partitionUnlocatable(original, deduped);
     corrections.length = 0;
-    corrections.push(...deduped);
+    corrections.push(...kept);
+    if (unlocatable.length > 0) {
+      skipped.push(
+        ...unlocatable.map((c) => ({
+          ...c,
+          reason: "left alone: this wording is not in the manuscript",
+        })),
+      );
+      appendLog({
+        level: "info",
+        source: "task",
+        taskId,
+        message: `${unlocatable.length} correction(s) left alone — the text they quote is not in the chapter, so they could not be applied.`,
+      });
+    }
   }
 
   // The dialect pass is reported once per chapter here, in the engine log,

@@ -231,6 +231,17 @@ export function extractSentenceContext(
 ): { before: string; after: string } {
   const found = locateInText(original, fullText, startIndex);
   if (!found) return { before: "", after: "" };
+  // A match far shorter than what was searched for is locateInText's
+  // last-ditch fallback — it tries the longest single word when the whole
+  // phrase is not there. That is good enough for ORDERING a correction, and
+  // useless for context: the sentence around a seven-character match contains
+  // the rest of the phrase, so the card renders the context and then the diff
+  // repeats it. From a real run, a correction quoting the sentence without
+  // the author's stammer matched only "There’s" and rendered as
+  // "…tell you later. “I… I’ll tell you later. There’s a lot to tell you.”
+  // a lot to tell you.”". No context is better than context that doubles the
+  // passage back on itself.
+  if (found.length < original.trim().length / 2) return { before: "", after: "" };
   const idx = found.index;
   const editEnd = idx + found.length;
 
