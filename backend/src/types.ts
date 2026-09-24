@@ -440,6 +440,20 @@ export interface StructuralFinding {
   /** Optional supporting snippet (e.g. the start of a duplicated block). */
   detail?: string;
   /**
+   * The same message as an i18n key and its values, so the interface can say
+   * it in the reader's language. `message` and `detail` stay as the English
+   * rendering of the same templates — results saved before these existed
+   * carry only those, and the PDF falls back to them too.
+   */
+  messageKey?: string;
+  detailKey?: string;
+  params?: Record<string, string | number>;
+  /** Params whose value is itself an i18n key — a dialect's name. */
+  labelParams?: Record<string, string>;
+  /** About the book as a whole rather than one chapter: `location` is then
+   *  the word "Manuscript", which the interface translates. */
+  wholeManuscript?: boolean;
+  /**
    * Whether this should be fixed before publishing.
    *
    * Every structural finding is: they are deterministic, and on a real

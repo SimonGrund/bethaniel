@@ -140,13 +140,13 @@ export default function StyleGuideEditor({
               className="btn-secondary btn-small"
               onClick={() => setExpanded(true)}
             >
-              Edit
+              {t("btn_edit")}
             </button>
             <button
               className="btn-secondary btn-small"
               onClick={() => fileRef.current?.click()}
             >
-              Replace
+              {t("btn_replace")}
             </button>
             <button
               className="btn-secondary btn-small"
@@ -155,7 +155,7 @@ export default function StyleGuideEditor({
                 updateStyleGuide("");
               }}
             >
-              Clear
+              {t("btn_clear")}
             </button>
           </div>
           <input
@@ -207,7 +207,7 @@ export default function StyleGuideEditor({
                   setExpanded(false);
                 }}
               >
-                Done
+                {t("btn_done")}
               </button>
             )}
           </div>

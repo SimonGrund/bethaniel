@@ -249,15 +249,15 @@ export default function ManuscriptUpload() {
               </button>
             </span>
             <span className="file-stats">
-              {doc.wordCount.toLocaleString()} words ·{" "}
+              {doc.wordCount.toLocaleString()} {t("lbl_words")} ·{" "}
               {doc.chapters.length === 0
-                ? "no chapters detected"
+                ? t("no_chapters_detected")
                 : doc.chapters
                     .slice(0, 3)
                     .map((ch, i) => shortChapterLabel(i, ch.title))
                     .join(" · ") +
                   (doc.chapters.length > 3
-                    ? ` · +${doc.chapters.length - 3} more`
+                    ? ` · ${t("n_more").replace("{n}", String(doc.chapters.length - 3))}`
                     : "")}
             </span>
             {/* The extracted text is no longer shown on the page. It is the

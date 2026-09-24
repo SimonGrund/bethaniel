@@ -16,6 +16,11 @@ import {
   fetchModelRecommendation,
   fetchSystemRecommendation,
 } from "./api";
+import { useTranslation } from "./i18n";
+
+/** Read at the moment of failure, so it is in the language showing then. */
+const downloadFailed = () =>
+  useTranslation(useStore.getState().lang)("download_failed");
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -89,7 +94,7 @@ export function useStartDownload(): (
       const data = await res.json();
       if (!res.ok) {
         clearDownload(modelId);
-        return { ok: false, error: data.error ?? "Download failed" };
+        return { ok: false, error: data.error ?? downloadFailed() };
       }
       if (data.status === "already_installed") {
         clearDownload(modelId);
@@ -102,7 +107,7 @@ export function useStartDownload(): (
       clearDownload(modelId);
       return {
         ok: false,
-        error: err instanceof Error ? err.message : "Download failed",
+        error: err instanceof Error ? err.message : downloadFailed(),
       };
     }
   };

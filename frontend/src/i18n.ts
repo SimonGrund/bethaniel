@@ -5593,6 +5593,397 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Wird noch ermittelt, ob dies auf der GPU oder der CPU läuft.",
     es: "Aún determinando si esto se ejecuta en la GPU o en la CPU.",
   },
+  // ── Strings that used to be written into the components in English ──
+  // Found by a sweep of the UI for text that never went through t(): the
+  // file line on the upload card, the count on the Run button, the footer,
+  // the engine column's warm-up line, and the alerts and confirmations.
+  lbl_mode: {
+    en: "mode",
+    da: "opgave",
+    de: "Durchgang",
+    es: "pasada",
+  },
+  lbl_modes: {
+    en: "modes",
+    da: "opgaver",
+    de: "Durchgänge",
+    es: "pasadas",
+  },
+  no_chapters_detected: {
+    en: "no chapters detected",
+    da: "ingen kapitler fundet",
+    de: "keine Kapitel erkannt",
+    es: "no se detectaron capítulos",
+  },
+  n_more: {
+    en: "+{n} more",
+    da: "+{n} mere",
+    de: "+{n} weitere",
+    es: "+{n} más",
+  },
+  footer_rights: {
+    en: "All rights reserved.",
+    da: "Alle rettigheder forbeholdes.",
+    de: "Alle Rechte vorbehalten.",
+    es: "Todos los derechos reservados.",
+  },
+  give_feedback: {
+    en: "Give Feedback",
+    da: "Giv feedback",
+    de: "Feedback geben",
+    es: "Enviar comentarios",
+  },
+  engine_warming: {
+    en: "Warming up the model… Ready when you are.",
+    da: "Varmer modellen op… Klar, når du er.",
+    de: "Das Modell wird aufgewärmt… Bereit, wenn du es bist.",
+    es: "Calentando el modelo… Lista cuando tú lo estés.",
+  },
+  occurrences_expand: {
+    en: "{n} occurrences — click to expand",
+    da: "{n} forekomster — klik for at folde ud",
+    de: "{n} Vorkommen — zum Aufklappen klicken",
+    es: "{n} apariciones — haz clic para ampliar",
+  },
+  minor_character: {
+    en: "minor character",
+    da: "bifigur",
+    de: "Nebenfigur",
+    es: "personaje secundario",
+  },
+  minor_characters: {
+    en: "minor characters",
+    da: "bifigurer",
+    de: "Nebenfiguren",
+    es: "personajes secundarios",
+  },
+  minor_location: {
+    en: "minor location",
+    da: "mindre sted",
+    de: "Nebenschauplatz",
+    es: "lugar secundario",
+  },
+  minor_locations: {
+    en: "minor locations",
+    da: "mindre steder",
+    de: "Nebenschauplätze",
+    es: "lugares secundarios",
+  },
+  zoom_story: {
+    en: "Story",
+    da: "Historien",
+    de: "Geschichte",
+    es: "Historia",
+  },
+  zoom_parts: {
+    en: "Parts",
+    da: "Dele",
+    de: "Teile",
+    es: "Partes",
+  },
+  // The name of the one unit a "first N words" run edits — it becomes the
+  // task's name in the queue and the results.
+  first_n_words_unit: {
+    en: "First {n} words",
+    da: "Første {n} ord",
+    de: "Erste {n} Wörter",
+    es: "Primeras {n} palabras",
+  },
+  btn_done: {
+    en: "Done",
+    da: "Færdig",
+    de: "Fertig",
+    es: "Listo",
+  },
+  perf_warning: {
+    en: "Performance warning:",
+    da: "Advarsel om ydeevne:",
+    de: "Leistungswarnung:",
+    es: "Aviso de rendimiento:",
+  },
+  err_queue_add: {
+    en: "Failed to add to queue: {msg}",
+    da: "Kunne ikke sætte kørslen i gang: {msg}",
+    de: "Konnte nicht in die Warteschlange gestellt werden: {msg}",
+    es: "No se pudo añadir a la cola: {msg}",
+  },
+  err_stop_job: {
+    en: "Failed to stop job: {msg}",
+    da: "Kunne ikke stoppe kørslen: {msg}",
+    de: "Auftrag konnte nicht gestoppt werden: {msg}",
+    es: "No se pudo detener la tarea: {msg}",
+  },
+  err_retry: {
+    en: "Retry failed: {msg}",
+    da: "Nyt forsøg mislykkedes: {msg}",
+    de: "Wiederholung fehlgeschlagen: {msg}",
+    es: "El reintento falló: {msg}",
+  },
+  err_generic: {
+    en: "Failed: {msg}",
+    da: "Mislykkedes: {msg}",
+    de: "Fehlgeschlagen: {msg}",
+    es: "Error: {msg}",
+  },
+  confirm_delete_job: {
+    en: "Delete this job ({label}) and all {n} task result(s)? This cannot be undone.",
+    da: "Slet denne kørsel ({label}) og alle {n} resultater? Det kan ikke fortrydes.",
+    de: "Diesen Auftrag ({label}) und alle {n} Ergebnisse löschen? Das kann nicht rückgängig gemacht werden.",
+    es: "¿Eliminar esta tarea ({label}) y sus {n} resultados? No se puede deshacer.",
+  },
+  confirm_delete_older: {
+    en: "Delete all {n} older job(s) and their results? This cannot be undone.",
+    da: "Slet alle {n} ældre kørsler og deres resultater? Det kan ikke fortrydes.",
+    de: "Alle {n} älteren Aufträge und ihre Ergebnisse löschen? Das kann nicht rückgängig gemacht werden.",
+    es: "¿Eliminar las {n} tareas anteriores y sus resultados? No se puede deshacer.",
+  },
+  err_delete: {
+    en: "Delete failed: {msg}",
+    da: "Sletning mislykkedes: {msg}",
+    de: "Löschen fehlgeschlagen: {msg}",
+    es: "No se pudo eliminar: {msg}",
+  },
+  // ── Publication scan findings ──
+  // The templates the backend fills into English (SCAN_MESSAGES in
+  // publicationScan.ts), here in every language. Slot names must match; a
+  // `_one` key is the singular the backend picks when the count is one.
+  // The dialect names go into the middle of a sentence, so they are written
+  // for that: lowercase in Danish, and nouns in German, which would otherwise
+  // need a different ending in each sentence.
+  scan_msg_duplicate_chapter: {
+    en: "Identical chapter content appears {n} times.",
+    da: "Det samme kapitelindhold forekommer {n} gange.",
+    de: "Identischer Kapitelinhalt kommt {n}-mal vor.",
+    es: "El mismo contenido de capítulo aparece {n} veces.",
+  },
+  scan_msg_duplicate_block: {
+    en: "A large block of text (paragraph/section) is repeated verbatim across chapters.",
+    da: "En større tekstblok (afsnit/sektion) går igen ordret i flere kapitler.",
+    de: "Ein großer Textblock (Absatz/Abschnitt) wiederholt sich wörtlich in mehreren Kapiteln.",
+    es: "Un bloque grande de texto (párrafo/sección) se repite literalmente en varios capítulos.",
+  },
+  scan_msg_empty: {
+    en: "Chapter is empty or nearly empty ({n} words) — content may have been dropped.",
+    da: "Kapitlet er tomt eller næsten tomt ({n} ord) — indhold kan være gået tabt.",
+    de: "Kapitel ist leer oder fast leer ({n} Wörter) — Inhalt ist möglicherweise verloren gegangen.",
+    es: "El capítulo está vacío o casi vacío ({n} palabras): puede que se haya perdido contenido.",
+  },
+  scan_msg_short: {
+    en: "Chapter is suspiciously short ({n} words).",
+    da: "Kapitlet er mistænkeligt kort ({n} ord).",
+    de: "Kapitel ist verdächtig kurz ({n} Wörter).",
+    es: "El capítulo es sospechosamente corto ({n} palabras).",
+  },
+  scan_msg_number_reused: {
+    en: "Chapter number {num} is used {n} times.",
+    da: "Kapitelnummer {num} bruges {n} gange.",
+    de: "Kapitelnummer {num} wird {n}-mal verwendet.",
+    es: "El número de capítulo {num} se usa {n} veces.",
+  },
+  scan_msg_number_gap: {
+    en: "Gap in chapter numbering: {missing} missing between {from} and {to}.",
+    da: "Hul i kapitelnummereringen: {missing} mangler mellem {from} og {to}.",
+    de: "Lücke in der Kapitelnummerierung: {missing} fehlt zwischen {from} und {to}.",
+    es: "Hueco en la numeración de capítulos: falta {missing} entre {from} y {to}.",
+  },
+  scan_msg_number_order: {
+    en: "Chapter numbers are out of order ({from} then {to}).",
+    da: "Kapitelnumrene står i forkert rækkefølge ({from} og derefter {to}).",
+    de: "Kapitelnummern sind nicht in der richtigen Reihenfolge ({from}, dann {to}).",
+    es: "Los números de capítulo están desordenados ({from} y luego {to}).",
+  },
+  scan_msg_repetition: {
+    en: "Text is repeated verbatim inside one paragraph (\"{span}\") — usually a line of dialogue duplicated by a bad edit or import.",
+    da: "Tekst gentages ordret inde i ét afsnit (\"{span}\") — typisk en replik, der er blevet fordoblet ved en fejlredigering eller import.",
+    de: "Text wiederholt sich wörtlich innerhalb eines Absatzes (\"{span}\") — meist eine Dialogzeile, die durch eine fehlerhafte Bearbeitung oder einen Import doppelt vorkommt.",
+    es: "Texto repetido literalmente dentro de un mismo párrafo (\"{span}\"): suele ser una línea de diálogo duplicada por una edición o importación defectuosa.",
+  },
+  scan_msg_truncation: {
+    en: "Chapter ends without terminal punctuation (\"…{ending}\") — content may be cut off.",
+    da: "Kapitlet slutter uden afsluttende tegnsætning (\"…{ending}\") — indhold kan være skåret af.",
+    de: "Kapitel endet ohne Satzschlusszeichen (\"…{ending}\") — Inhalt ist möglicherweise abgeschnitten.",
+    es: "El capítulo termina sin puntuación final (\"…{ending}\"): puede que el contenido esté cortado.",
+  },
+  scan_msg_quote_no_reopen: {
+    en: "Quotation continues into the next paragraph without re-opening — standard style repeats the opening mark: \"{excerpt}\"",
+    da: "Et citat fortsætter i næste afsnit uden at blive genåbnet — almindelig praksis gentager det indledende anførselstegn: \"{excerpt}\"",
+    de: "Ein Zitat läuft in den nächsten Absatz weiter, ohne neu geöffnet zu werden — üblich ist, das öffnende Anführungszeichen zu wiederholen: \"{excerpt}\"",
+    es: "Una cita continúa en el párrafo siguiente sin reabrirse; lo habitual es repetir la comilla de apertura: \"{excerpt}\"",
+  },
+  scan_msg_quote_unbalanced: {
+    en: "Unbalanced quotation marks — a line of dialogue may be unclosed: \"{excerpt}\"",
+    da: "Anførselstegnene går ikke op — en replik er måske ikke lukket: \"{excerpt}\"",
+    de: "Unausgeglichene Anführungszeichen — eine Dialogzeile ist möglicherweise nicht geschlossen: \"{excerpt}\"",
+    es: "Comillas desparejadas: puede que una línea de diálogo no esté cerrada: \"{excerpt}\"",
+  },
+  scan_msg_quote_straight: {
+    en: "Straight quotation mark in a book that uses curly ones: \"{excerpt}\"",
+    da: "Lige anførselstegn i en bog, der bruger typografiske: \"{excerpt}\"",
+    de: "Gerades Anführungszeichen in einem Buch mit typografischen: \"{excerpt}\"",
+    es: "Comilla recta en un libro que usa comillas tipográficas: \"{excerpt}\"",
+  },
+  scan_msg_quote_curly: {
+    en: "Curly quotation mark in a book that uses straight ones: \"{excerpt}\"",
+    da: "Typografisk anførselstegn i en bog, der bruger lige: \"{excerpt}\"",
+    de: "Typografisches Anführungszeichen in einem Buch mit geraden: \"{excerpt}\"",
+    es: "Comilla tipográfica en un libro que usa comillas rectas: \"{excerpt}\"",
+  },
+  scan_msg_apos_straight_one: {
+    en: "{n} straight apostrophe in a book that uses curly ones: \"{example}\"",
+    da: "{n} lige apostrof i en bog, der bruger typografiske: \"{example}\"",
+    de: "{n} gerader Apostroph in einem Buch mit typografischen: \"{example}\"",
+    es: "{n} apóstrofo recto en un libro que usa tipográficos: \"{example}\"",
+  },
+  scan_msg_apos_straight: {
+    en: "{n} straight apostrophes in a book that uses curly ones: \"{example}\"",
+    da: "{n} lige apostroffer i en bog, der bruger typografiske: \"{example}\"",
+    de: "{n} gerade Apostrophe in einem Buch mit typografischen: \"{example}\"",
+    es: "{n} apóstrofos rectos en un libro que usa tipográficos: \"{example}\"",
+  },
+  scan_msg_apos_curly_one: {
+    en: "{n} curly apostrophe in a book that uses straight ones: \"{example}\"",
+    da: "{n} typografisk apostrof i en bog, der bruger lige: \"{example}\"",
+    de: "{n} typografischer Apostroph in einem Buch mit geraden: \"{example}\"",
+    es: "{n} apóstrofo tipográfico en un libro que usa rectos: \"{example}\"",
+  },
+  scan_msg_apos_curly: {
+    en: "{n} curly apostrophes in a book that uses straight ones: \"{example}\"",
+    da: "{n} typografiske apostroffer i en bog, der bruger lige: \"{example}\"",
+    de: "{n} typografische Apostrophe in einem Buch mit geraden: \"{example}\"",
+    es: "{n} apóstrofos tipográficos en un libro que usa rectos: \"{example}\"",
+  },
+  scan_msg_ellipsis_dots_one: {
+    en: "{n} ellipsis typed as three dots in a book that uses the … character: \"{example}\"",
+    da: "{n} udeladelsesprik skrevet som tre punktummer i en bog, der bruger tegnet …: \"{example}\"",
+    de: "{n} Auslassungszeichen als drei Punkte getippt, in einem Buch mit dem Zeichen …: \"{example}\"",
+    es: "{n} puntos suspensivos escritos como tres puntos en un libro que usa el carácter …: \"{example}\"",
+  },
+  scan_msg_ellipsis_dots: {
+    en: "{n} ellipses typed as three dots in a book that uses the … character: \"{example}\"",
+    da: "{n} udeladelsesprikker skrevet som tre punktummer i en bog, der bruger tegnet …: \"{example}\"",
+    de: "{n} Auslassungszeichen als drei Punkte getippt, in einem Buch mit dem Zeichen …: \"{example}\"",
+    es: "{n} puntos suspensivos escritos como tres puntos en un libro que usa el carácter …: \"{example}\"",
+  },
+  scan_msg_ellipsis_char_one: {
+    en: "{n} … character in a book that types three dots: \"{example}\"",
+    da: "{n} …-tegn i en bog, der skriver tre punktummer: \"{example}\"",
+    de: "{n} …-Zeichen in einem Buch, das drei Punkte tippt: \"{example}\"",
+    es: "{n} carácter … en un libro que escribe tres puntos: \"{example}\"",
+  },
+  scan_msg_ellipsis_char: {
+    en: "{n} … characters in a book that types three dots: \"{example}\"",
+    da: "{n} …-tegn i en bog, der skriver tre punktummer: \"{example}\"",
+    de: "{n} …-Zeichen in einem Buch, das drei Punkte tippt: \"{example}\"",
+    es: "{n} caracteres … en un libro que escribe tres puntos: \"{example}\"",
+  },
+  scan_msg_invisible_one: {
+    en: "{n} invisible character (non-breaking or zero-width space) in the text: \"{example}\"",
+    da: "{n} usynligt tegn (hårdt mellemrum eller mellemrum uden bredde) i teksten: \"{example}\"",
+    de: "{n} unsichtbares Zeichen (geschütztes oder breitenloses Leerzeichen) im Text: \"{example}\"",
+    es: "{n} carácter invisible (espacio de no separación o de ancho cero) en el texto: \"{example}\"",
+  },
+  scan_msg_invisible: {
+    en: "{n} invisible characters (non-breaking or zero-width space) in the text: \"{example}\"",
+    da: "{n} usynlige tegn (hårde mellemrum eller mellemrum uden bredde) i teksten: \"{example}\"",
+    de: "{n} unsichtbare Zeichen (geschützte oder breitenlose Leerzeichen) im Text: \"{example}\"",
+    es: "{n} caracteres invisibles (espacios de no separación o de ancho cero) en el texto: \"{example}\"",
+  },
+  scan_msg_placeholder: {
+    en: "Drafting placeholder left in the manuscript ({markers}): \"{example}\"",
+    da: "Pladsholder fra udkastet står stadig i manuskriptet ({markers}): \"{example}\"",
+    de: "Platzhalter aus dem Entwurf steht noch im Manuskript ({markers}): \"{example}\"",
+    es: "Marcador de borrador olvidado en el manuscrito ({markers}): \"{example}\"",
+  },
+  scan_msg_dialect_tie: {
+    en: "Mixed English spelling: {british} word(s) use British spelling and {american} use American, in equal measure.",
+    da: "Blandet engelsk stavning: {british} ord bruger britisk stavning og {american} amerikansk, i lige mål.",
+    de: "Gemischte englische Schreibweise: {british} Wörter britisch und {american} amerikanisch, zu gleichen Teilen.",
+    es: "Ortografía inglesa mezclada: {british} palabras en ortografía británica y {american} en americana, a partes iguales.",
+  },
+  scan_msg_dialect_declared: {
+    en: "Mixed English spelling: {n} word(s) use {change} spelling, but this manuscript is set to {keep}.",
+    da: "Blandet engelsk stavning: {n} ord bruger {change} stavning, men manuskriptet er sat til {keep}.",
+    de: "Gemischte englische Schreibweise: {n} Wörter folgen der Schreibweise {change}, das Manuskript ist aber auf {keep} eingestellt.",
+    es: "Ortografía inglesa mezclada: {n} palabras siguen la ortografía del {change}, pero el manuscrito está configurado en {keep}.",
+  },
+  scan_msg_dialect_majority: {
+    en: "Mixed English spelling: mostly {keep} ({keepN} word(s)) but {n} word(s) use {change} spelling.",
+    da: "Blandet engelsk stavning: overvejende {keep} ({keepN} ord), men {n} ord bruger {change} stavning.",
+    de: "Gemischte englische Schreibweise: überwiegend {keep} ({keepN} Wörter), aber {n} Wörter folgen der Schreibweise {change}.",
+    es: "Ortografía inglesa mezclada: mayoritariamente {keep} ({keepN} palabras), pero {n} palabras siguen la ortografía del {change}.",
+  },
+  scan_detail_copy_edit_normalises: {
+    en: "A copy edit normalises these; a scan only reports them.",
+    da: "En korrektur retter dem; en scanning melder dem kun.",
+    de: "Eine Korrektur vereinheitlicht sie; ein Scan meldet sie nur.",
+    es: "Una corrección los normaliza; un escaneo solo los señala.",
+  },
+  scan_detail_invisible: {
+    en: "Nothing on screen shows these; they survive into the printed book.",
+    da: "Intet på skærmen viser dem; de kommer med i den trykte bog.",
+    de: "Auf dem Bildschirm ist nichts davon zu sehen; im gedruckten Buch bleiben sie erhalten.",
+    es: "Nada en pantalla los muestra; llegan al libro impreso.",
+  },
+  scan_detail_pick_dialect: {
+    en: "Pick one dialect and apply it consistently before publishing.",
+    da: "Vælg én variant, og brug den konsekvent før udgivelse.",
+    de: "Wähle eine Variante und verwende sie vor der Veröffentlichung durchgehend.",
+    es: "Elige una variante y aplícala de forma coherente antes de publicar.",
+  },
+  scan_detail_convert_dialect: {
+    en: "Convert them to {keep} spelling, or change the dialect setting, before publishing.",
+    da: "Ret dem til {keep} stavning, eller skift indstillingen for engelsk variant, før udgivelse.",
+    de: "Stelle sie vor der Veröffentlichung auf {keep} um, oder ändere die Einstellung der Variante.",
+    es: "Pásalas a {keep} o cambia el ajuste de variante antes de publicar.",
+  },
+  scan_dialect_american: {
+    en: "American",
+    da: "amerikansk",
+    de: "US-Englisch",
+    es: "inglés americano",
+  },
+  scan_dialect_british: {
+    en: "British",
+    da: "britisk",
+    de: "UK-Englisch",
+    es: "inglés británico",
+  },
+  scan_loc_manuscript: {
+    en: "Manuscript",
+    da: "Manuskript",
+    de: "Manuskript",
+    es: "Manuscrito",
+  },
+  btn_launching: {
+    en: "Launching…",
+    da: "Starter…",
+    de: "Wird gestartet…",
+    es: "Iniciando…",
+  },
+  btn_edit: {
+    en: "Edit",
+    da: "Rediger",
+    de: "Bearbeiten",
+    es: "Editar",
+  },
+  btn_replace: {
+    en: "Replace",
+    da: "Erstat",
+    de: "Ersetzen",
+    es: "Reemplazar",
+  },
+  btn_clear: {
+    en: "Clear",
+    da: "Ryd",
+    de: "Leeren",
+    es: "Borrar",
+  },
+  download_failed: {
+    en: "Download failed",
+    da: "Download mislykkedes",
+    de: "Download fehlgeschlagen",
+    es: "La descarga falló",
+  },
 };
 
 export function useTranslation(lang: Lang) {

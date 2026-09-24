@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "../store";
+import { useTranslation } from "../i18n";
 import type { LogEntry } from "../types";
 
 // The feed fills the full rail height now, so keep a generous history; the
@@ -73,6 +74,7 @@ export function useEngineFeed(): { warming: boolean; lines: LogEntry[] } {
 
 export default function EngineStatus() {
   const { warming, lines } = useEngineFeed();
+  const t = useTranslation(useStore((s) => s.lang));
 
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
@@ -84,7 +86,7 @@ export default function EngineStatus() {
     return (
       <ul className="engine-status" role="status" aria-live="polite">
         <li className="engine-status-line engine-status-info">
-          Warming up the model… Ready when you are.
+          {t("engine_warming")}
         </li>
       </ul>
     );

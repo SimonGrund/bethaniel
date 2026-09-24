@@ -85,6 +85,7 @@ export default function EditTrigger() {
         scopeMode,
         selectedChapters,
         firstNWords,
+        t("first_n_words_unit"),
       )
     : [];
   // ── Is Betty actually available to run? ──
@@ -346,7 +347,7 @@ export default function EditTrigger() {
         runMode,
       });
       if (taskIds.warnings.length > 0) {
-        alert(`⚠️ Performance warning:\n\n${taskIds.warnings.join("\n\n")}`);
+        alert(`⚠️ ${t("perf_warning")}\n\n${taskIds.warnings.join("\n\n")}`);
       }
       useStore.getState().setPendingTaskIds(taskIds.taskIds);
       setTimeout(() => {
@@ -361,7 +362,7 @@ export default function EditTrigger() {
     } catch (err) {
       console.error("Failed to add to queue:", err);
       alert(
-        `Failed to add to queue: ${err instanceof Error ? err.message : err}`,
+        t("err_queue_add").replace("{msg}", err instanceof Error ? err.message : String(err)),
       );
       setSubmitting(false);
     }
@@ -471,7 +472,7 @@ export default function EditTrigger() {
     return (
       <button className="btn-run btn-run-launching" disabled>
         <div className="btn-run-spinner" />
-        <span className="btn-run-label">Launching…</span>
+        <span className="btn-run-label">{t("btn_launching")}</span>
       </button>
     );
   }
@@ -549,9 +550,9 @@ export default function EditTrigger() {
         ) : (
           units.length > 0 && (
             <span className="btn-run-meta">
-              {units.length} {units.length === 1 ? "chapter" : "chapters"} ×{" "}
+              {units.length} {units.length === 1 ? t("lbl_chapter") : t("lbl_chapters")} ×{" "}
               {selectedModes.length}{" "}
-              {selectedModes.length === 1 ? "mode" : "modes"}
+              {selectedModes.length === 1 ? t("lbl_mode") : t("lbl_modes")}
               {localEta && (
                 <>
                   {" · "}

@@ -97,7 +97,7 @@ export default function Sidebar() {
       await Promise.all(activeJobIds.map((id) => cancelJob(id)));
     } catch (err) {
       console.error("Failed to stop job:", err);
-      alert(`Failed to stop job: ${err instanceof Error ? err.message : err}`);
+      alert(t("err_stop_job").replace("{msg}", err instanceof Error ? err.message : String(err)));
     }
     setStopping(false);
   };

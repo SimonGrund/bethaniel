@@ -27,6 +27,8 @@ export function buildUnits(
   mode: ScopeMode,
   selectedChapters: number[],
   firstNWords: number,
+  /** "First {n} words" in the interface language — it becomes a task name. */
+  firstNLabel = "First {n} words",
 ): EditUnit[] {
   if (
     mode === "selected_chapters" &&
@@ -51,7 +53,7 @@ export function buildUnits(
     }
     return [
       {
-        name: `First ${firstNWords.toLocaleString()} words`,
+        name: firstNLabel.replace("{n}", firstNWords.toLocaleString()),
         original: txt.trim(),
       },
     ];
@@ -92,8 +94,9 @@ export default function ScopeSelection() {
         scopeMode,
         selectedChapters,
         firstNWords,
+        t("first_n_words_unit"),
       ),
-    [documentMd, chapters, scopeMode, selectedChapters, firstNWords],
+    [documentMd, chapters, scopeMode, selectedChapters, firstNWords, t],
   );
   const totalWords = useMemo(
     () =>
@@ -165,7 +168,7 @@ export default function ScopeSelection() {
               <label
                 key={i}
                 className={`chapter-option ${selectedSet.has(i) ? "selected" : ""}`}
-                title={`${ch.title.trim() || shortChapterLabel(i, ch.title)} — ${ch.wordCount.toLocaleString()} words`}
+                title={`${ch.title.trim() || shortChapterLabel(i, ch.title)} — ${ch.wordCount.toLocaleString()} ${t("lbl_words")}`}
               >
                 <input
                   type="checkbox"

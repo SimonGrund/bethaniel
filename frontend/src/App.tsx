@@ -484,8 +484,8 @@ export default function App() {
         <footer className="app-footer">
           <img src="/logo-icon.svg" alt="" className="footer-logo" />
           <span className="footer-text">
-            © {new Date().getFullYear()} Bethaniel · v{__APP_VERSION__} · All
-            rights reserved.
+            © {new Date().getFullYear()} Bethaniel · v{__APP_VERSION__} ·{" "}
+            {t("footer_rights")}
           </span>
           <a
             href={CLOUD_TERMS_URL}
@@ -501,7 +501,7 @@ export default function App() {
             rel="noopener noreferrer"
             className="footer-feedback-link"
           >
-            Give Feedback
+            {t("give_feedback")}
           </a>
         </footer>
       </main>

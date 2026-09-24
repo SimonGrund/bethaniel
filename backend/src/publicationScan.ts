@@ -76,6 +76,128 @@ type DraftFinding = Omit<StructuralFinding, "blocking"> & {
   blocking?: boolean;
 };
 
+// ── What a finding says ──
+//
+// Each message is a template with named slots, sent both ways: rendered here
+// into English for `message` — what the PDF and results saved before this
+// existed rely on — and as its key and values, which the interface renders
+// from i18n.ts in the reader's language. One template per key, so the English
+// cannot drift from the translations: publicationScanMessages.test.ts renders
+// every finding back through the frontend's English and demands the same
+// sentence. A count that changes the words has its own `_one` key, chosen
+// here, because only here is the number known.
+export const SCAN_MESSAGES = {
+  scan_msg_duplicate_chapter: "Identical chapter content appears {n} times.",
+  scan_msg_duplicate_block:
+    "A large block of text (paragraph/section) is repeated verbatim across chapters.",
+  scan_msg_empty:
+    "Chapter is empty or nearly empty ({n} words) — content may have been dropped.",
+  scan_msg_short: "Chapter is suspiciously short ({n} words).",
+  scan_msg_number_reused: "Chapter number {num} is used {n} times.",
+  scan_msg_number_gap:
+    "Gap in chapter numbering: {missing} missing between {from} and {to}.",
+  scan_msg_number_order: "Chapter numbers are out of order ({from} then {to}).",
+  scan_msg_repetition:
+    'Text is repeated verbatim inside one paragraph ("{span}") — usually a line of dialogue duplicated by a bad edit or import.',
+  scan_msg_truncation:
+    'Chapter ends without terminal punctuation ("…{ending}") — content may be cut off.',
+  scan_msg_quote_no_reopen:
+    'Quotation continues into the next paragraph without re-opening — standard style repeats the opening mark: "{excerpt}"',
+  scan_msg_quote_unbalanced:
+    'Unbalanced quotation marks — a line of dialogue may be unclosed: "{excerpt}"',
+  scan_msg_quote_straight:
+    'Straight quotation mark in a book that uses curly ones: "{excerpt}"',
+  scan_msg_quote_curly:
+    'Curly quotation mark in a book that uses straight ones: "{excerpt}"',
+  scan_msg_apos_straight_one:
+    '{n} straight apostrophe in a book that uses curly ones: "{example}"',
+  scan_msg_apos_straight:
+    '{n} straight apostrophes in a book that uses curly ones: "{example}"',
+  scan_msg_apos_curly_one:
+    '{n} curly apostrophe in a book that uses straight ones: "{example}"',
+  scan_msg_apos_curly:
+    '{n} curly apostrophes in a book that uses straight ones: "{example}"',
+  scan_msg_ellipsis_dots_one:
+    '{n} ellipsis typed as three dots in a book that uses the … character: "{example}"',
+  scan_msg_ellipsis_dots:
+    '{n} ellipses typed as three dots in a book that uses the … character: "{example}"',
+  scan_msg_ellipsis_char_one:
+    '{n} … character in a book that types three dots: "{example}"',
+  scan_msg_ellipsis_char:
+    '{n} … characters in a book that types three dots: "{example}"',
+  scan_msg_invisible_one:
+    '{n} invisible character (non-breaking or zero-width space) in the text: "{example}"',
+  scan_msg_invisible:
+    '{n} invisible characters (non-breaking or zero-width space) in the text: "{example}"',
+  scan_msg_placeholder:
+    'Drafting placeholder left in the manuscript ({markers}): "{example}"',
+  scan_msg_dialect_tie:
+    "Mixed English spelling: {british} word(s) use British spelling and {american} use American, in equal measure.",
+  scan_msg_dialect_declared:
+    "Mixed English spelling: {n} word(s) use {change} spelling, but this manuscript is set to {keep}.",
+  scan_msg_dialect_majority:
+    "Mixed English spelling: mostly {keep} ({keepN} word(s)) but {n} word(s) use {change} spelling.",
+  scan_detail_copy_edit_normalises:
+    "A copy edit normalises these; a scan only reports them.",
+  scan_detail_invisible:
+    "Nothing on screen shows these; they survive into the printed book.",
+  scan_detail_pick_dialect:
+    "Pick one dialect and apply it consistently before publishing.",
+  scan_detail_convert_dialect:
+    "Convert them to {keep} spelling, or change the dialect setting, before publishing.",
+} as const;
+
+type ScanMessageKey = keyof typeof SCAN_MESSAGES;
+type Params = Record<string, string | number>;
+
+/** English for the label params — the interface has its own, per language. */
+export const SCAN_LABELS_EN: Record<string, string> = {
+  scan_dialect_american: "American",
+  scan_dialect_british: "British",
+};
+
+/** Fill a template's {slots}; label params are looked up, not inserted. */
+export function fillScanTemplate(
+  template: string,
+  params: Params = {},
+  labelParams: Record<string, string> = {},
+  label: (key: string) => string = (k) => SCAN_LABELS_EN[k] ?? k,
+): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in labelParams
+      ? label(labelParams[name])
+      : name in params
+        ? String(params[name])
+        : whole,
+  );
+}
+
+/** A finding's message, both ways: English, and key + values. */
+function say(
+  key: ScanMessageKey,
+  params?: Params,
+  labelParams?: Record<string, string>,
+): Pick<DraftFinding, "message" | "messageKey" | "params" | "labelParams"> {
+  return {
+    message: fillScanTemplate(SCAN_MESSAGES[key], params, labelParams),
+    messageKey: key,
+    ...(params ? { params } : {}),
+    ...(labelParams ? { labelParams } : {}),
+  };
+}
+
+/** A finding's explanatory line, both ways. It shares the message's values. */
+function explain(
+  key: ScanMessageKey,
+  params?: Params,
+  labelParams?: Record<string, string>,
+): Pick<DraftFinding, "detail" | "detailKey"> {
+  return {
+    detail: fillScanTemplate(SCAN_MESSAGES[key], params, labelParams),
+    detailKey: key,
+  };
+}
+
 const normalize = (s: string): string =>
   s.toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -156,7 +278,7 @@ function findDuplicates(units: ScanUnit[]): {
       check: "duplicate",
       severity: "error",
       location: idxs.map((i) => units[i].name).join(" ↔ "),
-      message: `Identical chapter content appears ${idxs.length} times.`,
+      ...say("scan_msg_duplicate_chapter", { n: idxs.length }),
     });
     groupId++;
   }
@@ -184,7 +306,7 @@ function findDuplicates(units: ScanUnit[]): {
       check: "duplicate",
       severity: "error",
       location: [...chapters].map((i) => units[i].name).join(" ↔ "),
-      message: `A large block of text (paragraph/section) is repeated verbatim across chapters.`,
+      ...say("scan_msg_duplicate_block"),
       detail: snippet.slice(0, 140) + (snippet.length > 140 ? "…" : ""),
     });
   }
@@ -201,14 +323,14 @@ function findEmptyChapters(units: ScanUnit[]): DraftFinding[] {
         check: "empty_chapter",
         severity: "error",
         location: u.name,
-        message: `Chapter is empty or nearly empty (${wc} words) — content may have been dropped.`,
+        ...say("scan_msg_empty", { n: wc }),
       });
     } else if (wc < SHORT_THRESHOLD && !SPECIAL_SECTION_RE.test(u.name)) {
       findings.push({
         check: "empty_chapter",
         severity: "warning",
         location: u.name,
-        message: `Chapter is suspiciously short (${wc} words).`,
+        ...say("scan_msg_short", { n: wc }),
       });
     }
   }
@@ -231,7 +353,7 @@ function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
         check: "numbering",
         severity: "warning",
         location: names.join(" ↔ "),
-        message: `Chapter number ${num} is used ${names.length} times.`,
+        ...say("scan_msg_number_reused", { num, n: names.length }),
       });
     }
   }
@@ -246,14 +368,18 @@ function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
         check: "numbering",
         severity: "warning",
         location: `${prev.name} → ${cur.name}`,
-        message: `Gap in chapter numbering: ${missing.join(", ")} missing between ${prev.num} and ${cur.num}.`,
+        ...say("scan_msg_number_gap", {
+          missing: missing.join(", "),
+          from: prev.num,
+          to: cur.num,
+        }),
       });
     } else if (cur.num <= prev.num && cur.num !== prev.num) {
       findings.push({
         check: "numbering",
         severity: "warning",
         location: `${prev.name} → ${cur.name}`,
-        message: `Chapter numbers are out of order (${prev.num} then ${cur.num}).`,
+        ...say("scan_msg_number_order", { from: prev.num, to: cur.num }),
       });
     }
   }
@@ -329,7 +455,7 @@ function findRepetitions(units: ScanUnit[]): {
         check: "repetition",
         severity: "error",
         location: u.name,
-        message: `Text is repeated verbatim inside one paragraph ("${span}") — usually a line of dialogue duplicated by a bad edit or import.`,
+        ...say("scan_msg_repetition", { span }),
         detail: excerpt,
       });
       reported.add(excerpt);
@@ -555,7 +681,7 @@ function findTruncation(
         check: "truncation",
         severity: "warning",
         location: u.name,
-        message: `Chapter ends without terminal punctuation ("…${forEnding.slice(-40).trim()}") — content may be cut off.`,
+        ...say("scan_msg_truncation", { ending: forEnding.slice(-40).trim() }),
       });
       continue;
     }
@@ -571,10 +697,10 @@ function findTruncation(
         check: "truncation",
         severity: "info",
         location: u.name,
-        message:
-          kind === "no-reopen"
-            ? `Quotation continues into the next paragraph without re-opening — standard style repeats the opening mark: "${excerpt}"`
-            : `Unbalanced quotation marks — a line of dialogue may be unclosed: "${excerpt}"`,
+        ...say(
+          kind === "no-reopen" ? "scan_msg_quote_no_reopen" : "scan_msg_quote_unbalanced",
+          { excerpt },
+        ),
         // A house style, not a defect: applied consistently, corrupting
         // nothing, and the convention some houses use throughout. It is worth
         // saying once; it is not worth counting in "N things to check before
@@ -624,10 +750,10 @@ function findQuoteStyle(
         check: "quote_style",
         severity: "info",
         location: u.name,
-        message:
-          wanted === "curly"
-            ? `Straight quotation mark in a book that uses curly ones: "${excerptOf(paragraph)}"`
-            : `Curly quotation mark in a book that uses straight ones: "${excerptOf(paragraph)}"`,
+        ...say(
+          wanted === "curly" ? "scan_msg_quote_straight" : "scan_msg_quote_curly",
+          { excerpt: excerptOf(paragraph) },
+        ),
       });
     }
   }
@@ -652,8 +778,9 @@ function findTypography(
   declared?: QuoteStyle | null,
 ): DraftFinding[] {
   const whole = units.map((u) => u.original).join("\n\n");
-  const plural = (n: number, one: string, many: string) =>
-    n === 1 ? one : many;
+  // The key with `_one` when the count is one: "1 straight apostrophe".
+  const counted = (n: number, key: string): ScanMessageKey =>
+    (n === 1 ? `${key}_one` : key) as ScanMessageKey;
   return findTypographyIssues(whole, declared).map((issue): DraftFinding => {
     switch (issue.kind) {
       case "apostrophe-style":
@@ -665,24 +792,30 @@ function findTypography(
           // a finished manuscript, which is why it is reported at all.
           severity: "info",
           location: "Manuscript",
-          message:
-            issue.expected === "curly"
-              ? `${issue.count} straight ${plural(issue.count, "apostrophe", "apostrophes")} in a book that uses curly ones: "${issue.example}"`
-              : `${issue.count} curly ${plural(issue.count, "apostrophe", "apostrophes")} in a book that uses straight ones: "${issue.example}"`,
-          detail:
-            "A copy edit normalises these; a scan only reports them.",
+          wholeManuscript: true,
+          ...say(
+            counted(
+              issue.count,
+              issue.expected === "curly" ? "scan_msg_apos_straight" : "scan_msg_apos_curly",
+            ),
+            { n: issue.count, example: issue.example },
+          ),
+          ...explain("scan_detail_copy_edit_normalises"),
         };
       case "ellipsis-style":
         return {
           check: "ellipsis_style",
           severity: "info",
           location: "Manuscript",
-          message:
-            issue.expected === "character"
-              ? `${issue.count} ${plural(issue.count, "ellipsis", "ellipses")} typed as three dots in a book that uses the … character: "${issue.example}"`
-              : `${issue.count} … ${plural(issue.count, "character", "characters")} in a book that types three dots: "${issue.example}"`,
-          detail:
-            "A copy edit normalises these; a scan only reports them.",
+          wholeManuscript: true,
+          ...say(
+            counted(
+              issue.count,
+              issue.expected === "character" ? "scan_msg_ellipsis_dots" : "scan_msg_ellipsis_char",
+            ),
+            { n: issue.count, example: issue.example },
+          ),
+          ...explain("scan_detail_copy_edit_normalises"),
         };
       case "invisible-character":
         return {
@@ -692,9 +825,12 @@ function findTypography(
           // page, and a zero-width character breaks search inside a word.
           severity: "warning",
           location: "Manuscript",
-          message: `${issue.count} invisible ${plural(issue.count, "character", "characters")} (non-breaking or zero-width space) in the text: "${issue.example}"`,
-          detail:
-            "Nothing on screen shows these; they survive into the printed book.",
+          wholeManuscript: true,
+          ...say(counted(issue.count, "scan_msg_invisible"), {
+            n: issue.count,
+            example: issue.example,
+          }),
+          ...explain("scan_detail_invisible"),
         };
       case "placeholder":
         return {
@@ -703,7 +839,11 @@ function findTypography(
           // rather than in its typesetting.
           severity: "error",
           location: "Manuscript",
-          message: `Drafting placeholder left in the manuscript (${issue.markers?.join(", ")}): "${issue.example}"`,
+          wholeManuscript: true,
+          ...say("scan_msg_placeholder", {
+            markers: issue.markers?.join(", ") ?? "",
+            example: issue.example,
+          }),
         };
     }
   });
@@ -736,8 +876,18 @@ function findDialectConsistency(
   const { dialect, americanHits, britishHits, mixed } = detectDialect(combined);
   if (!mixed) return [];
 
-  const finding = (message: string, detail: string): DraftFinding[] => [
-    { check: "dialect", severity: "warning", location: "Manuscript", message, detail },
+  const finding = (
+    message: ReturnType<typeof say>,
+    detail: ReturnType<typeof explain>,
+  ): DraftFinding[] => [
+    {
+      check: "dialect",
+      severity: "warning",
+      location: "Manuscript",
+      wholeManuscript: true,
+      ...message,
+      ...detail,
+    },
   ];
 
   // The author's choice first; the draft's own majority only as a fallback.
@@ -748,25 +898,27 @@ function findDialectConsistency(
     // manuscript possible passed the scan in silence. Report it, without
     // pretending either side is the house style.
     return finding(
-      `Mixed English spelling: ${britishHits} word(s) use British spelling and ${americanHits} use American, in equal measure.`,
-      "Pick one dialect and apply it consistently before publishing.",
+      say("scan_msg_dialect_tie", { british: britishHits, american: americanHits }),
+      explain("scan_detail_pick_dialect"),
     );
   }
 
-  const keepLabel = reference === "american" ? "American" : "British";
-  const changeLabel = reference === "american" ? "British" : "American";
+  const labels = {
+    keep: reference === "american" ? "scan_dialect_american" : "scan_dialect_british",
+    change: reference === "american" ? "scan_dialect_british" : "scan_dialect_american",
+  };
   const keepCount = reference === "american" ? americanHits : britishHits;
   const changeCount = reference === "american" ? britishHits : americanHits;
 
   if (declared) {
     return finding(
-      `Mixed English spelling: ${changeCount} word(s) use ${changeLabel} spelling, but this manuscript is set to ${keepLabel}.`,
-      `Convert them to ${keepLabel} spelling, or change the dialect setting, before publishing.`,
+      say("scan_msg_dialect_declared", { n: changeCount }, labels),
+      explain("scan_detail_convert_dialect", undefined, labels),
     );
   }
   return finding(
-    `Mixed English spelling: mostly ${keepLabel} (${keepCount} word(s)) but ${changeCount} word(s) use ${changeLabel} spelling.`,
-    "Pick one dialect and apply it consistently before publishing.",
+    say("scan_msg_dialect_majority", { n: changeCount, keepN: keepCount }, labels),
+    explain("scan_detail_pick_dialect"),
   );
 }
 

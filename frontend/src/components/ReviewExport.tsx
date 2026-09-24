@@ -51,6 +51,7 @@ import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
 import { computeQualityScore, qualityTier } from "../qualityScore";
 import { NAMED_TERMS, protectedSavesAcross } from "../protectedSaves";
 import { useResultHydration } from "../useResultHydration";
+import { localiseFinding, type LocalisableFinding } from "../scanFinding";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -511,6 +512,8 @@ function CorrectionCard({
   readOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const lang = useStore((s) => s.lang);
+  const t = useTranslation(lang);
 
   // Guard: if no correction ID, show a simple non-interactive card
   if (!correction.id) {
@@ -644,7 +647,7 @@ function CorrectionCard({
               e.stopPropagation();
               setExpanded(!expanded);
             }}
-            title={`${totalOcc} occurrences — click to expand`}
+            title={t("occurrences_expand").replace("{n}", String(totalOcc))}
             style={{
               fontSize: "0.75rem",
               fontWeight: 600,
@@ -783,11 +786,11 @@ function SplitCatalogTable({
   const minorLabel =
     mode === "character"
       ? minorItems.length === 1
-        ? "minor character"
-        : "minor characters"
+        ? t("minor_character")
+        : t("minor_characters")
       : minorItems.length === 1
-        ? "minor location"
-        : "minor locations";
+        ? t("minor_location")
+        : t("minor_locations");
 
   const renderTable = (rows: Array<Record<string, unknown>>) => (
     <table className="catalog-table">
@@ -981,11 +984,11 @@ function OutlineZoomView({
   ) as Array<Record<string, unknown>>;
 
   const zooms: { zoom: OutlineZoom; label: string; available: boolean }[] = [
-    { zoom: "story", label: "Story", available: synopsis.length > 0 },
-    { zoom: "parts", label: "Parts", available: parts.length > 0 },
+    { zoom: "story", label: t("zoom_story"), available: synopsis.length > 0 },
+    { zoom: "parts", label: t("zoom_parts"), available: parts.length > 0 },
     {
       zoom: "chapters",
-      label: "Chapters",
+      label: t("sec_chapters"),
       available: chapterSummaries.length > 0,
     },
   ];
@@ -1092,12 +1095,9 @@ function isAnalysisMode(mode?: string): boolean {
 }
 
 // ── Publication-readiness scan report ──
-interface StructuralFinding {
+interface StructuralFinding extends LocalisableFinding {
   check: string;
   severity: "error" | "warning" | "info";
-  location: string;
-  message: string;
-  detail?: string;
   /** Whether this must be fixed before publishing. Decided by the backend. */
   blocking?: boolean;
 }
@@ -1347,9 +1347,7 @@ function PublicationReadinessPanel({
     .filter((f) => f.blocking)
     .map((f) => ({
       kind: "structural" as const,
-      location: f.location,
-      message: f.message,
-      detail: f.detail,
+      ...localiseFinding(f, t),
     }));
   const blocking = [...structuralBlocking, ...blockingCorrections];
   const ready = blocking.length === 0;
@@ -1536,21 +1534,26 @@ function StructuralFindingsPanel({
         {t("scan_warnings")} · {report.summary.info} {t("scan_info")}
       </p>
       <ul className="scan-finding-list">
-        {sorted.map((f, i) => (
-          <li key={i} className={`scan-finding scan-sev-${f.severity}`}>
-            <span className="scan-finding-icon">
-              {SEVERITY_ICON[f.severity] ?? ""}
-            </span>
-            <span className="scan-finding-body">
-              <span className="scan-finding-loc">{f.location}</span>
-              <span className="scan-finding-check">
-                {t(`scan_check_${f.check}`)}
+        {sorted.map((f, i) => {
+          const said = localiseFinding(f, t);
+          return (
+            <li key={i} className={`scan-finding scan-sev-${f.severity}`}>
+              <span className="scan-finding-icon">
+                {SEVERITY_ICON[f.severity] ?? ""}
               </span>
-              <span className="scan-finding-msg">{f.message}</span>
-              {f.detail && <span className="scan-finding-detail">{f.detail}</span>}
-            </span>
-          </li>
-        ))}
+              <span className="scan-finding-body">
+                <span className="scan-finding-loc">{said.location}</span>
+                <span className="scan-finding-check">
+                  {t(`scan_check_${f.check}`)}
+                </span>
+                <span className="scan-finding-msg">{said.message}</span>
+                {said.detail && (
+                  <span className="scan-finding-detail">{said.detail}</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -2421,10 +2424,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     } catch (err) {
       console.error("Retry failed:", err);
       alert(
-        `Retry failed: ${err instanceof Error ? err.message : String(err)}`,
+        t("err_retry").replace("{msg}", err instanceof Error ? err.message : String(err)),
       );
     }
-  }, []);
+  }, [lang]);
 
   const handleSpawnSummary = useCallback(
     async (jobId: string, type: "summary" | "blurb" = "summary") => {
@@ -2433,18 +2436,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       } catch (err) {
         console.error("Spawn summary failed:", err);
         alert(
-          `Failed: ${err instanceof Error ? err.message : String(err)}`,
+          t("err_generic").replace("{msg}", err instanceof Error ? err.message : String(err)),
         );
       }
     },
-    [],
+    [lang],
   );
 
   const handleDeleteJob = useCallback(
     async (jobId: string, label: string, taskCount: number) => {
       if (
         !window.confirm(
-          `Delete this job (${label}) and all ${taskCount} task result(s)? This cannot be undone.`,
+          t("confirm_delete_job")
+            .replace("{label}", label)
+            .replace("{n}", String(taskCount)),
         )
       ) {
         return;
@@ -2454,18 +2459,18 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       } catch (err) {
         console.error("Delete job failed:", err);
         alert(
-          `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+          t("err_delete").replace("{msg}", err instanceof Error ? err.message : String(err)),
         );
       }
     },
-    [],
+    [lang],
   );
 
   const handleDeleteOlder = useCallback(async (jobIds: string[]) => {
     if (jobIds.length === 0) return;
     if (
       !window.confirm(
-        `Delete all ${jobIds.length} older job(s) and their results? This cannot be undone.`,
+        t("confirm_delete_older").replace("{n}", String(jobIds.length)),
       )
     ) {
       return;
@@ -2475,10 +2480,10 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     } catch (err) {
       console.error("Delete older jobs failed:", err);
       alert(
-        `Delete failed: ${err instanceof Error ? err.message : String(err)}`,
+        t("err_delete").replace("{msg}", err instanceof Error ? err.message : String(err)),
       );
     }
-  }, []);
+  }, [lang]);
 
   // Newest job (includes queued tasks) — used by the current-run header and
   // as the auto-hydrated job in the Former Runs view.
@@ -3388,7 +3393,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             )
                           }
                         >
-                          Download Markdown
+                          {t("download_md")}
                         </button>
                       )}
                       <button
@@ -3400,7 +3405,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           )
                         }
                       >
-                        Download DOCX
+                        {t("download_docx")}
                       </button>
                     </div>
                   </details>
@@ -3481,7 +3486,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             )
                           }
                         >
-                          Download Markdown
+                          {t("download_md")}
                         </button>
                       )}
                       <button
@@ -3493,7 +3498,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           )
                         }
                       >
-                        Download DOCX
+                        {t("download_docx")}
                       </button>
                     </div>
                   </details>
@@ -3787,7 +3792,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             )
                           }
                         >
-                          Download Markdown
+                          {t("download_md")}
                         </button>
                       )}
                       <button
@@ -3799,7 +3804,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           )
                         }
                       >
-                        Download DOCX
+                        {t("download_docx")}
                       </button>
                     </div>
                   </details>
@@ -3875,7 +3880,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             )
                           }
                         >
-                          Download Markdown
+                          {t("download_md")}
                         </button>
                       )}
                       <button
@@ -3887,7 +3892,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           )
                         }
                       >
-                        Download DOCX
+                        {t("download_docx")}
                       </button>
                     </div>
                   </details>

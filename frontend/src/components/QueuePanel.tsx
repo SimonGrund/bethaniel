@@ -226,7 +226,7 @@ export default function QueuePanel() {
     } catch (err) {
       console.error("Failed to stop job:", err);
       alert(
-        `Failed to stop job: ${err instanceof Error ? err.message : err}`,
+        t("err_stop_job").replace("{msg}", err instanceof Error ? err.message : String(err)),
       );
     }
     setStoppingJob(null);
