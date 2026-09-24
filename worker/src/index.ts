@@ -19,6 +19,7 @@ import {
   findPromo,
   isPromoSpent,
   parseProductUses,
+  parseProducts,
   redeemPromo,
   releasePromo,
   findQuote,
@@ -425,6 +426,7 @@ export default {
                 maxWords: promoRow.max_words,
                 maxUsesPerProduct: promoRow.max_uses_per_product,
                 productUses: parseProductUses(promoRow),
+                products: parseProducts(promoRow),
               }
             : null,
         );

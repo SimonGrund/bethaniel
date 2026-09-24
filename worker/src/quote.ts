@@ -1,7 +1,7 @@
 // ── Pricing ──
 
 import type { Env } from "./env";
-import { parseProductUses } from "./db";
+import { parseProductUses, parseProducts } from "./db";
 import type { PromoRow } from "./db";
 
 /** The parts of a promo code that bear on price. */
@@ -14,6 +14,20 @@ export interface PromoTerms {
   maxUsesPerProduct?: number | null;
   /** Uses already taken, by product. Absent counts as none. */
   productUses?: Record<string, number>;
+  /**
+   * The products this code covers. Absent or empty means every product.
+   *
+   * Added for "two runs of each, but not a translation", which was not
+   * expressible: the row had a cap per product and a tally per product, but
+   * no scope, so a code could be limited to two translations and could not be
+   * kept away from them. Minting three codes did not help either — each would
+   * still have been spendable on anything.
+   *
+   * Empty reads as unrestricted rather than as a code that buys nothing: a
+   * row whose JSON parsed to [] is a mistake, and a dead code is a worse
+   * outcome than an open one.
+   */
+  products?: readonly string[];
 }
 
 /** What is being bought. The three front cards — an edit, a final
@@ -76,8 +90,17 @@ export function codeBalance(row: PromoRow): CodeBalance {
   const pool = Math.max(0, row.max_uses - row.uses);
   const perProduct = row.max_uses_per_product;
   const taken = parseProductUses(row);
+  // A product the code does not cover has no runs on it, whatever the pool
+  // says. This must agree with priceJob or a card offers a free run the
+  // checkout then refuses — which is the whole reason this function exists
+  // rather than the app doing the arithmetic from the two raw counters.
+  const scope = parseProducts(row);
   const runsLeft = {} as Record<CloudProduct, number>;
   for (const product of CLOUD_PRODUCTS) {
+    if (scope.length > 0 && !scope.includes(product)) {
+      runsLeft[product] = 0;
+      continue;
+    }
     // The total pool caps the per-product count and never the other way
     // round: two uses left with three allowed per product is two, or the card
     // offers a third run that redeemPromo refuses.
@@ -206,6 +229,19 @@ export function priceJob(
 
   if (!promo) {
     return { product, tokens, words, tiers, priceEurCents: fullPriceEurCents, fullPriceEurCents };
+  }
+
+  // Scope first: a code that does not cover this product at all is a more
+  // fundamental refusal than one whose size cap it exceeds, and naming the
+  // size when the product was never covered sends the author to shorten a
+  // manuscript that would still be refused.
+  if (promo.products?.length && !promo.products.includes(product)) {
+    return {
+      product, tokens, words, tiers,
+      priceEurCents: fullPriceEurCents,
+      fullPriceEurCents,
+      codeRejectedReason: `${promo.code} does not cover ${PRODUCT_NOUNS[product]}.`,
+    };
   }
 
   // A code may cap the size it will pay for, so "free trial" can mean "free up

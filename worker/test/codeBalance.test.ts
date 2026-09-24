@@ -146,3 +146,54 @@ test("unparsable product_uses counts as none taken, not as a crash", () => {
     enhance: 1,
   });
 });
+
+// ── A code that does not cover a product has no runs left on it ──
+//
+// codeBalance is what the app puts on the task cards. The comment on it is
+// explicit that the answer must be the SAME one the price is computed from,
+// "or a card promises a free run the checkout then charges for". A scope is
+// exactly that risk: without this, an edit-only code would advertise free
+// translations and priceJob would refuse them.
+
+test("a scoped code shows runs only on the products it covers", () => {
+  const b = codeBalance({
+    code: "LANCE100K",
+    campaign: null,
+    discount_pct: 100,
+    discount_cents: null,
+    max_uses: 6,
+    uses: 0,
+    max_words: 100_000,
+    max_uses_per_product: 2,
+    product_uses: "{}",
+    products: '["edit","readthrough","enhance"]',
+    created_at: "2026-09-24T00:00:00.000Z",
+    expires_at: null,
+    status: "active",
+  } as never);
+  assert.equal(b.runsLeft.edit, 2);
+  assert.equal(b.runsLeft.readthrough, 2);
+  assert.equal(b.runsLeft.enhance, 2);
+  assert.equal(b.runsLeft.translate, 0, "not covered — the card must not offer it");
+});
+
+test("an unscoped code is unchanged", () => {
+  const b = codeBalance({
+    code: "OPEN",
+    campaign: null,
+    discount_pct: 100,
+    discount_cents: null,
+    max_uses: 4,
+    uses: 0,
+    max_words: null,
+    max_uses_per_product: 1,
+    product_uses: "{}",
+    products: null,
+    created_at: "2026-09-24T00:00:00.000Z",
+    expires_at: null,
+    status: "active",
+  } as never);
+  for (const p of ["edit", "readthrough", "translate", "enhance"] as const) {
+    assert.equal(b.runsLeft[p], 1, p);
+  }
+});

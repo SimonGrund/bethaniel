@@ -283,6 +283,8 @@ export interface PromoRow {
   max_uses_per_product: number | null;
   /** JSON object, product name → uses taken. `{}` on a fresh code. */
   product_uses: string;
+  /** JSON array of the products this code covers. NULL = every product. */
+  products: string | null;
   created_at: string;
   expires_at: string | null;
   status: string;
@@ -306,6 +308,24 @@ export function parseProductUses(row: Pick<PromoRow, "product_uses">): Record<st
 }
 
 /** Look a code up without consuming it. Quoting must not spend a use. */
+/**
+ * The products a code covers, or [] for "no restriction".
+ *
+ * Tolerant like parseProductUses: a row with malformed JSON reads as
+ * unrestricted rather than as a code that buys nothing. A dead code minted by
+ * a stray character is a worse failure than an open one, and the caps and the
+ * size limit still apply either way.
+ */
+export function parseProducts(row: Pick<PromoRow, "products">): string[] {
+  if (!row.products) return [];
+  try {
+    const v = JSON.parse(row.products);
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function findPromo(env: Env, code: string): Promise<PromoRow | null> {
   const row = await env.DB.prepare(`SELECT * FROM promo_codes WHERE code = ?`)
     .bind(code.trim().toUpperCase())
@@ -389,7 +409,14 @@ export async function redeemPromo(env: Env, code: string, product: CloudProduct)
       WHERE code = ?1 AND status = 'active' AND uses < max_uses
         AND (expires_at IS NULL OR expires_at > ?3)
         AND (max_uses_per_product IS NULL
-             OR coalesce(json_extract(product_uses, '$.' || ?2), 0) < max_uses_per_product)`,
+             OR coalesce(json_extract(product_uses, '$.' || ?2), 0) < max_uses_per_product)
+        -- The product scope, in the same guarded UPDATE as the counts. Kept
+        -- here rather than in a prior SELECT for the same reason they are: a
+        -- check that is not part of the write can be raced past. NULL and []
+        -- both mean every product.
+        AND (products IS NULL
+             OR json_array_length(products) = 0
+             OR EXISTS (SELECT 1 FROM json_each(products) WHERE value = ?2))`,
   )
     .bind(code.trim().toUpperCase(), product, new Date().toISOString())
     .run();

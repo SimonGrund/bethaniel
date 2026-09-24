@@ -84,6 +84,13 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   -- makes the total count race-safe.
   max_uses_per_product INTEGER,
   product_uses TEXT NOT NULL DEFAULT '{}',
+  -- Which products the code covers, as a JSON array of product names, e.g.
+  -- '["edit","readthrough","enhance"]'. NULL or [] means every product, so
+  -- every code minted before this column existed keeps working. Added for
+  -- "two runs of each, but not a translation": the cap above can limit a code
+  -- TO a product but cannot keep it AWAY from one, and three separate codes
+  -- would not have helped — each would still be spendable on anything.
+  products TEXT,
   created_at TEXT NOT NULL,
   expires_at TEXT,                   -- NULL = never
   status TEXT NOT NULL DEFAULT 'active'  -- active | void

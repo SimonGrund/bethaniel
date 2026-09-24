@@ -252,3 +252,69 @@ test("the product tally reads back leniently", () => {
   assert.deepEqual(parseProductUses({ product_uses: "[1]" }), {});
   assert.deepEqual(parseProductUses({ product_uses: '{"edit":1,"translate":"x"}' }), { edit: 1 });
 });
+
+// ── A code that covers only some products ──
+//
+// "Two runs of each, but not a translation" was not expressible: the row had
+// a cap per product and a tally per product, but no scope. A code could be
+// limited to two translations; it could not be kept away from them. And
+// minting three codes did not help — each would still have been spendable on
+// anything.
+//
+// NULL means every product, so every code minted before this keeps working.
+
+const scoped = {
+  code: "LANCE100K",
+  discountPct: 100,
+  maxWords: 100_000,
+  maxUsesPerProduct: 2,
+  products: ["edit", "readthrough", "enhance"],
+};
+
+test("a scoped code pays for a product it covers", () => {
+  for (const product of ["edit", "readthrough", "enhance"] as const) {
+    const q = priceJob(env, { estimatedTokens: 50_000, words: 40_000, product }, scoped);
+    assert.equal(q.priceEurCents, 0, product);
+    assert.equal(q.appliedCode, "LANCE100K");
+    assert.equal(q.codeRejectedReason, undefined);
+  }
+});
+
+test("and refuses one it does not, with the full price and a reason", () => {
+  const q = priceJob(env, { estimatedTokens: 50_000, words: 40_000, product: "translate" }, scoped);
+  assert.equal(q.priceEurCents, 1200, "the author still gets a price");
+  assert.equal(q.appliedCode, undefined);
+  assert.match(q.codeRejectedReason ?? "", /LANCE100K/);
+  assert.match(q.codeRejectedReason ?? "", /translation/);
+});
+
+test("an unscoped code still covers everything", () => {
+  const open = { code: "OPEN", discountPct: 100, maxWords: 100_000 };
+  for (const product of ["edit", "readthrough", "translate", "enhance"] as const) {
+    const q = priceJob(env, { estimatedTokens: 50_000, words: 40_000, product }, open);
+    assert.equal(q.priceEurCents, 0, product);
+  }
+});
+
+test("an empty scope covers everything too, rather than nothing", () => {
+  // A row whose JSON parsed to [] must not become a code that buys nothing:
+  // that is a dead code minted by accident, and the safe reading of "no
+  // restriction recorded" is "no restriction".
+  const q = priceJob(
+    env,
+    { estimatedTokens: 50_000, words: 40_000, product: "translate" },
+    { code: "EMPTY", discountPct: 100, products: [] },
+  );
+  assert.equal(q.priceEurCents, 0);
+});
+
+test("the scope is checked before the size cap, so the reason names the real problem", () => {
+  // A translation of 200,000 words against a 100,000-word edit-only code
+  // fails on both counts. The product is the more fundamental refusal.
+  const q = priceJob(
+    env,
+    { estimatedTokens: 500_000, words: 200_000, product: "translate" },
+    scoped,
+  );
+  assert.match(q.codeRejectedReason ?? "", /translation/);
+});

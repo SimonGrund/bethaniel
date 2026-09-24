@@ -27,6 +27,14 @@ the deploy checklist.
    ```
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN max_uses_per_product INTEGER; ALTER TABLE promo_codes ADD COLUMN product_uses TEXT NOT NULL DEFAULT '{}'"
    ```
+   And a database that predates promo PRODUCT SCOPING needs one more. This
+   one is safe to add late — NULL reads as "every product", so a Worker that
+   does not know the column and a database that does are both fine — but the
+   column must exist before a SCOPED code is minted, or the old Worker
+   ignores the scope and sells the product the code was meant to exclude:
+   ```
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN products TEXT"
+   ```
 
    A database that predates failure reporting needs the `job_failures` table
    before a Worker that writes to it is deployed. Without it every
