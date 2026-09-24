@@ -3606,10 +3606,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 );
 
                 return (
-                  <details className="review-task review-summary-card" open>
-                    <summary className="review-task-summary">
-                      <strong>{t("mode_publication_scan")}</strong>
-                    </summary>
+                  /* No card around this, and nothing to unfold. A scan job
+                     holds exactly one result, so a "Publication scan" summary
+                     the author had to click was a lid on the only thing in the
+                     box — and a second frame inside the run's own. The verdict
+                     is the first thing on screen now. */
+                  <>
                     <PublicationReadinessPanel
                       report={
                         (scanTask.result?.structuredData as
@@ -3632,7 +3634,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         two buttons that used to sit here offered a manuscript
                         with "safe fixes applied" from a run whose whole point
                         is that it changes nothing. */}
-                  </details>
+                  </>
                 );
               })()}
 

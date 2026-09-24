@@ -8914,7 +8914,7 @@ summary.review-source::before {
 
 .readiness-verdict {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   font-weight: 600;
 }
 
@@ -9015,13 +9015,16 @@ summary.review-source::before {
 }
 
 .readiness-section-title {
-  margin: 0 0 0.4rem;
+  /* Sized against the report's own headings rather than against the rows
+     under them: these are the two things a reader sorts the page by, and at
+     body size they read as another line of prose. */
+  margin: 1.1rem 0 0.5rem;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.95rem;
+  font-size: 1.3rem;
   font-weight: 600;
-  color: #6b5d43;
-  padding-bottom: 0.2rem;
-  border-bottom: 1px solid #e3d5b8;
+  color: #5a4a33;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #d9c9a8;
 }
 
 .readiness-change {
