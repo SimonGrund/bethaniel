@@ -777,18 +777,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Keine Korrekturen vorgeschlagen.",
     es: "No se propusieron correcciones.",
   },
-  skipped_label: {
-    en: "skipped",
-    da: "sprunget over",
-    de: "übersprungen",
-    es: "omitido",
-  },
-  skipped_tooltip: {
-    en: "Skipped changes were discarded by safety checks and are never applied: they duplicated another applied edit, were merged into a larger overlapping rewrite, touched markdown formatting, would have introduced a misspelling, or their original text couldn't be found. Each entry shows its reason. Unlike flagged suggestions, skipped ones cannot be accepted.",
-    da: "Oversprungne ændringer blev kasseret af sikkerhedstjek og anvendes aldrig: de duplikerede en anden anvendt rettelse, blev flettet ind i en større overlappende omskrivning, berørte markdown-formatering, ville have indført en stavefejl, eller originalteksten kunne ikke findes. Hver post viser sin årsag. I modsætning til markerede forslag kan oversprungne ikke accepteres.",
-    de: "Übersprungene Änderungen wurden von Sicherheitsprüfungen verworfen und nie angewendet: sie duplizierten eine andere angewendete Korrektur, wurden in eine größere überlappende Umformulierung eingearbeitet, betrafen Markdown-Formatierung, hätten einen Rechtschreibfehler eingeführt, oder ihr Originaltext war nicht auffindbar. Jeder Eintrag zeigt seinen Grund. Anders als markierte Vorschläge können übersprungene nicht angenommen werden.",
-    es: "Los cambios omitidos fueron descartados por las comprobaciones de seguridad y nunca se aplican: duplicaban otra corrección aplicada, se fusionaron en una reescritura mayor superpuesta, tocaban formato markdown, habrían introducido una falta de ortografía o su texto original no se pudo encontrar. Cada entrada muestra su motivo. A diferencia de las sugerencias marcadas, las omitidas no se pueden aceptar.",
-  },
   flagged_tooltip: {
     en: "Flagged suggestions were NOT ticked automatically — a second reviewer scored them low-confidence or couldn't vet them. They are shown because most of them turn out to be right. Hover a ⚠ badge to see why. Tick the ones you agree with; accepting every change in the run leaves them untouched.",
     da: "Markerede forslag blev IKKE sat til automatisk — en anden reviewer gav dem lav tillid eller kunne ikke vurdere dem. De vises, fordi de fleste af dem viser sig at være rigtige. Hold musen over et ⚠-mærke for at se hvorfor. Sæt flueben ved dem, du er enig i; at acceptere alle ændringer i kørslen rører dem ikke.",

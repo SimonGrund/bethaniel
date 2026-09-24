@@ -4742,43 +4742,30 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               </div>
                               )}
 
-                              {/* Outside .corrections-scroll so the ⓘ tooltip
-                                  isn't clipped by the overflow container. */}
-                              {result.skipped.length > 0 && (
-                          <div className="skipped-section-wrapper">
-                            <details className="skipped-section">
-                              <summary className="small-note">
-                                {result.skipped.length} {t("skipped_label")}
-                              </summary>
-                              {result.skipped.map((s, i) => (
-                                <div key={i} className="skipped-item">
-                                  <span className="word-del">{s.original}</span>
-                                  {" → "}
-                                  <span className="word-ins">
-                                    {s.corrected}
-                                  </span>
-                                  {s.reason && (
-                                    <span
-                                      style={{
-                                        fontSize: "0.75rem",
-                                        color: "#8b7355",
-                                        marginLeft: "0.5rem",
-                                      }}
-                                    >
-                                      ({s.reason})
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </details>
-                            <span
-                              className="info-tooltip"
-                              data-tip={t("skipped_tooltip")}
-                            >
-                              ⓘ
-                            </span>
-                          </div>
-                        )}
+                              {/* No "N skipped" here. Measured across 98 real
+                                  tasks, 1,288 corrections were skipped and not
+                                  one of them was the author's business:
+
+                                    1,180  91.6%  their own names & terms
+                                                  protected the word — the
+                                                  lexicon refusing to let the
+                                                  spell-checker split
+                                                  Worldsea, Blacksteel, Akamu
+                                       63   4.9%  a duplicate of an edit
+                                                  already applied
+                                       41   3.2%  typography, handled by the
+                                                  pass that owns it
+                                        2   0.2%  a safety veto that stopped a
+                                                  word being broken
+                                        1   0.1%  wording not in the manuscript
+
+                                  All of it is the pipeline correctly doing
+                                  nothing, and a collapsed "39 skipped" beside
+                                  a ⓘ reads as work that got dropped — it made
+                                  the author stop and ask. The list cannot be
+                                  accepted, acted on, or learned from, so it
+                                  is not shown. The data stays on the result
+                                  for diagnostics. */}
                             </>
                           );
                         })()}
