@@ -1335,6 +1335,11 @@ function PublicationReadinessPanel({
 
   return (
     <div className="readiness" ref={rootRef}>
+      {/* The run's own bar names the manuscript; this names what was done to
+          it. It used to be the summary of a collapsible card, which made the
+          one word an author had to click to see their result. */}
+      <h3 className="readiness-title">{t("mode_publication_scan")}</h3>
+
       {/* The report is the thing to take away from a scan, and the button
           that produces it was a small ghost control in the corner. It sits in
           the headline now, on the score's own line, as the one action the
@@ -1391,23 +1396,24 @@ function PublicationReadinessPanel({
         </section>
       )}
 
-      <p className="readiness-minor small-note">
-        {minorTotal === 0
-          ? t("readiness_no_minor")
-          : t("readiness_minor")
-              .replace("{n}", String(minorTotal))
-              .replace("{m}", String(minorChapters))}
-      </p>
-
-      {/* The one thing this panel points at. A scan does not apply anything,
-          so the way to act on a suggestion is to run the copy edit — named
-          here by the title of its own card on the front page, so the author
-          is looking for the words they will actually see. */}
-      {polishOnlyTotal >= POLISH_NUDGE_THRESHOLD && (
-        <p className="readiness-polish-nudge small-note">
-          {t("readiness_polish_nudge")
-            .replace("{n}", String(polishOnlyTotal))
-            .replace("{m}", String(polishOnlyChapters))
+      {/* What is left over and what to do about it, in one paragraph. It was
+          two, and the second opened by calling the same suggestions "those"
+          and repeating the chapter count it had just given. A scan applies
+          nothing, so the way to act on any of this is the copy edit — named
+          by the title of its own card on the front page, so the author is
+          looking for the words they will actually see. */}
+      {minorTotal === 0 ? (
+        <p className="readiness-minor small-note">{t("readiness_no_minor")}</p>
+      ) : (
+        <p className="readiness-next-step small-note">
+          {t(
+            polishOnlyTotal >= POLISH_NUDGE_THRESHOLD
+              ? "readiness_minor_polish"
+              : "readiness_minor",
+          )
+            .replace("{n}", String(minorTotal))
+            .replace("{m}", String(minorChapters))
+            .replace("{p}", String(polishOnlyTotal))
             .replace("{card}", t("card_edit_title"))}
         </p>
       )}

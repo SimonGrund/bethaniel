@@ -8890,6 +8890,14 @@ summary.review-source::before {
    The verdict is the answer; the blocking list is why; the minor count is
    there so nothing is hidden, without letting a comma sit at the same weight
    as an unclosed line of dialogue. */
+.readiness-title {
+  margin: 0 0 0.6rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #4a3728;
+}
+
 .readiness-headline {
   display: flex;
   align-items: center;
@@ -9062,9 +9070,10 @@ summary.review-source::before {
 
 .readiness-minor { margin: 0; }
 
-.readiness-polish-nudge {
-  margin: 0.5rem 0 0;
-  padding: 0.45rem 0.65rem;
+/* The count and the one action, in a single boxed closing note. */
+.readiness-next-step {
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0.75rem;
   background: #fdf4e2;
   border: 1px solid #e6c98a;
   border-radius: 4px;

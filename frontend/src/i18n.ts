@@ -3175,11 +3175,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} Punkt(e) vor der Veröffentlichung prüfen",
     es: "{n} problema(s) que revisar antes de publicar",
   },
+  // What is left over, and what to do about it — one paragraph. It was two:
+  // a count, then a second note that repeated "across {m} chapters" and
+  // opened by calling the same suggestions "those". Two shapes, because the
+  // comma tally only appears when there are enough of them to be worth
+  // naming; {p} never stands in a sentence that did not ask for it.
+  // {card} is card_edit_title — the words on the button the author has to go
+  // and press. "Run the Copy Editor" named a thing that appears nowhere.
   readiness_minor: {
-    en: "{n} further suggestions across {m} chapters — wording, punctuation, casing, names the dictionary did not know — none of them a fault a reader would take for a typo.",
-    da: "{n} yderligere forslag fordelt på {m} kapitler — formuleringer, tegnsætning, store og små bogstaver, navne ordbogen ikke kendte — ingen af dem en fejl, en læser ville tage for en slåfejl.",
-    de: "{n} weitere Vorschläge in {m} Kapiteln — Formulierung, Zeichensetzung, Groß- und Kleinschreibung, dem Wörterbuch unbekannte Namen — keiner davon ein Fehler, den ein Leser für einen Tippfehler hielte.",
-    es: "{n} sugerencias más en {m} capítulos: redacción, puntuación, mayúsculas, nombres que el diccionario no conocía; ninguna es un fallo que un lector tomaría por una errata.",
+    en: "{n} further suggestions across {m} chapters — wording, punctuation, casing, names the dictionary did not know — none of them a fault a reader would take for a typo. A scan only reports: to work through these and apply them, run “{card}” on this manuscript.",
+    da: "{n} yderligere forslag fordelt på {m} kapitler — formuleringer, tegnsætning, store og små bogstaver, navne ordbogen ikke kendte — ingen af dem en fejl, en læser ville tage for en slåfejl. En scanning rapporterer kun: kør “{card}” på dette manuskript for at gennemgå dem og anvende dem.",
+    de: "{n} weitere Vorschläge in {m} Kapiteln — Formulierung, Zeichensetzung, Groß- und Kleinschreibung, dem Wörterbuch unbekannte Namen — keiner davon ein Fehler, den ein Leser für einen Tippfehler hielte. Ein Scan berichtet nur: Um sie durchzugehen und anzuwenden, führen Sie „{card}“ für dieses Manuskript aus.",
+    es: "{n} sugerencias más en {m} capítulos: redacción, puntuación, mayúsculas, nombres que el diccionario no conocía; ninguna es un fallo que un lector tomaría por una errata. Un escaneo solo informa: para revisarlas y aplicarlas, ejecuta «{card}» en este manuscrito.",
+  },
+  readiness_minor_polish: {
+    en: "{n} further suggestions across {m} chapters — wording, punctuation, casing, names the dictionary did not know — none of them a fault a reader would take for a typo, and {p} of them comma- or punctuation-level calls. A scan only reports: to work through these and apply them, run “{card}” on this manuscript.",
+    da: "{n} yderligere forslag fordelt på {m} kapitler — formuleringer, tegnsætning, store og små bogstaver, navne ordbogen ikke kendte — ingen af dem en fejl, en læser ville tage for en slåfejl, og {p} af dem på komma- eller tegnsætningsniveau. En scanning rapporterer kun: kør “{card}” på dette manuskript for at gennemgå dem og anvende dem.",
+    de: "{n} weitere Vorschläge in {m} Kapiteln — Formulierung, Zeichensetzung, Groß- und Kleinschreibung, dem Wörterbuch unbekannte Namen — keiner davon ein Fehler, den ein Leser für einen Tippfehler hielte, und {p} davon Komma- oder Zeichensetzungsentscheidungen. Ein Scan berichtet nur: Um sie durchzugehen und anzuwenden, führen Sie „{card}“ für dieses Manuskript aus.",
+    es: "{n} sugerencias más en {m} capítulos: redacción, puntuación, mayúsculas, nombres que el diccionario no conocía; ninguna es un fallo que un lector tomaría por una errata, y {p} de ellas son decisiones de coma o puntuación. Un escaneo solo informa: para revisarlas y aplicarlas, ejecuta «{card}» en este manuscrito.",
   },
   readiness_no_minor: {
     en: "No minor corrections suggested either.",
@@ -3192,14 +3205,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Udgivelseskvalitet",
     de: "Veröffentlichungsqualität",
     es: "Calidad de publicación",
-  },
-  // {card} is card_edit_title — the words on the button the author has to go
-  // and press. "Run the Copy Editor" named a thing that appears nowhere.
-  readiness_polish_nudge: {
-    en: "{n} of those are comma/punctuation-level calls across {m} chapters — none block publication. A scan only reports: to work through these and apply them, run “{card}” on this manuscript.",
-    da: "{n} af dem er komma-/tegnsætningsniveau fordelt på {m} kapitler — ingen af dem blokerer udgivelse. En scanning rapporterer kun: kør “{card}” på dette manuskript for at gennemgå dem og anvende dem.",
-    de: "{n} davon sind Komma-/Zeichensetzungsentscheidungen in {m} Kapiteln — keine davon blockiert die Veröffentlichung. Ein Scan berichtet nur: Um sie durchzugehen und anzuwenden, führen Sie „{card}“ für dieses Manuskript aus.",
-    es: "{n} de ellas son decisiones de coma/puntuación en {m} capítulos — ninguna bloquea la publicación. Un escaneo solo informa: para revisarlas y aplicarlas, ejecuta «{card}» en este manuscrito.",
   },
   readiness_report_title: {
     en: "Publication Readiness Report",
