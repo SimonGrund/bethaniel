@@ -17,6 +17,7 @@ import {
   sourceOf,
   type ReportIssue,
 } from "./readinessRow";
+import { qualityTier } from "./qualityScore";
 
 export { bracketedContext };
 export type { ReportIssue };
@@ -68,7 +69,7 @@ export function buildReadinessReportHtml(opts: {
   const verdict = opts.ready
     ? t("readiness_ready")
     : t("readiness_check").replace("{n}", String(opts.blocking.length + opts.structural.length));
-  const scoreClass = opts.score >= 95 ? "good" : opts.score >= 80 ? "ok" : "bad";
+  const scoreClass = qualityTier(opts.score);
 
   const css = `
     body{margin:0;padding:0 8px;font:12px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#2a2419;background:#fff}

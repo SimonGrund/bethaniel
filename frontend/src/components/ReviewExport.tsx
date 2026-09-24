@@ -48,6 +48,7 @@ import EnhanceLanguageStatus from "./EnhanceLanguageStatus";
 import { exportLabel, useReportExport } from "../reportExport";
 import { buildReadinessReportHtml } from "../readinessReport";
 import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
+import { computeQualityScore, qualityTier } from "../qualityScore";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -1159,45 +1160,12 @@ function BlockingIssueRow({
   );
 }
 
-/**
- * A heuristic 0-100 publication-quality score. Structural defects are rare
- * and always serious (a duplicated chapter, a truncated ending), so each one
- * costs a flat amount; blocking corrections are scored by DENSITY rather
- * than raw count, so a handful of typos in a full novel doesn't score the
- * same as a handful in a five-page chapter. Only corrections Betty stands
- * behind count — a doubted one is not listed as a blocker, so it doesn't
- * touch the score either; suggestions never do.
- *
- * The scale is set against what a professionally proofread book looks
- * like: about one slip per ten thousand words. That costs 8 points, so a
- * 100,000-word novel with ten remaining typos scores 92 — close, not
- * clean — and one with three scores 98. The old scale charged 20 points
- * per typo per THOUSAND words, which put a manuscript with fifteen small
- * faults at 23: a number that read as a failing grade for a book a copy
- * editor would call nearly done. Short pieces are scored as if they were
- * at least 5,000 words, so one typo in a 400-word sample is not a 40.
- * 95+ is the bar this panel treats as publication-ready.
- */
-function computeQualityScore(opts: {
-  wordCount: number;
-  structuralCount: number;
-  confirmedCount: number;
-}): number {
-  const perTenThousandWords = Math.max(opts.wordCount, 5000) / 10000;
-  const penalty =
-    opts.structuralCount * 15 + (opts.confirmedCount / perTenThousandWords) * 8;
-  return Math.max(0, Math.min(100, Math.round(100 - penalty)));
-}
-
-const QUALITY_SCORE_PASS = 95;
-
 /** A compact ring gauge for the publication-quality score. */
 function QualityScoreRing({ score, t }: { score: number; t: (key: string) => string }) {
   const radius = 22;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - score / 100);
-  const tier =
-    score >= QUALITY_SCORE_PASS ? "good" : score >= 80 ? "ok" : "bad";
+  const tier = qualityTier(score);
   return (
     <div className="quality-score">
       <div
@@ -1289,9 +1257,13 @@ function PublicationReadinessPanel({
     }));
   const blocking = [...structuralBlocking, ...blockingCorrections];
   const ready = blocking.length === 0;
+  // Severity, not count: the scan already grades its own findings, and a
+  // straight quotation mark and a duplicated chapter used to cost the same.
   const score = computeQualityScore({
     wordCount,
-    structuralCount: structuralBlocking.length,
+    structural: (report?.findings ?? [])
+      .filter((f) => f.blocking)
+      .map((f) => f.severity),
     confirmedCount: blockingCorrections.length,
   });
   // One shape, two renderings. The panel below and the PDF are both built
