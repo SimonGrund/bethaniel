@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bethaniel demo stage</title>
+<!--
+  The recording canvas. The app runs in the iframe at a desktop window size
+  and is framed as a desktop window (title bar, traffic lights, shadow) so the
+  footage reads as a computer program even on a phone. `window.stage` is the
+  camera and the pointer; record.mjs drives both. Served by record.mjs on the
+  app's own origin, so the iframe is same-origin and scriptable.
+-->
+<style>
+  :root {
+    --tb: 36px;             /* title bar height, in app CSS px */
+  }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* A desk under the window: the app's own sand tone, a little darker at
+       the edges so the window is the brightest thing on screen. */
+    background:
+      radial-gradient(120% 80% at 50% 45%, #d9ccb4 0%, #b9a88a 60%, #8f7d61 100%);
+  }
+  #world {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    transition-property: transform;
+    transition-timing-function: cubic-bezier(.65, 0, .35, 1);
+  }
+  #win {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f6efe2;
+    box-shadow:
+      0 0 0 1px rgba(60, 45, 25, .35),
+      0 30px 70px rgba(40, 28, 12, .45),
+      0 8px 20px rgba(40, 28, 12, .25);
+  }
+  #titlebar {
+    height: var(--tb);
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: linear-gradient(#ece4d4, #e0d6c2);
+    border-bottom: 1px solid #c9bb9f;
+    font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #4a3e2c;
+  }
+  .light {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    margin-left: 8px;
+    box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .25);
+  }
+  .light:first-child { margin-left: 14px; }
+  #titlebar .title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+  }
+  #app {
+    display: block;
+    border: 0;
+  }
+  #cursor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 22px;
+    height: 32px;
+    pointer-events: none;
+    z-index: 10;
+    transition-property: transform;
+    transition-timing-function: cubic-bezier(.45, 0, .25, 1);
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35));
+  }
+  .ripple {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 50%;
+    border: 3px solid rgba(160, 120, 40, .9);
+    pointer-events: none;
+    z-index: 9;
+    animation: ripple .55s ease-out forwards;
+  }
+  @keyframes ripple {
+    from { transform: scale(.3); opacity: 1; }
+    to   { transform: scale(1.4); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="world">
+  <div id="win">
+    <div id="titlebar">
+      <span class="light" style="background:#ff5f57"></span>
+      <span class="light" style="background:#febc2e"></span>
+      <span class="light" style="background:#28c840"></span>
+      <span class="title">Bethaniel</span>
+    </div>
+    <iframe id="app"></iframe>
+  </div>
+  <svg id="cursor" viewBox="0 0 22 32" aria-hidden="true">
+    <path d="M1.5 1.5 L1.5 25 L7.5 19.5 L11.5 29 L15.5 27.3 L11.6 18 L19.5 18 Z"
+          fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>
+  </svg>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const APP_W = Number(params.get("w") || 1100);
+  const APP_H = Number(params.get("h") || 1650);
+  const TB = 36;
+
+  const world = document.getElementById("world");
+  const win = document.getElementById("win");
+  const app = document.getElementById("app");
+  const cursor = document.getElementById("cursor");
+
+  app.width = APP_W;
+  app.height = APP_H;
+  win.style.width = APP_W + "px";
+
+  const WIN_H = APP_H + TB;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  let cam = { s: 1, tx: 0, ty: 0 };
+  function applyCamera(c, ms) {
+    world.style.transitionDuration = ms + "ms";
+    world.style.transform = `translate(${c.tx}px, ${c.ty}px) scale(${c.s})`;
+    cam = c;
+  }
+
+  // Everything below takes coordinates in the APP's viewport (what
+  // getBoundingClientRect returns inside the iframe) and converts them here.
+  const toWorld = (x, y) => ({ x, y: y + TB });
+
+  let cur = { x: APP_W * 0.86, y: APP_H * 0.72 };
+  function placeCursor(p, ms) {
+    cursor.style.transitionDuration = ms + "ms";
+    const w = toWorld(p.x, p.y);
+    cursor.style.transform = `translate(${w.x}px, ${w.y}px)`;
+    cur = p;
+  }
+
+  window.stage = {
+    appSize: { w: APP_W, h: APP_H },
+
+    load(url) {
+      return new Promise((resolve) => {
+        app.addEventListener("load", () => resolve(), { once: true });
+        app.src = url;
+      });
+    },
+
+    /** The whole window, centred, with a margin of desk around it. */
+    async overview(ms = 900, margin = 22) {
+      const vw = innerWidth, vh = innerHeight;
+      const s = Math.min((vw - 2 * margin) / APP_W, (vh - 2 * margin) / WIN_H);
+      applyCamera({ s, tx: (vw - APP_W * s) / 2, ty: (vh - WIN_H * s) / 2 }, ms);
+      await sleep(ms);
+    },
+
+    /** Fill the frame with one region of the app. `maxScale` stops a small
+     *  element from being blown up past the point where it looks like a
+     *  screenshot of a phone; `bias` (0..1) places the region vertically. */
+    async focus(rect, { ms = 1100, pad = 18, maxScale = 1.25, bias = 0.5 } = {}) {
+      const vw = innerWidth, vh = innerHeight;
+      const s = Math.min(maxScale, (vw - 2 * pad) / rect.width, (vh - 2 * pad) / rect.height);
+      const c = toWorld(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      let tx = vw / 2 - c.x * s;
+      let ty = vh * bias - c.y * s;
+      // Never pan past the window's own edges horizontally when the window is
+      // wider than the frame — empty desk beside a zoomed window looks like a
+      // mistake, not a framing.
+      const winW = APP_W * s;
+      if (winW >= vw) tx = Math.min(0, Math.max(vw - winW, tx));
+      applyCamera({ s, tx, ty }, ms);
+      await sleep(ms);
+    },
+
+    async moveCursor(x, y, ms = 700) {
+      placeCursor({ x, y }, ms);
+      await sleep(ms);
+    },
+
+    async click() {
+      const w = toWorld(cur.x, cur.y);
+      const r = document.createElement("div");
+      r.className = "ripple";
+      r.style.left = w.x + "px";
+      r.style.top = w.y + "px";
+      world.appendChild(r);
+      cursor.style.transitionDuration = "90ms";
+      cursor.style.transform = `translate(${w.x}px, ${w.y}px) scale(.85)`;
+      await sleep(110);
+      cursor.style.transform = `translate(${w.x}px, ${w.y}px) scale(1)`;
+      setTimeout(() => r.remove(), 700);
+      await sleep(150);
+    },
+
+    showCursor(on) {
+      cursor.style.opacity = on ? "1" : "0";
+    },
+  };
+
+  placeCursor(cur, 0);
+  stage.overview(0);
+</script>
+</body>
+</html>

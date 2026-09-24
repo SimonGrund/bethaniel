@@ -1,0 +1,12 @@
+{
+  "name": "bethaniel-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Scripted screen recordings of Bethaniel for the intro video. Not part of the app.",
+  "scripts": {
+    "record": "node record.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
