@@ -4081,6 +4081,29 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{done} von {total} im Buch · {pct}%",
     es: "{done} de {total} en el libro · {pct}%",
   },
+  // The one useful fact from the set-aside list that used to sit on this
+  // screen collapsed as "N skipped". Naming a few of the terms is what makes
+  // it land: "1,180 suggestions" is a number, "Worldsea, Blacksteel, Akamu"
+  // is the author's own book being defended.
+  review_protected: {
+    en: "Your names & terms prevented {n} suggestions about your own words — {terms}.",
+    da: "Dine navne & begreber forhindrede {n} forslag om dine egne ord — {terms}.",
+    de: "Ihre Namen & Begriffe verhinderten {n} Vorschläge zu Ihren eigenen Wörtern — {terms}.",
+    es: "Tus nombres y términos evitaron {n} sugerencias sobre tus propias palabras: {terms}.",
+  },
+  review_protected_one: {
+    en: "Your names & terms prevented one suggestion about your own words — {terms}.",
+    da: "Dine navne & begreber forhindrede ét forslag om dine egne ord — {terms}.",
+    de: "Ihre Namen & Begriffe verhinderten einen Vorschlag zu Ihren eigenen Wörtern — {terms}.",
+    es: "Tus nombres y términos evitaron una sugerencia sobre tus propias palabras: {terms}.",
+  },
+  review_protected_more: {
+    en: "{terms} and {n} others",
+    da: "{terms} og {n} andre",
+    de: "{terms} und {n} weitere",
+    es: "{terms} y {n} más",
+  },
+
   deck_progress_aria: {
     en: "Progress through the whole book",
     da: "Fremgang gennem hele bogen",

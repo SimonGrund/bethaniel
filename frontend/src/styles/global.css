@@ -2308,6 +2308,14 @@ summary.review-source::before {
   }
 }
 
+/* One line, where a collapsed list of inert "skipped" rows used to be. */
+.review-protected {
+  margin: 0.45rem 0.1rem 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #8b7355;
+}
+
 /* Said out loud rather than silently dropped: an author who cannot find a
    suggestion they remember seeing needs to know where it went. */
 .deck-heldback {

@@ -2616,6 +2616,9 @@ async function processJob(job: JobData): Promise<void> {
               ...gate.dropped.map(({ correction, term }) => ({
                 ...correction,
                 reason: `left alone: "${term}" is in your names & terms`,
+                // The term itself, for the review screen to count by. The
+                // reason above is prose for a human to read once in a log.
+                protectedTerm: term,
               })),
             );
             const named = [...new Set(gate.dropped.map((d) => d.term))];

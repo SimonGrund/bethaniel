@@ -458,6 +458,14 @@ export interface Correction {
    */
   blocksPublication?: boolean;
   /**
+   * Set on a correction that was NOT proposed because it would have changed a
+   * word the manuscript's own names & terms list vouches for — the term it
+   * would have altered. Structured rather than read back out of `reason`,
+   * which is English prose built for a human and is the wrong thing for the
+   * UI to count by.
+   */
+  protectedTerm?: string;
+  /**
    * Whether original→corrected differs only in punctuation/spacing — no
    * word added, removed, or changed. Set by the backend alongside
    * blocksPublication so the UI can group these separately (e.g. "N

@@ -49,6 +49,7 @@ import { exportLabel, useReportExport } from "../reportExport";
 import { buildReadinessReportHtml } from "../readinessReport";
 import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
 import { computeQualityScore, qualityTier } from "../qualityScore";
+import { NAMED_TERMS, protectedSavesAcross } from "../protectedSaves";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -4304,6 +4305,37 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         </button>
                       )}
                     </div>
+                    {/* What the names & terms list kept out of the review.
+                        This is the one useful fact from the set-aside list
+                        that used to sit here collapsed as "N skipped" — 92%
+                        of which was this, and none of which could be acted
+                        on. A sentence saying how much work it saved is what
+                        anyone wanted from it. */}
+                    {(() => {
+                      const saves = protectedSavesAcross(
+                        hydrated.map(([, task]) => task.result),
+                      );
+                      if (saves.count === 0) return null;
+                      const named = saves.terms.slice(0, NAMED_TERMS);
+                      const rest = saves.terms.length - named.length;
+                      const list =
+                        rest > 0
+                          ? t("review_protected_more")
+                              .replace("{terms}", named.join(", "))
+                              .replace("{n}", String(rest))
+                          : named.join(", ");
+                      return (
+                        <p className="review-protected small-note">
+                          {t(
+                            saves.count === 1
+                              ? "review_protected_one"
+                              : "review_protected",
+                          )
+                            .replace("{n}", String(saves.count))
+                            .replace("{terms}", list)}
+                        </p>
+                      );
+                    })()}
                     <ReviewFocus
                       open={focusJid === jid}
                       onClose={() => setFocusJid(null)}
