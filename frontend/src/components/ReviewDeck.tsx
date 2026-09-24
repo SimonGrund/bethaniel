@@ -22,6 +22,7 @@ import { useTranslation } from "../i18n";
 import { certaintyPercent, flagKindOf, isReliable } from "../types";
 import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
+import { countRejected, progressOf, reviewerRejected } from "../deckProgress";
 import { putLexicon } from "../api";
 import { extractSentenceContext, InlineDiff, VerdictBadge } from "./ReviewExport";
 
@@ -33,14 +34,25 @@ export interface DeckItem {
 }
 
 /** The deck's order: chapters as given (manuscript order), each chapter's
- *  suggestions by position in its text, the doubted ones after the rest. */
-export function buildDeck(entries: [string, TaskState][]): DeckItem[] {
+ *  suggestions by position in its text, the doubted ones after the rest.
+ *
+ *  `showAll` includes the ones the reviewer rejected outright, which are held
+ *  back by default. They were 61% of the deck on two real books and right
+ *  about one time in twenty — see deckProgress.ts for the count and the
+ *  reason the neighbouring bucket is NOT held back with them. */
+export function buildDeck(
+  entries: [string, TaskState][],
+  showAll = false,
+): DeckItem[] {
   const items: DeckItem[] = [];
   for (const [taskId, task] of entries) {
     const result = task.result;
     if (!result) continue;
     const visible = inTextOrder(
-      result.corrections.filter((c) => c.id && c.reason !== "dialect"),
+      result.corrections.filter(
+        (c) =>
+          c.id && c.reason !== "dialect" && (showAll || !reviewerRejected(c)),
+      ),
       result.originalText,
     );
     const main = visible.filter((c) => flagKindOf(c) !== "doubted");
@@ -52,12 +64,23 @@ export function buildDeck(entries: [string, TaskState][]): DeckItem[] {
   return items;
 }
 
+/** How many suggestions this job holds back, across every chapter. */
+export function countHeldBack(entries: [string, TaskState][]): number {
+  let n = 0;
+  for (const [, task] of entries) {
+    const cs = task.result?.corrections ?? [];
+    n += countRejected(cs.filter((c) => c.id && c.reason !== "dialect"));
+  }
+  return n;
+}
+
 /** How many of a job's suggestions still want an answer. */
 export function countUndecided(
   entries: [string, TaskState][],
   decisionLog: { taskId: string; correctionId: string }[],
+  showAll = false,
 ): { left: number; total: number } {
-  const deck = buildDeck(entries);
+  const deck = buildDeck(entries, showAll);
   const decided = new Set(decisionLog.map((d) => `${d.taskId}\u0000${d.correctionId}`));
   const left = deck.filter((item) => !decided.has(`${item.taskId}\u0000${item.correction.id}`)).length;
   return { left, total: deck.length };
@@ -115,7 +138,13 @@ export default function ReviewDeck({
   const postponeCard = useStore((s) => s.postponeCard);
   const deckBack = useStore((s) => s.deckBack);
 
-  const deck = useMemo(() => buildDeck(entries), [entries]);
+  const showAllSuggestions = useStore((s) => s.showAllSuggestions);
+  const setShowAllSuggestions = useStore((s) => s.setShowAllSuggestions);
+  const deck = useMemo(
+    () => buildDeck(entries, showAllSuggestions),
+    [entries, showAllSuggestions],
+  );
+  const heldBack = useMemo(() => countHeldBack(entries), [entries]);
   /**
    * The author typed a replacement.
    *
@@ -455,7 +484,15 @@ export default function ReviewDeck({
   // The chapter after the top card, when the top card is its chapter's last.
   const nextChapter =
     top && remaining.find((item) => item.taskId !== top.taskId)?.taskName;
+  // Two numbers, because "18 left in this chapter" says nothing about how
+  // much book is behind it: an author twenty cards into four hundred and an
+  // author twenty from the end both read the same line. The chapter's is the
+  // one in front of them; the book's is the one they are actually asking
+  // about when they wonder whether to keep going.
   const chapterLeft = top ? remaining.filter((item) => item.taskId === top.taskId).length : 0;
+  const chapterTotal = top ? deck.filter((item) => item.taskId === top.taskId).length : 0;
+  const chapterProgress = progressOf(chapterTotal - chapterLeft, chapterTotal);
+  const bookProgress = progressOf(done, total);
 
   return (
     <section className="deck" aria-label={t("deck_title")}>
@@ -465,7 +502,10 @@ export default function ReviewDeck({
             <>
               <span className="deck-chapter-name">{top.taskName}</span>
               <span className="deck-chapter-count">
-                {t("deck_chapter_left").replace("{n}", String(chapterLeft))}
+                {t("deck_chapter_progress")
+                  .replace("{done}", String(chapterProgress.decided))
+                  .replace("{total}", String(chapterProgress.total))
+                  .replace("{pct}", String(chapterProgress.percent))}
               </span>
             </>
           ) : (
@@ -474,7 +514,10 @@ export default function ReviewDeck({
         </div>
         <div className="deck-head-right">
           <span className="deck-progress">
-            {t("deck_progress").replace("{done}", String(done)).replace("{total}", String(total))}
+            {t("deck_progress")
+              .replace("{done}", String(bookProgress.decided))
+              .replace("{total}", String(bookProgress.total))
+              .replace("{pct}", String(bookProgress.percent))}
           </span>
           <button
             type="button"
@@ -487,6 +530,39 @@ export default function ReviewDeck({
           </button>
         </div>
       </div>
+
+      {/* The book's progress as a bar. A percentage is a number to read; a
+          bar is the same fact at a glance, and this is the one thing an
+          author checks repeatedly while working through four hundred cards. */}
+      <div
+        className="deck-bar"
+        role="progressbar"
+        aria-valuenow={bookProgress.percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={t("deck_progress_aria")}
+      >
+        <div className="deck-bar-fill" style={{ width: `${bookProgress.percent}%` }} />
+      </div>
+
+      {/* Held back by default, and said out loud rather than silently
+          dropped: an author who cannot find a suggestion they remember
+          seeing needs to know where it went. */}
+      {heldBack > 0 && (
+        <p className="deck-heldback small-note">
+          {showAllSuggestions
+            ? t("deck_heldback_shown").replace("{n}", String(heldBack))
+            : t("deck_heldback").replace("{n}", String(heldBack))}{" "}
+          <button
+            type="button"
+            className="btn-link deck-heldback-toggle"
+            aria-pressed={showAllSuggestions}
+            onClick={() => setShowAllSuggestions(!showAllSuggestions)}
+          >
+            {showAllSuggestions ? t("deck_heldback_hide") : t("deck_heldback_show")}
+          </button>
+        </p>
+      )}
 
       {notice}
 

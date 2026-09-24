@@ -1917,6 +1917,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       );
   const t = useTranslation(lang);
   const decisionLog = useStore((s) => s.decisionLog);
+  const showAllSuggestions = useStore((s) => s.showAllSuggestions);
   const reviewCursor = useStore((s) => s.reviewCursor);
   const setReviewCursor = useStore((s) => s.setReviewCursor);
   const forgetReview = useStore((s) => s.forgetReview);
@@ -3042,9 +3043,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           const chapterPills = editTasks.map(([tid, task]) => {
             const cs = task.result?.corrections ?? null;
             const count = cs
-              ? cs.filter(
-                  (c) => c.reason !== "dialect" && flagKindOf(c) !== "doubted",
-                ).length
+              ? buildDeck([[tid, task]], showAllSuggestions).length
               : (task.resultMeta?.corrections ?? 0);
             return {
               tid,
@@ -4281,7 +4280,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   own card list is off while the deck is up (deckMode). */}
               {deckMode && (() => {
                 const hydrated = editTasks.filter(([, task]) => task.result);
-                const { left, total } = countUndecided(hydrated, decisionLog);
+                const { left, total } = countUndecided(hydrated, decisionLog, showAllSuggestions);
                 return (
                   <>
                     <div className="deck-launch">

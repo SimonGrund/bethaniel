@@ -4084,17 +4084,58 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Zurück",
     es: "Atrás",
   },
+  // Two counts, because "18 left in this chapter" says nothing about how much
+  // book is behind it: twenty cards into four hundred and twenty from the end
+  // read the same line.
   deck_progress: {
-    en: "{done} of {total} decided",
-    da: "{done} af {total} afgjort",
-    de: "{done} von {total} entschieden",
-    es: "{done} de {total} decididas",
+    en: "{done} of {total} in the book · {pct}%",
+    da: "{done} af {total} i bogen · {pct}%",
+    de: "{done} von {total} im Buch · {pct}%",
+    es: "{done} de {total} en el libro · {pct}%",
+  },
+  deck_progress_aria: {
+    en: "Progress through the whole book",
+    da: "Fremgang gennem hele bogen",
+    de: "Fortschritt durch das ganze Buch",
+    es: "Progreso a través de todo el libro",
+  },
+  deck_chapter_progress: {
+    en: "{done} of {total} in this chapter · {pct}%",
+    da: "{done} af {total} i dette kapitel · {pct}%",
+    de: "{done} von {total} in diesem Kapitel · {pct}%",
+    es: "{done} de {total} en este capítulo · {pct}%",
   },
   deck_chapter_left: {
     en: "{n} left in this chapter",
     da: "{n} tilbage i dette kapitel",
     de: "{n} in diesem Kapitel übrig",
     es: "{n} pendientes en este capítulo",
+  },
+
+  // ── The suggestions the reviewer rejected outright ──
+  deck_heldback: {
+    en: "{n} suggestions are hidden — Betty's reviewer judged them wrong, and on two real books that verdict was right about nineteen times in twenty.",
+    da: "{n} forslag er skjult — Bettys bedømmer vurderede dem forkerte, og på to rigtige bøger holdt den vurdering omkring nitten gange ud af tyve.",
+    de: "{n} Vorschläge sind ausgeblendet — Bettys Prüfer hielt sie für falsch, und bei zwei echten Büchern traf dieses Urteil etwa neunzehn von zwanzig Mal zu.",
+    es: "{n} sugerencias están ocultas — el revisor de Betty las juzgó incorrectas, y en dos libros reales ese veredicto acertó unas diecinueve de cada veinte veces.",
+  },
+  deck_heldback_shown: {
+    en: "Showing all {n} suggestions Betty's reviewer judged wrong, along with the rest.",
+    da: "Viser alle {n} forslag, som Bettys bedømmer vurderede forkerte, sammen med resten.",
+    de: "Zeigt alle {n} Vorschläge, die Bettys Prüfer für falsch hielt, zusammen mit den übrigen.",
+    es: "Mostrando las {n} sugerencias que el revisor de Betty juzgó incorrectas, junto con el resto.",
+  },
+  deck_heldback_show: {
+    en: "Show them anyway",
+    da: "Vis dem alligevel",
+    de: "Trotzdem anzeigen",
+    es: "Mostrarlas de todos modos",
+  },
+  deck_heldback_hide: {
+    en: "Hide them again",
+    da: "Skjul dem igen",
+    de: "Wieder ausblenden",
+    es: "Volver a ocultarlas",
   },
   deck_next_chapter: {
     en: "Next: {name}",

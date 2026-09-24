@@ -291,6 +291,16 @@ interface AppState {
    */
   deckPostponed: string[];
   deckHistory: { kind: "decide" | "postpone"; taskId: string }[];
+  /**
+   * Whether the deck also offers the suggestions the reviewer rejected
+   * outright — 61% of the deck on two real books, and right about one time
+   * in twenty. Off by default; see deckProgress.ts. Persisted, because an
+   * author who asked for the whole list once means it for the next chapter
+   * too, and being handed the noise again after a refresh would read as the
+   * setting not working.
+   */
+  showAllSuggestions: boolean;
+  setShowAllSuggestions: (on: boolean) => void;
   reviewCursor: Record<string, string>;
   postponeCard: (key: string) => void;
   /** Undo the last thing done in the deck of the given tasks (one job's).
@@ -926,6 +936,8 @@ export const useStore = create<AppState>()(
       },
       deckPostponed: [],
       deckHistory: [],
+      showAllSuggestions: false,
+      setShowAllSuggestions: (on) => set({ showAllSuggestions: on }),
       reviewCursor: {},
       postponeCard: (key) =>
         set((st) => ({
@@ -1392,6 +1404,10 @@ export const useStore = create<AppState>()(
         runMode: state.runMode,
         reviewMode: state.reviewMode,
         reviewerThreshold: state.reviewerThreshold,
+        // An author who asked for the whole list once means it for the next
+        // chapter too; being handed the noise again after a refresh would
+        // read as the toggle not working.
+        showAllSuggestions: state.showAllSuggestions,
         spellCheck: state.spellCheck,
         retextCheck: state.retextCheck,
         grammarCheck: state.grammarCheck,

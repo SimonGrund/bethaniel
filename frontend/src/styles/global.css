@@ -2284,6 +2284,50 @@ summary.review-source::before {
   font-variant-numeric: tabular-nums;
 }
 
+/* The book's progress at a glance. A percentage is a number to read; this is
+   the same fact without reading, and it is what an author checks over and
+   over while working through four hundred cards. */
+.deck-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: #e8ddc6;
+  overflow: hidden;
+  margin: 0 0 0.6rem;
+}
+
+.deck-bar-fill {
+  height: 100%;
+  background: #8b7355;
+  border-radius: 2px;
+  transition: width 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-bar-fill {
+    transition: none;
+  }
+}
+
+/* Said out loud rather than silently dropped: an author who cannot find a
+   suggestion they remember seeing needs to know where it went. */
+.deck-heldback {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #8b7355;
+}
+
+.deck-heldback-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: #6b5d43;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .deck-head-right {
   display: flex;
   align-items: center;
