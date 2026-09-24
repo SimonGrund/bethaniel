@@ -46,6 +46,47 @@ function table(issues: ReportIssue[], t: (k: string, f?: string) => string): str
   );
 }
 
+export interface ReportCheck {
+  check: string;
+  found: number;
+  skipped?: boolean;
+}
+
+/**
+ * What was checked, passes included.
+ *
+ * The report listed what is wrong and said nothing about what is right,
+ * which leaves a reader unable to tell a check that passed from a check that
+ * never ran. Each row carries what the check looks for, because a tick
+ * beside a name nobody recognises reassures nobody.
+ */
+function checkedTable(
+  checks: ReportCheck[],
+  t: (k: string, f?: string) => string,
+): string {
+  const rows = checks
+    .map((c) => {
+      const state = c.skipped ? "skipped" : c.found > 0 ? "found" : "clean";
+      const mark = state === "clean" ? "✓" : state === "found" ? "•" : "–";
+      const result = c.skipped
+        ? t("scan_result_skipped")
+        : c.found > 0
+          ? t("scan_result_found").replace("{n}", String(c.found))
+          : t("scan_result_clean");
+      return (
+        `<tr class="chk chk-${state}"><td class="chk-mark">${mark}</td>` +
+        `<td class="chk-name">${esc(t(`scan_check_${c.check}`))}</td>` +
+        `<td class="chk-result">${esc(result)}</td>` +
+        `<td class="chk-gloss">${esc(t(`scan_looks_for_${c.check}`))}</td></tr>`
+      );
+    })
+    .join("");
+  const note = checks.some((c) => c.skipped)
+    ? `<p class="foot chk-note">${esc(t("scan_skipped_note"))}</p>`
+    : "";
+  return `<table class="checked"><tbody>${rows}</tbody></table>${note}`;
+}
+
 export function buildReadinessReportHtml(opts: {
   source: string;
   chapters: number;
@@ -56,6 +97,8 @@ export function buildReadinessReportHtml(opts: {
   blocking: ReportIssue[];
   /** How many non-blocking suggestions the scan produced — counted, not listed. */
   minorCount: number;
+  /** Every check the scan runs, with its count. Passes are the point. */
+  checks?: ReportCheck[];
   lang: string;
   t: (k: string, f?: string) => string;
 }): string {
@@ -95,6 +138,15 @@ export function buildReadinessReportHtml(opts: {
     .arrow{color:#9a8c76;margin:0 3px}
     .ctx{color:#6b5d48;font-style:italic;margin-top:2px}
     .note{color:#6b5d48;margin-top:2px}
+    table.checked{margin-top:2px}
+    table.checked td{border-bottom:1px solid #f2ece0;padding:3px 6px}
+    td.chk-mark{width:14px;text-align:center;color:#3d6b3d}
+    tr.chk-found td.chk-mark{color:#8a6a1a}
+    tr.chk-skipped td.chk-mark{color:#9a8c76}
+    td.chk-name{width:24%;color:#2a2419}
+    td.chk-result{width:16%;color:#4a3f2f}
+    td.chk-gloss{color:#9a8c76;font-style:italic}
+    p.chk-note{margin-top:6px}
     .foot{margin-top:24px;color:#9a8c76;font-size:10px}
   `;
 
@@ -121,6 +173,9 @@ export function buildReadinessReportHtml(opts: {
     `</div></div>` +
     structuralSection +
     blockingSection +
+    (opts.checks && opts.checks.length > 0
+      ? `<h2>${esc(t("scan_checked_title"))}</h2>${checkedTable(opts.checks, t)}`
+      : "") +
     `<p class="foot">${esc(t("rr_foot"))}</p>` +
     `</body></html>`
   );

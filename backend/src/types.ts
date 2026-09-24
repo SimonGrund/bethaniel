@@ -513,9 +513,30 @@ export interface LanguageAnalysisReport {
   paragraphs: { count: number; mean: number; longest: number; over200: number };
 }
 
+/**
+ * One row of "what was checked". The point of this list is the zeros: a
+ * report saying "9 issues" leaves an author unable to tell a check that
+ * passed from a check that never ran, and "no duplicated chapters" is a
+ * thing they wanted to know rather than the absence of a thing.
+ */
+export interface CheckTally {
+  check: StructuralCheck;
+  /** How many findings this check produced. Zero is the interesting case. */
+  found: number;
+  /**
+   * True when the manuscript gave the check nothing to judge by — a French
+   * novel has no English dialect, a book with four quotation marks has no
+   * convention. Reported rather than shown as a pass: a check that could not
+   * run has not cleared anything.
+   */
+  skipped?: boolean;
+}
+
 export interface StructuralScanReport {
   title: string;
   chaptersScanned: number;
   summary: { error: number; warning: number; info: number };
   findings: StructuralFinding[];
+  /** Every check the scan knows, with its count — passes included. */
+  checks?: CheckTally[];
 }

@@ -8890,6 +8890,112 @@ summary.review-source::before {
    The verdict is the answer; the blocking list is why; the minor count is
    there so nothing is hidden, without letting a comma sit at the same weight
    as an unclosed line of dialogue. */
+/* ── Where the score comes from ──
+   Folded away: four paragraphs of method, read once. The toggle sits under
+   the score rather than beside it, so it never competes with the verdict. */
+.score-info {
+  margin: -0.2rem 0 0.9rem;
+}
+
+.score-info-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.78rem;
+  color: #6b5d43;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.score-info-body {
+  margin-top: 0.45rem;
+  padding: 0.6rem 0.8rem;
+  background: #fdfbf6;
+  border: 1px solid #e3d5b8;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #4a3f2d;
+  max-width: 62ch;
+}
+
+.score-info-body p {
+  margin: 0 0 0.5rem;
+}
+
+.score-info-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── What was checked ──
+   A four-column grid so the marks, names and results line up down the page;
+   the gloss takes whatever is left and wraps under on a narrow window. */
+/* The GRID is the list, not the row: with one grid per row every row sized
+   its own columns, so "Empty / short chapter" pushed its own result a few
+   pixels right of the ten above it. Rows are display:contents so their four
+   cells become direct children of one grid and line up down the page; the
+   rule between rows moves onto the cells, since a row with no box of its own
+   cannot carry a border. */
+.scan-checked-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  display: grid;
+  grid-template-columns: 1.1rem max-content max-content 1fr;
+  gap: 0 0.6rem;
+  align-items: baseline;
+}
+
+.scan-checked-row {
+  display: contents;
+}
+
+.scan-checked-row > span {
+  padding: 0.22rem 0;
+  border-bottom: 1px solid #f0e9da;
+}
+
+.scan-checked-mark {
+  text-align: center;
+  font-weight: 700;
+  color: #2f6b3a;
+}
+
+.scan-checked-row.is-found .scan-checked-mark { color: #8a5a1f; }
+.scan-checked-row.is-skipped .scan-checked-mark { color: #9a8c76; }
+
+.scan-checked-name { color: #4a3f2d; }
+
+.scan-checked-result { color: #6b5d48; }
+
+.scan-checked-row.is-found .scan-checked-result {
+  color: #8a5a1f;
+  font-weight: 600;
+}
+
+.scan-checked-gloss {
+  color: #8b7355;
+  font-style: italic;
+}
+
+@media (max-width: 720px) {
+  /* The gloss drops to its own line rather than squeezing the three columns
+     that have to stay readable. */
+  .scan-checked-list {
+    grid-template-columns: 1.1rem 1fr max-content;
+  }
+  .scan-checked-gloss {
+    grid-column: 2 / -1;
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.scan-checked-note {
+  margin: 0.5rem 0 0;
+}
+
 .readiness-title {
   /* It sits directly under the run's own bar, so it needs room above as well
      as below or it reads as part of that bar rather than as the heading of

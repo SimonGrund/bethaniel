@@ -18,16 +18,51 @@ import TRANSLATIONS from "../../frontend/src/i18n.ts";
 
 const LANGS = ["en", "da", "de", "es"] as const;
 
+/** Every string the two check lists need, per check. */
+const PER_CHECK_KEYS = [
+  // The name beside a finding.
+  "scan_check_",
+  // What the check looks for, shown beside a pass in "What was checked". A
+  // tick next to a name nobody recognises reassures nobody, so this one is
+  // as load-bearing as the label.
+  "scan_looks_for_",
+] as const;
+
 test("every structural check has a label in every language", () => {
   for (const check of STRUCTURAL_CHECKS) {
-    const key = `scan_check_${check}`;
+    for (const prefix of PER_CHECK_KEYS) {
+      const key = `${prefix}${check}`;
+      const entry = TRANSLATIONS[key];
+      assert.ok(entry, `${key} is missing — the panel would show the raw key`);
+      for (const lang of LANGS) {
+        assert.ok(
+          entry[lang]?.trim(),
+          `${key} has no ${lang} translation`,
+        );
+      }
+    }
+  }
+});
+
+test("the strings the check list itself needs are present", () => {
+  // Not per-check, but on the same page and equally raw-key-visible.
+  for (const key of [
+    "scan_checked_title",
+    "scan_result_clean",
+    "scan_result_found",
+    "scan_result_skipped",
+    "scan_skipped_note",
+    "score_info_show",
+    "score_info_hide",
+    "score_info_density",
+    "score_info_weight",
+    "score_info_curve",
+    "score_info_counts",
+  ]) {
     const entry = TRANSLATIONS[key];
-    assert.ok(entry, `${key} is missing — the panel would show the raw key`);
+    assert.ok(entry, `${key} is missing`);
     for (const lang of LANGS) {
-      assert.ok(
-        entry[lang]?.trim(),
-        `${key} has no ${lang} translation`,
-      );
+      assert.ok(entry[lang]?.trim(), `${key} has no ${lang} translation`);
     }
   }
 });

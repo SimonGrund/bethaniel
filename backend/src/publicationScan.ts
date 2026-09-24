@@ -38,9 +38,16 @@ import {
   type QuoteConvention,
   type QuoteStyle,
 } from "./quoteMarks.js";
-import { findTypographyIssues } from "./typography.js";
+import {
+  detectApostropheStyle,
+  detectEllipsisStyle,
+  findTypographyIssues,
+} from "./typography.js";
+import { STRUCTURAL_CHECKS } from "./types.js";
 import type {
+  CheckTally,
   FindingSeverity,
+  StructuralCheck,
   StructuralFinding,
   StructuralScanReport,
 } from "./types.js";
@@ -824,10 +831,39 @@ export function buildPublicationScan(
   };
   for (const f of findings) summary[f.severity]++;
 
+  // ── What was checked, passes included ──
+  //
+  // A verdict of "9 issues" leaves an author unable to tell a check that
+  // passed from a check that never ran, and "no duplicated chapters" is
+  // something they wanted to hear rather than the absence of something.
+  //
+  // `skipped` is not a pass. A book with four quotation marks has no
+  // convention to be measured against and a French novel has no English
+  // dialect; saying "none found" there would claim a clearance the scan
+  // never gave. The conditions are the ones the checks themselves use —
+  // read from the same values, a line apart, so they cannot drift.
+  const whole = units.map((u) => u.original).join("\n\n");
+  const isEnglish =
+    !options?.manuscriptLang ||
+    options.manuscriptLang.toLowerCase().startsWith("en");
+  const skipped = new Set<StructuralCheck>();
+  if (!convention.style) skipped.add("quote_style");
+  if (!isEnglish) skipped.add("dialect");
+  if (!(options?.quoteStyle ?? detectApostropheStyle(whole))) {
+    skipped.add("apostrophe_style");
+  }
+  if (!detectEllipsisStyle(whole)) skipped.add("ellipsis_style");
+
+  const checks: CheckTally[] = STRUCTURAL_CHECKS.map((check) => {
+    const found = findings.filter((f) => f.check === check).length;
+    return skipped.has(check) ? { check, found, skipped: true } : { check, found };
+  });
+
   return {
     title: "Publication readiness scan",
     chaptersScanned: units.length,
     summary,
     findings,
+    checks,
   };
 }

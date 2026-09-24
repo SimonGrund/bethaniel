@@ -3390,6 +3390,148 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Platzhaltertext",
     es: "Texto de marcador",
   },
+
+  // ── What each check looks for ──
+  //
+  // The gloss beside a pass. "No placeholder text" only reassures an author
+  // who knows what the check would have counted, so each row says it: this
+  // is the difference between a tick and a tick that means something.
+  scan_looks_for_duplicate: {
+    en: "a chapter repeated verbatim",
+    da: "et kapitel gentaget ordret",
+    de: "ein wörtlich wiederholtes Kapitel",
+    es: "un capítulo repetido palabra por palabra",
+  },
+  scan_looks_for_repetition: {
+    en: "a paragraph pasted twice",
+    da: "et afsnit indsat to gange",
+    de: "ein zweimal eingefügter Absatz",
+    es: "un párrafo pegado dos veces",
+  },
+  scan_looks_for_empty_chapter: {
+    en: "a chapter with almost no text in it",
+    da: "et kapitel næsten uden tekst",
+    de: "ein Kapitel fast ohne Text",
+    es: "un capítulo casi sin texto",
+  },
+  scan_looks_for_numbering: {
+    en: "a chapter number skipped or used twice",
+    da: "et kapitelnummer sprunget over eller brugt to gange",
+    de: "eine übersprungene oder doppelte Kapitelnummer",
+    es: "un número de capítulo omitido o repetido",
+  },
+  scan_looks_for_truncation: {
+    en: "a chapter that stops mid-sentence, dialogue left unclosed",
+    da: "et kapitel der stopper midt i en sætning, dialog der ikke lukkes",
+    de: "ein Kapitel, das mitten im Satz endet, nicht geschlossene Dialoge",
+    es: "un capítulo que se corta a media frase, diálogo sin cerrar",
+  },
+  scan_looks_for_dialect: {
+    en: "British and American spelling in the same book",
+    da: "britisk og amerikansk stavning i samme bog",
+    de: "britische und amerikanische Schreibung im selben Buch",
+    es: "ortografía británica y estadounidense en el mismo libro",
+  },
+  scan_looks_for_quote_style: {
+    en: "a straight \" where the book uses curly marks",
+    da: "et lige \" hvor bogen bruger krøllede tegn",
+    de: "ein gerades \" wo das Buch typografische Zeichen verwendet",
+    es: "una \" recta donde el libro usa comillas tipográficas",
+  },
+  scan_looks_for_apostrophe_style: {
+    en: "don't where the book writes don’t",
+    da: "don't hvor bogen skriver don’t",
+    de: "don't wo das Buch don’t schreibt",
+    es: "don't donde el libro escribe don’t",
+  },
+  scan_looks_for_ellipsis_style: {
+    en: "three separate dots where the book uses one ellipsis character",
+    da: "tre enkelte punktummer hvor bogen bruger ét ellipsetegn",
+    de: "drei einzelne Punkte wo das Buch ein Auslassungszeichen verwendet",
+    es: "tres puntos separados donde el libro usa un solo carácter de puntos suspensivos",
+  },
+  scan_looks_for_invisible_character: {
+    en: "non-breaking and zero-width spaces",
+    da: "hårde mellemrum og nulbredde-tegn",
+    de: "geschützte und nullbreite Leerzeichen",
+    es: "espacios duros y de ancho cero",
+  },
+  scan_looks_for_placeholder: {
+    en: "TODO, TK, “INSERT DESCRIPTION HERE”",
+    da: "TODO, TK, “INDSÆT BESKRIVELSE HER”",
+    de: "TODO, TK, „BESCHREIBUNG HIER EINFÜGEN“",
+    es: "TODO, TK, «INSERTAR DESCRIPCIÓN AQUÍ»",
+  },
+
+  // ── The checklist and its results ──
+  scan_checked_title: {
+    en: "What was checked",
+    da: "Hvad der blev tjekket",
+    de: "Was geprüft wurde",
+    es: "Qué se comprobó",
+  },
+  scan_result_clean: {
+    en: "none found",
+    da: "ingen fundet",
+    de: "keine gefunden",
+    es: "ninguno encontrado",
+  },
+  scan_result_found: {
+    en: "{n} found",
+    da: "{n} fundet",
+    de: "{n} gefunden",
+    es: "{n} encontrados",
+  },
+  scan_result_skipped: {
+    en: "nothing to judge by",
+    da: "intet at bedømme efter",
+    de: "keine Grundlage zur Beurteilung",
+    es: "sin base para juzgar",
+  },
+  scan_skipped_note: {
+    en: "A check with nothing to judge by has not cleared anything — this book gave it no convention to measure against.",
+    da: "Et tjek uden noget at bedømme efter har ikke frikendt noget — denne bog gav det ingen konvention at måle mod.",
+    de: "Eine Prüfung ohne Grundlage hat nichts freigegeben — dieses Buch gab ihr keine Konvention zum Vergleich.",
+    es: "Una comprobación sin base no ha dado el visto bueno a nada: este libro no le dio ninguna convención con la que medir.",
+  },
+
+  // ── Where the score comes from ──
+  score_info_show: {
+    en: "How is this scored?",
+    da: "Hvordan beregnes det?",
+    de: "Wie wird das bewertet?",
+    es: "¿Cómo se calcula?",
+  },
+  score_info_hide: {
+    en: "Hide",
+    da: "Skjul",
+    de: "Ausblenden",
+    es: "Ocultar",
+  },
+  score_info_density: {
+    en: "Faults are counted by density, not by number, so a handful in a novel is not the same as a handful in a chapter. Fewer than one per 20,000 words is ready to publish; about one per 10,000 — what a professionally proofread book looks like — is worth another pass; more than one per 5,000 is not ready.",
+    da: "Fejl tælles efter tæthed, ikke antal, så en håndfuld i en roman er ikke det samme som en håndfuld i et kapitel. Færre end én pr. 20.000 ord er klar til udgivelse; omkring én pr. 10.000 — som en professionelt korrekturlæst bog — fortjener en runde mere; mere end én pr. 5.000 er ikke klar.",
+    de: "Fehler werden nach Dichte gezählt, nicht nach Anzahl: eine Handvoll in einem Roman ist nicht dasselbe wie eine Handvoll in einem Kapitel. Weniger als einer pro 20.000 Wörter ist veröffentlichungsreif; etwa einer pro 10.000 — wie ein professionell korrigiertes Buch — verdient einen weiteren Durchgang; mehr als einer pro 5.000 ist nicht reif.",
+    es: "Los fallos se cuentan por densidad, no por número, así que un puñado en una novela no es lo mismo que un puñado en un capítulo. Menos de uno por cada 20.000 palabras está listo para publicar; alrededor de uno por cada 10.000 — como un libro corregido profesionalmente — merece otra pasada; más de uno por cada 5.000 no está listo.",
+  },
+  score_info_weight: {
+    en: "A defect in the book itself — a chapter duplicated, a chapter empty — costs far more than a house-style slip. The style notices together can never cost more than six points, however many there are: twenty straight quotation marks is one decision applied twenty times.",
+    da: "En defekt i selve bogen — et kapitel gentaget, et kapitel tomt — koster langt mere end en stilbemærkning. Stilbemærkningerne kan tilsammen aldrig koste mere end seks point, uanset hvor mange der er: tyve lige anførselstegn er én beslutning anvendt tyve gange.",
+    de: "Ein Defekt im Buch selbst — ein doppeltes Kapitel, ein leeres Kapitel — kostet weit mehr als ein Stilhinweis. Die Stilhinweise können zusammen nie mehr als sechs Punkte kosten, wie viele es auch sind: zwanzig gerade Anführungszeichen sind eine Entscheidung, zwanzigmal angewandt.",
+    es: "Un defecto en el libro mismo — un capítulo duplicado, un capítulo vacío — cuesta mucho más que un aviso de estilo. Los avisos de estilo juntos nunca pueden costar más de seis puntos, sean los que sean: veinte comillas rectas son una decisión aplicada veinte veces.",
+  },
+  score_info_curve: {
+    en: "Each fault costs less than the one before it, so the number moves the way a reader reads it — the gap between 97 and 92 means something, the gap between 12 and 7 does not — and no manuscript ever scores zero.",
+    da: "Hver fejl koster mindre end den forrige, så tallet bevæger sig som en læser læser det — forskellen mellem 97 og 92 betyder noget, forskellen mellem 12 og 7 gør ikke — og intet manuskript får nogensinde nul.",
+    de: "Jeder Fehler kostet weniger als der vorherige, sodass sich die Zahl so bewegt, wie ein Leser sie liest — der Abstand zwischen 97 und 92 bedeutet etwas, der zwischen 12 und 7 nicht — und kein Manuskript erreicht je null.",
+    es: "Cada fallo cuesta menos que el anterior, así que el número se mueve como lo lee un lector — la diferencia entre 97 y 92 significa algo, la de 12 a 7 no — y ningún manuscrito llega nunca a cero.",
+  },
+  score_info_counts: {
+    en: "Only faults a reader would take for a typo count, and only the ones a reviewer stood behind. Suggestions about wording never touch the score.",
+    da: "Kun fejl, en læser ville tage for slåfejl, tælles, og kun de, en bedømmer stod ved. Forslag om formuleringer påvirker aldrig scoren.",
+    de: "Gezählt werden nur Fehler, die ein Leser für Tippfehler hielte, und nur die, hinter denen ein Prüfer stand. Formulierungsvorschläge berühren die Bewertung nie.",
+    es: "Solo cuentan los fallos que un lector tomaría por erratas, y solo los que un revisor respaldó. Las sugerencias de redacción nunca afectan a la puntuación.",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",

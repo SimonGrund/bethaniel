@@ -1100,10 +1100,17 @@ interface StructuralFinding {
   /** Whether this must be fixed before publishing. Decided by the backend. */
   blocking?: boolean;
 }
+interface CheckTally {
+  check: string;
+  found: number;
+  skipped?: boolean;
+}
 interface StructuralScanReport {
   chaptersScanned: number;
   summary: { error: number; warning: number; info: number };
   findings: StructuralFinding[];
+  /** Every check the scan knows, with its count — passes included. */
+  checks?: CheckTally[];
 }
 
 /** A blocking issue for the readiness verdict — either a structural defect
@@ -1157,6 +1164,94 @@ function BlockingIssueRow({
         <span className="readiness-why">{sourceOf(issue.correction, t)}</span>
       )}
     </li>
+  );
+}
+
+/**
+ * Where the number came from, on request.
+ *
+ * A score with no explanation is a grade, and an author handed a 35 or an 88
+ * has no way to tell whether the scale is strict or their book is bad. Folded
+ * away by default: it is four paragraphs of method, read once.
+ */
+function ScoreExplanation({ t }: { t: (key: string, fallback?: string) => string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="score-info">
+      <button
+        type="button"
+        className="btn-link score-info-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? t("score_info_hide") : t("score_info_show")}
+      </button>
+      {open && (
+        <div className="score-info-body">
+          <p>{t("score_info_density")}</p>
+          <p>{t("score_info_weight")}</p>
+          <p>{t("score_info_curve")}</p>
+          <p>{t("score_info_counts")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Every check the scan runs, with its count — the passes above all.
+ *
+ * "9 issues to check before publishing" tells an author what was wrong and
+ * nothing about what was right, which leaves them unable to tell a check
+ * that passed from a check that was never run. "No duplicated chapters, no
+ * placeholder text left in" is a thing they wanted to hear.
+ *
+ * Each row carries what the check looks for, because a tick beside a name
+ * nobody recognises reassures nobody: "Placeholder text — none found (TODO,
+ * TK, “INSERT DESCRIPTION HERE”)" is the difference between a tick and a
+ * tick that means something.
+ */
+function CheckedList({
+  checks,
+  t,
+}: {
+  checks: CheckTally[];
+  t: (key: string, fallback?: string) => string;
+}) {
+  if (checks.length === 0) return null;
+  const anySkipped = checks.some((c) => c.skipped);
+  return (
+    <section className="readiness-section scan-checked">
+      <h4 className="readiness-section-title">{t("scan_checked_title")}</h4>
+      <ul className="scan-checked-list">
+        {checks.map((c) => {
+          const state = c.skipped ? "skipped" : c.found > 0 ? "found" : "clean";
+          return (
+            <li key={c.check} className={`scan-checked-row is-${state}`}>
+              <span className="scan-checked-mark" aria-hidden="true">
+                {state === "clean" ? "✓" : state === "found" ? "•" : "–"}
+              </span>
+              <span className="scan-checked-name">
+                {t(`scan_check_${c.check}`)}
+              </span>
+              <span className="scan-checked-result">
+                {state === "skipped"
+                  ? t("scan_result_skipped")
+                  : c.found > 0
+                    ? t("scan_result_found").replace("{n}", String(c.found))
+                    : t("scan_result_clean")}
+              </span>
+              <span className="scan-checked-gloss">
+                {t(`scan_looks_for_${c.check}`)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {anySkipped && (
+        <p className="small-note scan-checked-note">{t("scan_skipped_note")}</p>
+      )}
+    </section>
   );
 }
 
@@ -1300,6 +1395,7 @@ function PublicationReadinessPanel({
         structural: structuralIssues,
         blocking: correctionIssues,
         minorCount: minorCorrections.length,
+        checks: report?.checks,
         lang,
         t,
       }),
@@ -1335,6 +1431,8 @@ function PublicationReadinessPanel({
           </button>
         </div>
       </div>
+
+      <ScoreExplanation t={t} />
 
       {/* The report's two sections, in the report's order. A defect in the
           book's structure and a comma in a sentence are different kinds of
@@ -1388,6 +1486,10 @@ function PublicationReadinessPanel({
             .replace("{p}", String(polishOnlyTotal))
             .replace("{card}", t("card_edit_title"))}
         </p>
+      )}
+
+      {report?.checks && report.checks.length > 0 && (
+        <CheckedList checks={report.checks} t={t} />
       )}
 
       {report && (
