@@ -12,44 +12,17 @@
 // the two apart by weight. They stay in the app. The report says how many
 // there are and where to find them, and lists none.
 
-import { certaintyPercent, flagKindOf, type Correction } from "./types";
+import {
+  bracketedContext,
+  sourceOf,
+  type ReportIssue,
+} from "./readinessRow";
 
-export interface ReportIssue {
-  location: string;
-  /** The change, as the author wrote it and as proposed. */
-  original?: string;
-  corrected?: string;
-  /** A sentence of context around the change, when there is one. */
-  context?: string;
-  /** For structural findings: what was found. */
-  message?: string;
-  detail?: string;
-  correction?: Correction;
-}
+export { bracketedContext };
+export type { ReportIssue };
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
-
-/** Where a correction came from, in the reader's words. */
-function sourceOf(c: Correction, t: (k: string, f?: string) => string): string {
-  const reason = c.reason ?? "";
-  let source: string;
-  if (reason === "spell-check" || reason === "spell-check-uncommon") source = t("rr_src_dictionary");
-  else if (reason === "dialect") source = t("rr_src_dialect");
-  else if (reason.startsWith("grammar:"))
-    source = `${t("rr_src_grammar")} · ${reason.slice(8).replace(/_/g, " ")}`;
-  else if (reason.startsWith("retext:")) source = `${t("rr_src_text")} · ${reason.slice(7).replace(/-/g, " ")}`;
-  else source = t("rr_src_betty");
-  const pct = certaintyPercent(c);
-  const kind = flagKindOf(c);
-  const tail =
-    kind === "unreviewed" || kind === "unchecked"
-      ? t("flag_unchecked")
-      : pct !== null
-        ? `${pct}%`
-        : "";
-  return tail ? `${source} · ${tail}` : source;
-}
 
 function row(issue: ReportIssue, t: (k: string, f?: string) => string): string {
   const change =

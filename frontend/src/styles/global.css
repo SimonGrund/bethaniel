@@ -8990,6 +8990,58 @@ summary.review-source::before {
   word-break: break-word;
 }
 
+/* ── A blocker row, laid out as the exported report lays it out ──
+   The change on its own line, the author's sentence beneath it in italic,
+   then the reviewer's reason and where the finding came from. The colours are
+   the PDF's del/ins, so a row and its printed counterpart are recognisably
+   the same row. */
+.readiness-section {
+  margin: 0 0 0.9rem;
+}
+
+.readiness-section-title {
+  margin: 0 0 0.4rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #6b5d43;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid #e3d5b8;
+}
+
+.readiness-change {
+  display: block;
+  word-break: break-word;
+  margin-top: 0.1rem;
+}
+
+.readiness-arrow {
+  color: #9a8c76;
+  white-space: pre;
+}
+
+.readiness-ctx {
+  display: block;
+  margin-top: 0.2rem;
+  color: #6b5d48;
+  font-style: italic;
+  word-break: break-word;
+}
+
+.readiness-note {
+  display: block;
+  margin-top: 0.2rem;
+  color: #6b5d48;
+}
+
+.readiness-why {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: #8b7355;
+}
+
 .readiness-minor { margin: 0; }
 
 .readiness-polish-nudge {

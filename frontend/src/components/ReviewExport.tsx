@@ -46,7 +46,8 @@ import BettyAtWork from "./BettyAtWork";
 import LanguageAnalysisPanel from "./LanguageAnalysisPanel";
 import EnhanceLanguageStatus from "./EnhanceLanguageStatus";
 import { exportLabel, useReportExport } from "../reportExport";
-import { buildReadinessReportHtml, type ReportIssue } from "../readinessReport";
+import { buildReadinessReportHtml } from "../readinessReport";
+import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
 import { useResultHydration } from "../useResultHydration";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -1114,32 +1115,59 @@ type BlockingIssue =
   | { kind: "structural"; location: string; message: string; detail?: string }
   | { kind: "correction"; location: string; correction: Correction; originalText: string };
 
-/** Same sentence-context + word-diff rendering as the normal copy-edit
- * CorrectionCard, so a Publication Scan blocker reads the same way. */
-function CorrectionContext({
-  correction,
-  originalText,
+/**
+ * One blocker, rendered the way the exported report renders it: the change on
+ * its own line, then the author's sentence with the span bracketed, then the
+ * reviewer's sentence and where the finding came from. Takes the SAME
+ * `ReportIssue` the PDF is built from, so the two cannot describe a blocker
+ * differently.
+ *
+ * It used to splice the word diff into the sentence instead. See
+ * `readinessRow.ts` for the paragraph that made the case against it.
+ */
+function BlockingIssueRow({
+  issue,
+  t,
 }: {
-  correction: Correction;
-  originalText: string;
+  issue: ReportIssue;
+  t: (key: string, fallback?: string) => string;
 }) {
-  const { before, after } = extractSentenceContext(correction.original, originalText, 0);
+  const structural = issue.original === undefined;
   return (
-    <span className="readiness-msg">
-      {before && <span className="correction-context">{before} </span>}
-      <InlineDiff before={correction.original} after={correction.corrected} />
-      {after && <span className="correction-context"> {after}</span>}
-    </span>
+    <li className="readiness-item">
+      <span className="readiness-loc">{issue.location}</span>
+      {structural ? (
+        <span className="readiness-msg">{issue.message}</span>
+      ) : (
+        <span className="readiness-change">
+          <span className="word-del">{issue.original}</span>
+          <span className="readiness-arrow" aria-hidden="true">
+            {" → "}
+          </span>
+          <span className="word-ins">{issue.corrected}</span>
+        </span>
+      )}
+      {issue.context && <span className="readiness-ctx">{issue.context}</span>}
+      {issue.correction?.reviewReason && (
+        <span className="readiness-note">{issue.correction.reviewReason}</span>
+      )}
+      {issue.detail && <span className="scan-finding-detail">{issue.detail}</span>}
+      {issue.correction && (
+        <span className="readiness-why">{sourceOf(issue.correction, t)}</span>
+      )}
+    </li>
   );
 }
 
 /** Text form of a correction issue, for the markdown export (no JSX there). */
 function correctionIssueText(correction: Correction, originalText: string): string {
   const { before, after } = extractSentenceContext(correction.original, originalText, 0);
-  const ctx = [before, correction.original, after].filter(Boolean).join(" ").trim();
-  return ctx
-    ? `${ctx} → "${correction.corrected}"`
-    : `${correction.original} → ${correction.corrected}`;
+  const change = `"${correction.original}" → "${correction.corrected}"`;
+  const ctx = bracketedContext(correction.original, before, after);
+  // Change first, then the passage — the same order as the panel and the PDF.
+  // This used to read as the whole sentence arrowed at the replacement, which
+  // said the sentence became the replacement.
+  return ctx ? `${change} — ${ctx}` : change;
 }
 
 /**
@@ -1282,8 +1310,9 @@ function PublicationReadinessPanel({
     structuralCount: structuralBlocking.length,
     confirmedCount: blockingCorrections.length,
   });
-  // The PDF is a document of its own — summary, then one line per
-  // correction — not a print of this panel, which carries controls.
+  // One shape, two renderings. The panel below and the PDF are both built
+  // from these — the panel used to compose its own line, which is how the two
+  // came to say different things about the same blocker.
   const toIssue = (issue: BlockingIssue): ReportIssue =>
     issue.kind === "structural"
       ? { location: issue.location, message: issue.message, detail: issue.detail }
@@ -1297,12 +1326,12 @@ function PublicationReadinessPanel({
               issue.originalText,
               0,
             );
-            return [before, after].some(Boolean)
-              ? `…${before} [${issue.correction.original}] ${after}…`.replace(/\s+/g, " ")
-              : undefined;
+            return bracketedContext(issue.correction.original, before, after);
           })(),
           correction: issue.correction,
         };
+  const structuralIssues = structuralBlocking.map(toIssue);
+  const correctionIssues = blockingCorrections.map(toIssue);
   const { rootRef, state: exporting, exportPdf } = useReportExport(
     `${t("mode_publication_scan")} — ${source ?? ""}`.replace(/ — $/, ""),
     () =>
@@ -1312,8 +1341,8 @@ function PublicationReadinessPanel({
         wordCount,
         score,
         ready,
-        structural: structuralBlocking.map(toIssue),
-        blocking: blockingCorrections.map(toIssue),
+        structural: structuralIssues,
+        blocking: correctionIssues,
         minorCount: minorCorrections.length,
         lang,
         t,
@@ -1342,27 +1371,36 @@ function PublicationReadinessPanel({
         </p>
       </div>
 
-      {blocking.length > 0 && (
-        <ul className="readiness-list">
-          {blocking.map((issue, i) => (
-            <li key={i} className="readiness-item">
-              <span className="readiness-loc">{issue.location}</span>
-              {issue.kind === "correction" ? (
-                <CorrectionContext
-                  correction={issue.correction}
-                  originalText={issue.originalText}
-                />
-              ) : (
-                <>
-                  <span className="readiness-msg">{issue.message}</span>
-                  {issue.detail && (
-                    <span className="scan-finding-detail">{issue.detail}</span>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+      {/* The report's two sections, in the report's order. A defect in the
+          book's structure and a comma in a sentence are different kinds of
+          thing, and running them together in one list made a reader weigh
+          them the same. An empty section is simply not drawn — the PDF prints
+          "none" under its heading because a document has to stand alone; on
+          screen the verdict above already says it. */}
+      {structuralIssues.length > 0 && (
+        <section className="readiness-section">
+          <h4 className="readiness-section-title">
+            {t("readiness_report_structural")}
+          </h4>
+          <ul className="readiness-list">
+            {structuralIssues.map((issue, i) => (
+              <BlockingIssueRow key={i} issue={issue} t={t} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {correctionIssues.length > 0 && (
+        <section className="readiness-section">
+          <h4 className="readiness-section-title">
+            {t("readiness_report_corrections")} ({correctionIssues.length})
+          </h4>
+          <ul className="readiness-list">
+            {correctionIssues.map((issue, i) => (
+              <BlockingIssueRow key={i} issue={issue} t={t} />
+            ))}
+          </ul>
+        </section>
       )}
 
       <p className="readiness-minor small-note">
