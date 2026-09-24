@@ -8891,7 +8891,10 @@ summary.review-source::before {
    there so nothing is hidden, without letting a comma sit at the same weight
    as an unclosed line of dialogue. */
 .readiness-title {
-  margin: 0 0 0.6rem;
+  /* It sits directly under the run's own bar, so it needs room above as well
+     as below or it reads as part of that bar rather than as the heading of
+     what follows. */
+  margin: 1rem 0 1.1rem;
   font-family: "Cormorant Garamond", Georgia, serif;
   font-size: 1.5rem;
   font-weight: 600;
