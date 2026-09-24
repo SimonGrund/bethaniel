@@ -274,6 +274,10 @@ export interface DetectedSettings {
   introductoryComma?: Detection<boolean>;
   danishComma?: Detection<"grammatisk" | "nyt">;
   quoteStyle?: Detection<"curly" | "straight">;
+  /** Read at upload alongside quoteStyle. Usually the same answer; read
+   * separately because they are different characters and a book can disagree
+   * with itself. */
+  apostropheStyle?: Detection<"curly" | "straight">;
 }
 
 export interface DocumentMeta {

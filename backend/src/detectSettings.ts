@@ -610,6 +610,37 @@ export function detectQuoteStyle(md: string): Detection<QuoteStyle> {
   return unsure(Math.max(curly, straight), Math.min(curly, straight), sample);
 }
 
+/**
+ * The apostrophe the manuscript uses, read at upload for the same reason the
+ * quotation-mark style is: it is a property of the whole book, and the copy
+ * edit sees it 2,500 words at a time. A chapter of narration may hold eight
+ * apostrophes and a chapter of dialogue four hundred, and a majority taken
+ * from either alone is a guess where the book has already answered.
+ *
+ * Counted from apostrophes BETWEEN two letters only — `don't`, `boy's`. That
+ * is the one position no quotation mark can occupy, so it is the only
+ * evidence that means a single thing. See typography.ts.
+ *
+ * Usually the same answer as the quotation marks, and read separately anyway:
+ * they are different characters, and a book that pasted its dialogue from one
+ * source and its prose from another can disagree with itself.
+ */
+export function detectApostropheStyle(md: string): Detection<QuoteStyle> {
+  const text = sampleText(md);
+  const curly = (text.match(/(?<=\p{L})\u2019(?=\p{L})/gu) ?? []).length;
+  const straight = (text.match(/(?<=\p{L})'(?=\p{L})/gu) ?? []).length;
+  const sample = curly + straight;
+  // Eight to judge by rather than four: apostrophes are far commoner than
+  // quotation marks, so a handful of them is a thinner sample of the book.
+  // Three quarters to agree, matching every other style detector here.
+  if (sample < 8) return unsure(0, 0, sample);
+  if (curly / sample >= 0.75) return detected("curly", curly, straight, sample);
+  if (straight / sample >= 0.75) {
+    return detected("straight", straight, curly, sample);
+  }
+  return unsure(Math.max(curly, straight), Math.min(curly, straight), sample);
+}
+
 export interface DetectedSettings {
   manuscriptLang?: Detection<ManuscriptLangCode>;
   englishDialect?: Detection<"american" | "british">;
@@ -617,6 +648,7 @@ export interface DetectedSettings {
   introductoryComma?: Detection<boolean>;
   danishComma?: Detection<"grammatisk" | "nyt">;
   quoteStyle?: Detection<QuoteStyle>;
+  apostropheStyle?: Detection<QuoteStyle>;
 }
 
 /**
@@ -635,6 +667,7 @@ export function detectSettings(md: string): DetectedSettings {
   // Read for every manuscript, not only English ones: a book in guillemets
   // still has a curly-vs-straight answer, and the scan needs it.
   found.quoteStyle = detectQuoteStyle(md);
+  found.apostropheStyle = detectApostropheStyle(md);
   if (manuscriptLang.status !== "detected") return found;
 
   if (manuscriptLang.value === "en") {

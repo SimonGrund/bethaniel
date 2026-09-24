@@ -415,6 +415,10 @@ export const STRUCTURAL_CHECKS = [
   "truncation",
   "dialect",
   "quote_style",
+  "apostrophe_style",
+  "ellipsis_style",
+  "invisible_character",
+  "placeholder",
 ] as const;
 
 export type StructuralCheck = (typeof STRUCTURAL_CHECKS)[number];

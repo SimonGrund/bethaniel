@@ -38,6 +38,7 @@ import {
   type QuoteConvention,
   type QuoteStyle,
 } from "./quoteMarks.js";
+import { findTypographyIssues } from "./typography.js";
 import type {
   FindingSeverity,
   StructuralFinding,
@@ -627,6 +628,81 @@ function findQuoteStyle(
 }
 
 /**
+ * The typographic marks that are not quotation marks — apostrophes, ellipses,
+ * characters that cannot be seen, and drafting placeholders left in.
+ *
+ * Read off the WHOLE manuscript rather than per chapter. An apostrophe
+ * convention is a property of the book, and a chapter of pure narration has
+ * too few to judge by; counting per chapter also turned one decision into one
+ * finding per chapter, which is the opposite of what this reports.
+ *
+ * One finding per kind, carrying its count. Ninety-three straight apostrophes
+ * in a curly book is one thing to fix, not ninety-three, and listing them
+ * separately would bury every other finding on the page.
+ */
+function findTypography(
+  units: ScanUnit[],
+  declared?: QuoteStyle | null,
+): DraftFinding[] {
+  const whole = units.map((u) => u.original).join("\n\n");
+  const plural = (n: number, one: string, many: string) =>
+    n === 1 ? one : many;
+  return findTypographyIssues(whole, declared).map((issue): DraftFinding => {
+    switch (issue.kind) {
+      case "apostrophe-style":
+        return {
+          check: "apostrophe_style",
+          // A house-style slip, like the quotation-mark one it sits beside:
+          // consistently wrong is a choice, and this is neither consistent
+          // nor corrupting. It is also the single commonest thing wrong with
+          // a finished manuscript, which is why it is reported at all.
+          severity: "info",
+          location: "Manuscript",
+          message:
+            issue.expected === "curly"
+              ? `${issue.count} straight ${plural(issue.count, "apostrophe", "apostrophes")} in a book that uses curly ones: "${issue.example}"`
+              : `${issue.count} curly ${plural(issue.count, "apostrophe", "apostrophes")} in a book that uses straight ones: "${issue.example}"`,
+          detail:
+            "A copy edit normalises these; a scan only reports them.",
+        };
+      case "ellipsis-style":
+        return {
+          check: "ellipsis_style",
+          severity: "info",
+          location: "Manuscript",
+          message:
+            issue.expected === "character"
+              ? `${issue.count} ${plural(issue.count, "ellipsis", "ellipses")} typed as three dots in a book that uses the … character: "${issue.example}"`
+              : `${issue.count} … ${plural(issue.count, "character", "characters")} in a book that types three dots: "${issue.example}"`,
+          detail:
+            "A copy edit normalises these; a scan only reports them.",
+        };
+      case "invisible-character":
+        return {
+          check: "invisible_character",
+          // Worse than a style slip and not visible anywhere: a non-breaking
+          // space survives every export and opens a river down a justified
+          // page, and a zero-width character breaks search inside a word.
+          severity: "warning",
+          location: "Manuscript",
+          message: `${issue.count} invisible ${plural(issue.count, "character", "characters")} (non-breaking or zero-width space) in the text: "${issue.example}"`,
+          detail:
+            "Nothing on screen shows these; they survive into the printed book.",
+        };
+      case "placeholder":
+        return {
+          check: "placeholder",
+          // The one thing here a reader would call a mistake in the book
+          // rather than in its typesetting.
+          severity: "error",
+          location: "Manuscript",
+          message: `Drafting placeholder left in the manuscript (${issue.markers?.join(", ")}): "${issue.example}"`,
+        };
+    }
+  });
+}
+
+/**
  * Manuscript-wide English dialect consistency. A professionally edited
  * manuscript uses one dialect throughout; genuinely mixed usage (not one stray
  * outlier) is worth catching before publication.
@@ -737,6 +813,7 @@ export function buildPublicationScan(
     ...findNumberingIssues(units),
     ...findTruncation(units, reported, convention),
     ...findQuoteStyle(units, convention),
+    ...findTypography(units, convention.style),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
   ].map((f): StructuralFinding => ({ ...f, blocking: f.blocking ?? true }));
 

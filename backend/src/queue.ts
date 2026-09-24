@@ -2153,6 +2153,44 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── The marks that are not quotation marks: apostrophes,
+              // ellipses, and characters that take up space without being
+              // visible. The same argument as above and a bigger measured
+              // gap — two finished books carried 100 and 70 straight
+              // apostrophes among thousands of curly ones, which no reader
+              // sees on screen and every reader sees in print. Every one of
+              // the 160 was an ordinary contraction or possessive; none was
+              // a deliberate spelling.
+              //
+              // Placeholders (TODO, TK) are reported by the scan and never
+              // corrected here: what should replace one is the single thing
+              // in this file that only the author knows.
+              {
+                const { getTypographyCorrections } = await import(
+                  "./typography.js"
+                );
+                const declaredQuoteStyle = (
+                  job.editOptions as Record<string, unknown>
+                )?.quoteStyle;
+                const typoCs = getTypographyCorrections(
+                  chunk.body,
+                  declaredQuoteStyle === "curly" ||
+                    declaredQuoteStyle === "straight"
+                    ? declaredQuoteStyle
+                    : undefined,
+                );
+                if (typoCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...typoCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `typography repair produced ${typoCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── LanguageTool: grammar/punctuation via a local server. Runs
               // only when available (jar + Java bundled); degrades to a no-op
               // otherwise. A failure here must never break the chunk.

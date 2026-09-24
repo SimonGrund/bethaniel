@@ -3366,6 +3366,30 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Anführungszeichen-Stil",
     es: "Estilo de comillas",
   },
+  scan_check_apostrophe_style: {
+    en: "Apostrophe style",
+    da: "Apostrofstil",
+    de: "Apostroph-Stil",
+    es: "Estilo de apóstrofo",
+  },
+  scan_check_ellipsis_style: {
+    en: "Ellipsis style",
+    da: "Ellipsestil",
+    de: "Auslassungspunkte-Stil",
+    es: "Estilo de puntos suspensivos",
+  },
+  scan_check_invisible_character: {
+    en: "Invisible characters",
+    da: "Usynlige tegn",
+    de: "Unsichtbare Zeichen",
+    es: "Caracteres invisibles",
+  },
+  scan_check_placeholder: {
+    en: "Placeholder text",
+    da: "Pladsholdertekst",
+    de: "Platzhaltertext",
+    es: "Texto de marcador",
+  },
   mode_desc_copy_edit: {
     en: "Fix spelling, punctuation, and grammar.",
     da: "Ret stavning, tegnsætning og grammatik.",
