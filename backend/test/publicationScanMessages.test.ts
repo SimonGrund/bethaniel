@@ -139,14 +139,15 @@ test("a finding saved before keys existed is shown as it was", () => {
   assert.deepEqual(localiseFinding(old, useTranslation("da")), { ...old, detail: undefined });
 });
 
-test("a count of one takes the singular", () => {
+test("a single invisible character is listed where it is, not counted", () => {
   const units: ScanUnit[] = [
-    { name: "Chapter 1", original: `${CLEAN}\n\nShe left early.` },
+    { name: "Chapter 1", original: `${CLEAN}\n\nShe left\u00A0early.` },
     { name: "Chapter 2", original: CLEAN },
   ];
   const [invisible] = buildPublicationScan(units).findings.filter(
     (f) => f.check === "invisible_character",
   );
-  assert.equal(invisible.messageKey, "scan_msg_invisible_one");
-  assert.match(invisible.message, /^1 invisible character \(/);
+  assert.equal(invisible.messageKey, "scan_msg_invisible_at");
+  assert.equal(invisible.location, "Chapter 1");
+  assert.match(invisible.message, /left⍽early/);
 });

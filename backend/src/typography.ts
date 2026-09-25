@@ -53,6 +53,9 @@ export interface TypographyIssue {
   count: number;
   /** One of them, in enough surrounding text to be found in the manuscript. */
   example: string;
+  /** Every one of them: where it starts in the text searched, and how long
+   *  the mark is — so the scan can say which chapter each is in. */
+  positions: { index: number; length: number }[];
   /** For the two style checks: what the rest of the book does. */
   expected?: string;
   /** For placeholders: the distinct markers found, for the message. */
@@ -232,26 +235,28 @@ export function findTypographyIssues(
 
   const apostrophe = declaredQuoteStyle ?? detectApostropheStyle(text);
   if (apostrophe) {
-    let count = 0;
-    let example = "";
+    const positions: { index: number; length: number }[] = [];
+    // Exact offsets: split with the separators kept, since a paragraph
+    // break is not always exactly two newlines.
     let at = 0;
-    for (const paragraph of text.split(/\n\n+/)) {
-      const fixed = repairApostrophes(paragraph, apostrophe);
-      if (fixed !== paragraph) {
-        const n = differingPositions(paragraph, fixed);
-        if (count === 0 && n.length > 0) {
-          example = excerptAt(text, at + n[0], 1);
+    for (const piece of text.split(/(\n\n+)/)) {
+      if (!/^\n+$/.test(piece)) {
+        const fixed = repairApostrophes(piece, apostrophe);
+        if (fixed !== piece) {
+          for (const i of differingPositions(piece, fixed)) {
+            positions.push({ index: at + i, length: 1 });
+          }
         }
-        count += n.length;
       }
-      at += paragraph.length + 2;
+      at += piece.length;
     }
-    if (count > 0) {
+    if (positions.length > 0) {
       issues.push({
         kind: "apostrophe-style",
-        count,
-        example,
+        count: positions.length,
+        example: excerptAt(text, positions[0].index, 1),
         expected: apostrophe,
+        positions,
       });
     }
   }
@@ -268,6 +273,7 @@ export function findTypographyIssues(
         count: offStyle.length,
         example: excerptAt(text, offStyle[0].index, offStyle[0][0].length),
         expected: ellipsis,
+        positions: offStyle.map((m) => ({ index: m.index, length: m[0].length })),
       });
     }
   }
@@ -279,6 +285,7 @@ export function findTypographyIssues(
       kind: "invisible-character",
       count: invisible.length,
       example: excerptAt(text, invisible[0].index, 1),
+      positions: invisible.map((m) => ({ index: m.index, length: 1 })),
     });
   }
 
@@ -289,6 +296,7 @@ export function findTypographyIssues(
       count: placeholders.length,
       example: excerptAt(text, placeholders[0].index, placeholders[0][0].length),
       markers: [...new Set(placeholders.map((m) => m[0]))].slice(0, 5),
+      positions: placeholders.map((m) => ({ index: m.index, length: m[0].length })),
     });
   }
 

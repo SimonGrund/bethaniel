@@ -40,10 +40,17 @@ test("structural findings are listed in chapter order, whatever check found them
 });
 
 test("findings about the whole book come before the chapters", () => {
-  const { findings } = buildPublicationScan(book(), { manuscriptLang: "en" });
+  // More than twenty straight apostrophes in a curly book: past the list
+  // limit they are one line for the whole book.
+  const units = book();
+  units.push({
+    name: "Chapter 7",
+    original: Array.from({ length: 21 }, (_, i) => `Line ${i}: it's here.`).join("\n\n"),
+  });
+  const { findings } = buildPublicationScan(units, { manuscriptLang: "en" });
   const firstChapter = findings.findIndex((f) => !f.wholeManuscript);
   const lastWhole = findings.map((f) => !!f.wholeManuscript).lastIndexOf(true);
-  assert.ok(lastWhole >= 0, "the placeholder in chapter 6 is reported for the whole book");
+  assert.ok(lastWhole >= 0, "the apostrophe summary is reported for the whole book");
   assert.ok(lastWhole < firstChapter, findings.map((f) => f.location).join(", "));
 });
 

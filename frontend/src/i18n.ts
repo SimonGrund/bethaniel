@@ -5764,7 +5764,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
   // ── Publication scan findings ──
   // The templates the backend fills into English (SCAN_MESSAGES in
   // publicationScan.ts), here in every language. Slot names must match; a
-  // `_one` key is the singular the backend picks when the count is one.
   // The dialect names go into the middle of a sentence, so they are written
   // for that: lowercase in Danish, and nouns in German, which would otherwise
   // need a different ending in each sentence.
@@ -5846,11 +5845,41 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Typografisches Anführungszeichen in einem Buch mit geraden: \"{excerpt}\"",
     es: "Comilla tipográfica en un libro que usa comillas rectas: \"{excerpt}\"",
   },
-  scan_msg_apos_straight_one: {
-    en: "{n} straight apostrophe in a book that uses curly ones: \"{example}\"",
-    da: "{n} lige apostrof i en bog, der bruger typografiske: \"{example}\"",
-    de: "{n} gerader Apostroph in einem Buch mit typografischen: \"{example}\"",
-    es: "{n} apóstrofo recto en un libro que usa tipográficos: \"{example}\"",
+  scan_msg_apos_straight_at: {
+    en: "Straight apostrophe in a book that uses curly ones: \"{excerpt}\"",
+    da: "Lige apostrof i en bog, der bruger typografiske: \"{excerpt}\"",
+    de: "Gerader Apostroph in einem Buch mit typografischen: \"{excerpt}\"",
+    es: "Apóstrofo recto en un libro que usa tipográficos: \"{excerpt}\"",
+  },
+  scan_msg_apos_curly_at: {
+    en: "Curly apostrophe in a book that uses straight ones: \"{excerpt}\"",
+    da: "Typografisk apostrof i en bog, der bruger lige: \"{excerpt}\"",
+    de: "Typografischer Apostroph in einem Buch mit geraden: \"{excerpt}\"",
+    es: "Apóstrofo tipográfico en un libro que usa rectos: \"{excerpt}\"",
+  },
+  scan_msg_ellipsis_dots_at: {
+    en: "Ellipsis typed as three dots in a book that uses the … character: \"{excerpt}\"",
+    da: "Udeladelsesprik skrevet som tre punktummer i en bog, der bruger tegnet …: \"{excerpt}\"",
+    de: "Auslassungszeichen als drei Punkte getippt, in einem Buch mit dem Zeichen …: \"{excerpt}\"",
+    es: "Puntos suspensivos escritos como tres puntos en un libro que usa el carácter …: \"{excerpt}\"",
+  },
+  scan_msg_ellipsis_char_at: {
+    en: "… character in a book that types three dots: \"{excerpt}\"",
+    da: "…-tegn i en bog, der skriver tre punktummer: \"{excerpt}\"",
+    de: "…-Zeichen in einem Buch, das drei Punkte tippt: \"{excerpt}\"",
+    es: "Carácter … en un libro que escribe tres puntos: \"{excerpt}\"",
+  },
+  scan_msg_invisible_at: {
+    en: "Invisible character (non-breaking or zero-width space), shown here as ⍽: \"{excerpt}\"",
+    da: "Usynligt tegn (hårdt mellemrum eller mellemrum uden bredde), vist her som ⍽: \"{excerpt}\"",
+    de: "Unsichtbares Zeichen (geschütztes oder breitenloses Leerzeichen), hier als ⍽ dargestellt: \"{excerpt}\"",
+    es: "Carácter invisible (espacio de no separación o de ancho cero), mostrado aquí como ⍽: \"{excerpt}\"",
+  },
+  scan_msg_placeholder_many: {
+    en: "{n} drafting placeholders left in the manuscript ({markers}). The first: \"{example}\"",
+    da: "{n} pladsholdere fra udkastet står stadig i manuskriptet ({markers}). Den første: \"{example}\"",
+    de: "{n} Platzhalter aus dem Entwurf stehen noch im Manuskript ({markers}). Der erste: \"{example}\"",
+    es: "{n} marcadores de borrador olvidados en el manuscrito ({markers}). El primero: \"{example}\"",
   },
   scan_msg_apos_straight: {
     en: "{n} straight apostrophes in a book that uses curly ones: \"{example}\"",
@@ -5858,23 +5887,11 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} gerade Apostrophe in einem Buch mit typografischen: \"{example}\"",
     es: "{n} apóstrofos rectos en un libro que usa tipográficos: \"{example}\"",
   },
-  scan_msg_apos_curly_one: {
-    en: "{n} curly apostrophe in a book that uses straight ones: \"{example}\"",
-    da: "{n} typografisk apostrof i en bog, der bruger lige: \"{example}\"",
-    de: "{n} typografischer Apostroph in einem Buch mit geraden: \"{example}\"",
-    es: "{n} apóstrofo tipográfico en un libro que usa rectos: \"{example}\"",
-  },
   scan_msg_apos_curly: {
     en: "{n} curly apostrophes in a book that uses straight ones: \"{example}\"",
     da: "{n} typografiske apostroffer i en bog, der bruger lige: \"{example}\"",
     de: "{n} typografische Apostrophe in einem Buch mit geraden: \"{example}\"",
     es: "{n} apóstrofos tipográficos en un libro que usa rectos: \"{example}\"",
-  },
-  scan_msg_ellipsis_dots_one: {
-    en: "{n} ellipsis typed as three dots in a book that uses the … character: \"{example}\"",
-    da: "{n} udeladelsesprik skrevet som tre punktummer i en bog, der bruger tegnet …: \"{example}\"",
-    de: "{n} Auslassungszeichen als drei Punkte getippt, in einem Buch mit dem Zeichen …: \"{example}\"",
-    es: "{n} puntos suspensivos escritos como tres puntos en un libro que usa el carácter …: \"{example}\"",
   },
   scan_msg_ellipsis_dots: {
     en: "{n} ellipses typed as three dots in a book that uses the … character: \"{example}\"",
@@ -5882,23 +5899,11 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} Auslassungszeichen als drei Punkte getippt, in einem Buch mit dem Zeichen …: \"{example}\"",
     es: "{n} puntos suspensivos escritos como tres puntos en un libro que usa el carácter …: \"{example}\"",
   },
-  scan_msg_ellipsis_char_one: {
-    en: "{n} … character in a book that types three dots: \"{example}\"",
-    da: "{n} …-tegn i en bog, der skriver tre punktummer: \"{example}\"",
-    de: "{n} …-Zeichen in einem Buch, das drei Punkte tippt: \"{example}\"",
-    es: "{n} carácter … en un libro que escribe tres puntos: \"{example}\"",
-  },
   scan_msg_ellipsis_char: {
     en: "{n} … characters in a book that types three dots: \"{example}\"",
     da: "{n} …-tegn i en bog, der skriver tre punktummer: \"{example}\"",
     de: "{n} …-Zeichen in einem Buch, das drei Punkte tippt: \"{example}\"",
     es: "{n} caracteres … en un libro que escribe tres puntos: \"{example}\"",
-  },
-  scan_msg_invisible_one: {
-    en: "{n} invisible character (non-breaking or zero-width space) in the text: \"{example}\"",
-    da: "{n} usynligt tegn (hårdt mellemrum eller mellemrum uden bredde) i teksten: \"{example}\"",
-    de: "{n} unsichtbares Zeichen (geschütztes oder breitenloses Leerzeichen) im Text: \"{example}\"",
-    es: "{n} carácter invisible (espacio de no separación o de ancho cero) en el texto: \"{example}\"",
   },
   scan_msg_invisible: {
     en: "{n} invisible characters (non-breaking or zero-width space) in the text: \"{example}\"",
@@ -5919,10 +5924,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Dos signos de puntuación seguidos (\"{marks}\"): \"{excerpt}\"",
   },
   scan_msg_punctuation_pair_many: {
-    en: "{n} places where two punctuation marks stand side by side — so many that the import itself may be damaged. The first: \"{excerpt}\"",
-    da: "{n} steder med to skilletegn side om side — så mange, at selve importen kan være beskadiget. Det første: \"{excerpt}\"",
-    de: "{n} Stellen mit zwei Satzzeichen direkt nebeneinander — so viele, dass der Import selbst beschädigt sein könnte. Die erste: \"{excerpt}\"",
-    es: "{n} lugares con dos signos de puntuación seguidos: tantos que la propia importación puede estar dañada. El primero: \"{excerpt}\"",
+    en: "{n} places where two punctuation marks stand side by side. The first: \"{excerpt}\"",
+    da: "{n} steder med to skilletegn side om side. Det første: \"{excerpt}\"",
+    de: "{n} Stellen mit zwei Satzzeichen direkt nebeneinander. Die erste: \"{excerpt}\"",
+    es: "{n} lugares con dos signos de puntuación seguidos. El primero: \"{excerpt}\"",
   },
   scan_msg_dialect_tie: {
     en: "Mixed English spelling: {british} word(s) use British spelling and {american} use American, in equal measure.",
@@ -5942,11 +5947,17 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Gemischte englische Schreibweise: überwiegend {keep} ({keepN} Wörter), aber {n} Wörter folgen der Schreibweise {change}.",
     es: "Ortografía inglesa mezclada: mayoritariamente {keep} ({keepN} palabras), pero {n} palabras siguen la ortografía del {change}.",
   },
-  scan_detail_copy_edit_normalises: {
-    en: "A copy edit normalises these; a scan only reports them.",
-    da: "En korrektur retter dem; en scanning melder dem kun.",
-    de: "Eine Korrektur vereinheitlicht sie; ein Scan meldet sie nur.",
-    es: "Una corrección los normaliza; un escaneo solo los señala.",
+  scan_detail_copy_edit_fixes: {
+    en: "Too many to list one by one. “{card}” fixes them all at once; a scan only reports them.",
+    da: "For mange til at vise enkeltvis. “{card}” retter dem alle på én gang; en scanning melder dem kun.",
+    de: "Zu viele, um sie einzeln aufzuführen. „{card}“ behebt sie alle auf einmal; ein Scan meldet sie nur.",
+    es: "Demasiados para enumerarlos uno a uno. «{card}» los corrige todos de una vez; un escaneo solo los señala.",
+  },
+  scan_detail_placeholder_many: {
+    en: "Too many to list one by one. Each needs your own text: search the manuscript for the markers above.",
+    da: "For mange til at vise enkeltvis. Hver af dem skal have din egen tekst: søg i manuskriptet efter markeringerne ovenfor.",
+    de: "Zu viele, um sie einzeln aufzuführen. Jeder braucht deinen eigenen Text: Suche im Manuskript nach den Markierungen oben.",
+    es: "Demasiados para enumerarlos uno a uno. Cada uno necesita tu propio texto: busca en el manuscrito las marcas de arriba.",
   },
   scan_detail_invisible: {
     en: "Nothing on screen shows these; they survive into the printed book.",

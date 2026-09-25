@@ -85,8 +85,8 @@ type DraftFinding = Omit<StructuralFinding, "blocking"> & {
 // from i18n.ts in the reader's language. One template per key, so the English
 // cannot drift from the translations: publicationScanMessages.test.ts renders
 // every finding back through the frontend's English and demands the same
-// sentence. A count that changes the words has its own `_one` key, chosen
-// here, because only here is the number known.
+// sentence. The counted forms appear only in a summary, past LIST_LIMIT, so
+// none needs a singular.
 export const SCAN_MESSAGES = {
   scan_msg_duplicate_chapter: "Identical chapter content appears {n} times.",
   scan_msg_duplicate_block:
@@ -110,24 +110,25 @@ export const SCAN_MESSAGES = {
     'Straight quotation mark in a book that uses curly ones: "{excerpt}"',
   scan_msg_quote_curly:
     'Curly quotation mark in a book that uses straight ones: "{excerpt}"',
-  scan_msg_apos_straight_one:
-    '{n} straight apostrophe in a book that uses curly ones: "{example}"',
+  scan_msg_apos_straight_at:
+    'Straight apostrophe in a book that uses curly ones: "{excerpt}"',
+  scan_msg_apos_curly_at:
+    'Curly apostrophe in a book that uses straight ones: "{excerpt}"',
+  scan_msg_ellipsis_dots_at:
+    'Ellipsis typed as three dots in a book that uses the … character: "{excerpt}"',
+  scan_msg_ellipsis_char_at: '… character in a book that types three dots: "{excerpt}"',
+  scan_msg_invisible_at:
+    'Invisible character (non-breaking or zero-width space), shown here as ⍽: "{excerpt}"',
+  scan_msg_placeholder_many:
+    '{n} drafting placeholders left in the manuscript ({markers}). The first: "{example}"',
   scan_msg_apos_straight:
     '{n} straight apostrophes in a book that uses curly ones: "{example}"',
-  scan_msg_apos_curly_one:
-    '{n} curly apostrophe in a book that uses straight ones: "{example}"',
   scan_msg_apos_curly:
     '{n} curly apostrophes in a book that uses straight ones: "{example}"',
-  scan_msg_ellipsis_dots_one:
-    '{n} ellipsis typed as three dots in a book that uses the … character: "{example}"',
   scan_msg_ellipsis_dots:
     '{n} ellipses typed as three dots in a book that uses the … character: "{example}"',
-  scan_msg_ellipsis_char_one:
-    '{n} … character in a book that types three dots: "{example}"',
   scan_msg_ellipsis_char:
     '{n} … characters in a book that types three dots: "{example}"',
-  scan_msg_invisible_one:
-    '{n} invisible character (non-breaking or zero-width space) in the text: "{example}"',
   scan_msg_invisible:
     '{n} invisible characters (non-breaking or zero-width space) in the text: "{example}"',
   scan_msg_placeholder:
@@ -140,9 +141,11 @@ export const SCAN_MESSAGES = {
     "Mixed English spelling: mostly {keep} ({keepN} word(s)) but {n} word(s) use {change} spelling.",
   scan_msg_punctuation_pair: 'Two punctuation marks side by side ("{marks}"): "{excerpt}"',
   scan_msg_punctuation_pair_many:
-    '{n} places where two punctuation marks stand side by side — so many that the import itself may be damaged. The first: "{excerpt}"',
-  scan_detail_copy_edit_normalises:
-    "A copy edit normalises these; a scan only reports them.",
+    '{n} places where two punctuation marks stand side by side. The first: "{excerpt}"',
+  scan_detail_copy_edit_fixes:
+    "Too many to list one by one. “{card}” fixes them all at once; a scan only reports them.",
+  scan_detail_placeholder_many:
+    "Too many to list one by one. Each needs your own text: search the manuscript for the markers above.",
   scan_detail_invisible:
     "Nothing on screen shows these; they survive into the printed book.",
   scan_detail_pick_dialect:
@@ -158,6 +161,9 @@ type Params = Record<string, string | number>;
 export const SCAN_LABELS_EN: Record<string, string> = {
   scan_dialect_american: "American",
   scan_dialect_british: "British",
+  // The copy-edit card's title, named in "fixes them all" — as the author
+  // sees it on the front page.
+  card_edit_title: "Find errors (copy edits)",
 };
 
 /** Fill a template's {slots}; label params are looked up, not inserted. */
@@ -195,10 +201,14 @@ function explain(
   key: ScanMessageKey,
   params?: Params,
   labelParams?: Record<string, string>,
-): Pick<DraftFinding, "detail" | "detailKey"> {
+): Pick<DraftFinding, "detail" | "detailKey" | "labelParams"> {
   return {
     detail: fillScanTemplate(SCAN_MESSAGES[key], params, labelParams),
     detailKey: key,
+    // Carried for the interface to fill the detail's own label slots. A
+    // message and its detail share them (the dialect finding names the same
+    // dialect in both), so spreading this after `say` loses nothing.
+    ...(labelParams ? { labelParams } : {}),
   };
 }
 
@@ -777,90 +787,182 @@ function findQuoteStyle(
 }
 
 /**
+ * How many of one kind a report lists one by one. Up to here each is its own
+ * line, with its chapter and its sentence, because each is something to go
+ * and find. Past it a list stops helping — ninety-three straight apostrophes
+ * is one decision, not ninety-three errands — and one line says how many and
+ * names the copy edit that fixes them all.
+ */
+export const LIST_LIMIT = 20;
+
+/** Where each unit starts in the units joined as the whole-book checks read
+ *  them — "\n\n" between — so a position there can be traced to a chapter. */
+function unitAt(units: ScanUnit[]): (index: number) => { unitIndex: number; local: number } {
+  const starts: number[] = [];
+  let at = 0;
+  for (const u of units) {
+    starts.push(at);
+    at += u.original.length + 2;
+  }
+  return (index) => {
+    let i = starts.length - 1;
+    while (i > 0 && starts[i] > index) i--;
+    return { unitIndex: i, local: index - starts[i] };
+  };
+}
+
+/** The sentence around a mark. `shown` stands in for the mark itself — an
+ *  invisible character has to be drawn to be found, and the excerpt's own
+ *  whitespace-collapsing would otherwise swallow a non-breaking space. */
+function excerptAround(text: string, index: number, length: number, shown?: string): string {
+  const radius = 45;
+  const mark = shown ?? text.slice(index, index + length);
+  const from = Math.max(0, index - radius);
+  const to = Math.min(text.length, index + length + radius);
+  const body = (text.slice(from, index) + mark + text.slice(index + length, to))
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${from > 0 ? "…" : ""}${body}${to < text.length ? "…" : ""}`;
+}
+
+/**
  * The typographic marks that are not quotation marks — apostrophes, ellipses,
  * characters that cannot be seen, and drafting placeholders left in.
  *
  * Read off the WHOLE manuscript rather than per chapter. An apostrophe
  * convention is a property of the book, and a chapter of pure narration has
- * too few to judge by; counting per chapter also turned one decision into one
- * finding per chapter, which is the opposite of what this reports.
+ * too few to judge by.
  *
- * One finding per kind, carrying its count. Ninety-three straight apostrophes
- * in a curly book is one thing to fix, not ninety-three, and listing them
- * separately would bury every other finding on the page.
+ * Reported one per occurrence, each in its chapter, up to LIST_LIMIT of a
+ * kind. They used to be one line per kind with the first example, and the
+ * author could find neither the other five ellipses nor — its excerpt having
+ * collapsed the very space it was showing — the invisible character at all.
  */
 function findTypography(
   units: ScanUnit[],
   declared?: QuoteStyle | null,
 ): DraftFinding[] {
   const whole = units.map((u) => u.original).join("\n\n");
-  // The key with `_one` when the count is one: "1 straight apostrophe".
-  const counted = (n: number, key: string): ScanMessageKey =>
-    (n === 1 ? `${key}_one` : key) as ScanMessageKey;
-  return findTypographyIssues(whole, declared).map((issue): DraftFinding => {
+  const locate = unitAt(units);
+  const tooMany = explain("scan_detail_copy_edit_fixes", undefined, {
+    card: "card_edit_title",
+  });
+
+  return findTypographyIssues(whole, declared).flatMap((issue): DraftFinding[] => {
+    const invisible = issue.kind === "invisible-character";
+    const each = issue.positions.map((pos) => {
+      const { unitIndex, local } = locate(pos.index);
+      const unit = units[unitIndex];
+      return {
+        location: unit.name,
+        unitIndex,
+        excerpt: excerptAround(unit.original, local, pos.length, invisible ? "⍽" : undefined),
+        mark: unit.original.slice(local, local + pos.length),
+      };
+    });
+    const listed = issue.count <= LIST_LIMIT;
+
     switch (issue.kind) {
-      case "apostrophe-style":
-        return {
-          check: "apostrophe_style",
-          // A house-style slip, like the quotation-mark one it sits beside:
-          // consistently wrong is a choice, and this is neither consistent
-          // nor corrupting. It is also the single commonest thing wrong with
-          // a finished manuscript, which is why it is reported at all.
-          severity: "info",
-          location: "Manuscript",
-          wholeManuscript: true,
-          ...say(
-            counted(
-              issue.count,
-              issue.expected === "curly" ? "scan_msg_apos_straight" : "scan_msg_apos_curly",
-            ),
-            { n: issue.count, example: issue.example },
-          ),
-          ...explain("scan_detail_copy_edit_normalises"),
-        };
-      case "ellipsis-style":
-        return {
-          check: "ellipsis_style",
-          severity: "info",
-          location: "Manuscript",
-          wholeManuscript: true,
-          ...say(
-            counted(
-              issue.count,
-              issue.expected === "character" ? "scan_msg_ellipsis_dots" : "scan_msg_ellipsis_char",
-            ),
-            { n: issue.count, example: issue.example },
-          ),
-          ...explain("scan_detail_copy_edit_normalises"),
-        };
-      case "invisible-character":
-        return {
-          check: "invisible_character",
-          // Worse than a style slip and not visible anywhere: a non-breaking
-          // space survives every export and opens a river down a justified
-          // page, and a zero-width character breaks search inside a word.
-          severity: "warning",
-          location: "Manuscript",
-          wholeManuscript: true,
-          ...say(counted(issue.count, "scan_msg_invisible"), {
-            n: issue.count,
-            example: issue.example,
-          }),
-          ...explain("scan_detail_invisible"),
-        };
-      case "placeholder":
-        return {
-          check: "placeholder",
-          // The one thing here a reader would call a mistake in the book
-          // rather than in its typesetting.
-          severity: "error",
-          location: "Manuscript",
-          wholeManuscript: true,
-          ...say("scan_msg_placeholder", {
-            markers: issue.markers?.join(", ") ?? "",
-            example: issue.example,
-          }),
-        };
+      case "apostrophe-style": {
+        // A house-style slip, like the quotation-mark one it sits beside:
+        // consistently wrong is a choice, and this is neither consistent nor
+        // corrupting. It is also the single commonest thing wrong with a
+        // finished manuscript, which is why it is reported at all.
+        const base = { check: "apostrophe_style" as const, severity: "info" as const };
+        const key = issue.expected === "curly" ? "scan_msg_apos_straight" : "scan_msg_apos_curly";
+        if (listed) {
+          return each.map((o) => ({
+            ...base,
+            location: o.location,
+            unitIndex: o.unitIndex,
+            ...say(`${key}_at` as ScanMessageKey, { excerpt: o.excerpt }),
+          }));
+        }
+        return [
+          {
+            ...base,
+            location: "Manuscript",
+            wholeManuscript: true,
+            ...say(key, { n: issue.count, example: issue.example }),
+            ...tooMany,
+          },
+        ];
+      }
+      case "ellipsis-style": {
+        const base = { check: "ellipsis_style" as const, severity: "info" as const };
+        const key = issue.expected === "character" ? "scan_msg_ellipsis_dots" : "scan_msg_ellipsis_char";
+        if (listed) {
+          return each.map((o) => ({
+            ...base,
+            location: o.location,
+            unitIndex: o.unitIndex,
+            ...say(`${key}_at` as ScanMessageKey, { excerpt: o.excerpt }),
+          }));
+        }
+        return [
+          {
+            ...base,
+            location: "Manuscript",
+            wholeManuscript: true,
+            ...say(key, { n: issue.count, example: issue.example }),
+            ...tooMany,
+          },
+        ];
+      }
+      case "invisible-character": {
+        // Worse than a style slip and not visible anywhere: a non-breaking
+        // space survives every export and opens a river down a justified
+        // page, and a zero-width character breaks search inside a word.
+        const base = { check: "invisible_character" as const, severity: "warning" as const };
+        if (listed) {
+          return each.map((o) => ({
+            ...base,
+            location: o.location,
+            unitIndex: o.unitIndex,
+            ...say("scan_msg_invisible_at", { excerpt: o.excerpt }),
+            ...explain("scan_detail_invisible"),
+          }));
+        }
+        return [
+          {
+            ...base,
+            location: "Manuscript",
+            wholeManuscript: true,
+            ...say("scan_msg_invisible", {
+              n: issue.count,
+              example: excerptAround(whole, issue.positions[0].index, 1, "⍽"),
+            }),
+            ...tooMany,
+          },
+        ];
+      }
+      case "placeholder": {
+        // The one thing here a reader would call a mistake in the book
+        // rather than in its typesetting. No copy edit fills one in, so the
+        // summary past the limit says to search for them instead.
+        const base = { check: "placeholder" as const, severity: "error" as const };
+        if (listed) {
+          return each.map((o) => ({
+            ...base,
+            location: o.location,
+            unitIndex: o.unitIndex,
+            ...say("scan_msg_placeholder", { markers: o.mark, example: o.excerpt }),
+          }));
+        }
+        return [
+          {
+            ...base,
+            location: "Manuscript",
+            wholeManuscript: true,
+            ...say("scan_msg_placeholder_many", {
+              n: issue.count,
+              markers: issue.markers?.join(", ") ?? "",
+              example: issue.example,
+            }),
+            ...explain("scan_detail_placeholder_many"),
+          },
+        ];
+      }
     }
   });
 }
@@ -870,12 +972,9 @@ function findTypography(
  * the exceptions that make it safe to block on, are in punctuationPairs.ts.
  *
  * One finding per pair, each with its sentence, because each is a thing to
- * go and fix — until there are so many that the list would bury everything
- * else on the page. Past that the book is damaged rather than mistyped (an
- * OCR'd import on the author's machine had 138), and one finding saying so
- * is worth more than the list.
+ * go and fix — up to LIST_LIMIT, past which one line says how many and names
+ * the copy edit that fixes them, as the typography checks do.
  */
-const PAIR_LIST_LIMIT = 25;
 
 function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): DraftFinding[] {
   const hits = units.flatMap((u, unitIndex) =>
@@ -886,7 +985,7 @@ function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): Dra
       marks: pair.marks,
     })),
   );
-  if (hits.length > PAIR_LIST_LIMIT) {
+  if (hits.length > LIST_LIMIT) {
     return [
       {
         check: "punctuation_pair",
@@ -894,6 +993,7 @@ function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): Dra
         location: "Manuscript",
         wholeManuscript: true,
         ...say("scan_msg_punctuation_pair_many", { n: hits.length, excerpt: hits[0].excerpt }),
+        ...explain("scan_detail_copy_edit_fixes", undefined, { card: "card_edit_title" }),
       },
     ];
   }
