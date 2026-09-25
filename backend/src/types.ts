@@ -427,6 +427,7 @@ export const STRUCTURAL_CHECKS = [
   "ellipsis_style",
   "invisible_character",
   "placeholder",
+  "punctuation_pair",
 ] as const;
 
 export type StructuralCheck = (typeof STRUCTURAL_CHECKS)[number];

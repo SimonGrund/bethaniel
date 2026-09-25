@@ -2191,6 +2191,33 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── Two punctuation marks side by side: ".,", ",,", "?.". The
+              // model reads past them and no other layer looks. Deterministic,
+              // like the marks above; a pair whose fix is certain (",," → ",",
+              // "?." → "?") is pre-approved, and one that needs judgement —
+              // which of "." and "," was meant — goes to the reviewer. The
+              // publication scan reports the same pairs from the same
+              // detector.
+              {
+                const { getPunctuationPairCorrections } = await import(
+                  "./punctuationPairs.js"
+                );
+                const pairCs = getPunctuationPairCorrections(
+                  chunk.body,
+                  job.manuscriptLang,
+                );
+                if (pairCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...pairCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `doubled punctuation produced ${pairCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── LanguageTool: grammar/punctuation via a local server. Runs
               // only when available (jar + Java bundled); degrades to a no-op
               // otherwise. A failure here must never break the chunk.

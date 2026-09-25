@@ -2485,6 +2485,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Dialekteinstellung",
     es: "Ajuste de dialecto",
   },
+  rr_src_punctuation: {
+    en: "Punctuation check",
+    da: "Tegnsætningstjek",
+    de: "Satzzeichenprüfung",
+    es: "Revisión de puntuación",
+  },
   rr_src_grammar: {
     en: "Grammar check",
     da: "Grammatiktjek",
@@ -3378,6 +3384,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Platzhaltertext",
     es: "Texto de marcador",
   },
+  scan_check_punctuation_pair: {
+    en: "Doubled punctuation",
+    da: "Dobbelte skilletegn",
+    de: "Doppelte Satzzeichen",
+    es: "Puntuación doble",
+  },
 
   // ── What each check looks for ──
   //
@@ -3449,6 +3461,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "TODO, TK, “INDSÆT BESKRIVELSE HER”",
     de: "TODO, TK, „BESCHREIBUNG HIER EINFÜGEN“",
     es: "TODO, TK, «INSERTAR DESCRIPCIÓN AQUÍ»",
+  },
+  scan_looks_for_punctuation_pair: {
+    en: "“.,”  “,,”  “?.”  “.?” — two marks where one belongs",
+    da: "“.,”  “,,”  “?.”  “.?” — to tegn, hvor der hører ét hjemme",
+    de: "„.,“  „,,“  „?.“  „.?“ — zwei Zeichen, wo eines hingehört",
+    es: "«.,»  «,,»  «?.»  «.?»: dos signos donde va uno",
   },
 
   // ── The checklist and its results ──
@@ -5893,6 +5911,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Pladsholder fra udkastet står stadig i manuskriptet ({markers}): \"{example}\"",
     de: "Platzhalter aus dem Entwurf steht noch im Manuskript ({markers}): \"{example}\"",
     es: "Marcador de borrador olvidado en el manuscrito ({markers}): \"{example}\"",
+  },
+  scan_msg_punctuation_pair: {
+    en: "Two punctuation marks side by side (\"{marks}\"): \"{excerpt}\"",
+    da: "To skilletegn side om side (\"{marks}\"): \"{excerpt}\"",
+    de: "Zwei Satzzeichen direkt nebeneinander (\"{marks}\"): \"{excerpt}\"",
+    es: "Dos signos de puntuación seguidos (\"{marks}\"): \"{excerpt}\"",
+  },
+  scan_msg_punctuation_pair_many: {
+    en: "{n} places where two punctuation marks stand side by side — so many that the import itself may be damaged. The first: \"{excerpt}\"",
+    da: "{n} steder med to skilletegn side om side — så mange, at selve importen kan være beskadiget. Det første: \"{excerpt}\"",
+    de: "{n} Stellen mit zwei Satzzeichen direkt nebeneinander — so viele, dass der Import selbst beschädigt sein könnte. Die erste: \"{excerpt}\"",
+    es: "{n} lugares con dos signos de puntuación seguidos: tantos que la propia importación puede estar dañada. El primero: \"{excerpt}\"",
   },
   scan_msg_dialect_tie: {
     en: "Mixed English spelling: {british} word(s) use British spelling and {american} use American, in equal measure.",

@@ -62,6 +62,7 @@ function brokenBook(): ScanUnit[] {
     { name: "Chapter 7", original: "A handful of words, far too few for a chapter of a novel." },
     { name: "Chapter 8", original: `${CLEAN}\n\n“This line of dialogue never closes, he thought.` },
     { name: "Chapter 9", original: CLEAN },
+    { name: "Chapter 10", original: CLEAN.replace("settled at all.", "settled at all.,” she said.") },
   ];
 }
 
@@ -105,6 +106,7 @@ test("every finding carries its key, and its English renders the same both ways"
     "scan_msg_repetition",
     "scan_msg_truncation",
     "scan_msg_placeholder",
+    "scan_msg_punctuation_pair",
     "scan_msg_dialect_declared",
     "scan_msg_dialect_majority",
   ])

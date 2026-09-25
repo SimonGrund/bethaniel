@@ -65,6 +65,9 @@ export function isDeterministicCorrection(c: Correction): boolean {
     // because these are independently preApproved; stated here in its own
     // right so that stays true if that changes.
     reason === "quote-style" ||
+    // Two punctuation marks side by side — a fact about the characters on
+    // the page, found by punctuationPairs.ts, not a model's opinion.
+    reason === "punctuation-pair" ||
     reason.startsWith("grammar:") ||
     reason.startsWith("retext:") ||
     // A narrow phrasing pattern, scored on a corpus before it was added.

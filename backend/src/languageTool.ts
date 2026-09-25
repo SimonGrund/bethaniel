@@ -87,6 +87,12 @@ export const INTRODUCTORY_COMMA_RULES = [
  *     treats as one — quoteRepair.ts normalises quotation marks
  *     deterministically, and a style guide is where a publisher asks for
  *     angle quotes. LanguageTool should not be overruling that pass.
+ *
+ *   - DOUBLE_PUNCTUATION flags ",," and "..". punctuationPairs.ts finds
+ *     those and every other pair (".,", "?.", ".?"), with the exceptions
+ *     measured on real manuscripts, so this rule only ever put a second card
+ *     on the same two characters — and its fix for ".." is always ".", which
+ *     that module deliberately does not assume.
  */
 export const ALWAYS_DISABLED_RULES = [
   "PCT_SINGULAR_NOUN_PLURAL_VERB_AGREEMENT",
@@ -94,6 +100,7 @@ export const ALWAYS_DISABLED_RULES = [
   "RB_RB_COMMA",
   "BEEN_PART_AGREEMENT",
   "COMILLAS_TIPOGRAFICAS",
+  "DOUBLE_PUNCTUATION",
 ];
 
 /**

@@ -51,6 +51,7 @@ import type {
   StructuralFinding,
   StructuralScanReport,
 } from "./types.js";
+import { findPunctuationPairs, pairExcerpt } from "./punctuationPairs.js";
 
 export interface ScanUnit {
   name: string;
@@ -137,6 +138,9 @@ export const SCAN_MESSAGES = {
     "Mixed English spelling: {n} word(s) use {change} spelling, but this manuscript is set to {keep}.",
   scan_msg_dialect_majority:
     "Mixed English spelling: mostly {keep} ({keepN} word(s)) but {n} word(s) use {change} spelling.",
+  scan_msg_punctuation_pair: 'Two punctuation marks side by side ("{marks}"): "{excerpt}"',
+  scan_msg_punctuation_pair_many:
+    '{n} places where two punctuation marks stand side by side — so many that the import itself may be damaged. The first: "{excerpt}"',
   scan_detail_copy_edit_normalises:
     "A copy edit normalises these; a scan only reports them.",
   scan_detail_invisible:
@@ -850,6 +854,45 @@ function findTypography(
 }
 
 /**
+ * Two punctuation marks side by side: ".,", ",,", "?.", ".?". What counts, and
+ * the exceptions that make it safe to block on, are in punctuationPairs.ts.
+ *
+ * One finding per pair, each with its sentence, because each is a thing to
+ * go and fix — until there are so many that the list would bury everything
+ * else on the page. Past that the book is damaged rather than mistyped (an
+ * OCR'd import on the author's machine had 138), and one finding saying so
+ * is worth more than the list.
+ */
+const PAIR_LIST_LIMIT = 25;
+
+function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): DraftFinding[] {
+  const hits = units.flatMap((u) =>
+    findPunctuationPairs(u.original, manuscriptLang).map((pair) => ({
+      unit: u,
+      excerpt: pairExcerpt(u.original, pair),
+      marks: pair.marks,
+    })),
+  );
+  if (hits.length > PAIR_LIST_LIMIT) {
+    return [
+      {
+        check: "punctuation_pair",
+        severity: "warning",
+        location: "Manuscript",
+        wholeManuscript: true,
+        ...say("scan_msg_punctuation_pair_many", { n: hits.length, excerpt: hits[0].excerpt }),
+      },
+    ];
+  }
+  return hits.map(({ unit, excerpt, marks }) => ({
+    check: "punctuation_pair",
+    severity: "warning",
+    location: unit.name,
+    ...say("scan_msg_punctuation_pair", { marks, excerpt }),
+  }));
+}
+
+/**
  * Manuscript-wide English dialect consistency. A professionally edited
  * manuscript uses one dialect throughout; genuinely mixed usage (not one stray
  * outlier) is worth catching before publication.
@@ -973,6 +1016,7 @@ export function buildPublicationScan(
     ...findTruncation(units, reported, convention),
     ...findQuoteStyle(units, convention),
     ...findTypography(units, convention.style),
+    ...findDoubledPunctuation(units, options?.manuscriptLang),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
   ].map((f): StructuralFinding => ({ ...f, blocking: f.blocking ?? true }));
 

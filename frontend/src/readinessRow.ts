@@ -66,6 +66,7 @@ export function sourceOf(
   if (reason === "spell-check" || reason === "spell-check-uncommon")
     source = t("rr_src_dictionary");
   else if (reason === "dialect") source = t("rr_src_dialect");
+  else if (reason === "punctuation-pair") source = t("rr_src_punctuation");
   else if (reason.startsWith("grammar:"))
     source = `${t("rr_src_grammar")} · ${reason.slice(8).replace(/_/g, " ")}`;
   else if (reason.startsWith("retext:"))
