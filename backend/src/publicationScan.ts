@@ -282,6 +282,7 @@ function findDuplicates(units: ScanUnit[]): {
       check: "duplicate",
       severity: "error",
       location: idxs.map((i) => units[i].name).join(" ↔ "),
+      unitIndex: Math.min(...idxs),
       ...say("scan_msg_duplicate_chapter", { n: idxs.length }),
     });
     groupId++;
@@ -310,6 +311,7 @@ function findDuplicates(units: ScanUnit[]): {
       check: "duplicate",
       severity: "error",
       location: [...chapters].map((i) => units[i].name).join(" ↔ "),
+      unitIndex: Math.min(...chapters),
       ...say("scan_msg_duplicate_block"),
       detail: snippet.slice(0, 140) + (snippet.length > 140 ? "…" : ""),
     });
@@ -320,13 +322,14 @@ function findDuplicates(units: ScanUnit[]): {
 
 function findEmptyChapters(units: ScanUnit[]): DraftFinding[] {
   const findings: DraftFinding[] = [];
-  for (const u of units) {
+  for (const [unitIndex, u] of units.entries()) {
     const wc = wordCount(u.original);
     if (wc < EMPTY_THRESHOLD) {
       findings.push({
         check: "empty_chapter",
         severity: "error",
         location: u.name,
+        unitIndex,
         ...say("scan_msg_empty", { n: wc }),
       });
     } else if (wc < SHORT_THRESHOLD && !SPECIAL_SECTION_RE.test(u.name)) {
@@ -334,6 +337,7 @@ function findEmptyChapters(units: ScanUnit[]): DraftFinding[] {
         check: "empty_chapter",
         severity: "warning",
         location: u.name,
+        unitIndex,
         ...say("scan_msg_short", { n: wc }),
       });
     }
@@ -344,19 +348,21 @@ function findEmptyChapters(units: ScanUnit[]): DraftFinding[] {
 function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
   const findings: DraftFinding[] = [];
   const numbered = units
-    .map((u) => ({ name: u.name, num: parseChapterNumber(u.name) }))
-    .filter((x): x is { name: string; num: number } => x.num !== null);
+    .map((u, index) => ({ name: u.name, num: parseChapterNumber(u.name), index }))
+    .filter((x): x is { name: string; num: number; index: number } => x.num !== null);
 
-  const seen = new Map<number, string[]>();
-  for (const { name, num } of numbered) {
-    (seen.get(num) ?? seen.set(num, []).get(num)!).push(name);
+  const seen = new Map<number, { name: string; index: number }[]>();
+  for (const { name, num, index } of numbered) {
+    (seen.get(num) ?? seen.set(num, []).get(num)!).push({ name, index });
   }
-  for (const [num, names] of seen) {
+  for (const [num, uses] of seen) {
+    const names = uses.map((u) => u.name);
     if (names.length > 1) {
       findings.push({
         check: "numbering",
         severity: "warning",
         location: names.join(" ↔ "),
+        unitIndex: uses[0].index,
         ...say("scan_msg_number_reused", { num, n: names.length }),
       });
     }
@@ -372,6 +378,7 @@ function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
         check: "numbering",
         severity: "warning",
         location: `${prev.name} → ${cur.name}`,
+        unitIndex: prev.index,
         ...say("scan_msg_number_gap", {
           missing: missing.join(", "),
           from: prev.num,
@@ -383,6 +390,7 @@ function findNumberingIssues(units: ScanUnit[]): DraftFinding[] {
         check: "numbering",
         severity: "warning",
         location: `${prev.name} → ${cur.name}`,
+        unitIndex: prev.index,
         ...say("scan_msg_number_order", { from: prev.num, to: cur.num }),
       });
     }
@@ -450,7 +458,7 @@ function findRepetitions(units: ScanUnit[]): {
 } {
   const findings: DraftFinding[] = [];
   const reported = new Set<string>();
-  for (const u of units) {
+  for (const [unitIndex, u] of units.entries()) {
     for (const para of u.original.split(/\n\n+/)) {
       const span = repeatedSpan(para);
       if (!span) continue;
@@ -459,6 +467,7 @@ function findRepetitions(units: ScanUnit[]): {
         check: "repetition",
         severity: "error",
         location: u.name,
+        unitIndex,
         ...say("scan_msg_repetition", { span }),
         detail: excerpt,
       });
@@ -671,7 +680,7 @@ function findTruncation(
   convention: QuoteConvention = { family: QUOTE_FAMILIES[0], style: null },
 ): DraftFinding[] {
   const findings: DraftFinding[] = [];
-  for (const u of units) {
+  for (const [unitIndex, u] of units.entries()) {
     const body = u.original.trim();
     if (wordCount(body) < EMPTY_THRESHOLD) continue; // empty handled elsewhere
     // Emphasis markers and trailing whitespace are not the end of the sentence.
@@ -685,6 +694,7 @@ function findTruncation(
         check: "truncation",
         severity: "warning",
         location: u.name,
+        unitIndex,
         ...say("scan_msg_truncation", { ending: forEnding.slice(-40).trim() }),
       });
       continue;
@@ -701,6 +711,7 @@ function findTruncation(
         check: "truncation",
         severity: "info",
         location: u.name,
+        unitIndex,
         ...say(
           kind === "no-reopen" ? "scan_msg_quote_no_reopen" : "scan_msg_quote_unbalanced",
           { excerpt },
@@ -742,7 +753,7 @@ function findQuoteStyle(
   if (!convention.style) return [];
   const wanted = convention.style;
   const findings: DraftFinding[] = [];
-  for (const u of units) {
+  for (const [unitIndex, u] of units.entries()) {
     for (const paragraph of u.original.split(/\n\n+/)) {
       const text = paragraph.trim();
       if (!text) continue;
@@ -754,6 +765,7 @@ function findQuoteStyle(
         check: "quote_style",
         severity: "info",
         location: u.name,
+        unitIndex,
         ...say(
           wanted === "curly" ? "scan_msg_quote_straight" : "scan_msg_quote_curly",
           { excerpt: excerptOf(paragraph) },
@@ -866,9 +878,10 @@ function findTypography(
 const PAIR_LIST_LIMIT = 25;
 
 function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): DraftFinding[] {
-  const hits = units.flatMap((u) =>
+  const hits = units.flatMap((u, unitIndex) =>
     findPunctuationPairs(u.original, manuscriptLang).map((pair) => ({
       unit: u,
+      unitIndex,
       excerpt: pairExcerpt(u.original, pair),
       marks: pair.marks,
     })),
@@ -884,10 +897,11 @@ function findDoubledPunctuation(units: ScanUnit[], manuscriptLang?: string): Dra
       },
     ];
   }
-  return hits.map(({ unit, excerpt, marks }) => ({
+  return hits.map(({ unit, unitIndex, excerpt, marks }) => ({
     check: "punctuation_pair",
     severity: "warning",
     location: unit.name,
+    unitIndex,
     ...say("scan_msg_punctuation_pair", { marks, excerpt }),
   }));
 }
@@ -1018,7 +1032,14 @@ export function buildPublicationScan(
     ...findTypography(units, convention.style),
     ...findDoubledPunctuation(units, options?.manuscriptLang),
     ...findDialectConsistency(units, options?.englishDialect, options?.manuscriptLang),
-  ].map((f): StructuralFinding => ({ ...f, blocking: f.blocking ?? true }));
+  ]
+    .map((f): StructuralFinding => ({ ...f, blocking: f.blocking ?? true }))
+    // In the order of the book. Built check by check, the list came out
+    // grouped by check — chapter 9's duplicate, then chapter 2's repetition,
+    // then chapter 6's empty page — and the panel and the PDF print it as
+    // given. The whole-book findings come first, belonging to no chapter;
+    // within a chapter the checks keep their order (sort is stable).
+    .sort((a, b) => (a.unitIndex ?? -1) - (b.unitIndex ?? -1));
 
   const summary: Record<FindingSeverity, number> = {
     error: 0,

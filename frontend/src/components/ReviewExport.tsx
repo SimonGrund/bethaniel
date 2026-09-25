@@ -51,7 +51,7 @@ import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
 import { computeQualityScore, qualityTier } from "../qualityScore";
 import { NAMED_TERMS, protectedSavesAcross } from "../protectedSaves";
 import { useResultHydration } from "../useResultHydration";
-import { localiseFinding, type LocalisableFinding } from "../scanFinding";
+import { inChapterOrder, localiseFinding, type LocalisableFinding } from "../scanFinding";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -1097,6 +1097,9 @@ function isAnalysisMode(mode?: string): boolean {
 // ── Publication-readiness scan report ──
 interface StructuralFinding extends LocalisableFinding {
   check: string;
+  /** The chapter it is about, in manuscript order; absent for the whole book
+   *  and on results saved before the scan recorded it. */
+  unitIndex?: number;
   severity: "error" | "warning" | "info";
   /** Whether this must be fixed before publishing. Decided by the backend. */
   blocking?: boolean;
@@ -1323,9 +1326,13 @@ function PublicationReadinessPanel({
   polishOnlyChapters,
   wordCount,
   source,
+  chapterNames,
   t,
 }: {
   report: StructuralScanReport | null;
+  /** The scanned chapters' names in manuscript order, to place findings from
+   *  a report saved before the scan sorted them itself. */
+  chapterNames: string[];
   blockingCorrections: BlockingIssue[];
   /** Everything the scan proposed that does not block, for the report. */
   minorCorrections: BlockingIssue[];
@@ -1343,7 +1350,7 @@ function PublicationReadinessPanel({
   t: (key: string, fallback?: string) => string;
 }) {
   const lang = useStore((s) => s.lang);
-  const structuralBlocking: BlockingIssue[] = (report?.findings ?? [])
+  const structuralBlocking: BlockingIssue[] = inChapterOrder(report?.findings ?? [], chapterNames)
     .filter((f) => f.blocking)
     .map((f) => ({
       kind: "structural" as const,
@@ -3711,6 +3718,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       polishOnlyChapters={polishOnlyChapters}
                       wordCount={scanWordCount}
                       source={src}
+                      chapterNames={proofreadTasks.map((task) => task.name)}
                       t={t}
                     />
                     {/* No downloads here. A scan reports — the report is the

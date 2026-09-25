@@ -454,6 +454,10 @@ export interface StructuralFinding {
   /** About the book as a whole rather than one chapter: `location` is then
    *  the word "Manuscript", which the interface translates. */
   wholeManuscript?: boolean;
+  /** The chapter the finding is about, 0-based in manuscript order — the
+   *  first of them when it spans several. Absent for the whole book. The
+   *  scan sorts its findings by it; see buildPublicationScan. */
+  unitIndex?: number;
   /**
    * Whether this should be fixed before publishing.
    *

@@ -40,3 +40,28 @@ export function localiseFinding(
     detail: render(f, f.detailKey, t) ?? f.detail,
   };
 }
+
+/**
+ * The findings in the order of the book: the whole-book ones first, then by
+ * the chapter each is about. The scan sorts them itself now (`unitIndex`);
+ * a report saved before that has only the chapter's name in `location`, so
+ * it is placed by where that name comes in `chapterNames` — the first name
+ * of "Chapter 3 ↔ Chapter 9" or "Chapter 4 → Chapter 6". Anything it cannot
+ * place goes last, in its original order.
+ */
+export function inChapterOrder<F extends LocalisableFinding & { unitIndex?: number }>(
+  findings: F[],
+  chapterNames: string[],
+): F[] {
+  const place = (f: F): number => {
+    if (f.wholeManuscript || f.location === "Manuscript") return -1;
+    if (f.unitIndex !== undefined) return f.unitIndex;
+    const first = f.location.split(/ [↔→] /)[0];
+    const i = chapterNames.indexOf(first);
+    return i >= 0 ? i : Number.MAX_SAFE_INTEGER;
+  };
+  return findings
+    .map((f, i) => ({ f, i, at: place(f) }))
+    .sort((a, b) => a.at - b.at || a.i - b.i)
+    .map(({ f }) => f);
+}
