@@ -1093,6 +1093,10 @@ app.whenReady().then(async () => {
     // because CI tags releases without committing a bump back. Stamped on
     // every task so a reported defect can be placed against a build.
     BETHANIEL_VERSION: app.getVersion(),
+    // The region set in the OS ("US", "DK"), which decides the currency Betty
+    // in the Cloud is priced in. The region rather than the language: an
+    // American with the app in Danish still pays in dollars.
+    BETHANIEL_COUNTRY: app.getLocaleCountryCode(),
   };
 
   // LanguageTool (optional grammar server). Point the backend at the bundled

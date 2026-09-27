@@ -6,7 +6,7 @@
 // makes a bespoke client simpler than adapting a Node-oriented SDK.
 
 import type { Env } from "./env";
-import { PRODUCT_NAMES, type CloudProduct } from "./quote";
+import { PRODUCT_NAMES, type CloudProduct, type PriceCurrency } from "./quote";
 
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
@@ -56,7 +56,9 @@ export async function createCheckoutSession(
   opts: {
     quoteId: string;
     tokenBudget: number;
+    /** In the minor unit of `currency`: cents, or øre for the krone. */
     amountCents: number;
+    currency?: PriceCurrency;
     product?: CloudProduct;
   },
 ): Promise<CheckoutSessionResult> {
@@ -69,7 +71,7 @@ export async function createCheckoutSession(
   const body = formEncode({
     mode: "payment",
     "payment_method_types[0]": "card",
-    "line_items[0][price_data][currency]": "eur",
+    "line_items[0][price_data][currency]": opts.currency ?? "eur",
     "line_items[0][price_data][product_data][name]":
       PRODUCT_NAMES[opts.product ?? "edit"],
     "line_items[0][price_data][product_data][description]":

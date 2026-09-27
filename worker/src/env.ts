@@ -41,6 +41,16 @@ export interface Env {
   /** Price per band for a translation. Its own knob because translation runs
    *  on a dearer model than the edits — see priceJob in quote.ts. */
   PRICE_TRANSLATE_EUR_CENTS?: string;
+  /** The same three bands in US dollars, in cents. Charged to an app that
+   *  reports the United States. */
+  PRICE_TIER_USD_CENTS?: string;
+  PRICE_ENHANCE_USD_CENTS?: string;
+  PRICE_TRANSLATE_USD_CENTS?: string;
+  /** And in Danish kroner, in øre (hundredths, as Stripe counts them).
+   *  Charged to an app that reports Denmark, Greenland or the Faroes. */
+  PRICE_TIER_DKK_ORE?: string;
+  PRICE_ENHANCE_DKK_ORE?: string;
+  PRICE_TRANSLATE_DKK_ORE?: string;
   /** Multiplier on the token estimate when sizing a credential's ceiling. */
   TOKEN_BUDGET_HEADROOM?: string;
   STRIPE_PCT_FEE: string;

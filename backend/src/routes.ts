@@ -2523,6 +2523,24 @@ router.delete("/models/custom/config", (req: Request, res: Response) => {
 // it needs to render a price and open a checkout link, mirroring how the API
 // key itself never round-trips to the frontend.
 
+/**
+ * The author's country, which decides the currency a cloud job is priced in.
+ *
+ * Electron passes the OS region (BETHANIEL_COUNTRY). Without it — the backend
+ * run on its own in development — the default locale's region stands in, and
+ * an empty answer lets the Worker read the connection's country instead.
+ */
+function authorCountry(): string {
+  const fromElectron = process.env.BETHANIEL_COUNTRY?.trim();
+  if (fromElectron) return fromElectron.toUpperCase();
+  try {
+    const region = new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region;
+    return region ?? "";
+  } catch {
+    return "";
+  }
+}
+
 router.post("/cloud/estimate", async (req: Request, res: Response) => {
   if (CLOUD_OFFER_SUSPENDED) {
     res.status(503).json({
@@ -2598,6 +2616,10 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
         // The cloud prices by manuscript size; tokens now only size the ledger.
         words: estimate.totalWords,
         product: estimate.product,
+        // Picks the currency: dollars in the US, kroner in Denmark, euros
+        // elsewhere. Sent even when empty — the field's presence is what
+        // tells the Worker this app can show a currency other than euros.
+        country: authorCountry(),
       }),
     });
     if (!quoteRes.ok) {
@@ -2610,6 +2632,10 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       quoteId: string;
       priceEurCents: number;
       fullPriceEurCents?: number;
+      /** Absent from a Worker that predates currencies — a euro quote. */
+      currency?: string;
+      priceCents?: number;
+      fullPriceCents?: number;
       appliedCode?: string;
       codeRejectedReason?: string;
       codeUnknown?: boolean;
@@ -2626,12 +2652,12 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
       estimatedOutputTokens: estimate.estimatedOutputTokens,
       confidence: estimate.confidence,
       quoteId: quote.quoteId,
-      priceCents: quote.priceEurCents,
-      currency: "EUR",
+      priceCents: quote.priceCents ?? quote.priceEurCents,
+      currency: (quote.currency ?? "eur").toUpperCase(),
       // Passed through so the app can show the saving, or say why a code did
       // not apply. The Worker decides all of this; the backend never judges a
       // code itself.
-      fullPriceCents: quote.fullPriceEurCents,
+      fullPriceCents: quote.fullPriceCents ?? quote.fullPriceEurCents,
       appliedCode: quote.appliedCode,
       codeRejectedReason: quote.codeRejectedReason,
       codeUnknown: quote.codeUnknown,

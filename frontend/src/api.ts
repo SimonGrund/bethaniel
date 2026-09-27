@@ -583,7 +583,9 @@ export interface CloudEstimateResponse {
   estimatedOutputTokens: number;
   confidence: "estimate" | "lower_bound";
   quoteId: string;
+  /** In the minor unit of `currency`: cents, or øre for the krone. */
   priceCents: number;
+  /** "EUR", "USD" or "DKK" — picked by the Worker from the OS region. */
   currency: string;
   /** Price before a code was applied, so the saving can be shown. */
   fullPriceCents?: number;

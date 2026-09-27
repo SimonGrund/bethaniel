@@ -10,7 +10,12 @@ import type { CloudProduct } from "./quote";
 export interface QuoteRow {
   id: string;
   estimated_tokens: number;
+  /** The euro list price of the job — what was charged when currency is eur. */
   price_eur_cents: number;
+  /** What is charged, in the minor unit of `currency`. NULL on rows written
+   *  before currencies existed, which were all charged price_eur_cents. */
+  price_cents: number | null;
+  currency: string | null;
   promo_code: string | null;
   product: string;
   created_at: string;
@@ -40,17 +45,24 @@ export async function insertQuote(
   /** The code this price was computed with, redeemed at checkout. */
   promoCode?: string | null,
   product: string = "edit",
+  /** What is actually charged, when it is not priceEurCents in euros. */
+  charge: { priceCents: number; currency: string } = {
+    priceCents: priceEurCents,
+    currency: "eur",
+  },
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS);
   await env.DB.prepare(
-    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, promo_code, product, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, price_cents, currency, promo_code, product, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       id,
       estimatedTokens,
       priceEurCents,
+      charge.priceCents,
+      charge.currency,
       promoCode ?? null,
       product,
       now.toISOString(),

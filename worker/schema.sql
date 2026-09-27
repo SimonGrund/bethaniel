@@ -6,7 +6,12 @@
 CREATE TABLE IF NOT EXISTS quotes (
   id TEXT PRIMARY KEY,
   estimated_tokens INTEGER NOT NULL,
+  -- The euro list price of the job. What was charged when currency is 'eur'.
   price_eur_cents INTEGER NOT NULL,
+  -- What is charged, in the minor unit of `currency` (cents; øre for 'dkk').
+  -- NULL on rows from before currencies, which charged price_eur_cents.
+  price_cents INTEGER,
+  currency TEXT NOT NULL DEFAULT 'eur',
   -- The code this quote was priced with, so /v1/checkout redeems exactly what
   -- the author was shown rather than trusting the client to resend it.
   promo_code TEXT,

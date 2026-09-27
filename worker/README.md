@@ -34,6 +34,12 @@ the deploy checklist.
    ignores the scope and sells the product the code was meant to exclude:
    ```
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN products TEXT"
+
+   A database that predates local-currency prices needs the two quote
+   columns that record what a quote charges, in what. Add them BEFORE
+   deploying a Worker that writes them, or every /v1/quote fails the insert:
+
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE quotes ADD COLUMN price_cents INTEGER; ALTER TABLE quotes ADD COLUMN currency TEXT NOT NULL DEFAULT 'eur'"
    ```
 
    A database that predates failure reporting needs the `job_failures` table
@@ -243,6 +249,16 @@ for the same thing) with an explicit "not currently supported", so
   tighter — `ENHANCE_MAX_TOKENS_PER_WORD` (4) against the edit's 40 — which is
   what stops the small price from minting an edit-sized credential. The
   product lands on the quote row and names the Stripe line item.
+- **Dollars for the US, kroner for Denmark, euros for everyone else.** The
+  app reports the author's country (their OS region) with `/v1/quote`, and the
+  quote is priced from `PRICE_*_USD_CENTS` or `PRICE_*_DKK_ORE` instead of the
+  euro vars: set local prices, not conversions. The quote row keeps both what
+  is charged (`price_cents`, `currency`) and the euro list price
+  (`price_eur_cents`), and `/v1/checkout` charges the former. An app that
+  sends no `country` field predates currencies and prints every price under a
+  euro sign, so it is always quoted in euros. A fixed-amount promo code
+  (`discount_cents`, minted in euro cents) takes the same share of the band in
+  every currency.
 - **Promo codes are the only route to a discount or a free run.** A code
   carries a percentage, an absolute discount, or both, plus a use count, an
   expiry and optionally a word cap. Quoting never spends one; the use is taken

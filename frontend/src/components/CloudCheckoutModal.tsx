@@ -15,6 +15,7 @@ import Modal from "./Modal";
 import { useTranslation } from "../i18n";
 import type { Lang } from "../types";
 import type { CloudEstimateResponse } from "../api";
+import { formatPrice } from "../formatPrice";
 
 export const CLOUD_TERMS_URL = "https://bethaniel.eu/cloud-terms";
 
@@ -61,7 +62,7 @@ export default function CloudCheckoutModal({
   const free = estimate.priceCents === 0;
   const price = free
     ? t("cloud_free", "Free")
-    : `€${(estimate.priceCents / 100).toFixed(2)}`;
+    : formatPrice(estimate.priceCents, estimate.currency, lang);
   const discounted =
     estimate.fullPriceCents && estimate.fullPriceCents > estimate.priceCents;
 
@@ -103,7 +104,7 @@ export default function CloudCheckoutModal({
           <dd>
             {discounted && (
               <s className="cloud-buy__was">
-                €{((estimate.fullPriceCents ?? 0) / 100).toFixed(2)}
+                {formatPrice(estimate.fullPriceCents ?? 0, estimate.currency, lang)}
               </s>
             )}
             <strong>{price}</strong>

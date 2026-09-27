@@ -12,6 +12,9 @@ import {
   CLOUD_PRODUCTS,
   codeBalance,
   priceJob,
+  currencyForCountry,
+  PRICE_CURRENCIES,
+  type PriceCurrency,
   type CloudProduct,
 } from "./quote";
 import {
@@ -356,12 +359,15 @@ export default {
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
-        const { estimatedTokens, words, code, product } =
+        const { estimatedTokens, words, code, product, country } =
           (await request.json()) as {
             estimatedTokens: number;
             words?: number;
             code?: string;
             product?: string;
+            /** Where the author is (ISO 3166 alpha-2), which picks the
+             *  currency. Sent by apps from v2.42 on — see below. */
+            country?: string;
           };
         if (!Number.isFinite(estimatedTokens) || estimatedTokens <= 0) {
           return json(
@@ -415,9 +421,24 @@ export default {
         // spend a single-use code, or an author who asks twice loses it. The
         // use is taken at /v1/checkout, atomically.
         const promoRow = code ? await findPromo(env, code) : null;
+        // The currency follows the country the app reports, which is the
+        // region set in the author's operating system. An app that sends the
+        // field but could not read a region gets Cloudflare's reading of the
+        // connection instead.
+        //
+        // An app that does not send the field at all predates currencies and
+        // prints every price under a euro sign, so it is always quoted in
+        // euros — pricing it in dollars would show "€5.99" and charge $5.99.
+        const currency: PriceCurrency =
+          typeof country === "string"
+            ? currencyForCountry(
+                country.trim() ||
+                  ((request as { cf?: { country?: string } }).cf?.country ?? ""),
+              )
+            : "eur";
         const quote = priceJob(
           env,
-          { estimatedTokens, words: words ?? 1, product: chosenProduct },
+          { estimatedTokens, words: words ?? 1, product: chosenProduct, currency },
           promoRow
             ? {
                 code: promoRow.code,
@@ -438,6 +459,7 @@ export default {
           quote.priceEurCents,
           quote.appliedCode ?? null,
           quote.product,
+          { priceCents: quote.priceCents, currency: quote.currency },
         );
         return json({
           quoteId,
@@ -445,6 +467,12 @@ export default {
           tokens: quote.tokens,
           words: quote.words,
           tiers: quote.tiers,
+          // What is charged, in the minor unit of `currency`.
+          currency: quote.currency,
+          priceCents: quote.priceCents,
+          fullPriceCents: quote.fullPriceCents,
+          // The euro price of the same job. Apps before v2.42 read only
+          // these; they send no country, so for them the two pairs agree.
           priceEurCents: quote.priceEurCents,
           fullPriceEurCents: quote.fullPriceEurCents,
           appliedCode: quote.appliedCode,
@@ -481,12 +509,20 @@ export default {
         )
           ? (quote.product as CloudProduct)
           : "edit";
+        // What this quote charges. A row from before currencies has neither
+        // column set and was a euro quote.
+        const chargeCents = quote.price_cents ?? quote.price_eur_cents;
+        const chargeCurrency: PriceCurrency = PRICE_CURRENCIES.includes(
+          quote.currency as PriceCurrency,
+        )
+          ? (quote.currency as PriceCurrency)
+          : "eur";
 
         // A code that brings the price to zero skips Stripe entirely: there is
         // no payment to take, and Stripe will not create a session for zero.
         // The credential is minted here instead of in the webhook, which is the
         // only place these two paths differ.
-        if (quote.price_eur_cents === 0) {
+        if (chargeCents === 0) {
           // Redeem FIRST. The UPDATE carries its own guard, so two requests
           // racing on the last use of a code cannot both mint: the loser
           // matches no rows and is told the code is spent.
@@ -590,7 +626,8 @@ export default {
           session = await createCheckoutSession(env, {
             quoteId: quote.id,
             tokenBudget,
-            amountCents: quote.price_eur_cents,
+            amountCents: chargeCents,
+            currency: chargeCurrency,
             product: quoteProduct,
           });
         } catch (err) {

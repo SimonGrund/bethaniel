@@ -123,13 +123,87 @@ export function codeBalance(row: PromoRow): CodeBalance {
   };
 }
 
+/**
+ * The currencies a job can be charged in, as Stripe spells them.
+ *
+ * Euros everywhere except where a local price reads better than a converted
+ * one: an American author is shown "$5.99", a Danish one "39 kr.", rather
+ * than "€5" followed by a checkout page that says $5.83 or 37,24 kr. after
+ * Stripe's conversion (and its fee, which the buyer pays). These are set
+ * prices, not conversions — see the PRICE_* vars in wrangler.toml.
+ */
+export type PriceCurrency = "eur" | "usd" | "dkk";
+
+export const PRICE_CURRENCIES: readonly PriceCurrency[] = ["eur", "usd", "dkk"];
+
+/**
+ * Country (ISO 3166 alpha-2) to currency. Greenland and the Faroe Islands
+ * use the Danish krone. Anything not listed pays in euros.
+ */
+const CURRENCY_BY_COUNTRY: Record<string, PriceCurrency> = {
+  US: "usd",
+  DK: "dkk",
+  GL: "dkk",
+  FO: "dkk",
+};
+
+export function currencyForCountry(country: string | null | undefined): PriceCurrency {
+  return CURRENCY_BY_COUNTRY[(country ?? "").trim().toUpperCase()] ?? "eur";
+}
+
+/**
+ * One band of a product, in the minor unit of a currency (cents, or øre for
+ * the krone — Stripe counts both in hundredths).
+ *
+ * The code defaults match wrangler.toml, so a deployment that has not set a
+ * var still sells at the published price rather than at zero.
+ */
+export function bandPrice(env: Env, product: CloudProduct, currency: PriceCurrency): number {
+  const read = (v: string | undefined, fallback: number) => Number(v) || fallback;
+  if (currency === "usd") {
+    return product === "enhance"
+      ? read(env.PRICE_ENHANCE_USD_CENTS, 249)
+      : product === "translate"
+        ? read(env.PRICE_TRANSLATE_USD_CENTS, 1399)
+        : read(env.PRICE_TIER_USD_CENTS, 599);
+  }
+  if (currency === "dkk") {
+    return product === "enhance"
+      ? read(env.PRICE_ENHANCE_DKK_ORE, 1500)
+      : product === "translate"
+        ? read(env.PRICE_TRANSLATE_DKK_ORE, 8900)
+        : read(env.PRICE_TIER_DKK_ORE, 3900);
+  }
+  // Translation has its own band price. It runs on a much dearer model than
+  // the edits — GLM-5.2 at EUR 1.80/5.50 per million against deepseek-v4-flash
+  // at EUR 0.40/0.80 — and a 100k-word translation costs about EUR 3.76 in
+  // provider tokens, reviewer included, where an edit of the same book costs
+  // cents. Sold in the edit band it would have cleared the markup policy on
+  // paper and almost nothing in practice.
+  return product === "enhance"
+    ? read(env.PRICE_ENHANCE_EUR_CENTS, 200)
+    : product === "translate"
+      ? read(env.PRICE_TRANSLATE_EUR_CENTS, 1200)
+      : read(env.PRICE_TIER_EUR_CENTS, 500);
+}
+
 export interface PriceQuote {
   product: CloudProduct;
   tokens: number;
   words: number;
   tiers: number;
-  priceEurCents: number;
+  /** What is charged, and in what. */
+  currency: PriceCurrency;
+  priceCents: number;
   /** Price before any code was applied, so the app can show the saving. */
+  fullPriceCents: number;
+  /**
+   * The same job at the euro price. Equal to priceCents for a euro quote; for
+   * the others it is the euro list price, kept so the quote row can be read
+   * in one currency. An app from before currencies reads only these two, but
+   * it sends no country and so is always quoted in euros.
+   */
+  priceEurCents: number;
   fullPriceEurCents: number;
   /** The code that was applied, if one was and it was valid. */
   appliedCode?: string;
@@ -194,10 +268,16 @@ export const ENHANCE_MAX_TOKENS_PER_WORD = 4;
 
 export function priceJob(
   env: Env,
-  input: { estimatedTokens: number; words: number; product?: CloudProduct },
+  input: {
+    estimatedTokens: number;
+    words: number;
+    product?: CloudProduct;
+    currency?: PriceCurrency;
+  },
   promo?: PromoTerms | null,
 ): PriceQuote {
   const product: CloudProduct = input.product ?? "edit";
+  const currency: PriceCurrency = input.currency ?? "eur";
   const tokens = Math.max(1, Math.round(input.estimatedTokens));
   const claimedWords = Math.max(1, Math.round(input.words));
 
@@ -210,26 +290,17 @@ export function priceJob(
   const words = Math.max(claimedWords, impliedWords);
 
   const bandWords = Number(env.PRICE_TIER_WORDS) || 100_000;
-  // Translation has its own band price. It runs on a much dearer model than
-  // the edits — GLM-5.2 at EUR 1.80/5.50 per million against deepseek-v4-flash
-  // at EUR 0.40/0.80 — and a 100k-word translation costs about EUR 3.76 in
-  // provider tokens, reviewer included, where an edit of the same book costs
-  // cents. Sold in the edit band it would have cleared the markup policy on
-  // paper and almost nothing in practice.
-  const bandCents =
-    product === "enhance"
-      ? Number(env.PRICE_ENHANCE_EUR_CENTS) || 200
-      : product === "translate"
-        ? Number(env.PRICE_TRANSLATE_EUR_CENTS) || 1200
-        : Number(env.PRICE_TIER_EUR_CENTS) || 500;
+  const eurBand = bandPrice(env, product, "eur");
+  const localBand = bandPrice(env, product, currency);
 
   // Bands are whole: 1 word and 100,000 words are both one band.
   const tiers = Math.max(1, Math.ceil(words / bandWords));
-  const fullPriceEurCents = tiers * bandCents;
+  const fullPriceEurCents = tiers * eurBand;
+  const fullPriceCents = tiers * localBand;
+  const base = { product, tokens, words, tiers, currency, fullPriceCents, fullPriceEurCents };
+  const undiscounted = { ...base, priceCents: fullPriceCents, priceEurCents: fullPriceEurCents };
 
-  if (!promo) {
-    return { product, tokens, words, tiers, priceEurCents: fullPriceEurCents, fullPriceEurCents };
-  }
+  if (!promo) return undiscounted;
 
   // Scope first: a code that does not cover this product at all is a more
   // fundamental refusal than one whose size cap it exceeds, and naming the
@@ -237,9 +308,7 @@ export function priceJob(
   // manuscript that would still be refused.
   if (promo.products?.length && !promo.products.includes(product)) {
     return {
-      product, tokens, words, tiers,
-      priceEurCents: fullPriceEurCents,
-      fullPriceEurCents,
+      ...undiscounted,
       codeRejectedReason: `${promo.code} does not cover ${PRODUCT_NOUNS[product]}.`,
     };
   }
@@ -250,9 +319,7 @@ export function priceJob(
   // error, and is told why.
   if (promo.maxWords != null && words > promo.maxWords) {
     return {
-      product, tokens, words, tiers,
-      priceEurCents: fullPriceEurCents,
-      fullPriceEurCents,
+      ...undiscounted,
       codeRejectedReason: `${promo.code} covers up to ${promo.maxWords.toLocaleString("en")} words; this job is ${words.toLocaleString("en")}.`,
     };
   }
@@ -265,22 +332,32 @@ export function priceJob(
     (promo.productUses?.[product] ?? 0) >= promo.maxUsesPerProduct
   ) {
     return {
-      product, tokens, words, tiers,
-      priceEurCents: fullPriceEurCents,
-      fullPriceEurCents,
+      ...undiscounted,
       codeRejectedReason: `${promo.code} has already been used for ${PRODUCT_NOUNS[product]}.`,
     };
   }
 
-  let cents = fullPriceEurCents;
-  if (promo.discountPct != null) {
-    const pct = Math.min(100, Math.max(0, promo.discountPct));
-    cents = Math.round(cents * (1 - pct / 100));
-  }
-  if (promo.discountCents != null) cents -= promo.discountCents;
-  const priceEurCents = Math.max(0, cents);
+  // A fixed discount is minted in euro cents. In another currency it is worth
+  // the same share of the band — a EUR 2 code takes 40% off a EUR 5 band, so
+  // it takes 40% off a $5.99 one — rather than a conversion at whatever rate
+  // applies today, which would make the same code worth a different amount
+  // each week.
+  const discounted = (full: number, band: number) => {
+    let cents = full;
+    if (promo.discountPct != null) {
+      const pct = Math.min(100, Math.max(0, promo.discountPct));
+      cents = Math.round(cents * (1 - pct / 100));
+    }
+    if (promo.discountCents != null) {
+      cents -= Math.round((promo.discountCents * band) / eurBand);
+    }
+    return Math.max(0, cents);
+  };
 
   return {
-    product, tokens, words, tiers, priceEurCents, fullPriceEurCents, appliedCode: promo.code,
+    ...base,
+    priceCents: discounted(fullPriceCents, localBand),
+    priceEurCents: discounted(fullPriceEurCents, eurBand),
+    appliedCode: promo.code,
   };
 }

@@ -17,6 +17,7 @@ import { DETERMINISTIC_MODES, frontCardFor } from "../types";
 import CodeBalanceNote from "./CodeBalanceNote";
 import { refreshModelEnvironment } from "../useModelRuntime";
 import { useCloudPurchase } from "../cloudPurchase";
+import { formatPrice } from "../formatPrice";
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -640,11 +641,11 @@ export default function EditTrigger() {
               ) : cloudEstimate.fullPriceCents &&
                 cloudEstimate.fullPriceCents > cloudEstimate.priceCents ? (
                 <>
-                  <s>€{(cloudEstimate.fullPriceCents / 100).toFixed(2)}</s>{" "}
-                  <strong>€{(cloudEstimate.priceCents / 100).toFixed(2)}</strong>
+                  <s>{formatPrice(cloudEstimate.fullPriceCents, cloudEstimate.currency, lang)}</s>{" "}
+                  <strong>{formatPrice(cloudEstimate.priceCents, cloudEstimate.currency, lang)}</strong>
                 </>
               ) : (
-                <>€{(cloudEstimate.priceCents / 100).toFixed(2)}</>
+                <>{formatPrice(cloudEstimate.priceCents, cloudEstimate.currency, lang)}</>
               )}
             </span>
           )}

@@ -194,6 +194,27 @@ PRICE_ENHANCE_EUR_CENTS = "200"
 # case, being two bands of a book that nearly needs three). Two bands — any
 # novel over 100,000 words — therefore cost EUR 24.
 PRICE_TRANSLATE_EUR_CENTS = "1200"
+# ── The same bands in dollars and kroner ──
+#
+# An app from v2.42 on reports the author's country (the region set in their
+# operating system); the United States is charged in dollars, Denmark,
+# Greenland and the Faroes in kroner, everyone else in euros. These are set
+# prices, not conversions: "$5.99" and "39 kr." read better than whatever EUR 5
+# came to at checkout, and Stripe charges the buyer a conversion fee on top of
+# a converted price that it does not charge on a local one.
+#
+# Rounded from EUR 1 = USD 1.17 = DKK 7.46 (September 2026), to the nearest
+# price that looks like a price. Kroner in øre, as Stripe counts them.
+#   edit / readthrough   EUR 5    $5.99  (EUR 5.12)    39 kr. (EUR 5.23)
+#   translation          EUR 12   $13.99 (EUR 11.96)   89 kr. (EUR 11.93)
+#   enhanced analysis    EUR 2    $2.49  (EUR 2.13)    15 kr. (EUR 2.01)
+# Revisit them if the exchange rate moves by more than a few per cent.
+PRICE_TIER_USD_CENTS = "599"
+PRICE_TRANSLATE_USD_CENTS = "1399"
+PRICE_ENHANCE_USD_CENTS = "249"
+PRICE_TIER_DKK_ORE = "3900"
+PRICE_TRANSLATE_DKK_ORE = "8900"
+PRICE_ENHANCE_DKK_ORE = "1500"
 
 # Kept for the cost model in globalMeter.ts, which still reasons in tokens.
 # No longer used to compute a price.
