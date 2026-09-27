@@ -296,6 +296,11 @@ export function classifyPublicationBlocking(
   if (reason === "retext:repeated-words" || reason === "retext:sentence-spacing") return true;
   if (reason === "retext:repeated-phrase") return !secondCheckDoubts;
   if (reason === "dialect") return true;
+  // A dropped word the missing-word check confirmed (missingWords.ts): the
+  // sentence does not parse as written, which is what a blocker is. Dialogue
+  // included — the check only keeps a gap with words on both sides, so the
+  // clipped speech a character is allowed ("Want some?") never reaches here.
+  if (reason === "missing-word") return true;
 
   if (reason === "spell-check" || reason === "grammar:typos") {
     if (touchesTerm && !apostropheOnly) return false;

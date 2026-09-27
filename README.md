@@ -45,7 +45,7 @@ choice.
 | **Local Betty** — Qwen3.5 4B (Q4_K_M) | Your machine, via the bundled llama.cpp | ~3 GB disk, 8 GB RAM |
 | **Custom Betty** | Your machine | Any GGUF file you point it at |
 | **External Betty** | DeepSeek, or any OpenAI-compatible endpoint | Your own API key |
-| **Betty in the Cloud** — Qwen3.5 9B for editing, GLM-5.2 for translation | Bethaniel's hosted service | A card — pay per job |
+| **Betty in the Cloud** — DeepSeek-V4-Flash for editing, GLM-5.2 for translation | Bethaniel's hosted service | A card — pay per job |
 
 Local Betty is the default and the only offer that keeps the manuscript on the
 machine. Until it is on disk, the Run button reads *Download Local Betty (2.6 GB)
@@ -54,13 +54,6 @@ it is looking at — from a hardware table until a run has finished there, from
 that run's measured rate afterwards (`backend/src/modelRecommendation.ts`).
 On a CPU-only machine that is an overnight job and the button says so; the
 cloud is the better fit there.
-
-**There used to be a second local model**, Big Bad Betty (Qwen3.5 9B). It is
-deprecated: on the four-language benchmark it tied the 4B on copy edit (60%
-each) and was *worse* on line edit (49% against 52%), and the one pass where its
-size paid — translation — no longer runs locally at all. An install that already
-has the file keeps working; nothing offers it for download. See
-[Quality benchmark](#quality-benchmark).
 
 **Translation is the one pass the local model does not run.** It was not good
 enough at it: a weak translation is fluent, confident and wrong, and an author
@@ -83,7 +76,9 @@ its own price band — it is the one product that still needs a large model.
 
 - **Reviewer agent** — A skeptical second-reader LLM scores every proposed correction on a 1–5 confidence scale. Corrections below the threshold are flagged for the author rather than hidden. One agent runs, for the same reason as the editor: N of them shared a prompt *and* a seed, so the "strictest score wins" aggregation was taking the minimum of a value and itself. The aggregation is still there and still correct; there is simply never more than one score.
 
-- **Precision pass** — A second, narrower audit that asks whether the original needed fixing at all, rather than whether the fix is well-formed. It annotates rather than deletes: below its cut a correction would be removed, but that cut is set so nothing is, because Bethaniel is read by a human before anything is applied and deletion is the only irreversible act in the pipeline. Corrections it doubts arrive flagged. A finding from a deterministic checker is never overruled by it — a dictionary is not an opinion.
+- **Missing-word check** — A pass of its own that reads each chunk for one thing only: a small word that fell out of a sentence ("look each other" for "look for each other"). A rule keeps only a suggestion that inserts exactly one such word between two others, and the model is then asked which version of the sentence is grammatical. Runs in the copy edit and the Final readthrough, in all five languages. See `docs/missing-words.md`.
+
+- **No precision pass.** There used to be a second reviewing call asking whether the original needed fixing at all. It was removed in September 2026: most of what it doubted the reviewer had already doubted, what it doubted on its own was right about as often as not, and it cost about 30% of a cloud job's tokens and a fifth of a local run's GPU energy. See `docs/cloud-token-model.md`.
 
 - **Translation fluency review** — After the draft and the target-language polish, the polished text is split into paragraphs and each draft→polish pair is scored for fluency. Any paragraph flagged as garbled is re-polished with added context about the issue. This reviewer sees only the target language; the draft-against-source reviewer was removed after it could not be shown to change the output, so nothing downstream catches a mistranslation — which is why translation is restricted to a model strong enough not to need it.
 
@@ -408,7 +403,7 @@ Bethaniel is provided "AS IS", without warranty of any kind, express or implied.
 
 ### AI Model Licenses
 
-The AI models used by Bethaniel (Qwen3.5 4B and Qwen3.5 9B) are open-weight models distributed under the **Apache License 2.0** by their respective authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
+The AI model Bethaniel runs locally (Qwen3.5 4B) is an open-weight model distributed under the **Apache License 2.0** by its authors. Full provenance details, copyright notices, and the complete license text are provided in [MODEL_LICENSES.md](MODEL_LICENSES.md).
 
 ### Third-Party Components
 

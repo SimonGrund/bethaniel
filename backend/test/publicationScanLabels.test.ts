@@ -13,7 +13,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { STRUCTURAL_CHECKS } from "../src/types.ts";
+import { CORRECTION_CHECKS, STRUCTURAL_CHECKS } from "../src/types.ts";
 import TRANSLATIONS from "../../frontend/src/i18n.ts";
 
 const LANGS = ["en", "da", "de", "es"] as const;
@@ -29,7 +29,7 @@ const PER_CHECK_KEYS = [
 ] as const;
 
 test("every structural check has a label in every language", () => {
-  for (const check of STRUCTURAL_CHECKS) {
+  for (const check of [...STRUCTURAL_CHECKS, ...CORRECTION_CHECKS]) {
     for (const prefix of PER_CHECK_KEYS) {
       const key = `${prefix}${check}`;
       const entry = TRANSLATIONS[key];

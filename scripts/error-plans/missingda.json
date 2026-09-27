@@ -1,0 +1,21 @@
+[
+  { "find": "Hun stod i sin mors værksted", "replace": "Hun stod sin mors værksted", "category": "missingWord", "note": "præposition" },
+  { "find": "som om den kunne løbe sin vej", "replace": "som om kunne løbe sin vej", "category": "missingWord", "note": "pronomen" },
+  { "find": "end hun havde ventet", "replace": "end havde ventet", "category": "missingWord", "note": "subjekt" },
+  { "find": "\"Det er min mors håndskrift\"", "replace": "\"Det min mors håndskrift\"", "category": "missingWord", "note": "verbum, i replik" },
+  { "find": "Det var ikke seks udkast", "replace": "Det ikke seks udkast", "category": "missingWord", "note": "verbum" },
+  { "find": "hen ved siden af hende", "replace": "hen ved siden hende", "category": "missingWord", "note": "præposition" },
+  { "find": "I et langt minut", "replace": "I langt minut", "category": "missingWord", "note": "artikel" },
+  { "find": "læste noterne i margenen", "replace": "læste noterne margenen", "category": "missingWord", "note": "præposition" },
+  { "find": "hvor lyset var varmere", "replace": "hvor lyset varmere", "category": "missingWord", "note": "verbum" },
+  { "find": "blev sej i krukken", "replace": "blev sej krukken", "category": "missingWord", "note": "præposition" },
+  { "find": "en kvinde med store ord", "replace": "en kvinde store ord", "category": "missingWord", "note": "præposition" },
+  { "find": "uden at hilse", "replace": "uden hilse", "category": "missingWord", "note": "infinitivmærke" },
+  { "find": "uden at åbne den", "replace": "uden åbne den", "category": "missingWord", "note": "infinitivmærke" },
+  { "find": "Nogen havde gennem årtier", "replace": "Nogen gennem årtier", "category": "missingWord", "note": "hjælpeverbum" },
+  { "find": "ned med fingeren", "replace": "ned fingeren", "category": "missingWord", "note": "præposition" },
+  { "find": "hvor lidt der var tilbage", "replace": "hvor lidt der tilbage", "category": "missingWord", "note": "verbum" },
+  { "find": "hvor længe hun ikke havde glædet", "replace": "hvor længe ikke havde glædet", "category": "missingWord", "note": "subjekt" },
+  { "find": "lagde hun det på et stykke filt", "replace": "lagde hun det et stykke filt", "category": "missingWord", "note": "præposition" },
+  { "find": "af mit liv på noget", "replace": "af mit liv noget", "category": "missingWord", "note": "præposition, i replik" }
+]

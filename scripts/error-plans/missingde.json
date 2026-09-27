@@ -1,0 +1,22 @@
+[
+  { "find": "Sie stand in der Werkstatt ihres Vaters", "replace": "Sie stand der Werkstatt ihres Vaters", "category": "missingWord", "note": "Präposition" },
+  { "find": "bevor er das Haus verkaufe", "replace": "bevor er Haus verkaufe", "category": "missingWord", "note": "Artikel" },
+  { "find": "als könnte sie fortlaufen", "replace": "als könnte fortlaufen", "category": "missingWord", "note": "Pronomen" },
+  { "find": "\"Meine Großmutter hat nie davon gesprochen", "replace": "\"Meine Großmutter nie davon gesprochen", "category": "missingWord", "note": "Hilfsverb, im Dialog" },
+  { "find": "Der Staub lag dick auf jedem Regal", "replace": "Der Staub lag dick jedem Regal", "category": "missingWord", "note": "Präposition" },
+  { "find": "ließ sie den Atem anhalten", "replace": "ließ sie Atem anhalten", "category": "missingWord", "note": "Artikel" },
+  { "find": "Sie waren mit einem Band zusammengebunden", "replace": "Sie waren einem Band zusammengebunden", "category": "missingWord", "note": "Präposition, im Dialog" },
+  { "find": "Es war eine einzige Uhr", "replace": "Es eine einzige Uhr", "category": "missingWord", "note": "Verb" },
+  { "find": "sitzt es fast am Rand des Gehäuses", "replace": "sitzt es fast Rand des Gehäuses", "category": "missingWord", "note": "Präposition" },
+  { "find": "Messinglupe mit einem Sprung im Glas", "replace": "Messinglupe einem Sprung im Glas", "category": "missingWord", "note": "Präposition" },
+  { "find": "wenn er müde war", "replace": "wenn müde war", "category": "missingWord", "note": "Pronomen, im Dialog" },
+  { "find": "Konrad erzählte von den Jahren", "replace": "Konrad erzählte den Jahren", "category": "missingWord", "note": "Präposition" },
+  { "find": "Almut setzte sich auf den Hocker", "replace": "Almut setzte sich den Hocker", "category": "missingWord", "note": "Präposition" },
+  { "find": "ging in die Werkstatt", "replace": "ging die Werkstatt", "category": "missingWord", "note": "Präposition" },
+  { "find": "indem er ihr Werkzeug in die Hand drückte", "replace": "indem er ihr Werkzeug die Hand drückte", "category": "missingWord", "note": "Präposition" },
+  { "find": "Er meldete sich beim zweiten Klingeln", "replace": "Er meldete sich zweiten Klingeln", "category": "missingWord", "note": "Präposition" },
+  { "find": "Almut fuhr mit dem Finger", "replace": "Almut fuhr dem Finger", "category": "missingWord", "note": "Präposition" },
+  { "find": "elf Monate lang nach einer Ursache gesucht", "replace": "elf Monate lang einer Ursache gesucht", "category": "missingWord", "note": "Präposition, im Dialog" },
+  { "find": "Konrad legte die Hand flach auf die Rechnungen", "replace": "Konrad legte die Hand flach die Rechnungen", "category": "missingWord", "note": "Präposition" },
+  { "find": "und sie arbeiteten bei Lampenlicht", "replace": "und sie arbeiteten Lampenlicht", "category": "missingWord", "note": "Präposition" }
+]

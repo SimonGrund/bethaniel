@@ -1,0 +1,21 @@
+[
+  { "find": "sonnait faux depuis le mois de mars", "replace": "sonnait faux depuis le mois mars", "category": "missingWord", "note": "préposition" },
+  { "find": "un carnet à couverture verte", "replace": "un carnet couverture verte", "category": "missingWord", "note": "préposition" },
+  { "find": "et écrivit dans le carnet", "replace": "et écrivit le carnet", "category": "missingWord", "note": "préposition" },
+  { "find": "était dans la sacristie", "replace": "était la sacristie", "category": "missingWord", "note": "préposition" },
+  { "find": "Il avait soixante-treize ans", "replace": "Il soixante-treize ans", "category": "missingWord", "note": "verbe" },
+  { "find": "« Votre père était un homme charmant", "replace": "« Votre père un homme charmant", "category": "missingWord", "note": "verbe, dialogue" },
+  { "find": "dans le buffet de la salle à manger", "replace": "dans le buffet de salle à manger", "category": "missingWord", "note": "article" },
+  { "find": "un camion s'arrêta sur la place", "replace": "un camion s'arrêta la place", "category": "missingWord", "note": "préposition" },
+  { "find": "les dernières feuilles du tilleul", "replace": "les dernières feuilles tilleul", "category": "missingWord", "note": "préposition" },
+  { "find": "C'est une époque qui collectionne", "replace": "C'est époque qui collectionne", "category": "missingWord", "note": "article, dialogue" },
+  { "find": "enveloppée dans une bâche grise", "replace": "enveloppée une bâche grise", "category": "missingWord", "note": "préposition" },
+  { "find": "les mains dans les poches", "replace": "les mains les poches", "category": "missingWord", "note": "préposition" },
+  { "find": "ouvrit le carnet vert à la page du jour", "replace": "ouvrit le carnet vert la page du jour", "category": "missingWord", "note": "préposition" },
+  { "find": "Elle referma le carnet sans rien écrire", "replace": "Elle referma carnet sans rien écrire", "category": "missingWord", "note": "article" },
+  { "find": "un jour où il avait neigé", "replace": "un jour où il neigé", "category": "missingWord", "note": "auxiliaire" },
+  { "find": "deux fois la même date", "replace": "deux fois même date", "category": "missingWord", "note": "article" },
+  { "find": "Ils y seront à leur place", "replace": "Ils y seront leur place", "category": "missingWord", "note": "préposition, dialogue" },
+  { "find": "et ils les rangèrent ensemble", "replace": "et les rangèrent ensemble", "category": "missingWord", "note": "pronom" },
+  { "find": "elle est à sa fenêtre", "replace": "elle est sa fenêtre", "category": "missingWord", "note": "préposition" }
+]

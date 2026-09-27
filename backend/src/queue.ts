@@ -23,9 +23,17 @@ import {
 } from "./languageEnhance.js";
 import { detectDialect } from "./dialect.js";
 import {
+  dropEditorDuplicates,
+  findMissingWords,
+  missingWordCheckApplies,
+} from "./missingWords.js";
+import {
   ApiAccountError,
   editChunkStream,
   findCorrectionsStream,
+  inUsagePass,
+  withUsagePass,
+  type UsageTally,
   parseCorrectionsJson,
   applyCorrections,
   applyCorrectionsVerified,
@@ -47,7 +55,6 @@ import {
 import {
   runWithRetry,
   aggregateReviewScores,
-  applyPrecisionPass,
   flagUnanchoredCorrections,
 } from "./reviewResilience.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
@@ -72,7 +79,6 @@ import {
   buildAnalysisSummaryPrompt,
   buildBlurbPrompt,
   buildReviewerPrompt,
-  buildPrecisionPassPrompt,
   buildStyleCompliancePrompt,
   buildConfusableHintBlock,
   buildCopyEditCorrectionsPrompt,
@@ -222,25 +228,6 @@ async function reportChunkFailureIfCloud(
 
 const REVIEWER_MAX_ATTEMPTS = 3;
 
-/**
- * Confidence below which the PRECISION PASS deletes a correction outright.
- *
- * Scores run 1-5, so at 1 the pass deletes nothing: it annotates. That is
- * deliberate. Bethaniel is used with a human reading every suggestion before
- * accepting it, which makes deletion the only irreversible act in the
- * pipeline — a deleted correction is one the author can never see, while a
- * surviving wrong one costs them a glance and a dismissal. Those are not the
- * same magnitude of mistake, and the threshold should not pretend they are.
- *
- * Measured on the four stress fixtures, Baby Betty, one slot: moving the cut
- * 3 -> 2 -> 1 took recall 54% -> 58% -> 60% and clean-text flags 12 -> 20 ->
- * 26. But 24 of those 26 arrive flagged, and the UNMARKED count — the one
- * that costs an author trust — is flat at 2 across all three settings.
- *
- * Flagging still happens at job.reviewerThreshold (default 3), so everything
- * this pass doubts reaches the author wearing the doubt.
- */
-const PRECISION_PASS_DELETE_THRESHOLD = 1;
 
 /**
  * One reviewer agent call with retries. Local inference fails via OOM, slot
@@ -1565,6 +1552,9 @@ async function processJob(job: JobData): Promise<void> {
   // Translation is the only mode that rewrites the whole chunk — it inherently
   // replaces the entire text (source → target language).
   const isCorrectionsMode = mode !== "translate";
+  // Provider-reported tokens per pass (llm.ts). Filled only by providers that
+  // send a usage block — the cloud does; saved on the result below.
+  const tokenUsage: UsageTally = {};
 
   // Spell-safety validator — blocks any correction that would inject a new
   // non-word (e.g. "Apparently" → "Appwrently"). Uses the manuscript's
@@ -1771,100 +1761,15 @@ async function processJob(job: JobData): Promise<void> {
           model,
         });
 
-        // ── Precision pass: a second, narrower audit that DROPS (not flags)
-        // corrections judged unnecessary — "did the original need fixing
-        // here at all", not "is this fix well-formed" (the main reviewer's
-        // question above). Only meaningful where corrections claim to fix an
-        // objective problem — line_edit's rewrites are subjective by design,
-        // so this is skipped there entirely (applyPrecisionPass separately
-        // exempts combined-edit's LINE-kind corrections per-item).
-        if (mode !== "line_edit") {
-          try {
-            const precisionPrompt = buildPrecisionPassPrompt(
-              job.styleGuide,
-              job.manuscriptLang,
-            );
-            const precisionScores = await runReviewerAgentWithRetry({
-              model,
-              chunkText: pr.chunk.body,
-              cs: pr.cs,
-              reviewerPrompt: precisionPrompt,
-              signal: ac.signal,
-              taskId,
-              chunkLabel: pr.chunkLabel,
-              agentLabel: "Precision pass",
-            });
-            // The reviewer above FLAGS at this threshold; the precision pass
-            // DELETES, and those two questions do not deserve the same cutoff.
-            // A model scoring a correction 2 is usually reporting an absence of
-            // a verdict rather than a verdict — most often in the languages it
-            // knows least well, which are exactly the languages where the
-            // deterministic layer is thinnest and the model is the only source
-            // of a wrong-word catch. Measured on the Danish fixture, deleting
-            // the 2s cost recall 59% -> 38% (commas 45% -> 2%, wrong words 23%
-            // -> 15%) and bought 5 points of precision; on German it cost 2
-            // points of recall for none, and on English it gained 3 for none.
-            // Math.min so a user who lowers reviewerThreshold to keep more
-            // still gets a pass no more eager than they asked for.
-            const { kept, removed, spared, doubted, unscored } = applyPrecisionPass(
-              pr.cs,
-              [precisionScores],
-              Math.min(threshold, PRECISION_PASS_DELETE_THRESHOLD),
-              threshold,
-            );
-
-            if (unscored > 0) {
-              // The main reviewer already reports its misses this way, and
-              // marks them on the correction. This pass could only skip a
-              // correction in silence, so a change nobody audited twice read
-              // exactly like one that passed both.
-              appendLog({
-                level: "warn",
-                source: "engine",
-                taskId,
-                message: `Precision pass left ${unscored}/${pr.cs.length} correction(s) unscored in chunk ${pr.chunkLabel}; they carry the main reviewer's verdict only.`,
-                model,
-              });
-            }
-            if (doubted > 0) {
-              appendLog({
-                level: "info",
-                source: "engine",
-                taskId,
-                message: `Precision pass doubted ${doubted} correction(s) in chunk ${pr.chunkLabel} without deleting them; flagged so the author reads them as suggestions rather than findings.`,
-                model,
-              });
-            }
-            if (spared > 0) {
-              appendLog({
-                level: "info",
-                source: "engine",
-                taskId,
-                message: `Precision pass doubted ${spared} deterministic correction(s) in chunk ${pr.chunkLabel} (spell-check, grammar or dialect); kept and flagged for review rather than dropped.`,
-                model,
-              });
-            }
-            if (removed.length > 0) {
-              appendLog({
-                level: "info",
-                source: "engine",
-                taskId,
-                message: `Precision pass dropped ${removed.length}/${pr.cs.length} correction(s) in chunk ${pr.chunkLabel} judged unnecessary (unforced rewording, unwanted punctuation, or an unneeded wording change).`,
-                model,
-              });
-              pr.cs = kept;
-            }
-          } catch (err) {
-            if (ac.signal.aborted) throw err;
-            appendLog({
-              level: "warn",
-              source: "engine",
-              taskId,
-              message: `Precision pass failed for chunk ${pr.chunkLabel}: ${err instanceof Error ? err.message : String(err)}. Skipped — all corrections kept as-is.`,
-              model,
-            });
-          }
-        }
+        // There used to be a second reviewing call here, the "precision pass",
+        // asking whether the original needed fixing at all. It was removed on
+        // 27 September 2026 (docs/cloud-token-model.md, scripts/precision-pass-
+        // value.ts): it had long since stopped deleting anything, most of what
+        // it doubted the reviewer above had already doubted, what it doubted
+        // on its own was right about as often as not (63% locally), and it
+        // cost about 30% of a cloud job's tokens and a reviewer-sized call per
+        // chunk locally. The readthrough's blocker list already leaves out what
+        // the reviewer doubted, which is the part of its work that paid.
 
         const toApply = pr.cs.filter((c) => !c.flagged);
         const flagged = pr.cs.filter((c) => c.flagged);
@@ -1980,6 +1885,62 @@ async function processJob(job: JobData): Promise<void> {
       // ── Collect previous chunk's reviewer result ──
       // The reviewer for chunk (j-1) ran in parallel with chunk j's editor.
       if (pendingReview) await collectPendingReview();
+
+      // ── Missing words: a pass of its own (missingWords.ts) ──
+      // Started before the editor and collected after it, so an engine with
+      // more than one slot — and the cloud — runs the two side by side; on
+      // one slot the requests simply queue. Once per chunk, outside the
+      // editor's retry ladder: a retried editor does not re-run it. First
+      // pass only — a thorough second pass reads text this one already
+      // repaired. A failure here costs the chunk its missing-word findings,
+      // never the chunk.
+      const missingWordRun: Promise<Correction[]> | null =
+        isCorrectionsMode &&
+        pass.n === 1 &&
+        missingWordCheckApplies(mode, job.manuscriptLang)
+          ? findMissingWords(
+              chunk.body,
+              job.manuscriptLang ?? "en",
+              async (system, user, maxTokens) => {
+                let out = "";
+                for await (const tok of withUsagePass(tokenUsage, "missing-word", findCorrectionsStream(
+                  model,
+                  user,
+                  system,
+                  ac.signal,
+                  maxTokens,
+                  deriveSeed(mode, job.name, j, "missing-words"),
+                ))) {
+                  out += tok;
+                }
+                return out;
+              },
+              ac.signal,
+            ).then(
+              (r) => {
+                appendLog({
+                  level: "info",
+                  source: "engine",
+                  taskId,
+                  message: `Missing-word check in chunk ${chunkLabel}: ${r.swept} candidate(s), ${r.shaped} worth a verdict, ${r.corrections.length} confirmed.`,
+                  model,
+                });
+                return r.corrections;
+              },
+              (err) => {
+                if (!ac.signal.aborted) {
+                  appendLog({
+                    level: "warn",
+                    source: "engine",
+                    taskId,
+                    message: `Missing-word check failed for chunk ${chunkLabel}: ${err instanceof Error ? err.message : String(err)}. No missing-word findings for this chunk.`,
+                    model,
+                  });
+                }
+                return [];
+              },
+            )
+          : null;
 
       try {
         const MAX_ATTEMPTS = 5;
@@ -2347,7 +2308,7 @@ async function processJob(job: JobData): Promise<void> {
                 ) => {
                   let a = "";
                   const seed = deriveSeed(mode, job.name, j, `editor:${idx}`, attempt, innerRetry);
-                  for await (const t of findCorrectionsStream(model, chunk.body, promptText, ac.signal, undefined, seed)) {
+                  for await (const t of withUsagePass(tokenUsage, idx === 0 ? "editor" : "style-agent", findCorrectionsStream(model, chunk.body, promptText, ac.signal, undefined, seed))) {
                     if (dualFirstTokenAt === 0) dualFirstTokenAt = performance.now();
                     a += t;
                     // Dual-editor agents stream concurrently with no other
@@ -2459,14 +2420,14 @@ async function processJob(job: JobData): Promise<void> {
                 // honest aggregate decode throughput (tokens / wall-clock).
                 if (firstTokenAt > 0) tokCount = estimateTokens(acc);
               } else {
-                for await (const tok of findCorrectionsStream(
+                for await (const tok of withUsagePass(tokenUsage, "editor", findCorrectionsStream(
                   model,
                   chunk.body,
                   chunkPrompt,
                   ac.signal,
                   undefined,
                   deriveSeed(mode, job.name, j, "editor", attempt),
-                )) {
+                ))) {
                 acc += tok;
                 tokCount++;
                 passTokensSoFar++;
@@ -2492,14 +2453,14 @@ async function processJob(job: JobData): Promise<void> {
               }
             } else {
               // ── Single rewrite agent ──
-              for await (const tok of editChunkStream(
+              for await (const tok of withUsagePass(tokenUsage, mode === "translate" ? "translate-draft" : "rewrite", editChunkStream(
                 model,
                 chunk.body,
                 prompt,
                 ac.signal,
                 deriveSeed(mode, job.name, j, "rewrite", attempt),
                 mode,
-              )) {
+              ))) {
                 acc += tok;
                 tokCount++;
                 passTokensSoFar++;
@@ -2604,7 +2565,21 @@ async function processJob(job: JobData): Promise<void> {
           // A word fix inside a sentence rewrite would collide with it at
           // apply time; merge it into the rewrite and drop the duplicate.
           const fold = foldContainedCorrections(chunk.body, narrow.kept);
-          const editorCs = fold.kept;
+          // Missing words the check confirmed join the deterministic bucket:
+          // pre-approved, because its verdict is their review — the main
+          // reviewer rejects an inserted word on principle, which is the
+          // failure the check exists to route around. An editor correction
+          // making the same insertion at the same gap is dropped.
+          const missingWordCs = missingWordRun ? await missingWordRun : [];
+          if (missingWordCs.length > 0) {
+            spellCorrections = [...spellCorrections, ...missingWordCs];
+          }
+          const editorCs = dropEditorDuplicates(
+            chunk.body,
+            missingWordCs,
+            fold.kept,
+            job.manuscriptLang ?? "en",
+          );
           if (fold.dropped.length > 0 || fold.folded > 0) {
             skipped.push(...fold.dropped);
             appendLog({
@@ -2711,7 +2686,7 @@ async function processJob(job: JobData): Promise<void> {
             // The fan-out, the survivor accounting and the "N agents" logging
             // all described work that was never done.
             const reviewPromise = (async () => {
-              const scores = await runReviewerAgentWithRetry({
+              const scores = await inUsagePass(tokenUsage, "reviewer", () => runReviewerAgentWithRetry({
                 model,
                 chunkText: chunk.body,
                 cs,
@@ -2720,7 +2695,7 @@ async function processJob(job: JobData): Promise<void> {
                 taskId,
                 chunkLabel,
                 agentLabel: "Reviewer agent",
-              });
+              }));
               if (scores.size === 0)
                 throw new Error(
                   `Reviewer failed after ${REVIEWER_MAX_ATTEMPTS} attempts`,
@@ -2874,14 +2849,14 @@ async function processJob(job: JobData): Promise<void> {
                     // behind next-chunk work like a corrections-mode reviewer
                     // is), so without this the bar would sit still through
                     // the whole upgrade+fluency-review pass.
-                    for await (const tok of editChunkStream(
+                    for await (const tok of withUsagePass(tokenUsage, "translate-polish", editChunkStream(
                       model,
                       text,
                       systemPrompt,
                       ac.signal,
                       deriveSeed(mode, job.name, j, "upgrade", callIndex++),
                       "translate",
-                    )) {
+                    ))) {
                       out += tok;
                       upgradeToks++;
                       passTokensSoFar++;
@@ -2902,7 +2877,7 @@ async function processJob(job: JobData): Promise<void> {
                   };
                 })(),
                 runReviewer: (draftChunk, pairs) =>
-                  runReviewerAgentWithRetry({
+                  inUsagePass(tokenUsage, "translate-review", () => runReviewerAgentWithRetry({
                     model,
                     chunkText: draftChunk,
                     cs: pairs,
@@ -2914,7 +2889,7 @@ async function processJob(job: JobData): Promise<void> {
                     taskId,
                     chunkLabel,
                     agentLabel: "Fluency-reviewer agent",
-                  }),
+                  })),
                 log: (level, message) =>
                   appendLog({ level, source: "engine", taskId, message, model }),
                 setPhase: (phase) => updateTask(taskId, { phase }),
@@ -3229,6 +3204,18 @@ async function processJob(job: JobData): Promise<void> {
     corrections,
     skipped,
     errors,
+    // What each pass cost, as the provider counted it — present only when
+    // the provider reports usage (the cloud). Feeds cloudEstimate.ts.
+    ...(Object.keys(tokenUsage).length > 0 ? { tokenUsage } : {}),
+    // Recorded wherever the check ran, found or not: the readthrough report
+    // lists it among what it searched for, and a zero is a result.
+    ...(missingWordCheckApplies(mode, job.manuscriptLang)
+      ? {
+          missingWordCheck: {
+            found: corrections.filter((c) => c.reason === "missing-word").length,
+          },
+        }
+      : {}),
   };
 
   // If any chunks failed (after retries), the chapter is partially un-edited

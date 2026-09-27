@@ -162,6 +162,8 @@ export interface Correction {
   flagged?: boolean;
   /**
    * The PRECISION PASS's own 1-5 score, kept separately from `confidence`.
+   * The pass was removed in September 2026; results saved before then still
+   * carry this, and it is still read wherever it is present.
    *
    * The pass has always produced a real score — same parser, same 1-5 scale as
    * the main reviewer — and then thrown it away after comparing it to two
@@ -237,6 +239,21 @@ export interface TaskResult {
   skipped: Correction[];
   errors: string[];
   structuredData?: unknown;
+  /**
+   * Whether this task searched for dropped words (missingWords.ts), and how
+   * many it found. Present only on a task whose mode and language run the
+   * check, so the readthrough report can list the search among what it
+   * checked — and leave it out, rather than claim a pass, on a result saved
+   * before the check existed.
+   */
+  missingWordCheck?: { found: number };
+  /**
+   * Tokens per pass (editor, missing-word, reviewer, precision, ...) as the
+   * provider reported them in its usage block. Only providers that send one
+   * fill it — the cloud does — and it is what cloudEstimate.ts is calibrated
+   * against.
+   */
+  tokenUsage?: Record<string, { input: number; output: number; calls: number }>;
 }
 
 export type TaskStatus = "queued" | "editing" | "done" | "error" | "cancelled";
@@ -431,6 +448,16 @@ export const STRUCTURAL_CHECKS = [
 ] as const;
 
 export type StructuralCheck = (typeof STRUCTURAL_CHECKS)[number];
+
+/**
+ * Checks the readthrough report lists beside the structural ones, run by the
+ * proofread pass rather than the scan: a dropped word is found by a model
+ * inside the sentence, not by reading the book's structure. The panel adds
+ * one row per check from the proofread results (TaskResult.missingWordCheck)
+ * and labels it exactly like a structural check — so the same label test
+ * covers it.
+ */
+export const CORRECTION_CHECKS = ["missing_word"] as const;
 
 export interface StructuralFinding {
   check: StructuralCheck;

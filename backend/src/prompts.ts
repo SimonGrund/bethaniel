@@ -1380,66 +1380,6 @@ Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PRECISION PASS — a second, narrower audit that drops (not flags)
-// corrections that fix nothing real
-// ═══════════════════════════════════════════════════════════════════
-
-/**
- * Unlike `buildReviewerPrompt`, which judges whether a correction's FIX is
- * right and only flags failures for manual review, this asks one narrower
- * question per correction: did the original text need a fix here AT ALL?
- * Benchmarking found the editor and LanguageTool both have a recurring
- * pattern of proposing a "correction" on text that was already fine —
- * unforced rewording, an unwanted comma on a defensible authorial choice, a
- * word swap that changes nothing objectively wrong — and the main reviewer's
- * "is the fix well-formed" framing doesn't catch these, because the fix
- * often IS well-formed, it just wasn't needed. Low-confidence answers here
- * are dropped outright rather than flagged: if the original had no real
- * error, there is nothing to recall by keeping the "fix" around.
- */
-export function buildPrecisionPassPrompt(
-  styleGuide?: string,
-  manuscriptLang?: string,
-): string {
-  let p = `You are a PRECISION AUDIT reviewing a list of proposed corrections to a manuscript. Other passes have already checked whether each fix is well-formed — that is NOT your job. Your ONLY job: for each correction, decide whether the original text actually needed fixing at all.
-
-Editors (human and automated) share a recurring blind spot: proposing technically-plausible "corrections" on text that was already correct. Three shapes this takes:
-
-1. UNFORCED REWORDING — the original sentence already read correctly, and the correction just swaps in different-but-equally-valid wording, adds a detail that wasn't there, or restructures a sentence with no error in it.
-2. UNWANTED PUNCTUATION — the correction adds or removes a comma (or other mark) where the original punctuation was a defensible authorial choice, not an objective grammar error.
-3. UNNEEDED WORDING CHANGE — the correction swaps in a different word or verb form the sentence didn't need, including "fixing" grammar that was already correct (e.g. subjunctive mood: "as though she were" is correct even with a singular subject — a "was" swap there is wrong, not a fix).
-
-For each correction, ask: does the ORIGINAL text, exactly as written, already read correctly at this spot? If yes, the correction has no reason to exist. If the original had a genuine, objective problem — a real typo, a missing word, a grammar error, a punctuation rule actually broken — the correction is doing real work.
-
-Score each 1-5:
-- 5: The original was genuinely wrong here; this is a necessary fix.
-- 4: Likely a real fix.
-- 3: Uncertain — could plausibly be either. Default here when unsure.
-- 2: The original was probably already fine; this looks like an unforced change.
-- 1: The original was clearly already fine; this correction is invented or unnecessary.
-
-Do NOT re-score whether the fix itself is well-formed, whether it's the best possible wording, or anything about style/voice — a different pass already covers that. Score LOW only when you're confident nothing was actually wrong with the original at that spot. When genuinely unsure, score 3.`;
-
-  const langName = manuscriptLangName(manuscriptLang);
-  if (langName) {
-    p += `\n\nMANUSCRIPT LANGUAGE: ${langName}. The chapter text and every correction are in ${langName}.`;
-  }
-
-  p += buildStyleSheetBlock(styleGuide ?? "", "reviewer");
-
-  p += `\n\nOUTPUT FORMAT — STRICT JSONL (one JSON object per line):
-{"index": 0, "confidence": 5, "reason": "Original had a real typo — this fixes it"}
-{"index": 1, "confidence": 1, "reason": "Original sentence already read correctly — this is an unforced reword"}
-{"index": 2, "confidence": 2, "reason": "Original comma placement was a defensible authorial choice, not an error"}
-
-Each line is one JSON object with exactly three keys: index, confidence, reason. The "index" field matches the correction number shown in the input. The "confidence" field is an integer 1-5. The "reason" field is a brief explanation (one short sentence).
-Do NOT wrap lines in an array. Do NOT add commas between lines. Do NOT add commentary, headers, code fences, or blank lines between objects.
-Output ONLY the JSONL stream. No preamble, no commentary, no markdown fences.`;
-
-  return p;
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // TRANSLATION REVIEWER — evaluates translated paragraph quality
 // ═══════════════════════════════════════════════════════════════════
 

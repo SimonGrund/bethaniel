@@ -22,6 +22,7 @@ import { appendLog } from "./logBus.js";
 import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODELS_DIR =
@@ -169,6 +170,63 @@ export function stallWatchdog(caller?: AbortSignal): {
   return { signal: ac.signal, bump: arm, done };
 }
 
+// ── What each pass actually cost, as the provider counted it ──
+//
+// The cloud price estimate (cloudEstimate.ts) models tokens per pass. It was
+// found 1.74x short of what the provider billed, and a total cannot say which
+// pass is under-counted. So every streamed response's own `usage` block —
+// prompt and completion tokens as the provider billed them, hidden reasoning
+// included — is added to the tally of whichever pass made the call.
+//
+// The pass travels in AsyncLocalStorage rather than a parameter: a chunk's
+// reviewer runs while the next chunk's editor streams, so a shared "current
+// pass" variable would book one's tokens to the other.
+
+export interface PassUsage {
+  input: number;
+  output: number;
+  calls: number;
+}
+export type UsageTally = Record<string, PassUsage>;
+
+const usageContext = new AsyncLocalStorage<{ tally: UsageTally; pass: string }>();
+
+/** Run `fn` with its model calls booked to `pass` in `tally`. */
+export function inUsagePass<T>(tally: UsageTally | undefined, pass: string, fn: () => T): T {
+  return tally ? usageContext.run({ tally, pass }, fn) : fn();
+}
+
+/** The same for a stream: each step of `gen` runs inside the pass. */
+export async function* withUsagePass<T>(
+  tally: UsageTally | undefined,
+  pass: string,
+  gen: AsyncGenerator<T>,
+): AsyncGenerator<T> {
+  if (!tally) {
+    yield* gen;
+    return;
+  }
+  const it = gen[Symbol.asyncIterator]();
+  try {
+    while (true) {
+      const step = await usageContext.run({ tally, pass }, () => it.next());
+      if (step.done) return;
+      yield step.value;
+    }
+  } finally {
+    await usageContext.run({ tally, pass }, () => it.return?.(undefined));
+  }
+}
+
+function recordUsage(usage: { prompt_tokens?: number; completion_tokens?: number }): void {
+  const ctx = usageContext.getStore();
+  if (!ctx) return;
+  const u = (ctx.tally[ctx.pass] ??= { input: 0, output: 0, calls: 0 });
+  u.input += usage.prompt_tokens ?? 0;
+  u.output += usage.completion_tokens ?? 0;
+  u.calls += 1;
+}
+
 export async function* parseSSE(
   response: Response,
   signal?: AbortSignal,
@@ -201,6 +259,7 @@ export async function* parseSSE(
         if (payload === "[DONE]") return;
         try {
           const parsed = JSON.parse(payload) as {
+            usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
             choices?: {
               delta?: {
                 content?: string;
@@ -209,6 +268,7 @@ export async function* parseSSE(
               };
             }[];
           };
+          if (parsed.usage) recordUsage(parsed.usage);
           const delta = parsed.choices?.[0]?.delta;
           // A model streaming reasoning_content spends max_tokens thinking
           // before it says anything visible. Remember it, so the NEXT call

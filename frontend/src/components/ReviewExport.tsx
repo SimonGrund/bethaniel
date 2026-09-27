@@ -1327,9 +1327,13 @@ function PublicationReadinessPanel({
   wordCount,
   source,
   chapterNames,
+  extraChecks,
   t,
 }: {
   report: StructuralScanReport | null;
+  /** Checks the proofread pass ran rather than the scan — the missing-word
+   *  search — listed beside the structural ones in "What was checked". */
+  extraChecks: CheckTally[];
   /** The scanned chapters' names in manuscript order, to place findings from
    *  a report saved before the scan sorted them itself. */
   chapterNames: string[];
@@ -1350,6 +1354,9 @@ function PublicationReadinessPanel({
   t: (key: string, fallback?: string) => string;
 }) {
   const lang = useStore((s) => s.lang);
+  // One list for the panel and the PDF, so the two cannot disagree about
+  // what was searched for.
+  const checks = [...(report?.checks ?? []), ...extraChecks];
   const structuralBlocking: BlockingIssue[] = inChapterOrder(report?.findings ?? [], chapterNames)
     .filter((f) => f.blocking)
     .map((f) => ({
@@ -1401,7 +1408,7 @@ function PublicationReadinessPanel({
         structural: structuralIssues,
         blocking: correctionIssues,
         minorCount: minorCorrections.length,
-        checks: report?.checks,
+        checks: checks.length > 0 ? checks : undefined,
         lang,
         t,
       }),
@@ -1494,9 +1501,7 @@ function PublicationReadinessPanel({
         </p>
       )}
 
-      {report?.checks && report.checks.length > 0 && (
-        <CheckedList checks={report.checks} t={t} />
-      )}
+      {checks.length > 0 && <CheckedList checks={checks} t={t} />}
 
       {report && (
         <p className="small-note readiness-scanned">
@@ -3692,6 +3697,22 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const polishOnlyChapters = proofreadTasks.filter(
                   (task) => polishCorrectionCount(task) > 0,
                 ).length;
+                // The missing-word search runs inside the proofread pass, so
+                // its row comes from there. Absent — not a pass — when no
+                // chapter recorded running it: a result saved before the check
+                // existed, or a language it does not cover.
+                const missingWordRuns = proofreadTasks
+                  .map((task) => task.result?.missingWordCheck)
+                  .filter((m): m is { found: number } => !!m);
+                const extraChecks: CheckTally[] =
+                  missingWordRuns.length > 0
+                    ? [
+                        {
+                          check: "missing_word",
+                          found: missingWordRuns.reduce((n, m) => n + m.found, 0),
+                        },
+                      ]
+                    : [];
                 const scanWordCount = proofreadTasks.reduce(
                   (n, task) => n + (task.wordCount ?? 0),
                   0,
@@ -3719,6 +3740,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       wordCount={scanWordCount}
                       source={src}
                       chapterNames={proofreadTasks.map((task) => task.name)}
+                      extraChecks={extraChecks}
                       t={t}
                     />
                     {/* No downloads here. A scan reports — the report is the

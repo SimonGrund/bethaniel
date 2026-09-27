@@ -419,6 +419,8 @@ export interface Correction {
   flagged?: boolean;
   /**
    * The PRECISION PASS's own 1-5 score, kept separately from `confidence`.
+   * The pass was removed in September 2026; results saved before then still
+   * carry this, and it is still read wherever it is present.
    *
    * The pass has always produced a real score — same parser, same 1-5 scale as
    * the main reviewer — and then thrown it away after comparing it to two
@@ -481,6 +483,8 @@ export interface TaskResult {
   skipped: Correction[];
   errors: string[];
   structuredData?: unknown;
+  /** Present where the task searched for dropped words; see backend types. */
+  missingWordCheck?: { found: number };
 }
 
 export type TaskStatus = "queued" | "editing" | "done" | "error" | "cancelled";

@@ -148,7 +148,7 @@ test("the quote prices the style agent only when a sheet exists", () => {
 
 test("cloudRunKnobs leaves every other model alone", () => {
   // Local and BYO-key runs spend the user's own compute — not ours to clamp.
-  for (const m of ["Qwen3.5-9B.gguf", "custom:deepseek", "custom:gguf:/tmp/x.gguf", "", undefined]) {
+  for (const m of ["Qwen3.5-4B-Q4_K_M.gguf", "custom:deepseek", "custom:gguf:/tmp/x.gguf", "", undefined]) {
     assert.equal(cloudRunKnobs(m), null, `${String(m)} must be untouched`);
   }
 });
@@ -175,13 +175,17 @@ test("forcing Speed is what keeps a cloud job inside the quote ceiling", () => {
   // the same answer — so the ceiling this test guards is a clean 2x, not the
   // several-fold it was when a stale client could ask for four of everything.
   assert.ok(
-    forced.estimatedTotalTokens * 2 <= asSent.estimatedTotalTokens,
+    // +2: each total is rounded up on its own.
+    forced.estimatedTotalTokens * 2 <= asSent.estimatedTotalTokens + 2,
     `forcing Speed must at least halve the cost (got ${forced.estimatedTotalTokens} vs ${asSent.estimatedTotalTokens})`,
   );
   // 100k words is the headline case; Speed must stay well inside the Worker's
   // MAX_QUOTE_TOKENS (25M) and DAILY_TOKEN_CEILING, with the greedy variant
   // being the thing that would have blown through them.
-  assert.ok(forced.estimatedTotalTokens < 2_000_000);
+  // Measured, not assumed (cloudEstimate.ts's MEASURED_CLOUD_TOKENS): a
+  // 100k-word combined edit is about 2.3M tokens. The bound this replaced,
+  // 2M, encoded the old estimator's 1.74x under-count.
+  assert.ok(forced.estimatedTotalTokens < 4_000_000);
 });
 
 // ── Only tested passes may run in the cloud ──

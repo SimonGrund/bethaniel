@@ -57,6 +57,11 @@ const LANG_CODE: Record<string, string> = {
   stress100de: "de",
   stress100es: "es",
   stress100fr: "fr",
+  missing300en: "en",
+  missingda: "da",
+  missingde: "de",
+  missinges: "es",
+  missingfr: "fr",
 };
 
 function checksFor(lang: string): WordChecks | null {
@@ -159,7 +164,7 @@ async function main(): Promise<void> {
 
   const order: PlantedErrorCategory[] = [
     "misspelling", "wordChoice", "dialect", "spelling", "comma",
-    "capitalization", "duplicateWord", "punctuation", "other",
+    "capitalization", "duplicateWord", "missingWord", "punctuation", "other",
   ];
   console.log(`\n  final ground truth — ${total(counts)} planted:`);
   for (const cat of order) {

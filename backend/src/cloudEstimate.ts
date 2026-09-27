@@ -26,6 +26,7 @@ import {
   buildFluencyReviewerPrompt,
 } from "./prompts.js";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types.js";
+import { missingWordCheckApplies } from "./missingWords.js";
 import {
   buildLanguageEnhanceAdvicePrompt,
   buildLanguageEnhancePassagePrompt,
@@ -48,6 +49,100 @@ const ASSUMED_OUTPUT_FRACTION = 0.35;
  *  count ahead of time, so a fixed per-chunk token allowance stands in for
  *  the corrections-list payload. */
 const ASSUMED_CORRECTIONS_PAYLOAD_TOKENS = 300;
+
+/**
+ * What a cloud job's corrections passes actually cost, measured.
+ *
+ * The first version of this file built the quote from the prompts and a few
+ * guesses — one editor call, one reviewer call with a 300-token corrections
+ * list, output at a fixed fraction of the cap. Against what the provider
+ * billed it was 1.74x short. Instrumented per pass (llm.ts's usage tally,
+ * September 2026, deepseek-v4-flash, 30,000+ words across five languages,
+ * error-dense fixtures and public-domain prose), three things were missing:
+ * a second reviewing call (the "precision pass", since removed) was not
+ * counted at all; the reviewer re-reads the chunk WITH the full corrections
+ * list, which is closer to 10,000 tokens than 300; and it writes about 4,000
+ * tokens of verdicts, not 430. See docs/cloud-token-model.md.
+ *
+ * So the quote now uses the measurement directly: per mode, tokens per chunk
+ * (the prompts every call re-sends) plus tokens per word (the text, and the
+ * corrections and verdicts that grow with it). The per-chunk cost is pinned
+ * from a run of eleven short chapters; the per-word rate is fitted on all
+ * runs, with the precision pass's measured tokens taken out. Across every
+ * measured run the worst the model under-estimates is 1.26x — inside the
+ * credential's 1.5x budget plus 20% overdraft — and on ordinary modern prose
+ * it over-estimates by up to 1.6x, which is the safe side.
+ *
+ * Totals include the missing-word check (missingWords.ts) where it runs.
+ */
+interface MeasuredMode {
+  perChunkIn: number;
+  perWordIn: number;
+  perChunkOut: number;
+  perWordOut: number;
+  /** Share of the total spent by the reviewer, removed when a run has review
+   *  off. Measured on the same runs. */
+  reviewShare: number;
+}
+export const MEASURED_CLOUD_TOKENS: Record<"copy_edit" | "combined_edit" | "proofread" | "line_edit", MeasuredMode> = {
+  copy_edit: { perChunkIn: 4275, perWordIn: 9.11, perChunkOut: 700, perWordOut: 2.79, reviewShare: 0.46 },
+  combined_edit: { perChunkIn: 4275, perWordIn: 9.16, perChunkOut: 700, perWordOut: 3.52, reviewShare: 0.51 },
+  proofread: { perChunkIn: 4275, perWordIn: 6.43, perChunkOut: 700, perWordOut: 1.71, reviewShare: 0.41 },
+  line_edit: { perChunkIn: 4206, perWordIn: 4.03, perChunkOut: 554, perWordOut: 2.94, reviewShare: 0.62 },
+};
+
+/** The same text costs more tokens in some languages. French ran 1.25x the
+ *  others on every mode; the rest were within noise of each other. */
+const LANGUAGE_TOKEN_FACTOR: Record<string, number> = { fr: 1.25 };
+
+/** The missing-word check's share of the per-word rate (copy-edit fit),
+ *  removed for a language the check does not run in. */
+const MISSING_WORD_PER_WORD = { input: 3.38, output: 0.13 };
+
+/** One extra editor call per chunk, for the style-sheet agent: the editor's
+ *  own measured cost plus the sheet it is handed. */
+const EDITOR_PER_CHUNK_IN = 3411;
+const EDITOR_PER_WORD = { input: 1.52, output: 1.04 };
+
+function estimateMeasuredMode(
+  mode: keyof typeof MEASURED_CLOUD_TOKENS,
+  input: CloudEstimateInput,
+): { inputTokens: number; outputTokens: number } {
+  const m = MEASURED_CLOUD_TOKENS[mode];
+  const lang = (input.manuscriptLang ?? "en").toLowerCase().slice(0, 2);
+  const factor = LANGUAGE_TOKEN_FACTOR[lang] ?? 1;
+  const skipMissingWords = mode !== "line_edit" && !missingWordCheckApplies(mode, input.manuscriptLang);
+  const styleAgent = input.styleComplianceAgent && (input.styleGuideChars ?? 0) > 0;
+  const sheetTokens = styleAgent ? estimateTokens("x".repeat(input.styleGuideChars ?? 0)) : 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for (const unit of input.units) {
+    const chunks = Math.max(1, Math.ceil(unit.wordCount / input.wordsPerChunk));
+    const words = unit.wordCount * factor;
+    let inp = chunks * m.perChunkIn + words * m.perWordIn;
+    let out = chunks * m.perChunkOut + words * m.perWordOut;
+    if (skipMissingWords) {
+      inp -= words * MISSING_WORD_PER_WORD.input;
+      out -= words * MISSING_WORD_PER_WORD.output;
+    }
+    if (!input.reviewMode) {
+      inp *= 1 - m.reviewShare;
+      out *= 1 - m.reviewShare;
+    }
+    if (styleAgent) {
+      inp += chunks * (EDITOR_PER_CHUNK_IN + sheetTokens) + words * EDITOR_PER_WORD.input;
+      out += words * EDITOR_PER_WORD.output;
+    }
+    inputTokens += inp;
+    outputTokens += out;
+  }
+  // A thorough second pass re-runs the whole pass (never for line edit).
+  if (input.extraPass && mode !== "line_edit") {
+    inputTokens *= 2;
+    outputTokens *= 2;
+  }
+  return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
+}
 
 function wordsToTokens(words: number): number {
   return estimateTokens("x".repeat(Math.max(0, Math.round(words * CHARS_PER_WORD))));
@@ -395,8 +490,17 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
 
   for (const mode of effectiveModes) {
     let result: { inputTokens: number; outputTokens: number };
-    if (mode === "copy_edit" || mode === "line_edit" || mode === "combined_edit") {
-      result = estimateCorrectionsMode(mode, input);
+    if (
+      mode === "copy_edit" ||
+      mode === "line_edit" ||
+      mode === "combined_edit" ||
+      mode === "proofread"
+    ) {
+      result = estimateMeasuredMode(mode, input);
+    } else if (mode === "publication_scan") {
+      // Deterministic (publicationScan.ts): no model call, no tokens. It used
+      // to be priced as a second copy edit beside the readthrough's proofread.
+      result = { inputTokens: 0, outputTokens: 0 };
     } else if (mode === "translate") {
       result = estimateTranslateMode(input);
       confidence = "lower_bound";
@@ -406,7 +510,7 @@ export function estimateCloudJob(input: CloudEstimateInput): CloudEstimateResult
     } else if (mode === "language_enhance") {
       result = estimateEnhanceMode(input);
     } else {
-      // developmental_edit / proofread / publication_scan / text_evaluator —
+      // developmental_edit / text_evaluator —
       // not individually modeled yet. Cost roughly like a copy-edit pass
       // rather than mis-costing it as something else; flag as a lower bound.
       result = estimateCorrectionsMode("copy_edit", input);

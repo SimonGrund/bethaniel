@@ -2491,6 +2491,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Satzzeichenprüfung",
     es: "Revisión de puntuación",
   },
+  rr_src_missing_word: {
+    en: "Missing-word check",
+    da: "Tjek for manglende ord",
+    de: "Prüfung auf fehlende Wörter",
+    es: "Revisión de palabras que faltan",
+  },
   rr_src_grammar: {
     en: "Grammar check",
     da: "Grammatiktjek",
@@ -2810,14 +2816,6 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Kører på din egen maskine. Intet, du skriver, forlader den.",
     de: "Läuft auf Ihrem eigenen Rechner. Nichts, was Sie schreiben, verlässt ihn.",
     es: "Funciona en tu propio equipo. Nada de lo que escribes sale de él.",
-  },
-  // Deprecated entry — hidden from the catalog, kept for an install that
-  // still has the file.
-  model_desc_qwen3_5_9b: {
-    en: "No longer offered — the smaller model scores the same on editing and translation has moved to the cloud.",
-    da: "Tilbydes ikke længere — den mindre model scorer det samme på redigering, og oversættelse er flyttet til skyen.",
-    de: "Wird nicht mehr angeboten — das kleinere Modell schneidet beim Lektorat gleich ab, und die Übersetzung ist in die Cloud gezogen.",
-    es: "Ya no se ofrece: el modelo pequeño puntúa igual en corrección y la traducción se ha trasladado a la nube.",
   },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
@@ -3390,6 +3388,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Doppelte Satzzeichen",
     es: "Puntuación doble",
   },
+  scan_check_missing_word: {
+    en: "Missing words",
+    da: "Manglende ord",
+    de: "Fehlende Wörter",
+    es: "Palabras que faltan",
+  },
 
   // ── What each check looks for ──
   //
@@ -3467,6 +3471,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "“.,”  “,,”  “?.”  “.?” — to tegn, hvor der hører ét hjemme",
     de: "„.,“  „,,“  „?.“  „.?“ — zwei Zeichen, wo eines hingehört",
     es: "«.,»  «,,»  «?.»  «.?»: dos signos donde va uno",
+  },
+  scan_looks_for_missing_word: {
+    en: "a small word dropped from a sentence — “look each other” for “look for each other”",
+    da: "et lille ord, der er faldet ud af en sætning — “gik hen døren” for “gik hen til døren”",
+    de: "ein kleines Wort, das im Satz fehlt — „wartete den Bus“ statt „wartete auf den Bus“",
+    es: "una palabra pequeña que falta en la frase: «llegó la casa» por «llegó a la casa»",
   },
 
   // ── The checklist and its results ──

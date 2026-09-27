@@ -1,0 +1,22 @@
+[
+  { "find": "Estaba en el taller de su madre", "replace": "Estaba el taller de su madre", "category": "missingWord", "note": "preposición" },
+  { "find": "detrás de un panel suelto", "replace": "detrás un panel suelto", "category": "missingWord", "note": "preposición" },
+  { "find": "la dejó sobre el banco de trabajo", "replace": "la dejó sobre banco de trabajo", "category": "missingWord", "note": "artículo" },
+  { "find": "Era un hombre viejo y cuidadoso", "replace": "Era hombre viejo y cuidadoso", "category": "missingWord", "note": "artículo" },
+  { "find": "el aire olía a papel antiguo", "replace": "el aire olía papel antiguo", "category": "missingWord", "note": "preposición" },
+  { "find": "Nuria cogió el pliego de arriba", "replace": "Nuria cogió el pliego arriba", "category": "missingWord", "note": "preposición" },
+  { "find": "con el dedo en el aire", "replace": "con el dedo el aire", "category": "missingWord", "note": "preposición" },
+  { "find": "leyó las notas de los márgenes palabra por palabra", "replace": "leyó las notas de los márgenes palabra palabra", "category": "missingWord", "note": "preposición" },
+  { "find": "Sostenía que todo libro tiene una pieza de más", "replace": "Sostenía que todo libro tiene pieza de más", "category": "missingWord", "note": "artículo" },
+  { "find": "la cola se espesaba en el tarro", "replace": "la cola se espesaba el tarro", "category": "missingWord", "note": "preposición" },
+  { "find": "Porque hubo un libro que no supe arreglar", "replace": "Porque hubo un libro no supe arreglar", "category": "missingWord", "note": "relativo, en diálogo" },
+  { "find": "bajó al taller y encendió la lámpara", "replace": "bajó al taller y encendió lámpara", "category": "missingWord", "note": "artículo" },
+  { "find": "comprendió que le había regalado", "replace": "comprendió que le regalado", "category": "missingWord", "note": "auxiliar" },
+  { "find": "\"Van dirigidos a mí.\"", "replace": "\"Van dirigidos mí.\"", "category": "missingWord", "note": "preposición, en diálogo" },
+  { "find": "que dejó sobre la mesa sin abrirla", "replace": "que dejó la mesa sin abrirla", "category": "missingWord", "note": "preposición" },
+  { "find": "Alguien había anotado durante décadas", "replace": "Alguien anotado durante décadas", "category": "missingWord", "note": "auxiliar" },
+  { "find": "Ismael puso la mano plana sobre las cuentas", "replace": "Ismael puso la mano plana las cuentas", "category": "missingWord", "note": "preposición" },
+  { "find": "La estufa del rincón", "replace": "La estufa rincón", "category": "missingWord", "note": "preposición" },
+  { "find": "lo dejó sobre un trozo de fieltro", "replace": "lo dejó sobre un trozo fieltro", "category": "missingWord", "note": "preposición" },
+  { "find": "junto a un cuadernillo pequeño", "replace": "junto un cuadernillo pequeño", "category": "missingWord", "note": "preposición" }
+]

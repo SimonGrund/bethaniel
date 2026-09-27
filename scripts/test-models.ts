@@ -23,7 +23,7 @@
  *   npx tsx scripts/test-models.ts            # Resume (skip already-completed)
  *   npx tsx scripts/test-models.ts --clean    # Start fresh (wipe previous results)
  *   npx tsx scripts/test-models.ts --max-size 15  # Only run models ≤ 15 GB
- *   npx tsx scripts/test-models.ts --model 9b     # Only run models whose filename contains "9b" (case-insensitive)
+ *   npx tsx scripts/test-models.ts --model 4b     # Only run models whose filename contains "4b" (case-insensitive)
  *   npx tsx scripts/test-models.ts --max-parallel 2  # Cap concurrent task dispatch (default is 1 — see MAX_PARALLEL)
  *   npx tsx scripts/test-models.ts --parallel-auto   # Use the backend's recommended slots: faster, but not reproducible
  *   npx tsx scripts/test-models.ts --test     # Quick sanity check (smallest model, english_copy_edit only)
@@ -70,8 +70,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // restarting it to pick up a change takes the app down with it.
 const API = process.env.BENCH_API ?? "http://127.0.0.1:4000/api";
 const SAMPLE_DIR = join(__dirname, "..", "sample_texts");
-const RESULTS_PATH = join(SAMPLE_DIR, "benchmark_results.json");
-const REPORT_PATH = join(SAMPLE_DIR, "benchmark_results.txt");
+// BENCH_RESULTS names a different results file (its report sits beside it as
+// .txt), so two engines can be benchmarked at once against two backends
+// without writing over each other.
+const RESULTS_PATH = process.env.BENCH_RESULTS ?? join(SAMPLE_DIR, "benchmark_results.json");
+const REPORT_PATH = RESULTS_PATH.replace(/\.json$/, ".txt");
 
 const POLL_INTERVAL = 3000;
 const TASK_TIMEOUT = 3_600_000; // 1 hour
@@ -140,6 +143,13 @@ const LANG_CODE: Record<string, string> = {
   stress100de: "de",
   stress100es: "es",
   stress100fr: "fr",
+  // Dropped-word fixtures (missingWords.ts); every planted error is one
+  // function word taken out of a sentence.
+  missing300en: "en",
+  missingda: "da",
+  missingde: "de",
+  missinges: "es",
+  missingfr: "fr",
 };
 
 function parseMaxSize(): number | null {
@@ -156,7 +166,7 @@ function parseModel(): string | null {
   return process.argv[idx + 1];
 }
 // Case-insensitive substring match against the catalog fileName — lets you
-// pass a short name ("4b", "9b") instead of the full .gguf filename.
+// pass a short name ("4b") instead of the full .gguf filename.
 const MODEL_FILTER = parseModel();
 
 // API-source models (External Betty, Betty in the Cloud) are opt-in: every run

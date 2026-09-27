@@ -406,6 +406,10 @@ export type PlantedErrorCategory =
   | "comma"
   | "capitalization"
   | "duplicateWord"
+  /** A word the sentence needs was dropped — "look each other" for "look
+   *  for each other". Nothing is misspelled, so no dictionary sees it, and
+   *  the fix is an insertion, which the copy-edit prompt long forbade. */
+  | "missingWord"
   | "punctuation"
   | "other";
 
@@ -417,6 +421,7 @@ const CATEGORY_ORDER: PlantedErrorCategory[] = [
   "comma",
   "capitalization",
   "duplicateWord",
+  "missingWord",
   "punctuation",
   "other",
 ];
@@ -490,6 +495,14 @@ export function classifyPlantedError(
     collapseRepeats(wrongWords).join(" ") === collapseRepeats(rightWords).join(" ")
   ) {
     return "duplicateWord";
+  }
+
+  // Exactly one word dropped, everything else identical.
+  if (rightWords.length === wrongWords.length + 1) {
+    for (let i = 0; i < rightWords.length; i++) {
+      const without = [...rightWords.slice(0, i), ...rightWords.slice(i + 1)];
+      if (without.join(" ") === wrongWords.join(" ")) return "missingWord";
+    }
   }
 
   // One word swapped for another, everything else identical. Anything touching
