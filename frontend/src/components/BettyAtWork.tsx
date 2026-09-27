@@ -14,6 +14,8 @@
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { progressPercent, weightedProgress } from "../runProgress";
+import { isCloudModel, runStartedAt, startupStage } from "../runStartup";
+import { useTicker } from "../useTicker";
 import type { Lang, TaskState } from "../types";
 
 const META_MODES = new Set(["analysis_summary", "blurb", "text_evaluator"]);
@@ -48,11 +50,28 @@ export default function BettyAtWork({
   // share of the chapter COUNT, which is how a one-chapter job managed to read
   // 100% over "0 of 1 chapters done".
   const live = runStats?.jobProgress?.[jobId];
-  const pct = progressPercent(live?.fraction ?? weightedProgress(tasks));
+  const fraction = live?.fraction ?? weightedProgress(tasks);
+  const pct = progressPercent(fraction);
   const secondsLeft = runStats?.runtime?.estimatedSecondsRemaining ?? null;
 
   const source = jobTasks[0]?.source;
   const working = tasks.find((task) => task.status === "editing");
+
+  // Nothing back yet — a cloud model waking, a local one loading. A still
+  // bar at 0% reads as broken, so say what is happening and let the bar
+  // sweep until there is a figure to show (runStartup.ts).
+  const startedAt = runStartedAt(jobTasks);
+  const mayBeStarting = fraction === 0 && startedAt != null;
+  const now = useTicker(mayBeStarting);
+  const stage =
+    mayBeStarting && startedAt != null
+      ? startupStage({
+          fraction,
+          cloud: jobTasks.some((task) => isCloudModel(task.model)),
+          startedAt,
+          now,
+        })
+      : null;
 
   return (
     <section className="at-work" aria-live="polite">
@@ -65,7 +84,7 @@ export default function BettyAtWork({
       </div>
 
       <h2 className="at-work__title">
-        {t("betty_at_work", "Betty is reading")}
+        {stage ? t("run_start_title") : t("betty_at_work", "Betty is reading")}
         <span className="at-work__dots">
           <i />
           <i />
@@ -75,6 +94,13 @@ export default function BettyAtWork({
 
       {source && <p className="at-work__source">{source}</p>}
 
+      {stage ? (
+        // Keyed by stage so each new message fades in: the change itself
+        // is the sign that Betty is still at it.
+        <p key={stage} className="at-work__status at-work__status--starting">
+          {t(stage)}
+        </p>
+      ) : (
       <p className="at-work__status">
         {tasks.length > 1
           ? t("chapters_done")
@@ -90,21 +116,24 @@ export default function BettyAtWork({
           </>
         )}
       </p>
+      )}
 
       {/* The number is the run's share of its estimated TOKEN cost, not its
           chapter count, so it climbs steadily through a long chapter instead
           of standing still and then jumping. */}
       <div className="at-work__meter">
         <div
-          className="at-work__bar"
+          className={`at-work__bar${stage ? " at-work__bar--starting" : ""}`}
           role="progressbar"
-          aria-valuenow={pct}
           aria-valuemin={0}
           aria-valuemax={100}
+          // No value while starting: an indeterminate progressbar, which is
+          // what assistive tech should announce rather than "0 percent".
+          {...(stage ? { "aria-valuetext": t(stage) } : { "aria-valuenow": pct })}
         >
           <div className="at-work__fill" style={{ width: `${pct}%` }} />
         </div>
-        <span className="at-work__pct">{pct}%</span>
+        {!stage && <span className="at-work__pct">{pct}%</span>}
       </div>
     </section>
   );

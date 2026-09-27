@@ -8577,12 +8577,44 @@ summary.review-source::before {
   transition: width 0.6s ease;
 }
 
+/* Starting up: nothing has come back yet, so there is no figure to show. A
+   bar pinned at 0% reads as stuck; one that sweeps says Betty is at it. Used
+   by the run panel and the rail (runStartup.ts decides when). */
+.at-work__bar--starting .at-work__fill,
+.q-bar--starting .q-fill {
+  width: 35% !important;
+  animation: bar-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes bar-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(290%); }
+}
+
+.at-work__status--starting {
+  animation: at-work-fade-in 0.5s ease;
+}
+
+@keyframes at-work-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .at-work__page,
   .at-work__mark,
   .at-work__ink,
-  .at-work__dots i {
+  .at-work__dots i,
+  .at-work__status--starting {
     animation: none;
+  }
+
+  /* No sweep: a still, half-toned bar instead of one that reads as 0%. */
+  .at-work__bar--starting .at-work__fill,
+  .q-bar--starting .q-fill {
+    animation: none;
+    width: 100% !important;
+    opacity: 0.35;
   }
 
   .at-work__ink {

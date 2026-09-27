@@ -11,6 +11,8 @@ import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { cancelJob } from "../api";
 import { progressPercent, weightedProgress } from "../runProgress";
+import { isCloudModel, runStartedAt, startupStage } from "../runStartup";
+import { useTicker } from "../useTicker";
 import EngineStatus, { useEngineFeed } from "./EngineStatus";
 
 export default function Sidebar() {
@@ -54,6 +56,21 @@ export default function Sidebar() {
     (task) => task.status === "done",
   ).length;
   const wasStopped = sessionTasks.some((task) => task.status === "cancelled");
+
+  // Nothing back yet: the same reading as Betty's panel (runStartup.ts), so
+  // the rail says "Starting…" over a sweeping bar rather than a still 0%.
+  const startedAt = runStartedAt(sessionTasks);
+  const mayBeStarting = isWorking && runProgress === 0 && startedAt != null;
+  const now = useTicker(mayBeStarting);
+  const starting =
+    mayBeStarting && startedAt != null
+      ? startupStage({
+          fraction: runProgress,
+          cloud: sessionTasks.some((task) => isCloudModel(task.model)),
+          startedAt,
+          now,
+        }) !== null
+      : false;
 
   // Starting a new job moves the session boundary, and moving it is what files
   // the finished run under Former Runs. The warning has to say so before it
@@ -181,12 +198,12 @@ export default function Sidebar() {
               {isWorking && (
                 <span className="sidebar-run-pct">
                   {" · "}
-                  {progressPercent(runProgress)}%
+                  {starting ? t("run_start_rail") : `${progressPercent(runProgress)}%`}
                 </span>
               )}
             </span>
           </div>
-          <div className="q-bar sidebar-run-bar">
+          <div className={`q-bar sidebar-run-bar${starting ? " q-bar--starting" : ""}`}>
             <div
               className={`q-fill${isWorking ? " qs-editing" : " qs-done"}`}
               style={{ width: `${Math.round(runProgress * 100)}%` }}

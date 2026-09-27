@@ -5995,6 +5995,49 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Manuskript",
     es: "Manuscrito",
   },
+  // ── A run that has started but produced nothing yet (runStartup.ts) ──
+  run_start_title: {
+    en: "Betty is getting ready",
+    da: "Betty gør sig klar",
+    de: "Betty macht sich bereit",
+    es: "Betty se está preparando",
+  },
+  run_start_cloud: {
+    en: "Starting Betty in the cloud…",
+    da: "Starter Betty i skyen…",
+    de: "Betty wird in der Cloud gestartet…",
+    es: "Iniciando a Betty en la nube…",
+  },
+  run_start_local: {
+    en: "Starting Betty…",
+    da: "Starter Betty…",
+    de: "Betty wird gestartet…",
+    es: "Iniciando a Betty…",
+  },
+  run_start_wake: {
+    en: "Waking the model up — the first request is always the slowest.",
+    da: "Vækker modellen — den første forespørgsel er altid den langsomste.",
+    de: "Das Modell wird geweckt — die erste Anfrage ist immer die langsamste.",
+    es: "Despertando el modelo: la primera petición siempre es la más lenta.",
+  },
+  run_start_warm: {
+    en: "Still warming up. Your chapters are queued, and nothing is lost.",
+    da: "Varmer stadig op. Dine kapitler står i kø, og intet går tabt.",
+    de: "Wärmt sich noch auf. Deine Kapitel stehen in der Warteschlange, nichts geht verloren.",
+    es: "Todavía calentando. Tus capítulos están en cola y no se pierde nada.",
+  },
+  run_start_long: {
+    en: "This start is taking longer than usual, but Betty is still at it.",
+    da: "Opstarten tager længere tid end normalt, men Betty er stadig i gang.",
+    de: "Der Start dauert länger als sonst, aber Betty ist noch dabei.",
+    es: "El arranque está tardando más de lo habitual, pero Betty sigue en ello.",
+  },
+  run_start_rail: {
+    en: "Starting…",
+    da: "Starter…",
+    de: "Startet…",
+    es: "Iniciando…",
+  },
   btn_launching: {
     en: "Launching…",
     da: "Starter…",
