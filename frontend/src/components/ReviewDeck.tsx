@@ -324,7 +324,8 @@ export default function ReviewDeck({
         : null;
     // Three things the line under the buttons can say: Betty would take it
     // (a confident reviewer), she is unsure (the middle of the scale — a 3,
-    // or a 4 the second check doubted), or she would leave it (a reviewer
+    // or, on older results, a 4 the precision pass doubted), or she would
+    // leave it (a reviewer
     // who scored it low, or nothing reviewed it).
     // A finding that proposes nothing. Accept would change the text not at
     // all; dismiss would throw away a real finding.

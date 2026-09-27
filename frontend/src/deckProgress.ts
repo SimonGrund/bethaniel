@@ -34,8 +34,9 @@ import type { Correction } from "./types";
 /**
  * The reviewer's lowest score: not "unsure", but "this is wrong".
  *
- * Its displayed certainty is 10% — or 18% on the few where the second check
- * disagrees with the reviewer, since `certaintyPercent` nudges a doubtful
+ * Its displayed certainty is 10% — or 18% on the few older results where the
+ * precision pass (removed September 2026) disagreed with the reviewer, since
+ * `certaintyPercent` nudges a doubtful
  * reviewer upward. Both are this bucket, which is why the score is the test
  * and the displayed percentage is not.
  */

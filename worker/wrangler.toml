@@ -211,7 +211,15 @@ MIN_CHARGE_EUR_CENTS = "200"
 # pricing the price is flat, so the ceiling comes from the estimate alone —
 # and an estimate that runs low would otherwise strand a paid job
 # mid-manuscript. The global daily ceiling still bounds total exposure.
-TOKEN_BUDGET_HEADROOM = "1.5"
+#
+# 2.5 since 27 September 2026 (was 1.5). App releases before v2.41.0 priced
+# a job at 1.74x fewer tokens than the provider actually billed (the
+# estimator left out a whole reviewing call and under-counted the other —
+# docs/cloud-token-model.md); with 1.5x headroom plus the ledger's 20%
+# overdraft, a large job from one of those apps could run out mid-book.
+# v2.41.0 prices from measurement, but older installs keep quoting until
+# they update, so the headroom covers them.
+TOKEN_BUDGET_HEADROOM = "2.5"
 CREDENTIAL_EXPIRY_DAYS = "7"
 # The Worker's OWN origin — it hosts /v1/success, which is where Stripe sends
 # the buyer and where the bethaniel:// credential handoff happens. Must change

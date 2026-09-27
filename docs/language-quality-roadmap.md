@@ -158,7 +158,7 @@ occurrence is visible in the first ten lines of the engine log.
 at a time by default. Everything below this line that predates it was measured
 with ±20 points of batching noise; see the method note.
 
-**A dictionary is not an opinion.** The precision pass deleted any correction
+**A dictionary is not an opinion.** (Historical: the precision pass was removed entirely in September 2026 — see `cloud-token-model.md`.) The precision pass deleted any correction
 it scored below threshold, including the deterministic layer's. It now
 annotates rather than deletes: nothing is removed, and what it doubts arrives
 flagged. Deletion is the only irreversible act in a pipeline a human reads,

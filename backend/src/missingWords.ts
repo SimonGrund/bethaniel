@@ -12,7 +12,8 @@
 //     catches and cost confusable-word recall 12/15 → 8/15 on stress100: a
 //     small model's attention is zero-sum, and a new directive displaced
 //     "by than", "weather/whether", "it's/its" and "quiet/quite".
-//   - Teaching the reviewer and the precision pass that an insertion can be a
+//   - Teaching the reviewer and the precision pass (a second reviewing call,
+//     since removed) that an insertion can be a
 //     fix. The editor already proposes some; those two passes score them 1-2
 //     ("a valid elliptical construction"). A rule in their prompts rescued one
 //     and leaked into unrelated verdicts — the precision pass started scoring
@@ -144,7 +145,7 @@ NEITHER — neither is grammatical`;
 }
 
 /**
- * The second opinion: one sentence, grammatical or not. Asked only when the
+ * The fallback verdict: one sentence, grammatical or not. Asked only when the
  * A/B comparison did not answer B. On 55 hand-labelled candidates across the
  * five languages, A/B alone kept 20 of 33 real errors; A/B or this kept 25,
  * for two more let through (both in 19th-century prose).

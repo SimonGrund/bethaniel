@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * Is the precision pass worth what it costs?
+ * Was the precision pass worth what it cost?
  *
- * It deletes nothing (PRECISION_PASS_DELETE_THRESHOLD in queue.ts). What it
- * still does, and what this measures against planted ground truth:
+ * Kept as the record of why that pass was REMOVED (27 September 2026) — see
+ * docs/cloud-token-model.md. It reads benchmark results saved while the pass
+ * still ran (they carry precisionConfidence); on results from after its
+ * removal it finds nothing to score. What the pass did, and what this
+ * measured against planted ground truth:
  *
  *   flag     scores 1-2 on a correction the reviewer passed → the card says
  *            "second opinion differed". Worth it if those are mostly wrong.

@@ -124,7 +124,7 @@ ones that exist, and they live here rather than at the provider.
 | `DAILY_TOKEN_CEILING` | 15,000,000 | Worker-wide tokens per UTC day (~EUR 23 upstream). Enforced by the `GlobalMeter` DO. **Fails closed** if unset or unparseable. |
 | `MAX_OUTPUT_TOKENS_PER_REQUEST` | 8,192 | Caps one call's generation however large a `max_tokens` it asks for. |
 | `MAX_QUOTE_TOKENS` | 8,000,000 | Upper bound on an unauthenticated `/v1/quote`. Clamped at runtime to `min(MAX_QUOTE_TOKENS, DAILY_TOKEN_CEILING)` so we can never sell a job the ceiling would refuse. |
-| `TOKEN_BUDGET_HEADROOM` | 1.5 | Multiplier on the estimate when minting a credential's ledger budget. The estimator is a heuristic; a job that runs 20% over its quote must still finish, or the user has paid for a truncated edit. Raising it loosens the per-user cap; lowering it risks a job dying mid-manuscript. |
+| `TOKEN_BUDGET_HEADROOM` | 1.5 (code fallback); `wrangler.toml` sets 2.5 | Multiplier on the estimate when minting a credential's ledger budget. The estimator is a heuristic; a job that runs 20% over its quote must still finish, or the user has paid for a truncated edit. Raising it loosens the per-user cap; lowering it risks a job dying mid-manuscript. |
 | `PROVIDER_REASONING_EFFORT` | `none` | See below. |
 
 `CredentialLedger` caps what one *paying user* can spend; `GlobalMeter` caps

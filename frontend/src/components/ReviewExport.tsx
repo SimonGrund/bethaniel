@@ -325,8 +325,9 @@ export function extractSentenceContext(
   return { before, after };
 }
 
-/** One badge for the verdict on a correction: the reviewer's score and the
- *  second check's score folded into a single certainty, with both scores and
+/** One badge for the verdict on a correction: the reviewer's score (and, on
+ *  results saved before the precision pass was removed in September 2026,
+ *  that pass's score) folded into a single certainty, with the scores and
  *  the reviewer's reasoning on hover. Two badges used to carry this — a
  *  "4/5" and, sometimes, a "second opinion differed (3/5)" beside it — and
  *  the author had to do the arithmetic. The kinds that mean nobody scored
@@ -1307,7 +1308,8 @@ function QualityScoreRing({ score, t }: { score: number; t: (key: string) => str
  * low is counted rather than asserted as a must-fix: deterministic checkers
  * (spell-check especially) produce enough false positives that listing every
  * one as a "publication blocker" would bury the real ones. One a reviewer
- * never scored, or that only the precision pass doubted, is listed — those
+ * never scored, or (on older results) that only the precision pass doubted,
+ * is listed — those
  * measure as reliable as unflagged work, and demoting them was losing real
  * blockers. Genuinely subjective suggestions are simply counted.
  */

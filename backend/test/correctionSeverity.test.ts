@@ -254,7 +254,9 @@ test("inside speech nothing is a blocker but a doubled word", () => {
   assert.equal(classifyPublicationBlocking(dbl, "proofread", { text }), true);
 });
 
-test("a spell hit the second check scored down is not a blocker; one it backed is", () => {
+// The precision pass was removed in September 2026. Results saved before
+// then still carry its score, and they must keep reading the same way.
+test("on older results, a spell hit the precision pass scored down is not a blocker; one it backed is", () => {
   const doubted: Correction = { original: "stablehands", corrected: "stagehands", reason: "spell-check", confidence: 5, precisionConfidence: 1 };
   assert.equal(classifyPublicationBlocking(doubted, "proofread"), false);
   const backed: Correction = { original: "Bootsteps", corrected: "Footsteps", reason: "spell-check", confidence: 5, precisionConfidence: 5 };
@@ -297,12 +299,13 @@ test("a model correction the scores do not back is not a blocker, however mechan
 // ── Certainty ──
 //
 // Measured against planted ground truth (scripts/bench-verdicts.ts): the
-// reviewer's score is the signal, the second check nudges it, and a
-// reviewer's 5 against a second check's 1 is right about as often as two 5s.
+// reviewer's score is the signal. On results saved before the precision
+// pass was removed, its score nudges it, and a reviewer's 5 against a
+// precision score of 1 is right about as often as two 5s.
 // The old product displayed 20 for that case. Pinned so it cannot return.
 import { certainty } from "../src/correctionSeverity.ts";
 
-test("certainty follows the reviewer; a low second check shaves, never halves", () => {
+test("certainty follows the reviewer; on older results a low precision score shaves, never halves", () => {
   const at = (confidence: number, precisionConfidence?: number) =>
     certainty({ original: "a", corrected: "b", confidence, precisionConfidence });
   assert.equal(at(5, 5), 82);
@@ -316,7 +319,8 @@ test("certainty follows the reviewer; a low second check shaves, never halves", 
 });
 
 // A confusable pattern is a deterministic checker, not a model's opinion, so
-// the precision pass must not delete its findings. The guard already covers
+// no model pass may delete its findings (the precision pass, removed in
+// September 2026, was the one that tried). The guard already covers
 // spell-check, dialect, grammar and retext; deleting deterministic findings
 // on a model's say-so cost German misspelling recall 68% -> 30%.
 

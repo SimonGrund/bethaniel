@@ -190,7 +190,7 @@ test("a book with more than 25 is reported once, as a damaged import", () => {
 
 // ── In the copy edit ──
 
-test("the copy edit's correction counts as deterministic, so the second check cannot delete it", () => {
+test("the copy edit's correction counts as deterministic", () => {
   const [c] = getPunctuationPairCorrections("She left., and the door closed.");
   assert.equal(isDeterministicCorrection(c), true);
   // The scan's finding is what blocks publication; the correction beside it

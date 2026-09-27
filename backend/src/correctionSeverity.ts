@@ -51,10 +51,10 @@ export function isDeterministicCorrection(c: Correction): boolean {
     reason === "spell-check" ||
     // A downgraded spell correction (spellcheck.ts tags an unrecognised
     // word whose suggestion it will not vouch for) is still the dictionary
-    // talking, not a model. Leaving it out here handed it straight back to
-    // the precision pass to delete — the very thing this guard exists to
-    // stop. The tag records lower confidence in the FIX, not doubt about
-    // who produced it.
+    // talking, not a model. Leaving it out here once handed it straight back
+    // to the precision pass (removed September 2026) to delete — the very
+    // thing this guard existed to stop. The tag records lower confidence in
+    // the FIX, not doubt about who produced it.
     reason === "spell-check-uncommon" ||
     // A word no dictionary knows, reported with no replacement. Still the
     // dictionary talking, and the author must see it.
@@ -203,8 +203,9 @@ function editDistance(x: string, y: string): number {
 }
 
 /** How sure Betty is, 0–100 — the same figure the review screen shows.
- *  A table fitted to measured hit rates by reviewer score, nudged by the
- *  second check; see certaintyPercent in frontend/src/types.ts for the
+ *  A table fitted to measured hit rates by reviewer score; on results saved
+ *  before the precision pass was removed (September 2026) its score nudges
+ *  the figure. See certaintyPercent in frontend/src/types.ts for the
  *  measurement and keep the two identical. */
 /** Certainty at or above which a reviewer-backed model correction blocks. */
 export const BLOCKING_CERTAINTY = 70;
@@ -215,8 +216,10 @@ export function certainty(c: Correction): number | null {
   const base = byReviewer[Math.max(1, Math.min(5, Math.round(c.confidence)))] ?? 58;
   const second = c.precisionConfidence;
   if (second == null) return base;
-  // A low second check shaves a little off a confident reviewer; a high one
-  // adds a little to a doubtful one (27% → 38% measured). Neither flips it.
+  // Only results saved before the precision pass was removed carry a second
+  // score. There, a low one shaves a little off a confident reviewer and a
+  // high one adds a little to a doubtful one (27% → 38% measured). Neither
+  // flips it.
   if (second <= 2) return Math.round(base * 0.95);
   if (second >= 4 && c.confidence <= 2) return base + 8;
   return base;
@@ -265,8 +268,9 @@ function isMechanicalEdit(del: string[], ins: string[]): boolean {
  *
  * Deterministic non-word hits (the dictionary, LanguageTool's spell rule)
  * block unless they touch the manuscript's own vocabulary, only re-space,
- * re-hyphenate, re-accent or re-case a word, sit inside speech, or were
- * scored down by the second check. Doubled words and double spaces always
+ * re-hyphenate, re-accent or re-case a word, sit inside speech, or — on
+ * results saved before the precision pass was removed — were scored down by
+ * it. Doubled words and double spaces always
  * block. LanguageTool's grammar, agreement and confused-word hits block when
  * the fix is a mechanical one; its other categories — style, collocations,
  * redundancy, casing — are suggestions, never blockers.
@@ -288,7 +292,8 @@ export function classifyPublicationBlocking(
   // case, a typo of a name, and stays a blocker.)
   const touchesTerm = !!terms && del.some((w) => terms.has(w));
   const speech = inDialogue(ctx.text, c.original);
-  // The second check, where it ran, saying the fix is wrong.
+  // The precision pass saying the fix is wrong. Only results saved before
+  // the pass was removed (September 2026) carry its score; new ones never do.
   const secondCheckDoubts = c.precisionConfidence != null && c.precisionConfidence < 3;
   const apostropheOnly =
     del.length === 1 && ins.length === 1 && del[0].replace(/'/g, "") === ins[0].replace(/'/g, "");
@@ -328,8 +333,9 @@ export function classifyPublicationBlocking(
 
   // A model's claim gates publication only once a reviewer has backed it:
   // unscored, it is a suggestion like any other. The bar is a reviewer's 4
-  // on the measured scale (70), which a 5 the second check doubted (78)
-  // still clears — that bucket is right as often as two 5s.
+  // on the measured scale (70), which a 5 the precision pass doubted (78,
+  // older results only) still clears — that bucket was right as often as
+  // two 5s.
   const sure = certainty(c);
   if (sure === null || sure < BLOCKING_CERTAINTY) return false;
   if (speech) return false;

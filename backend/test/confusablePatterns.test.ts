@@ -48,7 +48,7 @@ test("an absent language is treated as English", () => {
   assert.equal(findConfusablePatterns("He read the letter form the king.").length, 1);
 });
 
-test("every correction carries a reason the precision pass recognises", () => {
+test("every correction carries a reason that marks it as a rule finding", () => {
   const cs = findConfusablePatterns("He could of told me sooner.", "en");
   assert.equal(cs.length, 1);
   assert.ok(cs[0].reason?.startsWith("confusable:"));

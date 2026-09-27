@@ -55,8 +55,9 @@ test("a correction no reviewer scored is offered", () => {
 
 test("the held-back bucket is the one that displays as 10%", () => {
   // Why the SCORE is the test and the displayed percentage is not: the same
-  // bucket shows 18% on the few where the second check disagrees with the
-  // reviewer, and both are a reviewer's "this is wrong".
+  // bucket shows 18% on the few older results where the precision pass
+  // (since removed) disagreed with the reviewer, and both are a reviewer's
+  // "this is wrong".
   assert.equal(certaintyPercent({ confidence: REVIEWER_REJECTED_SCORE }), 10);
   assert.equal(
     certaintyPercent({ confidence: REVIEWER_REJECTED_SCORE, precisionConfidence: 5 }),

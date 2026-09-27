@@ -20,7 +20,8 @@
  *
  *   shown      a correction the author is actually shown. Betty holds back
  *              one the reviewer scored 1 (displayed as 10%, or 18% when the
- *              second check disagrees): it is right about 6% of the time.
+ *              removed precision pass disagreed, on older results): it is
+ *              right about 6% of the time.
  *              See frontend/src/deckProgress.ts. Everything below counts
  *              shown corrections only.
  *   surfaced   a shown correction landed on the planted error's span, right

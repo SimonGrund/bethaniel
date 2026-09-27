@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * (The precision pass was removed in September 2026; on results saved after
+ * that, only the reviewer's score is present and the precision columns are
+ * empty.)
+ *
  * Are the reviewer and the precision pass worth listening to when they
  * disagree?
  *

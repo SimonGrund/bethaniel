@@ -331,7 +331,9 @@ export const REVIEWER_FLAG_THRESHOLD = 3;
  *
  *   doubted         a reviewer scored the fix 1-2   — right ~15-22% of the time
  *   unchecked       no reviewer returned a score    — right ~81%
- *   second_opinion  reviewer fine, precision pass not — right ~80%
+ *   second_opinion  reviewer fine, precision pass not — right ~80%. Only
+ *                   on results saved before that pass was removed
+ *                   (September 2026); new results never produce it.
  *   unreviewed      the run had review turned off   — nothing vetted it
  *
  * The middle two are indistinguishable from unflagged work (~89%), so warning
@@ -370,15 +372,16 @@ export function flagKindOf(c: Flaggable): FlagKind | null {
 /**
  * How sure Betty is, as one number on a 0–100 scale.
  *
- * It used to be the reviewer's score and the second check's multiplied, on
+ * It used to be the reviewer's score and the precision pass's multiplied, on
  * the reasoning that each is a judgement that this is an error AND the fix
  * is right. Measured against planted ground truth (scripts/bench-verdicts.ts,
  * Local Betty, English, 266 corrections) that product was wrong in the one
- * place it mattered: a reviewer's 5 against a second check's 1 displayed 20
+ * place it mattered: a reviewer's 5 against a precision score of 1 displayed 20
  * for a bucket that is right 72% of the time — as often as two 5s (73%).
- * The reviewer's score is the signal (5 → 82% right, 2 → 49%, 1 → 6%); the
- * second check moves it by a few points at most. So this is a table fitted
- * to what was measured, nudged by the second check, and is the SAME table as
+ * The reviewer's score is the signal (5 → 82% right, 2 → 49%, 1 → 6%). The
+ * precision pass was removed in September 2026; on results saved before
+ * that, its score moves the figure by a few points at most. So this is a
+ * table fitted to what was measured, and is the SAME table as
  * `certainty` in backend/src/correctionSeverity.ts, which gates what blocks
  * publication. Change them together.
  */
@@ -391,8 +394,10 @@ export function certaintyPercent(c: {
   const base = byReviewer[Math.max(1, Math.min(5, Math.round(c.confidence)))] ?? 58;
   const second = c.precisionConfidence;
   if (second == null) return base;
-  // A low second check shaves a little off a confident reviewer; a high one
-  // adds a little to a doubtful one (27% → 38% measured). Neither flips it.
+  // Only results saved before the precision pass was removed carry a second
+  // score. There, a low one shaves a little off a confident reviewer and a
+  // high one adds a little to a doubtful one (27% → 38% measured). Neither
+  // flips it.
   if (second <= 2) return Math.round(base * 0.95);
   if (second >= 4 && c.confidence <= 2) return base + 8;
   return base;

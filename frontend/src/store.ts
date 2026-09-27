@@ -993,7 +993,8 @@ export const useStore = create<AppState>()(
           if (!task?.result) return state;
           // Skips only the doubted bucket — the corrections a reviewer
           // actually scored low. The other two flagged kinds (never scored,
-          // and doubted by the precision pass alone) measure as reliable as
+          // and, on results saved before that pass was removed, doubted by
+          // the precision pass alone) measure as reliable as
           // unflagged work, so excluding them made "accept all" quietly drop
           // most of what Betty got right.
           const ids = new Set(

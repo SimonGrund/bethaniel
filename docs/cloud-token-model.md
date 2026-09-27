@@ -7,8 +7,9 @@ deepseek-v4-flash (Scaleway), Speed preset, 2,500-word chunks.
 
 ## Why
 
-The estimator sizes each paid credential's spending ceiling (estimate x 1.5,
-plus a 20% overdraft in the ledger). Built from the prompts and a few guesses,
+The estimator sizes each paid credential's spending ceiling (estimate x 2.5,
+`TOKEN_BUDGET_HEADROOM` in `worker/wrangler.toml`, plus a 20% overdraft in
+the ledger). Built from the prompts and a few guesses,
 it was **1.74x short** of what a full benchmark run was billed — so a large
 paid job could have exhausted its credential mid-run.
 
@@ -80,7 +81,7 @@ priced as a second copy edit beside the readthrough).
 **Fit.** Across the 28 jobs (precision tokens excluded), billed ÷ estimate
 ranges 0.62-1.26: it over-estimates ordinary prose by up to 1.6x and
 under-estimates the densest fixtures by at most 26%, inside the credential's
-~1.8x headroom. The earlier, independent benchmark run billed 1.81M tokens
+headroom (2.5x plus the 20% overdraft, so 3x before a job is refused). The earlier, independent benchmark run billed 1.81M tokens
 with the precision pass; without its 30% share that is about 1.26M against an
 estimate of 1.51M (0.83). The old estimator was 1.74x short of the same run.
 
