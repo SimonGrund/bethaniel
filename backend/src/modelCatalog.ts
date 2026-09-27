@@ -7,7 +7,7 @@ import type { ModelSettings } from "./modelConfig.js";
 
 export interface ModelCatalogEntry {
   id: string;
-  tier: "small" | "normal" | "big" | "custom";
+  tier: "small" | "big" | "custom";
   name: string;
   description: string;
   fileName: string;
@@ -75,28 +75,6 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 2_830_000_000,
     minRamGb: 8,
     minRamAppleSiliconGb: 8,
-    defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
-  },
-  // Deprecated September 2026. On the four-language benchmark the 9B tied the
-  // 4B on copy edit (60% each) and was WORSE on line edit (49% against 52%);
-  // the one place it earned its extra 3 GB and 8 GB of RAM was translation,
-  // and translation no longer runs on any local model (LOCAL_BLOCKED_MODES in
-  // cloudEstimate.ts). With that gone there is nothing left to recommend it
-  // for. Kept resolvable for the installs that already have the file.
-  {
-    id: "qwen3.5-9b",
-    tier: "normal",
-    name: "Big Bad Betty",
-    deprecated: true,
-    description:
-      "No longer offered — the smaller model scores the same on editing and translation has moved to the cloud.",
-    fileName: "Qwen3.5-9B-Q4_K_M.gguf",
-    source: "gguf",
-    url: "https://huggingface.co/unsloth/Qwen3.5-9B-MTP-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
-    sha256: "",
-    sizeBytes: 5_870_000_000,
-    minRamGb: 16,
-    minRamAppleSiliconGb: 12,
     defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
   },
   {
@@ -267,8 +245,8 @@ export function isOllamaModel(entry: ModelCatalogEntry): boolean {
  * The quality figure was measured with grammar and punctuation checks
  * switched off — a setting inherited from one command line and recorded
  * nowhere, worth 8-20 points of recall. Measured properly, all three engines
- * land within 1.6 points of each other on a +/-4 measurement: Baby Betty
- * 69.0%, Big Bad Betty 67.4%, cloud 68.9%. The cloud also flags LESS on clean
+ * land within 1.6 points of each other on a +/-4 measurement: Local Betty
+ * 69.0%, cloud 68.9%. The cloud also flags LESS on clean
  * text (45 against 61) and asserted none of those flags with confidence.
  *
  * Set BETHANIEL_CLOUD_OFFER=off to withdraw it again — which hides the SALE,

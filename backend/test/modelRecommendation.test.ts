@@ -1,7 +1,7 @@
 // Tests for the "is this machine worth running Betty on?" table.
 //
-// There is one local model now — the 9B is deprecated — so the decision this
-// module used to make (which tier) has collapsed into a speed expectation:
+// There is one local model, so the decision this module used to make (which
+// tier) has collapsed into a speed expectation:
 // how many manuscript words a second this hardware should manage, and whether
 // that is slow enough to say so. The bug the original table replaced still
 // matters as an assertion: a 32 GB CPU-only laptop must not be promised a
@@ -85,14 +85,12 @@ test("appleChipVariant rejects non-Apple and missing names", () => {
 
 // ── The catalog the table is built on ────────────────────────────────────
 
-test("exactly one bundled model is offered, and the 9B is not it", () => {
+test("exactly one bundled model is offered", () => {
   const offered = MODEL_CATALOG.filter((e) => e.source === "gguf" && !e.deprecated);
   assert.equal(offered.length, 1);
   assert.equal(offered[0].tier, "small");
   assert.equal(offered[0].name, "Local Betty");
-  const nineB = MODEL_CATALOG.find((e) => e.id === "qwen3.5-9b");
-  assert.ok(nineB, "the 9B stays resolvable for installs that have the file");
-  assert.equal(nineB.deprecated, true);
+  assert.equal(MODEL_CATALOG.filter((e) => e.source === "gguf").length, 1);
   assert.equal(getLocalEntry().id, offered[0].id);
 });
 
@@ -143,11 +141,10 @@ test("a CPU-only machine is slow however much RAM it has", () => {
 
 // ── RAM gate ─────────────────────────────────────────────────────────────
 
-test("getAllowedTiers deduplicates the shared custom tier and skips deprecated entries", () => {
+test("getAllowedTiers deduplicates the shared custom tier", () => {
   const tiers = getAllowedTiers(hw({ totalRamGb: 64 }));
   assert.deepEqual([...tiers].sort(), ["custom", "small"]);
   assert.equal(new Set(tiers).size, tiers.length);
-  assert.ok(!tiers.includes("normal"), "the deprecated 9B is never allowed");
 });
 
 // ── Layer 2: measured throughput ─────────────────────────────────────────
@@ -205,15 +202,6 @@ test("a healthy local model produces no advice at all", () => {
   });
   assert.equal(rec.advice, null);
   assert.equal(rec.basis, "measured");
-});
-
-test("a stale profile for the deprecated 9B does not disturb the answer", () => {
-  const rec = recommendModel(nvidia(32), {
-    normal: { medianTps: 2, samples: MIN_SAMPLES, wordsPerSec: 0.2 },
-  });
-  assert.equal(rec.tier, "small");
-  assert.equal(rec.basis, "estimated");
-  assert.equal(rec.advice, null);
 });
 
 test("the recommendation carries the catalog entry the UI needs", () => {

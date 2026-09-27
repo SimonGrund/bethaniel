@@ -27,11 +27,11 @@ test("the r1 test is a whole word, not a substring", () => {
 });
 
 test("an unremarkable name gets no headroom until it is observed", () => {
-  assert.equal(apiMaxTokens(1000, "Qwen3.5-9B-unseen"), 1000);
+  assert.equal(apiMaxTokens(1000, "plain-model-unseen"), 1000);
 });
 
 test("a model observed emitting chain-of-thought gets headroom by name", () => {
-  const name = "Qwen3.5-9B-observed";
+  const name = "plain-model-observed";
   assert.equal(apiMaxTokens(1000, name), 1000);
   noteReasoningModel(name);
   assert.ok(isKnownReasoningModel(name));
@@ -45,7 +45,7 @@ test("observation is also matched on the catalog key the pipeline calls it by", 
   const key = "custom:bethaniel-cloud";
   noteReasoningModel(key);
   assert.ok(
-    apiMaxTokens(1000, "Qwen3.5-9B", key) > 1000,
+    apiMaxTokens(1000, "provider-model-name", key) > 1000,
     "the entry id must count as observation too",
   );
 });

@@ -189,25 +189,22 @@ for the same thing) with an explicit "not currently supported", so
   (and only ever opt-in) set aside. Re-confirm those terms in the contract
   before launch, and check the region the Base API tier actually serves from:
   the product page notes worldwide (non-EU) availability for that tier.
-- **`BASE_COST_EUR_PER_TOKEN` no longer sets any price**, and is knowingly the
-  wrong model's rate. Pricing moved to flat word bands (see below), so this
-  figure now only feeds globalMeter.ts's reading of the daily ceiling in money.
-  It is Llama-3.3-70B's flat EUR 0.67/Mtok, while the editing model is
-  Qwen3.5-9B, which OVHcloud prices lower and SPLIT (input and output at
-  different rates). Kept high deliberately: over-estimating the cost makes the
-  ceiling bite EARLIER than real spend warrants, which is the safe direction
-  for a bound whose job is to stop runaway spending. Replace it with the
-  blended Qwen rate when the real numbers are to hand, and the ceiling becomes
-  accurate rather than merely safe.
+- **`BASE_COST_EUR_PER_TOKEN` no longer sets any price.** Pricing moved to
+  flat word bands (see below), so this figure only feeds globalMeter.ts's
+  reading of the daily ceiling in money. It is deepseek-v4-flash's measured
+  blended rate on Scaleway (EUR 0.509/Mtok at a 73% input mix), with no cache
+  discount assumed, so the ceiling bites early rather than late.
 - **Two models, chosen per pass by benchmark.** `PROVIDER_MODEL` is
-  Qwen3.5-9B for copy and line edit; `PROVIDER_MODEL_TRANSLATE` is GLM-5.2
+  deepseek-v4-flash for copy and line edit (it replaced Qwen3.5-9B, and
+  scored 61.7% against qwen3.6-35b-a3b's 58.9% on the common fixtures); `PROVIDER_MODEL_TRANSLATE` is GLM-5.2
   for translation alone (since September 2026 — it replaced Llama-3.3-70B on
   a measured EN→DA comparison; the reasoning is in `wrangler.toml` next to the
   variable, and `PROVIDER_REASONING_EFFORT_TRANSLATE = "none"` must ship with
   it). Translation is also the one pass the app refuses on the bundled local
   models — see `LOCAL_BLOCKED_MODES` in `backend/src/cloudEstimate.ts` — so
   the cloud (or a user's own External Betty key) is the only place it runs.
-  The split itself was measured 8 September 2026, all four models on one
+  The split itself was first measured 8 September 2026 — before flash — all
+  four models on one
   harness at identical settings (one editor, one reviewer, one request at a
   time), four languages of ~100 planted errors each:
 

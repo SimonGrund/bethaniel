@@ -4,8 +4,7 @@
  *
  * Answers: does Max mode (3 editors + 2 reviewers + thorough 2nd pass) buy
  * meaningfully better copy-edit/line-edit quality than Speed (1 editor + style
- * agent + 1 reviewer) on Baby Betty (4B) and Big Bad Betty (9B) — the two
- * local models Bethaniel ships? `docs/run-modes.md` already argues Speed wins
+ * agent + 1 reviewer) on Local Betty (4B)? `docs/run-modes.md` already argues Speed wins
  * on weak/local models using an applied-corrections diff; this script instead
  * scores against real ground truth (buildGroundTruth/scoreCorrections, same
  * machinery as scripts/test-models.ts) for a recall/precision read, plus a
@@ -24,11 +23,11 @@
  *
  * Prerequisites:
  *   - Backend server running on http://127.0.0.1:4000
- *   - Both Qwen3.5-4B-Q4_K_M.gguf and Qwen3.5-9B-Q4_K_M.gguf installed
+ *   - Qwen3.5-4B-Q4_K_M.gguf installed
  *
  * Usage:
- *   npx tsx scripts/bench-run-modes.ts                 # full grid (2 models × 2 task modes × speed/max)
- *   npx tsx scripts/bench-run-modes.ts --model 4b       # Baby Betty only
+ *   npx tsx scripts/bench-run-modes.ts                 # full grid (2 task modes × speed/max)
+ *   npx tsx scripts/bench-run-modes.ts --model 4b       # Local Betty only
  *   npx tsx scripts/bench-run-modes.ts --model cloud --run-mode speed
  *   npx tsx scripts/bench-run-modes.ts --task line_edit # line_edit only
  *   npx tsx scripts/bench-run-modes.ts --skip-clean     # skip the clean-text FP runs (half the calls)
@@ -86,7 +85,7 @@ const WORD_CHECKS: WordChecks | null = ownDict
   : null;
 
 const POLL_INTERVAL = 3000;
-const TASK_TIMEOUT = 3_600_000; // 1 hour — Max on the 9B can be slow
+const TASK_TIMEOUT = 3_600_000; // 1 hour — Max could be slow
 
 const CLEAN_RUN = process.argv.includes("--clean");
 const REPORT_ONLY = process.argv.includes("--report-only");
@@ -108,8 +107,7 @@ interface ModelSpec {
   optIn?: boolean;
 }
 const ALL_MODELS: ModelSpec[] = [
-  { fileName: "Qwen3.5-4B-Q4_K_M.gguf", label: "Baby Betty" },
-  { fileName: "Qwen3.5-9B-Q4_K_M.gguf", label: "Big Bad Betty" },
+  { fileName: "Qwen3.5-4B-Q4_K_M.gguf", label: "Local Betty" },
   {
     // The catalog fileName for the "bethaniel-cloud" entry — an `source:"api"`
     // pseudo-model, so nothing needs to be installed locally. What it actually

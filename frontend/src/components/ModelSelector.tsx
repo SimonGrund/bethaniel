@@ -36,8 +36,6 @@ function modelIcon(fileName: string, tier: string): string {
   switch (tier) {
     case "small":
       return "🐣";
-    case "normal":
-      return "🐦";
     default:
       return "✒️";
   }
@@ -346,7 +344,7 @@ export default function ModelSelector() {
   // Nothing at all fits in RAM: the recommendation is still shown, but framed
   // as "best available here" alongside the under-spec warning.
   const anyAllowed = (hardware?.allowedTiers ?? []).some((tier) =>
-    ["small", "normal"].includes(tier),
+    tier === "small",
   );
 
   return (

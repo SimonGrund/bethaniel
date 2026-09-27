@@ -1012,7 +1012,7 @@ async function claimCloudCredential(url: string): Promise<void> {
   // fires if that is missing. It must therefore name a model the Worker can
   // actually serve — a stale default here silently configures a paid
   // credential to request something the proxy will reject.
-  const model = parsed.searchParams.get("model") || "Qwen3.5-9B";
+  const model = parsed.searchParams.get("model") || "deepseek-v4-flash";
 
   try {
     await fetch(`http://127.0.0.1:${backendPort}/api/models/custom/config`, {

@@ -266,7 +266,8 @@ function freePort(port: number): void {
         if (!holderIsOurEngine(pid)) continue;
         reclaiming = true;
         // Say what is being reclaimed and from whom. An orphaned engine holds
-        // the whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
+        // the whole model resident — 3 GB for Local Betty, 14 GB for a custom
+        // 24B — so
         // this is often the real answer to "where did my memory go".
         reportReclaim(pid, port);
         try {
@@ -1013,8 +1014,8 @@ async function doLoad(
   const preferred = enginePortSettled ? activeLlamaPort : LLAMA_PORT;
   // Reclaim the port from an orphaned engine of our own (left by a backend
   // crash or hard-kill). We could simply launch elsewhere now, but an orphan
-  // holds its whole model resident — 6 GB for the 9B, 14 GB for the 24B — so
-  // it is worth collecting.
+  // holds its whole model resident — 3 GB for Local Betty, 14 GB for a
+  // custom 24B — so it is worth collecting.
   freePort(preferred);
   const choice = await resolveEnginePort({
     host: LLAMA_HOST,

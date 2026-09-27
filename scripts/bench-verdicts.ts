@@ -18,7 +18,7 @@
  *
  * Usage:
  *   npx tsx scripts/bench-verdicts.ts                 # Local Betty, all English fixtures
- *   npx tsx scripts/bench-verdicts.ts --model 9b       # a model whose file name contains "9b"
+ *   npx tsx scripts/bench-verdicts.ts --model 4b       # a model whose file name contains "4b"
  *   npx tsx scripts/bench-verdicts.ts --file stress100 # one fixture
  *   npx tsx scripts/bench-verdicts.ts --grammar-off    # do not require LanguageTool
  *

@@ -1,10 +1,7 @@
 // ── Is this machine worth running Betty on? ──
 //
-// There used to be two local models and this module chose between them from
-// GPU class. There is one now: the 9B tied the 4B on copy edit, lost to it on
-// line edit, and the one pass it was better at — translation — no longer runs
-// locally at all. So the question is no longer "which Betty" but "how long
-// will Local Betty take here, and is that a wait worth having".
+// There is one local model, so the question is not "which Betty" but "how
+// long will Local Betty take here, and is that a wait worth having".
 //
 // The answer has two layers:
 //
@@ -26,12 +23,8 @@ import {
   type ModelCatalogEntry,
 } from "./modelCatalog.js";
 
-/**
- * The bundled local tier. "normal" (the 9B) is deprecated and no longer
- * recommended, but a throughput profile measured for it before that still
- * parses, so the type keeps both.
- */
-export const LOCAL_TIERS = ["small", "normal"] as const;
+/** The bundled local tier. */
+export const LOCAL_TIERS = ["small"] as const;
 export type LocalTier = (typeof LOCAL_TIERS)[number];
 
 export interface HardwareInfo {

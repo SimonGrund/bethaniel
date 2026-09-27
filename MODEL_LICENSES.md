@@ -2,7 +2,7 @@
 
 Bethaniel uses open-weight AI models for local inference. This document records
 the provenance and licensing terms for each model that Bethaniel can download and
-run. Both models are distributed under the **Apache License 2.0**.
+run. It is distributed under the **Apache License 2.0**.
 
 > **Note on GGUF quantization.** The `.gguf` files Bethaniel downloads are
 > quantized (compressed) versions of the original model weights. Quantization is
@@ -44,25 +44,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
-
----
-
-## 2. Big Bad Betty — Qwen3.5 9B (Q4_K_M) — deprecated, no longer offered for download
-
-| Field             | Value                                                                             |
-| ----------------- | --------------------------------------------------------------------------------- |
-| In-app name       | Big Bad Betty                                                                     |
-| Model family      | Qwen3.5                                                                           |
-| Parameter count   | 9 B                                                                               |
-| Quantization      | Q4_K_M GGUF                                                                       |
-| Original model    | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)                         |
-| Original authors  | Alibaba Cloud — Qwen Team                                                         |
-| GGUF source       | [unsloth/Qwen3.5-9B-MTP-GGUF](https://huggingface.co/unsloth/Qwen3.5-9B-MTP-GGUF) |
-| GGUF quantized by | Unsloth AI                                                                        |
-| License           | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)                 |
-
-The copyright notice is identical to Qwen3.5 4B above; both models belong to
-the same Qwen3.5 release by the Qwen Team.
 
 ---
 

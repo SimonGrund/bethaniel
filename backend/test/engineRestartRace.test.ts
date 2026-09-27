@@ -92,7 +92,7 @@ test("a request needing more slots than are loaded does not satisfy", () => {
 test("a different model never satisfies, however roomy the running one", () => {
   assert.equal(
     engineSatisfies(READY, {
-      model: "Qwen3.5-9B-Q4_K_M.gguf",
+      model: "Another-Model-Q4_K_M.gguf",
       ctx: 1024,
       slots: 1,
     }),

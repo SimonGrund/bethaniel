@@ -24,7 +24,7 @@
  *
  * Usage:
  *   npx tsx scripts/test-translation.ts
- *   npx tsx scripts/test-translation.ts --judge 9b        # override judge model (default: largest installed)
+ *   npx tsx scripts/test-translation.ts --judge 4b        # override judge model (default: largest installed)
  *   npx tsx scripts/test-translation.ts --source path.md  # override source text (default: sample_texts/english_correct.md)
  *   npx tsx scripts/test-translation.ts --model qwen      # only benchmark models whose filename contains "qwen"
  *   npx tsx scripts/test-translation.ts --api             # ALSO benchmark API models that have a
