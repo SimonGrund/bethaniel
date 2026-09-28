@@ -37,7 +37,12 @@
  *              comma false alarm, a word inserted a missing-word one).
  *   commas     scored as reconstructing the text the fixture was planted
  *              from — one right answer per comma — which understates a
- *              pass that places commas differently but defensibly.
+ *              pass that places commas differently but defensibly. So the
+ *              comma row is also split by classifyComma (benchScoring.ts)
+ *              into rule-governed (a reference grammar settles it),
+ *              contested (Danish, where two sanctioned systems disagree) and
+ *              discretionary (style guides disagree with each other). Those
+ *              rows add up to the comma row. See docs/comma-scoring.md.
  *
  * The dropped-word fixtures (missing*) supply the "missing word" row only; the
  * other rows come from every other copy-edit fixture.
@@ -48,8 +53,10 @@ import { fileURLToPath } from "url";
 import {
   buildGroundTruth,
   classifyPlantedError,
+  commaRecallByKind,
   recallByCategory,
   scoreCorrections,
+  type CommaBucket,
   type WordChecks,
 } from "../backend/src/benchScoring.js";
 import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
@@ -115,6 +122,8 @@ const view = (t: Tally) => ({
 
 function summarise(rows: Row[]) {
   const table = new Map<RowName, Tally>(ROWS.map((r) => [r, empty()]));
+  const commaBuckets = new Map<CommaBucket, Tally>();
+  const commaKinds = new Map<string, Tally>();
   const byLanguage = new Map<string, Tally>();
   const missingByLanguage = new Map<string, Tally>();
   let wrongFix = 0, damaging = 0, heldBack = 0, shownTotal = 0;
@@ -145,7 +154,8 @@ function summarise(rows: Row[]) {
     copyWords += words(text);
     copyMs += r.runtimeMs;
 
-    const gt = buildGroundTruth(text, readFileSync(join(SAMPLE_DIR, `${fixture}_correct.md`), "utf-8"));
+    const correctText = readFileSync(join(SAMPLE_DIR, `${fixture}_correct.md`), "utf-8");
+    const gt = buildGroundTruth(text, correctText);
     const checks = checksFor(lang) ?? undefined;
     const sc = scoreCorrections(visible, gt, checks);
     wrongFix += sc.falsePositiveBreakdown.wrongFix.length;
@@ -164,6 +174,18 @@ function summarise(rows: Row[]) {
       l.planted += c.planted; l.surfaced += c.surfaced; l.correctFix += c.caught;
       byLang.set(lang, l);
     }
+
+    // The comma row, split by what settles each comma. Same fixtures as the
+    // comma row (the dropped-word ones feed only their own row).
+    if (!isMissing) {
+      for (const k of commaRecallByKind(gt, sc.missedErrors, lang, correctText, visible)) {
+        for (const [map, key] of [[commaBuckets, k.bucket], [commaKinds, k.kind]] as const) {
+          const t = (map as Map<string, Tally>).get(key) ?? empty();
+          t.planted += k.planted; t.surfaced += k.surfaced; t.correctFix += k.caught;
+          (map as Map<string, Tally>).set(key, t);
+        }
+      }
+    }
   }
 
   const all = [...table.values()].reduce((a, t) => {
@@ -181,6 +203,8 @@ function summarise(rows: Row[]) {
     table: Object.fromEntries([...table].map(([k, t]) => [k, view(t)])),
     all: view(all),
     allExceptCommas: view(noCommas),
+    commasByBucket: Object.fromEntries([...commaBuckets].map(([k, t]) => [k, view(t)])),
+    commasByKind: Object.fromEntries([...commaKinds].map(([k, t]) => [k, view(t)])),
     byLanguage: Object.fromEntries([...byLanguage].map(([k, t]) => [k, view(t)])),
     missingWordByLanguage: Object.fromEntries([...missingByLanguage].map(([k, t]) => [k, view(t)])),
     wrongSuggestions: { total: wrongFix, damaging, damagingPct: pct(damaging, wrongFix) },
@@ -220,6 +244,9 @@ async function main() {
     for (const k of ROWS) line(LABEL[k], e.table[k]);
     line("All but commas", e.allExceptCommas);
     line("All", e.all);
+    console.log("commas, by what settles them:");
+    for (const [k, t] of Object.entries(e.commasByBucket)) line(`  ${k}`, t);
+    for (const [k, t] of Object.entries(e.commasByKind)) line(`    ${k}`, t);
     console.log(`by language: ${Object.entries(e.byLanguage).map(([k, t]) => `${k} ${t.surfacedPct}%/${t.correctFixOfSurfacedPct}%`).join(" · ")}`);
     console.log(`missing words: ${Object.entries(e.missingWordByLanguage).map(([k, t]) => `${k} ${t.surfacedPct}%/${t.correctFixOfSurfacedPct}%`).join(" · ")}`);
     console.log(`wrong suggestions ${e.wrongSuggestions.total}, damaging ${e.wrongSuggestions.damaging} (${e.wrongSuggestions.damagingPct}%) · held back ${e.heldBack.corrections} (${e.heldBack.ofAll}%) · ${e.speed.wordsPerMinute} words/min · runs with errors ${e.runsWithErrors}`);
