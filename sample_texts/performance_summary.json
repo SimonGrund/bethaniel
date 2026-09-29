@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-27T17:00:07.613Z",
+  "generated": "2026-09-28T15:40:32.608Z",
   "definitions": "see the header of scripts/performance-summary.ts",
   "engines": {
     "local": {
@@ -94,6 +94,98 @@
         "falseAlarms": 129,
         "surfacedPct": 70.1,
         "correctFixOfSurfacedPct": 91.6
+      },
+      "commasByBucket": {
+        "rule-governed": {
+          "planted": 78,
+          "surfaced": 34,
+          "correctFix": 34,
+          "falseAlarms": 0,
+          "surfacedPct": 43.6,
+          "correctFixOfSurfacedPct": 100
+        },
+        "contested": {
+          "planted": 28,
+          "surfaced": 10,
+          "correctFix": 10,
+          "falseAlarms": 0,
+          "surfacedPct": 35.7,
+          "correctFixOfSurfacedPct": 100
+        },
+        "discretionary": {
+          "planted": 151,
+          "surfaced": 33,
+          "correctFix": 32,
+          "falseAlarms": 0,
+          "surfacedPct": 21.9,
+          "correctFixOfSurfacedPct": 97
+        }
+      },
+      "commasByKind": {
+        "seriesInner": {
+          "planted": 18,
+          "surfaced": 7,
+          "correctFix": 7,
+          "falseAlarms": 0,
+          "surfacedPct": 38.9,
+          "correctFixOfSurfacedPct": 100
+        },
+        "subordDa": {
+          "planted": 28,
+          "surfaced": 10,
+          "correctFix": 10,
+          "falseAlarms": 0,
+          "surfacedPct": 35.7,
+          "correctFixOfSurfacedPct": 100
+        },
+        "seriesOxford": {
+          "planted": 23,
+          "surfaced": 5,
+          "correctFix": 5,
+          "falseAlarms": 0,
+          "surfacedPct": 21.7,
+          "correctFixOfSurfacedPct": 100
+        },
+        "coordClause": {
+          "planted": 38,
+          "surfaced": 13,
+          "correctFix": 13,
+          "falseAlarms": 0,
+          "surfacedPct": 34.2,
+          "correctFixOfSurfacedPct": 100
+        },
+        "freeAdjunct": {
+          "planted": 90,
+          "surfaced": 15,
+          "correctFix": 14,
+          "falseAlarms": 0,
+          "surfacedPct": 16.7,
+          "correctFixOfSurfacedPct": 93.3
+        },
+        "subordDe": {
+          "planted": 34,
+          "surfaced": 24,
+          "correctFix": 24,
+          "falseAlarms": 0,
+          "surfacedPct": 70.6,
+          "correctFixOfSurfacedPct": 100
+        },
+        "spurious": {
+          "planted": 20,
+          "surfaced": 2,
+          "correctFix": 2,
+          "falseAlarms": 0,
+          "surfacedPct": 10,
+          "correctFixOfSurfacedPct": 100
+        },
+        "relativeEn": {
+          "planted": 6,
+          "surfaced": 1,
+          "correctFix": 1,
+          "falseAlarms": 0,
+          "surfacedPct": 16.7,
+          "correctFixOfSurfacedPct": 100
+        }
       },
       "byLanguage": {
         "da": {
@@ -289,6 +381,98 @@
         "falseAlarms": 78,
         "surfacedPct": 79.8,
         "correctFixOfSurfacedPct": 87.7
+      },
+      "commasByBucket": {
+        "rule-governed": {
+          "planted": 78,
+          "surfaced": 29,
+          "correctFix": 29,
+          "falseAlarms": 0,
+          "surfacedPct": 37.2,
+          "correctFixOfSurfacedPct": 100
+        },
+        "contested": {
+          "planted": 28,
+          "surfaced": 10,
+          "correctFix": 10,
+          "falseAlarms": 0,
+          "surfacedPct": 35.7,
+          "correctFixOfSurfacedPct": 100
+        },
+        "discretionary": {
+          "planted": 151,
+          "surfaced": 33,
+          "correctFix": 32,
+          "falseAlarms": 0,
+          "surfacedPct": 21.9,
+          "correctFixOfSurfacedPct": 97
+        }
+      },
+      "commasByKind": {
+        "seriesInner": {
+          "planted": 18,
+          "surfaced": 6,
+          "correctFix": 6,
+          "falseAlarms": 0,
+          "surfacedPct": 33.3,
+          "correctFixOfSurfacedPct": 100
+        },
+        "subordDa": {
+          "planted": 28,
+          "surfaced": 10,
+          "correctFix": 10,
+          "falseAlarms": 0,
+          "surfacedPct": 35.7,
+          "correctFixOfSurfacedPct": 100
+        },
+        "seriesOxford": {
+          "planted": 23,
+          "surfaced": 4,
+          "correctFix": 4,
+          "falseAlarms": 0,
+          "surfacedPct": 17.4,
+          "correctFixOfSurfacedPct": 100
+        },
+        "coordClause": {
+          "planted": 38,
+          "surfaced": 8,
+          "correctFix": 8,
+          "falseAlarms": 0,
+          "surfacedPct": 21.1,
+          "correctFixOfSurfacedPct": 100
+        },
+        "freeAdjunct": {
+          "planted": 90,
+          "surfaced": 21,
+          "correctFix": 20,
+          "falseAlarms": 0,
+          "surfacedPct": 23.3,
+          "correctFixOfSurfacedPct": 95.2
+        },
+        "subordDe": {
+          "planted": 34,
+          "surfaced": 19,
+          "correctFix": 19,
+          "falseAlarms": 0,
+          "surfacedPct": 55.9,
+          "correctFixOfSurfacedPct": 100
+        },
+        "spurious": {
+          "planted": 20,
+          "surfaced": 3,
+          "correctFix": 3,
+          "falseAlarms": 0,
+          "surfacedPct": 15,
+          "correctFixOfSurfacedPct": 100
+        },
+        "relativeEn": {
+          "planted": 6,
+          "surfaced": 1,
+          "correctFix": 1,
+          "falseAlarms": 0,
+          "surfacedPct": 16.7,
+          "correctFixOfSurfacedPct": 100
+        }
       },
       "byLanguage": {
         "da": {
