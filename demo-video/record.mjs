@@ -24,9 +24,25 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // ── What gets recorded ──
 
+// `styleFile` and `note`: the manuscript the style-guide clip uploads and
+// what it types into "Your own notes". A language without them has no
+// style-guide clip. The clip needs names no dictionary knows, or the names &
+// terms list comes up empty — the demo text's Marta and Erik are ordinary
+// names — so it uses an excerpt of a real book, kept out of git.
 const LANGS = {
-  en: { file: "texts/The Weather Station.md", ui: "en" },
-  da: { file: "texts/Bogbinderen i Havnsø.md", ui: "da" },
+  en: {
+    file: "texts/The Weather Station.md",
+    ui: "en",
+    styleFile: "private/Rage of the Rule.md",
+    note:
+      "Arena scenes use broken sentences on purpose. Leave them.\n" +
+      "Always capitalise Worldsea and Blacksteel.\n" +
+      "Spell out numbers under one hundred.",
+  },
+  da: {
+    file: "texts/Bogbinderen i Havnsø.md",
+    ui: "da",
+  },
 };
 
 // `card` is the card's position on "I want to…" (ModeSelector's CARDS):
@@ -37,6 +53,9 @@ const TASKS = {
   writing: { card: 0, name: "1-writing-feedback" },
   errors: { card: 1, name: "2-copy-edits", deck: true },
   scan: { card: 2, name: "3-publication-scan" },
+  // No run: upload, open the style guide, look over the names & terms Betty
+  // read off the manuscript, and write a note of the author's own.
+  style: { name: "4-style-guide", styleGuide: true },
 };
 
 // ── Frame geometry ──
@@ -300,6 +319,10 @@ const DEMO_CSS = `
 async function recordClip(browser, appUrl, langId, taskId, opts) {
   const lang = LANGS[langId];
   const task = TASKS[taskId];
+  if (task.styleGuide && !lang.styleFile) {
+    log(`  (no style-guide manuscript for ${langId} — skipped)`);
+    return;
+  }
   const name = `${langId}-${task.name}`;
   const outFile = path.join(opts.out, `${name}.mp4`);
   log(`▶ ${name}`);
@@ -350,7 +373,8 @@ async function recordClip(browser, appUrl, langId, taskId, opts) {
   await pointAndClick(page, frame, ".upload-zone").catch(() => {});
   // The click above would open the OS file picker in a real window; here the
   // file goes straight to the input, which is what the picker would have done.
-  await frame.locator('input[type="file"]').first().setInputFiles(path.join(HERE, lang.file));
+  const file = task.styleGuide ? lang.styleFile : lang.file;
+  await frame.locator('input[type="file"]').first().setInputFiles(path.join(HERE, file));
   rec.mark("upload");
   await frame.waitForSelector(".file-name", { timeout: 60_000 });
   await sleep(600);
@@ -358,6 +382,25 @@ async function recordClip(browser, appUrl, langId, taskId, opts) {
   const docCard = await rectOf(frame, ".upload-side", { closest: "section", pad: 14 });
   await focus(page, docCard, { maxScale: 1.1 });
   await sleep(2600);
+
+  if (task.styleGuide) {
+    // The notes field belongs to runs that read a style sheet, so the task
+    // is picked first; nothing is run.
+    const cards = await rectOf(frame, ".task-cards", { closest: "section", pad: 16 });
+    await focus(page, cards, { maxScale: 1.1 });
+    await sleep(500);
+    await pointAndClick(page, frame, ".task-card-pick", { nth: 1 });
+    rec.mark("task chosen");
+    await sleep(1200);
+    await styleGuideScene(page, frame, rec, lang);
+    await overview(page, 1200);
+    await sleep(1800);
+    await rec.stop(outFile);
+    if (!opts.keepFrames) fs.rmSync(rec.dir, { recursive: true, force: true });
+    await context.close();
+    log(`  ✓ ${path.relative(process.cwd(), outFile)}`);
+    return;
+  }
 
   // 3. Choose the task.
   const cards = await rectOf(frame, ".task-cards", { closest: "section", pad: 16 });
@@ -463,6 +506,126 @@ async function answerDeck(page, frame, rec, n) {
   rec.mark("deck closed");
   await pointAndClick(page, frame, ".review-focus-close", { ms: 700 }).catch(() => {});
   await sleep(1000);
+}
+
+/** The style-guide dialog: the names & terms Betty harvested, one group at a
+ *  time, then a note typed into "Your own notes" and saved. The sheet is one
+ *  per install, not per manuscript, so whatever the author had in it is put
+ *  back afterwards — the demo note must not steer their real runs. */
+async function styleGuideScene(page, frame, rec, lang) {
+  const api = (method, body) =>
+    frame.evaluate(
+      ([method, body]) =>
+        fetch("/api/style", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: body == null ? undefined : JSON.stringify({ content: body }),
+        }).then((r) => r.json()),
+      [method, body],
+    );
+  const before = (await api("GET")).content ?? "";
+  try {
+    // The Style guide row sits under the manuscript, among the fold rows;
+    // it is the one that opens a dialog.
+    const row = 'button.fold-header[aria-haspopup="dialog"]';
+    await scrollIntoView(frame, row);
+    await focus(page, await rectOf(frame, row, { pad: 24 }), { maxScale: 1.4 });
+    await sleep(900);
+    await pointAndClick(page, frame, row);
+    await frame.waitForSelector(".styleguide-dialog", { timeout: 10_000 });
+    rec.mark("style guide opened");
+    await sleep(700);
+
+    // The top of the sheet: title and what belongs in one.
+    const dlg = await rectOf(frame, ".styleguide-dialog");
+    await focus(page, { x: dlg.x, y: dlg.y, width: dlg.width, height: Math.min(dlg.height, 700) }, { maxScale: 1.2, pad: 10 });
+    await sleep(2400);
+
+    // Names & terms: the header with its count, then each group close up.
+    const groups = await frame.$$eval(".styleguide-dialog .lexicon-group", (g) => g.length);
+    if (groups === 0) log("  (no names & terms were harvested — the list will show as empty)");
+    await scrollIntoView(frame, ".styleguide-dialog .lexicon-header", { block: "start" });
+    await focus(page, await rectOf(frame, ".styleguide-dialog .lexicon-header", { pad: 18 }), { maxScale: 1.6 });
+    rec.mark("names & terms");
+    await sleep(1800);
+    for (let i = 0; i < groups; i++) {
+      const sel = ".styleguide-dialog .lexicon-group";
+      await scrollIntoView(frame, sel, { nth: i });
+      // A group is as wide as the dialog, and the camera cannot zoom past
+      // filling the frame's width — so it closes in on three pills at a
+      // time and pans along, the pointer passing over each as an eye would.
+      const all = await frame.evaluate(
+        ({ sel, i }) =>
+          [...document.querySelectorAll(sel)[i].querySelectorAll(".lexicon-pill")].slice(0, 9).map((p) => {
+            const b = p.getBoundingClientRect();
+            return { x: b.x, y: b.y, width: b.width, height: b.height };
+          }),
+        { sel, i },
+      );
+      for (let k = 0; k < all.length; k += 3) {
+        const run = all.slice(k, k + 3);
+        const x0 = Math.min(...run.map((r) => r.x));
+        const y0 = Math.min(...run.map((r) => r.y));
+        const x1 = Math.max(...run.map((r) => r.x + r.width));
+        const y1 = Math.max(...run.map((r) => r.y + r.height));
+        await focus(page, { x: x0 - 20, y: y0 - 30, width: x1 - x0 + 40, height: y1 - y0 + 60 }, { maxScale: 2.2, ms: 900 });
+        await sleep(500);
+        for (const r of run) {
+          await page.evaluate(([x, y]) => window.stage.moveCursor(x, y, 420), [r.x + r.width / 2, r.y + r.height * 0.6]);
+          await sleep(520);
+        }
+        await sleep(400);
+      }
+      if (all.length === 0) await focus(page, await rectOf(frame, sel, { nth: i, pad: 14 }), { maxScale: 1.7 });
+      // A list longer than its box scrolls inside it; show the rest.
+      await frame.evaluate(
+        ({ sel, i }) =>
+          new Promise((resolve) => {
+            const list = document.querySelectorAll(sel)[i].querySelector(".lexicon-list");
+            const max = list.scrollHeight - list.clientHeight;
+            if (max < 4) return resolve();
+            const t0 = performance.now();
+            const ms = Math.min(4000, max * 12);
+            const tick = (now) => {
+              const t = Math.min(1, (now - t0) / ms);
+              list.scrollTop = max * (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+              t < 1 ? requestAnimationFrame(tick) : resolve();
+            };
+            requestAnimationFrame(tick);
+          }),
+        { sel, i },
+      );
+      await sleep(all.length > 0 ? 1200 : 400);
+    }
+
+    // Your own notes: click in, type the rule, save.
+    const notes = ".styleguide-dialog .style-textarea-notes";
+    await scrollIntoView(frame, ".styleguide-dialog .styleguide-expanded", { block: "center" });
+    await focus(page, await rectOf(frame, ".styleguide-dialog .styleguide-expanded", { pad: 16 }), { maxScale: 1.5 });
+    await sleep(1200);
+    await pointAndClick(page, frame, notes, { ms: 600 });
+    await frame.locator(notes).fill("");
+    await frame.locator(notes).focus();
+    // The box is dialog-wide, but the lines typed fill only its left part:
+    // close in on that, so the words are readable as they appear.
+    const ta = await rectOf(frame, notes);
+    await focus(page, { x: ta.x - 10, y: ta.y - 36, width: Math.min(ta.width, 470), height: ta.height + 56 }, { maxScale: 2, ms: 900 });
+    rec.mark("typing note");
+    await sleep(400);
+    await frame.locator(notes).pressSequentially(lang.note, { delay: 45 });
+    await sleep(1600);
+    await pointAndClick(page, frame, ".styleguide-dialog .btn-confirm-step", { ms: 700 });
+    rec.mark("saved");
+    await frame.waitForSelector(".styleguide-dialog", { state: "detached", timeout: 5000 }).catch(() => {});
+    await sleep(700);
+
+    // The row now says what the sheet holds.
+    await scrollIntoView(frame, row);
+    await focus(page, await rectOf(frame, row, { pad: 24 }), { maxScale: 1.4 });
+    await sleep(2400);
+  } finally {
+    await api("PUT", before).catch((e) => log(`  ! could not restore the style guide: ${e.message}`));
+  }
 }
 
 /** A dialog after Run is the app asking for something (a download, a

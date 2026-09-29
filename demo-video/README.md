@@ -14,10 +14,18 @@ Not part of the app and not in the npm workspaces.
 | `en-1-writing-feedback.mp4` / `da-…` | upload → **Improve my writing** → run → scroll the writing report |
 | `en-2-copy-edits.mp4` / `da-…` | upload → **Find errors** → run → answer six suggestions in the review deck (one Dismiss, the rest Accept) → scroll the result |
 | `en-3-publication-scan.mp4` / `da-…` | upload → **Final readthrough** → run → scroll the publication-readiness report |
+| `en-4-style-guide.mp4` | upload → **Find errors** → open **Style guide** → close-ups along the names & terms list → type a note into "Your own notes" → save. Nothing is run. English only |
 
 English uses `texts/The Weather Station.md` (5 chapters, ~1,550 words) and an
 English interface; Danish uses `texts/Bogbinderen i Havnsø.md` (4 chapters, ~2,300
 words) and a Danish interface. Both have planted errors, from `sample_texts/`.
+
+The style-guide clip needs names no dictionary knows, or the names & terms
+list comes up empty (Marta and Erik are ordinary names). It uploads
+`private/Rage of the Rule.md` instead: the first three chapters of a real
+book, gitignored, so it has to be in place on the machine that records.
+The style sheet is one per install, so the clip puts back whatever was in
+it before.
 
 Each clip gets a `.markers.json` beside it: the second at which the upload,
 the task choice, Run, the finish and the results begin — for cutting. The
