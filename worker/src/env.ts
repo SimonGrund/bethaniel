@@ -77,6 +77,16 @@ export interface Env {
   ADMIN_TOKEN?: string;
 
   /**
+   * A narrower operator secret: it opens the /admin/promo routes and nothing
+   * else — minting, voiding and looking up discount codes whose campaign
+   * starts "site-". Held by the website (bethaniel.eu), which mints a welcome
+   * code per newsletter subscriber. A SECRET — `wrangler secret put
+   * PROMO_MINT_TOKEN` — optional, and absent means those routes answer only
+   * to ADMIN_TOKEN. See isPromoMintRequest in admin.ts.
+   */
+  PROMO_MINT_TOKEN?: string;
+
+  /**
    * Per-IP rate limiter for the endpoints that need no credential.
    *
    * Bethaniel is open source, so this Worker's URL is published in

@@ -43,6 +43,9 @@ import {
   coerceProduct,
   listUnreportedFailures,
   ackFailures,
+  insertPromoCodes,
+  voidPromoCodes,
+  lookupPromoCodes,
 } from "./db";
 import {
   assertPaymentsAllowed,
@@ -52,7 +55,8 @@ import {
 } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
 import { refundVerdict } from "./refund";
-import { isAdminRequest } from "./admin";
+import { isAdminRequest, isPromoMintRequest } from "./admin";
+import { PROMO_ROUTES, validateMint, parseCodes } from "./promoMint";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
 
@@ -216,8 +220,62 @@ export default {
       // so probing this public URL cannot tell the two apart, or learn that
       // the prefix means anything at all.
       if (url.pathname.startsWith("/admin/")) {
-        if (!isAdminRequest(request, env))
-          return json({ error: "Not found" }, 404);
+        const admin = isAdminRequest(request, env);
+        // The promo-minting token opens the promo routes and nothing else:
+        // anywhere else under /admin/ it gets the same 404 as no token.
+        const minter =
+          !admin &&
+          PROMO_ROUTES.includes(url.pathname) &&
+          isPromoMintRequest(request, env);
+        if (!admin && !minter) return json({ error: "Not found" }, 404);
+
+        // Discount codes, minted and managed over HTTP rather than by a
+        // hand-written INSERT. The minting token is confined to "site-"
+        // campaigns; ADMIN_TOKEN reaches every code.
+        if (PROMO_ROUTES.includes(url.pathname) && request.method === "POST") {
+          const siteOnly = !admin;
+          const body: unknown = await request.json().catch(() => null);
+
+          if (url.pathname === "/admin/promo") {
+            const v = validateMint(body, new Date(), siteOnly);
+            if (!v.ok) return json({ error: v.error }, 400);
+            const result = await insertPromoCodes(env, v.value);
+            console.log(
+              `[admin] promo: minted ${result.minted.length} under ${v.value[0].campaign}` +
+                (result.clashed.length ? `, ${result.clashed.length} already existed` : ""),
+            );
+            return json({ ok: true, ...result });
+          }
+
+          const codes = parseCodes((body as { codes?: unknown } | null)?.codes, 100);
+          if (!codes.ok) return json({ error: codes.error }, 400);
+
+          if (url.pathname === "/admin/promo/void") {
+            const voided = await voidPromoCodes(env, codes.value, siteOnly);
+            console.log(`[admin] promo: voided ${voided}`);
+            return json({ ok: true, voided });
+          }
+
+          const rows = await lookupPromoCodes(env, codes.value, siteOnly);
+          return json({
+            ok: true,
+            codes: rows.map((r) => ({
+              code: r.code,
+              campaign: r.campaign,
+              discount_pct: r.discount_pct,
+              discount_cents: r.discount_cents,
+              max_uses: r.max_uses,
+              uses: r.uses,
+              max_uses_per_product: r.max_uses_per_product,
+              product_uses: parseProductUses(r),
+              products: parseProducts(r),
+              max_words: r.max_words,
+              created_at: r.created_at,
+              expires_at: r.expires_at,
+              status: r.status,
+            })),
+          });
+        }
 
         // Run the maintenance pass now. Exists because the hourly cron is a
         // scheduler we do not control: if it stops firing, credential expiry,

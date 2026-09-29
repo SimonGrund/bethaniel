@@ -6,6 +6,7 @@
 
 import type { Env } from "./env";
 import type { CloudProduct } from "./quote";
+import { SITE_CAMPAIGN_PREFIX, type PromoInsert } from "./promoMint";
 
 export interface QuoteRow {
   id: string;
@@ -569,4 +570,66 @@ export async function ackFailures(env: Env, ids: string[]): Promise<number> {
     .bind(new Date().toISOString(), ...ids)
     .run();
   return res.meta?.changes ?? 0;
+}
+
+// ── Promo codes minted over HTTP (see promoMint.ts) ──
+
+/**
+ * Insert codes, never overwriting one: a code that already exists is left
+ * exactly as it is — its uses, its expiry, its status — and reported back as
+ * a clash rather than silently reset. One batch, so it is one round trip.
+ */
+export async function insertPromoCodes(
+  env: Env,
+  rows: PromoInsert[],
+): Promise<{ minted: string[]; clashed: string[] }> {
+  const stmts = rows.map((r) =>
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO promo_codes
+         (code, campaign, discount_pct, discount_cents, max_uses, max_uses_per_product,
+          max_words, products, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      r.code, r.campaign, r.discount_pct, r.discount_cents, r.max_uses,
+      r.max_uses_per_product, r.max_words, r.products, r.created_at, r.expires_at,
+    ),
+  );
+  const results = await env.DB.batch(stmts);
+  const minted: string[] = [];
+  const clashed: string[] = [];
+  results.forEach((res, i) => (res.meta.changes > 0 ? minted : clashed).push(rows[i].code));
+  return { minted, clashed };
+}
+
+/** The scope a caller may act in: every code, or only "site-" campaigns. */
+function campaignScope(siteOnly: boolean): string {
+  return siteOnly ? `AND campaign LIKE '${SITE_CAMPAIGN_PREFIX}%'` : "";
+}
+
+/** Void codes. Reversible by hand (status back to 'active'), which is why
+ *  a void rather than a delete: the uses already taken stay on record. */
+export async function voidPromoCodes(env: Env, codes: string[], siteOnly: boolean): Promise<number> {
+  const marks = codes.map(() => "?").join(", ");
+  const res = await env.DB.prepare(
+    `UPDATE promo_codes SET status = 'void'
+      WHERE code IN (${marks}) AND status = 'active' ${campaignScope(siteOnly)}`,
+  )
+    .bind(...codes)
+    .run();
+  return res.meta.changes;
+}
+
+/** Codes as they stand: what is used, what is left, whether they still work. */
+export async function lookupPromoCodes(
+  env: Env,
+  codes: string[],
+  siteOnly: boolean,
+): Promise<PromoRow[]> {
+  const marks = codes.map(() => "?").join(", ");
+  const res = await env.DB.prepare(
+    `SELECT * FROM promo_codes WHERE code IN (${marks}) ${campaignScope(siteOnly)}`,
+  )
+    .bind(...codes)
+    .all<PromoRow>();
+  return res.results;
 }

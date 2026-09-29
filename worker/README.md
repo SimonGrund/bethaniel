@@ -97,6 +97,34 @@ repo is public, so the prefix is readable by anyone, and a 401 would confirm
 there is something there to attack. No token configured means no admin
 surface at all, rather than an open one.
 
+### Discount codes over HTTP
+
+`POST /admin/promo` mints codes without hand-writing SQL; `/admin/promo/void`
+voids them and `/admin/promo/lookup` reports what each has left. All three take
+JSON and answer to either of two secrets:
+
+- `ADMIN_TOKEN` — every code, any campaign.
+- `PROMO_MINT_TOKEN` — these three routes and nothing else, and only codes
+  whose `campaign` starts `site-`. It is held by the website (bethaniel.eu),
+  which mints one welcome code per newsletter subscriber and lets its own
+  admin page mint codes by hand. If the website were compromised, this token
+  can make and void `site-` codes; it cannot reach a refund, a sweep, or a code
+  made here by hand. Everywhere else it gets the same 404 as no token.
+
+```
+npx wrangler secret put PROMO_MINT_TOKEN   # 32+ random bytes; the website holds the same value
+curl -X POST https://<worker>/admin/promo -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" -d '{
+    "codes": ["REVIEW-BOGFORUM"], "campaign": "press", "discount_pct": 100,
+    "max_uses": 1, "products": ["edit", "readthrough"],
+    "expires_at": "2026-12-31T23:59:59Z" }'
+```
+
+Up to 50 codes a request. A code that already exists is never overwritten —
+it comes back under `clashed`, untouched. Dates are normalised to the
+whole-second `Z` form the table compares as text. Voiding is reversible by
+hand (`status` back to `active`); nothing here deletes a row.
+
 `docs/admin-surface.md` carries the rest of the planned endpoints and the
 open questions behind them.
 
@@ -264,8 +292,9 @@ for the same thing) with an explicit "not currently supported", so
   expiry and optionally a word cap. Quoting never spends one; the use is taken
   atomically at `/v1/checkout`. A code that brings the price to zero skips
   Stripe entirely and mints the credential inline, keyed to a synthetic session
-  id so a replay is idempotent. There is no admin endpoint yet, so mint one
-  by hand — a code good for one free job of up to 5,000 words:
+  id so a replay is idempotent. Mint one over HTTP with `POST /admin/promo`
+  (see "Discount codes over HTTP"), or by hand — a code good for one free job
+  of up to 5,000 words:
 
   ```
   npx wrangler d1 execute bethaniel-cloud --remote --command \

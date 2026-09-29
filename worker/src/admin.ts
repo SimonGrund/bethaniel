@@ -44,3 +44,23 @@ export function isAdminRequest(request: Request, env: Env): boolean {
   if (!presented) return false;
   return constantTimeEqual(presented, expected);
 }
+
+/**
+ * True only for a request bearing the promo-minting token — a second,
+ * narrower secret for a caller that should be able to make discount codes
+ * and nothing else. The website's newsletter mints a welcome code per
+ * subscriber; if the website were ever compromised, this token reaches the
+ * /admin/promo routes and not the refund machinery behind ADMIN_TOKEN.
+ *
+ * Same rules as isAdminRequest: fails closed, at least 16 characters,
+ * constant-time. The routes it opens are listed in PROMO_ROUTES
+ * (promoMint.ts), and index.ts admits it nowhere else.
+ */
+export function isPromoMintRequest(request: Request, env: Env): boolean {
+  const expected = env.PROMO_MINT_TOKEN;
+  if (!expected || expected.length < 16) return false;
+  const header = request.headers.get("Authorization") ?? "";
+  const presented = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!presented) return false;
+  return constantTimeEqual(presented, expected);
+}

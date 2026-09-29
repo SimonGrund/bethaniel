@@ -53,7 +53,7 @@ Whatever gets built, this part does not change:
 | `POST /admin/refund/:credentialId` | refund one, by hand, deliberately | the manual half of the refund design |
 | `GET /admin/credential/:sessionOrToken` | look one up for a support email | "I paid and got nothing" arrives with a session id |
 | `GET /admin/stats` | today's tokens, spend against ceiling, credentials issued | currently only visible in `wrangler tail` |
-| `POST /admin/promo` | mint a code without hand-writing SQL | the README's INSERT is a footgun (ISO dates, column names) |
+| `POST /admin/promo` | mint a code without hand-writing SQL | **built 2026-09-30**, with `/admin/promo/void` and `/admin/promo/lookup`, and a second, narrower secret (`PROMO_MINT_TOKEN`) for the website — see the worker README |
 | `POST /admin/credential/:id/void` | kill a credential | no answer today if one leaks |
 
 ## Open questions
