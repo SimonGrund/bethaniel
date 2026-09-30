@@ -134,23 +134,21 @@ jobs:
                     exit 0
                   fi
 
-                  # Built as a file, not an inline string: the body contains
-                  # JSON, backticks and quotes, and every one of those is a way
-                  # for a shell here to misread it.
+                  # The count and where to decide — never the queue itself.
+                  # This repository is public, and each entry in the queue
+                  # carries the buyer's email address: pasting it here once
+                  # published it. The details live behind the sign-in at
+                  # /admin/cloud, which is also where each one is settled.
                   {
-                    echo "The sweep parked these because they were partly used: too much"
+                    echo "$count cloud job(s) are waiting on a refund decision."
+                    echo
+                    echo "The sweep parked them because they were partly used: too much"
                     echo "spend to refund automatically, too little to be sure the author"
                     echo "got what they paid for. Someone has to choose."
                     echo
-                    echo '```json'
-                    cat reviews.json
-                    echo '```'
-                    echo
-                    echo "Settle one with POST /admin/refund, sending the credentialId"
-                    echo "and an action of either refund (moves money) or decline"
-                    echo "(does not). Either clears it from the queue."
-                    echo
-                    echo "See docs/admin-surface.md. This issue closes itself once the"
+                    echo "Decide each one at https://www.bethaniel.eu/admin/cloud —"
+                    echo "Refund moves the money back; Decline does not. Either clears"
+                    echo "it from the queue, and this issue closes itself once the"
                     echo "queue is empty."
                   } > body.md
 
