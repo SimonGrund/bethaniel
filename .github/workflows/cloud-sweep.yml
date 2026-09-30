@@ -219,8 +219,10 @@ jobs:
                     echo "many tries it had — the ladder allows five at a network fault"
                     echo "and two at a bad answer."
                     echo
-                    echo "Diagnostics only — no manuscript text and no customer email are"
-                    echo "recorded, deliberately: this repository is public."
+                    echo "Diagnostics only, deliberately: this repository is public. No"
+                    echo "manuscript text, no customer email, and not the chapter each chunk"
+                    echo "came from — its name is the author's own words. That label stays"
+                    echo "in the Worker (GET /admin/failures) for anyone with the admin token."
                     echo
                     echo "To find the customer, look the credential id up in Stripe."
                     echo "A FREE credential finds nothing there: when a promo code brings"
@@ -230,7 +232,9 @@ jobs:
                     echo "and there is no charge behind it to refund."
                     echo
                     echo '```json'
-                    jq '.failures' failures.json
+                    # unit_label is "<chapter name> · chunk N": a fragment of
+                    # the manuscript, so it is never published.
+                    jq '.failures | map(del(.unit_label))' failures.json
                     echo '```'
                     echo
                     echo "empty_output and echoed_source mean the model answered badly"
