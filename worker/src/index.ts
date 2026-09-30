@@ -56,7 +56,7 @@ import {
 } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
 import { refundVerdict } from "./refund";
-import { isAdminRequest, isPromoMintRequest, isReportRequest } from "./admin";
+import { isAdminRequest, isPromoMintRequest, isReportRequest, isRefundRequest } from "./admin";
 import { REPORT_ROUTES, MAX_JOBS, parseRange as parseJobRange, toJobReport } from "./jobsReport";
 import { PROMO_ROUTES, validateMint, parseCodes } from "./promoMint";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
@@ -235,7 +235,13 @@ export default {
           REPORT_ROUTES.includes(url.pathname) &&
           request.method === "GET" &&
           isReportRequest(request, env);
-        if (!admin && !minter && !reader) return json({ error: "Not found" }, 404);
+        // The refund token lists the refund queue and settles it, and nothing else.
+        const refunder =
+          !admin &&
+          ((url.pathname === "/admin/refunds" && request.method === "GET") ||
+            (url.pathname === "/admin/refund" && request.method === "POST")) &&
+          isRefundRequest(request, env);
+        if (!admin && !minter && !reader && !refunder) return json({ error: "Not found" }, 404);
 
         // Every job in a date range: what it was sold as, who bought it, and
         // how much of it was used. See jobsReport.ts.
@@ -355,9 +361,12 @@ export default {
         // queue, because a decision that does not clear the inbox is a
         // decision that gets made again next week.
         if (url.pathname === "/admin/refund" && request.method === "POST") {
-          const { credentialId, action } = (await request.json()) as {
+          const { credentialId, action, by } = (await request.json()) as {
             credentialId?: string;
             action?: string;
+            /** Who decided it — the website's signed-in admin. Recorded on
+             *  the Stripe refund. */
+            by?: string;
           };
           if (!credentialId || (action !== "refund" && action !== "decline")) {
             return json(
@@ -367,6 +376,9 @@ export default {
           }
           const row = await findCredentialById(env, credentialId);
           if (!row) return json({ error: "No such credential" }, 404);
+          if (row.refund_status === "refunded") {
+            return json({ error: "Already refunded" }, 409);
+          }
 
           if (action === "decline") {
             await setRefundStatus(env, row.id, "none");
@@ -382,14 +394,16 @@ export default {
           // Stripe's Idempotency-Key is on the payment intent, so a repeated
           // call cannot double-refund even if this one is retried.
           try {
-            await refundPayment(env, row.stripe_payment_intent);
+            await refundPayment(env, row.stripe_payment_intent, {
+              by: typeof by === "string" ? by : "admin token",
+            });
           } catch (err) {
             await setRefundStatus(env, row.id, "failed");
             console.error(`[admin] manual refund FAILED for ${row.id}:`, err);
             return json({ error: "Stripe refused the refund" }, 502);
           }
           await setRefundStatus(env, row.id, "refunded");
-          console.log(`[admin] manual refund for ${row.stripe_session_id}`);
+          console.log(`[admin] manual refund for ${row.stripe_session_id} by ${typeof by === "string" ? by : "admin token"}`);
           return json({ ok: true, action: "refund", credentialId: row.id });
         }
 

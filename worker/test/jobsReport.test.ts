@@ -187,3 +187,86 @@ test("a bad range is refused before the database is asked", async () => {
   assert.equal(r.status, 400);
   assert.deepEqual(r.sql, []);
 });
+
+/* ── The refund token's reach ── */
+
+const REFUND = "f".repeat(40);
+
+async function callWith(env: Env, method: string, path: string, auth?: string, body?: unknown) {
+  const res = await worker.fetch(
+    new Request(`https://x${path}`, {
+      method,
+      headers: { ...(auth ? { Authorization: `Bearer ${auth}` } : {}), "Content-Type": "application/json" },
+      body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
+    }),
+    env,
+    {} as ExecutionContext,
+  );
+  return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+}
+
+function refundEnv(credential: Record<string, unknown> | null) {
+  const sql: string[] = [];
+  const stmt = (text: string) => {
+    const s = {
+      bind: () => s,
+      all: async () => { sql.push(text); return { results: [] }; },
+      run: async () => { sql.push(text); return { meta: { changes: 1 } }; },
+      first: async () => { sql.push(text); return credential; },
+    };
+    return s;
+  };
+  const env = { DB: { prepare: stmt }, ADMIN_TOKEN: ADMIN, REFUND_TOKEN: REFUND, REPORT_TOKEN: REPORT, ...RATES } as unknown as Env;
+  return { env, sql };
+}
+
+test("the refund token lists the queue and can decline", async () => {
+  const q = refundEnv(null);
+  assert.equal((await callWith(q.env, "GET", "/admin/refunds", REFUND)).status, 200);
+  const d = refundEnv({ id: "c1", refund_status: "review", stripe_payment_intent: "pi_1", stripe_session_id: "cs_1" });
+  const r = await callWith(d.env, "POST", "/admin/refund", REFUND, { credentialId: "c1", action: "decline", by: "simon@x" });
+  assert.equal(r.status, 200);
+  assert.ok(d.sql.some((s) => s.includes("UPDATE credentials SET refund_status")));
+});
+
+test("the refund token reaches nothing else", async () => {
+  for (const [method, path] of [["POST", "/admin/sweep"], ["GET", "/admin/jobs"], ["POST", "/admin/promo"], ["GET", "/admin/failures"], ["POST", "/admin/refunds"]] as const) {
+    const { env, sql } = refundEnv(null);
+    const r = await callWith(env, method, path, REFUND, { codes: ["X-YZ"] });
+    assert.equal(r.status, 404, `${method} ${path}`);
+    assert.deepEqual(sql, [], `${method} ${path} touched the database`);
+  }
+});
+
+test("the report token cannot refund", async () => {
+  const { env, sql } = refundEnv({ id: "c1", refund_status: "review", stripe_payment_intent: "pi_1" });
+  const r = await callWith(env, "POST", "/admin/refund", REPORT, { credentialId: "c1", action: "refund" });
+  assert.equal(r.status, 404);
+  assert.deepEqual(sql, []);
+});
+
+test("a job already refunded is not refunded again", async () => {
+  const { env } = refundEnv({ id: "c1", refund_status: "refunded", stripe_payment_intent: "pi_1" });
+  const r = await callWith(env, "POST", "/admin/refund", REFUND, { credentialId: "c1", action: "refund" });
+  assert.equal(r.status, 409);
+});
+
+test("a manual refund records who made it, under its own idempotency key", async () => {
+  const { env } = refundEnv({ id: "c1", refund_status: "review", stripe_payment_intent: "pi_1", stripe_session_id: "cs_1" });
+  (env as unknown as Record<string, string>).STRIPE_SECRET_KEY = "rk_test_x";
+  const seen: { headers: Record<string, string>; body: string }[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    seen.push({ headers: init.headers as Record<string, string>, body: String(init.body) });
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const r = await callWith(env, "POST", "/admin/refund", REFUND, { credentialId: "c1", action: "refund", by: "simon@journeycatcher.dk" });
+    assert.equal(r.status, 200);
+  } finally {
+    globalThis.fetch = original;
+  }
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].headers["Idempotency-Key"], "refund_manual_pi_1");
+  assert.match(decodeURIComponent(seen[0].body), /metadata\[refunded_by\]=simon@journeycatcher\.dk/);
+});

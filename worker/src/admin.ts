@@ -69,6 +69,14 @@ export function isReportRequest(request: Request, env: Env): boolean {
   return bearerMatches(request, env.REPORT_TOKEN);
 }
 
+/**
+ * True only for a request bearing the refund token, which opens the refund
+ * queue and the refund decision and nothing else.
+ */
+export function isRefundRequest(request: Request, env: Env): boolean {
+  return bearerMatches(request, env.REFUND_TOKEN);
+}
+
 /* The scoped tokens' shared rule: fail closed, at least 16 characters,
    constant-time. */
 function bearerMatches(request: Request, expected: string | undefined): boolean {

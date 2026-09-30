@@ -118,15 +118,29 @@ export async function createCheckoutSession(
  * because the sweep marks the row only after Stripe answers, and a timeout
  * in between would otherwise refund again on the next run.
  */
-export async function refundPayment(env: Env, paymentIntentId: string): Promise<void> {
+export async function refundPayment(
+  env: Env,
+  paymentIntentId: string,
+  opts: { by?: string } = {},
+): Promise<void> {
+  /* A refund decided by a person carries who decided it, in Stripe's own
+     record of the refund. It takes its own idempotency key: Stripe refuses
+     a key reused with different parameters, so sharing the sweep's would
+     make a manual refund fail after a failed automatic one. A second full
+     refund of the same payment is refused by Stripe either way. */
+  const manual = typeof opts.by === "string" && opts.by.length > 0;
   const res = await fetch(`${STRIPE_API_BASE}/refunds`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `refund_${paymentIntentId}`,
+      "Idempotency-Key": manual ? `refund_manual_${paymentIntentId}` : `refund_${paymentIntentId}`,
     },
-    body: formEncode({ payment_intent: paymentIntentId, reason: "requested_by_customer" }),
+    body: formEncode({
+      payment_intent: paymentIntentId,
+      reason: "requested_by_customer",
+      ...(manual ? { "metadata[refunded_by]": opts.by!.slice(0, 200) } : {}),
+    }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

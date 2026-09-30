@@ -148,6 +148,21 @@ route and nothing else. The website's `/admin/cloud` page holds that token.
 npx wrangler secret put REPORT_TOKEN   # 32+ random bytes; the website holds the same value
 ```
 
+Refunds are decided on the same page. `REFUND_TOKEN` opens `GET /admin/refunds`
+and `POST /admin/refund` and nothing else; the website sends the signed-in
+admin's address as `by`, and it is recorded on the Stripe refund as
+`metadata.refunded_by`. A job already refunded answers 409.
+
+```
+npx wrangler secret put REFUND_TOKEN   # 32+ random bytes; the website holds the same value
+```
+
+The hourly sweep (`.github/workflows/cloud-sweep.yml`) still refunds unused
+jobs by itself and still opens an issue when a partly-used one needs a
+decision — but the issue now carries only the count and a link to
+`/admin/cloud`. It used to paste the queue, buyers' emails included, into an
+issue on this public repository.
+
 `docs/admin-surface.md` carries the rest of the planned endpoints and the
 open questions behind them.
 

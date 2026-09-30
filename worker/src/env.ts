@@ -94,6 +94,15 @@ export interface Env {
   REPORT_TOKEN?: string;
 
   /**
+   * Opens GET /admin/refunds and POST /admin/refund and nothing else: the
+   * website's /admin/cloud page lists the refund queue and settles it. It
+   * can return a customer's money to the card it came from — never move it
+   * anywhere else, never run the sweep, never touch a code. A SECRET,
+   * optional; absent means refunds answer only to ADMIN_TOKEN.
+   */
+  REFUND_TOKEN?: string;
+
+  /**
    * Per-IP rate limiter for the endpoints that need no credential.
    *
    * Bethaniel is open source, so this Worker's URL is published in
