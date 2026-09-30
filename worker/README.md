@@ -40,6 +40,14 @@ the deploy checklist.
    deploying a Worker that writes them, or every /v1/quote fails the insert:
 
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE quotes ADD COLUMN price_cents INTEGER; ALTER TABLE quotes ADD COLUMN currency TEXT NOT NULL DEFAULT 'eur'"
+
+   And a database that predates the job report needs four credential
+   columns recording what each job was sold as. Safe in either order: a
+   Worker that writes them falls back to the old insert until they exist, so
+   no paid credential is ever lost — only the report's detail for jobs sold
+   in between:
+
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE credentials ADD COLUMN product TEXT; ALTER TABLE credentials ADD COLUMN currency TEXT; ALTER TABLE credentials ADD COLUMN price_cents INTEGER; ALTER TABLE credentials ADD COLUMN promo_code TEXT"
    ```
 
    A database that predates failure reporting needs the `job_failures` table
@@ -124,6 +132,21 @@ Up to 50 codes a request. A code that already exists is never overwritten —
 it comes back under `clashed`, untouched. Dates are normalised to the
 whole-second `Z` form the table compares as text. Voiding is reversible by
 hand (`status` back to `active`); nothing here deletes a row.
+
+### The job report
+
+`GET /admin/jobs?from=YYYY-MM-DD&to=YYYY-MM-DD` (the last 90 days if both are
+omitted) lists every credential in the range, newest first, up to 2,000: what
+it was sold as (product, currency, amount, promo code), the buyer's email,
+the Stripe payment intent, the token budget and the tokens used, its status
+and refund state, and an estimated provider cost — tokens used times the
+same per-token rate the prices are computed from. It answers to
+`ADMIN_TOKEN`, or to `REPORT_TOKEN`, a read-only secret that opens this one
+route and nothing else. The website's `/admin/cloud` page holds that token.
+
+```
+npx wrangler secret put REPORT_TOKEN   # 32+ random bytes; the website holds the same value
+```
 
 `docs/admin-surface.md` carries the rest of the planned endpoints and the
 open questions behind them.

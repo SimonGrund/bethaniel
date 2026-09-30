@@ -52,7 +52,7 @@ Whatever gets built, this part does not change:
 | `GET /admin/refunds?status=review` | which credentials are waiting on a decision | the sweep's output currently has no reader |
 | `POST /admin/refund/:credentialId` | refund one, by hand, deliberately | the manual half of the refund design |
 | `GET /admin/credential/:sessionOrToken` | look one up for a support email | "I paid and got nothing" arrives with a session id |
-| `GET /admin/stats` | today's tokens, spend against ceiling, credentials issued | currently only visible in `wrangler tail` |
+| `GET /admin/stats` | today's tokens, spend against ceiling, credentials issued | partly answered by `GET /admin/jobs` (**built 2026-09-30**, per job, behind a read-only `REPORT_TOKEN`, shown on the website's `/admin/cloud`) |
 | `POST /admin/promo` | mint a code without hand-writing SQL | **built 2026-09-29**, with `/admin/promo/void` and `/admin/promo/lookup`, and a second, narrower secret (`PROMO_MINT_TOKEN`) for the website — see the worker README |
 | `POST /admin/credential/:id/void` | kill a credential | no answer today if one leaks |
 

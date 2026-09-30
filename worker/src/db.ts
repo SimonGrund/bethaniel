@@ -89,25 +89,51 @@ export async function insertCredential(
     expiresAt: string;
     customerEmail: string | null;
     stripePaymentIntent: string | null;
+    /** What was sold — see the schema. Optional so a caller that does not
+     *  know them still mints the credential. */
+    product?: string | null;
+    currency?: string | null;
+    priceCents?: number | null;
+    promoCode?: string | null;
   },
 ): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO credentials
-       (id, token_hash, stripe_session_id, token_budget, reserved, spent, status,
-        created_at, expires_at, customer_email, stripe_payment_intent)
-     VALUES (?, ?, ?, ?, 0, 0, 'active', ?, ?, ?, ?)`,
-  )
-    .bind(
-      opts.id,
-      opts.tokenHash,
-      opts.stripeSessionId,
-      opts.tokenBudget,
-      new Date().toISOString(),
-      opts.expiresAt,
-      opts.customerEmail,
-      opts.stripePaymentIntent,
+  const createdAt = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO credentials
+         (id, token_hash, stripe_session_id, token_budget, reserved, spent, status,
+          created_at, expires_at, customer_email, stripe_payment_intent,
+          product, currency, price_cents, promo_code)
+       VALUES (?, ?, ?, ?, 0, 0, 'active', ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run();
+      .bind(
+        opts.id, opts.tokenHash, opts.stripeSessionId, opts.tokenBudget,
+        createdAt, opts.expiresAt, opts.customerEmail, opts.stripePaymentIntent,
+        opts.product ?? null, opts.currency ?? null, opts.priceCents ?? null, opts.promoCode ?? null,
+      )
+      .run();
+  } catch (err) {
+    /* A Worker deployed before the ALTER TABLEs in schema.sql have run must
+       still mint the credential a customer has paid for. The report loses
+       what was sold; the customer loses nothing. Any other error is real. */
+    if (!isMissingColumn(err)) throw err;
+    await env.DB.prepare(
+      `INSERT INTO credentials
+         (id, token_hash, stripe_session_id, token_budget, reserved, spent, status,
+          created_at, expires_at, customer_email, stripe_payment_intent)
+       VALUES (?, ?, ?, ?, 0, 0, 'active', ?, ?, ?, ?)`,
+    )
+      .bind(
+        opts.id, opts.tokenHash, opts.stripeSessionId, opts.tokenBudget,
+        createdAt, opts.expiresAt, opts.customerEmail, opts.stripePaymentIntent,
+      )
+      .run();
+  }
+}
+
+/** SQLite's words for a column the table does not have yet. */
+export function isMissingColumn(err: unknown): boolean {
+  return /no such column|has no column named/i.test(String((err as Error)?.message ?? err));
 }
 
 /**
@@ -632,4 +658,45 @@ export async function lookupPromoCodes(
     .bind(...codes)
     .all<PromoRow>();
   return res.results;
+}
+
+// ── The per-job report (GET /admin/jobs) ──
+
+export interface JobRow {
+  id: string;
+  created_at: string;
+  expires_at: string;
+  status: string;
+  stripe_session_id: string;
+  stripe_payment_intent: string | null;
+  customer_email: string | null;
+  token_budget: number;
+  reserved: number;
+  spent: number;
+  refund_status: string | null;
+  product: string | null;
+  currency: string | null;
+  price_cents: number | null;
+  promo_code: string | null;
+}
+
+/** Credentials created in [from, to), newest first. Falls back to the
+ *  columns every database has, before the ALTER TABLEs have run. */
+export async function listJobs(env: Env, from: string, to: string, limit: number): Promise<JobRow[]> {
+  const base = `id, created_at, expires_at, status, stripe_session_id, stripe_payment_intent,
+                customer_email, token_budget, reserved, spent, refund_status`;
+  try {
+    const res = await env.DB.prepare(
+      `SELECT ${base}, product, currency, price_cents, promo_code FROM credentials
+        WHERE created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT ?`,
+    ).bind(from, to, limit).all<JobRow>();
+    return res.results;
+  } catch (err) {
+    if (!isMissingColumn(err)) throw err;
+    const res = await env.DB.prepare(
+      `SELECT ${base}, NULL AS product, NULL AS currency, NULL AS price_cents, NULL AS promo_code
+         FROM credentials WHERE created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT ?`,
+    ).bind(from, to, limit).all<JobRow>();
+    return res.results;
+  }
 }

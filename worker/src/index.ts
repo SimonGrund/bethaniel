@@ -46,6 +46,7 @@ import {
   insertPromoCodes,
   voidPromoCodes,
   lookupPromoCodes,
+  listJobs,
 } from "./db";
 import {
   assertPaymentsAllowed,
@@ -55,7 +56,8 @@ import {
 } from "./stripe";
 import { generateCredentialToken, hashToken } from "./crypto";
 import { refundVerdict } from "./refund";
-import { isAdminRequest, isPromoMintRequest } from "./admin";
+import { isAdminRequest, isPromoMintRequest, isReportRequest } from "./admin";
+import { REPORT_ROUTES, MAX_JOBS, parseRange as parseJobRange, toJobReport } from "./jobsReport";
 import { PROMO_ROUTES, validateMint, parseCodes } from "./promoMint";
 import { renderSuccessPage, renderCancelledPage } from "./successPage";
 import { handleChatCompletions } from "./proxy";
@@ -227,7 +229,28 @@ export default {
           !admin &&
           PROMO_ROUTES.includes(url.pathname) &&
           isPromoMintRequest(request, env);
-        if (!admin && !minter) return json({ error: "Not found" }, 404);
+        // The report token reads the job report and nothing else.
+        const reader =
+          !admin &&
+          REPORT_ROUTES.includes(url.pathname) &&
+          request.method === "GET" &&
+          isReportRequest(request, env);
+        if (!admin && !minter && !reader) return json({ error: "Not found" }, 404);
+
+        // Every job in a date range: what it was sold as, who bought it, and
+        // how much of it was used. See jobsReport.ts.
+        if (url.pathname === "/admin/jobs" && request.method === "GET") {
+          const range = parseJobRange(url.searchParams.get("from"), url.searchParams.get("to"));
+          if (!range.ok) return json({ error: range.error }, 400);
+          const rows = await listJobs(env, range.from, range.to, MAX_JOBS);
+          return json({
+            ok: true,
+            from: range.from,
+            to: range.to,
+            truncated: rows.length >= MAX_JOBS,
+            jobs: rows.map((r) => toJobReport(r, env)),
+          });
+        }
 
         // Discount codes, minted and managed over HTTP rather than by a
         // hand-written INSERT. The minting token is confined to "site-"
@@ -634,6 +657,10 @@ export default {
               stripePaymentIntent: null,
               expiresAt,
               customerEmail: null,
+              product: quoteProduct,
+              currency: chargeCurrency,
+              priceCents: 0,
+              promoCode: quote.promo_code,
             });
             const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);
             const ledger = env.CREDENTIAL_LEDGER.get(ledgerId);
@@ -687,6 +714,7 @@ export default {
             amountCents: chargeCents,
             currency: chargeCurrency,
             product: quoteProduct,
+            promoCode: quote.promo_code,
           });
         } catch (err) {
           // The use was taken a few lines above and bought nothing. Without
@@ -724,6 +752,16 @@ export default {
           Date.now() + Number(env.CREDENTIAL_EXPIRY_DAYS) * 24 * 60 * 60 * 1000,
         ).toISOString();
 
+        // What was sold. A session created before its metadata carried the
+        // product falls back to the quote, if it has not expired yet.
+        let product = event.product;
+        let promoCode = event.promoCode;
+        if (!product) {
+          const quote = await findQuote(env, event.quoteId).catch(() => null);
+          product = quote?.product ?? null;
+          promoCode = promoCode ?? quote?.promo_code ?? null;
+        }
+
         await insertCredential(env, {
           id: crypto.randomUUID(),
           tokenHash,
@@ -732,6 +770,10 @@ export default {
           expiresAt,
           customerEmail: event.customerEmail,
           stripePaymentIntent: event.paymentIntent,
+          product,
+          currency: event.currency,
+          priceCents: event.amountTotal,
+          promoCode,
         });
 
         const ledgerId = env.CREDENTIAL_LEDGER.idFromName(tokenHash);

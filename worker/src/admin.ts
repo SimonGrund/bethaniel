@@ -57,7 +57,21 @@ export function isAdminRequest(request: Request, env: Env): boolean {
  * (promoMint.ts), and index.ts admits it nowhere else.
  */
 export function isPromoMintRequest(request: Request, env: Env): boolean {
-  const expected = env.PROMO_MINT_TOKEN;
+  return bearerMatches(request, env.PROMO_MINT_TOKEN);
+}
+
+/**
+ * True only for a request bearing the read-only report token. It opens
+ * GET /admin/jobs — who paid, for what, and how much of it they used — and
+ * nothing else: no refunds, no codes, no sweep.
+ */
+export function isReportRequest(request: Request, env: Env): boolean {
+  return bearerMatches(request, env.REPORT_TOKEN);
+}
+
+/* The scoped tokens' shared rule: fail closed, at least 16 characters,
+   constant-time. */
+function bearerMatches(request: Request, expected: string | undefined): boolean {
   if (!expected || expected.length < 16) return false;
   const header = request.headers.get("Authorization") ?? "";
   const presented = header.startsWith("Bearer ") ? header.slice(7).trim() : "";

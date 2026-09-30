@@ -42,7 +42,18 @@ CREATE TABLE IF NOT EXISTS credentials (
   --   refunded  — paid, expired unused, money returned automatically
   --   review    — partly used; a human decides (see src/refund.ts)
   --   failed    — a refund was attempted and Stripe refused
-  refund_status TEXT
+  refund_status TEXT,
+  -- What the job was sold as, copied from its quote when it is created:
+  -- quotes are deleted once they expire, so a link to one would not last.
+  -- NULL on credentials from before 2026-09-30. Added by:
+  --   ALTER TABLE credentials ADD COLUMN product TEXT;
+  --   ALTER TABLE credentials ADD COLUMN currency TEXT;
+  --   ALTER TABLE credentials ADD COLUMN price_cents INTEGER;
+  --   ALTER TABLE credentials ADD COLUMN promo_code TEXT;
+  product TEXT,        -- edit | readthrough | translate | enhance
+  currency TEXT,       -- eur | usd | dkk
+  price_cents INTEGER, -- what was charged, in the minor unit of currency; 0 for a free code
+  promo_code TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_credentials_expiry ON credentials(status, expires_at);

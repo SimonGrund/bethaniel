@@ -87,6 +87,13 @@ export interface Env {
   PROMO_MINT_TOKEN?: string;
 
   /**
+   * Read-only: opens GET /admin/jobs and nothing else — the per-job report
+   * the website's /admin/cloud page shows. A SECRET, optional; absent means
+   * the report answers only to ADMIN_TOKEN. See isReportRequest in admin.ts.
+   */
+  REPORT_TOKEN?: string;
+
+  /**
    * Per-IP rate limiter for the endpoints that need no credential.
    *
    * Bethaniel is open source, so this Worker's URL is published in
