@@ -2316,26 +2316,6 @@ summary.review-source::before {
   color: #8b7355;
 }
 
-/* Said out loud rather than silently dropped: an author who cannot find a
-   suggestion they remember seeing needs to know where it went. */
-.deck-heldback {
-  margin: 0 0 0.7rem;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: #8b7355;
-}
-
-.deck-heldback-toggle {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: inherit;
-  color: #6b5d43;
-  text-decoration: underline;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .deck-head-right {
   display: flex;
   align-items: center;
@@ -2355,6 +2335,68 @@ summary.review-source::before {
 
 .deck-back:hover:not(:disabled) {
   background: #f5f1e8;
+}
+
+/* The gear, and the menu under it: everything about the review that is not
+   the card in front of the author. */
+.deck-settings {
+  position: relative;
+}
+
+.deck-settings-btn {
+  background: none;
+  border: 1px solid #d4c9b0;
+  border-radius: 6px;
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: #4a3f2f;
+  cursor: pointer;
+}
+
+.deck-settings-btn:hover,
+.deck-settings-btn[aria-expanded="true"] {
+  background: #f5f1e8;
+}
+
+.deck-settings-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 10;
+  width: min(22rem, 85vw);
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: #fffdf6;
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  color: #2a2419;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.deck-settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.deck-settings-check input {
+  margin-top: 0.2rem;
+  flex: none;
+}
+
+.deck-settings-note {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: #8b7355;
 }
 
 .deck-back:disabled {
@@ -2408,7 +2450,7 @@ summary.review-source::before {
   margin-top: 0.5rem;
 }
 
-.deck-card-peek .deck-card-verdict {
+.deck-card-peek .deck-card-head {
   display: none;
 }
 
@@ -2508,9 +2550,78 @@ summary.review-source::before {
   flex: 1;
 }
 
-.deck-card-verdict {
-  display: inline-block;
-  margin-top: 0.3rem;
+/* Belt and braces: the compact context is a sentence, but a line edit can
+   rewrite a whole paragraph. Whatever the text, the buttons stay in view. */
+.deck-card-top .deck-card-body {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.deck-card-top .deck-card-body-expanded .correction-context {
+  color: #3a3226;
+}
+
+.deck-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+
+.deck-suggests {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b7355;
+}
+
+.deck-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #b5a68a;
+  flex: none;
+}
+
+.deck-dot-sure {
+  background: #4f7a2e;
+}
+
+.deck-dot-mid {
+  background: #c9962e;
+}
+
+.deck-dot-low {
+  background: #c0392b;
+}
+
+.deck-card-toggles {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.deck-toggle {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: #8b7355;
+  cursor: pointer;
+}
+
+.deck-toggle:hover,
+.deck-toggle[aria-expanded="true"] {
+  color: #4a3f2f;
+  background: #f1e9d6;
 }
 
 .deck-reason {
@@ -2526,8 +2637,10 @@ summary.review-source::before {
   align-items: center;
   gap: 0.75rem;
   margin-top: 0.9rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #ece4d2;
+}
+
+.deck-actions .deck-btn {
+  flex: 1;
 }
 
 .deck-btn {
@@ -2550,33 +2663,23 @@ summary.review-source::before {
 }
 
 .deck-btn-accept {
-  background: #2d4a1a;
+  background: #2a2419;
   color: #fff;
-  border-color: #2d4a1a;
+  border-color: #2a2419;
 }
 
 .deck-btn-accept:hover {
-  background: #3a5e22;
+  background: #3d3426;
 }
 
 .deck-btn-dismiss {
   background: #fff;
-  color: #8a3b2a;
-  border-color: #d6b5aa;
+  color: #2a2419;
+  border-color: #2a2419;
 }
 
 .deck-btn-dismiss:hover {
-  background: #f8efec;
-}
-
-.deck-hint {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  font-size: 0.8rem;
-  color: #8b7355;
+  background: #f6f1e6;
 }
 
 .deck-card-done {
@@ -2657,8 +2760,8 @@ summary.review-source::before {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: rgba(30, 25, 16, 0.82);
-  backdrop-filter: blur(5px);
+  background: rgba(14, 11, 7, 0.95);
+  backdrop-filter: blur(6px);
   animation: focus-in 0.2s ease;
 }
 
@@ -2671,70 +2774,95 @@ summary.review-source::before {
   }
 }
 
+/* No panel: the deck sits straight on the dark, the card the only light
+   thing in the room. */
 .review-focus-panel {
-  width: min(62rem, 100%);
+  width: min(52rem, 100%);
   max-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
-  background: #f6efdc;
-  border: 1px solid #c9b896;
-  border-radius: 12px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-
-.review-focus-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.7rem 1.1rem;
-  border-bottom: 1px solid #e0d2b4;
-  font-weight: 600;
-  color: #4a3f2f;
-}
-
-.review-focus-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.review-focus-controls {
-  margin-left: auto;
 }
 
 .review-focus-jump {
   font: inherit;
-  font-size: 0.82rem;
-  color: #5a4d3a;
+  font-size: 0.85rem;
+  color: #4a3f2f;
   background: #fffdf6;
   border: 1px solid #d9c9a8;
   border-radius: 6px;
-  padding: 0.25rem 0.5rem;
-  max-width: 16rem;
+  padding: 0.3rem 0.5rem;
+  width: 100%;
 }
 
 .review-focus-close {
-  flex: none;
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
   background: none;
   border: none;
   font: inherit;
-  font-size: 1.05rem;
-  color: #8b7355;
+  font-size: 1.2rem;
+  color: #b8a888;
   cursor: pointer;
-  padding: 0.2rem 0.5rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 6px;
 }
 
 .review-focus-close:hover {
-  color: #2a2419;
-  background: #ece0c8;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .review-focus-body {
-  padding: 1.5rem 2.25rem 2rem;
+  padding: 0.5rem 0.25rem;
   overflow-y: auto;
+}
+
+/* What sits on the dark rather than on the card reads light. */
+.review-focus .deck-chapter-name {
+  color: #f3ead6;
+}
+
+.review-focus .deck-chapter-count,
+.review-focus .deck-progress,
+.review-focus .deck-keys,
+.review-focus .deck-next,
+.review-focus .deck-later {
+  color: #b8a888;
+}
+
+.review-focus .deck-later:hover {
+  color: #f3ead6;
+}
+
+.review-focus .deck-bar {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.review-focus .deck-bar-fill {
+  background: #d9c9a8;
+}
+
+.review-focus .deck-back,
+.review-focus .deck-settings-btn {
+  color: #e8dcc2;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.review-focus .deck-back:hover:not(:disabled),
+.review-focus .deck-settings-btn:hover,
+.review-focus .deck-settings-btn[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.review-focus .deck-keys kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #e8dcc2;
+}
+
+.review-focus .deck-card-top {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 }
 
 /* In focus the sentence is the whole point: larger type on the top card,
@@ -2743,14 +2871,47 @@ summary.review-source::before {
 .review-focus .deck-card-top .deck-card-body {
   font-size: 1.25rem;
   line-height: 1.7;
+  color: #14100a;
 }
 
+/* Taller than its text needs, with the buttons held at the bottom — in the
+   same place on a one-line card as on a three-line one — and the text
+   centred in the room between the head line and the buttons. */
 .review-focus .deck-card-top {
-  padding: 1.4rem 1.6rem;
+  padding: 1.6rem 1.8rem;
+  min-height: 17rem;
+  display: flex;
+  flex-direction: column;
 }
 
+.review-focus .deck-card-top .deck-card-body {
+  margin: auto 0;
+  padding: 1.25rem 0;
+}
+
+/* With the reason open, the text and the reason are centred as one block. */
+.review-focus .deck-card-top .deck-card-body:has(+ .deck-reason) {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.review-focus .deck-card-top .deck-reason {
+  margin-bottom: auto;
+  padding-bottom: 1.25rem;
+}
+
+/* The padding above does the spacing; a margin here would make the gap
+   under the text larger than the one over it. */
+.review-focus .deck-card-top .deck-actions,
+.review-focus .deck-card-top .deck-unfixable-actions {
+  margin-top: 0;
+}
+
+/* The surrounding sentence in full black, like the page it came from — a
+   faded grey made the whole card read as washed out. The change is marked
+   by the diff, not by dimming everything around it. */
 .review-focus .deck-card-top .correction-context {
-  color: #a08c6c;
+  color: #14100a;
 }
 
 .review-focus .deck-reason {
@@ -2812,12 +2973,8 @@ summary.review-source::before {
 }
 
 @media (max-width: 640px) {
-  .deck-actions {
-    flex-wrap: wrap;
-  }
-  .deck-hint {
-    order: -1;
-    flex-basis: 100%;
+  .deck-actions .deck-btn {
+    min-width: 0;
   }
 }
 

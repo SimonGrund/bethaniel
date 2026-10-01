@@ -4377,33 +4377,33 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       open={focusJid === jid}
                       onClose={() => setFocusJid(null)}
                       title={`${t("deck_title")} — ${src}`}
-                      controls={
-                        <select
-                          className="review-focus-jump"
-                          aria-label={t("deck_jump")}
-                          value=""
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "start") {
-                              setActiveChapter(hydrated[0]?.[0] ?? null);
-                              setDeckRestart((n) => n + 1);
-                            } else if (v) {
-                              setActiveChapter(v);
-                            }
-                          }}
-                        >
-                          <option value="">{t("deck_jump")}</option>
-                          <option value="start">{t("deck_jump_start")}</option>
-                          {hydrated.map(([tid, task]) => (
-                            <option key={tid} value={tid}>
-                              {task.name}
-                            </option>
-                          ))}
-                        </select>
-                      }
                     >
                       <ReviewDeck
                         entries={hydrated}
+                        jumpControl={
+                          <select
+                            className="review-focus-jump"
+                            aria-label={t("deck_jump")}
+                            value=""
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === "start") {
+                                setActiveChapter(hydrated[0]?.[0] ?? null);
+                                setDeckRestart((n) => n + 1);
+                              } else if (v) {
+                                setActiveChapter(v);
+                              }
+                            }}
+                          >
+                            <option value="">{t("deck_jump")}</option>
+                            <option value="start">{t("deck_jump_start")}</option>
+                            {hydrated.map(([tid, task]) => (
+                              <option key={tid} value={tid}>
+                                {task.name}
+                              </option>
+                            ))}
+                          </select>
+                        }
                         cursorTaskId={deckCursorId}
                         restartToken={deckRestart}
                         onChapterChange={(tid) => {

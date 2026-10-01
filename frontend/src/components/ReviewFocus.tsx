@@ -18,14 +18,12 @@ export default function ReviewFocus({
   open,
   onClose,
   title,
-  controls,
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  /** For screen readers only: the view has no visible title. */
   title: string;
-  /** Sits in the header beside the title: the jump-to control. */
-  controls?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
@@ -55,20 +53,18 @@ export default function ReviewFocus({
   // Into <body>, past the sidebar's stacking context — see Modal.tsx.
   return createPortal(
     <div className="review-focus" role="dialog" aria-modal="true" aria-label={title}>
+      {/* No panel and no title bar: the card on the dark is the whole view.
+          The jump-to control lives in the deck's settings menu. */}
+      <button
+        type="button"
+        className="review-focus-close"
+        onClick={() => onCloseRef.current()}
+        title={`${t("focus_close")} — Esc`}
+        aria-label={t("focus_close")}
+      >
+        ✕
+      </button>
       <div className="review-focus-panel">
-        <header className="review-focus-head">
-          <span className="review-focus-title">{title}</span>
-          {controls && <span className="review-focus-controls">{controls}</span>}
-          <button
-            type="button"
-            className="review-focus-close"
-            onClick={() => onCloseRef.current()}
-            title={`${t("focus_close")} — Esc`}
-            aria-label={t("focus_close")}
-          >
-            ✕
-          </button>
-        </header>
         <div className="review-focus-body">{children}</div>
       </div>
     </div>,

@@ -24,7 +24,8 @@ import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
 import { countRejected, progressOf, reviewerRejected } from "../deckProgress";
 import { putLexicon } from "../api";
-import { extractSentenceContext, InlineDiff, VerdictBadge } from "./ReviewExport";
+import { InlineDiff } from "./ReviewExport";
+import { compactContext, extendedContext } from "../deckContext";
 
 export interface DeckItem {
   taskId: string;
@@ -87,9 +88,19 @@ export function countUndecided(
 }
 
 const LEAVE_MS = 260;
-const PEEK = 3;
 /** Certainty under which the line says Betty is unsure rather than would accept. */
 const UNSURE_BELOW = 70;
+/** The settings menu's "always show the explanation", remembered across
+ *  sessions. Off by default: most cards are decided on the sentence alone. */
+const AUTO_WHY_KEY = "bethaniel.deck.autoWhy";
+
+function readAutoWhy(): boolean {
+  try {
+    return localStorage.getItem(AUTO_WHY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function ReviewDeck({
   entries,
@@ -99,6 +110,7 @@ export default function ReviewDeck({
   doneSlot,
   notice,
   restartToken = 0,
+  jumpControl,
 }: {
   /** Edit tasks of one job, in manuscript order, results hydrated. */
   entries: [string, TaskState][];
@@ -114,6 +126,8 @@ export default function ReviewDeck({
   notice?: React.ReactNode;
   /** Bump to start over from the first card, answered ones included. */
   restartToken?: number;
+  /** The jump-to control, offered in the settings menu. */
+  jumpControl?: React.ReactNode;
 }) {
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
@@ -125,6 +139,34 @@ export default function ReviewDeck({
   /** What the author has typed into the "correct to" field of the top card.
    *  Keyed by correction id so moving through the deck does not carry it. */
   const [typedFix, setTypedFix] = useState<Record<string, string>>({});
+  /** The card showing a paragraph either side. Per card: the wider view is
+   *  for the one suggestion that needs it, not the next forty. */
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  /** Show the reviewer's reason on every card without asking (settings). */
+  const [autoWhy, setAutoWhyState] = useState<boolean>(readAutoWhy);
+  /** The card whose "Why?" was clicked, flipping the default for it alone. */
+  const [whyToggledKey, setWhyToggledKey] = useState<string | null>(null);
+  const setAutoWhy = (on: boolean) => {
+    setAutoWhyState(on);
+    setWhyToggledKey(null);
+    try {
+      localStorage.setItem(AUTO_WHY_KEY, on ? "1" : "0");
+    } catch {
+      /* private window: the choice lasts the session */
+    }
+  };
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [settingsOpen]);
   const acceptedCorrections = useStore((s) => s.acceptedCorrections);
   // What was put off and what Back undoes live in the store, so the deck
   // comes back as it was left.
@@ -272,7 +314,7 @@ export default function ReviewDeck({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!top) return;
       // A finding that proposes nothing has no verdict to give: accepting it
@@ -310,7 +352,15 @@ export default function ReviewDeck({
     const key = keyOf(item);
     const isTop = position === 0;
     const isLeaving = leaving?.key === key;
-    const ctx = extractSentenceContext(item.correction.original, item.originalText, 0);
+    const expanded = isTop && expandedKey === key;
+    const whyOpen = isTop && autoWhy !== (whyToggledKey === key);
+    // Compact by default: the change's own sentence, inside its paragraph,
+    // line breaks flattened — so the buttons never leave the screen. See
+    // deckContext.ts for why the old sentence reading ran on.
+    const ctx = (expanded ? extendedContext : compactContext)(
+      item.correction.original,
+      item.originalText,
+    );
     const kind = flagKindOf(item.correction);
     const cameBack = postponed.includes(key);
     // Starting over: what the author said last time, on the card.
@@ -336,6 +386,21 @@ export default function ReviewDeck({
       : pct !== null && pct < UNSURE_BELOW
         ? t("deck_betty_unsure")
         : t("deck_betty_would_accept");
+    const tone = pct === null ? "none" : pct >= UNSURE_BELOW ? "sure" : pct >= 45 ? "mid" : "low";
+    const reason = item.correction.reviewReason
+      ? `“${item.correction.reviewReason}”`
+      : kind === "doubted"
+        ? t("flag_doubted_why")
+        : "";
+    // Only offer the wider view when it shows something the compact one
+    // does not.
+    const hasMore =
+      isTop &&
+      (() => {
+        const wide = extendedContext(item.correction.original, item.originalText);
+        const narrow = expanded ? compactContext(item.correction.original, item.originalText) : ctx;
+        return wide.before !== narrow.before || wide.after !== narrow.after;
+      })();
     return (
       <div
         // A card is remounted when it becomes the top card, so the rise
@@ -357,9 +422,49 @@ export default function ReviewDeck({
             {t(earlier === "accept" ? "deck_earlier_accept" : "deck_earlier_dismiss")}
           </p>
         )}
-        <div className="deck-card-body">
+        {/* One line saying what this is and how sure Betty is, with the two
+            things most cards do not need — more of the text, and the
+            reviewer's reason — one click away instead of always open. */}
+        <div className="deck-card-head">
+          <span className="deck-suggests" title={hint}>
+            <span className={`deck-dot deck-dot-${tone}`} aria-hidden="true" />
+            {pct === null
+              ? `${t("deck_suggests")} · ${t(kind === "unreviewed" ? "flag_unreviewed" : "flag_unchecked")}`
+              : t("deck_suggests_pct").replace("{pct}", String(pct))}
+          </span>
+          {isTop && (
+            <span className="deck-card-toggles">
+              {hasMore && (
+                <button
+                  type="button"
+                  className="deck-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => setExpandedKey(expanded ? null : key)}
+                >
+                  {t(expanded ? "deck_less_context" : "deck_more_context")}
+                </button>
+              )}
+              {reason && (
+                <button
+                  type="button"
+                  className="deck-toggle"
+                  aria-expanded={whyOpen}
+                  onClick={() => setWhyToggledKey(whyToggledKey === key ? null : key)}
+                >
+                  {t(whyOpen ? "deck_hide_why" : "deck_why")}
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+        <div className={`deck-card-body${expanded ? " deck-card-body-expanded" : ""}`}>
           <span className="correction-diff">
-            {ctx.before && <span className="correction-context">{ctx.before} </span>}
+            {ctx.before && (
+              <span className="correction-context">
+                {ctx.before}
+                {ctx.before.endsWith("\n") ? "" : " "}
+              </span>
+            )}
             {unfixable ? (
               // Nothing is proposed, so there is nothing to diff. The word
               // itself is the finding.
@@ -367,17 +472,15 @@ export default function ReviewDeck({
             ) : (
               <InlineDiff before={item.correction.original} after={item.correction.corrected} />
             )}
-            {ctx.after && <span className="correction-context"> {ctx.after}</span>}
+            {ctx.after && (
+              <span className="correction-context">
+                {ctx.after.startsWith("\n") ? "" : " "}
+                {ctx.after}
+              </span>
+            )}
           </span>
         </div>
-        {/* What the reviewer said, in the open — it used to be a tooltip on
-            the badge, and a reason worth reading is worth reading without
-            hovering for it. */}
-        {isTop && (item.correction.reviewReason || kind === "doubted") && (
-          <p className="deck-reason">
-            {item.correction.reviewReason ? `“${item.correction.reviewReason}”` : t("flag_doubted_why")}
-          </p>
-        )}
+        {whyOpen && reason && <p className="deck-reason">{reason}</p>}
         {isTop && unfixable && (
           // Accept and dismiss are both wrong here: accepting changes nothing
           // and dismissing throws away a real finding. What the author wants
@@ -449,12 +552,6 @@ export default function ReviewDeck({
               <span className="deck-btn-mark" aria-hidden="true">✕</span>
               {t("deck_dismiss")}
             </button>
-            <span className="deck-hint">
-              <span className="deck-hint-line">{hint}</span>
-              <span className="deck-card-verdict">
-                <VerdictBadge correction={item.correction} compact />
-              </span>
-            </span>
             <button
               type="button"
               className="deck-btn deck-btn-accept"
@@ -481,7 +578,9 @@ export default function ReviewDeck({
     );
   };
 
-  const shown = remaining.slice(0, PEEK + 1);
+  // The card in front of the author and nothing else: the ones behind it
+  // used to peek out underneath, and were only something more to look at.
+  const shown = remaining.slice(0, 1);
   // The chapter after the top card, when the top card is its chapter's last.
   const nextChapter =
     top && remaining.find((item) => item.taskId !== top.taskId)?.taskName;
@@ -520,6 +619,66 @@ export default function ReviewDeck({
               .replace("{total}", String(bookProgress.total))
               .replace("{pct}", String(bookProgress.percent))}
           </span>
+          {/* Everything that is not the card: where to jump, the held-back
+              suggestions, whether the explanation opens by itself. */}
+          <div className="deck-settings" ref={settingsRef}>
+            <button
+              type="button"
+              className="deck-settings-btn"
+              aria-haspopup="true"
+              aria-expanded={settingsOpen}
+              aria-label={t("deck_settings")}
+              title={t("deck_settings")}
+              onClick={() => setSettingsOpen((o) => !o)}
+            >
+              ⚙
+            </button>
+            {settingsOpen && (
+              <div
+                className="deck-settings-menu"
+                role="dialog"
+                aria-label={t("deck_settings")}
+                onKeyDown={(e) => {
+                  // Escape closes the menu, not the whole review.
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setSettingsOpen(false);
+                  }
+                }}
+              >
+                {jumpControl && <div className="deck-settings-row">{jumpControl}</div>}
+                <label className="deck-settings-row deck-settings-check">
+                  <input
+                    type="checkbox"
+                    checked={autoWhy}
+                    onChange={(e) => setAutoWhy(e.target.checked)}
+                  />
+                  <span>{t("deck_setting_auto_why")}</span>
+                </label>
+                {/* Held back by default, and said out loud rather than
+                    silently dropped: an author who cannot find a suggestion
+                    they remember seeing needs to know where it went. */}
+                {heldBack > 0 && (
+                  <label className="deck-settings-row deck-settings-check">
+                    <input
+                      type="checkbox"
+                      checked={showAllSuggestions}
+                      onChange={(e) => setShowAllSuggestions(e.target.checked)}
+                    />
+                    <span>
+                      {t("deck_setting_show_heldback").replace("{n}", String(heldBack))}
+                      <span className="deck-settings-note">
+                        {t(showAllSuggestions ? "deck_heldback_shown" : "deck_heldback").replace(
+                          "{n}",
+                          String(heldBack),
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="deck-back"
@@ -545,25 +704,6 @@ export default function ReviewDeck({
       >
         <div className="deck-bar-fill" style={{ width: `${bookProgress.percent}%` }} />
       </div>
-
-      {/* Held back by default, and said out loud rather than silently
-          dropped: an author who cannot find a suggestion they remember
-          seeing needs to know where it went. */}
-      {heldBack > 0 && (
-        <p className="deck-heldback small-note">
-          {showAllSuggestions
-            ? t("deck_heldback_shown").replace("{n}", String(heldBack))
-            : t("deck_heldback").replace("{n}", String(heldBack))}{" "}
-          <button
-            type="button"
-            className="btn-link deck-heldback-toggle"
-            aria-pressed={showAllSuggestions}
-            onClick={() => setShowAllSuggestions(!showAllSuggestions)}
-          >
-            {showAllSuggestions ? t("deck_heldback_hide") : t("deck_heldback_show")}
-          </button>
-        </p>
-      )}
 
       {notice}
 

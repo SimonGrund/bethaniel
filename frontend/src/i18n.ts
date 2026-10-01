@@ -4266,6 +4266,61 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Später",
     es: "Después",
   },
+  // The card's head line, and the two things it keeps folded away.
+  deck_suggests: {
+    en: "Betty suggests",
+    da: "Betty foreslår",
+    de: "Betty schlägt vor",
+    es: "Betty sugiere",
+  },
+  deck_suggests_pct: {
+    en: "Betty suggests · {pct}% sure",
+    da: "Betty foreslår · {pct}% sikker",
+    de: "Betty schlägt vor · {pct}% sicher",
+    es: "Betty sugiere · {pct}% segura",
+  },
+  deck_more_context: {
+    en: "More context",
+    da: "Mere kontekst",
+    de: "Mehr Kontext",
+    es: "Más contexto",
+  },
+  deck_less_context: {
+    en: "Less context",
+    da: "Mindre kontekst",
+    de: "Weniger Kontext",
+    es: "Menos contexto",
+  },
+  deck_why: {
+    en: "Why?",
+    da: "Hvorfor?",
+    de: "Warum?",
+    es: "¿Por qué?",
+  },
+  deck_hide_why: {
+    en: "Hide why",
+    da: "Skjul hvorfor",
+    de: "Warum ausblenden",
+    es: "Ocultar por qué",
+  },
+  deck_settings: {
+    en: "Review settings",
+    da: "Indstillinger for gennemgang",
+    de: "Einstellungen zur Durchsicht",
+    es: "Ajustes de la revisión",
+  },
+  deck_setting_auto_why: {
+    en: "Always show Betty's explanation",
+    da: "Vis altid Bettys forklaring",
+    de: "Bettys Erklärung immer anzeigen",
+    es: "Mostrar siempre la explicación de Betty",
+  },
+  deck_setting_show_heldback: {
+    en: "Show the {n} suggestions judged wrong",
+    da: "Vis de {n} forslag, der blev vurderet forkerte",
+    de: "Die {n} als falsch beurteilten Vorschläge anzeigen",
+    es: "Mostrar las {n} sugerencias juzgadas incorrectas",
+  },
   deck_came_back: {
     en: "Put off earlier — back for an answer.",
     da: "Udskudt tidligere — nu tilbage for et svar.",
