@@ -885,6 +885,18 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "{n} eingeführte(r) Fehler wurde(n) automatisch behoben, indem der ursprüngliche Wortlaut bzw. die Anführungszeichen wiederhergestellt wurden",
     es: "{n} error(es) introducido(s) se corrigieron automáticamente restaurando la redacción o las comillas originales",
   },
+  export_check_quotes_curled: {
+    en: "{n} straight quotation marks were made curly, to match the rest of the manuscript.",
+    da: "{n} lige anførselstegn blev gjort krøllede, så de passer til resten af manuskriptet.",
+    de: "{n} gerade Anführungszeichen wurden in typografische umgewandelt, passend zum restlichen Manuskript.",
+    es: "{n} comillas rectas se cambiaron por tipográficas, para que coincidan con el resto del manuscrito.",
+  },
+  export_check_quotes_curled_one: {
+    en: "One straight quotation mark was made curly, to match the rest of the manuscript.",
+    da: "Ét lige anførselstegn blev gjort krøllet, så det passer til resten af manuskriptet.",
+    de: "Ein gerades Anführungszeichen wurde in ein typografisches umgewandelt, passend zum restlichen Manuskript.",
+    es: "Una comilla recta se cambió por una tipográfica, para que coincida con el resto del manuscrito.",
+  },
   export_check_manual: {
     en: "Also check these words in the exported text",
     da: "Tjek også disse ord i den eksporterede tekst",
@@ -3812,6 +3824,13 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Afslut og installér",
     de: "Beenden und installieren",
     es: "Salir e instalar",
+  },
+  // An edited copy's file name: "book (edited).docx".
+  export_edited_label: {
+    en: "edited",
+    da: "redigeret",
+    de: "bearbeitet",
+    es: "editado",
   },
   notes_filename: {
     en: "formatting notes",

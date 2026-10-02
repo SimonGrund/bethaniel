@@ -155,3 +155,75 @@ test("the document is a valid zip with the expected parts", async () => {
     assert.ok(zip.file(part), `missing ${part}`);
   }
 });
+
+// ── Book layout: an export from a typeset source (EPUB, PDF) ──
+// An EPUB's chapters start on new pages and its paragraphs are indented; the
+// rebuilt .docx came out flat — one run of unindented paragraphs, the
+// copyright page running straight into the Prologue. Reported from live use.
+
+const book = [
+  "**Copyright © 2026**",
+  "",
+  "All rights reserved.",
+  "",
+  "## Prologue",
+  "",
+  "Elisala eyed her pupils.",
+  "",
+  "They were strong, all three of them.",
+  "",
+  "***",
+  "",
+  "A new scene opens here.",
+  "",
+  "And carries on here.",
+  "",
+  "## Chapter 1",
+  "",
+  "The first chapter.",
+].join("\n");
+
+function paragraphsOf(xml: string): string[] {
+  return xml.match(/<w:p>[\s\S]*?<\/w:p>|<w:p [\s\S]*?<\/w:p>/g) ?? [];
+}
+
+test("book layout: every chapter starts a new page, the first after front matter too", async () => {
+  const xml = await documentXml(book, { bookLayout: true });
+  const breaks = xml.match(/<w:br w:type="page"\/>/g) ?? [];
+  assert.equal(breaks.length, 2, "one before the Prologue, one before Chapter 1");
+});
+
+test("book layout: no page break before a chapter that opens the book", async () => {
+  const xml = await documentXml("## Prologue\n\nProse.", { bookLayout: true });
+  assert.doesNotMatch(xml, /<w:br w:type="page"\/>/);
+});
+
+test("book layout: paragraphs are indented except the first of a chapter or scene", async () => {
+  const xml = await documentXml(book, { bookLayout: true });
+  const para = (text: string) => paragraphsOf(xml).find((p) => p.includes(text)) ?? "";
+  assert.doesNotMatch(para("Elisala eyed"), /w:firstLine/, "opens the chapter");
+  assert.match(para("They were strong"), /w:firstLine="360"/);
+  assert.doesNotMatch(para("A new scene opens"), /w:firstLine/, "opens the scene");
+  assert.match(para("And carries on"), /w:firstLine="360"/);
+});
+
+test("book layout: chapter headings are centred", async () => {
+  const xml = await documentXml(book, { bookLayout: true });
+  const heading = paragraphsOf(xml).find((p) => p.includes("Prologue")) ?? "";
+  assert.match(heading, /<w:jc w:val="center"\/>/);
+});
+
+test("without book layout nothing is indented or added (a .md upload)", async () => {
+  const xml = await documentXml(book);
+  assert.doesNotMatch(xml, /w:firstLine/);
+  assert.doesNotMatch(xml, /<w:br w:type="page"\/>/);
+});
+
+test("headings take the manuscript's face, not Word's blue", async () => {
+  const buf = await markdownToDocx("# One\n\nProse.", DEFAULT_DOCX_EXPORT_OPTIONS);
+  const zip = await JSZip.loadAsync(buf);
+  const styles = (await zip.file("word/styles.xml")?.async("string")) ?? "";
+  const h1 = /<w:style[^>]*w:styleId="Heading1"[\s\S]*?<\/w:style>/.exec(styles)?.[0] ?? "";
+  assert.match(h1, /Times New Roman/);
+  assert.match(h1, /<w:color w:val="000000"\/>/);
+});

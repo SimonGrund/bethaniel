@@ -125,3 +125,47 @@ test("a zip with no OPF is refused rather than half-read", async () => {
   const buf = await zip.generateAsync({ type: "nodebuffer" });
   await assert.rejects(() => epubToMarkdown(buf), InvalidEpubError);
 });
+
+// ── Scene breaks drawn as an ornament ──
+// Atticus writes a scene break as an image inside a classed span. Images are
+// dropped on import, and the break went with them: two real books lost 29 and
+// 40 scene breaks, every scene running into the next.
+
+test("an ornamental scene break (Atticus) survives as * * *", async () => {
+  const buf = await buildEpub([
+    {
+      id: "c1",
+      href: "c1.xhtml",
+      html:
+        '<h2>Chapter One</h2><p>The first scene ends.</p>' +
+        '<span class="ornamental-break"><img src="images/orn.png" alt=""/></span>' +
+        "<p>The second scene begins.</p>",
+    },
+  ]);
+  const md = await epubToMarkdown(buf);
+  assert.match(md, /The first scene ends\.\n\n\* \* \*\n\nThe second scene begins\./);
+});
+
+test("other tools' scene-break classes are read the same way", async () => {
+  for (const cls of ["scene-break", "section_break", "ornament", "fleuron"]) {
+    const buf = await buildEpub([
+      {
+        id: "c1",
+        href: "c1.xhtml",
+        html: `<p>Before.</p><div class="${cls}"></div><p>After.</p>`,
+      },
+    ]);
+    assert.match(await epubToMarkdown(buf), /Before\.\n\n\* \* \*\n\nAfter\./, cls);
+  }
+});
+
+test("an ordinary class containing a break-ish word is not a scene break", async () => {
+  const buf = await buildEpub([
+    {
+      id: "c1",
+      href: "c1.xhtml",
+      html: '<p class="no-page-break-inside">Kept together.</p><p>Next.</p>',
+    },
+  ]);
+  assert.doesNotMatch(await epubToMarkdown(buf), /\* \* \*/);
+});

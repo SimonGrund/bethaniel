@@ -81,6 +81,10 @@ function bodyOf(html: string): string {
     .replace(/<nav\b[\s\S]*?<\/nav>/gi, "");
 }
 
+/** Class names typesetting tools give an ornamental scene break. */
+const SCENE_BREAK_CLASS =
+  /(?:^|[\s_-])(?:ornament(?:al)?(?:[-_]?break)?|scene[-_]?break|section[-_]?break|space[-_]?break|fleuron|dinkus)(?:$|[\s_-])/i;
+
 let _turndown: import("turndown") | null = null;
 async function getTurndown() {
   if (_turndown) return _turndown;
@@ -90,8 +94,29 @@ async function getTurndown() {
     codeBlockStyle: "fenced",
     bulletListMarker: "-",
     emDelimiter: "_",
+    // An EMPTY element never reaches the rules below — turndown sends it
+    // here — and an ornament drawn by CSS on an empty div is exactly that.
+    blankReplacement: (_content, node) =>
+      SCENE_BREAK_CLASS.test(
+        (node as unknown as { getAttribute?: (n: string) => string | null })
+          .getAttribute?.("class") ?? "",
+      )
+        ? "\n\n* * *\n\n"
+        : (node as unknown as { isBlock?: boolean }).isBlock
+          ? "\n\n"
+          : "",
   });
   td.addRule("lineBreak", { filter: "br", replacement: () => "\n" });
+  // A scene break drawn as an ornament: Atticus writes
+  // `<span class="ornamental-break"><img …></span>`, other tools a div or a p
+  // with a class like "scene-break". The image is dropped below, so without
+  // this the break went with it and two scenes ran together — 29 of them in
+  // one real book. Turndown tries rules newest-first, and the ornament's
+  // wrapper is reached before its <img>, so this wins.
+  td.addRule("ornamentBreak", {
+    filter: (node) => SCENE_BREAK_CLASS.test(node.getAttribute?.("class") ?? ""),
+    replacement: () => "\n\n* * *\n\n",
+  });
   // Images have no counterpart in the extracted manuscript; a bare alt text
   // reads as prose the author did not write.
   td.addRule("dropImages", { filter: "img", replacement: () => "" });

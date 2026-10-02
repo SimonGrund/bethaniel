@@ -321,6 +321,9 @@ export interface DocxExportOptions {
    *  survives Atticus's paste cleanup. */
   minorBreak?: "blank" | "hash";
   lineSpacing?: number;
+  /** The source was a typeset book (EPUB, PDF): chapters on new pages,
+   *  indented paragraphs, centred chapter headings. */
+  bookLayout?: boolean;
 }
 
 export interface VerifyChapterPayload {
@@ -336,7 +339,9 @@ export interface VerifyChapterResult {
    *  doubled quote pairs and doubled punctuation, stripped stray emphasis
    *  markers). */
   autoFixes?: {
-    kind: "spelling" | "quotes" | "punctuation" | "formatting";
+    /** "typography": stray straight quotes made curly to match the
+     *  manuscript; `detail` is how many. Not an introduced error. */
+    kind: "spelling" | "quotes" | "punctuation" | "formatting" | "typography";
     detail: string;
   }[];
   /** The chapter's `after` text with those repairs applied — present only

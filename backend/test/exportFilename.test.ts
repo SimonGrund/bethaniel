@@ -23,7 +23,7 @@ test("a translation is named for the manuscript and its language", () => {
 test("the source extension is not carried into the name", () => {
   // "book 2.docx.full.docx" — the old shape. Any import extension goes.
   for (const src of ["book 2.docx", "book 2.epub", "book 2.md", "book 2.pdf"])
-    assert.equal(exportBaseName({ source: src, scope: "full" }), "book 2.full", src);
+    assert.equal(exportBaseName({ source: src, scope: "full" }), "book 2 (edited)", src);
 });
 
 test("a name with a dot inside it keeps everything but the extension", () => {
@@ -45,7 +45,7 @@ test("one chapter is named after the chapter", () => {
   );
   assert.equal(
     exportBaseName({ source: "book 2.docx", scope: "one", chapterName: "Chapter 5" }),
-    "Chapter 5.edited",
+    "Chapter 5 (edited)",
   );
 });
 
@@ -56,7 +56,7 @@ test("a selection of chapters says so", () => {
   );
   assert.equal(
     exportBaseName({ source: "book 2.docx", scope: "chapters" }),
-    "book 2.chapters",
+    "book 2 (edited) chapters",
   );
 });
 
@@ -82,13 +82,30 @@ test("an absurdly long chapter title is cut to something a Finder can show", () 
 });
 
 test("an empty or extension-only source still yields a name", () => {
-  assert.equal(exportBaseName({ source: "", scope: "full" }), "manuscript.full");
-  assert.equal(exportBaseName({ source: ".docx", scope: "full" }), "manuscript.full");
+  assert.equal(exportBaseName({ source: "", scope: "full" }), "manuscript (edited)");
+  assert.equal(exportBaseName({ source: ".docx", scope: "full" }), "manuscript (edited)");
 });
 
 test("the sidecar is named after the file it belongs to", () => {
   assert.equal(
     sidecarName("book 2 (French)", "formatting notes"),
     "book 2 (French) formatting notes",
+  );
+});
+
+// "book.full.docx" showed in Explorer as "book.full" — Windows hides the real
+// extension, so the one visible suffix was a word from the export code and
+// the file looked like an unknown type. Reported from an EPUB upload.
+test("an edited copy has no dot-suffix for a file manager to mistake for its type", () => {
+  for (const scope of ["full", "chapters", "one"] as const) {
+    const name = exportBaseName({ source: "Rage of the Rule.epub", scope, chapterName: "Prologue" });
+    assert.doesNotMatch(name, /\.[a-z]+$/i, `${scope}: ${name}`);
+  }
+});
+
+test("the edited label is the reader's language", () => {
+  assert.equal(
+    exportBaseName({ source: "bog.epub", scope: "full", editedLabel: "redigeret" }),
+    "bog (redigeret)",
   );
 });

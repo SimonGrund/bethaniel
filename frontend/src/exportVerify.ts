@@ -176,6 +176,9 @@ export interface VerifyOutcome {
   /** Introduced errors the server repaired in place (reverted misspellings,
    *  collapsed doubled quotes) — informational. */
   autoFixed: string[];
+  /** Straight quotation marks made curly to match the rest of the
+   *  manuscript. A tidy-up, not a repair: usually the author typed them. */
+  quotesCurled: number;
   /** Introduced misspellings that could not be fixed — check manually. */
   unattributed: string[];
   /** Per-task export text with the server's auto-repairs applied. Exports
@@ -216,6 +219,7 @@ export async function verifyAcceptedCorrections(
 ): Promise<VerifyOutcome> {
   const excluded: ExcludedCorrection[] = [];
   const autoFixed = new Set<string>();
+  let quotesCurled = 0;
   const unattributed = new Set<string>();
   const fixedTexts: Record<string, string> = {};
 
@@ -250,6 +254,7 @@ export async function verifyAcceptedCorrections(
         return {
           excluded,
           autoFixed: [...autoFixed],
+          quotesCurled,
           unattributed: [...unattributed],
           fixedTexts,
           checked: false,
@@ -290,6 +295,10 @@ export async function verifyAcceptedCorrections(
           const entry = entries[i];
           for (const w of ch.suspects) unattributed.add(w);
           for (const f of ch.autoFixes ?? []) {
+            if (f.kind === "typography") {
+              quotesCurled += Number(f.detail) || 0;
+              continue;
+            }
             autoFixed.add(
               f.kind === "quotes"
                 ? `${f.detail} → quote`
@@ -310,6 +319,7 @@ export async function verifyAcceptedCorrections(
     return {
       excluded,
       autoFixed: [...autoFixed],
+      quotesCurled,
       unattributed: [...unattributed],
       fixedTexts,
       checked: true,
@@ -319,6 +329,7 @@ export async function verifyAcceptedCorrections(
     return {
       excluded,
       autoFixed: [...autoFixed],
+      quotesCurled,
       unattributed: [...unattributed],
       fixedTexts,
       checked: false,

@@ -410,6 +410,15 @@ export interface DocxExportOptions {
    * arrive as PAGEBREAK markers and are emitted regardless of this setting.
    */
   chapterPageBreaks: boolean;
+  /**
+   * The source was a typeset book (an EPUB or a PDF), so lay the export out
+   * as one: chapters on new pages, indented paragraphs, centred chapter
+   * headings. Its chapters really did start on new pages and its paragraphs
+   * really were indented — so this restores structure rather than inventing
+   * it, which is why it is not the default for a .md upload. A .docx upload
+   * never comes this way: it is edited in place (docx-surgical).
+   */
+  bookLayout: boolean;
 }
 
 export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
@@ -417,6 +426,7 @@ export const DEFAULT_DOCX_EXPORT_OPTIONS: DocxExportOptions = {
   minorBreak: "blank",
   lineSpacing: 1.3,
   chapterPageBreaks: false,
+  bookLayout: false,
 };
 
 /** Convert Markdown to .docx, return the binary buffer. */

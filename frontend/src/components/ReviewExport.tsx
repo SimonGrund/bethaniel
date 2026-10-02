@@ -2170,8 +2170,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     async (markdown: string, filename: string, opts?: DocxExportOptions) => {
       try {
         // Merge the persisted minor-break preference into every DOCX export.
+        // A book that arrived as an EPUB or a PDF was typeset — chapters on
+        // new pages, indented paragraphs — and the rebuilt .docx lays it out
+        // that way again. A .md upload keeps the plain layout; a .docx upload
+        // never comes here (it is edited in place).
+        const sourceName = useStore.getState().document?.name ?? "";
         const blob = await exportDocx(markdown, {
           minorBreak: useStore.getState().minorBreakStyle,
+          bookLayout: /\.(epub|pdf)$/i.test(sourceName),
           ...opts,
         });
         const url = URL.createObjectURL(blob);
@@ -2413,6 +2419,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             outcome.checked &&
             (outcome.excluded.length > 0 ||
               outcome.autoFixed.length > 0 ||
+              outcome.quotesCurled > 0 ||
               outcome.unattributed.length > 0)
           ) {
             setVerifyReport(outcome);
@@ -2777,6 +2784,17 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               : {verifyReport.autoFixed.join(", ")}
             </p>
           )}
+          {/* A tidy-up of the author's own marks, said as one: it is not
+              an error Betty made and repaired. */}
+          {verifyReport.quotesCurled > 0 && (
+            <p>
+              {t(
+                verifyReport.quotesCurled === 1
+                  ? "export_check_quotes_curled_one"
+                  : "export_check_quotes_curled",
+              ).replace("{n}", String(verifyReport.quotesCurled))}
+            </p>
+          )}
           {verifyReport.unattributed.length > 0 && (
             <p>
               {t("export_check_manual")}: {verifyReport.unattributed.join(", ")}
@@ -2931,6 +2949,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             scope: exportAll ? "full" : exportIds.length === 1 ? "one" : "chapters",
             chapterName: editTasks.find(([tid]) => tid === exportIds[0])?.[1].name,
             targetLang: exportTargetLang,
+            editedLabel: t("export_edited_label"),
           });
           // A translation rewrites the whole chunk rather than proposing
           // discrete corrections, so the accept/dismiss machinery has nothing

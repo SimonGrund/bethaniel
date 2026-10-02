@@ -1491,7 +1491,7 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     suspects: string[];
     offenders: { id: string; word: string }[];
     autoFixes: {
-      kind: "spelling" | "quotes" | "punctuation" | "formatting";
+      kind: "spelling" | "quotes" | "punctuation" | "formatting" | "typography";
       detail: string;
     }[];
     fixedAfter?: string;
@@ -1538,7 +1538,7 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
     // to use. When offenders exist the client un-accepts and re-verifies,
     // so `fixedAfter` is only consumed on a clean pass.
     const autoFixes: {
-      kind: "spelling" | "quotes" | "punctuation" | "formatting";
+      kind: "spelling" | "quotes" | "punctuation" | "formatting" | "typography";
       detail: string;
     }[] = [];
     let fixedAfter = after;
@@ -1567,14 +1567,17 @@ router.post("/verify-corrections", (req: Request, res: Response) => {
       autoFixes.push({ kind: "formatting", detail: `${f.before} → ${f.after}` });
 
     // Normalize stray straight quotes toward the document's dominant style.
-    // Many conversions collapse to one banner line via the client-side Set.
+    // Its own kind, with the count as detail: these marks are usually the
+    // author's own, not something a correction introduced, and reported as
+    // an "introduced error" repaired by "restoring the original" the banner
+    // said two untrue things about one tidy-up.
     if (curlifyOpts.singles || curlifyOpts.doubles) {
       const quoteNorm = curlifyStrayQuotes(fixedAfter, curlifyOpts);
       fixedAfter = quoteNorm.cleaned;
       if (quoteNorm.fixes.length > 0)
         autoFixes.push({
-          kind: "formatting",
-          detail: "straight quotes → curly",
+          kind: "typography",
+          detail: String(quoteNorm.fixes.length),
         });
     }
 

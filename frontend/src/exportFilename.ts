@@ -34,6 +34,8 @@ export interface ExportNameInput {
   chapterName?: string;
   /** Set only for a translation, and then it is the point of the name. */
   targetLang?: string;
+  /** The word for an edited copy, in the reader's language. Default "edited". */
+  editedLabel?: string;
 }
 
 function clean(name: string): string {
@@ -45,7 +47,7 @@ function clean(name: string): string {
 
 /** The name an export is offered under, without its extension. */
 export function exportBaseName(input: ExportNameInput): string {
-  const { source, scope, chapterName, targetLang } = input;
+  const { source, scope, chapterName, targetLang, editedLabel = "edited" } = input;
   const stem = clean(source.replace(IMPORT_EXT, "")) || "manuscript";
   const subject = scope === "one" ? clean(chapterName ?? "") || stem : stem;
 
@@ -57,8 +59,11 @@ export function exportBaseName(input: ExportNameInput): string {
     return scope === "chapters" ? clean(`${named} chapters`) : named;
   }
 
-  if (scope === "one") return clean(`${subject}.edited`);
-  return clean(`${stem}.${scope === "chapters" ? "chapters" : "full"}`);
+  // Not "book.full": Windows hides the real extension, so ".full" was all an
+  // author saw and the file read as an unknown type. Said the way the
+  // translation is, in parentheses — and never with a dot.
+  const edited = clean(`${subject} (${editedLabel})`);
+  return scope === "chapters" ? clean(`${edited} chapters`) : edited;
 }
 
 /**

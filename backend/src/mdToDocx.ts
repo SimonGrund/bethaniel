@@ -39,6 +39,12 @@ const TWIPS_PER_LINE = 240;
  * recorded is shown at that size instead.
  */
 const MAX_IMAGE_WIDTH_PX = 576;
+/**
+ * A book's paragraph indent, in twips: 1.5em of 12pt type, the figure the
+ * typesetting tools that write EPUBs (Vellum, Atticus, InDesign's defaults)
+ * settle on.
+ */
+const BOOK_INDENT_TWIPS = 360;
 
 export interface DocxBuildOptions {
   sectionBreak: "asterisks" | "dash" | "blank";
@@ -46,6 +52,13 @@ export interface DocxBuildOptions {
   lineSpacing: number;
   /** Start each chapter on a new page. See DocxExportOptions for why it is off. */
   chapterPageBreaks?: boolean;
+  /**
+   * Lay the text out the way the typeset book it came from was: every chapter
+   * on a new page (the first one after front matter included), a first-line
+   * indent on each paragraph except the one opening a chapter or a scene, and
+   * chapter headings centred. See DocxExportOptions for when it is on.
+   */
+  bookLayout?: boolean;
 }
 
 /** Resolves a markdown image reference to bytes, or null when unavailable. */
@@ -226,6 +239,8 @@ function blockToParagraphs(
   opts: DocxBuildOptions,
   resolveImage: ImageBytesResolver | undefined,
   resolveSize: ImageSizeResolver | undefined,
+  /** What came before this block, for the book layout's two decisions. */
+  prev: MdBlock | null = null,
 ): Paragraph[] {
   const spacing = { line: Math.round(TWIPS_PER_LINE * opts.lineSpacing) };
 
@@ -237,7 +252,17 @@ function blockToParagraphs(
         if (i > 0) children.push(new TextRun({ break: 1 }));
         children.push(...runsFor(line, resolveImage, resolveSize));
       });
-      return [new Paragraph({ spacing, children })];
+      // A book indents every paragraph but the first of a chapter or a
+      // scene: after a heading, a break, or at the very start.
+      const opens =
+        prev === null ||
+        prev.kind === "heading" ||
+        prev.kind === "pagebreak" ||
+        prev.kind === "sceneBreak" ||
+        prev.kind === "minorBreak";
+      const indent =
+        opts.bookLayout && !opens ? { firstLine: BOOK_INDENT_TWIPS } : undefined;
+      return [new Paragraph({ spacing, indent, children })];
     }
     case "pagebreak":
       return [new Paragraph({ children: [new PageBreak()] })];
@@ -249,13 +274,29 @@ function blockToParagraphs(
       const out: Paragraph[] = [];
       // `needsPageBreak` is the HTML path's chapter convention, not something
       // the author wrote. Real breaks arrive as their own "pagebreak" block.
-      if (block.needsPageBreak && opts.chapterPageBreaks) {
+      if (block.needsPageBreak && (opts.chapterPageBreaks || opts.bookLayout)) {
+        out.push(new Paragraph({ children: [new PageBreak()] }));
+      } else if (
+        // needsPageBreak never breaks before the FIRST chapter, which in a
+        // book is wrong as soon as front matter (a copyright page, a
+        // dedication) comes before it.
+        opts.bookLayout &&
+        block.isChapter &&
+        prev !== null &&
+        prev.kind !== "pagebreak" &&
+        !block.needsPageBreak
+      ) {
         out.push(new Paragraph({ children: [new PageBreak()] }));
       }
       out.push(
         new Paragraph({
           heading: HEADING_LEVELS[Math.min(block.level, 6) - 1],
-          spacing,
+          alignment:
+            opts.bookLayout && block.isChapter ? AlignmentType.CENTER : undefined,
+          spacing:
+            opts.bookLayout && block.isChapter
+              ? { ...spacing, before: 1440, after: 720 }
+              : spacing,
           children: runsFor(block.text, resolveImage, resolveSize),
         }),
       );
@@ -271,8 +312,9 @@ export async function buildDocx(
   resolveImage?: ImageBytesResolver,
   resolveSize?: ImageSizeResolver,
 ): Promise<Buffer> {
-  const paragraphs = parseMdBlocks(md).flatMap((b) =>
-    blockToParagraphs(b, opts, resolveImage, resolveSize),
+  const blocks = parseMdBlocks(md);
+  const paragraphs = blocks.flatMap((b, i) =>
+    blockToParagraphs(b, opts, resolveImage, resolveSize, i > 0 ? blocks[i - 1] : null),
   );
 
   const doc = new Document({
@@ -281,6 +323,16 @@ export async function buildDocx(
         document: {
           run: { font: FONT, size: FONT_SIZE_HALF_POINTS },
         },
+        // Word's own heading styles are blue Calibri Light: a manuscript set
+        // in Times arrived with every chapter title in a corporate template's
+        // colours. The headings keep their levels (navigation pane, TOC) and
+        // take the manuscript's face.
+        heading1: { run: { font: FONT, size: 36, bold: true, color: "000000" } },
+        heading2: { run: { font: FONT, size: 30, bold: true, color: "000000" } },
+        heading3: { run: { font: FONT, size: 26, bold: true, color: "000000" } },
+        heading4: { run: { font: FONT, size: 24, bold: true, italics: true, color: "000000" } },
+        heading5: { run: { font: FONT, size: 24, bold: true, color: "000000" } },
+        heading6: { run: { font: FONT, size: 24, italics: true, color: "000000" } },
       },
     },
     sections: [
