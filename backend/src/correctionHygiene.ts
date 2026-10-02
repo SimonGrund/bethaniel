@@ -748,7 +748,11 @@ export function partitionUnlocatable(
  * context, making the longer one redundant. The position check matters: two
  * distinct, unrelated fixes can have strings that are lexical substrings of
  * each other without being the same edit, and a pure string-containment
- * check would silently drop the real one.
+ * check would silently drop the real one. A finding that proposes nothing
+ * never subsumes: it would swallow the fix it sits inside.
+ *
+ * Pass 3: drop a no-fix finding whose word is fixed, at every occurrence, by
+ * another correction (dropCoveredFindings).
  */
 export function dedupeChapterCorrections(
   chapterText: string,
@@ -789,6 +793,9 @@ export function dedupeChapterCorrections(
     const subsumed = deduped.some((other) => {
       if (
         other === c ||
+        // A finding that proposes nothing (a withheld spell guess) is not
+        // the same edit with less context; it would swallow the real fix.
+        isNoFixFinding(other) ||
         other.original.length >= c.original.length ||
         !c.original.includes(other.original) ||
         !c.corrected.includes(other.corrected)
@@ -803,7 +810,67 @@ export function dedupeChapterCorrections(
     if (!subsumed) subsumeFree.push(c);
   }
 
-  return subsumeFree;
+  return dropCoveredFindings(chapterText, subsumeFree);
+}
+
+/** A finding reported with no replacement: the word is the finding. */
+function isNoFixFinding(c: Correction): boolean {
+  return c.original.trim() !== "" && c.original.trim() === c.corrected.trim();
+}
+
+/** The reviewer's lowest score: a verdict that the fix is wrong. */
+const REVIEWER_REJECTED_SCORE = 1;
+
+/**
+ * Pass 3: a finding with no fix, standing where a real fix already is.
+ *
+ * The spell layer reports a word it cannot place and proposes nothing
+ * (`sworddancers` -> `sworddancers`, spell-check-unknown); LanguageTool or the
+ * editor fixes the same word inside a longer span (`swift sworddancers of` ->
+ * `swift sword dancers of`). Pass 2 cannot see the two as one: the fix's
+ * corrected text no longer contains the word, which is the whole point of it.
+ * So the author answered the fix and was then asked about the very word they
+ * had just fixed, with "Add to dictionary" under it.
+ *
+ * The finding goes only when EVERY occurrence of its word sits inside a fix
+ * that changes it. A fix that keeps the word ("sworddancers of" ->
+ * "sworddancers, of") answers nothing about it, a fix the reviewer rejected
+ * outright is held back from the review and so answers nothing either, and an
+ * occurrence no fix touches still needs the author's eye. Nor does a fix
+ * that only changes the word's case ("you guys" -> "you Guys"): capitals do
+ * not say whether the word is a word.
+ */
+export function dropCoveredFindings(
+  chapterText: string,
+  corrections: Correction[],
+): Correction[] {
+  if (!corrections.some(isNoFixFinding)) return corrections;
+  const fixes = corrections.filter(
+    (c) => !isNoFixFinding(c) && c.confidence !== REVIEWER_REJECTED_SCORE,
+  );
+  return corrections.filter((c) => {
+    if (!isNoFixFinding(c)) return true;
+    const word = c.original.trim();
+    const at = boundaryOccurrences(chapterText, word);
+    if (at.length === 0) return true;
+    const fixSpans: [number, number][] = [];
+    for (const f of fixes) {
+      // Case is not a fix: "you guys" -> "you Guys" leaves the question
+      // about the word open, and dismissing it must not lose the finding.
+      if (
+        boundaryOccurrences(f.corrected.toLowerCase(), word.toLowerCase())
+          .length > 0
+      )
+        continue;
+      for (const p of boundaryOccurrences(chapterText, f.original)) {
+        fixSpans.push([p, p + f.original.length]);
+      }
+    }
+    const covered = at.every((p) =>
+      fixSpans.some(([s, e]) => p >= s && p + word.length <= e),
+    );
+    return !covered;
+  });
 }
 
 // ── Span narrowing ──

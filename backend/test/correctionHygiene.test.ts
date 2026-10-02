@@ -693,3 +693,52 @@ test("a withheld guess is never called unlocatable", () => {
   ]);
   assert.equal(kept.length, 1);
 });
+
+// ── A finding with no fix, standing where a real fix already is ──
+// From a real run: LanguageTool fixed `swift sworddancers of` and the spell
+// layer reported `sworddancers` with no replacement. The author accepted the
+// fix and was then asked about the same word again, with "Add to dictionary".
+
+const sworddancers =
+  "These ships carried the greatest fighters from his empire: brutal barbarian warriors from the north, swift sworddancers of the east, and talented archers from the South.";
+const finding = {
+  original: "sworddancers",
+  corrected: "sworddancers",
+  reason: "spell-check-unknown",
+  flagged: true,
+};
+const fix = {
+  original: "swift sworddancers of",
+  corrected: "swift sword dancers of",
+  reason: "grammar:typos",
+  confidence: 5,
+};
+
+test("dedupeChapterCorrections: a no-fix finding inside a fix of the same word goes", () => {
+  const out = dedupeChapterCorrections(sworddancers, [fix, finding]);
+  assert.deepEqual(out.map((c) => c.original), ["swift sworddancers of"]);
+});
+
+test("dedupeChapterCorrections: a fix that keeps the word does not answer the finding", () => {
+  const comma = { original: "sworddancers of", corrected: "sworddancers, of", confidence: 4 };
+  const out = dedupeChapterCorrections(sworddancers, [comma, finding]);
+  assert.equal(out.length, 2);
+});
+
+test("dedupeChapterCorrections: a fix the reviewer rejected does not answer the finding", () => {
+  const rejected = { original: "sworddancers", corrected: "sword-dancers", confidence: 1 };
+  const out = dedupeChapterCorrections(sworddancers, [rejected, finding]);
+  assert.equal(out.length, 2);
+});
+
+test("dedupeChapterCorrections: an occurrence no fix touches keeps the finding", () => {
+  const text = `${sworddancers} Later the sworddancers rested.`;
+  const out = dedupeChapterCorrections(text, [fix, finding]);
+  assert.equal(out.length, 2);
+});
+
+test("dedupeChapterCorrections: a fix that only changes the word's case does not answer the finding", () => {
+  const caps = { original: "swift sworddancers of", corrected: "swift Sworddancers of", confidence: 5 };
+  const out = dedupeChapterCorrections(sworddancers, [caps, finding]);
+  assert.equal(out.length, 2);
+});

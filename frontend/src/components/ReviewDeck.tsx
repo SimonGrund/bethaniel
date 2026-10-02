@@ -24,6 +24,7 @@ import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
 import { countRejected, progressOf, reviewerRejected } from "../deckProgress";
 import { putLexicon } from "../api";
+import { dropCoveredFindings } from "../coveredFindings";
 import { InlineDiff } from "./ReviewExport";
 import { compactContext, extendedContext } from "../deckContext";
 
@@ -49,11 +50,15 @@ export function buildDeck(
   for (const [taskId, task] of entries) {
     const result = task.result;
     if (!result) continue;
+    // A no-fix finding on a word another suggestion already fixes is the
+    // same question twice; results saved before the backend dropped these
+    // still carry them.
+    const answerable = dropCoveredFindings(
+      result.originalText,
+      result.corrections.filter((c) => c.id && c.reason !== "dialect"),
+    );
     const visible = inTextOrder(
-      result.corrections.filter(
-        (c) =>
-          c.id && c.reason !== "dialect" && (showAll || !reviewerRejected(c)),
-      ),
+      answerable.filter((c) => showAll || !reviewerRejected(c)),
       result.originalText,
     );
     const main = visible.filter((c) => flagKindOf(c) !== "doubted");
