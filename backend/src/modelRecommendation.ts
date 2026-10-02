@@ -82,6 +82,27 @@ export function appleChipVariant(name: string | null): AppleVariant | null {
 
 // ── Layer 1: expected speed from hardware class ─────────────────────────
 
+/** Words/s when decode runs on the CPU. */
+export const CPU_WORDS_PER_SEC = 3;
+
+/**
+ * VRAM a desktop session holds before Betty asks for any — compositor,
+ * browser, display buffers. The loader decides offload from nvidia-smi's
+ * *free* figure; detectHardware() reads the card's total. Anything that
+ * predicts the loader's choice from the total has to take this off first.
+ */
+export const DESKTOP_VRAM_RESERVE_GB = 1;
+
+/**
+ * The card's VRAM as the loader will find it free, in MiB, or null when no
+ * figure was read. Used by the catalog's GPU-fit hint so it agrees with the
+ * offload decision instead of with the box the card came in.
+ */
+export function expectedFreeVramMib(hw: HardwareInfo): number | null {
+  if (hw.gpu.vramGb == null) return null;
+  return Math.max(0, hw.gpu.vramGb - DESKTOP_VRAM_RESERVE_GB) * 1024;
+}
+
 /**
  * Manuscript words per second of wall clock — the whole pipeline, parallel
  * slots included — that Local Betty should manage on this hardware before
@@ -121,11 +142,16 @@ export function expectedWordsPerSec(hw: HardwareInfo): number {
     if (vram >= 15) return 35;
     if (vram >= 11) return 25;
     if (vram >= 7) return 15;
-    return 8;
+    // Below that the card does not get the model at all. The loader offloads
+    // all or nothing, and only when weights plus KV cache fit in ~80% of the
+    // *free* VRAM — about 5.9 GB free for Local Betty. A 6 GB card has ~5 GB
+    // free once the desktop has its share, so it runs on the CPU, and
+    // promising it GPU speed was promising a third of the real time.
+    return CPU_WORDS_PER_SEC;
   }
 
   // No usable accelerator — CPU decode. Runs, and runs overnight.
-  return 3;
+  return CPU_WORDS_PER_SEC;
 }
 
 // ── RAM gate ─────────────────────────────────────────────────────────────

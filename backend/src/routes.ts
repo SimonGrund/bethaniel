@@ -129,7 +129,10 @@ import {
   getModelByFileName,
 } from "./modelCatalog.js";
 import type { ModelCatalogEntry } from "./modelCatalog.js";
-import { getAllowedTiers } from "./modelRecommendation.js";
+import {
+  expectedFreeVramMib,
+  getAllowedTiers,
+} from "./modelRecommendation.js";
 import { detectHardware, resolveRecommendation } from "./hardware.js";
 import {
   saveDocument,
@@ -1936,8 +1939,10 @@ router.get("/models/catalog", (_req: Request, res: Response) => {
   const allowedTiers = getAllowedTiers(hw);
   // GPU-fit hint: does the model offload to VRAM (fast) or fall back to CPU
   // (slow)? null when no GPU is detected. Uses the same headroom math as the
-  // loader's offload decision so the UI and runtime agree.
-  const vramMib = hw.gpu.vramGb != null ? hw.gpu.vramGb * 1024 : null;
+  // loader's offload decision so the UI and runtime agree — and, like the
+  // loader, against the VRAM left free once the desktop has its share, not
+  // the card's total (a 6 GB card "fit" by its total and ran on the CPU).
+  const vramMib = expectedFreeVramMib(hw);
   // Withdrawn from sale — see CLOUD_OFFER_SUSPENDED. Hidden rather than
   // removed, so a credential already paid for still resolves its config.
   // Deprecated entries are hidden the same way: a file already on disk keeps

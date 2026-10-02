@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 
 import {
   appleChipVariant,
+  expectedFreeVramMib,
   expectedWordsPerSec,
   getAllowedTiers,
   isTrusted,
@@ -19,6 +20,7 @@ import {
   pushSample,
   recommendModel,
   summarizeHardware,
+  CPU_WORDS_PER_SEC,
   FLOOR_TPS,
   MIN_SAMPLES,
   PERF_WINDOW,
@@ -26,6 +28,7 @@ import {
   type HardwareInfo,
 } from "../src/modelRecommendation.ts";
 import { getLocalEntry, MODEL_CATALOG } from "../src/modelCatalog.ts";
+import { fitsInVram } from "../src/llamaServer.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -112,6 +115,26 @@ test("NVIDIA cards step down by VRAM band, and unreadable VRAM lands at the bott
   assert.ok(expectedWordsPerSec(nvidia(8)) < expectedWordsPerSec(nvidia(12)));
   const unreadable = hw({ gpu: { vendor: "nvidia", vramGb: null, name: "x" } });
   assert.equal(expectedWordsPerSec(unreadable), expectedWordsPerSec(hw()));
+});
+
+test("a card the loader will not offload to is promised CPU speed, not GPU speed", () => {
+  // The loader offloads all or nothing, against the VRAM it finds free. A
+  // 6 GB card used to be promised 8 words/s and then ran at 3 on the CPU,
+  // and the catalog's GPU-fit hint, reading the card's total, said it fit.
+  const local = getLocalEntry();
+  for (const vram of [4, 6, 8, 12, 16, 24, 32]) {
+    const card = nvidia(vram);
+    const offloads = fitsInVram(
+      local.sizeBytes,
+      local.defaults.num_ctx,
+      1,
+      expectedFreeVramMib(card)!,
+    );
+    const promisedGpu = expectedWordsPerSec(card) > CPU_WORDS_PER_SEC;
+    assert.equal(promisedGpu, offloads, `${vram} GB card`);
+  }
+  assert.equal(expectedWordsPerSec(nvidia(6)), CPU_WORDS_PER_SEC);
+  assert.ok(expectedWordsPerSec(nvidia(8)) > CPU_WORDS_PER_SEC);
 });
 
 test("Apple Silicon is graded by chip variant, not memory", () => {
