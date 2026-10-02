@@ -10524,3 +10524,463 @@ summary.review-source::before {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   The review card's rules, applied to the rest of the app
+   ══════════════════════════════════════════════════════════════════════
+   The review deck (ReviewDeck.tsx) was redesigned in October 2026 and the
+   author asked for the same look everywhere. What that design settled on:
+
+   1. Ink, not fade. Text is near-black; secondary text is a darker brown,
+      upright and in the sans — never pale italic serif, which read as
+      washed out.
+   2. One eyebrow. A small uppercase sans label, letter-spaced, in the
+      muted brown ("BETTY SUGGESTS · 32% SURE"), is how a block says what
+      it is. It replaces the letter-spaced Cormorant labels. (The step
+      seals on the setup page's gold frames stay: the author kept them.)
+   3. Quiet surfaces. Cream card, 1px warm border, soft shadow, 8px
+      corners — except the setup page's three steps, which keep their
+      gold frames and seals.
+   4. Two buttons. Primary: solid ink, white text. Secondary: white with
+      an ink outline. Sans, 600, sentence case, 8px corners, flat — no
+      offset shadow, no hop on hover.
+
+   This block is last on purpose. Several of the rules it changes are
+   declared more than once above (.btn-primary twice, .task-card-active
+   twice), so editing the first copy would be silently undone by the
+   second. Delete the block and the old look comes back whole. */
+
+:root {
+  --ink: #14100a;
+  --ink-2: #2a2419;
+  --ink-hover: #3d3426;
+  --text-2: #5a4d3a;
+  --eyebrow: #8b7355;
+  --line: #d9c9a8;
+  --line-soft: #e8dcc4;
+  --surface: #fdfaf0;
+  --surface-white: #fffdf8;
+  --shadow-card: 0 2px 10px rgba(42, 36, 25, 0.09);
+  --radius: 8px;
+}
+
+/* ── 1. Ink ── */
+.small-note {
+  font-family: inherit;
+  font-style: normal;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.help-text {
+  font-style: normal;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.task-card-desc {
+  color: var(--text-2);
+}
+
+.dashboard-col-title,
+.task-card-title {
+  color: var(--ink);
+}
+
+.upload-zone .small-note {
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+/* ── 2. The eyebrow ── */
+.card-header,
+.section-label,
+.sidebar-label {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--eyebrow);
+}
+
+
+/* ── 3. Quiet surfaces ── */
+.card,
+.wizard-content,
+.dashboard-model,
+.modal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+
+.modal-dialog {
+  font-family: inherit;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
+}
+
+.modal-dialog p {
+  color: var(--ink);
+}
+
+.task-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-white);
+}
+
+.task-card:hover {
+  border-color: var(--text-2);
+}
+
+.task-card-active,
+.task-card.task-card-active {
+  border-color: var(--ink-2);
+  background: var(--surface-white);
+  box-shadow: 0 0 0 1px var(--ink-2), var(--shadow-card);
+}
+
+.task-card.task-card-attention {
+  border-color: #d69a3c;
+  box-shadow: 0 0 0 1px #d69a3c;
+}
+
+.upload-zone {
+  border: 1.5px dashed #c9b896;
+  border-radius: var(--radius);
+  background: var(--surface-white);
+}
+
+.upload-zone:hover {
+  border-color: var(--ink-2);
+  background: var(--surface-white);
+  box-shadow: none;
+}
+
+.upload-zone-icon,
+.upload-zone:hover .upload-zone-icon {
+  color: var(--ink-2);
+}
+
+.review-task {
+  background: var(--surface-white);
+  border-color: var(--line-soft);
+}
+
+.review-task-summary {
+  color: var(--ink);
+}
+
+.field select,
+.field input[type="text"],
+.translate-lang-select {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-white);
+  color: var(--ink);
+}
+
+/* ── 4. Two buttons ── */
+.btn-primary {
+  background: var(--ink-2);
+  color: #fff;
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 0.6rem 1.3rem;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--ink-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+}
+
+/* .btn-small is a size, worn alongside .btn-primary or .btn-secondary; it
+   only carries the secondary's colours when it is on its own. */
+.btn-secondary,
+.btn-small:not(.btn-primary),
+.btn-new-run,
+.btn-former-runs,
+.title-header .btn-former-runs {
+  background: #fff;
+  color: var(--ink-2);
+  border: 1px solid var(--ink-2);
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary,
+.btn-new-run {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.btn-small,
+.btn-former-runs,
+.title-header .btn-former-runs {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  border-radius: 6px;
+}
+
+.btn-secondary:hover,
+.btn-small:not(.btn-primary):hover,
+.btn-new-run:hover,
+.btn-former-runs:hover {
+  background: #f6f1e6;
+  color: var(--ink-2);
+  border-color: var(--ink-2);
+  box-shadow: none;
+}
+
+/* The run buttons: the primary button at the size of the decision. */
+.btn-run,
+.btn-run-cloud {
+  background: var(--ink-2);
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.btn-run:hover:not(:disabled),
+.btn-run-cloud:hover:not(:disabled) {
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
+  transform: none;
+  box-shadow: var(--shadow-card);
+}
+
+.btn-run-download {
+  background: var(--ink-2);
+  border-style: dashed;
+  border-color: #8b7a5e;
+}
+
+.btn-run-label {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.btn-run-download .btn-run-label {
+  font-size: 0.95rem;
+}
+
+.wizard-launch .run-actions > .run-or {
+  border: 1px solid var(--line);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--eyebrow);
+}
+
+
+/* The page-level secondaries that had a shape of their own (a pill, a
+   floating pill) take the secondary button's. */
+.btn-back-to-setup,
+.log-fab {
+  background: #fff;
+  color: var(--ink-2);
+  border: 1px solid var(--ink-2);
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+}
+
+.btn-back-to-setup:hover,
+.log-fab:hover {
+  background: #f6f1e6;
+  border-color: var(--ink-2);
+  color: var(--ink-2);
+}
+
+.review-chapter-select {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-white);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+/* The step seals keep their gold, and take the eyebrow's lettering. */
+.step-badge-word {
+  font-family: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+}
+
+/* ── Former Runs: the run cards ── */
+.review-source {
+  background: var(--surface-white);
+  border-color: var(--line);
+  padding: 0.8rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.review-source:hover {
+  background: #fff;
+  border-color: var(--text-2);
+}
+
+summary.review-source::before {
+  color: var(--ink-2);
+}
+
+.review-source-meta {
+  color: var(--text-2);
+}
+
+.review-group-body {
+  background: var(--surface-white);
+  border-color: var(--line);
+  box-shadow: var(--shadow-card);
+}
+
+/* In the list each run is one card: the group carries the surface, the
+   summary inside it is only the title line. */
+.review-run-list .review-group {
+  background: var(--surface-white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.review-run-list .review-group:hover {
+  border-color: var(--ink-2);
+  box-shadow: 0 4px 14px rgba(42, 36, 25, 0.12);
+}
+
+.review-run-list .review-source {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.review-run-list .review-source:hover {
+  background: transparent;
+}
+
+.review-run-list .review-source::marker,
+.review-run-list .review-source::-webkit-details-marker {
+  color: var(--ink-2);
+}
+
+.review-delete-btn {
+  color: var(--text-2);
+}
+
+/* ── A reviewed run: the review button leads ── */
+/* No box of its own: the button and the line beside it sit straight on
+   the run's card. */
+.deck-launch {
+  justify-content: flex-start;
+  gap: 1rem 1.25rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.deck-launch-go {
+  padding: 0.75rem 1.6rem;
+  font-size: 1rem;
+}
+
+.deck-launch-text {
+  color: var(--ink);
+}
+
+/* ── The export menu: a gear, and above everything when open ──
+   It opened upward from a bar that once sat under a long chapter list; the
+   bar now sits near the top of the card, so upward ran it into the card's
+   clipped top edge and under the block above. It opens downward, the card
+   no longer clips, and the bar holding an open menu rises over its
+   neighbours (other run cards included). */
+.review-group-body {
+  overflow: visible;
+  /* What overflow: hidden also did: keep the first child's top margin
+     inside the card instead of opening a gap under its header. */
+  display: flow-root;
+}
+
+/* Every block of the main column sits at z-index 1 (over the watermark),
+   so the footer, coming later, painted over an open menu. */
+.main-content > :has(.export-options) {
+  z-index: 50;
+}
+
+.export-options {
+  top: calc(100% + 0.4rem);
+  bottom: auto;
+  z-index: 1000;
+  max-height: min(32rem, 70vh);
+  overflow-y: auto;
+  background: var(--surface-white);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.review-actionbar:has(.export-options) {
+  z-index: 900;
+}
+
+.review-group:has(.export-options) {
+  position: relative;
+  z-index: 900;
+}
+
+.export-cog {
+  background: #fff;
+  border-color: var(--ink-2);
+  color: var(--ink-2);
+}
+
+.export-cog:hover,
+.export-cog[aria-expanded="true"] {
+  background: #f6f1e6;
+  border-color: var(--ink-2);
+  color: var(--ink-2);
+}
+
+.export-options .btn-accept-all-job {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}

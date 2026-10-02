@@ -49,7 +49,6 @@ import { exportLabel, useReportExport } from "../reportExport";
 import { buildReadinessReportHtml } from "../readinessReport";
 import { bracketedContext, sourceOf, type ReportIssue } from "../readinessRow";
 import { computeQualityScore, qualityTier } from "../qualityScore";
-import { NAMED_TERMS, protectedSavesAcross } from "../protectedSaves";
 import { useResultHydration } from "../useResultHydration";
 import { inChapterOrder, localiseFinding, type LocalisableFinding } from "../scanFinding";
 
@@ -4199,9 +4198,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   outstanding count, and the column below shows one chapter's
                   corrections, flat and already open. Nothing is nested and
                   nothing has to be hunted for. */}
+              {/* A finished run reviewed in the deck gets no picker here
+                  either: the deck's own settings menu jumps between
+                  chapters, and two pickers for one choice is one too many. */}
               {!translationSettled &&
                 (chapterPills.length > 0 || !isOldResults) &&
-                !(isScanJob && chaptersSettled) && (
+                !(isScanJob && chaptersSettled) &&
+                !(deckMode && chaptersSettled) && (
                 <div className="chapter-pillbar" role="group" aria-label={t("sec_chapters")}>
 
                   {/* Once every chapter has settled the row of pills gives way
@@ -4321,7 +4324,18 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const { left, total } = countUndecided(hydrated, decisionLog, showAllSuggestions);
                 return (
                   <>
+                    {/* The thing to do with a reviewed run is review it, so
+                        the button leads and the count follows it. */}
                     <div className="deck-launch">
+                      {total > 0 && (
+                        <button
+                          type="button"
+                          className="btn-primary deck-launch-go"
+                          onClick={() => setFocusJid(jid)}
+                        >
+                          {left === 0 ? t("deck_launch_again") : t("deck_launch")}
+                        </button>
+                      )}
                       <span className="deck-launch-text">
                         {total === 0
                           ? t("deck_launch_none")
@@ -4332,47 +4346,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 String(left),
                               )}
                       </span>
-                      {total > 0 && (
-                        <button
-                          type="button"
-                          className="btn-primary btn-small"
-                          onClick={() => setFocusJid(jid)}
-                        >
-                          {left === 0 ? t("deck_launch_again") : t("deck_launch")}
-                        </button>
-                      )}
                     </div>
-                    {/* What the names & terms list kept out of the review.
-                        This is the one useful fact from the set-aside list
-                        that used to sit here collapsed as "N skipped" — 92%
-                        of which was this, and none of which could be acted
-                        on. A sentence saying how much work it saved is what
-                        anyone wanted from it. */}
-                    {(() => {
-                      const saves = protectedSavesAcross(
-                        hydrated.map(([, task]) => task.result),
-                      );
-                      if (saves.count === 0) return null;
-                      const named = saves.terms.slice(0, NAMED_TERMS);
-                      const rest = saves.terms.length - named.length;
-                      const list =
-                        rest > 0
-                          ? t("review_protected_more")
-                              .replace("{terms}", named.join(", "))
-                              .replace("{n}", String(rest))
-                          : named.join(", ");
-                      return (
-                        <p className="review-protected small-note">
-                          {t(
-                            saves.count === 1
-                              ? "review_protected_one"
-                              : "review_protected",
-                          )
-                            .replace("{n}", String(saves.count))
-                            .replace("{terms}", list)}
-                        </p>
-                      );
-                    })()}
                     <ReviewFocus
                       open={focusJid === jid}
                       onClose={() => setFocusJid(null)}
@@ -4448,7 +4422,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 // second time, in the space the pills had just cleared.
                 if (
                   chapterPills.some((pill) => pill.tid === tid) &&
-                  tid !== activeChapterId
+                  (tid !== activeChapterId || (deckMode && chaptersSettled))
                 ) {
                   return null;
                 }
@@ -5021,14 +4995,15 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       aria-label={t("export_options", "Export options")}
                       onClick={() => setExportOptionsOpen((o) => !o)}
                     >
-                      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+                      {/* The header's gear, so the two settings menus look alike. */}
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
                         <path
                           fill="currentColor"
                           d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm0 5.7a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2Z"
                         />
                         <path
                           fill="currentColor"
-                          d="M12 3.4A8.6 8.6 0 1 0 20.6 12 8.6 8.6 0 0 0 12 3.4Zm0 15.5A6.9 6.9 0 1 1 18.9 12 6.9 6.9 0 0 1 12 18.9Z"
+                          d="m20.6 13.6.02-1.6-.02-1.6-1.9-.3a6.9 6.9 0 0 0-.62-1.5l1.13-1.56a9 9 0 0 0-2.25-2.25L15.4 5.92a6.9 6.9 0 0 0-1.5-.62l-.3-1.9-1.6-.02-1.6.02-.3 1.9a6.9 6.9 0 0 0-1.5.62L7.04 4.79a9 9 0 0 0-2.25 2.25L5.92 8.6a6.9 6.9 0 0 0-.62 1.5l-1.9.3L3.38 12l.02 1.6 1.9.3c.15.53.36 1.03.62 1.5l-1.13 1.56a9 9 0 0 0 2.25 2.25l1.56-1.13c.47.26.97.47 1.5.62l.3 1.9 1.6.02 1.6-.02.3-1.9c.53-.15 1.03-.36 1.5-.62l1.56 1.13a9 9 0 0 0 2.25-2.25l-1.13-1.56c.26-.47.47-.97.62-1.5l1.9-.3ZM12 18.3A6.3 6.3 0 1 1 18.3 12 6.3 6.3 0 0 1 12 18.3Z"
                         />
                       </svg>
                     </button>
@@ -5104,38 +5079,39 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </button>
                           </div>
                         </div>
+                        {/* Accepting the whole run is a setting of what gets
+                            exported, not a step of its own — and as a loose link
+                            on the bar it read like one. */}
+                        {!isTranslateJob && (
+                          <div className="export-options__group">
+                            <button
+                              className={`btn-linkish btn-accept-all-job${
+                                allAccepted ? " btn-accept-all-job--undo" : ""
+                              }`}
+                              disabled={!hasAnyCorrections}
+                              onClick={() => {
+                                if (allAccepted) {
+                                  editTaskIds.forEach((tid) => dismissAll(tid));
+                                  setToast({
+                                    msg: t("dismiss_all_job_toast"),
+                                    kind: "dismiss",
+                                  });
+                                } else {
+                                  acceptAllJob(editTaskIds);
+                                  setToast({
+                                    msg: t("accept_all_job_toast"),
+                                    kind: "accept",
+                                  });
+                                }
+                              }}
+                            >
+                              {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-
-                  <span className="review-actionbar__gap" />
-
-                  {!isTranslateJob && (
-                    <button
-                      className={`btn-linkish btn-accept-all-job${
-                        allAccepted ? " btn-accept-all-job--undo" : ""
-                      }`}
-                      disabled={!hasAnyCorrections}
-                      onClick={() => {
-                        if (allAccepted) {
-                          editTaskIds.forEach((tid) => dismissAll(tid));
-                          setToast({
-                            msg: t("dismiss_all_job_toast"),
-                            kind: "dismiss",
-                          });
-                        } else {
-                          acceptAllJob(editTaskIds);
-                          setToast({
-                            msg: t("accept_all_job_toast"),
-                            kind: "accept",
-                          });
-                        }
-                      }}
-                    >
-                      {allAccepted ? t("dismiss_all_job") : t("accept_all_job")}
-                    </button>
-                  )}
-
                 </div>
               )}
               </div>{/* ── end .review-group-body (bright card) ── */}
