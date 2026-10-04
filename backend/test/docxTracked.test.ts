@@ -353,3 +353,22 @@ test("the last paragraph of a manuscript ending in a newline is not dropped", as
   assert.deepEqual(unmapped, []);
   assert.equal(edits.length, 1);
 });
+
+test("a note is not matched inside a longer word", () => {
+  // Found on a real run: the comment for "apear" → "spear" also landed on the
+  // separate fix to "apeared".
+  const text = "It apeared to apear.";
+  const out = planTrackedEdits(
+    [
+      { paragraphIndex: 0, chapterIndex: 0, start: 3, end: 10, replacement: "appeared" },
+      { paragraphIndex: 0, chapterIndex: 0, start: 14, end: 19, replacement: "spear" },
+    ],
+    () => text,
+    [[
+      { original: "apeared", text: "Spelling of appeared." },
+      { original: "apear", text: "Spear?" },
+    ]],
+  );
+  assert.equal(out[0].note?.text, "Spelling of appeared.");
+  assert.equal(out[1].note?.text, "Spear?");
+});

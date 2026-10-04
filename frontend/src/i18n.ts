@@ -4231,11 +4231,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Das haben Sie vorhin verworfen.",
     es: "Descartaste esto antes.",
   },
+  // Beside "Review in Word" (review_word_btn): the two ways to review.
   deck_launch: {
-    en: "Review suggestions",
-    da: "Gennemgå forslag",
-    de: "Vorschläge durchsehen",
-    es: "Revisar sugerencias",
+    en: "Review in Betty (recommended)",
+    da: "Gennemgå i Betty (anbefalet)",
+    de: "In Betty durchsehen (empfohlen)",
+    es: "Revisar en Betty (recomendado)",
   },
   deck_launch_again: {
     en: "Look again",
@@ -5344,16 +5345,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Con control de cambios, cada cambio aceptado aparece en Word, atribuido a Betty, para aceptarlo o rechazarlo allí.",
   },
   export_changes_applied: {
-    en: "Applied",
-    da: "Indarbejdet",
-    de: "Übernommen",
-    es: "Aplicados",
+    en: "Without tracked changes",
+    da: "Uden sporede ændringer",
+    de: "Ohne Änderungsverfolgung",
+    es: "Sin control de cambios",
   },
   export_changes_tracked: {
-    en: "Tracked changes",
-    da: "Sporede ændringer",
-    de: "Änderungsverfolgung",
-    es: "Control de cambios",
+    en: "With tracked changes",
+    da: "Med sporede ændringer",
+    de: "Mit Änderungsverfolgung",
+    es: "Con control de cambios",
   },
   // Review in Word: every open suggestion as a tracked change with a comment.
   review_word_btn: {
@@ -5385,6 +5386,13 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     da: "Du godkendte dette i Betty.",
     de: "Sie haben dies in Betty angenommen.",
     es: "Aceptaste esto en Betty.",
+  },
+  // A suggestion that lost an overlap, listed in the winner's comment.
+  review_word_also: {
+    en: "Betty also suggested: {change}",
+    da: "Betty foreslog også: {change}",
+    de: "Betty schlug außerdem vor: {change}",
+    es: "Betty también sugirió: {change}",
   },
   review_word_filename: {
     en: "for review",

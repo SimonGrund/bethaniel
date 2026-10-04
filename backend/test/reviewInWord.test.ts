@@ -19,6 +19,7 @@ const S = {
   wouldLeave: "Betty would leave this",
   sure: "{pct}% sure",
   accepted: "You accepted this in Betty.",
+  also: "Betty also suggested: {change}",
 };
 
 const c = (original: string, corrected: string, extra: object = {}) => ({
@@ -88,4 +89,46 @@ test("the export carries one pair and one list of notes per chapter, in order", 
   assert.equal(out.notes.length, 2);
   assert.equal(out.notes[0][0].original, "sudenly");
   assert.deepEqual(out.notes[1], []);
+});
+
+// ── Overlaps are not lost ──
+
+const S2 = S;
+
+test("the winner's comment lists the suggestion it displaced", () => {
+  const word = c("slow", "slowly", { id: "w", confidence: 5 });
+  const sentence = c("walked slow to", "made her way to", { id: "s", confidence: 5 });
+  const out = buildReviewExport(
+    [{ originalText: "She walked slow to the door.", items: [{ correction: word, accepted: false }, { correction: sentence, accepted: false }] }],
+    S2,
+  );
+  assert.equal(out.pairs[0].edited, "She made her way to the door.");
+  const winner = out.notes[0][1].text;
+  assert.ok(winner.endsWith("Betty also suggested: “slow” → “slowly”"), winner);
+  // The displaced one's own note says nothing about the winner.
+  assert.ok(!out.notes[0][0].text.includes("also suggested"));
+});
+
+test("along a chain of overlaps, the last winner lists every one it outlasted", () => {
+  const a = c("slow", "slowly");
+  const b = c("walked slow", "walked slowly");
+  const d = c("She walked slow to", "She went to");
+  const out = buildReviewExport(
+    [{ originalText: "She walked slow to the door.", items: [a, b, d].map((x) => ({ correction: x, accepted: false })) }],
+    S2,
+  );
+  const last = out.notes[0][2].text;
+  assert.ok(last.includes("“walked slow” → “walked slowly”"), last);
+  assert.ok(last.includes("“slow” → “slowly”"), last);
+});
+
+test("a suggestion displaced in one place still stands where it is alone", () => {
+  // "slow" loses in the first sentence but is the only suggestion in the second.
+  const word = c("slow", "slowly");
+  const sentence = c("walked slow to", "made her way to");
+  const out = buildReviewExport(
+    [{ originalText: "She walked slow to it. He ran slow.", items: [word, sentence].map((x) => ({ correction: x, accepted: false })) }],
+    S2,
+  );
+  assert.equal(out.pairs[0].edited, "She made her way to it. He ran slowly.");
 });

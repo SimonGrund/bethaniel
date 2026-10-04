@@ -108,6 +108,19 @@ export function widenToWords(text: string, edits: ParagraphTextEdit[]): Paragrap
 
 // ── Notes ──
 
+/** A letter or digit at either end of `needle` must not run on into a word —
+ *  the rule frontend/src/correctionApply.ts places suggestions by. */
+function cleanEdges(text: string, at: number, needle: string): boolean {
+  const alnum = /[\p{L}\p{N}]/u;
+  const wordish = /[\p{L}\p{N}'’ʼ-]/u;
+  if (alnum.test(needle[0]) && at > 0 && wordish.test(text[at - 1])) return false;
+  const end = at + needle.length;
+  if (alnum.test(needle[needle.length - 1]) && end < text.length && wordish.test(text[end])) {
+    return false;
+  }
+  return true;
+}
+
 /** What Betty said about one suggestion, as the export receives it. */
 export interface ChangeNote {
   /** The suggestion's own text, as in the chapter's markdown. */
@@ -154,6 +167,10 @@ export function planTrackedEdits(
       const needle = stripMarkdown(note.original);
       if (!needle || !note.text) return;
       for (let at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + 1)) {
+        // Whole words only, as the export itself places a suggestion: "apear"
+        // must not claim the "apear" inside "apeared", or its comment lands
+        // on another suggestion's change.
+        if (!cleanEdges(text, at, needle)) continue;
         places.push({ key: `${ni}:${at}`, text: note.text, start: at, end: at + needle.length });
       }
     });

@@ -3084,6 +3084,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               wouldLeave: t("deck_betty_would_leave"),
               sure: t("review_word_sure"),
               accepted: t("review_word_accepted"),
+              also: t("review_word_also"),
             });
             void handleDownloadDocxSurgical(
               pairs,
@@ -4450,6 +4451,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           {left === 0 ? t("deck_launch_again") : t("deck_launch")}
                         </button>
                       )}
+                      {/* The other way to review: the same suggestions handed
+                          to Word, each a tracked change with Betty's comment.
+                          Beside the deck so the choice is made in one place. */}
+                      {total > 0 && (
+                        <button
+                          type="button"
+                          className="btn-secondary deck-launch-go deck-launch-word"
+                          disabled={!exportReady || exportBusy || !hasDocument}
+                          title={hasDocument ? t("review_word_tip") : t("review_word_no_document")}
+                          onClick={reviewInWord}
+                        >
+                          {t("review_word_btn")}
+                        </button>
+                      )}
                       <span className="deck-launch-text">
                         {total === 0
                           ? t("deck_launch_none")
@@ -5098,20 +5113,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   >
                     {exportButtonLabel}
                   </button>
-
-                  {/* The review itself, handed to Word: every open suggestion
-                      as a tracked change with Betty's comment. */}
-                  {!isTranslateJob && (
-                    <button
-                      type="button"
-                      className="btn-secondary btn-small export-row__review"
-                      disabled={!exportReady || exportBusy || !hasDocument}
-                      title={hasDocument ? t("review_word_tip") : t("review_word_no_document")}
-                      onClick={reviewInWord}
-                    >
-                      {t("review_word_btn")}
-                    </button>
-                  )}
 
                   <div className="export-row__cog">
                     <button
