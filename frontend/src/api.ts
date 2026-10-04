@@ -73,6 +73,21 @@ export async function linkScrivener(path: string) {
   return res.json();
 }
 
+/**
+ * Ask the backend to open the operating system's file dialog (Explorer,
+ * Finder) for a Scrivener project. Resolves to the path, or null when the
+ * author cancelled; rejects when no dialog can be shown on this machine.
+ */
+export async function pickScrivenerViaBackend(title: string): Promise<string | null> {
+  const res = await fetch(`${BASE}/api/scrivener/pick`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error("no-dialog");
+  return ((await res.json()) as { path: string | null }).path;
+}
+
 export interface ScrivenerStatus {
   linked: boolean;
   projectName?: string;

@@ -47,6 +47,7 @@ import {
   ScrivenerError,
   writeBack,
 } from "./scrivener.js";
+import { pickScrivenerProject } from "./nativePicker.js";
 import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
@@ -419,6 +420,20 @@ function sendScrivenerError(res: Response, err: unknown): void {
   }
   res.status(500).json({ error: err instanceof Error ? err.message : "Scrivener request failed" });
 }
+
+// Open the operating system's own file dialog for the author to click
+// through to their project (nativePicker.ts). For the app in a browser; the
+// desktop app uses Electron's dialog. 503 when no dialog can be shown here.
+router.post("/scrivener/pick", async (req: Request, res: Response) => {
+  const title = typeof (req.body as { title?: unknown }).title === "string"
+    ? (req.body as { title: string }).title.slice(0, 120)
+    : "Link a Scrivener project";
+  try {
+    res.json({ path: await pickScrivenerProject(title) });
+  } catch {
+    res.status(503).json({ error: "No file dialog is available here.", reason: "no-dialog" });
+  }
+});
 
 router.post("/scrivener/link", async (req: Request, res: Response) => {
   try {

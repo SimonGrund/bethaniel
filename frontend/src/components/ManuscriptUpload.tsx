@@ -3,7 +3,13 @@
 import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { uploadFile, getDocument, linkScrivener, RequestRefusedError } from "../api";
+import {
+  uploadFile,
+  getDocument,
+  linkScrivener,
+  pickScrivenerViaBackend,
+  RequestRefusedError,
+} from "../api";
 import type { DocumentMeta } from "../types";
 import Modal from "./Modal";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
@@ -88,9 +94,13 @@ export default function ManuscriptUpload() {
 
   // ── Linking a Scrivener project ──
   // Read where it is; nothing in the project changes until the author writes
-  // back from the review. The desktop app has a native picker; a browser has
-  // no way to hand over a path, so it gets a field to paste one into.
+  // back from the review. The author clicks through Explorer or Finder to it:
+  // Electron's own dialog in the desktop app, and in a browser — which cannot
+  // hand over a path — the same dialog opened by the backend, which runs on
+  // this machine. A typed path is only the last resort, for a machine with
+  // no desktop to show a dialog on.
   const [pathField, setPathField] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const handleLink = useCallback(
     async (projectPath: string) => {
       setUploading(true);
@@ -109,13 +119,20 @@ export default function ManuscriptUpload() {
   const pickScrivener = useCallback(async () => {
     const bridge = (window as { bethaniel?: { selectScrivenerProject?: () => Promise<string | null> } })
       .bethaniel;
-    if (bridge?.selectScrivenerProject) {
-      const picked = await bridge.selectScrivenerProject();
+    setUploadError(null);
+    setPicking(true);
+    try {
+      const picked = bridge?.selectScrivenerProject
+        ? await bridge.selectScrivenerProject()
+        : await pickScrivenerViaBackend(t("scriv_link_btn"));
       if (picked) await handleLink(picked);
-    } else {
+    } catch {
+      // No dialog could be shown on this machine: let the path be typed.
       setPathField("");
+    } finally {
+      setPicking(false);
     }
-  }, [handleLink]);
+  }, [handleLink, t]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -207,10 +224,10 @@ export default function ManuscriptUpload() {
               type="button"
               className="btn-secondary scriv-link-btn"
               onClick={pickScrivener}
-              disabled={uploading}
+              disabled={uploading || picking}
             >
               <LinkIcon />
-              {t("scriv_link_btn")}
+              {picking ? t("scriv_link_picking") : t("scriv_link_btn")}
             </button>
             {pathField !== null && (
               <form

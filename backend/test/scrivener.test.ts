@@ -83,7 +83,87 @@ test("the Manuscript folder reads in binder order: folders are chapters, documen
   assert.ok(!md.includes("Not in the book"));
   assert.equal(link.projectName, "Novel");
   assert.equal(link.scenes.length, 3);
-  assert.equal(link.map.length, 4);
+  // Four paragraphs and the two chapter headings, which map to their folders.
+  assert.equal(link.map.length, 6);
+  assert.deepEqual(
+    link.paragraphs.filter((p) => p.title !== undefined).map((p) => [p.uuid, p.title]),
+    [["C1", "The Beginning"], ["C2", "Chapter Two"]],
+  );
+});
+
+// ── Italics, line breaks, titles ──
+
+test("italic and bold are shown to Betty as Markdown, and written back around", async () => {
+  const { dir } = await makeProject();
+  // Scene 1, rewritten with an italic book title and a bold word.
+  const scene = `${HEAD}{\\f0\\fs24 She read {\\i The Hobbit} and {\\b laughed}, teh end.}}`;
+  await fs.writeFile(path.join(dir, "Files", "Data", S1, "content.rtf"), Buffer.from(scene, "latin1"));
+  const { md, link } = await readProject(dir);
+  assert.ok(md.includes("She read *The Hobbit* and **laughed**, teh end."), md);
+  // A fix beside the italics lands, and the italic codes are untouched.
+  const report = await writeBack(link, md, edit(md, "teh end", "the end"));
+  assert.equal(report.applied, 1);
+  assert.equal(await contentOf(dir, S1), scene.replace("teh end", "the end"));
+});
+
+test("a line break between words reads as a line; edges and doubles stay spaces", async () => {
+  const { manuscriptPlain } = await import("../src/scrivener.ts");
+  assert.equal(manuscriptPlain("Dear Anna,\nI write."), "Dear Anna,\nI write.");
+  assert.equal(manuscriptPlain("A\n\nB"), "A\n B");
+  assert.equal(manuscriptPlain("A\n \nB"), "A\n  B");
+  assert.equal(manuscriptPlain("\nA\n"), " A ");
+  assert.equal(manuscriptPlain("A\tB"), "A B");
+  // Same length always: every offset still lines up with the RTF.
+  for (const s of ["A\n\n\nB", "\n\nA", "A\n \n \nB"]) assert.equal(manuscriptPlain(s).length, s.length);
+});
+
+test("a paragraph with line breaks still writes back where the words are", async () => {
+  const { dir } = await makeProject();
+  const scene = `${HEAD}{\\f0\\fs24 Dear Anna,\\line I hoep you are well.}}`;
+  await fs.writeFile(path.join(dir, "Files", "Data", S1, "content.rtf"), Buffer.from(scene, "latin1"));
+  const { md, link } = await readProject(dir);
+  assert.ok(md.includes("Dear Anna,\nI hoep you are well."), md);
+  const report = await writeBack(link, md, edit(md, "hoep", "hope"));
+  assert.equal(report.applied, 1);
+  assert.equal(await contentOf(dir, S1), scene.replace("hoep", "hope"));
+});
+
+test("a corrected chapter title is written into the binder, and only it", async () => {
+  const { dir } = await makeProject();
+  const before = await fs.readFile(path.join(dir, "Novel.scrivx"), "utf8");
+  const { md, link } = await readProject(dir);
+  const report = await writeBack(link, md, edit(md, "# Chapter Two", "# Chapter 2"));
+  assert.equal(report.applied, 1);
+  const after = await fs.readFile(path.join(dir, "Novel.scrivx"), "utf8");
+  assert.equal(after, before.replace("<Title>Chapter Two</Title>", "<Title>Chapter 2</Title>"));
+  // The copy still has the old title.
+  assert.ok((await fs.readFile(path.join(report.backupDir!, "Novel.scrivx"), "utf8")).includes("Chapter Two"));
+});
+
+test("Scrivener's autosaved copy of the binder gets the same title change", async () => {
+  const JSZip = (await import("jszip")).default;
+  const { dir } = await makeProject();
+  const scrivx = await fs.readFile(path.join(dir, "Novel.scrivx"), "utf8");
+  const zip = new JSZip();
+  zip.file("Novel.scrivx", scrivx);
+  await fs.writeFile(path.join(dir, "Files", "binder.autosave"), await zip.generateAsync({ type: "nodebuffer" }));
+  const { md, link } = await readProject(dir);
+  await writeBack(link, md, edit(md, "# Chapter Two", "# Chapter 2"));
+  const saved = await JSZip.loadAsync(await fs.readFile(path.join(dir, "Files", "binder.autosave")));
+  const inside = await saved.file("Novel.scrivx")!.async("string");
+  assert.ok(inside.includes("<Title>Chapter 2</Title>"), inside);
+  assert.ok(!inside.includes("Chapter Two"));
+});
+
+test("a title renamed in Scrivener since Betty read it is listed, not overwritten", async () => {
+  const { dir } = await makeProject();
+  const { md, link } = await readProject(dir);
+  const p = path.join(dir, "Novel.scrivx");
+  await fs.writeFile(p, (await fs.readFile(p, "utf8")).replace("Chapter Two", "Two: The Return"));
+  const report = await writeBack(link, md, edit(md, "# Chapter Two", "# Chapter 2"));
+  assert.equal(report.applied, 0);
+  assert.equal(report.skipped[0]?.reason, "title-changed");
+  assert.ok((await fs.readFile(p, "utf8")).includes("Two: The Return"));
 });
 
 test("the project folder or its .scrivx both link", async () => {

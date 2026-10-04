@@ -21,7 +21,15 @@
 //     formatting code, and anything that cannot be done that way is refused
 //     and listed;
 //   - Files/Data/docs.checksum is kept true: it holds a SHA-1 of every file,
-//     and an edited file's line is updated to match.
+//     and an edited file's line is updated to match;
+//   - a corrected chapter title is written into that binder item's <Title>
+//     in the .scrivx — only where it still reads as Betty read it — and into
+//     Files/binder.autosave, Scrivener's second copy of the binder, so the
+//     two cannot disagree.
+//
+// What Betty reads is the text as the author sees it: italic and bold shown
+// as Markdown emphasis, a line break between words as a line break. Neither
+// is ever written — an edit replaces text inside one stretch of the RTF.
 //
 // Measured on Scrivener 3.1.6 for Windows (version.txt 23). Mac Scrivener 3
 // uses the same format; Scrivener 1 and 2 projects do not, and are refused.
@@ -30,12 +38,13 @@ import { createHash } from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { DOMParser } from "@xmldom/xmldom";
+import JSZip from "jszip";
 
 import type { ParagraphMapEntry } from "./conversion.js";
 import type { DocxTextIndex } from "./docxSurgery.js";
-import { remapChaptersToParagraphEdits } from "./docxRemap.js";
+import { remapChaptersToParagraphEdits, stripMarkdown } from "./docxRemap.js";
 import { widenToWords } from "./docxTracked.js";
-import { indexRtf, rewriteRtf, type RtfEdit } from "./rtfText.js";
+import { indexRtf, rewriteRtf, type RtfEdit, type RtfParagraph } from "./rtfText.js";
 
 export class ScrivenerError extends Error {
   constructor(
@@ -73,7 +82,9 @@ export interface ScrivenerLink {
   linkedAt: number;
   scenes: ScrivenerScene[];
   /** Where each manuscript paragraph came from, in manuscript order. */
-  paragraphs: { uuid: string; index: number }[];
+  /** `title` marks a chapter heading: the binder item's title, kept in the
+   *  .scrivx, not in any RTF. `index` is then -1. */
+  paragraphs: { uuid: string; index: number; title?: string }[];
   /** Manuscript offsets of each of those paragraphs. */
   map: ParagraphMapEntry[];
   /** Set once written back: the review it came from is spent. */
@@ -160,9 +171,79 @@ function toNode(el: Element): BinderNode {
   };
 }
 
-/** A paragraph as the manuscript shows it: line breaks become spaces, so
- *  every character still lines up with the RTF's own text. */
-const asLine = (text: string) => text.replace(/[\n\t]/g, " ");
+/**
+ * A paragraph's plain text as the manuscript carries it — the same length as
+ * the RTF's own text, so every offset still lines up with it.
+ *
+ * A line break between words (Shift+Enter in Scrivener) stays a line break,
+ * so Betty reads a letter or a verse as lines. What would end the paragraph
+ * for the manuscript is a space instead: a break at either edge, and the
+ * second of two breaks with only spaces between them, which would read as a
+ * blank line and split one Scrivener paragraph into two. Tabs are spaces.
+ */
+export function manuscriptPlain(text: string): string {
+  const chars = text.replace(/\t/g, " ").split("");
+  let lastKept = -1; // index of the last "\n" kept, or of the last non-space
+  let sawText = false;
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i];
+    if (c === "\n") {
+      // At the start, or with only spaces since the last kept break.
+      if (!sawText || chars[lastKept] === "\n") chars[i] = " ";
+      else lastKept = i;
+    } else if (c !== " ") {
+      sawText = true;
+      lastKept = i;
+    }
+  }
+  // At the end.
+  for (let i = chars.length - 1; i >= 0 && (chars[i] === "\n" || chars[i] === " "); i--) {
+    if (chars[i] === "\n") chars[i] = " ";
+  }
+  return chars.join("");
+}
+
+/** The Markdown markers for a stretch's emphasis. */
+const markerFor = (italic: boolean, bold: boolean) =>
+  italic && bold ? "***" : bold ? "**" : italic ? "*" : "";
+
+/**
+ * A paragraph as Markdown: its plain text with italic and bold shown as
+ * `*…*` and `**…**`, as a .docx import shows them — so Betty sees what the
+ * author emphasised. Markers sit inside surrounding spaces, and stretches of
+ * the same emphasis split by an unrelated code (a font switch) are one span.
+ *
+ * Checked, not trusted: the write-back compares paragraphs with the markers
+ * stripped, so a paragraph whose markers would not strip back to its exact
+ * text (one with asterisks or underscores of its own) is shown plain.
+ */
+export function manuscriptMarkdown(p: RtfParagraph, plain: string): string {
+  const runs: { start: number; end: number; marker: string }[] = [];
+  for (const n of [...p.nodes].sort((a, b) => a.textStart - b.textStart)) {
+    const marker = markerFor(n.italic, n.bold);
+    const start = n.textStart;
+    const end = n.textStart + n.text.length;
+    const last = runs[runs.length - 1];
+    if (last && last.end === start && last.marker === marker) last.end = end;
+    else runs.push({ start, end, marker });
+  }
+  let md = "";
+  let pos = 0;
+  for (const r of runs) {
+    md += plain.slice(pos, r.start);
+    const seg = plain.slice(r.start, r.end);
+    const core = seg.trim();
+    if (!r.marker || !core) md += seg;
+    else {
+      const lead = seg.slice(0, seg.length - seg.trimStart().length);
+      const trail = seg.slice(seg.trimEnd().length);
+      md += lead + r.marker + core + r.marker + trail;
+    }
+    pos = r.end;
+  }
+  md += plain.slice(pos);
+  return stripMarkdown(md) === plain ? md : plain;
+}
 
 export interface ReadProject {
   md: string;
@@ -219,24 +300,38 @@ export async function readProject(input: string): Promise<ReadProject> {
     return usable.length ? { buf, usable } : null;
   };
 
-  const walk = async (nodes: BinderNode[], chapter: { title: string; started: boolean } | null) => {
+  /** A chapter heading: the binder item's own title, mapped back to it so a
+   *  corrected title can be written into the .scrivx. A heading made up for
+   *  an untitled item is not the author's, and is not mapped. */
+  const heading = (title: string, uuid: string) => {
+    const start = block(`# ${title || name}`);
+    if (!title) return;
+    map.push({ docxParaIndex: paragraphs.length, mdStart: start, mdEnd: length, mappable: true });
+    paragraphs.push({ uuid, index: -1, title });
+  };
+
+  type Chapter = { title: string; uuid: string; started: boolean };
+  const walk = async (nodes: BinderNode[], chapter: Chapter | null) => {
     for (const node of nodes) {
       if (!node.included) continue;
       const isFolder = node.type === "Folder";
       if (node.type !== "Text" && !isFolder) continue;
       // A folder is a chapter; a folder can also hold text of its own, read
       // as the chapter's opening. A document outside any folder is a chapter.
-      const heading = isFolder ? { title: node.title, started: false } : chapter;
+      const current: Chapter | null = isFolder
+        ? { title: node.title, uuid: node.uuid, started: false }
+        : chapter;
       const doc = await readDocument(node);
       if (doc) {
-        if (!heading) block(`# ${node.title || name}`);
-        else if (!heading.started) {
-          block(`# ${heading.title || name}`);
-          heading.started = true;
+        if (!current) heading(node.title, node.uuid);
+        else if (!current.started) {
+          heading(current.title, current.uuid);
+          current.started = true;
         } else block("* * *");
         scenes.push({ uuid: node.uuid, title: node.title, sha1: sha1(doc.buf) });
         for (const p of doc.usable) {
-          const start = block(asLine(p.text));
+          const plain = manuscriptPlain(p.text);
+          const start = block(manuscriptMarkdown(p, plain));
           map.push({ docxParaIndex: paragraphs.length, mdStart: start, mdEnd: length, mappable: true });
           paragraphs.push({ uuid: node.uuid, index: p.index });
         }
@@ -244,7 +339,7 @@ export async function readProject(input: string): Promise<ReadProject> {
       // A document can have children too (Scrivener allows it): they belong
       // to the same chapter.
       if (node.children.length) {
-        await walk(node.children, heading ?? { title: node.title, started: doc !== null });
+        await walk(node.children, current ?? { title: node.title, uuid: node.uuid, started: doc !== null });
       }
     }
   };
@@ -257,6 +352,77 @@ export async function readProject(input: string): Promise<ReadProject> {
     md: parts.join(""),
     link: { version: 1, projectDir: dir, scrivx, projectName: name, linkedAt: Date.now(), scenes, paragraphs, map },
   };
+}
+
+// ── Binder titles ──
+
+const decodeXml = (s: string) =>
+  s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+const encodeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * The .scrivx with one binder item's title replaced, or null when that item
+ * cannot be found or its title no longer reads `from`. Only the text between
+ * that item's own <Title> tags changes; every other byte of the binder stays.
+ */
+export function replaceBinderTitle(xml: string, uuid: string, from: string, to: string): string | null {
+  const open = new RegExp(`<BinderItem\\b[^>]*\\bUUID="${uuid.replace(/[^0-9A-Fa-f-]/g, "")}"[^>]*>`).exec(xml);
+  if (!open) return null;
+  const after = open.index + open[0].length;
+  const title = /<Title>([\s\S]*?)<\/Title>/.exec(xml.slice(after));
+  if (!title) return null;
+  // The item's own title is its first child: one found past a nested item
+  // belongs to a child.
+  const nested = xml.indexOf("<BinderItem", after);
+  if (nested !== -1 && after + title.index > nested) return null;
+  if (decodeXml(title[1]).trim() !== from) return null;
+  const start = after + title.index + "<Title>".length;
+  return xml.slice(0, start) + encodeXml(to) + xml.slice(start + title[1].length);
+}
+
+/**
+ * Scrivener keeps a second copy of the binder: Files/binder.autosave, a zip
+ * holding the .scrivx as it was last autosaved. Whether Scrivener ever reads
+ * it over the .scrivx was not settled by testing, so a title changed in one
+ * is changed in the other — the same one-title replacement, and only where
+ * the autosave still holds the old title. With both agreeing, it cannot
+ * matter which one Scrivener believes. Anything unexpected in the autosave
+ * (not a zip, no binder in it) leaves it as it was: the .scrivx is the
+ * project, the autosave a convenience.
+ */
+async function syncAutosaveTitles(
+  link: ScrivenerLink,
+  changes: { uuid: string; from: string; to: string }[],
+): Promise<void> {
+  const autosave = path.join(link.projectDir, "Files", "binder.autosave");
+  try {
+    const zip = await JSZip.loadAsync(await fs.readFile(autosave));
+    const name = Object.keys(zip.files).find((n) => /\.scrivx$/i.test(n));
+    if (!name) return;
+    let xml = await zip.file(name)!.async("string");
+    let changed = false;
+    for (const c of changes) {
+      const next = replaceBinderTitle(xml, c.uuid, c.from, c.to);
+      if (next !== null) {
+        xml = next;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    zip.file(name, xml);
+    const tmp = `${autosave}.betty-tmp`;
+    await fs.writeFile(tmp, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+    await fs.rename(tmp, autosave);
+  } catch {
+    // No autosave, or not one this understands: left alone.
+  }
 }
 
 // ── The link record ──
@@ -371,7 +537,10 @@ export async function writeBack(
       isPageBreak: false,
       hasObject: false,
       sawTextElement: true,
-      text: asLine(indexed.get(p.uuid)?.[p.index]?.text ?? ""),
+      // A heading's text is its binder title; a paragraph's is the RTF's own,
+      // laid out exactly as the manuscript showed it.
+      text:
+        p.title !== undefined ? p.title : manuscriptPlain(indexed.get(p.uuid)?.[p.index]?.text ?? ""),
       nodes: [],
     })),
   };
@@ -387,11 +556,21 @@ export async function writeBack(
     byParagraph.set(e.paragraphIndex, list);
   }
 
-  // Back into each scene's own paragraphs.
+  // Back into each scene's own paragraphs — or, for a heading, into its
+  // binder item's title.
   const perScene = new Map<string, RtfEdit[]>();
+  const titleChanges: { uuid: string; from: string; to: string }[] = [];
   for (const [pi, list] of byParagraph) {
     const where = link.paragraphs[pi];
     if (!where) continue;
+    if (where.title !== undefined) {
+      let title = where.title;
+      for (const e of [...list].sort((a, b) => b.start - a.start)) {
+        title = title.slice(0, e.start) + e.replacement + title.slice(e.end);
+      }
+      if (title !== where.title) titleChanges.push({ uuid: where.uuid, from: where.title, to: title });
+      continue;
+    }
     for (const e of widenToWords(index.paragraphs[pi].text, list)) {
       const scene = perScene.get(where.uuid) ?? [];
       scene.push({ paragraphIndex: where.index, start: e.start, end: e.end, replacement: e.replacement });
@@ -419,7 +598,25 @@ export async function writeBack(
       report.scenesChanged.push(titleOf(uuid));
     }
   }
-  if (opts.dryRun || writes.length === 0) return report;
+  // Titles live in the .scrivx, the binder itself. Each is replaced only
+  // where it still reads as Betty read it; one renamed in Scrivener since is
+  // the author's newer word, and is listed rather than overwritten.
+  const scrivxPath = path.join(link.projectDir, link.scrivx);
+  let scrivx = titleChanges.length ? await fs.readFile(scrivxPath, "utf8") : "";
+  let titlesWritten = 0;
+  for (const c of titleChanges) {
+    const next = /[\r\n]/.test(c.to) || !c.to.trim() ? null : replaceBinderTitle(scrivx, c.uuid, c.from, c.to);
+    if (next === null) {
+      report.skipped.push({ scene: c.from, original: c.from, replacement: c.to, reason: "title-changed" });
+      continue;
+    }
+    scrivx = next;
+    titlesWritten++;
+    report.applied++;
+    report.scenesChanged.push(c.to);
+  }
+
+  if (opts.dryRun || (writes.length === 0 && titlesWritten === 0)) return report;
 
   // A full copy first, as a project of its own: same name, in a dated folder
   // beside the project, so it opens in Scrivener like the original.
@@ -467,6 +664,14 @@ export async function writeBack(
     await fs.rename(tmp, sumsPath);
   } catch {
     // A project without the file (older 3.x) has nothing to keep true.
+  }
+
+  // The binder, last: replaced whole by rename, like every other file.
+  if (titlesWritten > 0) {
+    const tmp = `${scrivxPath}.betty-tmp`;
+    await fs.writeFile(tmp, scrivx, "utf8");
+    await fs.rename(tmp, scrivxPath);
+    await syncAutosaveTitles(link, titleChanges);
   }
 
   link.writtenAt = Date.now();

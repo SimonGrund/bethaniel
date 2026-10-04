@@ -5394,6 +5394,13 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Scrivener-Projekt verknüpfen",
     es: "Vincular un proyecto de Scrivener",
   },
+  // While the Explorer / Finder dialog is open — it can open behind the window.
+  scriv_link_picking: {
+    en: "Choose your project in the file window…",
+    da: "Vælg dit projekt i filvinduet…",
+    de: "Wählen Sie Ihr Projekt im Dateifenster…",
+    es: "Elige tu proyecto en la ventana de archivos…",
+  },
   scriv_link_path_placeholder: {
     en: "Path to the project (.scriv or .scrivx)",
     da: "Sti til projektet (.scriv eller .scrivx)",

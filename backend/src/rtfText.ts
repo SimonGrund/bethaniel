@@ -30,6 +30,10 @@ export interface RtfTextNode {
   uc: number;
   /** Inside a field result: visible, but not safe to rewrite. */
   inField: boolean;
+  /** Character formatting in effect — read so Betty can see emphasis; never
+   *  written, since an edit only ever replaces text inside one stretch. */
+  italic: boolean;
+  bold: boolean;
 }
 
 export interface RtfParagraph {
@@ -81,6 +85,8 @@ interface Group {
   skip: boolean;
   uc: number;
   field: boolean;
+  italic: boolean;
+  bold: boolean;
   /** No control word seen yet: the next one names the destination. */
   fresh: boolean;
 }
@@ -90,7 +96,7 @@ export function indexRtf(src: string): RtfParagraph[] {
   const paragraphs: RtfParagraph[] = [];
   let para: RtfParagraph = { index: 0, text: "", nodes: [] };
   let node: RtfTextNode | null = null;
-  const stack: Group[] = [{ skip: false, uc: 1, field: false, fresh: false }];
+  const stack: Group[] = [{ skip: false, uc: 1, field: false, italic: false, bold: false, fresh: false }];
   const top = () => stack[stack.length - 1];
 
   const closeNode = () => {
@@ -102,7 +108,16 @@ export function indexRtf(src: string): RtfParagraph[] {
     const g = top();
     if (g.skip) return;
     if (!node) {
-      node = { start: from, end: to, text: "", textStart: para.text.length, uc: g.uc, inField: g.field };
+      node = {
+        start: from,
+        end: to,
+        text: "",
+        textStart: para.text.length,
+        uc: g.uc,
+        inField: g.field,
+        italic: g.italic,
+        bold: g.bold,
+      };
     }
     node.text += text;
     node.end = to;
@@ -126,7 +141,7 @@ export function indexRtf(src: string): RtfParagraph[] {
     if (ch === "{") {
       closeNode();
       const g = top();
-      stack.push({ skip: g.skip, uc: g.uc, field: g.field, fresh: true });
+      stack.push({ skip: g.skip, uc: g.uc, field: g.field, italic: g.italic, bold: g.bold, fresh: true });
       i++;
       continue;
     }
@@ -254,8 +269,15 @@ export function indexRtf(src: string): RtfParagraph[] {
       continue;
     }
     // Any other control word changes formatting: the text either side of it
-    // is two stretches, not one.
+    // is two stretches, not one. Emphasis is followed so it can be shown:
+    // \i and \b switch on ("\i0" off), \plain resets both.
     closeNode();
+    if (word === "i") g.italic = param !== 0;
+    else if (word === "b") g.bold = param !== 0;
+    else if (word === "plain") {
+      g.italic = false;
+      g.bold = false;
+    }
     i = j;
   }
   closeNode();
