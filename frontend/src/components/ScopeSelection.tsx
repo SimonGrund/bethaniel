@@ -137,6 +137,7 @@ export default function ScopeSelection() {
         unitCount: units.length,
         totalWords,
         chaptersDetected: chapters.length > 0,
+        lang,
       })}
       status="clean"
     >

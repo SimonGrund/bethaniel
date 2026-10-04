@@ -19,11 +19,17 @@ export interface ScopeShape {
    * be a claim about the book rather than about the scope.
    */
   chaptersDetected?: boolean;
+  /**
+   * The interface language, which the word count is written in. Not the
+   * computer's regional setting: an English interface on a Danish machine
+   * wrote "80.717 words", which a reader takes for eighty words.
+   */
+  lang?: string;
 }
 
 export function scopeSummary(
   t: (key: string) => string,
-  { scopeMode, unitCount, totalWords, chaptersDetected = true }: ScopeShape,
+  { scopeMode, unitCount, totalWords, chaptersDetected = true, lang = "en" }: ScopeShape,
 ): string {
   const label = t(
     scopeMode === "whole_book"
@@ -35,7 +41,7 @@ export function scopeSummary(
   // Nothing chosen yet: a size would read as a promise the run cannot keep.
   if (unitCount === 0) return label;
 
-  const parts = [label, `${totalWords.toLocaleString()} ${t("lbl_words")}`];
+  const parts = [label, `${totalWords.toLocaleString(lang)} ${t("lbl_words")}`];
   // A first-N-words scope is measured in words by construction; the chapters
   // it happens to span are an artefact of where the count fell.
   if (chaptersDetected && scopeMode !== "first_n_words") {

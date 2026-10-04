@@ -77,3 +77,16 @@ test("an empty selection says nothing was selected rather than 0 chapters", () =
     "Selected chapters",
   );
 });
+
+test("the word count is written in the interface language, not the computer's", () => {
+  // An English interface on a Danish machine wrote "80.717 words" — which an
+  // English reader takes for eighty words.
+  assert.equal(
+    scopeSummary(t, { scopeMode: "whole_book", unitCount: 1, totalWords: 80717, lang: "en" }),
+    "Whole book · 80,717 words · 1 chapter",
+  );
+  assert.equal(
+    scopeSummary(t, { scopeMode: "whole_book", unitCount: 1, totalWords: 80717, lang: "da" }),
+    "Whole book · 80.717 words · 1 chapter",
+  );
+});
