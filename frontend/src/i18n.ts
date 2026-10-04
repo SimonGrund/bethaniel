@@ -5439,10 +5439,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Vinculado a Scrivener",
   },
   scriv_linked_note: {
-    en: "{n} scenes read from the Manuscript folder. Nothing in the project changes until you write back.",
-    da: "{n} scener læst fra Manuskript-mappen. Intet i projektet ændres, før du skriver tilbage.",
-    de: "{n} Szenen aus dem Manuskript-Ordner gelesen. Im Projekt ändert sich nichts, bis Sie zurückschreiben.",
-    es: "{n} escenas leídas de la carpeta Manuscrito. Nada cambia en el proyecto hasta que escribas de vuelta.",
+    en: "{n} documents read from the Manuscript folder, in binder order. Nothing in the project changes until you write back.",
+    da: "{n} dokumenter læst fra Manuskript-mappen i binder-rækkefølge. Intet i projektet ændres, før du skriver tilbage.",
+    de: "{n} Dokumente aus dem Manuskript-Ordner gelesen, in Binder-Reihenfolge. Im Projekt ändert sich nichts, bis Sie zurückschreiben.",
+    es: "{n} documentos leídos de la carpeta Manuscrito, en el orden de la carpeta. Nada cambia en el proyecto hasta que escribas de vuelta.",
   },
   scriv_reread: {
     en: "Read again from Scrivener",
@@ -5487,10 +5487,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "No hay nada que escribir: ningún cambio aceptado puede colocarse en el proyecto.",
   },
   scriv_wb_plan: {
-    en: "{n} accepted changes will be written into {scenes} scenes.",
-    da: "{n} godkendte ændringer skrives ind i {scenes} scener.",
-    de: "{n} angenommene Änderungen werden in {scenes} Szenen geschrieben.",
-    es: "Se escribirán {n} cambios aceptados en {scenes} escenas.",
+    en: "{n} accepted changes will be written into {scenes} documents.",
+    da: "{n} godkendte ændringer skrives ind i {scenes} dokumenter.",
+    de: "{n} angenommene Änderungen werden in {scenes} Dokumente geschrieben.",
+    es: "Se escribirán {n} cambios aceptados en {scenes} documentos.",
   },
   scriv_wb_risk_backup: {
     en: "First, Betty copies the whole project into “{folder}”, beside it. That copy is your project exactly as it is now and opens in Scrivener — it is how you go back.",

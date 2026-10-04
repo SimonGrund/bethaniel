@@ -253,10 +253,9 @@ export interface ReadProject {
 /**
  * Read the Draft folder into a manuscript.
  *
- * A folder holding documents is a chapter, its title the heading and its
- * documents the scenes, separated by scene breaks. A document directly in
- * the Draft folder is a chapter of its own. Documents excluded from compile
- * are left out, as Scrivener's own compile leaves them out.
+ * Each document with text is one unit under its own title, in binder order;
+ * folders only order them. Documents excluded from compile are left out, as
+ * Scrivener's own compile leaves them out.
  */
 export async function readProject(input: string): Promise<ReadProject> {
   const { dir, scrivx, name } = await resolveProject(input);
@@ -310,24 +309,23 @@ export async function readProject(input: string): Promise<ReadProject> {
     paragraphs.push({ uuid, index: -1, title });
   };
 
-  type Chapter = { title: string; uuid: string; started: boolean };
-  const walk = async (nodes: BinderNode[], chapter: Chapter | null) => {
+  // Every document with text is a unit of its own, under its own title.
+  // Folders only order them. Projects disagree on what a folder means — a
+  // chapter holding scene documents, or a part holding one document per
+  // chapter — and guessing wrong turned 34 chapters into 7. The document is
+  // the one thing every project has, and what write-back is done per.
+  const walk = async (nodes: BinderNode[], folderTitle: string) => {
     for (const node of nodes) {
       if (!node.included) continue;
       const isFolder = node.type === "Folder";
       if (node.type !== "Text" && !isFolder) continue;
-      // A folder is a chapter; a folder can also hold text of its own, read
-      // as the chapter's opening. A document outside any folder is a chapter.
-      const current: Chapter | null = isFolder
-        ? { title: node.title, uuid: node.uuid, started: false }
-        : chapter;
+      // A folder can hold text of its own: a document like any other.
       const doc = await readDocument(node);
       if (doc) {
-        if (!current) heading(node.title, node.uuid);
-        else if (!current.started) {
-          heading(current.title, current.uuid);
-          current.started = true;
-        } else block("* * *");
+        if (node.title) heading(node.title, node.uuid);
+        // Untitled: named after its folder for the reader, and not mapped —
+        // that title is not this document's to change.
+        else block(`# ${folderTitle || name}`);
         scenes.push({ uuid: node.uuid, title: node.title, sha1: sha1(doc.buf) });
         for (const p of doc.usable) {
           const plain = manuscriptPlain(p.text);
@@ -336,14 +334,12 @@ export async function readProject(input: string): Promise<ReadProject> {
           paragraphs.push({ uuid: node.uuid, index: p.index });
         }
       }
-      // A document can have children too (Scrivener allows it): they belong
-      // to the same chapter.
-      if (node.children.length) {
-        await walk(node.children, current ?? { title: node.title, uuid: node.uuid, started: doc !== null });
-      }
+      // Folders, and documents with children (Scrivener allows both), in
+      // binder order.
+      if (node.children.length) await walk(node.children, node.title || folderTitle);
     }
   };
-  await walk(draft.children, null);
+  await walk(draft.children, "");
 
   if (map.length === 0) {
     throw new ScrivenerError("The Manuscript folder has no text in it yet.", "empty");

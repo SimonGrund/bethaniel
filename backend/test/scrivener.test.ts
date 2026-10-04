@@ -41,12 +41,14 @@ async function makeProject(): Promise<{ root: string; dir: string; files: Record
     [S3]: rtf("Welcoem to chapter 2!"),
     [OUT]: rtf("Not in the book."),
   };
+  // Folders as parts holding one document per chapter — and one document
+  // untitled, which borrows its folder's name.
   const binder = item(
     "DRAFT",
     "DraftFolder",
     "Manuscript",
-    item("C1", "Folder", "The Beginning", item(S1, "Text", "Scene") + item(S2, "Text", "Scene")) +
-      item("C2", "Folder", "Chapter Two", item(S3, "Text", "Scene") + item(OUT, "Text", "Cut", "", "No")),
+    item("C1", "Folder", "Part One", item(S1, "Text", "The Beginning") + item(S2, "Text", "")) +
+      item("C2", "Folder", "Part Two", item(S3, "Text", "Chapter Two") + item(OUT, "Text", "Cut", "", "No")),
   );
   await fs.mkdir(path.join(dir, "Files", "Data"), { recursive: true });
   await fs.writeFile(
@@ -71,23 +73,28 @@ const contentOf = (dir: string, uuid: string) =>
 /** What the review hands write-back: the whole manuscript as one chapter. */
 const edit = (md: string, from: string, to: string) => [{ original: md, edited: md.replace(from, to) }];
 
-test("the Manuscript folder reads in binder order: folders are chapters, documents scenes", async () => {
+test("every document is its own unit under its own title, in binder order", async () => {
+  // Folders only order documents: a project of parts holding one document
+  // per chapter read as 7 "chapters" when folders were taken for chapters,
+  // and it has 34.
   const { dir } = await makeProject();
   const { md, link } = await readProject(path.join(dir, "Novel.scrivx"));
   assert.equal(
     md,
-    "# The Beginning\n\nThis is scene 1. People will be fighting.\n\n* * *\n\n" +
-      "And now the world is introduced…\n\nSecond paragraph.\n\n# Chapter Two\n\nWelcoem to chapter 2!",
+    "# The Beginning\n\nThis is scene 1. People will be fighting.\n\n" +
+      "# Part One\n\nAnd now the world is introduced…\n\nSecond paragraph.\n\n" +
+      "# Chapter Two\n\nWelcoem to chapter 2!",
   );
   // Excluded from compile, so not in the book.
   assert.ok(!md.includes("Not in the book"));
   assert.equal(link.projectName, "Novel");
   assert.equal(link.scenes.length, 3);
-  // Four paragraphs and the two chapter headings, which map to their folders.
+  // Four paragraphs and the two documents' own titles. The untitled one's
+  // heading is its folder's name, which is not its to change: not mapped.
   assert.equal(link.map.length, 6);
   assert.deepEqual(
     link.paragraphs.filter((p) => p.title !== undefined).map((p) => [p.uuid, p.title]),
-    [["C1", "The Beginning"], ["C2", "Chapter Two"]],
+    [[S1, "The Beginning"], [S3, "Chapter Two"]],
   );
 });
 
@@ -185,7 +192,7 @@ test("a write-back copies the project first, then changes only the text", async 
   const { md, link } = await readProject(dir);
   const report = await writeBack(link, md, edit(md, "Welcoem", "Welcome"));
   assert.equal(report.applied, 1);
-  assert.deepEqual(report.scenesChanged, ["Scene"]);
+  assert.deepEqual(report.scenesChanged, ["Chapter Two"]);
 
   // Changed: that word, nothing else.
   assert.equal(await contentOf(dir, S3), files[S3].replace("Welcoem", "Welcome"));
