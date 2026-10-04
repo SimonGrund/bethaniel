@@ -364,6 +364,9 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Room between the title and the controls once the title has shrunk to
+     meet them (see .title-svg). */
+  gap: 0.75rem;
   padding: 0.5rem 0 1rem 0;
   margin-bottom: 1rem;
   border-bottom: 1px solid #c9b896;
@@ -385,6 +388,14 @@ h4 {
 .title-svg {
   height: 52px;
   width: auto;
+  /* The one thing in the header row that can give. It used to hold its full
+     width at any window size and push "Former Runs" and the settings cog off
+     the right edge, scrolling the whole page sideways; now it narrows, scaled
+     rather than squashed, and the controls stay on screen. */
+  flex: 0 1 auto;
+  min-width: 0;
+  object-fit: contain;
+  object-position: left center;
 }
 
 /* ── Footer ── */
@@ -11037,6 +11048,25 @@ summary.review-source::before {
   color: var(--eyebrow);
   pointer-events: none;
   user-select: none;
+}
+
+/* Where the export bar waits while the review is unfinished: a line, not a
+   bar, so the slabs above stay the thing to do. */
+.export-later {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.export-later-now {
+  font-size: 0.85rem;
 }
 
 /* Too narrow for two slabs side by side: one above the other, the seam a

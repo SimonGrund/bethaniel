@@ -5387,6 +5387,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Sie haben dies in Betty angenommen.",
     es: "Aceptaste esto en Betty.",
   },
+  // In place of the export bar while the review in Betty is unfinished.
+  export_after_review: {
+    en: "Export comes after the review — {n} suggestions still to answer.",
+    da: "Eksport kommer efter gennemgangen — {n} forslag mangler svar.",
+    de: "Der Export folgt nach der Durchsicht — {n} Vorschläge sind noch offen.",
+    es: "La exportación viene después de la revisión: quedan {n} sugerencias por responder.",
+  },
+  export_after_review_one: {
+    en: "Export comes after the review — 1 suggestion still to answer.",
+    da: "Eksport kommer efter gennemgangen — 1 forslag mangler svar.",
+    de: "Der Export folgt nach der Durchsicht — 1 Vorschlag ist noch offen.",
+    es: "La exportación viene después de la revisión: queda 1 sugerencia por responder.",
+  },
+  export_now_anyway: {
+    en: "Export now with what's accepted so far",
+    da: "Eksportér nu med det, der er godkendt indtil videre",
+    de: "Jetzt mit dem bisher Angenommenen exportieren",
+    es: "Exportar ahora con lo aceptado hasta el momento",
+  },
   // Small print under "Review in Word", like the run slabs' small print.
   review_word_meta: {
     en: "Tracked changes, with Betty's reasons as comments",

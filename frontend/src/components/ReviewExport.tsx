@@ -1968,6 +1968,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   // Which runs have their details open. Per job, so opening one run's
   // reference does not unfold every other run in the list.
   const [infoJobs, setInfoJobs] = useState<Set<string>>(() => new Set());
+  // Runs whose export the author asked for before finishing the review.
+  const [exportEarlyJobs, setExportEarlyJobs] = useState<Set<string>>(() => new Set());
   // A caveat the user must see BEFORE the file is handed over. A toast raised
   // alongside the download is hidden by the system save dialog and dismissed by
   // the time it closes.
@@ -3219,6 +3221,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           // task is done but its result hasn't hydrated yet.
           const editResultsReady = editTasks.every(([, task]) => task.result);
           const exportReady = allEditDone && editResultsReady && !verifying && exportIds.length > 0;
+          // Export is the review's last step. While the deck still has
+          // unanswered suggestions, an export button up front invites
+          // exporting a book with most of its changes undecided, so it waits
+          // under the review — still one click away for an author who wants
+          // to export what they have accepted so far. A translation has no
+          // deck, so its export never waits.
+          const reviewLeft = deckMode
+            ? countUndecided(
+                editTasks.filter(([, task]) => task.result),
+                decisionLog,
+                showAllSuggestions,
+              ).left
+            : 0;
+          const exportWaits = reviewLeft > 0 && !exportEarlyJobs.has(jid);
           const allEditCorrections = editTasks.flatMap(([tid, task]) =>
             (task.result?.corrections ?? [])
               .filter((c) => c.id)
@@ -5110,7 +5126,25 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 </div>
               )}
 
-              {editTasks.length > 0 && !isScanJob && allEditDone && !translationSettled && (
+              {editTasks.length > 0 && !isScanJob && allEditDone && !translationSettled && exportWaits && (
+                <div className="export-later">
+                  <span className="export-later-text">
+                    {t(reviewLeft === 1 ? "export_after_review_one" : "export_after_review").replace(
+                      "{n}",
+                      String(reviewLeft),
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-linkish export-later-now"
+                    onClick={() => setExportEarlyJobs((prev) => new Set(prev).add(jid))}
+                  >
+                    {t("export_now_anyway")}
+                  </button>
+                </div>
+              )}
+
+              {editTasks.length > 0 && !isScanJob && allEditDone && !translationSettled && !exportWaits && (
                 <div className="review-actionbar">
                   <span className="export-row__label">
                     {isTranslateJob
