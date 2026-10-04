@@ -38,6 +38,15 @@ import { indexDocumentXml, rewriteDocxText } from "./docxSurgery.js";
 import { buildReportHeader } from "./surgicalReport.js";
 import { mapMarkdownOntoDocx, remapChaptersToParagraphEdits } from "./docxRemap.js";
 import { planTrackedEdits, rewriteDocxTracked, type ChangeNote } from "./docxTracked.js";
+import {
+  changedScenes,
+  isProjectOpen,
+  loadLink,
+  readProject,
+  saveLink,
+  ScrivenerError,
+  writeBack,
+} from "./scrivener.js";
 import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
@@ -391,6 +400,119 @@ router.delete("/documents/:id", async (req: Request, res: Response) => {
   // Extracted .docx images live outside the DB and would otherwise be orphaned.
   await deleteDocumentMedia(req.params.id);
   res.json({ ok: true });
+});
+
+// ── Scrivener: link a project instead of uploading a file ──
+//
+// The project is read where it is, on this machine, and is not changed by
+// linking. See scrivener.ts for what writing back checks before it writes.
+
+/** A ScrivenerError as the client sees it: a sentence, a reason, details. */
+function sendScrivenerError(res: Response, err: unknown): void {
+  if (err instanceof ScrivenerError) {
+    res.status(err.reason === "not-found" ? 404 : 409).json({
+      error: err.message,
+      reason: err.reason,
+      detail: err.detail,
+    });
+    return;
+  }
+  res.status(500).json({ error: err instanceof Error ? err.message : "Scrivener request failed" });
+}
+
+router.post("/scrivener/link", async (req: Request, res: Response) => {
+  try {
+    const projectPath = (req.body as { path?: unknown }).path;
+    if (typeof projectPath !== "string" || !projectPath.trim()) {
+      res.status(400).json({ error: "path is required" });
+      return;
+    }
+    const { md, link } = await readProject(projectPath);
+    const docId = uuidv4();
+    const chapters = findChapters(md);
+    const detected = detectSettings(md);
+    const doc: DocumentMeta = {
+      id: docId,
+      name: `${link.projectName}.scriv`,
+      md,
+      chapters,
+      wordCount: md.split(/\s+/).filter(Boolean).length,
+      uploadedAt: Date.now(),
+      detected,
+      lexicon: harvestForUpload(md, detected),
+    };
+    saveDocument(doc);
+    await saveLink(MEDIA_DIR, docId, link);
+    res.json({
+      id: doc.id,
+      name: doc.name,
+      chapters: doc.chapters,
+      wordCount: doc.wordCount,
+      uploadedAt: doc.uploadedAt,
+      detected: doc.detected,
+      lexicon: doc.lexicon,
+      scrivener: {
+        projectName: link.projectName,
+        projectDir: link.projectDir,
+        scenes: link.scenes.length,
+        linkedAt: link.linkedAt,
+      },
+    });
+  } catch (err) {
+    sendScrivenerError(res, err);
+  }
+});
+
+// Where the link stands now: is the project open, has it changed, was the
+// review already written back. Read fresh each time — it is about files the
+// author may be editing in Scrivener this minute.
+router.get("/scrivener/status/:docId", async (req: Request, res: Response) => {
+  const link = await loadLink(MEDIA_DIR, req.params.docId);
+  if (!link) {
+    res.json({ linked: false });
+    return;
+  }
+  res.json({
+    linked: true,
+    projectName: link.projectName,
+    projectDir: link.projectDir,
+    scenes: link.scenes.length,
+    linkedAt: link.linkedAt,
+    open: await isProjectOpen(link.projectDir),
+    changed: await changedScenes(link),
+    writtenAt: link.writtenAt ?? null,
+    backupDir: link.backupDir ?? null,
+    // A project in a synced folder can be written by the sync client too.
+    synced: /dropbox|onedrive|icloud|google drive|googledrive|box sync/i.test(link.projectDir),
+  });
+});
+
+// Write the reviewed chapters back. `dryRun` checks and plans without
+// writing — the confirmation the author sees before agreeing.
+router.post("/scrivener/writeback", async (req: Request, res: Response) => {
+  try {
+    const { docId, chapters, dryRun } = req.body as {
+      docId?: string;
+      chapters?: Array<{ original: string; edited: string }>;
+      dryRun?: boolean;
+    };
+    if (typeof docId !== "string" || !Array.isArray(chapters)) {
+      res.status(400).json({ error: "docId and chapters are required" });
+      return;
+    }
+    const doc = getDocument(docId);
+    const link = await loadLink(MEDIA_DIR, docId);
+    if (!doc || !link) {
+      res.status(404).json({ error: "This manuscript is not linked to a Scrivener project.", reason: "not-linked" });
+      return;
+    }
+    const report = await writeBack(link, doc.md, chapters, { dryRun: dryRun === true });
+    // The link remembers the write (and its backup), so it is not repeated.
+    if (!dryRun && link.writtenAt) await saveLink(MEDIA_DIR, docId, link);
+    res.json(report);
+  } catch (err) {
+    sendScrivenerError(res, err);
+  }
 });
 
 // ── List installed models ──

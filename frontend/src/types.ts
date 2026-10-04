@@ -289,6 +289,8 @@ export interface DocumentMeta {
   md?: string; // only when fetched with full text
   detected?: DetectedSettings;
   lexicon?: Lexicon;
+  /** Set when the manuscript is a linked Scrivener project, not an upload. */
+  scrivener?: { projectName: string; projectDir: string; scenes: number; linkedAt: number };
 }
 
 // ── Names & terms (backend/src/lexicon.ts) ──

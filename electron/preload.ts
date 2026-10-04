@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld("bethaniel", {
   isElectron: true,
   selectGgufFile: () =>
     ipcRenderer.invoke("dialog:openGguf") as Promise<string | null>,
+  // A Scrivener project to link: the path of its .scrivx (or, on macOS, the
+  // .scriv itself), or null if the author cancelled.
+  selectScrivenerProject: () =>
+    ipcRenderer.invoke("dialog:openScrivener") as Promise<string | null>,
   // Betty in the Cloud: open the Stripe Checkout URL in the system browser,
   // and be told when a paid credential has been claimed and saved (via the
   // bethaniel:// deep link the main process listens for).

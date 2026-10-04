@@ -60,6 +60,76 @@ export async function getDocument(id: string) {
   return res.json();
 }
 
+// ── Scrivener (backend/src/scrivener.ts) ──
+
+/** Link a Scrivener project: read where it is, changed by nothing. Resolves
+ *  to the same shape as an upload, plus what was linked. */
+export async function linkScrivener(path: string) {
+  const res = await apiFetch("/scrivener/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  return res.json();
+}
+
+export interface ScrivenerStatus {
+  linked: boolean;
+  projectName?: string;
+  projectDir?: string;
+  scenes?: number;
+  linkedAt?: number;
+  /** Scrivener has the project open (Files/user.lock exists). */
+  open?: boolean;
+  /** Scenes changed in Scrivener since Betty read them. */
+  changed?: string[];
+  writtenAt?: number | null;
+  backupDir?: string | null;
+  /** The project sits in a Dropbox / OneDrive / iCloud folder. */
+  synced?: boolean;
+}
+
+export async function scrivenerStatus(docId: string): Promise<ScrivenerStatus> {
+  const res = await apiFetch(`/scrivener/status/${docId}`);
+  return res.json();
+}
+
+export interface ScrivenerWriteBackReport {
+  applied: number;
+  skipped: { scene: string; original: string; replacement: string; reason: string }[];
+  unmapped: number;
+  unmappedDetail: { reason: string; detail: string }[];
+  scenesChanged: string[];
+  backupDir?: string;
+}
+
+/** Thrown when write-back refuses: the project is open, changed, already
+ *  written. `reason` says which; `detail` names scenes where it can. */
+export class ScrivenerRefusal extends Error {
+  constructor(message: string, public reason: string, public detail?: string[]) {
+    super(message);
+  }
+}
+
+export async function scrivenerWriteBack(
+  docId: string,
+  chapters: { original: string; edited: string }[],
+  dryRun: boolean,
+): Promise<ScrivenerWriteBackReport> {
+  // Not apiFetch: a refusal here is an answer to show, with its reason, not
+  // an error to log.
+  const res = await fetch(`${BASE}/api/scrivener/writeback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ docId, chapters, dryRun }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ScrivenerRefusal(body.error ?? "Write-back failed", body.reason ?? "error", body.detail);
+  }
+  return body as ScrivenerWriteBackReport;
+}
+
 // ── Model downloads ──
 /** Stop the transfer and keep the partial file; starting the same download
  *  again resumes it. */

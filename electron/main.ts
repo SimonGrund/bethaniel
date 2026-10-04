@@ -795,6 +795,30 @@ ipcMain.handle("dialog:openGguf", async () => {
   return result.filePaths[0];
 });
 
+// ── IPC: Native picker for a Scrivener project ──
+// A .scriv is a folder on Windows and Linux, so the author picks the .scrivx
+// inside it; on macOS it is a package the dialog treats as one file. The
+// backend accepts either. Picking only reads a path — linking reads the
+// project, and nothing is written to it until the author writes back.
+ipcMain.handle("dialog:openScrivener", async () => {
+  const parent = dialogParent();
+  const options = {
+    title: "Link a Scrivener project",
+    filters: [
+      {
+        name: "Scrivener projects",
+        extensions: process.platform === "darwin" ? ["scriv", "scrivx"] : ["scrivx"],
+      },
+    ],
+    properties: ["openFile" as const],
+  };
+  const result = parent
+    ? await dialog.showOpenDialog(parent, options)
+    : await dialog.showOpenDialog(options);
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
 // ── IPC: open a Stripe Checkout URL in the system browser ──
 // Routed through the main process (rather than window.open) so the renderer
 // can show a "waiting for payment" state instead of firing and forgetting.

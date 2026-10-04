@@ -11055,6 +11055,132 @@ summary.review-source::before {
   user-select: none;
 }
 
+/* ── Scrivener: link, linked, write back ── */
+.scriv-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+.scriv-link-or {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--eyebrow);
+}
+
+.scriv-link-btn,
+.scriv-wb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.scriv-link-icon {
+  flex-shrink: 0;
+}
+
+.scriv-link-path {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 26rem;
+}
+
+.scriv-link-path input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.scriv-link-note {
+  max-width: 26rem;
+  margin: 0;
+}
+
+.file-name-row .scriv-link-icon {
+  margin-right: 0.3rem;
+  color: var(--eyebrow);
+}
+
+.scriv-linked {
+  display: block;
+  margin: 0.2rem 0 0.3rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.scriv-linked-badge {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.scriv-wb-dialog {
+  max-width: 34rem;
+}
+
+.scriv-wb-lead {
+  font-weight: 600;
+}
+
+.scriv-wb-risks {
+  margin: 0.6rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.scriv-wb-risks li + li {
+  margin-top: 0.35rem;
+}
+
+.scriv-wb-risk-strong {
+  color: #8a3a1e;
+  font-weight: 600;
+}
+
+.scriv-wb-sub {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.88rem;
+}
+
+.scriv-wb-skipped {
+  max-height: 10rem;
+  overflow: auto;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.scriv-wb-scene {
+  color: var(--eyebrow);
+  margin-right: 0.3rem;
+}
+
+.scriv-wb-path {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
 /* Where the export bar waits while the review is unfinished: a line, not a
    bar, so the slabs above stay the thing to do. */
 .export-later {

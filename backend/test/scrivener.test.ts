@@ -1,0 +1,183 @@
+// Linking a Scrivener project and writing Betty's changes back (scrivener.ts).
+//
+// Each test builds a small project in a temp folder, shaped like the one
+// Scrivener 3.1.6 for Windows wrote: a .scrivx binder, one content.rtf per
+// document, Files/version.txt and Files/Data/docs.checksum. The rules pinned
+// hardest are the guards — nothing is written while the project is open,
+// nothing over newer words, nothing without a full copy first — and that the
+// checksum file stays true.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "crypto";
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
+
+import { readProject, writeBack, ScrivenerError } from "../src/scrivener.ts";
+
+const HEAD =
+  "{\\rtf1\\ansi\\ansicpg1252\\uc1\\deff0\r\n{\\fonttbl{\\f0\\fmodern\\fcharset0\\fprq2 SitkaText;}}\r\n" +
+  "\\pard\\plain \\fi360\\ltrch\\loch ";
+const rtf = (body: string) => `${HEAD}{\\f0\\fs24\\b0\\i0 ${body}}}`;
+const sha1 = (s: string | Buffer) => createHash("sha1").update(s).digest("hex");
+
+const S1 = "11111111-1111-1111-1111-111111111111";
+const S2 = "22222222-2222-2222-2222-222222222222";
+const S3 = "33333333-3333-3333-3333-333333333333";
+const OUT = "44444444-4444-4444-4444-444444444444";
+
+const item = (uuid: string, type: string, title: string, children = "", include = "Yes") =>
+  `<BinderItem UUID="${uuid}" Type="${type}"><Title>${title}</Title><MetaData><IncludeInCompile>${include}</IncludeInCompile></MetaData>${
+    children ? `<Children>${children}</Children>` : ""
+  }</BinderItem>`;
+
+async function makeProject(): Promise<{ root: string; dir: string; files: Record<string, string> }> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "betty-scriv-"));
+  const dir = path.join(root, "Novel.scriv");
+  const files: Record<string, string> = {
+    [S1]: rtf("This is scene 1. People will be fighting."),
+    [S2]: rtf("And now the world is introduced\\loch\\af0\\uc1\\u8230\\'85\\par Second paragraph."),
+    [S3]: rtf("Welcoem to chapter 2!"),
+    [OUT]: rtf("Not in the book."),
+  };
+  const binder = item(
+    "DRAFT",
+    "DraftFolder",
+    "Manuscript",
+    item("C1", "Folder", "The Beginning", item(S1, "Text", "Scene") + item(S2, "Text", "Scene")) +
+      item("C2", "Folder", "Chapter Two", item(S3, "Text", "Scene") + item(OUT, "Text", "Cut", "", "No")),
+  );
+  await fs.mkdir(path.join(dir, "Files", "Data"), { recursive: true });
+  await fs.writeFile(
+    path.join(dir, "Novel.scrivx"),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<ScrivenerProject Version="2.0"><Binder>${binder}</Binder></ScrivenerProject>`,
+  );
+  await fs.writeFile(path.join(dir, "Files", "version.txt"), "23");
+  const sums: string[] = [];
+  for (const [uuid, body] of Object.entries(files)) {
+    await fs.mkdir(path.join(dir, "Files", "Data", uuid));
+    await fs.writeFile(path.join(dir, "Files", "Data", uuid, "content.rtf"), Buffer.from(body, "latin1"));
+    sums.push(`${uuid}/content.rtf=${sha1(Buffer.from(body, "latin1"))}`);
+  }
+  sums.push("99999999-9999-9999-9999-999999999999/notes.rtf=abc");
+  await fs.writeFile(path.join(dir, "Files", "Data", "docs.checksum"), sums.join("\n") + "\n");
+  return { root, dir, files };
+}
+
+const contentOf = (dir: string, uuid: string) =>
+  fs.readFile(path.join(dir, "Files", "Data", uuid, "content.rtf"), "latin1");
+
+/** What the review hands write-back: the whole manuscript as one chapter. */
+const edit = (md: string, from: string, to: string) => [{ original: md, edited: md.replace(from, to) }];
+
+test("the Manuscript folder reads in binder order: folders are chapters, documents scenes", async () => {
+  const { dir } = await makeProject();
+  const { md, link } = await readProject(path.join(dir, "Novel.scrivx"));
+  assert.equal(
+    md,
+    "# The Beginning\n\nThis is scene 1. People will be fighting.\n\n* * *\n\n" +
+      "And now the world is introduced…\n\nSecond paragraph.\n\n# Chapter Two\n\nWelcoem to chapter 2!",
+  );
+  // Excluded from compile, so not in the book.
+  assert.ok(!md.includes("Not in the book"));
+  assert.equal(link.projectName, "Novel");
+  assert.equal(link.scenes.length, 3);
+  assert.equal(link.map.length, 4);
+});
+
+test("the project folder or its .scrivx both link", async () => {
+  const { dir } = await makeProject();
+  assert.equal((await readProject(dir)).link.projectDir, dir);
+});
+
+test("a dry run plans the changes and writes nothing", async () => {
+  const { dir, files } = await makeProject();
+  const { md, link } = await readProject(dir);
+  const report = await writeBack(link, md, edit(md, "Welcoem", "Welcome"), { dryRun: true });
+  assert.equal(report.applied, 1);
+  assert.equal(report.backupDir, undefined);
+  assert.equal(await contentOf(dir, S3), files[S3]);
+});
+
+test("a write-back copies the project first, then changes only the text", async () => {
+  const { root, dir, files } = await makeProject();
+  const { md, link } = await readProject(dir);
+  const report = await writeBack(link, md, edit(md, "Welcoem", "Welcome"));
+  assert.equal(report.applied, 1);
+  assert.deepEqual(report.scenesChanged, ["Scene"]);
+
+  // Changed: that word, nothing else.
+  assert.equal(await contentOf(dir, S3), files[S3].replace("Welcoem", "Welcome"));
+  assert.equal(await contentOf(dir, S1), files[S1]);
+
+  // The copy is the project as it was, beside it, under its own name.
+  assert.ok(report.backupDir!.startsWith(path.join(root, "Novel - Betty backups")));
+  assert.equal(path.basename(report.backupDir!), "Novel.scriv");
+  assert.equal(await contentOf(report.backupDir!, S3), files[S3]);
+  await fs.access(path.join(report.backupDir!, "Novel.scrivx"));
+
+  // The checksum file is true again for the changed file, untouched elsewhere.
+  const sums = await fs.readFile(path.join(dir, "Files", "Data", "docs.checksum"), "utf8");
+  const now = sha1(Buffer.from(await contentOf(dir, S3), "latin1"));
+  assert.ok(sums.includes(`${S3}/content.rtf=${now}`), sums);
+  assert.ok(sums.includes(`${S1}/content.rtf=${sha1(Buffer.from(files[S1], "latin1"))}`));
+  assert.ok(sums.includes("99999999-9999-9999-9999-999999999999/notes.rtf=abc"));
+  // No temp files left behind.
+  const left = await fs.readdir(path.join(dir, "Files", "Data", S3));
+  assert.deepEqual(left, ["content.rtf"]);
+});
+
+test("nothing is written while the project is open in Scrivener", async () => {
+  const { dir, files } = await makeProject();
+  const { md, link } = await readProject(dir);
+  await fs.writeFile(path.join(dir, "Files", "user.lock"), "[General]\nplatform=win\n");
+  await assert.rejects(
+    writeBack(link, md, edit(md, "Welcoem", "Welcome")),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "project-open",
+  );
+  assert.equal(await contentOf(dir, S3), files[S3]);
+});
+
+test("nothing is written over a scene changed in Scrivener since Betty read it", async () => {
+  const { dir } = await makeProject();
+  const { md, link } = await readProject(dir);
+  // The author keeps writing in Scrivener.
+  await fs.writeFile(path.join(dir, "Files", "Data", S3, "content.rtf"), rtf("Welcoem to chapter 2! More."));
+  await assert.rejects(
+    writeBack(link, md, edit(md, "Welcoem", "Welcome")),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "changed-since-link",
+  );
+  assert.equal(await contentOf(dir, S3), rtf("Welcoem to chapter 2! More."));
+});
+
+test("a review is written back once; a second write asks for a fresh link", async () => {
+  const { dir } = await makeProject();
+  const { md, link } = await readProject(dir);
+  await writeBack(link, md, edit(md, "Welcoem", "Welcome"));
+  await assert.rejects(
+    writeBack(link, md, edit(md, "Welcoem", "Welcome")),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "already-written",
+  );
+});
+
+test("a change that cannot be made without touching formatting is listed, not made", async () => {
+  const { dir, files } = await makeProject();
+  const { md, link } = await readProject(dir);
+  // "introduced" and "…" sit either side of a font switch in the RTF; one
+  // change rewriting both crosses it.
+  const report = await writeBack(link, md, edit(md, "introduced…", "shown"));
+  assert.equal(report.applied, 0);
+  assert.equal(report.skipped.length, 1);
+  assert.equal(report.skipped[0].reason, "spans-formatting");
+  assert.equal(report.backupDir, undefined, "nothing to write, so no copy and no change");
+  assert.equal(await contentOf(dir, S2), files[S2]);
+});
+
+test("a folder that is not a Scrivener project is refused", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "betty-notscriv-"));
+  await assert.rejects(
+    readProject(root),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "not-a-project",
+  );
+});

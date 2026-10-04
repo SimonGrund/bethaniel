@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
 import ReviewDeck, { buildDeck, countUndecided } from "./ReviewDeck";
+import ScrivenerWriteBack from "./ScrivenerWriteBack";
 import ReviewFocus from "./ReviewFocus";
 import { useTranslation } from "../i18n";
 import {
@@ -1961,6 +1962,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
   // Review in Word marks up the loaded manuscript, as every Word export does.
   const hasDocument = useStore((s) => !!s.document?.id);
+  // A linked Scrivener project: the review can go back into it.
+  const scrivenerDocId = useStore((s) => (s.document?.scrivener ? s.document.id : null));
   const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
   // Which chapters the export covers. null is the whole book — the
   // default, and what a set that names every chapter collapses back to.
@@ -3266,6 +3269,24 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               ).left
             : 0;
           const exportWaits = reviewLeft > 0 && !exportEarlyJobs.has(jid);
+          // Back into the linked Scrivener project, from the same chapters
+          // (and the same export-time spell check) the Word file is built from.
+          const scrivenerWriteBack =
+            scrivenerDocId && !isTranslateJob ? (
+              <ScrivenerWriteBack
+                docId={scrivenerDocId}
+                disabled={!exportReady || exportBusy}
+                getPairs={() =>
+                  new Promise((resolve) => {
+                    verifyThenExport(
+                      exportIds,
+                      (acc, fixed) => buildChapterPairs(exportEntries, acc, fixed),
+                      (pairs) => resolve(pairs),
+                    ).catch(() => resolve(null));
+                  })
+                }
+              />
+            ) : null;
           const allEditCorrections = editTasks.flatMap(([tid, task]) =>
             (task.result?.corrections ?? [])
               .filter((c) => c.id)
@@ -4591,6 +4612,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         notice={focusJid === jid ? renderSameChange(true) : null}
                         doneSlot={
                           <>
+                            {scrivenerWriteBack}
                             {trackedToggle}
                             <button
                               type="button"
@@ -5193,6 +5215,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       </span>
                     )}
                   </span>
+
+                  {scrivenerWriteBack}
 
                   {trackedToggle}
 
