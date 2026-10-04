@@ -26,6 +26,7 @@ import ModelIntroModal from "./components/ModelIntroModal";
 import ModelReadyModal from "./components/ModelReadyModal";
 import PerfAdviceModal from "./components/PerfAdviceModal";
 import HeaderSettingsMenu from "./components/HeaderSettingsMenu";
+import ResumeReview from "./components/ResumeReview";
 import { fetchLanguageToolStatus, fetchLanguageToolDownloadStatus, fetchEngineStatus } from "./api";
 import { betaGroupFor } from "./types";
 import type {
@@ -397,6 +398,8 @@ export default function App() {
                     the first was open, and the page changed height under the
                     pointer every time one was confirmed. Neither question
                     depends on the other's answer, so neither needs to wait. */}
+                <ResumeReview />
+
                 <div className="dashboard-split">
                   <section className="dashboard-col dashboard-col-manuscript">
                     {/* The order of events, on the corner of each block that

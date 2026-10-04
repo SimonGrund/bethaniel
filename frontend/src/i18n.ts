@@ -5149,6 +5149,25 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Frühere Läufe",
     es: "Ejecuciones anteriores",
   },
+  // The dashboard's way back into an unfinished review (ResumeReview.tsx).
+  resume_review_body_started: {
+    en: "Your review of {source} isn't finished — {left} of {total} suggestions still to answer. Your answers so far are saved.",
+    da: "Din gennemgang af {source} er ikke færdig — {left} af {total} forslag mangler svar. Dine svar indtil nu er gemt.",
+    de: "Ihre Durchsicht von {source} ist nicht abgeschlossen — {left} von {total} Vorschlägen sind noch offen. Ihre bisherigen Antworten sind gespeichert.",
+    es: "Tu revisión de {source} no ha terminado: quedan {left} de {total} sugerencias por responder. Tus respuestas hasta ahora están guardadas.",
+  },
+  resume_review_body_new: {
+    en: "Betty's suggestions for {source} are ready — {total} to review.",
+    da: "Bettys forslag til {source} er klar — {total} at gennemgå.",
+    de: "Bettys Vorschläge für {source} sind fertig — {total} zum Durchsehen.",
+    es: "Las sugerencias de Betty para {source} están listas: {total} por revisar.",
+  },
+  resume_review_btn: {
+    en: "Continue reviewing",
+    da: "Fortsæt gennemgangen",
+    de: "Durchsicht fortsetzen",
+    es: "Continuar la revisión",
+  },
   back_to_setup: {
     en: "Setup",
     da: "Opsætning",
