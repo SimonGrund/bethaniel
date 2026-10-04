@@ -1921,6 +1921,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     acceptAllJob,
     acceptCorrection,
     dismissCorrection,
+    decideMany,
     amendCorrection,
     toggleOccurrence,
     minorBreakStyle,
@@ -1986,10 +1987,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   };
   const sameChangeApplyAll = () => {
     if (!sameChange) return;
-    for (const { tid, id } of sameChange.others) {
-      if (sameChange.action === "accept") acceptCorrection(tid, id);
-      else dismissCorrection(tid, id);
-    }
+    // Answered, not just switched on or off: logged the way the deck logs a
+    // single answer, so its count moves by all N and the cards do not come
+    // round again. One Back takes the whole batch back.
+    decideMany(
+      sameChange.others.map(({ tid, id }) => ({ taskId: tid, correctionId: id })),
+      sameChange.action,
+    );
     setToast({
       msg: t(
         sameChange.action === "accept" ? "same_change_done_accept" : "same_change_done_dismiss",

@@ -3,6 +3,7 @@
 // across browser sessions. Transient state (tasks, logs, document text) is not persisted.
 
 import type { UpdateStatus } from "./updateStatus";
+import { recordDecisions, type Decision, type DeckStep } from "./decisionLog";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
@@ -281,7 +282,7 @@ interface AppState {
    * the last answer and puts the card back as it was. Session-only, like the
    * acceptances themselves.
    */
-  decisionLog: { taskId: string; correctionId: string; wasAccepted: boolean }[];
+  decisionLog: Decision[];
   /**
    * The deck's memory, kept with the decisions so a reviewer who leaves and
    * comes back finds the deck as it was: cards put off for later (keys
@@ -290,7 +291,7 @@ interface AppState {
    * each job was last at.
    */
   deckPostponed: string[];
-  deckHistory: { kind: "decide" | "postpone"; taskId: string }[];
+  deckHistory: DeckStep[];
   /**
    * Whether the deck also offers the suggestions the reviewer rejected
    * outright — 61% of the deck on two real books, and right about one time
@@ -310,6 +311,12 @@ interface AppState {
   /** Drop every review decision — with the runs they were about. */
   forgetReview: () => void;
   decideCorrection: (taskId: string, correctionId: string, action: "accept" | "dismiss") => void;
+  /** Answer several cards at once — "the same change elsewhere". Logged like
+   *  single answers, so the deck counts them, and undone by one Back. */
+  decideMany: (
+    items: { taskId: string; correctionId: string }[],
+    action: "accept" | "dismiss",
+  ) => void;
   /** Take back the last answer — of the given tasks, when a set is given. */
   undoDecision: (taskIds?: string[]) => { taskId: string; correctionId: string } | null;
   /**
@@ -917,22 +924,18 @@ export const useStore = create<AppState>()(
           };
         }),
       decisionLog: [],
-      decideCorrection: (taskId, correctionId, action) => {
+      decideCorrection: (taskId, correctionId, action) =>
+        get().decideMany([{ taskId, correctionId }], action),
+      decideMany: (items, action) => {
+        if (items.length === 0) return;
         const state = get();
-        const set0 = state.acceptedCorrections[taskId] ?? new Set<string>();
-        const wasAccepted =
-          set0.has(correctionId) || [...set0].some((k) => k.startsWith(`${correctionId}:`));
-        if (action === "accept") state.acceptCorrection(taskId, correctionId);
-        else state.dismissCorrection(taskId, correctionId);
-        set((st) => ({
-          decisionLog: [
-            ...st.decisionLog.filter((d) => !(d.taskId === taskId && d.correctionId === correctionId)),
-            { taskId, correctionId, wasAccepted },
-          ],
-          deckHistory: [...st.deckHistory, { kind: "decide", taskId }],
-          // A card answered is no longer put off.
-          deckPostponed: st.deckPostponed.filter((k) => k !== `${taskId}\u0000${correctionId}`),
-        }));
+        // Logged before the acceptances move: each entry keeps what Back restores.
+        const logged = recordDecisions(state, items);
+        for (const { taskId, correctionId } of items) {
+          if (action === "accept") state.acceptCorrection(taskId, correctionId);
+          else state.dismissCorrection(taskId, correctionId);
+        }
+        set(logged);
       },
       deckPostponed: [],
       deckHistory: [],
@@ -958,7 +961,10 @@ export const useStore = create<AppState>()(
             while (p >= 0 && !mine.has(st.deckPostponed[p].split("\u0000")[0])) p--;
             return p < 0 ? st : { deckPostponed: st.deckPostponed.filter((_, i) => i !== p) };
           });
-        } else get().undoDecision(taskIds);
+        } else {
+          // A batch answered at once comes back at once.
+          for (let n = last.count ?? 1; n > 0; n--) get().undoDecision(taskIds);
+        }
         return last.kind;
       },
       setReviewCursor: (jobId, taskId) =>
