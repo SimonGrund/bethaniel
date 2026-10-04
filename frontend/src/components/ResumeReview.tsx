@@ -11,8 +11,12 @@
 // Continuing moves the session boundary back to the run's start: the reverse
 // of what Return to dashboard did, so the run is shown exactly as it was, and
 // the deck picks up at the chapter it was left at (reviewCursor).
+//
+// The × hides the card for that run only. An author who has finished with a
+// run in their own way does not want it brought up every time, but the next
+// run they leave unfinished is a new question and gets its card.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
 import { EDIT_MODES } from "../types";
@@ -22,6 +26,20 @@ import { useResultHydration } from "../useResultHydration";
 
 const TERMINAL = new Set(["done", "error", "cancelled"]);
 
+/** The runs whose card was closed. Only the latest run ever has a card, so a
+ *  short list is enough; it is kept short so it cannot grow for ever. */
+const HIDDEN_KEY = "bethaniel.resumeReview.hidden";
+const HIDDEN_MAX = 20;
+
+function readHidden(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? "[]");
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ResumeReview() {
   const lang = useStore((s) => s.lang);
   const tasks = useStore((s) => s.tasks);
@@ -29,6 +47,16 @@ export default function ResumeReview() {
   const showAllSuggestions = useStore((s) => s.showAllSuggestions);
   const setSessionStartedAt = useStore((s) => s.setSessionStartedAt);
   const t = useTranslation(lang);
+  const [hidden, setHidden] = useState<string[]>(readHidden);
+  const hide = (jobId: string) => {
+    const next = [...hidden.filter((j) => j !== jobId), jobId].slice(-HIDDEN_MAX);
+    setHidden(next);
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
+    } catch {
+      /* private window: hidden for this session */
+    }
+  };
 
   // The latest run, and only if it is one the deck reviews: finished, with
   // corrections to answer. A newer run of another kind (a translation, a
@@ -45,7 +73,7 @@ export default function ResumeReview() {
       const at = Math.max(...entries.map(([, task]) => task.submittedAt ?? 0));
       if (!best || at > best.at) best = { jobId, entries, at };
     }
-    if (!best) return null;
+    if (!best || hidden.includes(best.jobId)) return null;
     const { entries } = best;
     if (!entries.every(([, task]) => TERMINAL.has(task.status))) return null;
     if (entries.some(([, task]) => task.mode === "publication_scan")) return null;
@@ -58,7 +86,7 @@ export default function ResumeReview() {
       source: edits[0][1].source,
       startedAt: Math.min(...entries.map(([, task]) => task.submittedAt ?? 0)),
     };
-  }, [tasks]);
+  }, [tasks, hidden]);
 
   // Counting needs the corrections themselves, which a snapshot does not
   // carry; fetch this one run's, the way opening it under Former Runs would.
@@ -91,6 +119,15 @@ export default function ResumeReview() {
         onClick={() => setSessionStartedAt(latest.startedAt)}
       >
         {t("resume_review_btn")}
+      </button>
+      <button
+        type="button"
+        className="resume-review-close"
+        aria-label={t("resume_review_hide")}
+        title={t("resume_review_hide")}
+        onClick={() => hide(latest.jobId)}
+      >
+        ×
       </button>
     </div>
   );

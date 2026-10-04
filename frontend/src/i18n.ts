@@ -5162,6 +5162,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Bettys Vorschläge für {source} sind fertig — {total} zum Durchsehen.",
     es: "Las sugerencias de Betty para {source} están listas: {total} por revisar.",
   },
+  resume_review_hide: {
+    en: "Hide — the run stays under Former Runs",
+    da: "Skjul — kørslen ligger stadig under Tidligere kørsler",
+    de: "Ausblenden — der Lauf bleibt unter Frühere Läufe",
+    es: "Ocultar: la ejecución sigue en Ejecuciones anteriores",
+  },
   resume_review_btn: {
     en: "Continue reviewing",
     da: "Fortsæt gennemgangen",
