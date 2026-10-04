@@ -57,17 +57,32 @@ test("a finding with no fix changes nothing", () => {
   assert.equal(applyLastWins("Odd sentence.", [c("Odd", "Odd")]), "Odd sentence.");
 });
 
-test("the comment says how sure Betty is and why", () => {
+test("the comment gives the reason first, then how sure Betty is", () => {
   assert.equal(
     noteFor(c("a", "b", { confidence: 5, reviewReason: "Common misspelling." }), false, S),
     // A top score reads 82%: the calibrated figure the deck card shows.
-    "Betty would accept this (82% sure)\nCommon misspelling.",
+    "Common misspelling.\nBetty would accept this (82% sure)",
   );
 });
 
-test("a suggestion the reviewer doubted says Betty would leave it", () => {
+test("a suggestion the reviewer doubted says Betty would leave it, after the argument", () => {
+  const note = noteFor(
+    c("which made", "that made", {
+      confidence: 1,
+      flagged: true,
+      reviewReason: "'That made' is standard grammar; this change is unnecessary.",
+    }),
+    false,
+    S,
+  );
+  const [reason, verdict] = note.split("\n");
+  assert.equal(reason, "'That made' is standard grammar; this change is unnecessary.");
+  assert.ok(verdict.startsWith("Betty would leave this"), note);
+});
+
+test("with no reason, the comment is the verdict alone", () => {
   const note = noteFor(c("a", "b", { confidence: 1, flagged: true }), false, S);
-  assert.ok(note.startsWith("Betty would leave this"), note);
+  assert.ok(note.startsWith("Betty would leave this") && !note.includes("\n"), note);
 });
 
 test("an accepted suggestion says so", () => {

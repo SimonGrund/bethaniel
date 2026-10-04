@@ -86,7 +86,7 @@ export interface NoteStrings {
 const UNSURE_BELOW = 70;
 
 /**
- * The comment on one suggestion: how sure Betty is, why she proposed it, and
+ * The comment on one suggestion: why Betty proposed it, how sure she is, and
  * what else she proposed for the same words — the suggestions this one
  * displaced, which Word has no other way to show.
  */
@@ -102,8 +102,11 @@ export function noteFor(
     : pct !== null && pct < UNSURE_BELOW
       ? s.unsure
       : s.wouldAccept;
-  const lines = [pct !== null ? `${hint} (${s.sure.replace("{pct}", String(pct))})` : hint];
+  // The argument first: it is what the author reads to decide. How sure Betty
+  // is follows it, as a verdict on the argument rather than a preface to it.
+  const lines: string[] = [];
   if (c.reviewReason?.trim()) lines.push(c.reviewReason.trim());
+  lines.push(pct !== null ? `${hint} (${s.sure.replace("{pct}", String(pct))})` : hint);
   if (accepted) lines.push(s.accepted);
   for (const other of alsoSuggested) {
     lines.push(s.also.replace("{change}", `“${other.original}” → “${other.corrected}”`));
