@@ -2756,6 +2756,11 @@ summary.review-source::before {
 .deck-done-actions {
   display: flex;
   justify-content: center;
+  /* The tracked-changes choice beside the export button, wrapping above it
+     when the panel is narrow. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
   margin-top: 0.8rem;
 }
 

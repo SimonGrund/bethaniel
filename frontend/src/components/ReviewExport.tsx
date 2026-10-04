@@ -3104,6 +3104,37 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             : exportFormat === "epub"
               ? t("auto_format_ebook")
               : t("download_full_docx");
+          // With or without tracked changes, beside the export button rather
+          // than inside the settings menu: it changes what the file IS, so
+          // it is decided at the moment of exporting, where it can be seen.
+          // Shown on the export bar and on the deck's "all done" screen —
+          // the two places an author exports from after the review.
+          const trackedToggle =
+            exportFormat === "docx" && !isTranslateJob ? (
+              <div
+                className="option-toggle-group export-tracked"
+                role="group"
+                aria-label={t("export_changes")}
+                title={t("export_changes_hint")}
+              >
+                <button
+                  type="button"
+                  className={`toggle-btn${!exportTracked ? " active" : ""}`}
+                  aria-pressed={!exportTracked}
+                  onClick={() => setExportTracked(false)}
+                >
+                  {t("export_changes_applied")}
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn${exportTracked ? " active" : ""}`}
+                  aria-pressed={exportTracked}
+                  onClick={() => setExportTracked(true)}
+                >
+                  {t("export_changes_tracked")}
+                </button>
+              </div>
+            ) : null;
           const toggleExportChapter = (tid: string) => {
             setExportOnly((prev) => {
               const next = new Set(prev ?? editTaskIds);
@@ -4559,21 +4590,24 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
                         notice={focusJid === jid ? renderSameChange(true) : null}
                         doneSlot={
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            disabled={!exportReady || exportBusy}
-                            title={allEditDone ? undefined : t("full_manuscript_wait")}
-                            onClick={() => {
-                              setFocusJid(null);
-                              runExport();
-                            }}
-                          >
-                            {exportBusy && (
-                              <span className="btn-spinner" aria-hidden />
-                            )}
-                            {exportButtonLabel}
-                          </button>
+                          <>
+                            {trackedToggle}
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              disabled={!exportReady || exportBusy}
+                              title={allEditDone ? undefined : t("full_manuscript_wait")}
+                              onClick={() => {
+                                setFocusJid(null);
+                                runExport();
+                              }}
+                            >
+                              {exportBusy && (
+                                <span className="btn-spinner" aria-hidden />
+                              )}
+                              {exportButtonLabel}
+                            </button>
+                          </>
                         }
                       />
                     </ReviewFocus>
@@ -5160,6 +5194,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     )}
                   </span>
 
+                  {trackedToggle}
+
                   <button
                     className="btn-primary btn-small export-row__go"
                     disabled={!exportReady}
@@ -5248,29 +5284,6 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </button>
                           </div>
                         </div>
-                        {exportFormat === "docx" && !isTranslateJob && (
-                          <div className="export-options__group" title={t("export_changes_hint")}>
-                            <span className="export-options__label">
-                              {t("export_changes")}
-                            </span>
-                            <div className="option-toggle-group">
-                              <button
-                                type="button"
-                                className={`toggle-btn${!exportTracked ? " active" : ""}`}
-                                onClick={() => setExportTracked(false)}
-                              >
-                                {t("export_changes_applied")}
-                              </button>
-                              <button
-                                type="button"
-                                className={`toggle-btn${exportTracked ? " active" : ""}`}
-                                onClick={() => setExportTracked(true)}
-                              >
-                                {t("export_changes_tracked")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
                         <div className="export-options__group" title={t("minor_break_hint")}>
                           <span className="export-options__label">
                             {t("export_minor_break")}
