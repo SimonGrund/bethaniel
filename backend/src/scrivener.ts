@@ -389,13 +389,14 @@ export function replaceBinderTitle(xml: string, uuid: string, from: string, to: 
 
 /**
  * Scrivener keeps a second copy of the binder: Files/binder.autosave, a zip
- * holding the .scrivx as it was last autosaved. Whether Scrivener ever reads
- * it over the .scrivx was not settled by testing, so a title changed in one
- * is changed in the other — the same one-title replacement, and only where
- * the autosave still holds the old title. With both agreeing, it cannot
- * matter which one Scrivener believes. Anything unexpected in the autosave
- * (not a zip, no binder in it) leaves it as it was: the .scrivx is the
- * project, the autosave a convenience.
+ * holding the .scrivx as it was last autosaved. Scrivener opens from the
+ * .scrivx — confirmed on 3.1.6 for Windows with a project whose two copies
+ * disagreed: it showed the .scrivx's title. The autosave is presumably its
+ * recovery copy, so a title changed in the .scrivx is changed there too —
+ * the same one-title replacement, and only where the autosave still holds
+ * the old title — and a recovery can never bring the old title back.
+ * Anything unexpected in the autosave (not a zip, no binder in it) leaves
+ * it as it was: the .scrivx is the project.
  */
 async function syncAutosaveTitles(
   link: ScrivenerLink,
