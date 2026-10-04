@@ -171,3 +171,33 @@ test("a genuine quoted word still opens with U+2018", () => {
   });
   assert.equal(cleaned, "he said ‘hello’ softly");
 });
+
+test("a quote opening an italic passage is an opening quote", () => {
+  // Found in a real export: `_"Share your knowledge…"_` came out as
+  // ”Share your knowledge… — the `_` before the quote read as a letter.
+  const { cleaned } = curlifyStrayQuotes(
+    'a request:\n\n_"Share your knowledge with us. Refuse, and I will destroy you."_',
+    { singles: false, doubles: true },
+  );
+  assert.equal(
+    cleaned,
+    "a request:\n\n_“Share your knowledge with us. Refuse, and I will destroy you.”_",
+  );
+});
+
+test("the same holds for bold, for a passage at the very start, and for singles", () => {
+  const dbl = (s: string) => curlifyStrayQuotes(s, { singles: false, doubles: true }).cleaned;
+  assert.equal(dbl('**"Stop!"** she said.'), "**“Stop!”** she said.");
+  assert.equal(dbl('_"Go."_'), "_“Go.”_");
+  assert.equal(
+    curlifyStrayQuotes("he said _'never'_", { singles: true, doubles: false }).cleaned,
+    "he said _‘never’_",
+  );
+});
+
+test("a quote after the end of an italic word still closes", () => {
+  assert.equal(
+    curlifyStrayQuotes('"She is _gone_" he said.', { singles: false, doubles: true }).cleaned,
+    "“She is _gone_” he said.",
+  );
+});

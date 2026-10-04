@@ -136,9 +136,19 @@ function isElision(str: string, offset: number): boolean {
   return ELISION_AFTER.test(str.slice(offset + 1));
 }
 
+/** Markdown emphasis markers: `_` and `*`, which carry no text of their own. */
+const EMPHASIS = new Set(["_", "*"]);
+
 function curlyFor(str: string, offset: number, open: string, close: string): string {
-  if (offset === 0) return open;
-  return OPENS_AFTER.test(str[offset - 1]) ? open : close;
+  // Look past emphasis markers to the character that really precedes the
+  // quote. An italic passage that opens with dialogue is `_"Share your…`:
+  // read naively, the `_` made the quote look closing, and the export wrote
+  // ”Share your… — a closing quote at the start of a line. Looking past it
+  // still leaves `_hello_"` closing, since what precedes is the "o".
+  let i = offset - 1;
+  while (i >= 0 && EMPHASIS.has(str[i])) i--;
+  if (i < 0) return open;
+  return OPENS_AFTER.test(str[i]) ? open : close;
 }
 
 export function curlifyStrayQuotes(

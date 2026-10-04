@@ -98,12 +98,18 @@ export function sanitizeQuoteCorrections(
       for (let i = 0; i < corrected.length; i++) {
         const ch = corrected[i];
         if (ch === '"') {
-          const prev =
-            i > 0
-              ? corrected[i - 1]
-              : pos > 0
-                ? contextText[pos - 1]
-                : "";
+          // The character before the quote, looking past Markdown emphasis
+          // markers — in `_"Share…` the quote opens, and the `_` must not
+          // make it read as closing. Into the text before the match when the
+          // correction itself has nothing earlier.
+          let j = i - 1;
+          while (j >= 0 && (corrected[j] === "_" || corrected[j] === "*")) j--;
+          let prev = j >= 0 ? corrected[j] : "";
+          if (j < 0 && pos > 0) {
+            let k = pos - 1;
+            while (k >= 0 && (contextText[k] === "_" || contextText[k] === "*")) k--;
+            prev = k >= 0 ? contextText[k] : "";
+          }
           out += curlyFor(prev);
         } else {
           out += ch;

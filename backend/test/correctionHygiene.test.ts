@@ -742,3 +742,13 @@ test("dedupeChapterCorrections: a fix that only changes the word's case does not
   const out = dedupeChapterCorrections(sworddancers, [caps, finding]);
   assert.equal(out.length, 2);
 });
+
+test("a quote a correction adds at the start of an italic passage opens", () => {
+  // Manuscript curly; the model adds a straight quote right after an
+  // opening `_`. The `_` must not make it read as closing.
+  const text = "He wrote: “First.” Then: _Share your knowledge,” he said._";
+  const { kept } = sanitizeQuoteCorrections(text, [
+    { original: "Share your", corrected: '"Share your' } as Correction,
+  ]);
+  assert.equal(kept[0]?.corrected, "“Share your");
+});
