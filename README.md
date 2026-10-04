@@ -257,7 +257,8 @@ npm run dev
 ```
 
 Runs the Vite dev server on `http://localhost:5173` (with hot reload) and the
-backend with `nodemon` on `http://localhost:4000`.
+backend with `tsx` on `http://localhost:4000` — no file watching, so restart
+it to pick up backend changes.
 
 ## CLI (`betty`)
 
