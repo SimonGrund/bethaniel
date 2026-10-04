@@ -16,8 +16,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("../../", import.meta.url).pathname;
+// fileURLToPath, not .pathname: on Windows .pathname is "/C:/…", which
+// path.join turns into "C:\C:\…" and the test never reaches a file.
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const TREES = ["backend/src", "frontend/src", "worker/src"];
 const SOURCE = /\.(ts|tsx)$/;
 
