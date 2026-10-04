@@ -3608,6 +3608,31 @@ summary.review-source::before {
   font-weight: 600;
 }
 
+/* "BETA" on a feature that works but is still being proven (Scrivener
+   linking): the same pill as the beta badge above, smaller and uppercase so
+   it reads as a label, not a value. */
+.beta-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #e8dfc8;
+  color: #4a3f2f;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* On a dark button the parchment pill would glare; quieter there. */
+.btn-primary .beta-tag,
+.btn-run .beta-tag {
+  background: rgba(247, 241, 227, 0.18);
+  color: #f7f1e3;
+}
+
 .beta-panel {
   margin-top: 0.85rem;
   padding-top: 0.85rem;

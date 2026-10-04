@@ -228,6 +228,7 @@ export default function ManuscriptUpload() {
             >
               <LinkIcon />
               {picking ? t("scriv_link_picking") : t("scriv_link_btn")}
+              <span className="beta-tag">{t("scriv_beta")}</span>
             </button>
             {pathField !== null && (
               <form
@@ -386,7 +387,8 @@ export default function ManuscriptUpload() {
                 changed, until the author writes back. */}
             {doc.scrivener && (
               <span className="scriv-linked">
-                <span className="scriv-linked-badge">{t("scriv_linked_badge")}</span>{" "}
+                <span className="scriv-linked-badge">{t("scriv_linked_badge")}</span>
+                <span className="beta-tag">{t("scriv_beta")}</span>{" "}
                 {t("scriv_linked_note").replace("{n}", String(doc.scrivener.scenes))}
               </span>
             )}

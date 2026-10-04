@@ -5394,6 +5394,19 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Scrivener-Projekt verknüpfen",
     es: "Vincular un proyecto de Scrivener",
   },
+  // Scrivener linking is in beta: said on every control that touches it.
+  scriv_beta: {
+    en: "Beta",
+    da: "Beta",
+    de: "Beta",
+    es: "Beta",
+  },
+  scriv_beta_note: {
+    en: "Scrivener linking is in beta. Betty copies your whole project before writing anything, but please keep your own backups too — and tell us if anything looks wrong.",
+    da: "Tilknytning til Scrivener er i beta. Betty kopierer hele dit projekt, før der skrives noget, men behold også dine egne sikkerhedskopier — og sig til, hvis noget ser forkert ud.",
+    de: "Die Scrivener-Verknüpfung ist eine Beta. Betty kopiert Ihr ganzes Projekt, bevor etwas geschrieben wird, aber bewahren Sie bitte auch eigene Sicherungen auf — und sagen Sie uns, wenn etwas falsch aussieht.",
+    es: "La vinculación con Scrivener está en beta. Betty copia tu proyecto entero antes de escribir nada, pero guarda también tus propias copias de seguridad y avísanos si algo parece incorrecto.",
+  },
   // While the Explorer / Finder dialog is open — it can open behind the window.
   scriv_link_picking: {
     en: "Choose your project in the file window…",

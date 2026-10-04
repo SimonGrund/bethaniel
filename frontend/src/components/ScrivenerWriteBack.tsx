@@ -107,6 +107,7 @@ export default function ScrivenerWriteBack({
       >
         {busy ? <span className="btn-spinner" aria-hidden /> : <LinkIcon />}
         {t("scriv_wb_btn")}
+        <span className="beta-tag">{t("scriv_beta")}</span>
       </button>
 
       <Modal
@@ -131,6 +132,8 @@ export default function ScrivenerWriteBack({
             )}
             {/* Every risk, said before it is taken. */}
             <ul className="scriv-wb-risks">
+              {/* First: this is a beta, said before anything else. */}
+              <li className="scriv-wb-risk-strong">{t("scriv_beta_note")}</li>
               <li>{t("scriv_wb_risk_backup").replace("{folder}", `${phase.status.projectName} - Betty backups`)}</li>
               <li>{t("scriv_wb_risk_closed")}</li>
               {phase.status.synced && <li className="scriv-wb-risk-strong">{t("scriv_wb_risk_synced")}</li>}
