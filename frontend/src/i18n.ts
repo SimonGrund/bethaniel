@@ -5387,6 +5387,19 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Sie haben dies in Betty angenommen.",
     es: "Aceptaste esto en Betty.",
   },
+  // Small print under "Review in Word", like the run slabs' small print.
+  review_word_meta: {
+    en: "Tracked changes, with Betty's reasons as comments",
+    da: "Sporede ændringer med Bettys begrundelser som kommentarer",
+    de: "Nachverfolgte Änderungen, Bettys Begründungen als Kommentare",
+    es: "Control de cambios, con las razones de Betty como comentarios",
+  },
+  review_word_busy: {
+    en: "Preparing the Word file…",
+    da: "Klargør Word-filen…",
+    de: "Word-Datei wird vorbereitet…",
+    es: "Preparando el archivo de Word…",
+  },
   // A suggestion that lost an overlap, listed in the winner's comment.
   review_word_also: {
     en: "Betty also suggested: {change}",

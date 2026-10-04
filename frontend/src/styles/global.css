@@ -10975,6 +10975,88 @@ summary.review-source::before {
   color: var(--ink);
 }
 
+/* ── Review in Betty or in Word ──
+   The dashboard's "run here or in the cloud" (.wizard-launch .run-actions),
+   on a finished run: two slabs of equal weight with "or" on the seam. Same
+   grid, same token, same slab sizes; scoped here so neither page can move
+   the other. */
+.review-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 0.75rem;
+  /* The card's full width, so the pair ends where the export bar under it
+     ends; on the dashboard the same pair ends where its columns end. */
+  margin: 0.75rem 0 1rem;
+}
+
+.review-choice > .btn-run {
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0.8rem 1.5rem;
+}
+
+.review-choice > .review-choice-betty {
+  grid-column: 1;
+}
+
+.review-choice > .review-choice-word {
+  grid-column: 2;
+}
+
+.review-choice .btn-run-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.review-choice .btn-run-meta {
+  text-align: center;
+}
+
+.review-choice > .run-or {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  align-self: center;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.05rem;
+  height: 2.05rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(26, 20, 10, 0.3);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--eyebrow);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Too narrow for two slabs side by side: one above the other, the seam a
+   row of its own with the token in it. */
+@media (max-width: 700px) {
+  .review-choice {
+    grid-template-columns: 1fr;
+  }
+
+  .review-choice > .btn-run,
+  .review-choice > .run-or {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .review-choice > .run-or {
+    margin: -0.1rem 0;
+  }
+}
+
 /* ── The export menu: a gear, and above everything when open ──
    It opened upward from a bar that once sat under a long chapter list; the
    bar now sits near the top of the card, so upward ran it into the card's

@@ -4439,43 +4439,70 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 const { left, total } = countUndecided(hydrated, decisionLog, showAllSuggestions);
                 return (
                   <>
-                    {/* The thing to do with a reviewed run is review it, so
-                        the button leads and the count follows it. */}
-                    <div className="deck-launch">
-                      {total > 0 && (
+                    {/* One step, two ways to take it — drawn as the
+                        dashboard draws "run here or in the cloud": two slabs
+                        of equal weight with "or" on the seam, because the
+                        author picks one, not both. The count belongs to the
+                        deck, so it is that slab's small print. */}
+                    {total === 0 ? (
+                      <div className="deck-launch">
+                        <span className="deck-launch-text">{t("deck_launch_none")}</span>
+                      </div>
+                    ) : (
+                      <div className="review-choice">
                         <button
                           type="button"
-                          className="btn-primary deck-launch-go"
+                          className="btn-run review-choice-betty"
                           onClick={() => setFocusJid(jid)}
                         >
-                          {left === 0 ? t("deck_launch_again") : t("deck_launch")}
+                          <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+                          <span className="btn-run-label">
+                            {left === 0 ? t("deck_launch_again") : t("deck_launch")}
+                          </span>
+                          <span className="btn-run-meta">
+                            {left === 0
+                              ? t("deck_all_done")
+                              : t(left === 1 ? "deck_launch_left_one" : "deck_launch_left").replace(
+                                  "{n}",
+                                  String(left),
+                                )}
+                          </span>
                         </button>
-                      )}
-                      {/* The other way to review: the same suggestions handed
-                          to Word, each a tracked change with Betty's comment.
-                          Beside the deck so the choice is made in one place. */}
-                      {total > 0 && (
+                        <span className="run-or">{t("run_or")}</span>
+                        {/* The same suggestions handed to Word, each a
+                            tracked change with Betty's comment. */}
                         <button
                           type="button"
-                          className="btn-secondary deck-launch-go deck-launch-word"
+                          className="btn-run review-choice-word"
                           disabled={!exportReady || exportBusy || !hasDocument}
                           title={hasDocument ? t("review_word_tip") : t("review_word_no_document")}
                           onClick={reviewInWord}
                         >
-                          {t("review_word_btn")}
+                          <span className="btn-run-icon-stack" aria-hidden="true">
+                            <img src="/logo-icon.svg" alt="" className="btn-run-icon" />
+                            {/* A page, where the cloud slab has a cloud: the
+                                same Betty, saying where the review happens. */}
+                            <svg
+                              className="btn-run-cloud-badge"
+                              viewBox="0 0 16 20"
+                              width="15"
+                              height="19"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <path
+                                fill="currentColor"
+                                d="M2 0h8l6 6v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2Zm7 1.5V7h5.5L9 1.5ZM3.5 10.5v1.5h9v-1.5h-9Zm0 3.5v1.5h9V14h-9Z"
+                              />
+                            </svg>
+                          </span>
+                          <span className="btn-run-label">{t("review_word_btn")}</span>
+                          <span className="btn-run-meta">
+                            {exportingDocx ? t("review_word_busy") : t("review_word_meta")}
+                          </span>
                         </button>
-                      )}
-                      <span className="deck-launch-text">
-                        {total === 0
-                          ? t("deck_launch_none")
-                          : left === 0
-                            ? t("deck_all_done")
-                            : t(left === 1 ? "deck_launch_left_one" : "deck_launch_left").replace(
-                                "{n}",
-                                String(left),
-                              )}
-                      </span>
-                    </div>
+                      </div>
+                    )}
                     <ReviewFocus
                       open={focusJid === jid}
                       onClose={() => setFocusJid(null)}
