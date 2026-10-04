@@ -644,7 +644,9 @@ export async function writeBack(
     const bytes = Buffer.from(w.rtf, "latin1");
     await fs.writeFile(tmp, bytes);
     await fs.rename(tmp, target);
-    newSums.set(`${w.uuid}/content.rtf`, sha1(bytes));
+    // Keyed in lowercase: Scrivener for Mac writes this file's ids in
+    // lowercase while the folders are uppercase (Windows writes both upper).
+    newSums.set(`${w.uuid}/content.rtf`.toLowerCase(), sha1(bytes));
   }
 
   // docs.checksum lists "UUID/content.rtf=<sha1>" for every file; keep the
@@ -657,7 +659,9 @@ export async function writeBack(
       .map((line) => {
         const eq = line.indexOf("=");
         const key = eq > 0 ? line.slice(0, eq) : "";
-        return newSums.has(key) ? `${key}=${newSums.get(key)}` : line;
+        // Matched without case, written back in the line's own case.
+        const sum = newSums.get(key.toLowerCase());
+        return sum ? `${key}=${sum}` : line;
       })
       .join("");
     const tmp = `${sumsPath}.betty-tmp`;

@@ -208,6 +208,19 @@ test("a write-back copies the project first, then changes only the text", async 
   assert.deepEqual(left, ["content.rtf"]);
 });
 
+test("a Mac project's checksum file, with lowercase ids, is kept true too", async () => {
+  // Found on a real Scrivener 3.5 (Mac) project: docs.checksum names the
+  // folders in lowercase while the folders themselves are uppercase.
+  const { dir } = await makeProject();
+  const sumsPath = path.join(dir, "Files", "Data", "docs.checksum");
+  await fs.writeFile(sumsPath, (await fs.readFile(sumsPath, "utf8")).toLowerCase());
+  const { md, link } = await readProject(dir);
+  await writeBack(link, md, edit(md, "Welcoem", "Welcome"));
+  const now = sha1(Buffer.from(await contentOf(dir, S3), "latin1"));
+  const sums = await fs.readFile(sumsPath, "utf8");
+  assert.ok(sums.includes(`${S3.toLowerCase()}/content.rtf=${now}`), sums);
+});
+
 test("nothing is written while the project is open in Scrivener", async () => {
   const { dir, files } = await makeProject();
   const { md, link } = await readProject(dir);
