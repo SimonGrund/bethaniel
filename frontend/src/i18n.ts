@@ -5330,6 +5330,68 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Ergebnisse werden geladen…",
     es: "Cargando resultados…",
   },
+  // Word export: accepted changes applied, or written as tracked changes.
+  export_changes: {
+    en: "Changes",
+    da: "Ændringer",
+    de: "Änderungen",
+    es: "Cambios",
+  },
+  export_changes_hint: {
+    en: "Tracked changes shows each accepted change in Word, credited to Betty, to accept or reject there.",
+    da: "Med sporede ændringer vises hver godkendt ændring i Word, krediteret Betty, så du kan godkende eller afvise den dér.",
+    de: "Mit Änderungsverfolgung erscheint jede angenommene Änderung in Word, Betty zugeschrieben, zum Annehmen oder Ablehnen dort.",
+    es: "Con control de cambios, cada cambio aceptado aparece en Word, atribuido a Betty, para aceptarlo o rechazarlo allí.",
+  },
+  export_changes_applied: {
+    en: "Applied",
+    da: "Indarbejdet",
+    de: "Übernommen",
+    es: "Aplicados",
+  },
+  export_changes_tracked: {
+    en: "Tracked changes",
+    da: "Sporede ændringer",
+    de: "Änderungsverfolgung",
+    es: "Control de cambios",
+  },
+  // Review in Word: every open suggestion as a tracked change with a comment.
+  review_word_btn: {
+    en: "Review in Word",
+    da: "Gennemgå i Word",
+    de: "In Word durchsehen",
+    es: "Revisar en Word",
+  },
+  review_word_tip: {
+    en: "A Word file with every suggestion you haven't dismissed as a tracked change, and Betty's reasoning as a comment on each — accept or reject them in Word.",
+    da: "En Word-fil med alle forslag, du ikke har afvist, som sporede ændringer og Bettys begrundelse som kommentar til hver — godkend eller afvis dem i Word.",
+    de: "Eine Word-Datei mit jedem Vorschlag, den Sie nicht verworfen haben, als nachverfolgte Änderung und Bettys Begründung als Kommentar dazu — in Word annehmen oder ablehnen.",
+    es: "Un archivo de Word con cada sugerencia que no hayas descartado como cambio controlado y el razonamiento de Betty como comentario en cada una: acéptalas o recházalas en Word.",
+  },
+  review_word_no_document: {
+    en: "Load this run's manuscript to review it in Word.",
+    da: "Indlæs denne kørsels manuskript for at gennemgå det i Word.",
+    de: "Laden Sie das Manuskript dieses Laufs, um es in Word durchzusehen.",
+    es: "Carga el manuscrito de esta ejecución para revisarlo en Word.",
+  },
+  review_word_sure: {
+    en: "{pct}% sure",
+    da: "{pct}% sikker",
+    de: "zu {pct}% sicher",
+    es: "{pct}% segura",
+  },
+  review_word_accepted: {
+    en: "You accepted this in Betty.",
+    da: "Du godkendte dette i Betty.",
+    de: "Sie haben dies in Betty angenommen.",
+    es: "Aceptaste esto en Betty.",
+  },
+  review_word_filename: {
+    en: "for review",
+    da: "til gennemgang",
+    de: "zur Durchsicht",
+    es: "para revisar",
+  },
   export_minor_break: {
     en: "Section breaks",
     da: "Sektionsskift",

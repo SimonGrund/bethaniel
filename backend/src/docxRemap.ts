@@ -36,7 +36,8 @@ export interface UnmappedNote {
 }
 
 export interface RemapResult {
-  edits: Array<{ paragraphIndex: number } & ParagraphTextEdit>;
+  /** `chapterIndex` is the edit's position in the `chapters` passed in. */
+  edits: Array<{ paragraphIndex: number; chapterIndex: number } & ParagraphTextEdit>;
   unmapped: UnmappedNote[];
 }
 
@@ -231,7 +232,7 @@ export function remapChaptersToParagraphEdits(
   // cursor makes the anchor unambiguous.
   let cursor = 0;
 
-  for (const chapter of chapters) {
+  for (const [chapterIndex, chapter] of chapters.entries()) {
     if (chapter.original === chapter.edited) continue;
 
     let at = docMd.indexOf(chapter.original, cursor);
@@ -254,6 +255,15 @@ export function remapChaptersToParagraphEdits(
       const paragraph = index.paragraphs[entry.docxParaIndex];
       if (!paragraph) continue;
 
+      const oldMd = docMd.slice(entry.mdStart, entry.mdEnd);
+      const newMd = chapter.edited.slice(
+        toEdited(entry.mdStart - at),
+        toEdited(entry.mdEnd - at),
+      );
+      // Nothing to apply, so nothing lost: a paragraph this export cannot map
+      // is only worth reporting when a change was meant for it.
+      if (stripMarkdown(oldMd) === stripMarkdown(newMd)) continue;
+
       if (!entry.mappable) {
         unmapped.push({
           reason: "not-mappable",
@@ -262,12 +272,6 @@ export function remapChaptersToParagraphEdits(
         });
         continue;
       }
-
-      const oldMd = docMd.slice(entry.mdStart, entry.mdEnd);
-      const newMd = chapter.edited.slice(
-        toEdited(entry.mdStart - at),
-        toEdited(entry.mdEnd - at),
-      );
 
       const beforePlain = stripMarkdown(oldMd);
       const afterPlain = stripMarkdown(newMd);
@@ -316,6 +320,7 @@ export function remapChaptersToParagraphEdits(
         )) {
           edits.push({
             paragraphIndex: entry.docxParaIndex,
+            chapterIndex,
             start: e.start + marker.length,
             end: e.end + marker.length,
             replacement: e.replacement,
@@ -340,10 +345,63 @@ export function remapChaptersToParagraphEdits(
               splitEmphasis(newMd),
             ) ?? undefined)
           : undefined;
-        edits.push({ paragraphIndex: entry.docxParaIndex, ...e, segments });
+        edits.push({ paragraphIndex: entry.docxParaIndex, chapterIndex, ...e, segments });
       }
     }
   }
 
   return { edits, unmapped };
+}
+
+/**
+ * A paragraph map for a .docx this app generated from `docMd`, rather than
+ * one the author uploaded.
+ *
+ * A manuscript imported from Markdown, PDF or EPUB has no original document
+ * to mark up, so the tracked export builds one with markdownToDocx and marks
+ * up that. Importing it again does not give `docMd` back — whitespace and
+ * escaping differ — so the map is made directly: each block of `docMd` is
+ * paired, in order, with the next paragraph holding the same text. A block
+ * with no such paragraph is marked unmappable, so a change meant for it is
+ * reported rather than lost.
+ */
+export function mapMarkdownOntoDocx(
+  docMd: string,
+  index: DocxTextIndex,
+): ParagraphMapEntry[] {
+  const LOOKAHEAD = 8;
+  const map: ParagraphMapEntry[] = [];
+  const same = (block: string, text: string) => {
+    const a = loose(stripMarkdown(block));
+    const b = loose(text);
+    return a === b || (a !== "" && loose(withoutListMarker(a)) === b);
+  };
+  let cursor = 0;
+  for (const [mdStart, spanEnd] of blockSpans(docMd)) {
+    // End at the block's last character, not at trailing whitespace: the last
+    // block of a manuscript ending in a newline would otherwise run one
+    // character past its chapter, and the remap skips a paragraph that does
+    // not fit inside its chapter without a word.
+    const block = docMd.slice(mdStart, spanEnd).trimEnd();
+    const mdEnd = mdStart + block.length;
+    let found = -1;
+    for (let i = cursor; i < Math.min(index.paragraphs.length, cursor + LOOKAHEAD); i++) {
+      if (same(block, index.paragraphs[i].text)) {
+        found = i;
+        break;
+      }
+    }
+    if (found >= 0) {
+      map.push({ docxParaIndex: found, mdStart, mdEnd, mappable: true });
+      cursor = found + 1;
+    } else if (index.paragraphs.length > 0) {
+      map.push({
+        docxParaIndex: Math.min(cursor, index.paragraphs.length - 1),
+        mdStart,
+        mdEnd,
+        mappable: false,
+      });
+    }
+  }
+  return map;
 }

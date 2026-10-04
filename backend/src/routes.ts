@@ -27,6 +27,7 @@ import {
   markdownToDocx,
   MEDIA_DIR,
   type DocxExportOptions,
+  type ParagraphMapEntry,
 } from "./conversion.js";
 import {
   saveOriginalDocx,
@@ -35,7 +36,8 @@ import {
 } from "./docxOriginal.js";
 import { indexDocumentXml, rewriteDocxText } from "./docxSurgery.js";
 import { buildReportHeader } from "./surgicalReport.js";
-import { remapChaptersToParagraphEdits } from "./docxRemap.js";
+import { mapMarkdownOntoDocx, remapChaptersToParagraphEdits } from "./docxRemap.js";
+import { planTrackedEdits, rewriteDocxTracked, type ChangeNote } from "./docxTracked.js";
 import JSZip from "jszip";
 import { markdownToEpub } from "./epub.js";
 import { formatEbookMarkdown } from "./ebook.js";
@@ -1624,11 +1626,20 @@ router.post("/export/docx", async (req: Request, res: Response) => {
 // is {markdown} and is shared with the CLI. This one needs the document
 // identity and the original/edited pair per chapter, because the edits are
 // derived by diffing rather than carried as positions.
+//
+// `tracked` writes the same edits as Word revisions credited to Betty instead
+// (docxTracked.ts), each with a comment when `notes` carries one. A tracked
+// export works for every manuscript: one imported from Markdown, PDF or EPUB
+// has no original to mark up, so one is generated from it, formatted as the
+// plain export would be (`options`).
 router.post("/export/docx-surgical", async (req: Request, res: Response) => {
   try {
-    const { docId, chapters } = req.body as {
+    const { docId, chapters, tracked, notes, options } = req.body as {
       docId?: string;
       chapters?: Array<{ original: string; edited: string }>;
+      tracked?: boolean;
+      notes?: unknown;
+      options?: Partial<DocxExportOptions>;
     };
     if (typeof docId !== "string" || !Array.isArray(chapters)) {
       res.status(400).json({ error: "docId and chapters are required" });
@@ -1642,6 +1653,19 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     }
 
     const original = await loadOriginalDocx(docId);
+    if (!original.ok && tracked === true) {
+      await sendTrackedExport(res, {
+        base: await markdownToDocx(
+          doc.md,
+          options && typeof options === "object" ? options : {},
+        ),
+        docMd: doc.md,
+        paragraphMap: null,
+        chapters,
+        notes: cleanNotes(notes),
+      });
+      return;
+    }
     if (!original.ok) {
       // 409 rather than 500: nothing is broken, this document simply cannot be
       // edited surgically. The client falls back and says so.
@@ -1693,6 +1717,17 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       );
     }
 
+    if (tracked === true) {
+      await sendTrackedExport(res, {
+        base: original.value.buffer,
+        docMd: remapMd,
+        paragraphMap: remapParagraphs,
+        chapters,
+        notes: cleanNotes(notes),
+      });
+      return;
+    }
+
     const { edits, unmapped } = remapChaptersToParagraphEdits(
       remapMd,
       remapParagraphs,
@@ -1733,6 +1768,76 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     });
   }
 });
+
+/** `notes` as the client sent it, keeping only well-formed entries. */
+function cleanNotes(raw: unknown): ChangeNote[][] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((chapter) =>
+    Array.isArray(chapter)
+      ? chapter.filter(
+          (n): n is ChangeNote =>
+            !!n &&
+            typeof n === "object" &&
+            typeof (n as ChangeNote).original === "string" &&
+            typeof (n as ChangeNote).text === "string",
+        )
+      : [],
+  );
+}
+
+/**
+ * The tracked half of /export/docx-surgical: map the chapters onto `base`,
+ * write them as Betty's revisions, and report what was left out with the same
+ * headers the clean export uses.
+ */
+async function sendTrackedExport(
+  res: Response,
+  input: {
+    base: Buffer;
+    docMd: string;
+    /** Null for a generated base: the map is made from its own paragraphs. */
+    paragraphMap: ParagraphMapEntry[] | null;
+    chapters: Array<{ original: string; edited: string }>;
+    notes: ChangeNote[][];
+  },
+): Promise<void> {
+  const zip = await JSZip.loadAsync(input.base);
+  const xml = await zip.file("word/document.xml")?.async("string");
+  if (!xml) {
+    res.status(409).json({ error: "Malformed original", reason: "no-original" });
+    return;
+  }
+  const index = indexDocumentXml(xml);
+  const { edits, unmapped } = remapChaptersToParagraphEdits(
+    input.docMd,
+    input.paragraphMap ?? mapMarkdownOntoDocx(input.docMd, index),
+    index,
+    input.chapters,
+  );
+  const { buffer, applied, skipped, comments } = await rewriteDocxTracked(
+    input.base,
+    planTrackedEdits(edits, (i) => index.paragraphs[i]?.text, input.notes),
+    {
+      author: "Betty",
+      initials: "B",
+      // Word writes whole seconds.
+      date: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+    },
+  );
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  );
+  res.setHeader("Content-Disposition", 'attachment; filename="edited.docx"');
+  res.setHeader("X-Bethaniel-Applied", String(applied));
+  res.setHeader("X-Bethaniel-Skipped", String(skipped.length + unmapped.length));
+  // A revision never replaces a run's text, so emphasis is never given up.
+  res.setHeader("X-Bethaniel-Flattened", "0");
+  res.setHeader("X-Bethaniel-Lost-Phrases", "0");
+  res.setHeader("X-Bethaniel-Comments", String(comments));
+  res.setHeader("X-Bethaniel-Report", buildReportHeader(skipped, unmapped));
+  res.send(buffer);
+}
 
 // ── Export: the formatting a translation could not carry across ──
 //

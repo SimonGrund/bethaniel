@@ -23,6 +23,7 @@ import {
 } from "../api";
 import { exportWarningFor } from "../exportWarningCopy";
 import { exportBaseName, sidecarName } from "../exportFilename";
+import { buildReviewExport, type ReviewChapter } from "../reviewInWord";
 import {
   refundMailto,
   translationOutcome,
@@ -1926,6 +1927,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     toggleOccurrence,
     minorBreakStyle,
     setMinorBreakStyle,
+    exportTracked,
+    setExportTracked,
     copyEditOptions,
   } = useStore();
   const tasks = isOldResults
@@ -1956,6 +1959,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   // Which export options the cog is showing.
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
+  // Review in Word marks up the loaded manuscript, as every Word export does.
+  const hasDocument = useStore((s) => !!s.document?.id);
   const [exportFormat, setExportFormat] = useState<"docx" | "epub">("docx");
   // Which chapters the export covers. null is the whole book — the
   // default, and what a set that names every chapter collapses back to.
@@ -2252,16 +2257,31 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       markdown: string,
       filename: string,
       isTranslation: boolean,
+      /** Write the changes as Word tracked changes, with these comments. */
+      tracked?: { notes?: { original: string; text: string }[][] },
     ) => {
       const docId = useStore.getState().document?.id;
       const name = useStore.getState().document?.name ?? "";
-      if (!docId || !name.toLowerCase().endsWith(".docx")) {
+      // A tracked export works without an original .docx: the server builds
+      // one, laid out as the plain export would be, and tracks the changes in
+      // that. Only the clean export needs the author's own file.
+      if (!docId || (!tracked && !name.toLowerCase().endsWith(".docx"))) {
         await handleDownloadDocx(markdown, filename);
         return;
       }
       setExportingDocx(true);
       try {
-        const { blob, report } = await exportDocxSurgical(docId, pairs);
+        const { blob, report } = await exportDocxSurgical(
+          docId,
+          pairs,
+          tracked && {
+            notes: tracked.notes,
+            options: {
+              minorBreak: useStore.getState().minorBreakStyle,
+              bookLayout: /\.(epub|pdf)$/i.test(name),
+            },
+          },
+        );
         // Warn BEFORE handing the file over. A toast raised after the download
         // starts is covered by the system save dialog and gone by the time it
         // closes, so the one caveat that matters was never actually read.
@@ -2955,6 +2975,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             targetLang: exportTargetLang,
             editedLabel: t("export_edited_label"),
           });
+          // "book (for review)": named the way the edited copy is, because
+          // nothing in it is edited yet.
+          const reviewName = exportBaseName({
+            source: src,
+            scope: exportAll ? "full" : exportIds.length === 1 ? "one" : "chapters",
+            chapterName: editTasks.find(([tid]) => tid === exportIds[0])?.[1].name,
+            editedLabel: t("review_word_filename"),
+          });
           // A translation rewrites the whole chunk rather than proposing
           // discrete corrections, so the accept/dismiss machinery has nothing
           // to act on: "Export with accepted changes" and "Accept every change
@@ -3000,8 +3028,71 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       md,
                       `${exportName}.docx`,
                       isTranslateJob,
+                      // The accepted changes, as Betty's tracked changes. Built
+                      // from the same pairs as the clean file, so accepting
+                      // them all in Word gives exactly that file. Not offered
+                      // for a translation, which replaces every paragraph.
+                      exportTracked && !isTranslateJob ? {} : undefined,
                     ),
                 );
+          // Review in Word: every suggestion not dismissed, as a tracked
+          // change with Betty's comment, so the author can finish the review
+          // in Word (reviewInWord.ts). Read from the store at click time, so
+          // it reflects the answer just given. No spell check: nothing here
+          // is accepted yet, and Word shows each change before it is taken.
+          const reviewInWord = () => {
+            const st = useStore.getState();
+            const decided = new Set(
+              st.decisionLog.map((d) => `${d.taskId}\u0000${d.correctionId}`),
+            );
+            const chapters: ReviewChapter[] = exportEntries
+              .filter(
+                ([, task]) =>
+                  task.result && EDIT_MODES.includes(task.mode) && task.mode !== "translate",
+              )
+              .sort(([, a], [, b]) => taskOrder(a) - taskOrder(b))
+              .map(([tid, task]) => {
+                const acc = st.acceptedCorrections[tid] ?? new Set<string>();
+                const on = (id: string) =>
+                  acc.has(id) || [...acc].some((k) => k.startsWith(`${id}:`));
+                // The deck's own cards, in its order — "last wins" means the
+                // order the author meets them.
+                const deck = buildDeck([[tid, task]], st.showAllSuggestions);
+                const items = deck
+                  .filter((item) => {
+                    const id = item.correction.id ?? "";
+                    // Answered and not on: dismissed. Everything else goes in.
+                    return !(decided.has(`${tid}\u0000${id}`) && !on(id));
+                  })
+                  .map((item) => ({
+                    correction: item.correction,
+                    accepted: on(item.correction.id ?? ""),
+                  }));
+                // Accepted, yet not a card now (accepted while every suggestion
+                // was shown, say): the author's decision still goes in.
+                const inDeck = new Set(deck.map((item) => item.correction.id));
+                for (const c of task.result!.corrections ?? []) {
+                  if (c.id && !inDeck.has(c.id) && c.reason !== "dialect" && on(c.id)) {
+                    items.push({ correction: c, accepted: true });
+                  }
+                }
+                return { originalText: task.result!.originalText, items };
+              });
+            const { pairs, notes } = buildReviewExport(chapters, {
+              wouldAccept: t("deck_betty_would_accept"),
+              unsure: t("deck_betty_unsure"),
+              wouldLeave: t("deck_betty_would_leave"),
+              sure: t("review_word_sure"),
+              accepted: t("review_word_accepted"),
+            });
+            void handleDownloadDocxSurgical(
+              pairs,
+              "",
+              `${reviewName}.docx`,
+              false,
+              { notes },
+            );
+          };
           // One flag for every export button: the fast rebuild, the surgical
           // round trip and the ebook pass are all "this is working".
           const exportBusy = verifying || exportingDocx || formattingEbook;
@@ -5008,6 +5099,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     {exportButtonLabel}
                   </button>
 
+                  {/* The review itself, handed to Word: every open suggestion
+                      as a tracked change with Betty's comment. */}
+                  {!isTranslateJob && (
+                    <button
+                      type="button"
+                      className="btn-secondary btn-small export-row__review"
+                      disabled={!exportReady || exportBusy || !hasDocument}
+                      title={hasDocument ? t("review_word_tip") : t("review_word_no_document")}
+                      onClick={reviewInWord}
+                    >
+                      {t("review_word_btn")}
+                    </button>
+                  )}
+
                   <div className="export-row__cog">
                     <button
                       type="button"
@@ -5081,6 +5186,29 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </button>
                           </div>
                         </div>
+                        {exportFormat === "docx" && !isTranslateJob && (
+                          <div className="export-options__group" title={t("export_changes_hint")}>
+                            <span className="export-options__label">
+                              {t("export_changes")}
+                            </span>
+                            <div className="option-toggle-group">
+                              <button
+                                type="button"
+                                className={`toggle-btn${!exportTracked ? " active" : ""}`}
+                                onClick={() => setExportTracked(false)}
+                              >
+                                {t("export_changes_applied")}
+                              </button>
+                              <button
+                                type="button"
+                                className={`toggle-btn${exportTracked ? " active" : ""}`}
+                                onClick={() => setExportTracked(true)}
+                              >
+                                {t("export_changes_tracked")}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         <div className="export-options__group" title={t("minor_break_hint")}>
                           <span className="export-options__label">
                             {t("export_minor_break")}

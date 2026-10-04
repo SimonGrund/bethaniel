@@ -34,6 +34,9 @@ export interface TextNode {
   textStart: number;
   /** Raw <w:rPr>…</w:rPr> bytes — the run's formatting identity. */
   rPrXml: string;
+  /** Inside a tracked change the document already carries (<w:ins>,
+   *  <w:moveTo>). A tracked export cannot nest its own revision there. */
+  inRevision?: boolean;
 }
 
 export interface DocxParagraph {
@@ -125,7 +128,9 @@ export interface SkippedEdit extends ParagraphTextEdit {
     | "mixed-formatting"
     | "virtual-node"
     | "out-of-range"
-    | "unmappable-paragraph";
+    | "unmappable-paragraph"
+    // Tracked export only: inside a revision the document already has.
+    | "tracked-region";
 }
 
 // ── Entities ──
@@ -172,6 +177,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
   let fallbackDepth = 0; // inside mc:Fallback — a duplicate of mc:Choice
   let skipTextDepth = 0; // inside w:delText / w:instrText
   let sectPrDepth = 0;
+  let revisionDepth = 0; // inside an existing <w:ins> / <w:moveTo>
   let runIndex = -1;
   let rPrStart = -1;
   let currentRPr = "";
@@ -191,6 +197,13 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
       continue;
     }
     if (fallbackDepth > 0) continue;
+
+    // An existing tracked insertion. Self-closing forms are paragraph-mark
+    // revisions inside <w:rPr> and enclose no text.
+    if ((name === "w:ins" || name === "w:moveTo") && !isSelf) {
+      revisionDepth = Math.max(0, revisionDepth + (isClose ? -1 : 1));
+      continue;
+    }
 
     if (name === "w:tbl") {
       if (isClose) tblDepth = Math.max(0, tblDepth - 1);
@@ -325,6 +338,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
         text,
         textStart: p.text.length,
         rPrXml: currentRPr,
+        ...(revisionDepth > 0 ? { inRevision: true } : {}),
       });
       p.text += text;
       TAG_RE.lastIndex = close;

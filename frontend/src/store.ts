@@ -509,6 +509,10 @@ interface AppState {
   // DOCX export: how minor section breaks render ("hash" = Atticus-safe "#")
   minorBreakStyle: "blank" | "hash";
   setMinorBreakStyle: (s: "blank" | "hash") => void;
+  // DOCX export: accepted changes written as Word tracked changes (credited
+  // to Betty) rather than applied outright.
+  exportTracked: boolean;
+  setExportTracked: (on: boolean) => void;
   // Reset
   resetAll: () => void;
 
@@ -1264,6 +1268,8 @@ export const useStore = create<AppState>()(
       setQueueExpanded: (queueExpanded) => set({ queueExpanded }),
       minorBreakStyle: "blank",
       setMinorBreakStyle: (minorBreakStyle) => set({ minorBreakStyle }),
+      exportTracked: false,
+      setExportTracked: (exportTracked) => set({ exportTracked }),
 
       resetAll: () =>
         set({
@@ -1448,6 +1454,7 @@ export const useStore = create<AppState>()(
         showEngineStatus: state.showEngineStatus,
         queueExpanded: state.queueExpanded,
         minorBreakStyle: state.minorBreakStyle,
+        exportTracked: state.exportTracked,
         // The review itself: what was accepted, in what order, what was put
         // off, and where each run was left — so closing the app mid-review
         // costs nothing. Keyed by task id, so old runs keep theirs.

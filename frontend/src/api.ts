@@ -395,6 +395,8 @@ export interface SurgicalReport {
   /** Emphasised phrases that could not be placed. Counted in phrases because
    *  one paragraph can hold two, and the author has to restore each. */
   lostPhrases: number;
+  /** Comments written with a tracked export (Betty's reasoning). */
+  comments: number;
   detail: {
     skipped: {
       reason: string;
@@ -427,15 +429,28 @@ export class NoOriginalDocxError extends Error {
  * derives edit spans by diffing, because corrections carry no positions.
  * Throws NoOriginalDocxError when the document predates this feature or its
  * original was not kept — the caller falls back and tells the user.
+ *
+ * `tracked` writes the edits as Word revisions credited to Betty, with
+ * `notes[chapter]` as comments on them. It never throws NoOriginalDocxError:
+ * without an original the server generates a document, laid out by
+ * `options`, and tracks the changes in that.
  */
 export async function exportDocxSurgical(
   docId: string,
   chapters: { original: string; edited: string }[],
+  tracked?: {
+    notes?: { original: string; text: string }[][];
+    options?: DocxExportOptions;
+  },
 ): Promise<{ blob: Blob; report: SurgicalReport }> {
   const res = await fetch(`${BASE}/api/export/docx-surgical`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ docId, chapters }),
+    body: JSON.stringify(
+      tracked
+        ? { docId, chapters, tracked: true, notes: tracked.notes, options: tracked.options }
+        : { docId, chapters },
+    ),
   });
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as { reason?: string };
@@ -462,6 +477,7 @@ export async function exportDocxSurgical(
       skipped: Number(res.headers.get("X-Bethaniel-Skipped") ?? 0),
       flattened: Number(res.headers.get("X-Bethaniel-Flattened") ?? 0),
       lostPhrases: Number(res.headers.get("X-Bethaniel-Lost-Phrases") ?? 0),
+      comments: Number(res.headers.get("X-Bethaniel-Comments") ?? 0),
       detail,
     },
   };
