@@ -61,13 +61,14 @@ import {
 } from "./pdfToMarkdown.js";
 import { epubToMarkdown, InvalidEpubError } from "./epubToMarkdown.js";
 import {
+  analyzeStream,
   listModels,
   getModelSizeBytes,
   attributeSuspects,
   reviewCorrectionsStream,
   parseReviewScores,
 } from "./llm.js";
-import { findNewSuspectWords } from "./spellcheck.js";
+import { findNewSuspectWords, getWordValidator } from "./spellcheck.js";
 import {
   buildLexiconSheetBlock,
   harvestLexicon,
@@ -116,6 +117,10 @@ import {
   type CloudEstimateMode,
 } from "./cloudEstimate.js";
 import { buildConsistencyReport } from "./consistency.js";
+import { combineTranslationNotes, runBriefQuestions } from "./translationBrief.js";
+
+/** The model id a Betty in the Cloud run is submitted under (EditTrigger). */
+const CLOUD_MODEL_ID = "custom:bethaniel-cloud";
 import { inlineDiffHtml, makeDiff } from "./diff.js";
 import {
   readModelConfig,
@@ -668,6 +673,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       styleGuide,
       editOptions,
       targetLang,
+      translationBrief,
       manuscriptLang,
       reviewMode,
       reviewerThreshold,
@@ -812,6 +818,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       .filter(Boolean)
       .join("\n\n");
     const hasAuthorSheet = authorStyleGuide.trim().length > 0;
+    // A paid translation's brief (translationBrief.ts): the author's answers
+    // to Betty's questions, ahead of their own sheet. Every translation stage
+    // reads the task's styleGuide — draft, polish, fluency review, retries —
+    // so this one string is all the wiring there is. Capped: it is a short
+    // list of choices, never a manuscript.
+    const translateNotes = combineTranslationNotes(
+      typeof translationBrief === "string" ? translationBrief.slice(0, 4000) : "",
+      authorStyleGuide,
+    );
 
     // Update concurrency
     // ── Concurrency ──
@@ -1136,12 +1151,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           break;
         }
         case "translate":
-          // The author's sheet only: the translation role reads it as a
-          // glossary, and a bare list of names does not say how to render
-          // them.
+          // The author's sheet and brief only: the translation role reads
+          // them as a glossary, and a bare list of names does not say how to
+          // render them.
           systemPrompt = buildTranslationPrompt(
             targetLang ?? "English",
-            authorStyleGuide,
+            translateNotes,
           );
           break;
         default:
@@ -1205,7 +1220,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
             ? forced.extraPass
             : extraPass === true || preset?.extraPass === true,
           runMode: forced ? "speed" : runMode,
-          styleGuide: currentMode === "translate" ? authorStyleGuide : promptStyleGuide,
+          styleGuide: currentMode === "translate" ? translateNotes : promptStyleGuide,
         });
         taskIds.push(taskId);
       }
@@ -2790,6 +2805,54 @@ function authorCountry(): string {
     return "";
   }
 }
+
+// ── Translation brief: Betty's questions before a paid translation ──
+// Called right after the credential is claimed, on that credential: the
+// Worker routes it to the translation model and meters it like any other
+// call, and the quote already includes it (cloudEstimate.ts). Never fails
+// the author — anything that goes wrong is "no questions", and the app
+// still asks its own tone question.
+router.post("/translate/brief/questions", async (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  const units: string[] = Array.isArray(body.units)
+    ? body.units.filter((u: unknown): u is string => typeof u === "string")
+    : [];
+  const text = units.join("\n\n");
+  if (!text.trim()) {
+    res.status(400).json({ error: "units are required" });
+    return;
+  }
+  const manuscriptLang = typeof body.manuscriptLang === "string" ? body.manuscriptLang : "en";
+  const ac = new AbortController();
+  res.on("close", () => {
+    if (!res.writableEnded) ac.abort();
+  });
+  try {
+    const questions = await runBriefQuestions(
+      {
+        text,
+        manuscriptLang,
+        targetLang: typeof body.targetLang === "string" ? body.targetLang : "English",
+        uiLang: typeof body.uiLang === "string" ? body.uiLang : "en",
+      },
+      {
+        llm: async (system, user) => {
+          let acc = "";
+          for await (const tok of analyzeStream(CLOUD_MODEL_ID, user, system, ac.signal)) acc += tok;
+          return acc;
+        },
+        isKnownWord: getWordValidator(manuscriptLang) ?? undefined,
+      },
+    );
+    res.json({ questions });
+  } catch (err) {
+    // The message only — never the text that was sent.
+    console.warn(
+      `[Brief] questions unavailable: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    res.json({ questions: [], degraded: true });
+  }
+});
 
 router.post("/cloud/estimate", async (req: Request, res: Response) => {
   if (CLOUD_OFFER_SUSPENDED) {
