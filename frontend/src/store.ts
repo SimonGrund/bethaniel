@@ -30,6 +30,7 @@ import type {
   DetectedSettings,
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
+import type { PendingTranslationBrief } from "./translationBrief";
 import {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
@@ -248,6 +249,12 @@ interface AppState {
   // Style guide
   styleGuide: string;
   setStyleGuide: (s: string) => void;
+
+  /** A paid translation waiting on the author's answers to Betty's
+   *  questions (TranslationQuestions). Persisted: the credential is already
+   *  bought, and closing the app must not lose the run. */
+  pendingTranslationBrief: PendingTranslationBrief | null;
+  setPendingTranslationBrief: (p: PendingTranslationBrief | null) => void;
 
   /**
    * The author's promo code, and what it has left.
@@ -765,6 +772,9 @@ export const useStore = create<AppState>()(
 
       styleGuide: "",
       setStyleGuide: (styleGuide) => set({ styleGuide }),
+
+      pendingTranslationBrief: null,
+      setPendingTranslationBrief: (pendingTranslationBrief) => set({ pendingTranslationBrief }),
 
       promoCode: "",
       setPromoCode: (promoCode) => set({ promoCode }),
@@ -1411,6 +1421,7 @@ export const useStore = create<AppState>()(
         copyEditOptions: state.copyEditOptions,
         lineEditOptions: state.lineEditOptions,
         targetLang: state.targetLang,
+        pendingTranslationBrief: state.pendingTranslationBrief,
         manuscriptLang: state.manuscriptLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,

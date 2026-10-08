@@ -13,6 +13,7 @@ import type {
   Lexicon,
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
+import type { BriefQuestion } from "./translationBrief";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -284,6 +285,8 @@ export async function addToQueue(params: {
   styleGuide?: string;
   editOptions?: Record<string, boolean> | object;
   targetLang?: string;
+  /** A paid translation's brief (translationBrief.ts). */
+  translationBrief?: string;
   manuscriptLang?: string;
   reviewMode?: boolean;
   reviewerThreshold?: number;
@@ -718,6 +721,33 @@ export async function getCloudEstimate(
     body: JSON.stringify(req),
   });
   return res.json();
+}
+
+/**
+ * Betty's questions before a paid translation. Never throws: anything that
+ * goes wrong is "no questions", and the author still gets the tone question.
+ */
+export async function getTranslationQuestions(req: {
+  units: string[];
+  targetLang: string;
+  manuscriptLang: string;
+  uiLang: string;
+}): Promise<{ questions: BriefQuestion[]; degraded: boolean }> {
+  try {
+    const res = await apiFetch("/translate/brief/questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) return { questions: [], degraded: true };
+    const data = await res.json();
+    return {
+      questions: Array.isArray(data.questions) ? data.questions : [],
+      degraded: data.degraded === true,
+    };
+  } catch {
+    return { questions: [], degraded: true };
+  }
 }
 
 /**
