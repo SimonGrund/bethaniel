@@ -265,3 +265,21 @@ test("the language card in the cloud is priced as the enhanced analysis", () => 
   assert.equal(card.product, "enhance");
   assert.deepEqual(Object.keys(card.perMode), ["language_enhance"]);
 });
+
+// ── Betty's questions before a translation are paid for ──
+test("a translate quote includes the brief questions call and its retry", () => {
+  const input = {
+    units: [{ wordCount: 100 }],
+    wordsPerChunk: 2000,
+    runMode: "speed" as const,
+    reviewMode: true,
+    styleComplianceAgent: false,
+    extraPass: false,
+    numPredict: 4096,
+  };
+  const translate = estimateCloudJob({ ...input, modes: ["translate"] }).perMode.translate;
+  assert.ok(translate.inputTokens >= 2 * 3500, `input ${translate.inputTokens}`);
+  assert.ok(translate.outputTokens >= 2 * 1200, `output ${translate.outputTokens}`);
+  const copy = estimateCloudJob({ ...input, modes: ["copy_edit"] }).perMode.copy_edit;
+  assert.ok(copy.outputTokens < 2 * 1200, "an edit does not pay for translation questions");
+});

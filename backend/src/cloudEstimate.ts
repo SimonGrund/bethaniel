@@ -27,6 +27,7 @@ import {
 } from "./prompts.js";
 import { DEFAULT_COPY_EDIT_OPTIONS, DEFAULT_LINE_EDIT_OPTIONS } from "./types.js";
 import { missingWordCheckApplies } from "./missingWords.js";
+import { BRIEF_OUTPUT_TOKENS } from "./translationBrief.js";
 import {
   buildLanguageEnhanceAdvicePrompt,
   buildLanguageEnhancePassagePrompt,
@@ -153,6 +154,11 @@ function wordsToTokens(words: number): number {
  *  A 2,500-word chunk runs to roughly that many paragraphs, so this is the
  *  per-chunk figure rather than a per-paragraph one. */
 const FLUENCY_VERDICT_TOKENS = 560;
+
+/** Betty's questions before a translation (translationBrief.ts): a fixed
+ *  prompt, at most 40 candidates and four ~300-word excerpts, whatever the
+ *  book's length. */
+const BRIEF_QUESTIONS_INPUT_TOKENS = 3500;
 
 /** Share of chunks the fluency reviewer sends back for a re-polish. One
  *  paragraph in fourteen was flagged on the GLM-5.2 EN->DA sample; this stays
@@ -388,6 +394,11 @@ function estimateTranslateMode(
     outputTokens += repolishChunks * translatedTokens;
 
   }
+
+  // Betty's questions before the run — one call, priced twice for its one
+  // retry. Paid by the author like the rest, so it belongs in the quote.
+  inputTokens += 2 * BRIEF_QUESTIONS_INPUT_TOKENS;
+  outputTokens += 2 * BRIEF_OUTPUT_TOKENS;
 
   return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
 }
