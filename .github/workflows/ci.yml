@@ -42,7 +42,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install --prefer-offline
+        run: npm ci --prefer-offline
 
       - name: Type check — backend
         working-directory: backend
@@ -75,7 +75,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install --prefer-offline
+        run: npm ci --prefer-offline
 
       - name: Run backend tests
         run: npm test --workspace=backend

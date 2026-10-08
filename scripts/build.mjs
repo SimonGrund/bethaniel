@@ -126,7 +126,10 @@ function llamaManifestKeys(p) {
 // ── Step 1: Install dependencies ──
 
 console.log("━━━ Step 1: Install dependencies ━━━");
-run("npm install");
+// In CI, exactly what the committed lockfile says — npm ci fails if it and
+// package.json disagree instead of quietly resolving something new on the
+// build machine. Locally, npm install, which keeps node_modules.
+run(process.env.CI ? "npm ci" : "npm install");
 
 // ── Step 2: Build frontend ──
 
