@@ -66,9 +66,10 @@ interface BriefCandidate {
 }
 ```
 
-- **name:** a capitalised word or multi-word sequence seen at least 3 times
-  and not at the start of a sentence. Reuse the name-scanning helpers in
-  `consistency.ts` where they fit.
+- **name:** a capitalised single word seen at least 3 times not at the start
+  of a sentence (`isSentenceInitial` from `spellcheck.ts`). In German, where
+  every noun is capitalised, it must also be unknown to the dictionary, and
+  without a dictionary German gets no name candidates.
 - **invented:** a word Hunspell (`spellcheck.ts`) rejects, seen at least 3
   times, that is not a name.
 - **honorific:** a per-language list (Mr/Mrs/Dr/Sir/Lady…, Hr./Fru…,
@@ -130,18 +131,15 @@ The tone options and how each renders:
 
 ## Where the brief is used
 
-The style-sheet block a translation stage gets becomes
-`combineTranslationNotes(brief, styleGuide)`: the brief first, then the style
-guide, under the existing binding "GLOSSARY & TRANSLATION NOTES" heading.
-
-- `buildTranslationPrompt` (draft) — already takes notes.
-- `buildTranslationReviewerPrompt` — already takes notes.
-- **`translationUpgrade.ts` polish and fluency passes: newly given the
-  notes.** Today they get none and can undo a fixed name or term.
-- `retrySpec` stores `translationBrief`, so a retried chunk uses the same
-  brief.
-- Task result / job record stores the brief, so the review screen can show
-  "Translated with these choices".
+In `/queue/add`, a translate task's notes become
+`combineTranslationNotes(brief, authorStyleGuide)`: the brief first, then the
+style guide, rendered under the existing binding "GLOSSARY & TRANSLATION
+NOTES" heading. That one string is the task's `styleGuide`, and every
+translation stage already reads `job.styleGuide`: the draft
+(`buildTranslationPrompt`), the polish (`buildTranslationUpgradePrompt`,
+`queue.ts`) and the fluency reviewer (`buildFluencyReviewerPrompt`). The
+task's `retrySpec` carries it too, so a retried chunk uses the same brief. No
+prompt builder changes.
 
 `/queue/add` accepts `translationBrief` only for translate tasks, and at most
 4,000 characters.
@@ -156,9 +154,11 @@ translate credential, routed and metered as now.
 
 ## Persistence and failure
 
-- `pendingTranslationBrief` (status, questions, answers) is persisted in the
-  Zustand store. If the app closes mid-questions, the panel reopens on the
-  next launch, with the answers kept and the paid credential still saved.
+- `pendingTranslationBrief` (questions, tone, answers) is persisted in the
+  Zustand store. If the app closes mid-questions, the panel reopens on the run
+  step once the manuscript is loaded again, with the answers kept and the
+  paid credential still saved. (Document text is not persisted, so the panel
+  cannot submit before then.)
 - The brief never enters `cloudFailureReport.ts` (closed enums only).
 - `uiLang` is not one of en/da/de/es → fall back to English.
 
@@ -180,8 +180,8 @@ translation (primary), Skip (secondary). All fixed strings are added to
 - `renderTranslationBrief`: each tone; verbatim free text; nothing answered
   gives an empty brief;
 - `combineTranslationNotes`: ordering and override wording; empty inputs;
-- prompt wiring: draft, reviewer, polish and fluency prompts contain the
-  brief;
+- the questions runner: valid first answer, retry on bad JSON, empty after
+  two bad answers;
 - estimate: translate includes the questions allowance; edit does not.
 
 ## Out of scope
