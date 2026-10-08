@@ -9,6 +9,9 @@ import assert from "node:assert/strict";
 import {
   collectBriefCandidates,
   sampleExcerpts,
+  parseBriefQuestions,
+  runBriefQuestions,
+  combineTranslationNotes,
 } from "../src/translationBrief.ts";
 
 const find = (cs: { term: string; kind: string }[], term: string, kind: string) =>
@@ -78,4 +81,112 @@ test("excerpts are spread over the book and bounded in length", () => {
   assert.ok(ex[3].startsWith("Paragraph 30 "));
   for (const e of ex) assert.ok(e.split(/\s+/).length <= 600);
   assert.deepEqual(sampleExcerpts("", 4, 300), []);
+});
+
+// ── The questions ──
+
+const SOURCE = "They loved Kragehøj. We saw Kragehøj. Near Kragehøj, nothing.";
+
+const q = (over: Record<string, unknown> = {}) => ({
+  id: "q1",
+  term: "Kragehøj",
+  question: "Behold navnet?",
+  options: [{ id: "a", label: "Behold" }, { id: "b", label: "Oversæt" }],
+  suggested: "a",
+  why: "Det er et stednavn.",
+  ...over,
+});
+
+test("a valid answer parses, code fences or not", () => {
+  const raw = JSON.stringify({ questions: [q()] });
+  assert.equal(parseBriefQuestions(raw, SOURCE)?.length, 1);
+  assert.equal(parseBriefQuestions("```json\n" + raw + "\n```", SOURCE)?.[0].term, "Kragehøj");
+});
+
+test("prose, or no questions array, is unusable", () => {
+  assert.equal(parseBriefQuestions("I cannot help with that.", SOURCE), null);
+  assert.equal(parseBriefQuestions('{"answer": 1}', SOURCE), null);
+  assert.deepEqual(parseBriefQuestions('{"questions": []}', SOURCE), []);
+});
+
+test("a bad question is dropped on its own, the rest kept", () => {
+  const raw = JSON.stringify({
+    questions: [
+      q({ id: "bad1", suggested: "z" }),
+      q({ id: "bad2", options: [{ id: "a", label: "Only" }] }),
+      q({ id: "bad3", term: "Ravnsborg" }), // not in the book
+      q({ id: "bad4", options: [{ id: "a", label: "X" }, { id: "a", label: "Y" }] }),
+      q({ id: "good" }),
+      q({ id: "good" }), // duplicate id
+      q({ id: "noterm", term: undefined }),
+    ],
+  });
+  const out = parseBriefQuestions(raw, SOURCE)!;
+  assert.deepEqual(out.map((x) => x.id), ["good", "noterm"]);
+  assert.equal(out[1].term, undefined);
+});
+
+test("no more than five questions are kept", () => {
+  const raw = JSON.stringify({ questions: Array.from({ length: 7 }, (_, i) => q({ id: `q${i}` })) });
+  assert.equal(parseBriefQuestions(raw, SOURCE)?.length, 5);
+});
+
+test("the runner asks once when the first answer is good, in the interface language", async () => {
+  const calls: { system: string; user: string }[] = [];
+  const out = await runBriefQuestions(
+    { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "da" },
+    {
+      llm: async (system, user) => {
+        calls.push({ system, user });
+        return JSON.stringify({ questions: [q()] });
+      },
+    },
+  );
+  assert.equal(out.length, 1);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].system, /in Danish/);
+  assert.match(calls[0].system, /into French/);
+  assert.match(calls[0].user, /Kragehøj/);
+});
+
+test("the runner retries once on a bad answer, then gives up with no questions", async () => {
+  let n = 0;
+  const retried = await runBriefQuestions(
+    { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
+    {
+      llm: async (_s, user) => {
+        if (++n === 1) return "nope";
+        assert.match(user, /PREVIOUS RESPONSE/);
+        return JSON.stringify({ questions: [q()] });
+      },
+    },
+  );
+  assert.equal(retried.length, 1);
+  assert.equal(n, 2);
+
+  let m = 0;
+  const none = await runBriefQuestions(
+    { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
+    { llm: async () => (m++, "still nope") },
+  );
+  assert.deepEqual(none, []);
+  assert.equal(m, 2);
+});
+
+test("an interface language Betty does not speak falls back to English", async () => {
+  let system = "";
+  await runBriefQuestions(
+    { text: SOURCE, manuscriptLang: "en", targetLang: "German", uiLang: "fr" },
+    { llm: async (s) => ((system = s), '{"questions": []}') },
+  );
+  assert.match(system, /label" and every "why" in English/);
+});
+
+test("the brief goes first and wins; either side may be empty", () => {
+  const both = combineTranslationNotes("TRANSLATION BRIEF:\n- x", "Use Oxford commas.");
+  assert.ok(both.indexOf("TRANSLATION BRIEF") < both.indexOf("Oxford"));
+  assert.match(both, /brief above wins/);
+  assert.equal(combineTranslationNotes("", " Use Oxford commas. "), "Use Oxford commas.");
+  assert.equal(combineTranslationNotes(" B ", ""), "B");
+  assert.equal(combineTranslationNotes("", ""), "");
 });

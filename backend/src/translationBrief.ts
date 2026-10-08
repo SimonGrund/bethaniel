@@ -10,6 +10,9 @@
 // in chapter 30 is still found and the call costs the same for any length.
 
 import { capitalisesNouns, isSentenceInitial } from "./spellcheck.js";
+import { parseJsonResponse } from "./llm.js";
+import { buildBriefQuestionsPrompt } from "./prompts.js";
+import type { LlmCall } from "./storyAnalysis.js";
 
 export type CandidateKind = "name" | "invented" | "honorific" | "unit" | "title";
 
@@ -151,4 +154,146 @@ export function sampleExcerpts(text: string, count = 4, words = 300): string[] {
     out.push(ws.length > words * 2 ? ws.slice(0, words * 2).join(" ") + " …" : joined);
   }
   return out;
+}
+
+// ── The questions ──
+
+export interface BriefOption {
+  id: string;
+  label: string;
+}
+
+export interface BriefQuestion {
+  id: string;
+  /** The source term, verbatim from the book, when the question is about one. */
+  term?: string;
+  question: string;
+  options: BriefOption[];
+  /** The id of the option Betty would choose. */
+  suggested: string;
+  why: string;
+}
+
+export const MAX_BRIEF_QUESTIONS = 5;
+export const BRIEF_OUTPUT_TOKENS = 1200;
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  da: "Danish",
+  de: "German",
+  es: "Spanish",
+  fr: "French",
+};
+/** The languages the app's own interface is translated into (i18n.ts). */
+const UI_LANGS = new Set(["en", "da", "de", "es"]);
+
+const str = (v: unknown): string | null =>
+  typeof v === "string" && v.trim() ? v.trim() : null;
+
+function toQuestion(item: unknown, sourceText: string): BriefQuestion | null {
+  if (!item || typeof item !== "object") return null;
+  const o = item as Record<string, unknown>;
+  const id = str(o.id);
+  const question = str(o.question);
+  const suggested = str(o.suggested);
+  if (!id || !question || !suggested) return null;
+  if (!Array.isArray(o.options) || o.options.length < 2 || o.options.length > 4) return null;
+  const options: BriefOption[] = [];
+  const ids = new Set<string>();
+  for (const opt of o.options) {
+    if (!opt || typeof opt !== "object") return null;
+    const oid = str((opt as Record<string, unknown>).id);
+    const label = str((opt as Record<string, unknown>).label);
+    if (!oid || !label || ids.has(oid)) return null;
+    ids.add(oid);
+    options.push({ id: oid, label });
+  }
+  if (!ids.has(suggested)) return null;
+  let term: string | undefined;
+  if (o.term !== undefined && o.term !== null) {
+    const t = str(o.term);
+    // A term the book does not contain is a name the model made up.
+    if (!t || !sourceText.includes(t)) return null;
+    term = t;
+  }
+  return { id, ...(term ? { term } : {}), question, options, suggested, why: str(o.why) ?? "" };
+}
+
+/**
+ * The model's questions, each checked on its own: one malformed question is
+ * dropped, the rest kept. `null` means the answer as a whole was unusable
+ * (not JSON, no `questions` array) and is worth one retry.
+ */
+export function parseBriefQuestions(raw: string, sourceText: string): BriefQuestion[] | null {
+  const parsed = parseJsonResponse(raw);
+  if (!parsed || typeof parsed !== "object") return null;
+  const list = (parsed as { questions?: unknown }).questions;
+  if (!Array.isArray(list)) return null;
+  const out: BriefQuestion[] = [];
+  const seen = new Set<string>();
+  for (const item of list) {
+    const q = toQuestion(item, sourceText);
+    if (!q || seen.has(q.id)) continue;
+    seen.add(q.id);
+    out.push(q);
+    if (out.length === MAX_BRIEF_QUESTIONS) break;
+  }
+  return out;
+}
+
+export interface BriefRequest {
+  text: string;
+  manuscriptLang: string;
+  /** A language name, as the wizard stores it ("French"). */
+  targetLang: string;
+  /** The interface language code (store.lang). */
+  uiLang: string;
+}
+
+export interface BriefDeps {
+  llm: LlmCall;
+  isKnownWord?: (word: string) => boolean;
+}
+
+/**
+ * Ask the paid model for its questions. Two tries at a usable answer, then
+ * none — the author still gets the tone question and can start the run.
+ * A failing call (network, out of credit) throws; the route turns that into
+ * "no questions" too.
+ */
+export async function runBriefQuestions(
+  req: BriefRequest,
+  deps: BriefDeps,
+): Promise<BriefQuestion[]> {
+  const candidates = collectBriefCandidates(req.text, req.manuscriptLang, deps.isKnownWord);
+  const ui = baseLang(req.uiLang);
+  const system = buildBriefQuestionsPrompt({
+    sourceLanguage: LANGUAGE_NAMES[baseLang(req.manuscriptLang)] ?? "the source language",
+    targetLanguage: req.targetLang,
+    uiLanguage: UI_LANGS.has(ui) ? LANGUAGE_NAMES[ui] : "English",
+  });
+  const user = JSON.stringify({ candidates, excerpts: sampleExcerpts(req.text) });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const payload =
+      attempt === 0
+        ? user
+        : `${user}\n\nYOUR PREVIOUS RESPONSE WAS NOT VALID JSON IN THE REQUIRED SHAPE. Respond again with STRICT valid JSON only — no prose, no code fences.`;
+    const raw = await deps.llm(system, payload, { maxTokens: BRIEF_OUTPUT_TOKENS });
+    const questions = parseBriefQuestions(raw, req.text);
+    if (questions !== null) return questions;
+  }
+  return [];
+}
+
+/**
+ * What a translate task reads as its notes: the author's answers first, then
+ * their style sheet. The brief is the newer, translation-specific choice, so
+ * it wins where the two disagree.
+ */
+export function combineTranslationNotes(brief: string, styleGuide: string): string {
+  const b = brief.trim();
+  const s = styleGuide.trim();
+  if (!b) return s;
+  if (!s) return b;
+  return `${b}\n\nSTYLE SHEET (the author's own notes — where they disagree with the brief above, the brief above wins):\n${s}`;
 }

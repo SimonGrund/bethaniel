@@ -855,6 +855,35 @@ FORMATTING RULES:
   return p;
 }
 
+/**
+ * The questions Betty asks before a paid translation (translationBrief.ts).
+ * The user message carries the candidates and excerpts as JSON. Tone is not
+ * asked here — the app always asks it itself, in its own words.
+ */
+export function buildBriefQuestionsPrompt(o: {
+  sourceLanguage: string;
+  targetLanguage: string;
+  uiLanguage: string;
+}): string {
+  return `You are a literary translator preparing to translate a book from ${o.sourceLanguage} into ${o.targetLanguage}. Before you start, you may ask the author a FEW questions about choices you would otherwise have to guess.
+
+The user message is JSON with:
+- "candidates": terms found by counting over the WHOLE book — names, invented words, honorifics, units of measure and titles — each with how often it occurs and one example sentence;
+- "excerpts": a few passages from across the book, so you can hear its tone.
+
+Ask at most 5 questions, and only about real decisions a careful translator into ${o.targetLanguage} would face:
+- whether a name, place or invented word is kept as it is or translated (and if translated, offer renderings);
+- how to handle honorifics, units of measure or titles;
+- anything else specific to THIS book that changes the translation throughout.
+Never ask about tone or register — that is asked separately. Never ask about grammar, spelling or punctuation. Skip names that obviously stay as they are. Fewer, better questions beat five weak ones; zero questions is a valid answer.
+
+Write every "question", every option "label" and every "why" in ${o.uiLanguage} — the author reads them in ${o.uiLanguage}. A "term" is quoted EXACTLY as it is written in the book.
+
+Respond with STRICT JSON only — no prose, no code fences:
+{"questions":[{"id":"q1","term":"<exact term from the book; omit if the question is not about one term>","question":"…","options":[{"id":"a","label":"…"},{"id":"b","label":"…"}],"suggested":"a","why":"<one sentence>"}]}
+Each question has 2 to 4 options. "suggested" is the id of the option you would choose yourself.`;
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // FORMAT FOR EBOOK
 // ═══════════════════════════════════════════════════════════════════
