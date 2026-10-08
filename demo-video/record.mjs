@@ -38,10 +38,23 @@ const LANGS = {
       "Arena scenes use broken sentences on purpose. Leave them.\n" +
       "Always capitalise Worldsea and Blacksteel.\n" +
       "Spell out numbers under one hundred.",
+    // The translation clip: a short story with what Betty should ask about —
+    // a place name, an invented word, "Mr", miles and a book title. `tone` is
+    // the tone option the clip picks (0 like the original, 1 softer, 2
+    // stricter); `picks` maps a question's position to the option chosen
+    // instead of Betty's suggestion, so both are seen.
+    translateFile: "texts/The Ferryman of Kragehøj.md",
+    target: "French",
+    tone: 2,
+    picks: { 1: 1 },
   },
   da: {
     file: "texts/Bogbinderen i Havnsø.md",
     ui: "da",
+    translateFile: "texts/Bogbinderen i Havnsø.md",
+    target: "English",
+    tone: 0,
+    picks: { 0: 1 },
   },
 };
 
@@ -56,6 +69,10 @@ const TASKS = {
   // No run: upload, open the style guide, look over the names & terms Betty
   // read off the manuscript, and write a note of the author's own.
   style: { name: "4-style-guide", styleGuide: true },
+  // Betty in the Cloud, paid with a 100% code (--code): buy, answer Betty's
+  // questions before she translates, run, read the translation. Not in the
+  // default set — each take spends one use of the code.
+  translate: { card: 3, name: "5-translation", translate: true },
 };
 
 // ── Frame geometry ──
@@ -74,7 +91,7 @@ const FPS = 30;
 // ── CLI ──
 
 function parseArgs(argv) {
-  const out = { lang: Object.keys(LANGS), task: Object.keys(TASKS) };
+  const out = { lang: Object.keys(LANGS), task: Object.keys(TASKS).filter((t) => !TASKS[t].translate) };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -88,6 +105,7 @@ function parseArgs(argv) {
     else if (a === "--max-scroll") out.maxScroll = Number(next());
     else if (a === "--decisions") out.decisions = Number(next());
     else if (a === "--timeout") out.timeoutMin = Number(next());
+    else if (a === "--code") out.code = next();
     else if (a === "-h" || a === "--help") {
       console.log(fs.readFileSync(path.join(HERE, "README.md"), "utf8"));
       process.exit(0);
@@ -95,6 +113,9 @@ function parseArgs(argv) {
   }
   for (const l of out.lang) if (!LANGS[l]) throw new Error(`Unknown --lang ${l} (have: ${Object.keys(LANGS)})`);
   for (const t of out.task) if (!TASKS[t]) throw new Error(`Unknown --task ${t} (have: ${Object.keys(TASKS)})`);
+  if (out.task.some((t) => TASKS[t].translate) && !out.code) {
+    throw new Error("--task translate needs --code: a 100% Betty in the Cloud code, one use per take");
+  }
   out.out ??= path.join(HERE, "out");
   out.maxScroll ??= 60;
   out.decisions ??= 6;
@@ -310,6 +331,10 @@ async function readThrough(frame, { maxSeconds, pxPerSec = 170, pauseEvery = 520
 // Diagnostics button and the scrollbar gutter. Hidden only in this browser.
 const DEMO_CSS = `
   .log-fab { visibility: hidden !important; }
+  /* The browser-only fallback for a payment that did not hand back to the
+     app. The desktop app goes straight from payment to Betty's questions,
+     and the clip claims the credential the same way, unseen. */
+  .cloud-claim-hint, .cloud-claim { display: none !important; }
   html { scrollbar-width: none; }
   html::-webkit-scrollbar { display: none; }
 `;
@@ -319,6 +344,10 @@ const DEMO_CSS = `
 async function recordClip(browser, appUrl, langId, taskId, opts) {
   const lang = LANGS[langId];
   const task = TASKS[taskId];
+  if (task.translate && !lang.translateFile) {
+    log(`  (no translation manuscript for ${langId} — skipped)`);
+    return;
+  }
   if (task.styleGuide && !lang.styleFile) {
     log(`  (no style-guide manuscript for ${langId} — skipped)`);
     return;
@@ -373,7 +402,7 @@ async function recordClip(browser, appUrl, langId, taskId, opts) {
   await pointAndClick(page, frame, ".upload-zone").catch(() => {});
   // The click above would open the OS file picker in a real window; here the
   // file goes straight to the input, which is what the picker would have done.
-  const file = task.styleGuide ? lang.styleFile : lang.file;
+  const file = task.styleGuide ? lang.styleFile : task.translate ? lang.translateFile : lang.file;
   await frame.locator('input[type="file"]').first().setInputFiles(path.join(HERE, file));
   rec.mark("upload");
   await frame.waitForSelector(".file-name", { timeout: 60_000 });
@@ -410,7 +439,19 @@ async function recordClip(browser, appUrl, langId, taskId, opts) {
   rec.mark("task chosen");
   await sleep(1200);
 
-  // 4. Run.
+  // 4. Run — or, for a translation, buy it and answer Betty's questions.
+  let runStarted;
+  if (task.translate) {
+    if (opts.dry) {
+      rec.mark("dry run: stopped before buying");
+      await sleep(1500);
+      await rec.stop(outFile);
+      await context.close();
+      log(`  ✓ ${path.relative(process.cwd(), outFile)} (dry)`);
+      return;
+    }
+    runStarted = await translateScene(page, frame, rec, lang, opts);
+  } else {
   await scrollIntoView(frame, ".btn-run");
   const runRow = await rectOf(frame, ".btn-run", { closest: ".run-actions", pad: 20 });
   await focus(page, runRow, { maxScale: 1.1 });
@@ -428,9 +469,10 @@ async function recordClip(browser, appUrl, langId, taskId, opts) {
     log(`  ✓ ${path.relative(process.cwd(), outFile)} (dry)`);
     return;
   }
-  const runStarted = Date.now();
+  runStarted = Date.now();
   await pointAndClick(page, frame, ".btn-run");
   rec.mark("run pressed");
+  }
 
   // 5. Betty at work. Back out to the whole window: the progress lives in the
   // header and the engine column, and the job is the whole screen now.
@@ -506,6 +548,106 @@ async function answerDeck(page, frame, rec, n) {
   rec.mark("deck closed");
   await pointAndClick(page, frame, ".review-focus-close", { ms: 700 }).catch(() => {});
   await sleep(1000);
+}
+
+/** A translation, bought in the cloud: the target language, the code, the
+ *  confirmation, then Betty's questions — the tone first, then hers, one card
+ *  at a time — and Start. Returns when the job was submitted. */
+async function translateScene(page, frame, rec, lang, opts) {
+  await frame.selectOption(".translate-lang-select", lang.target);
+  rec.mark("target language");
+  await sleep(1400);
+
+  await scrollIntoView(frame, ".btn-run-cloud");
+  const runRow = await rectOf(frame, ".btn-run-cloud", { closest: ".run-actions", pad: 20 });
+  await focus(page, runRow, { maxScale: 1.1 });
+  await sleep(700);
+  const codeInput = ".cloud-code-input:not(.cloud-claim-input)";
+  await pointAndClick(page, frame, codeInput, { ms: 600 });
+  await frame.locator(codeInput).pressSequentially(opts.code, { delay: 70 });
+  // The quote comes back free once the code is read.
+  await frame.waitForFunction(
+    () => /Free|Gratis|Kostenlos/.test(document.querySelector(".btn-run-cloud")?.innerText ?? ""),
+    null,
+    { timeout: 20_000 },
+  );
+  await sleep(1400);
+  await pointAndClick(page, frame, ".btn-run-cloud");
+  await frame.waitForSelector(".cloud-buy__accept input");
+  await sleep(500);
+  await focus(page, await rectOf(frame, ".cloud-buy", { pad: 14 }), { maxScale: 1.1 });
+  await sleep(2400);
+  await pointAndClick(page, frame, ".cloud-buy__accept input", { ms: 600 });
+  await sleep(800);
+  const popup = page.context().waitForEvent("page", { timeout: 60_000 });
+  await pointAndClick(page, frame, ".cloud-buy .btn-primary", { ms: 600 });
+  rec.mark("bought");
+
+  // A free code skips Stripe: the Worker's success page carries the
+  // credential. The desktop app would take it through bethaniel://; here it
+  // goes through the paste field, hidden (DEMO_CSS), which runs the same claim.
+  const pop = await popup;
+  const cred = await pop
+    .waitForFunction(() => document.body?.innerText.match(/BETH-[A-Z0-9-]+/)?.[0], null, { timeout: 45_000 })
+    .then((h) => h.jsonValue());
+  await pop.close();
+  await frame.evaluate(async (cred) => {
+    document.querySelector(".cloud-claim-hint .link-button")?.click();
+    await new Promise((r) => setTimeout(r, 150));
+    const input = document.querySelector(".cloud-claim-input");
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, cred);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 80));
+    input.closest("form").requestSubmit();
+  }, cred);
+
+  // Betty's questions. The tone card is up at once, answered while she reads.
+  await frame.waitForSelector(".tq-card", { timeout: 30_000 });
+  rec.mark("questions");
+  const onPanel = async () =>
+    focus(page, await rectOf(frame, ".tq-panel", { pad: 18 }), { maxScale: 1.2 });
+  // Next re-renders the card a moment after the click; acting before it has
+  // would answer the card that is leaving. Wait for the card itself to change.
+  const cardText = () => frame.$eval(".tq-card", (e) => e.innerText).catch(() => "");
+  const nextCard = async () => {
+    const before = await cardText();
+    await pointAndClick(page, frame, ".tq-next", { ms: 500 });
+    await frame.waitForFunction(
+      (before) => (document.querySelector(".tq-card")?.innerText ?? "") !== before,
+      before,
+      { timeout: 10_000 },
+    );
+  };
+  await sleep(400);
+  await onPanel();
+  await sleep(2600);
+  await pointAndClick(page, frame, ".tq-option", { nth: lang.tone ?? 0, ms: 600 });
+  await sleep(1000);
+  await nextCard();
+  await frame.waitForFunction(() => !document.querySelector(".tq-reading"), null, { timeout: 120_000 });
+
+  for (let i = 0; i < 8; i++) {
+    await sleep(500);
+    await onPanel();
+    // Time to read the question, and Betty's reason under it.
+    await sleep(3000);
+    const pick = lang.picks?.[i];
+    const options = await frame.$$eval(".tq-option", (els) => els.length);
+    if (pick !== undefined && pick < options - 1) {
+      await pointAndClick(page, frame, ".tq-option", { nth: pick, ms: 600 });
+      await sleep(1100);
+    }
+    const count = await frame.$eval(".tq-count", (e) => e.innerText).catch(() => "");
+    const [n, total] = (count.match(/\d+/g) ?? []).map(Number);
+    if (!n || n >= total) {
+      const started = Date.now();
+      await pointAndClick(page, frame, ".tq-next", { ms: 500 });
+      rec.mark("translation started");
+      return started;
+    }
+    await nextCard();
+  }
+  throw new Error("Betty's questions did not end");
 }
 
 /** The style-guide dialog: the names & terms Betty harvested, one group at a

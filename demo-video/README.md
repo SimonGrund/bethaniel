@@ -15,6 +15,7 @@ Not part of the app and not in the npm workspaces.
 | `en-2-copy-edits.mp4` / `da-…` | upload → **Find errors** → run → answer six suggestions in the review deck (one Dismiss, the rest Accept) → scroll the result |
 | `en-3-publication-scan.mp4` / `da-…` | upload → **Final readthrough** → run → scroll the publication-readiness report |
 | `en-4-style-guide.mp4` | upload → **Find errors** → open **Style guide** → close-ups along the names & terms list → type a note into "Your own notes" → save. Nothing is run. English only |
+| `en-5-translation.mp4` / `da-…` | upload → **Translate** → pick the language → type a 100% code → **Run in Cloud** → accept → Betty's questions (tone, then hers, one card at a time) → run → scroll the translation. Only with `--task translate --code CODE`; each take spends one use of the code |
 
 English uses `texts/The Weather Station.md` (5 chapters, ~1,550 words) and an
 English interface; Danish uses `texts/Bogbinderen i Havnsø.md` (4 chapters, ~2,300
@@ -70,9 +71,18 @@ appear in the app's document list afterwards.
 | `--decisions N` | 6 | Suggestions answered in the copy-edit deck |
 | `--max-scroll S` | 60 | Longest the results scroll may run, in seconds |
 | `--timeout M` | 30 | Give up on a job after M minutes |
+| `--code CODE` | — | A 100% Betty in the Cloud code for the translation clip (mint one translation-only, see `worker/README.md`) |
 | `--url URL` | found automatically | Point at a specific backend, e.g. `http://127.0.0.1:4000` for `npm run dev` |
 | `--headed` | off | Show the recording browser |
 | `--keep-frames` | off | Keep the raw JPEG frames |
+
+The translation clip uses `texts/The Ferryman of Kragehøj.md` in English (into
+French) — a short story written to give Betty something to ask about: a place
+name, an invented word, "Mr", miles and a book title — and the Danish demo
+manuscript in Danish (into English). It claims the paid credential through the
+browser's paste-code field, hidden, which is the same claim the desktop app
+makes when payment hands back through `bethaniel://`. Betty's questions come
+from the model, so they differ a little between takes.
 
 If a clip fails (Run not ready, a dialog opened, the job timed out) the
 script says why and moves on to the next one.
