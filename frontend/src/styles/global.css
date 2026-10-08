@@ -5629,6 +5629,68 @@ summary.review-source::before {
   flex-shrink: 0;
 }
 
+/* ── Translation brief: Betty's questions before a paid translation ── */
+.translation-brief__q {
+  border: 1px solid #d9c9a8;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem 0.7rem;
+  margin: 0 0 0.8rem;
+  background: #fbf8f0;
+}
+
+.translation-brief__q legend {
+  padding: 0 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a3f2f;
+}
+
+.translation-brief__term {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 1.05rem;
+  margin-right: 0.4rem;
+}
+
+.translation-brief__opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.translation-brief__opt input {
+  margin-top: 0.2rem;
+  accent-color: #8b7355;
+  flex-shrink: 0;
+}
+
+.translation-brief__suggested {
+  color: #8b7355;
+  font-size: 0.8rem;
+}
+
+.translation-brief__other {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.3rem 0 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.86rem;
+  background: #fffdf8;
+}
+
+.translation-brief__why {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #6b5438;
+}
+
 .cloud-buy__accept a {
   color: #6a662b;
 }

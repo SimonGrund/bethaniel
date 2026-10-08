@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
+import TranslationQuestions from "./TranslationQuestions";
 import CloudCodeClaim from "./CloudCodeClaim";
 import DownloadBar from "./DownloadBar";
 import { estimateRun, formatEstimate } from "../runEstimate";
@@ -49,6 +50,7 @@ export default function EditTrigger() {
     overlapParagraphs,
     parallel,
     styleGuide,
+    pendingTranslationBrief,
     submitting,
     setSubmitting,
     tasks,
@@ -189,13 +191,35 @@ export default function EditTrigger() {
   // passed in rather than read from the closure: setModel has not re-rendered
   // by the time the run is submitted, so the closure still holds the local
   // model — and a paid run would quietly go to it.
-  const handleClickRef = useRef<(modelOverride?: string) => Promise<void>>(
-    async () => {},
-  );
+  const handleClickRef = useRef<
+    (modelOverride?: string, translationBrief?: string) => Promise<void>
+  >(async () => {});
+
+  // Submit the paid job on Betty in the Cloud. She is bought one job at a
+  // time, so she is the selected model for exactly one job. She used to stay
+  // selected afterwards, and because the model selector is hidden outside
+  // advanced mode, nothing said so: the next press of "Run Betty locally"
+  // went to a cloud credential whose budget was already spent, and the run
+  // died with "out of credit" on every chunk. Reported from a real install.
+  // The selection goes back to whatever it was as soon as the job is
+  // submitted.
+  const runPaid = async (translationBrief?: string) => {
+    const previousModel = useStore.getState().model;
+    useStore.getState().setModel("custom:bethaniel-cloud");
+    try {
+      await handleClickRef.current("custom:bethaniel-cloud", translationBrief);
+    } finally {
+      if (previousModel && previousModel !== "custom:bethaniel-cloud") {
+        useStore.getState().setModel(previousModel);
+      }
+    }
+  };
 
   // Once a credential is claimed (paid + saved via the bethaniel:// deep
   // link), point the run at Betty in the Cloud and submit immediately — the
-  // user already committed to running this exact job by paying for it.
+  // user already committed to running this exact job by paying for it. A
+  // translation asks its questions first (TranslationQuestions), and is
+  // submitted from there with the author's brief.
   const {
     estimate: cloudEstimate,
     estimateError: cloudEstimateError,
@@ -208,22 +232,15 @@ export default function EditTrigger() {
     cancelWait: cancelCloudWait,
   } = useCloudPurchase("run", async () => {
     await refreshModelEnvironment();
-    // Betty in the Cloud is bought one job at a time, so it is the selected
-    // model for exactly one job. It used to stay selected afterwards, and
-    // because the model selector is hidden outside advanced mode, nothing said
-    // so: the next press of "Run Betty locally" went to a cloud credential
-    // whose budget was already spent, and the run died with "out of credit" on
-    // every chunk. Reported from a real install. The selection goes back to
-    // whatever it was as soon as the paid job is submitted.
-    const previousModel = useStore.getState().model;
-    useStore.getState().setModel("custom:bethaniel-cloud");
-    try {
-      await handleClickRef.current("custom:bethaniel-cloud");
-    } finally {
-      if (previousModel && previousModel !== "custom:bethaniel-cloud") {
-        useStore.getState().setModel(previousModel);
-      }
+    if (useStore.getState().selectedModes.includes("translate")) {
+      useStore.getState().setPendingTranslationBrief({
+        questions: null,
+        tone: "match",
+        answers: {},
+      });
+      return;
     }
+    await runPaid();
   });
 
   // The quote carries what the code has left, read Worker-side moments before
@@ -316,7 +333,7 @@ export default function EditTrigger() {
     return Object.keys(opts).length > 0 ? opts : undefined;
   };
 
-  const handleClick = async (modelOverride?: string) => {
+  const handleClick = async (modelOverride?: string, translationBrief?: string) => {
     if (!doc) return;
     setSubmitting(true);
     try {
@@ -333,6 +350,7 @@ export default function EditTrigger() {
         targetLang: selectedModes.includes("translate")
           ? targetLang
           : undefined,
+        translationBrief,
         // Always sent — every corrections mode's prompt is built around it
         // (copy, line, combined, and the proofread half of a final
         // readthrough). The server drops it for translate tasks, where the
@@ -351,6 +369,10 @@ export default function EditTrigger() {
         alert(`⚠️ ${t("perf_warning")}\n\n${taskIds.warnings.join("\n\n")}`);
       }
       useStore.getState().setPendingTaskIds(taskIds.taskIds);
+      // The paid translation is on its way; its questions are answered.
+      if (translationBrief !== undefined) {
+        useStore.getState().setPendingTranslationBrief(null);
+      }
       setTimeout(() => {
         const s = useStore.getState();
         if (s.submitting && s.pendingTaskIds.length > 0) {
@@ -822,6 +844,15 @@ export default function EditTrigger() {
             {t("cloud_wait_cancel", "Didn't pay? Cancel")}
           </button>
         </p>
+      )}
+      {pendingTranslationBrief && doc && (
+        <TranslationQuestions
+          lang={lang}
+          units={units.map((u) => u.original)}
+          targetLang={targetLang}
+          manuscriptLang={manuscriptLang}
+          onSubmit={runPaid}
+        />
       )}
       <CloudCheckoutModal
         open={cloudConfirmOpen}

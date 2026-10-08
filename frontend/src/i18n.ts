@@ -6450,6 +6450,84 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Download fehlgeschlagen",
     es: "La descarga falló",
   },
+  tb_title: {
+    en: "Before Betty translates",
+    da: "Før Betty oversætter",
+    de: "Bevor Betty übersetzt",
+    es: "Antes de que Betty traduzca",
+  },
+  tb_reading: {
+    en: "Betty is reading your book for anything she should ask you first…",
+    da: "Betty læser din bog for at se, om der er noget, hun bør spørge dig om først…",
+    de: "Betty liest dein Buch, um zu sehen, was sie dich vorher fragen sollte…",
+    es: "Betty está leyendo tu libro por si hay algo que deba preguntarte antes…",
+  },
+  tb_intro: {
+    en: "A few choices that run through the whole translation. Betty's suggestion is already selected — change only what you would like done differently.",
+    da: "Et par valg, der gælder hele oversættelsen. Bettys forslag er allerede valgt — ret kun det, du gerne vil have gjort anderledes.",
+    de: "Ein paar Entscheidungen, die für die ganze Übersetzung gelten. Bettys Vorschlag ist bereits ausgewählt — ändere nur, was du anders haben möchtest.",
+    es: "Unas pocas decisiones que afectan a toda la traducción. La sugerencia de Betty ya está seleccionada: cambia solo lo que quieras de otra manera.",
+  },
+  tb_degraded: {
+    en: "Betty could not prepare her questions this time. You can still set the tone and start the translation.",
+    da: "Betty kunne ikke forberede sine spørgsmål denne gang. Du kan stadig vælge tonen og starte oversættelsen.",
+    de: "Betty konnte ihre Fragen diesmal nicht vorbereiten. Du kannst trotzdem den Ton wählen und die Übersetzung starten.",
+    es: "Betty no ha podido preparar sus preguntas esta vez. Aun así puedes elegir el tono y empezar la traducción.",
+  },
+  tb_tone_q: {
+    en: "How should the translation sound?",
+    da: "Hvordan skal oversættelsen lyde?",
+    de: "Wie soll die Übersetzung klingen?",
+    es: "¿Cómo debe sonar la traducción?",
+  },
+  tb_tone_match: {
+    en: "Like the original",
+    da: "Som originalen",
+    de: "Wie das Original",
+    es: "Como el original",
+  },
+  tb_tone_softer: {
+    en: "Softer and warmer than the original",
+    da: "Blødere og varmere end originalen",
+    de: "Weicher und wärmer als das Original",
+    es: "Más suave y cálida que el original",
+  },
+  tb_tone_stricter: {
+    en: "Stricter and shorter than the original",
+    da: "Strammere og kortere end originalen",
+    de: "Straffer und kürzer als das Original",
+    es: "Más concisa y estricta que el original",
+  },
+  tb_suggested: {
+    en: "Betty suggests",
+    da: "Bettys forslag",
+    de: "Bettys Vorschlag",
+    es: "Sugerencia de Betty",
+  },
+  tb_other: {
+    en: "Other…",
+    da: "Andet…",
+    de: "Anderes…",
+    es: "Otra…",
+  },
+  tb_other_placeholder: {
+    en: "Your answer",
+    da: "Dit svar",
+    de: "Deine Antwort",
+    es: "Tu respuesta",
+  },
+  tb_start: {
+    en: "Start translation",
+    da: "Start oversættelsen",
+    de: "Übersetzung starten",
+    es: "Empezar la traducción",
+  },
+  tb_skip: {
+    en: "Skip — use Betty's judgement",
+    da: "Spring over — brug Bettys skøn",
+    de: "Überspringen — Bettys Urteil folgen",
+    es: "Omitir: usar el criterio de Betty",
+  },
 };
 
 export function useTranslation(lang: Lang) {
