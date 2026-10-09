@@ -97,3 +97,62 @@ test("an emphasised title split into runs is named as one phrase", async () => {
   const { comments } = await parts(out.buffer);
   assert.match(comments, /“Kom på benene igen” was emphasised/);
 });
+
+// ── A partial translation exports only what was translated ──
+
+test("only the translated chapters' paragraphs remain; the page setup stays", async () => {
+  const body =
+    p(r("Kapitel 1 overskrift")) + p(r("Et afsnit i kapitel et.")) +
+    `<w:tbl><w:tr><w:tc>${p(r("En tabel i kapitel et."))}</w:tc></w:tr></w:tbl>` +
+    p(r("Kapitel 2 overskrift")) + p(r("Et afsnit i kapitel to.")) +
+    p(r("Kapitel 3 overskrift")) + p(r("Et afsnit i kapitel tre.")) +
+    `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>`;
+  const input = await docx(body);
+  const out = await rewriteDocxText(
+    input,
+    [
+      { paragraphIndex: 3, start: 0, end: "Kapitel 2 overskrift".length, replacement: "Chapter 2 heading", wholeParagraph: true },
+      { paragraphIndex: 4, start: 0, end: "Et afsnit i kapitel to.".length, replacement: "A paragraph in chapter two.", wholeParagraph: true },
+    ],
+    { doubtComments: true, keepParagraphs: [[3, 4]] },
+  );
+  const { doc } = await parts(out.buffer);
+  assert.deepEqual(texts(doc), ["Chapter 2 heading", "A paragraph in chapter two."]);
+  assert.doesNotMatch(doc, /<w:tbl>/, "a table outside the scope goes too");
+  assert.match(doc, /<w:sectPr><w:pgSz/);
+});
+
+test("the remap reports which paragraphs each translated chapter covers", () => {
+  const md = "# Et\n\nAfsnit et.\n\n# To\n\nAfsnit to.";
+  const index = { xml: "", paragraphs: ["Et", "Afsnit et.", "To", "Afsnit to."].map((text, i) => ({ index: i, depth: 0, inTable: false, isEmpty: false, isPageBreak: false, hasObject: false, sawTextElement: true, text, nodes: [{ kind: "t", text, textStart: 0, rPrXml: "", runIndex: 0, xmlStart: 0, xmlEnd: 0, openTagEnd: 0, preserve: false }] })) } as never;
+  const blocks = md.split("\n\n");
+  let from = 0;
+  const map = blocks.map((b, i) => { const at = md.indexOf(b, from); from = at + b.length; return { docxParaIndex: i, mdStart: at, mdEnd: at + b.length, mappable: true }; });
+  const chapter = "# To\n\nAfsnit to.";
+  const { scope } = remapChaptersToParagraphEdits(md, map, index, [{ original: chapter, edited: "# Two\n\nParagraph two." }], { wholeParagraphs: true });
+  assert.deepEqual(scope, [[2, 3]]);
+});
+
+test("chapters separated only by empty paragraphs export as one stretch, page breaks and all", () => {
+  const md = "# Et\n\nAfsnit et.\n\n# To\n\nAfsnit to.";
+  const texts5 = ["Et", "Afsnit et.", "", "", "To", "Afsnit to."];
+  const index = { xml: "", paragraphs: texts5.map((text, i) => ({ index: i, depth: 0, inTable: false, isEmpty: text === "", isPageBreak: false, hasObject: false, sawTextElement: true, text, nodes: text ? [{ kind: "t", text, textStart: 0, rPrXml: "", runIndex: 0, xmlStart: 0, xmlEnd: 0, openTagEnd: 0, preserve: false }] : [] })) } as never;
+  const at = (b: string) => md.indexOf(b);
+  const map = [["# Et", 0], ["Afsnit et.", 1], ["# To", 4], ["Afsnit to.", 5]].map(([b, i]) => ({ docxParaIndex: i as number, mdStart: at(b as string), mdEnd: at(b as string) + (b as string).length, mappable: true }));
+  const { scope } = remapChaptersToParagraphEdits(md, map, index, [
+    { original: "# Et\n\nAfsnit et.", edited: "# One\n\nParagraph one." },
+    { original: "# To\n\nAfsnit to.", edited: "# Two\n\nParagraph two." },
+  ], { wholeParagraphs: true });
+  assert.deepEqual(scope, [[0, 5]]);
+});
+
+test("a paragraph inside the chapter that Betty never saw gets a comment, not silence", () => {
+  const md = "# Et\n\nAfsnit et.";
+  const texts3 = ["Et", "Indhold linje kun i Word", "Afsnit et."];
+  const index = { xml: "", paragraphs: texts3.map((text, i) => ({ index: i, depth: 0, inTable: false, isEmpty: false, isPageBreak: false, hasObject: false, sawTextElement: true, text, nodes: [{ kind: "t", text, textStart: 0, rPrXml: "", runIndex: 0, xmlStart: 0, xmlEnd: 0, openTagEnd: 0, preserve: false }] })) } as never;
+  const map = [{ docxParaIndex: 0, mdStart: 0, mdEnd: 4, mappable: true }, { docxParaIndex: 2, mdStart: 6, mdEnd: 16, mappable: true }];
+  const { notes } = remapChaptersToParagraphEdits(md, map, index, [{ original: md, edited: "# One\n\nParagraph one." }], { wholeParagraphs: true });
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].paragraphIndex, 1);
+  assert.match(notes[0].text, /no translation/i);
+});

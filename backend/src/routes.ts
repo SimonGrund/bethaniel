@@ -1892,7 +1892,7 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       return;
     }
 
-    const { edits, unmapped, notes: translationNotes } = remapChaptersToParagraphEdits(
+    const { edits, unmapped, notes: translationNotes, scope } = remapChaptersToParagraphEdits(
       remapMd,
       remapParagraphs,
       indexDocumentXml(xml),
@@ -1906,6 +1906,9 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       await rewriteDocxText(original.value.buffer, edits, {
         doubtComments: translation === true,
         comments: translation === true ? translationNotes : [],
+        // A translation of some chapters is those chapters, not the book with
+        // the rest still in the source language.
+        keepParagraphs: translation === true ? scope : undefined,
       });
     // Phrases, not paragraphs: one paragraph can hold two italic phrases, and
     // "2 paragraphs" would understate what the author has to put back.

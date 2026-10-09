@@ -60,6 +60,8 @@ export interface DocxParagraph {
   contentStart?: number;
   /** Offset of </w:p>. Where a comment's range ends. */
   closeStart?: number;
+  /** Offset of the <w:p …> opening tag: which top-level block holds it. */
+  openStart?: number;
 }
 
 export interface DocxTextIndex {
@@ -229,6 +231,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
           sawTextElement: false,
           text: "",
           nodes: [],
+          openStart: m.index,
         });
       } else if (isClose) {
         const done = stack.pop();
@@ -248,6 +251,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
           text: "",
           nodes: [],
           contentStart: tagEnd,
+          openStart: m.index,
         };
         paragraphs.push(p);
         stack.push(p);
@@ -689,6 +693,53 @@ export interface RewriteOptions {
   /** Further comments to anchor, from the remap (docxRemap `notes`). */
   comments?: Array<{ paragraphIndex: number; text: string }>;
   author?: CommentAuthor;
+  /** Keep only the top-level blocks holding a paragraph in these ranges
+   *  (docxRemap `scope`): a partial translation exports what was translated,
+   *  not the rest of the book in the source language. The final section
+   *  properties always stay, so the page setup is the book's own. */
+  keepParagraphs?: Array<[number, number]>;
+}
+
+/**
+ * The document with every top-level block of <w:body> removed that holds no
+ * kept paragraph. A block with no paragraphs at all (a bookmark marker) is
+ * kept; so is the body's own <w:sectPr>.
+ */
+function trimBody(xml: string, keep: (paragraphIndex: number) => boolean): string {
+  const bodyOpen = xml.match(/<w:body\b[^>]*>/);
+  if (!bodyOpen || bodyOpen.index === undefined) return xml;
+  const paragraphs = indexDocumentXml(xml).paragraphs;
+  const tag = /<(\/?)([A-Za-z][\w.:-]*)\b[^>]*?(\/?)>/g;
+  tag.lastIndex = bodyOpen.index + bodyOpen[0].length;
+  const drop: Array<[number, number]> = [];
+  let depth = 0;
+  let start = -1;
+  let name = "";
+  let m: RegExpExecArray | null;
+  const decide = (s: number, e: number, n: string) => {
+    if (n === "w:sectPr") return;
+    const inside = paragraphs.filter((p) => p.openStart !== undefined && p.openStart >= s && p.openStart < e);
+    if (inside.length > 0 && !inside.some((p) => keep(p.index))) drop.push([s, e]);
+  };
+  while ((m = tag.exec(xml)) !== null) {
+    const [full, closing, tagName, selfClose] = m;
+    if (closing === "/") {
+      if (depth === 0) break; // </w:body>
+      depth--;
+      if (depth === 0) decide(start, m.index + full.length, name);
+    } else if (selfClose === "/") {
+      if (depth === 0) decide(m.index, m.index + full.length, tagName);
+    } else {
+      if (depth === 0) {
+        start = m.index;
+        name = tagName;
+      }
+      depth++;
+    }
+  }
+  let out = xml;
+  for (const [s, e] of drop.reverse()) out = out.slice(0, s) + out.slice(e);
+  return out;
 }
 
 const BETTY: Omit<CommentAuthor, "date"> = { author: "Betty", initials: "B" };
@@ -797,7 +848,11 @@ export async function rewriteDocxText(
     }
   }
 
-  const newXml = applySplices(xml, allSplices);
+  let newXml = applySplices(xml, allSplices);
+  if (options.keepParagraphs && options.keepParagraphs.length > 0) {
+    const ranges = options.keepParagraphs;
+    newXml = trimBody(newXml, (i) => ranges.some(([a, b]) => i >= a && i <= b));
+  }
   zip.file("word/document.xml", newXml);
   await writeComments(zip, newXml, commentParts);
   const buffer = Buffer.from(

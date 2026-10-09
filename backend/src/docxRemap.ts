@@ -44,6 +44,9 @@ export interface RemapResult {
    *  than by its exact text, or one with no place at all, whose translation
    *  rides in the comment. In a translation these replace `unmapped`. */
   notes: Array<{ paragraphIndex: number; text: string }>;
+  /** The Word paragraphs each chapter covers, first to last, in the order the
+   *  chapters were given. A partial translation exports only these. */
+  scope: Array<[number, number]>;
 }
 
 /** Shared words over all words, both sides lowercased: how alike two
@@ -415,6 +418,17 @@ export function remapChaptersToParagraphEdits(
   const edits: RemapResult["edits"] = [];
   const unmapped: UnmappedNote[] = [];
   const notes: RemapResult["notes"] = [];
+  const scope: RemapResult["scope"] = [];
+  let first = -1;
+  let last = -1;
+  /** Every Word paragraph some markdown block accounted for. */
+  const seen = new Set<number>();
+  const covers = (i: number) => {
+    if (i < 0 || i >= index.paragraphs.length) return;
+    seen.add(i);
+    if (first < 0 || i < first) first = i;
+    if (i > last) last = i;
+  };
   const editsFor = (before: string, after: string): ParagraphTextEdit[] => {
     if (!options.wholeParagraphs) return paragraphEdits(before, after);
     if (before.includes("\t")) {
@@ -448,7 +462,9 @@ export function remapChaptersToParagraphEdits(
   let cursor = 0;
 
   for (const [chapterIndex, chapter] of chapters.entries()) {
-    if (chapter.original === chapter.edited) continue;
+    if (first >= 0) scope.push([first, last]);
+    first = -1;
+    last = -1;
 
     let at = docMd.indexOf(chapter.original, cursor);
     if (at < 0) at = docMd.indexOf(chapter.original);
@@ -461,6 +477,13 @@ export function remapChaptersToParagraphEdits(
     }
     const chapterEnd = at + chapter.original.length;
     cursor = chapterEnd;
+    // An unchanged chapter is still part of what was worked on: it is in
+    // the scope, it just has nothing to write.
+    if (chapter.original === chapter.edited) {
+      for (const entry of paragraphMap)
+        if (entry.mdStart >= at && entry.mdEnd <= chapterEnd) covers(entry.docxParaIndex + drift);
+      continue;
+    }
 
     const toEdited = buildOffsetMap(chapter.original, chapter.edited);
     // A translation is aligned paragraph to paragraph by length, not by
@@ -488,9 +511,13 @@ export function remapChaptersToParagraphEdits(
         chapter.edited.slice(toEdited(entry.mdStart - at), toEdited(entry.mdEnd - at));
       // Nothing to apply, so nothing lost: a paragraph this export cannot map
       // is only worth reporting when a change was meant for it.
-      if (stripMarkdown(oldMd) === stripMarkdown(newMd)) continue;
+      if (stripMarkdown(oldMd) === stripMarkdown(newMd)) {
+        covers(entry.docxParaIndex + drift);
+        continue;
+      }
 
       if (!entry.mappable) {
+        covers(entry.docxParaIndex + drift);
         unmapped.push({
           reason: "not-mappable",
           detail: paragraph.text.slice(0, 60),
@@ -537,6 +564,7 @@ export function remapChaptersToParagraphEdits(
       if (verdict) {
         claimed.add(paraIndex);
         drift = paraIndex - entry.docxParaIndex;
+        covers(paraIndex);
       }
       const matches = verdict === "exact";
 
@@ -573,6 +601,7 @@ export function remapChaptersToParagraphEdits(
         }
         if (best >= 0 && bestScore >= PLACE_BY_SIMILARITY) {
           claimed.add(best);
+          covers(best);
           const target = index.paragraphs[best];
           for (const e of editsFor(target.text, afterPlain)) {
             edits.push({ paragraphIndex: best, chapterIndex, ...e });
@@ -583,6 +612,7 @@ export function remapChaptersToParagraphEdits(
           });
         } else {
           const near = Math.min(Math.max(0, expected), index.paragraphs.length - 1);
+          covers(near);
           notes.push({
             paragraphIndex: near,
             text: `Betty could not find this paragraph in your document, so its translation is here instead. Original: “${beforePlain.slice(0, 300)}” Translation: “${afterPlain}”`,
@@ -641,7 +671,34 @@ export function remapChaptersToParagraphEdits(
     }
   }
 
-  return { edits, unmapped, notes };
+  if (first >= 0) scope.push([first, last]);
+
+  // Chapters separated only by empty paragraphs are one stretch: those
+  // paragraphs are the page breaks and spacing between them, and dropping
+  // them ran one chapter straight on from the last.
+  const merged: Array<[number, number]> = [];
+  for (const [a, b] of [...scope].sort((x, y) => x[0] - y[0])) {
+    const prev = merged[merged.length - 1];
+    if (prev && (a <= prev[1] + 1 || index.paragraphs.slice(prev[1] + 1, a).every((q) => !q.text.trim()))) {
+      prev[1] = Math.max(prev[1], b);
+    } else merged.push([a, b]);
+  }
+
+  // A paragraph inside the translated stretch that no block accounted for —
+  // a contents line or a text box the conversion did not pick up — has no
+  // translation at all. It stays as it is, and says so.
+  if (options.wholeParagraphs) {
+    for (const [a, b] of merged) {
+      for (let i = a; i <= b; i++) {
+        if (seen.has(i) || !/\p{L}/u.test(index.paragraphs[i]?.text ?? "")) continue;
+        notes.push({
+          paragraphIndex: i,
+          text: "Betty has no translation for this paragraph: it was not in the text she translated (the conversion of your Word file did not pick it up), so it is still in the original language. Translate it by hand.",
+        });
+      }
+    }
+  }
+  return { edits, unmapped, notes, scope: merged };
 }
 
 /**
