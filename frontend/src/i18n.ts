@@ -561,6 +561,12 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Nach einer Rückerstattung fragen",
     es: "Solicitar un reembolso",
   },
+  surgical_translation_commented: {
+    en: "The whole translation is in the file. Where Betty was unsure — where a paragraph belongs, its layout, or where an italic or bold phrase goes — she left a comment on that paragraph: {count} in all. Open the comments in Word to go through them.",
+    da: "Hele oversættelsen er i filen. Hvor Betty var i tvivl — hvor et afsnit hører til, dets layout, eller hvor en kursiv eller fed frase skal stå — har hun skrevet en kommentar ved afsnittet: {count} i alt. Åbn kommentarerne i Word for at gå dem igennem.",
+    de: "Die ganze Übersetzung ist in der Datei. Wo Betty unsicher war — wohin ein Absatz gehört, sein Layout oder wohin eine kursive oder fette Wendung gehört —, hat sie am Absatz einen Kommentar hinterlassen: {count} insgesamt. Öffne die Kommentare in Word, um sie durchzugehen.",
+    es: "Toda la traducción está en el archivo. Donde Betty tenía dudas —dónde va un párrafo, su formato o dónde va una frase en cursiva o negrita— dejó un comentario en ese párrafo: {count} en total. Abre los comentarios en Word para revisarlos.",
+  },
   surgical_partial_translation: {
     en: "The translation is in the file, apart from {count} paragraph(s) that could not be replaced without changing your formatting. Those paragraphs are still in the original language.",
     da: "Oversættelsen er i filen, bortset fra {count} afsnit, der ikke kunne erstattes uden at ændre din formatering. De afsnit er stadig på originalsproget.",

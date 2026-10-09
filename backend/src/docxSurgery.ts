@@ -15,6 +15,7 @@
 
 import JSZip from "jszip";
 import { foldSegments, visibleFormat } from "./emphasisSpans.js";
+import { commentXml, maxId, writeComments, type CommentAuthor } from "./docxComments.js";
 
 export interface TextNode {
   /** Ordinal of the containing <w:r> within its paragraph. */
@@ -54,6 +55,11 @@ export interface DocxParagraph {
   sawTextElement: boolean;
   text: string;
   nodes: TextNode[];
+  /** Offset where the paragraph's content begins: past <w:p …> and its
+   *  <w:pPr>…</w:pPr>. Where a comment's range starts. */
+  contentStart?: number;
+  /** Offset of </w:p>. Where a comment's range ends. */
+  closeStart?: number;
 }
 
 export interface DocxTextIndex {
@@ -226,7 +232,10 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
         });
       } else if (isClose) {
         const done = stack.pop();
-        if (done) done.isEmpty = done.text.length === 0;
+        if (done) {
+          done.isEmpty = done.text.length === 0;
+          done.closeStart = m.index;
+        }
       } else {
         const p: DocxParagraph = {
           index: paragraphs.length,
@@ -238,6 +247,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
           sawTextElement: false,
           text: "",
           nodes: [],
+          contentStart: tagEnd,
         };
         paragraphs.push(p);
         stack.push(p);
@@ -248,6 +258,7 @@ export function indexDocumentXml(xml: string): DocxTextIndex {
 
     const p = stack[stack.length - 1];
     if (!p) continue;
+    if (name === "w:pPr" && isClose) p.contentStart = tagEnd;
 
     // Structural signals, gathered on the innermost open paragraph so a text
     // box's break does not leak onto the paragraph containing it.
@@ -425,9 +436,13 @@ export function planParagraphSplices(
   flattened: number;
   flattenedDetail: FlattenedParagraph[];
   restored: number;
+  /** A translation was written through a tab or line break it could not
+   *  carry: the text is in, the layout is worth a look. */
+  layoutDoubt: boolean;
 } {
   const splices: Splice[] = [];
   const skipped: SkippedEdit[] = [];
+  let layoutDoubt = false;
   /** Whole-paragraph replacements that lost intra-paragraph formatting. */
   let flattened = 0;
   const flattenedDetail: FlattenedParagraph[] = [];
@@ -466,8 +481,11 @@ export function planParagraphSplices(
     // shared prefix or suffix (a trailing full stop is enough) drops a run out
     // of `touched`, leaving fewer segments than the allocation has parts. The
     // paragraph would then be refused for a difference that is not real.
-    const e =
-      raw.segments && raw.wholeParagraph ? raw : trimEdit(p.text, raw);
+    //
+    // Nor is a translation's replacement trimmed at all: a shared final "e"
+    // is a coincidence between two languages, and trimming it put a line
+    // break before the last letter ("…second lin" / "e").
+    const e = raw.wholeParagraph ? raw : trimEdit(p.text, raw);
     if (e.start === e.end && e.replacement === "") continue; // no-op
 
     // Nodes the trimmed span touches. A zero-width insert attaches to the node
@@ -490,8 +508,20 @@ export function planParagraphSplices(
       continue;
     }
     if (touched.some((n) => n.kind === "virtual")) {
-      skip(raw, "virtual-node");
-      continue;
+      // A correction must not guess where a tab or a line break goes. A
+      // translation is going into this paragraph regardless — leaving it in
+      // the source language is the one outcome worse than a lost line break
+      // — so it is written into the text around them, and flagged.
+      if (!raw.wholeParagraph) {
+        skip(raw, "virtual-node");
+        continue;
+      }
+      touched = touched.filter((n) => n.kind !== "virtual");
+      if (touched.length === 0) {
+        skip(raw, "virtual-node");
+        continue;
+      }
+      layoutDoubt = true;
     }
     /** Text per segment, when this translation's emphasis could be placed. */
     let allocation: string[] | null = null;
@@ -542,14 +572,35 @@ export function planParagraphSplices(
               widest = len;
               kept = rPr;
             }
-          flattenedDetail.push({
-            paragraphIndex: p.index,
-            before: p.text,
-            emphasised: touched
-              .filter((n) => n.kind !== "virtual" && visibleFormat(n.rPrXml) !== kept)
-              .map((n) => n.text.trim())
-              .filter(Boolean),
-          });
+          // As phrases, not runs: a title the author italicised word by word
+          // ("Kom" "på" "benene" "igen", plain spaces between) is one thing to
+          // put back. Runs of the other formatting separated only by
+          // whitespace join into one phrase, read off the paragraph's text.
+          const emphasised: string[] = [];
+          let from = -1;
+          let to = -1;
+          const close = () => {
+            if (from >= 0) {
+              const phrase = p.text.slice(from, to).trim();
+              if (phrase) emphasised.push(phrase);
+            }
+            from = -1;
+          };
+          for (const n of touched) {
+            if (n.kind === "virtual") {
+              close();
+              continue;
+            }
+            const end = n.textStart + n.text.length;
+            if (visibleFormat(n.rPrXml) !== kept) {
+              if (from < 0) from = n.textStart;
+              to = end;
+            } else if (from >= 0 && n.text.trim() !== "") {
+              close();
+            }
+          }
+          close();
+          flattenedDetail.push({ paragraphIndex: p.index, before: p.text, emphasised });
         }
       }
     }
@@ -604,7 +655,7 @@ export function planParagraphSplices(
     });
   }
 
-  return { splices, skipped, flattened, flattenedDetail, restored };
+  return { splices, skipped, flattened, flattenedDetail, restored, layoutDoubt };
 }
 
 /** Apply splices end-to-start so earlier offsets stay valid. */
@@ -631,9 +682,21 @@ export function applySplices(xml: string, splices: Splice[]): string {
  * byte-for-byte, which is why formatting survives without this code knowing
  * what any of it means.
  */
+export interface RewriteOptions {
+  /** A translation: every doubt — lost emphasis, a layout it could not
+   *  carry — becomes a Word comment on its paragraph. */
+  doubtComments?: boolean;
+  /** Further comments to anchor, from the remap (docxRemap `notes`). */
+  comments?: Array<{ paragraphIndex: number; text: string }>;
+  author?: CommentAuthor;
+}
+
+const BETTY: Omit<CommentAuthor, "date"> = { author: "Betty", initials: "B" };
+
 export async function rewriteDocxText(
   docxBuffer: Buffer,
   edits: Array<{ paragraphIndex: number } & ParagraphTextEdit>,
+  options: RewriteOptions = {},
 ): Promise<{
   buffer: Buffer;
   applied: number;
@@ -645,6 +708,8 @@ export async function rewriteDocxText(
   flattenedDetail: FlattenedParagraph[];
   /** Paragraphs whose emphasis was put back into the author's own run. */
   restored: number;
+  /** Comments Betty left in the document. */
+  comments: number;
 }> {
   const zip = await JSZip.loadAsync(docxBuffer);
   const file = zip.file("word/document.xml");
@@ -678,6 +743,13 @@ export async function rewriteDocxText(
   let flattened = 0;
   let restored = 0;
   const flattenedDetail: FlattenedParagraph[] = [];
+  /** Comment text per paragraph, joined when one paragraph has several. */
+  const notes = new Map<number, string[]>();
+  const note = (i: number, text: string) => {
+    const list = notes.get(i);
+    if (list) list.push(text);
+    else notes.set(i, [text]);
+  };
   for (const [paragraphIndex, list] of byParagraph) {
     const res = planParagraphSplices(index.paragraphs[paragraphIndex], list);
     allSplices.push(...res.splices);
@@ -686,11 +758,50 @@ export async function rewriteDocxText(
     flattened += res.flattened;
     restored += res.restored;
     flattenedDetail.push(...res.flattenedDetail);
+    if (options.doubtComments && res.layoutDoubt) {
+      note(
+        paragraphIndex,
+        "This paragraph had a tab or a line break that could not be carried into the translation. The text is all here; check the layout.",
+      );
+    }
+  }
+  if (options.doubtComments) {
+    for (const f of flattenedDetail) {
+      if (f.emphasised.length === 0) continue;
+      note(
+        f.paragraphIndex,
+        `In the original, ${f.emphasised.map((e) => `“${e}”`).join(", ")} ${f.emphasised.length === 1 ? "was" : "were"} emphasised (italic, bold or similar). Betty could not tell which words of the translation ${f.emphasised.length === 1 ? "it belongs" : "they belong"} to, so this paragraph is in plain text: put the emphasis back where it fits.`,
+      );
+    }
+  }
+  for (const c of options.comments ?? []) note(c.paragraphIndex, c.text);
+
+  // Each commented paragraph gets one comment spanning its whole content.
+  const commentParts: string[] = [];
+  if (notes.size > 0) {
+    const author: CommentAuthor = options.author ?? { ...BETTY, date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") };
+    let id = Math.max(maxId(xml, "w:id"), maxId((await zip.file("word/comments.xml")?.async("string")) ?? "", "w:id")) + 1;
+    for (const [i, texts] of notes) {
+      const para = index.paragraphs[i];
+      if (!para || para.contentStart === undefined || para.closeStart === undefined) continue;
+      allSplices.push(
+        { xmlStart: para.contentStart, xmlEnd: para.contentStart, text: `<w:commentRangeStart w:id="${id}"/>` },
+        {
+          xmlStart: para.closeStart,
+          xmlEnd: para.closeStart,
+          text: `<w:commentRangeEnd w:id="${id}"/><w:r><w:commentReference w:id="${id}"/></w:r>`,
+        },
+      );
+      commentParts.push(commentXml(id, texts.join("\n"), author));
+      id++;
+    }
   }
 
-  zip.file("word/document.xml", applySplices(xml, allSplices));
+  const newXml = applySplices(xml, allSplices);
+  zip.file("word/document.xml", newXml);
+  await writeComments(zip, newXml, commentParts);
   const buffer = Buffer.from(
     await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }),
   );
-  return { buffer, applied, skipped, flattened, flattenedDetail, restored };
+  return { buffer, applied, skipped, flattened, flattenedDetail, restored, comments: commentParts.length };
 }

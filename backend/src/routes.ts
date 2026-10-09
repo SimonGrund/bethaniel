@@ -1892,15 +1892,21 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       return;
     }
 
-    const { edits, unmapped } = remapChaptersToParagraphEdits(
+    const { edits, unmapped, notes: translationNotes } = remapChaptersToParagraphEdits(
       remapMd,
       remapParagraphs,
       indexDocumentXml(xml),
       chapters,
       { wholeParagraphs: translation === true },
     );
-    const { buffer, applied, skipped, flattened, flattenedDetail } =
-      await rewriteDocxText(original.value.buffer, edits);
+    // A translation is always complete: every doubt — a paragraph placed by
+    // similarity or not placed at all, a layout or an emphasis it could not
+    // carry — is a Word comment on that paragraph, not text left behind.
+    const { buffer, applied, skipped, flattened, flattenedDetail, comments } =
+      await rewriteDocxText(original.value.buffer, edits, {
+        doubtComments: translation === true,
+        comments: translation === true ? translationNotes : [],
+      });
     // Phrases, not paragraphs: one paragraph can hold two italic phrases, and
     // "2 paragraphs" would understate what the author has to put back.
     const lostPhrases = flattenedDetail.reduce(
@@ -1924,6 +1930,7 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
     // Counted in phrases because one paragraph can hold two, and each is a
     // separate thing the author has to put back by hand.
     res.setHeader("X-Bethaniel-Lost-Phrases", String(lostPhrases));
+    res.setHeader("X-Bethaniel-Comments", String(comments));
     // Sized to fit the header; see surgicalReport.ts for why that is a budget.
     res.setHeader("X-Bethaniel-Report", buildReportHeader(skipped, unmapped));
     res.send(buffer);

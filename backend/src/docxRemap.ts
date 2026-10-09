@@ -39,7 +39,27 @@ export interface RemapResult {
   /** `chapterIndex` is the edit's position in the `chapters` passed in. */
   edits: Array<{ paragraphIndex: number; chapterIndex: number } & ParagraphTextEdit>;
   unmapped: UnmappedNote[];
+  /** A translation's doubts, as comments to anchor (docxSurgery
+   *  rewriteDocxText `comments`): a paragraph placed by similarity rather
+   *  than by its exact text, or one with no place at all, whose translation
+   *  rides in the comment. In a translation these replace `unmapped`. */
+  notes: Array<{ paragraphIndex: number; text: string }>;
 }
+
+/** Shared words over all words, both sides lowercased: how alike two
+ *  paragraphs read, for placing one whose exact text was not found. */
+function similarity(a: string, b: string): number {
+  const words = (s: string) => new Set(s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1));
+  const x = words(a);
+  const y = words(b);
+  if (x.size === 0 || y.size === 0) return 0;
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared++;
+  return (2 * shared) / (x.size + y.size);
+}
+
+/** At least this alike to be placed by similarity, with a comment. */
+const PLACE_BY_SIMILARITY = 0.6;
 
 /**
  * Reduce a markdown block to the text a Word paragraph would hold.
@@ -394,6 +414,7 @@ export function remapChaptersToParagraphEdits(
 ): RemapResult {
   const edits: RemapResult["edits"] = [];
   const unmapped: UnmappedNote[] = [];
+  const notes: RemapResult["notes"] = [];
   const editsFor = (before: string, after: string): ParagraphTextEdit[] => {
     if (!options.wholeParagraphs) return paragraphEdits(before, after);
     if (before.includes("\t")) {
@@ -497,6 +518,10 @@ export function remapChaptersToParagraphEdits(
         const order: number[] = [expected];
         for (let d = 1; d <= REALIGN_WINDOW; d++) order.push(expected + d, expected - d);
         for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected + d);
+        // Behind as well, for a translation: a pull quote or a text box that
+        // Word holds out of the text's order can put the paragraph back
+        // there, and a translation must be placed, not left out.
+        if (options.wholeParagraphs) for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected - d);
         for (const i of order) {
           const candidate = index.paragraphs[i];
           if (!candidate || claimed.has(i)) continue;
@@ -527,6 +552,44 @@ export function remapChaptersToParagraphEdits(
       // own number stays, and only the prose after it is replaced. Writing
       // markdown's number into the document would renumber the author's list.
       const listMatches = verdict === "list";
+
+      if (!matches && !listMatches && options.wholeParagraphs) {
+        // Still no exact match. A translation goes in regardless: into the
+        // most alike unclaimed paragraph nearby, with a comment to check it,
+        // or — when nothing is alike — into a comment of its own on the
+        // nearest paragraph, so not a word of it is lost.
+        const expected = entry.docxParaIndex + drift;
+        let best = -1;
+        let bestScore = 0;
+        for (let d = -REALIGN_REACH; d <= REALIGN_REACH; d++) {
+          const i = expected + d;
+          const candidate = index.paragraphs[i];
+          if (!candidate || claimed.has(i) || !candidate.text.trim()) continue;
+          const score = similarity(beforePlain, candidate.text);
+          if (score > bestScore) {
+            bestScore = score;
+            best = i;
+          }
+        }
+        if (best >= 0 && bestScore >= PLACE_BY_SIMILARITY) {
+          claimed.add(best);
+          const target = index.paragraphs[best];
+          for (const e of editsFor(target.text, afterPlain)) {
+            edits.push({ paragraphIndex: best, chapterIndex, ...e });
+          }
+          notes.push({
+            paragraphIndex: best,
+            text: `Betty placed this translation where the paragraph reads most like the original, but it did not match exactly. Check it belongs here. Original: “${beforePlain.slice(0, 300)}”`,
+          });
+        } else {
+          const near = Math.min(Math.max(0, expected), index.paragraphs.length - 1);
+          notes.push({
+            paragraphIndex: near,
+            text: `Betty could not find this paragraph in your document, so its translation is here instead. Original: “${beforePlain.slice(0, 300)}” Translation: “${afterPlain}”`,
+          });
+        }
+        continue;
+      }
 
       if (!matches && !listMatches) {
         unmapped.push({
@@ -578,7 +641,7 @@ export function remapChaptersToParagraphEdits(
     }
   }
 
-  return { edits, unmapped };
+  return { edits, unmapped, notes };
 }
 
 /**

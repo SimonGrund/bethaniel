@@ -2296,6 +2296,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
           // Phrases, not paragraphs: the copy counts what the author has to
           // put back, and one paragraph can hold two.
           flattened: report.lostPhrases,
+          // A translation's doubts are comments in the file; an edit's are not.
+          ...(isTranslation ? { comments: report.comments } : {}),
           isTranslation,
         });
         if (warning) {

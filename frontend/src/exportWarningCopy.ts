@@ -20,6 +20,9 @@ export interface ExportWarningInput {
   skipped: number;
   /** Paragraphs replaced whole whose internal emphasis could not survive. */
   flattened: number;
+  /** Comments Betty left in a translated file (every doubt is one). Absent
+   *  from a backend that predates them, which still warns the old way. */
+  comments?: number;
   isTranslation: boolean;
 }
 
@@ -54,8 +57,14 @@ export function exportWarningFor(
   const parts: { key: string; count: number }[] = [];
   if (skipped > 0)
     parts.push({ key: "surgical_partial_translation", count: skipped });
-  if (flattened > 0)
+  if (input.comments !== undefined) {
+    // The translation is complete; every doubt — a placement, a layout, an
+    // emphasis that could not be carried — is a comment in the file itself.
+    if (input.comments > 0)
+      parts.push({ key: "surgical_translation_commented", count: input.comments });
+  } else if (flattened > 0) {
     parts.push({ key: "surgical_flattened", count: flattened });
+  }
   // Never the table: its rows would be paragraph against paragraph.
   return parts.length > 0 ? { parts, showUnapplied: false } : null;
 }

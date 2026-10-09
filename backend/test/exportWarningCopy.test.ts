@@ -116,3 +116,16 @@ test("the emphasis copy points at the notes and counts phrases", async () => {
   for (const lang of ["en", "da", "de", "es"])
     assert.ok(entry[lang].includes("{count}"), `${lang} lost its {count}`);
 });
+
+// ── A translation that carries its doubts as Word comments ──
+test("a complete translation with comments says it is complete, and how many comments", () => {
+  const v = exportWarningFor({ skipped: 0, flattened: 86, comments: 42, isTranslation: true });
+  assert.deepEqual(v?.parts, [{ key: "surgical_translation_commented", count: 42 }]);
+  assert.equal(v?.showUnapplied, false);
+  // The emphasis is in the comments now, not a separate loss to report.
+  assert.ok(!v?.parts.some((p) => p.key === "surgical_flattened"));
+});
+
+test("a complete translation with no doubts warns about nothing", () => {
+  assert.equal(exportWarningFor({ skipped: 0, flattened: 0, comments: 0, isTranslation: true }), null);
+});
