@@ -5133,9 +5133,13 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                     onClick={runExport}
                   >
                     {exportBusy && <span className="btn-spinner" aria-hidden />}
+                    {/* Say so while it works: a pressed button that reads the
+                        same as an unpressed one looks like nothing happened. */}
                     {formattingEbook
                       ? t("formatting_ebook")
-                      : t("download_translated_manuscript")}
+                      : exportBusy
+                        ? t("review_word_busy")
+                        : t("download_translated_manuscript")}
                   </button>
 
                   {/* The sidecar. Offered beside the manuscript rather than

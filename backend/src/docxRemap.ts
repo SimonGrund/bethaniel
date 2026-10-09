@@ -553,7 +553,13 @@ export function remapChaptersToParagraphEdits(
       continue;
     }
 
-    const toEdited = buildOffsetMap(chapter.original, chapter.edited);
+    // Built on first use only. A translation is aligned by paragraph
+    // (alignTranslatedBlocks) and never needs it, and diffing a chapter
+    // against its translation character by character cost 27 seconds on a
+    // book.
+    let offsetMap: ((pos: number) => number) | null = null;
+    const toEdited = (pos: number) =>
+      (offsetMap ??= buildOffsetMap(chapter.original, chapter.edited))(pos);
     // A translation is aligned paragraph to paragraph by length, not by
     // character offsets (alignTranslatedBlocks). Keyed by where each source
     // paragraph starts within the chapter.

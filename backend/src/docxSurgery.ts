@@ -664,19 +664,30 @@ export function planParagraphSplices(
 
 /** Apply splices end-to-start so earlier offsets stay valid. */
 export function applySplices(xml: string, splices: Splice[]): string {
-  const ordered = [...splices].sort((a, b) => b.xmlStart - a.xmlStart);
-  let out = xml;
-  for (const s of ordered) {
-    out = out.slice(0, s.xmlStart) + s.text + out.slice(s.xmlEnd);
+  // One pass, front to back, collecting pieces. Rebuilding the whole string
+  // once per splice cost 70 of the 125 seconds a translated book's export
+  // took: thousands of splices, each copying several megabytes of XML.
+  const ops: Array<{ start: number; end: number; text: string }> = [];
+  for (const s of splices) {
+    ops.push({ start: s.xmlStart, end: s.xmlEnd, text: s.text });
     if (s.addPreserveAt !== undefined) {
-      // The open tag ends just before xmlStart; insert the attribute before ">".
-      const gt = out.lastIndexOf(">", s.xmlStart - 1);
-      if (gt > 0 && !/xml:space/.test(out.slice(Math.max(0, gt - 60), gt))) {
-        out = out.slice(0, gt) + ' xml:space="preserve"' + out.slice(gt);
+      // The open tag ends just before xmlStart; the attribute goes before ">".
+      const gt = xml.lastIndexOf(">", s.xmlStart - 1);
+      if (gt > 0 && !/xml:space/.test(xml.slice(Math.max(0, gt - 60), gt))) {
+        ops.push({ start: gt, end: gt, text: ' xml:space="preserve"' });
       }
     }
   }
-  return out;
+  ops.sort((a, b) => a.start - b.start || a.end - b.end);
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const op of ops) {
+    if (op.start < cursor) continue; // overlapping: never produced, never applied twice
+    parts.push(xml.slice(cursor, op.start), op.text);
+    cursor = op.end;
+  }
+  parts.push(xml.slice(cursor));
+  return parts.join("");
 }
 
 /**

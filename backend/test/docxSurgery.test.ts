@@ -241,3 +241,47 @@ test("a short paragraph is quoted whole, with no ellipses", () => {
   ]);
   assert.equal(r.skipped[0].context, "She was certain of it.");
 });
+
+// ── applySplices: one pass, same result ──
+// It used to rebuild the whole document once per splice — 70 of the 125
+// seconds a translated book's export took. The old algorithm stays here as the
+// reference the one-pass version must agree with, byte for byte.
+test("one-pass applySplices agrees with the splice-at-a-time original", async () => {
+  const { applySplices } = await import("../src/docxSurgery.ts");
+  const reference = (xml: string, splices: { xmlStart: number; xmlEnd: number; text: string; addPreserveAt?: number }[]) => {
+    let out = xml;
+    for (const s of [...splices].sort((a, b) => b.xmlStart - a.xmlStart)) {
+      out = out.slice(0, s.xmlStart) + s.text + out.slice(s.xmlEnd);
+      if (s.addPreserveAt !== undefined) {
+        const gt = out.lastIndexOf(">", s.xmlStart - 1);
+        if (gt > 0 && !/xml:space/.test(out.slice(Math.max(0, gt - 60), gt))) {
+          out = out.slice(0, gt) + ' xml:space="preserve"' + out.slice(gt);
+        }
+      }
+    }
+    return out;
+  };
+  let seed = 7;
+  const rnd = (n: number) => ((seed = (seed * 1103515245 + 12345) % 2 ** 31), seed % n);
+  for (let round = 0; round < 1000; round++) {
+    // A paragraph of runs; splices replace text inside <w:t>, never overlapping.
+    const runs = Array.from({ length: 1 + rnd(8) }, (_, i) => `word${i} `.repeat(1 + rnd(3)));
+    let xml = "<w:p>";
+    const spans: [number, number][] = [];
+    for (const t of runs) {
+      const tag = rnd(3) === 0 ? '<w:t xml:space="preserve">' : "<w:t>";
+      xml += `<w:r>${tag}`;
+      spans.push([xml.length, xml.length + t.length]);
+      xml += `${t}</w:t></w:r>`;
+    }
+    xml += "</w:p>";
+    const splices = spans
+      .filter(() => rnd(2) === 0)
+      .map(([a, b]) => {
+        const from = a + rnd(b - a + 1);
+        const to = from + rnd(b - from + 1);
+        return { xmlStart: from, xmlEnd: to, text: ["", "x", " lead", "trail ", "ny tekst"][rnd(5)], ...(rnd(2) === 0 ? { addPreserveAt: a } : {}) };
+      });
+    assert.equal(applySplices(xml, splices), reference(xml, splices), `round ${round}`);
+  }
+});
