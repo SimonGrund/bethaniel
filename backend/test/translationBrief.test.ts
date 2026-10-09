@@ -466,3 +466,34 @@ test("a glossary in the style guide is decided too, after the list", async () =>
   assert.equal(out.listRows.length, 1, "the style guide is kept where it is, not saved again");
   assert.equal(out.authorNotes, "", "the style guide's prose already reaches the translator");
 });
+
+// ── Ordinary words are not terms ──
+
+const CONTRACT =
+  "# Data Processing Agreement\n\n## 2. Instructions\n\nThe data processor acts. This Data Processing Agreement binds. " +
+  "The data is kept. Under this Data Processing Agreement the processor reports.\n\n## 3. Security\n\nThe processor encrypts data. " +
+  "The Services start. At the end of the Services, the Services stop. In the Services the data processor works.\n\n" +
+  "## 4. Audits\n\nThe auditor checks. A Data Processing Agreement names the Data officer, and Data stays here.";
+
+test("a capital after a heading line or a word also used in lowercase is no name", () => {
+  const cs = collectBriefCandidates(CONTRACT, "en");
+  assert.equal(find(cs, "The", "name"), undefined, "a line after a heading opens a sentence");
+  assert.equal(find(cs, "Data", "name"), undefined, "the text says 'data' too");
+  assert.ok(find(cs, "Services", "name"), "always capitalised: a defined term");
+});
+
+test("Betty's own rows for such words are dropped too", () => {
+  const raw = JSON.stringify({
+    glossary: [
+      { term: "The", rendering: "Der" },
+      { term: "Data", rendering: "Daten" },
+      { term: "Services", rendering: "Leistungen" },
+      { term: "Data Processing Agreement", rendering: "Auftragsverarbeitungsvertrag" },
+    ],
+    questions: [],
+  });
+  assert.deepEqual(
+    parseBriefResponse(raw, CONTRACT)!.glossary.map((r) => r.term),
+    ["Services", "Data Processing Agreement"],
+  );
+});

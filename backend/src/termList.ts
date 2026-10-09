@@ -68,7 +68,7 @@ function toRow(cells: string[]): SavedGlossaryEntry | null {
 }
 
 /** One CSV line, honouring double quotes. */
-function splitCsv(line: string, delim: string): string[] {
+export function splitCsv(line: string, delim: string): string[] {
   const out: string[] = [];
   let cur = "";
   let quoted = false;
@@ -88,7 +88,7 @@ function splitCsv(line: string, delim: string): string[] {
   return out;
 }
 
-function csvDelimiter(lines: string[]): string | null {
+export function csvDelimiter(lines: string[]): string | null {
   if (lines.length < 2) return null;
   for (const d of [";", ","]) {
     const hits = lines.filter((l) => {

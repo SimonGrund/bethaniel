@@ -14,6 +14,7 @@
 import JSZip from "jszip";
 import mammoth from "mammoth";
 import { baseLang } from "./translationBrief.js";
+import { csvDelimiter, splitCsv } from "./termList.js";
 
 export interface TermListLanguages {
   /** The manuscript language code ("en"). */
@@ -135,11 +136,17 @@ export async function extractTermListText(
 ): Promise<string> {
   const ext = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
   switch (ext) {
-    case "csv":
+    case "csv": {
+      // To tab rows, like every other format: pasted lines around an
+      // uploaded CSV must not change whether it reads as a CSV.
+      const lines = buffer.toString("utf8").replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
+      const delim = csvDelimiter(lines) ?? ",";
+      return lines.map((l) => splitCsv(l, delim).map((c) => c.trim()).join("\t")).join("\n");
+    }
     case "tsv":
     case "txt":
     case "md":
-      return buffer.toString("utf8").replace(/^﻿/, "");
+      return buffer.toString("utf8").replace(/^\uFEFF/, "");
     case "tbx":
     case "xml":
       return fromTbx(buffer.toString("utf8"), langs);

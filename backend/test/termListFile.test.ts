@@ -84,3 +84,11 @@ test("Word: a table's rows are rows, its paragraphs are notes", async () => {
 test("a format it cannot read is refused, not guessed at", async () => {
   await assert.rejects(() => extractTermListText("terms.pdf", Buffer.from("%PDF-1.7"), {}), /cannot read/);
 });
+
+test("an uploaded CSV comes back as tab rows, so pasted lines around it do not change how it reads", async () => {
+  const text = await extractTermListText("terms.csv", Buffer.from('source,target\n"personal data breach",Datenpanne\nthird country,Drittstaat\n'), {});
+  assert.equal(text, "source\ttarget\npersonal data breach\tDatenpanne\nthird country\tDrittstaat");
+  const mixed = parseTermList(`${text}\nGDPR = DSGVO\nUse the formal Sie form throughout.\nKeep company names.`);
+  assert.deepEqual(mixed.rows.map((r) => r.rendering), ["Datenpanne", "Drittstaat", "DSGVO"]);
+  assert.equal(mixed.rest, "Use the formal Sie form throughout.\nKeep company names.");
+});

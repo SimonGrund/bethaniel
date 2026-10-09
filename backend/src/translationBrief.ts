@@ -80,6 +80,24 @@ const FUNCTION_WORDS: Record<string, string[]> = {
     "parce").split(" "),
 };
 
+/** True when the word at `index` begins its line, past any Markdown or
+ *  quotation marks: the line after a heading opens a sentence even though
+ *  the heading ended without a full stop. */
+function startsLine(text: string, index: number): boolean {
+  let i = index - 1;
+  while (i >= 0 && /[ \t*_"'“‘«>#-]/.test(text[i])) i--;
+  return i < 0 || text[i] === "\n";
+}
+
+/** Every word the text uses in lowercase somewhere. A capitalised word that
+ *  is also there in lowercase ("Data" beside "data") is an ordinary word
+ *  in a title or at a line start, not a name. */
+function lowercaseWords(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(WORD_RE)) if (m[0][0] === m[0][0].toLowerCase()) out.add(m[0]);
+  return out;
+}
+
 /** Imperial units: the ones a translation into a metric language has to
  *  decide about. Lowercased. "foot" and "stone" are left out — far more
  *  often "on foot" and a stone than a measurement. */
@@ -120,6 +138,7 @@ export function collectBriefCandidates(
   const base = baseLang(lang);
   const honorifics = new Set(HONORIFICS[base] ?? []);
   const nounsCapitalised = capitalisesNouns(base);
+  const lower = nounsCapitalised ? new Set<string>() : lowercaseWords(text);
   const tally = new Map<string, BriefCandidate>();
   const bump = (kind: CandidateKind, term: string, index: number) => {
     const key = `${kind}|${term}`;
@@ -145,8 +164,9 @@ export function collectBriefCandidates(
     }
     const capital = w[0] !== w[0].toLowerCase();
     if (capital) {
-      if (isSentenceInitial(text, i)) continue;
+      if (isSentenceInitial(text, i) || startsLine(text, i)) continue;
       if (nounsCapitalised && (!isKnownWord || isKnownWord(w))) continue;
+      if (lower.has(w.toLowerCase())) continue;
       bump("name", w, i);
     } else if (isKnownWord && w.length >= 4 && !isKnownWord(w)) {
       bump("invented", w, i);
@@ -390,8 +410,17 @@ function samePlural(a: string, b: string): boolean {
   return short.length >= 4 && long.startsWith(short) && long.length - short.length <= 2 && /^\p{L}+$/u.test(long.slice(short.length));
 }
 
-function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): GlossaryRow[] {
+function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>, lang: string): GlossaryRow[] {
   if (!Array.isArray(list)) return [];
+  // The same test as for name candidates, for what the model proposes on
+  // its own: a single function word, or a capitalised word the text also
+  // uses in lowercase, is no term ("The", "Data"). Not in German, where
+  // every noun is capitalised and the lowercase test means nothing.
+  const base = baseLang(lang);
+  const stop = new Set(FUNCTION_WORDS[base] ?? FUNCTION_WORDS.en);
+  const lower = capitalisesNouns(base) ? new Set<string>() : lowercaseWords(sourceText);
+  const ordinary = (term: string) =>
+    !/\s/.test(term) && (stop.has(term.toLowerCase()) || (term[0] !== term[0].toLowerCase() && lower.has(term.toLowerCase())));
   const out: GlossaryRow[] = [];
   const seen = new Set<string>();
   for (const item of list) {
@@ -400,6 +429,7 @@ function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): Gl
     const term = str(o.term);
     // Verbatim in the book, once, and not already a question of its own.
     if (!term || !sourceText.includes(term) || seen.has(term) || asked.has(term)) continue;
+    if (ordinary(term)) continue;
     if (out.some((r) => samePlural(r.term, term))) continue;
     const keep = o.keep === true;
     const rendering = keep ? term : str(o.rendering);
@@ -417,14 +447,14 @@ function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): Gl
  * not be used at all (not JSON, no `questions` array) and is worth a retry;
  * a missing or broken table on its own is just an empty one.
  */
-export function parseBriefResponse(raw: string, sourceText: string): BriefParse | null {
+export function parseBriefResponse(raw: string, sourceText: string, lang = "en"): BriefParse | null {
   const parsed = parseJsonResponse(raw);
   if (!parsed || typeof parsed !== "object") return null;
   const o = parsed as { questions?: unknown; glossary?: unknown };
   if (!Array.isArray(o.questions)) return null;
   const questions = questionsFrom(o.questions, sourceText);
   const asked = new Set(questions.flatMap((q) => (q.term ? [q.term] : [])));
-  return { questions, glossary: glossaryFrom(o.glossary, sourceText, asked) };
+  return { questions, glossary: glossaryFrom(o.glossary, sourceText, asked, lang) };
 }
 
 /** How many saved (or listed) terms one book can bring into its table. */
@@ -544,7 +574,7 @@ export async function runBriefQuestions(
         ? user
         : `${user}\n\nYOUR PREVIOUS RESPONSE WAS NOT VALID JSON IN THE REQUIRED SHAPE. Respond again with STRICT valid JSON only — no prose, no code fences.`;
     const raw = await deps.llm(system, payload, { maxTokens: BRIEF_OUTPUT_TOKENS });
-    const parsed = parseBriefResponse(raw, req.text);
+    const parsed = parseBriefResponse(raw, req.text, req.manuscriptLang);
     if (parsed !== null) return finish(parsed);
   }
   return finish(null);
