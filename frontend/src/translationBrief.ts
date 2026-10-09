@@ -65,6 +65,10 @@ export interface PendingTranslationBrief {
   /** Betty's table, as the author has edited it. Absent in a pending run
    *  saved before the table existed. */
   glossary?: GlossaryRow[];
+  /** The card the author is on. Kept here, not in the component: the
+   *  component is unmounted while a submission is in flight, and a failed
+   *  one must put the author back on the card they left, not the tone. */
+  step?: number;
   /** The questions call failed; only the tone question is on offer. */
   degraded?: boolean;
 }

@@ -79,7 +79,16 @@ export default function TranslationQuestions({
   const setPending = useStore((s) => s.setPendingTranslationBrief);
   // A run saved before the list card existed already has its questions.
   const listDone = pending?.listDone ?? pending?.questions != null;
-  const [step, setStep] = useState(() => (listDone ? 1 : 0));
+  // The card lives in the store with the answers (see `step` on
+  // PendingTranslationBrief): a submission unmounts this component, and a
+  // failed one used to bring the author back on the tone card.
+  const step = pending?.step ?? (listDone ? 1 : 0);
+  const setStep = (next: number | ((s: number) => number)) => {
+    const cur = useStore.getState().pendingTranslationBrief;
+    if (!cur) return;
+    const now = cur.step ?? ((cur.listDone ?? cur.questions != null) ? 1 : 0);
+    setPending({ ...cur, step: typeof next === "function" ? next(now) : next });
+  };
   const [submitting, setSubmitting] = useState(false);
   const [reading, setReading] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
