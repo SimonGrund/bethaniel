@@ -123,10 +123,16 @@ export function parseTermList(text: string): ParsedTermList {
   const rows: SavedGlossaryEntry[] = [];
   const seen = new Set<string>();
   const rest: string[] = [];
-  lines.forEach((line, i) => {
+  // Column headings can only be the first line that has columns — a Word
+  // file often opens with a paragraph above its table.
+  let firstColumns = true;
+  lines.forEach((line) => {
     const cells = cellsOf(line, csv);
     if (cells && cells.length === 0) return; // rule line
-    if (cells && i === 0 && isHeader(cells)) return;
+    if (cells && firstColumns) {
+      firstColumns = false;
+      if (isHeader(cells)) return;
+    }
     const row = cells && cells.length <= 3 ? toRow(cells) : null;
     if (!row) {
       rest.push(line.trim());
