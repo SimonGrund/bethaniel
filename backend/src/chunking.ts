@@ -39,6 +39,14 @@ export function splitIntoChunks(
   const chunks: ChunkData[] = [];
   let currentIndices: number[] = [];
   let currentWords = 0;
+  // How many of currentIndices were carried over from the previous chunk as
+  // context. Only a size cut carries any; a top heading starts clean. The
+  // flushes used to assume one was there regardless, so a chunk opened by a
+  // heading had the heading taken for context — left out of `core` and
+  // stripped from the model's answer ("## 1. Scope" under a title never
+  // reached a translation) — and a seed with nothing after it before the
+  // next heading was flushed as a chunk of its own, printing it twice.
+  let carried = 0;
 
   function wordsIn(idx: number): number {
     return paragraphs[idx].split(/\s+/).filter(Boolean).length;
@@ -56,6 +64,7 @@ export function splitIntoChunks(
     });
     currentIndices = [];
     currentWords = 0;
+    carried = 0;
   }
 
   let i = 0;
@@ -65,18 +74,21 @@ export function splitIntoChunks(
 
     // Break BEFORE a top-level heading to keep chapters intact.
     if (isTopHeading && currentWords > 0) {
-      flush(0); // don't bleed overlap into a new chapter
+      if (carried === currentIndices.length) {
+        // Only the seed so far: it belongs to the chunk already flushed.
+        currentIndices = [];
+        currentWords = 0;
+        carried = 0;
+      } else {
+        flush(carried); // don't bleed overlap into a new chapter
+      }
     }
 
     currentIndices.push(i);
     currentWords += wordsIn(i);
 
     if (currentWords >= targetWords) {
-      const headOverlap =
-        chunks.length === 0
-          ? 0
-          : Math.min(overlapParagraphs, currentIndices.length - 1);
-      flush(headOverlap);
+      flush(Math.min(carried, currentIndices.length - 1));
       // Seed next chunk with the last `overlapParagraphs` paragraphs.
       if (overlapParagraphs > 0 && i + 1 < paragraphs.length) {
         const seedStart = Math.max(0, i + 1 - overlapParagraphs);
@@ -85,16 +97,14 @@ export function splitIntoChunks(
           (_, k) => seedStart + k,
         );
         currentWords = currentIndices.reduce((s, j) => s + wordsIn(j), 0);
+        carried = currentIndices.length;
       }
     }
     i++;
   }
 
-  const headOverlap =
-    chunks.length === 0
-      ? 0
-      : Math.min(overlapParagraphs, currentIndices.length - 1);
-  flush(Math.max(0, headOverlap));
+  // A seed with nothing after it is already in the chunk before.
+  if (carried < currentIndices.length) flush(Math.max(0, Math.min(carried, currentIndices.length - 1)));
   return chunks;
 }
 
