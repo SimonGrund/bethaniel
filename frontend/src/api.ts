@@ -764,6 +764,22 @@ export async function getTranslationQuestions(req: {
   }
 }
 
+/** The term list read by code only (termList.ts): its rows and the rest. */
+export async function parseTermListText(
+  termList: string,
+): Promise<{ rows: ListRow[]; rest: string }> {
+  const res = await apiFetch("/translate/termlist/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ termList }),
+  });
+  const data = await res.json();
+  return {
+    rows: Array.isArray(data.rows) ? data.rows : [],
+    rest: typeof data.rest === "string" ? data.rest : "",
+  };
+}
+
 /** A term-list file read into text for the paste field. */
 export async function extractTermList(
   file: File,

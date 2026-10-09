@@ -31,13 +31,20 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "../i18n";
-import { extractTermList, getTranslationQuestions, saveTranslationGlossary } from "../api";
+import {
+  extractTermList,
+  getTranslationQuestions,
+  parseTermListText,
+  saveTranslationGlossary,
+} from "../api";
 import { useStore } from "../store";
 import type { Lang } from "../types";
 import {
   answeredTermsToSave,
   defaultAnswers,
   glossaryToSave,
+  overlayListRows,
+  questionsOpenAfterList,
   renderTranslationBrief,
   type BriefAnswer,
   type BriefQuestion,
@@ -101,12 +108,13 @@ export default function TranslationQuestions({
     if (!needsQuestions || asking) return;
     asking = true;
     const cur0 = useStore.getState().pendingTranslationBrief;
+    const sent = cur0?.termList ?? "";
     void getTranslationQuestions({
       units,
       targetLang,
       manuscriptLang,
       uiLang: lang,
-      termList: cur0?.termList ?? "",
+      termList: sent,
       styleGuide: styleGuide ?? "",
     })
       .then((r) => {
@@ -119,8 +127,11 @@ export default function TranslationQuestions({
           glossary: r.glossary,
           authorNotes: r.authorNotes,
           listRows: r.listRows,
+          listAsked: sent,
           degraded: r.degraded,
         });
+        // The author went back and changed the list while Betty read it.
+        if ((cur.termList ?? "") !== sent) void relayList();
       })
       .finally(() => {
         asking = false;
@@ -172,7 +183,8 @@ export default function TranslationQuestions({
   const setRow = (i: number, row: GlossaryRow) => {
     if (!pending) return;
     const rows = [...glossary];
-    rows[i] = row;
+    // Marked, so a later change to the list does not undo it.
+    rows[i] = { ...row, edited: true };
     setPending({ ...pending, glossary: rows });
   };
   const addRow = () => {
@@ -236,16 +248,46 @@ export default function TranslationQuestions({
     }
   };
 
+  // The list changed after Betty read it: read the new one by code, lay its
+  // rows over her table and drop the questions it now answers. No second
+  // paid call, and no wait.
+  async function relayList() {
+    const cur = useStore.getState().pendingTranslationBrief;
+    if (!cur) return;
+    const list = cur.termList ?? "";
+    let parsed: { rows: { term: string; rendering: string; keep: boolean }[]; rest: string };
+    try {
+      parsed = await parseTermListText(list);
+    } catch {
+      // Not even the parse: the whole list rides in the brief as notes.
+      parsed = { rows: cur.listRows ?? [], rest: list };
+    }
+    const now = useStore.getState().pendingTranslationBrief;
+    if (!now) return;
+    setPending({
+      ...now,
+      glossary: overlayListRows(now.glossary ?? [], now.listRows ?? [], parsed.rows, units.join("\n\n")),
+      questions: now.questions ? questionsOpenAfterList(now.questions, parsed.rows) : now.questions,
+      listRows: parsed.rows,
+      authorNotes: parsed.rest,
+      listAsked: list,
+    });
+  }
+
   const forward = () => {
     if (onList) {
-      // Betty starts reading now, list in hand; the tone card covers it.
-      if (pending && !listDone) setPending({ ...pending, listDone: true });
+      if (pending && !listDone) {
+        // Betty starts reading now, list in hand; the tone card covers it.
+        setPending({ ...pending, listDone: true });
+      } else if (pending && questions !== null && (pending.termList ?? "") !== (pending.listAsked ?? "")) {
+        void relayList();
+      }
       setStep(1);
     } else if (onLast || done) void submit(false);
     else if (!waiting) setStep((s) => s + 1);
   };
-  // Once Betty has the list, it is not changed under her.
-  const back = () => setStep((s) => Math.max(listDone ? 1 : 0, s - 1));
+  // Back reaches the list too: the author may remember a term late.
+  const back = () => setStep((s) => Math.max(0, s - 1));
 
   // Closing gives up a run that is already paid for. Nothing else to undo:
   // the model only switches to the cloud when the job is submitted.
@@ -505,7 +547,7 @@ export default function TranslationQuestions({
             type="button"
             className="tq-back"
             onClick={back}
-            disabled={step === 0 || (listDone && step === 1)}
+            disabled={step === 0}
           >
             ←
           </button>

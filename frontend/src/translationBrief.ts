@@ -40,6 +40,8 @@ export interface GlossaryRow {
   added?: boolean;
   /** From the author's term list, notes or style-guide glossary. */
   author?: boolean;
+  /** Changed by the author in the table on this run. */
+  edited?: boolean;
 }
 
 /** One answer: an option, or the author's own words ("Other…"). */
@@ -59,6 +61,9 @@ export interface PendingTranslationBrief {
   authorNotes?: string;
   /** Every row of the author's list, kept for the next translation. */
   listRows?: { term: string; rendering: string; keep: boolean }[];
+  /** The list as Betty read it; a different one on the card means the
+   *  author went back and changed it. */
+  listAsked?: string;
   questions: BriefQuestion[] | null;
   tone: Tone;
   answers: Record<string, BriefAnswer>;
@@ -154,4 +159,44 @@ export function renderTranslationBrief(
     "TRANSLATION BRIEF (the author's answers to the translator's questions — these override the style sheet):",
     ...lines,
   ].join("\n");
+}
+
+type ListRow = { term: string; rendering: string; keep: boolean };
+
+/**
+ * The author went back to the list card and changed it after Betty had read
+ * it. Rather than pay for her to read the book again, the new list's rows
+ * are laid over the table: they lead it as the author's, the rows the old
+ * list put there go, and Betty's own rows and the author's edits stay —
+ * unless the new list now names the same term, which wins. `text` is the
+ * book: a listed term it does not contain has no row to show.
+ */
+export function overlayListRows(
+  glossary: GlossaryRow[],
+  oldRows: ListRow[],
+  newRows: ListRow[],
+  text: string,
+): GlossaryRow[] {
+  const lowerText = text.toLowerCase();
+  const seen = new Set<string>();
+  const listed: GlossaryRow[] = [];
+  for (const r of newRows) {
+    const k = r.term.toLowerCase();
+    if (seen.has(k) || !lowerText.includes(k)) continue;
+    seen.add(k);
+    listed.push({ term: r.term, rendering: r.rendering, keep: r.keep, author: true });
+  }
+  const fromOldList = new Set(oldRows.map((r) => r.term.toLowerCase()));
+  const kept = glossary.filter((r) => {
+    const k = r.term.toLowerCase();
+    if (seen.has(k)) return false; // the new list says how
+    return !(r.author && fromOldList.has(k)); // the old list's, now gone
+  });
+  return [...listed, ...kept];
+}
+
+/** Betty's questions the edited list has not answered. */
+export function questionsOpenAfterList(questions: BriefQuestion[], rows: ListRow[]): BriefQuestion[] {
+  const listed = new Set(rows.map((r) => r.term.toLowerCase()));
+  return questions.filter((q) => !q.term || !listed.has(q.term.toLowerCase()));
 }

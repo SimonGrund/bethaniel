@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 
 import {
   answeredTermsToSave,
+  overlayListRows,
+  questionsOpenAfterList,
   defaultAnswers,
   glossaryToSave,
   renderTranslationBrief,
@@ -142,4 +144,44 @@ test("the author's notes go into the brief verbatim", () => {
   assert.match(brief, /AUTHOR'S NOTES/);
   assert.match(brief, /Use formal Sie throughout\.\nNever translate song titles\./);
   assert.equal(renderTranslationBrief("match", [], {}, [], "   "), "");
+});
+
+// ── Going back to the list after Betty has read it ──
+
+test("an edited list re-lays its rows over the table, keeping Betty's and the author's own edits", () => {
+  const glossary = [
+    { term: "GDPR", rendering: "DSGVO", keep: false, author: true }, // from the old list
+    { term: "data subject", rendering: "betroffene Person", keep: false }, // Betty's
+    { term: "Annex 2", rendering: "Anlage 2", keep: false, edited: true }, // Betty's, changed by the author
+    { term: "DPO", rendering: "DSB", keep: false, author: true }, // from the old list, now removed from it
+  ];
+  const oldRows = [
+    { term: "GDPR", rendering: "DSGVO", keep: false },
+    { term: "DPO", rendering: "DSB", keep: false },
+  ];
+  const newRows = [
+    { term: "GDPR", rendering: "GDPR", keep: true },
+    { term: "data subject", rendering: "Betroffener", keep: false },
+    { term: "SCCs", rendering: "SCC", keep: false },
+    { term: "not in this book", rendering: "x", keep: false },
+  ];
+  const book = "Under GDPR the data subject has rights. See Annex 2. The DPO and the SCCs.";
+  assert.deepEqual(overlayListRows(glossary, oldRows, newRows, book), [
+    { term: "GDPR", rendering: "GDPR", keep: true, author: true },
+    { term: "data subject", rendering: "Betroffener", keep: false, author: true },
+    { term: "SCCs", rendering: "SCC", keep: false, author: true },
+    { term: "Annex 2", rendering: "Anlage 2", keep: false, edited: true },
+  ]);
+});
+
+test("a question the edited list now answers is dropped", () => {
+  const qs: BriefQuestion[] = [
+    { id: "a", term: "SCCs", question: "?", options: [{ id: "x", label: "x" }, { id: "y", label: "y" }], suggested: "x", why: "" },
+    { id: "b", term: "DPO", question: "?", options: [{ id: "x", label: "x" }, { id: "y", label: "y" }], suggested: "x", why: "" },
+    { id: "c", question: "Units?", options: [{ id: "x", label: "x" }, { id: "y", label: "y" }], suggested: "x", why: "" },
+  ];
+  assert.deepEqual(
+    questionsOpenAfterList(qs, [{ term: "scCs", rendering: "SCC", keep: false }]).map((q) => q.id),
+    ["b", "c"],
+  );
 });

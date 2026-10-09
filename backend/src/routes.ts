@@ -2885,6 +2885,14 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
   }
 });
 
+// The term list read without the model: what the app needs when the author
+// goes back and changes the list after Betty has read it (no second paid
+// call — the new rows are laid over her table instead).
+router.post("/translate/termlist/parse", (req: Request, res: Response) => {
+  const text = typeof req.body?.termList === "string" ? req.body.termList.slice(0, 200_000) : "";
+  res.json(parseTermList(text));
+});
+
 // A term list uploaded on the term-list card, read into text for the paste
 // field (termListFile.ts): the author sees what was read before it counts.
 router.post(
