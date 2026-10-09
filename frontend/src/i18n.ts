@@ -6660,6 +6660,36 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "deine",
     es: "tuyo",
   },
+  tb_close: {
+    en: "Close",
+    da: "Luk",
+    de: "Schließen",
+    es: "Cerrar",
+  },
+  tb_close_q: {
+    en: "Close without translating?",
+    da: "Luk uden at oversætte?",
+    de: "Ohne Übersetzung schließen?",
+    es: "¿Cerrar sin traducir?",
+  },
+  tb_close_body: {
+    en: "Your payment for this translation has already been taken. If you close now, it is spent and no translation is made.",
+    da: "Din betaling for denne oversættelse er allerede trukket. Lukker du nu, er pengene brugt, og der bliver ikke lavet nogen oversættelse.",
+    de: "Deine Zahlung für diese Übersetzung ist bereits erfolgt. Wenn du jetzt schließt, ist das Geld ausgegeben, und es wird keine Übersetzung erstellt.",
+    es: "El pago de esta traducción ya se ha cobrado. Si cierras ahora, el dinero se pierde y no se hace ninguna traducción.",
+  },
+  tb_close_keep: {
+    en: "Keep going",
+    da: "Fortsæt",
+    de: "Weitermachen",
+    es: "Continuar",
+  },
+  tb_close_confirm: {
+    en: "Close and lose the payment",
+    da: "Luk og mist betalingen",
+    de: "Schließen, Zahlung verfällt",
+    es: "Cerrar y perder el pago",
+  },
   tb_skip: {
     en: "skip — use Betty's judgement",
     da: "spring over — brug Bettys skøn",

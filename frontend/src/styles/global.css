@@ -5646,6 +5646,53 @@ summary.review-source::before {
   animation: focus-in 0.2s ease;
 }
 
+/* Like the review deck's close: quiet on the dark, top right. */
+.tq-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #b8a888;
+  font: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.tq-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tq-card.tq-card--warn {
+  border-left-color: #b4553f;
+}
+
+.tq-card--warn .tq-question {
+  margin-bottom: 0.5rem;
+}
+
+.tq-card--warn .tq-why.tq-why--lead {
+  margin: 0;
+}
+
+.tq-danger {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  color: #e8b4a6;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tq-danger:hover {
+  background: rgba(180, 85, 63, 0.25);
+  color: #fff;
+}
+
 .tq-panel {
   width: min(36rem, 100%);
   transition: width 0.25s ease;

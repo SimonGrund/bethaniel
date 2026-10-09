@@ -22,9 +22,11 @@
 // starts, so the next book begins with these decided. Then her questions,
 // for the few real dilemmas.
 //
-// It cannot be dismissed: the run is paid for. Skip starts it on Betty's
-// suggestions, and if her questions could not be prepared the tone question
-// alone is enough to go on.
+// The run is paid for, so closing is never one click: the ✕ (or Escape)
+// first says plainly that the payment is spent without a translation, with
+// "keep going" as the default. Skip starts the run on Betty's suggestions,
+// and if her questions could not be prepared the tone question alone is
+// enough to go on.
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -80,6 +82,7 @@ export default function TranslationQuestions({
   const [step, setStep] = useState(() => (listDone ? 1 : 0));
   const [submitting, setSubmitting] = useState(false);
   const [reading, setReading] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const otherRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -235,9 +238,16 @@ export default function TranslationQuestions({
   // Once Betty has the list, it is not changed under her.
   const back = () => setStep((s) => Math.max(listDone ? 1 : 0, s - 1));
 
+  // Closing gives up a run that is already paid for. Nothing else to undo:
+  // the model only switches to the cloud when the job is submitted.
+  const closeForGood = () => {
+    setConfirmClose(false);
+    setPending(null);
+  };
+
   // The keys, read through a ref so the listener mounts once.
-  const keysRef = useRef({ forward, back, choose, choices });
-  keysRef.current = { forward, back, choose, choices };
+  const keysRef = useRef({ forward, back, choose, choices, confirmClose, setConfirmClose });
+  keysRef.current = { forward, back, choose, choices, confirmClose, setConfirmClose };
   const open = pending !== null;
   useEffect(() => {
     if (!open) return;
@@ -245,6 +255,20 @@ export default function TranslationQuestions({
       const inText = e.target instanceof HTMLTextAreaElement;
       const typing = e.target instanceof HTMLInputElement || inText;
       const k = keysRef.current;
+      // The close question owns the keys while it is up: Escape and Enter
+      // both mean "keep going", the default.
+      if (k.confirmClose) {
+        if (e.key === "Escape" || e.key === "Enter") {
+          e.preventDefault();
+          k.setConfirmClose(false);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        k.setConfirmClose(true);
+        return;
+      }
       // In the list, Enter is a new line; ⌘/Ctrl+Enter goes on.
       if (e.key === "Enter" && inText && !(e.metaKey || e.ctrlKey)) return;
       if (e.key === "Enter") {
@@ -281,6 +305,31 @@ export default function TranslationQuestions({
 
   return createPortal(
     <div className="tq" role="dialog" aria-modal="true" aria-label={t("tb_title")}>
+      <button
+        type="button"
+        className="tq-close"
+        onClick={() => setConfirmClose(true)}
+        title={`${t("tb_close")} — Esc`}
+        aria-label={t("tb_close")}
+      >
+        ✕
+      </button>
+      {confirmClose ? (
+        <div className="tq-panel">
+          <div className="tq-card tq-card--warn" role="alertdialog" aria-labelledby="tqCloseQ" aria-describedby="tqCloseBody">
+            <p className="tq-question" id="tqCloseQ">{t("tb_close_q")}</p>
+            <p className="tq-why tq-why--lead" id="tqCloseBody">{t("tb_close_body")}</p>
+          </div>
+          <div className="tq-foot">
+            <button type="button" className="tq-danger" onClick={closeForGood}>
+              {t("tb_close_confirm")}
+            </button>
+            <button type="button" className="tq-next" onClick={() => setConfirmClose(false)} autoFocus>
+              {t("tb_close_keep")}
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className={`tq-panel${onTable ? " tq-panel--wide" : ""}`}>
         <div className="tq-head">
           <span className="tq-title">{t("tb_title")}</span>
@@ -498,6 +547,7 @@ export default function TranslationQuestions({
           )}
         </p>
       </div>
+      )}
     </div>,
     document.body,
   );
