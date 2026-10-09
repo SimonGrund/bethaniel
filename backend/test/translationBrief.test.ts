@@ -172,7 +172,8 @@ test("the runner retries once on a bad answer, then gives up with no questions",
     { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
     { llm: async () => (m++, "still nope") },
   );
-  assert.deepEqual(none, { questions: [], glossary: [] });
+  assert.deepEqual(none.questions, []);
+  assert.deepEqual(none.glossary, []);
   assert.equal(m, 2);
 });
 
@@ -298,7 +299,8 @@ test("the runner merges the saved glossary, even when the model's answer is unus
     { text: BOOK, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
     { llm: async () => "nope", savedGlossary: saved },
   );
-  assert.deepEqual(out, { questions: [], glossary: [{ ...saved[0], saved: true }] });
+  assert.deepEqual(out.questions, []);
+  assert.deepEqual(out.glossary, [{ ...saved[0], saved: true }]);
 });
 
 test("the prompt asks for the table, rendered in the target language", async () => {
@@ -326,8 +328,8 @@ test("what is saved is trimmed, deduplicated and bounded", () => {
     { term: "Kragehøj", rendering: "Kragehøj", keep: true },
   ]);
   assert.deepEqual(glossaryRowsToSave("not an array"), []);
-  const many = Array.from({ length: 250 }, (_, i) => ({ term: `t${i}`, rendering: "r", keep: false }));
-  assert.equal(glossaryRowsToSave(many).length, 200);
+  const many = Array.from({ length: 1200 }, (_, i) => ({ term: `t${i}`, rendering: "r", keep: false }));
+  assert.equal(glossaryRowsToSave(many).length, 1000);
 });
 
 // ── What is already decided stays decided ──
@@ -393,4 +395,74 @@ test("a row that is another's plural is the same term", () => {
     book,
   );
   assert.deepEqual(merged.map((r) => r.term), ["data subject"]);
+});
+
+// ── The author's term list, merged with Betty's reading ──
+
+const DPA = "The data controller signs. The data controller pays. Under GDPR, the sub-processor reports. The DPO audits. joint controllers share.";
+
+test("the author's list rows are decided: in the table as theirs, never asked about", async () => {
+  let user = "";
+  const out = await runBriefQuestions(
+    {
+      text: DPA,
+      manuscriptLang: "en",
+      targetLang: "German",
+      uiLang: "da",
+      termList: "Data Controller = Verantwortlicher\nGDPR = DSGVO\nAudit Committee = Prüfungsausschuss\nUse formal Sie throughout.",
+    },
+    {
+      llm: async (_s, u) => {
+        user = u;
+        return JSON.stringify({
+          glossary: [
+            { term: "GDPR", rendering: "GDPR" },
+            { term: "joint controllers", rendering: "gemeinsam Verantwortliche" },
+            { term: "DPO", rendering: "DSB", fromNotes: true },
+          ],
+          questions: [q({ id: "g", term: "GDPR" }), q({ id: "s", term: "sub-processor" })],
+        });
+      },
+    },
+  );
+  const payload = JSON.parse(user);
+  assert.deepEqual(payload.decided.slice(0, 2), [
+    { term: "Data Controller", rendering: "Verantwortlicher" },
+    { term: "GDPR", rendering: "DSGVO" },
+  ]);
+  assert.equal(payload.authorNotes, "Use formal Sie throughout.");
+  assert.deepEqual(out.questions.map((x) => x.id), ["s"]);
+  // The author's rows lead: the list's in its order, then the one Betty
+  // made from their notes, then hers.
+  assert.deepEqual(out.glossary, [
+    { term: "Data Controller", rendering: "Verantwortlicher", keep: false, author: true },
+    { term: "GDPR", rendering: "DSGVO", keep: false, author: true },
+    { term: "DPO", rendering: "DSB", keep: false, author: true },
+    { term: "joint controllers", rendering: "gemeinsam Verantwortliche", keep: false },
+  ]);
+  assert.equal(out.authorNotes, "Use formal Sie throughout.");
+  // The whole list is kept for saving, terms this book lacks included.
+  assert.deepEqual(out.listRows.map((r) => r.term), ["Data Controller", "GDPR", "Audit Committee"]);
+});
+
+test("a glossary in the style guide is decided too, after the list", async () => {
+  let user = "";
+  const out = await runBriefQuestions(
+    {
+      text: DPA,
+      manuscriptLang: "en",
+      targetLang: "German",
+      uiLang: "en",
+      termList: "GDPR = DSGVO",
+      styleGuide: "Spell out numbers.\nGDPR = General Data Protection Regulation\nsub-processor = Unterauftragsverarbeiter",
+    },
+    { llm: async (_s, u) => ((user = u), '{"glossary": [], "questions": []}') },
+  );
+  assert.deepEqual(
+    JSON.parse(user).decided.map((d: { term: string; rendering: string }) => `${d.term}=${d.rendering}`),
+    ["GDPR=DSGVO", "sub-processor=Unterauftragsverarbeiter"],
+  );
+  assert.deepEqual(out.glossary.map((r) => r.term), ["GDPR", "sub-processor"]);
+  assert.equal(out.listRows.length, 1, "the style guide is kept where it is, not saved again");
+  assert.equal(out.authorNotes, "", "the style guide's prose already reaches the translator");
 });

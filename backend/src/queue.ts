@@ -128,6 +128,7 @@ import {
   MAX_AUTO_ATTEMPTS,
   chunkRetryLimit,
   DraftRejectedError,
+  MAX_OUTPUT_ATTEMPTS,
   isRateLimitError,
   retryWaitMs,
 } from "./retryPolicy.js";
@@ -2493,7 +2494,19 @@ async function processJob(job: JobData): Promise<void> {
             // until it is worth building on.
             if (mode === "translate") {
               const check = draftGuard(chunk.body, acc.trim());
-              if (!check.ok) throw new DraftRejectedError(check.reason);
+              if (!check.ok && check.soft && attempt >= MAX_OUTPUT_ATTEMPTS) {
+                // A soft fault on the last try: keep this draft rather than
+                // fail the chunk into its untranslated source.
+                appendLog({
+                  level: "warn",
+                  source: "engine",
+                  taskId,
+                  message: `Chunk ${chunkLabel}: kept the translation although ${check.reason}`,
+                  model,
+                });
+              } else if (!check.ok) {
+                throw new DraftRejectedError(check.reason);
+              }
             }
             lastErr = null;
             break; // success

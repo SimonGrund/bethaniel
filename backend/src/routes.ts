@@ -123,6 +123,8 @@ import {
   mergeSavedGlossary,
   runBriefQuestions,
 } from "./translationBrief.js";
+import { parseTermList } from "./termList.js";
+import { extractTermListText } from "./termListFile.js";
 
 /** The model id a Betty in the Cloud run is submitted under (EditTrigger). */
 const CLOUD_MODEL_ID = "custom:bethaniel-cloud";
@@ -831,7 +833,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // so this one string is all the wiring there is. Capped: it is a short
     // list of choices, never a manuscript.
     const translateNotes = combineTranslationNotes(
-      typeof translationBrief === "string" ? translationBrief.slice(0, 12_000) : "",
+      typeof translationBrief === "string" ? translationBrief.slice(0, 20_000) : "",
       authorStyleGuide,
     );
 
@@ -2843,6 +2845,9 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
         manuscriptLang,
         targetLang,
         uiLang: typeof body.uiLang === "string" ? body.uiLang : "en",
+        // Bounded: a long client list is welcome, a pasted manuscript is not.
+        termList: typeof body.termList === "string" ? body.termList.slice(0, 200_000) : "",
+        styleGuide: typeof body.styleGuide === "string" ? body.styleGuide.slice(0, 200_000) : "",
       },
       {
         llm: async (system, user) => {
@@ -2860,14 +2865,40 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
     console.warn(
       `[Brief] questions unavailable: ${err instanceof Error ? err.message : String(err)}`,
     );
-    // The author's own saved terms still stand without the model.
+    // The author's own terms still stand without the model: the list's
+    // rows first, then what they saved before.
+    const list = parseTermList(typeof body.termList === "string" ? body.termList.slice(0, 200_000) : "");
     res.json({
       questions: [],
-      glossary: mergeSavedGlossary([], savedGlossary, text),
+      glossary: mergeSavedGlossary(mergeSavedGlossary([], savedGlossary, text), list.rows, text, "author"),
+      authorNotes: list.rest,
+      listRows: list.rows,
       degraded: true,
     });
   }
 });
+
+// A term list uploaded on the term-list card, read into text for the paste
+// field (termListFile.ts): the author sees what was read before it counts.
+router.post(
+  "/translate/termlist/extract",
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const text = await extractTermListText(uploadFileName(req.file.originalname), req.file.buffer, {
+        sourceLang: typeof req.body?.sourceLang === "string" ? req.body.sourceLang : undefined,
+        targetLang: typeof req.body?.targetLang === "string" ? req.body.targetLang : undefined,
+      });
+      res.json({ text: text.slice(0, 200_000) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+);
 
 // The table the author settled, saved when the translation starts so the
 // next one in this language pair begins with it (db.ts).

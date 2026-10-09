@@ -312,3 +312,19 @@ test("draftGuard: a short source is not judged on length", () => {
   // where a few characters either way is a large ratio.
   assert.deepEqual(draftGuard("Yes.", "Ja."), { ok: true });
 });
+
+// Seen on a real German run of a contract: "## 1. Scope", right under the
+// document's title, never reached the translation. Every word of the section
+// was there, so no length check could see it — but the heading count can.
+test("draftGuard rejects a draft that dropped a heading", () => {
+  const source = "# Data Processing Agreement\n\n## 1. Scope\n\nThis agreement forms part of the Services Agreement between the parties.";
+  const dropped = "# Auftragsverarbeitungsvertrag\n\nDieser Vertrag ist Bestandteil des Dienstleistungsvertrags zwischen den Parteien.";
+  const kept = "# Auftragsverarbeitungsvertrag\n\n## 1. Geltungsbereich\n\nDieser Vertrag ist Bestandteil des Dienstleistungsvertrags zwischen den Parteien.";
+  const r = draftGuard(source, dropped);
+  assert.equal(r.ok, false);
+  assert.match((r as { reason: string }).reason, /heading/);
+  // Soft: the chunk loop re-rolls once, then keeps the draft rather than
+  // shipping the untranslated source.
+  assert.equal((r as { soft?: true }).soft, true);
+  assert.deepEqual(draftGuard(source, kept), { ok: true });
+});

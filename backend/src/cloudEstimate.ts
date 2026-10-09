@@ -156,13 +156,14 @@ function wordsToTokens(words: number): number {
 const FLUENCY_VERDICT_TOKENS = 560;
 
 /** Betty's questions before a translation (translationBrief.ts): a fixed
- *  prompt, at most 60 candidates and four ~300-word excerpts, whatever the
- *  book's length. */
-const BRIEF_QUESTIONS_INPUT_TOKENS = 4500;
+ *  prompt, at most 60 candidates, four ~300-word excerpts, up to 150 decided
+ *  terms and the author's notes — whatever the book's length. */
+const BRIEF_QUESTIONS_INPUT_TOKENS = 6500;
 
-/** The brief the answers become — up to forty glossary rows and a few
- *  answers — rides in the notes of every translation stage of every chunk. */
-const BRIEF_NOTES_TOKENS = 900;
+/** The brief the answers become — the glossary, a few answers and the
+ *  author's notes — rides in the notes of every translation stage of every
+ *  chunk. */
+const BRIEF_NOTES_TOKENS = 1500;
 
 /** Share of chunks the fluency reviewer sends back for a re-polish. One
  *  paragraph in fourteen was flagged on the GLM-5.2 EN->DA sample; this stays

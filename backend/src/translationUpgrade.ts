@@ -67,7 +67,7 @@ const LENGTH_CHECK_MIN_CHARS = 80;
 export function draftGuard(
   source: string,
   draft: string,
-): { ok: true } | { ok: false; reason: string } {
+): { ok: true } | { ok: false; reason: string; soft?: true } {
   const d = draft.trim();
   if (!d) return { ok: false, reason: "empty translation output" };
 
@@ -81,6 +81,20 @@ export function draftGuard(
       ok: false,
       reason: `translation too short (${d.length}/${src.length} chars) — the chunk was probably truncated`,
     };
+
+  // A heading is a line of its own, and a model folding two of them into one
+  // (a title straight over a section heading) loses one without a word of
+  // the prose going missing — so no length check sees it. Seen on a real
+  // contract: "## 1. Scope" never reached the German. More headings than the
+  // source is left alone; fewer means one was lost. SOFT: worth a re-roll,
+  // but a draft that drops it twice is still kept — the chunk loop's failure
+  // path ships the untranslated source, and a missing heading is far less
+  // damage than an untranslated section.
+  const headings = (t: string) => (t.match(/^#{1,6}\s+\S/gm) ?? []).length;
+  const want = headings(src);
+  const got = headings(d);
+  if (got < want)
+    return { ok: false, reason: `a heading was dropped (${got} of ${want})`, soft: true };
 
   return { ok: true };
 }

@@ -13,6 +13,7 @@ import { capitalisesNouns, isSentenceInitial } from "./spellcheck.js";
 import { parseJsonResponse } from "./llm.js";
 import { buildBriefQuestionsPrompt } from "./prompts.js";
 import type { LlmCall } from "./storyAnalysis.js";
+import { parseTermList } from "./termList.js";
 
 export type CandidateKind =
   | "name"
@@ -288,14 +289,27 @@ export interface GlossaryRow {
   keep: boolean;
   /** Came from the author's saved glossary for this language pair. */
   saved?: boolean;
+  /** The author's own: from their term list, their notes or their style
+   *  guide's glossary. */
+  author?: boolean;
 }
 
 /** What the saved glossary holds for one language pair (db.ts). */
 export type SavedGlossaryEntry = Omit<GlossaryRow, "saved">;
 
-export interface BriefResult {
+/** What one answer from the model holds. */
+export interface BriefParse {
   questions: BriefQuestion[];
   glossary: GlossaryRow[];
+}
+
+export interface BriefResult extends BriefParse {
+  /** The author's term list, the lines that were not rows — kept verbatim
+   *  for the brief. */
+  authorNotes: string;
+  /** Every row of the author's list, terms this book lacks included: the
+   *  whole list is saved for the next translation in the language pair. */
+  listRows: SavedGlossaryEntry[];
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -391,7 +405,8 @@ function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): Gl
     const rendering = keep ? term : str(o.rendering);
     if (!rendering) continue;
     seen.add(term);
-    out.push({ term, rendering, keep });
+    // A row Betty made from the author's own notes is the author's decision.
+    out.push(o.fromNotes === true ? { term, rendering, keep, author: true } : { term, rendering, keep });
     if (out.length === MAX_GLOSSARY_ROWS) break;
   }
   return out;
@@ -402,7 +417,7 @@ function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): Gl
  * not be used at all (not JSON, no `questions` array) and is worth a retry;
  * a missing or broken table on its own is just an empty one.
  */
-export function parseBriefResponse(raw: string, sourceText: string): BriefResult | null {
+export function parseBriefResponse(raw: string, sourceText: string): BriefParse | null {
   const parsed = parseJsonResponse(raw);
   if (!parsed || typeof parsed !== "object") return null;
   const o = parsed as { questions?: unknown; glossary?: unknown };
@@ -412,8 +427,8 @@ export function parseBriefResponse(raw: string, sourceText: string): BriefResult
   return { questions, glossary: glossaryFrom(o.glossary, sourceText, asked) };
 }
 
-/** How many saved terms one book can bring into its table. */
-const MAX_SAVED_ROWS = 100;
+/** How many saved (or listed) terms one book can bring into its table. */
+const MAX_SAVED_ROWS = 300;
 
 /**
  * The author's saved glossary for this language pair, laid over Betty's
@@ -424,26 +439,39 @@ export function mergeSavedGlossary(
   rows: GlossaryRow[],
   saved: SavedGlossaryEntry[],
   sourceText: string,
+  /** What the laid-over rows are: the saved glossary, or the author's list. */
+  mark: "saved" | "author" = "saved",
 ): GlossaryRow[] {
-  const inBook = saved.filter((e) => e.term && sourceText.includes(e.term)).slice(0, MAX_SAVED_ROWS);
+  const lowerText = sourceText.toLowerCase();
+  const inBook = saved
+    .filter((e) => e.term && lowerText.includes(e.term.toLowerCase()))
+    .slice(0, MAX_SAVED_ROWS);
+  const marked = (e: SavedGlossaryEntry): GlossaryRow =>
+    mark === "author"
+      ? { term: e.term, rendering: e.rendering, keep: e.keep, author: true }
+      : { term: e.term, rendering: e.rendering, keep: e.keep, saved: true };
   const out: GlossaryRow[] = [];
   const listed = new Set<string>();
   for (const r of rows) {
     // A saved entry for this term — or for it in the other number — wins.
     const e = inBook.find((e) => e.term === r.term) ?? inBook.find((e) => samePlural(e.term, r.term));
-    const row = e ? { term: e.term, rendering: e.rendering, keep: e.keep, saved: true } : r;
+    const row = e ? marked(e) : r;
     if (listed.has(row.term)) continue;
     listed.add(row.term);
     out.push(row);
   }
   for (const e of inBook) {
-    if (!listed.has(e.term)) out.push({ term: e.term, rendering: e.rendering, keep: e.keep, saved: true });
+    if (!listed.has(e.term)) out.push(marked(e));
   }
   return out;
 }
 
 export interface BriefRequest {
   text: string;
+  /** What the author pasted or uploaded on the term-list card. */
+  termList?: string;
+  /** The author's style sheet; a glossary in it counts as decided. */
+  styleGuide?: string;
   manuscriptLang: string;
   /** A language name, as the wizard stores it ("French"). */
   targetLang: string;
@@ -475,31 +503,67 @@ export async function runBriefQuestions(
     targetLanguage: req.targetLang,
     uiLanguage: UI_LANGS.has(ui) ? LANGUAGE_NAMES[ui] : "English",
   });
-  // What the author settled on an earlier translation in this language pair
-  // is not Betty's to ask about again (mergeSavedGlossary puts it in the table).
+  // Decided before Betty reads a word, in this order of authority: the
+  // author's list on this run, a glossary in their style sheet, then what
+  // they settled on an earlier translation in this language pair. None of it
+  // is hers to ask about again; all of it is what her own suggestions must
+  // stay consistent with.
+  const list = parseTermList(req.termList ?? "");
+  const sheetRows = parseTermList(req.styleGuide ?? "").rows;
   const lowerText = req.text.toLowerCase();
-  const saved = (deps.savedGlossary ?? []).filter((e) => lowerText.includes(e.term.toLowerCase()));
-  const decided = new Set(saved.map((e) => e.term.toLowerCase()));
+  const inBook = (e: SavedGlossaryEntry) => lowerText.includes(e.term.toLowerCase());
+  const author = uniqueTerms([...list.rows, ...sheetRows]).filter(inBook);
+  const saved = (deps.savedGlossary ?? []).filter(inBook);
+  const decidedEntries = uniqueTerms([...author, ...saved]).slice(0, MAX_DECIDED);
+  const decided = new Set(decidedEntries.map((e) => e.term.toLowerCase()));
+  const authorNotes = list.rest.slice(0, MAX_NOTES_CHARS);
   const user = JSON.stringify({
     candidates,
     excerpts: sampleExcerpts(req.text),
-    decided: saved.map((e) => e.term),
+    decided: decidedEntries.map(({ term, rendering }) => ({ term, rendering })),
+    authorNotes,
   });
+  const finish = (parsed: BriefParse | null): BriefResult => {
+    const fromSaved = mergeSavedGlossary(parsed?.glossary ?? [], saved, req.text);
+    const merged = mergeSavedGlossary(fromSaved, author, req.text, "author");
+    // The author's own rows lead the table — their list's in its order, then
+    // what Betty took from their notes — then the saved ones, then hers.
+    const listed = new Map(author.map((e, i) => [e.term, i]));
+    const rank = (r: GlossaryRow) =>
+      listed.has(r.term) ? listed.get(r.term)! : r.author ? 1e4 : r.saved ? 2e4 : 3e4;
+    return {
+      questions: (parsed?.questions ?? []).filter((q) => !q.term || !decided.has(q.term.toLowerCase())),
+      glossary: merged.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r),
+      authorNotes: list.rest,
+      listRows: list.rows,
+    };
+  };
   for (let attempt = 0; attempt < 2; attempt++) {
     const payload =
       attempt === 0
         ? user
         : `${user}\n\nYOUR PREVIOUS RESPONSE WAS NOT VALID JSON IN THE REQUIRED SHAPE. Respond again with STRICT valid JSON only — no prose, no code fences.`;
     const raw = await deps.llm(system, payload, { maxTokens: BRIEF_OUTPUT_TOKENS });
-    const result = parseBriefResponse(raw, req.text);
-    if (result !== null) {
-      return {
-        questions: result.questions.filter((q) => !q.term || !decided.has(q.term.toLowerCase())),
-        glossary: mergeSavedGlossary(result.glossary, deps.savedGlossary ?? [], req.text),
-      };
-    }
+    const parsed = parseBriefResponse(raw, req.text);
+    if (parsed !== null) return finish(parsed);
   }
-  return { questions: [], glossary: mergeSavedGlossary([], deps.savedGlossary ?? [], req.text) };
+  return finish(null);
+}
+
+/** At most this many decided terms go to the model by name. */
+const MAX_DECIDED = 150;
+/** The author's notes the model reads; the brief carries them in full. */
+const MAX_NOTES_CHARS = 4000;
+
+/** One entry per term, ignoring case; the first wins. */
+function uniqueTerms(entries: SavedGlossaryEntry[]): SavedGlossaryEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((e) => {
+    const k = e.term.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 /**
@@ -517,7 +581,7 @@ export function combineTranslationNotes(brief: string, styleGuide: string): stri
 
 /** At most this many rows are saved from one run, each term and rendering
  *  at most this long — the table is a list of terms, never a manuscript. */
-const MAX_SAVE_ROWS = 200;
+const MAX_SAVE_ROWS = 1000;
 const MAX_TERM_CHARS = 200;
 
 /** The rows a run's table saves, from whatever the app sent: trimmed, one
