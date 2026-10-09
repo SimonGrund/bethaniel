@@ -85,6 +85,8 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `chunking.ts` | Split manuscript into word-count chunks with paragraph overlap |
 | `translationUpgrade.ts` | Post-translation target-language polish pass + fluency review loop (stages 3–4 of translate mode) |
 | `translationBrief.ts` | Betty's questions before a paid translation. Candidates (names, invented words, honorifics, units, titles) are counted over the whole book with no LLM, capped at 40; the paid model gets those plus four excerpts and returns at most 5 multiple-choice questions in the author's interface language, each validated on its own (a `term` not in the book is dropped). `combineTranslationNotes` puts the resulting brief ahead of the style sheet in the translate task's `styleGuide`, which the draft, polish, fluency review and retries all read |
+| `termList.ts` | The author's term list, from the first card after payment. Rows ("term = translation", tab or CSV columns, a Markdown table, a third "keep" column) are read by code exactly as written — a client's 300-term list must not pass through a model that could reword it — and every other line is free text: Betty turns it into rows and decisions, and the brief carries it verbatim. A cell that looks like a sentence disqualifies its line, because a sentence read as a row becomes a binding term |
+| `termListFile.ts` | A term-list upload (CSV, Excel via JSZip, Word tables via mammoth, TBX by language, text) read into tab-separated lines for the paste field, so the author sees what was read and `termList.ts` does the rest |
 | `analysisMerge.ts` | Merge per-chapter analysis results (characters, locations, timeline) across chunks |
 | `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]`; folds sub-50-word sections (title pages, stray headings) into the chapter they belong to |
 | `pdfToMarkdown.ts` | PDF → Markdown via pdfjs — reconstructs paragraphs, emphasis and headings from glyph geometry. Import only; refuses scans |
@@ -197,12 +199,20 @@ The `"bethaniel-cloud"` catalog entry lets a user pay Bethaniel (markup over tok
 
 - **A translation asks first.** Claiming a translation's credential does not
   submit the job: `EditTrigger` sets the persisted `pendingTranslationBrief`
-  and `TranslationQuestions` calls `POST /api/translate/brief/questions` on
-  the paid credential (priced into the quote by `estimateTranslateMode`). The
-  author answers the app's own tone question plus Betty's — all in the
-  interface language — or skips, and `frontend/src/translationBrief.ts`
-  renders the answers into the brief sent as `translationBrief`. Every
-  failure is "no questions"; the run can always start.
+  and `TranslationQuestions` walks the author through four cards, all in the
+  interface language: their own term list (pasted or uploaded, or none), the
+  tone, the glossary table, and Betty's questions. Her call
+  (`POST /api/translate/brief/questions`, on the paid credential, priced in
+  by `estimateTranslateMode`, retried on a dropped connection) starts when
+  the list card is done and is covered by the tone card. The list's rows, a
+  glossary in the style guide and the saved glossary for the language pair
+  are decided terms — first in the table, never asked about, and what her
+  suggestions must stay consistent with. `frontend/src/translationBrief.ts`
+  renders it all into the brief sent as `translationBrief`, which binds every
+  translation stage through the task's `styleGuide`. The table, the answered
+  term questions and the whole list are saved per language pair
+  (`translation_glossary` in db.ts). Every failure is "no questions"; the run
+  can always start.
 
 - **What an export is called.** `frontend/src/exportFilename.ts`
   (`exportBaseName`, `sidecarName`, tested from
