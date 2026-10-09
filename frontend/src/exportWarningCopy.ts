@@ -60,8 +60,13 @@ export function exportWarningFor(
   if (input.comments !== undefined) {
     // The translation is complete; every doubt — a placement, a layout, an
     // emphasis that could not be carried — is a comment in the file itself.
+    // "The whole translation is in the file" only when it is: beside a
+    // refused paragraph it read as a contradiction.
     if (input.comments > 0)
-      parts.push({ key: "surgical_translation_commented", count: input.comments });
+      parts.push({
+        key: skipped > 0 ? "surgical_translation_comments_only" : "surgical_translation_commented",
+        count: input.comments,
+      });
   } else if (flattened > 0) {
     parts.push({ key: "surgical_flattened", count: flattened });
   }

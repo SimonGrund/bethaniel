@@ -96,6 +96,14 @@ export function stripMarkdown(md: string): string {
     .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1");
 }
 
+/** Markdown with images removed and links reduced to their text, emphasis
+ *  left in place — what the emphasis allocation reads (splitEmphasis). */
+function withoutImagesAndLinks(md: string): string {
+  return md
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+}
+
 /**
  * A leading list marker: "1. ", "12) ", "- ", "* ", bullets.
  *
@@ -298,6 +306,13 @@ export function tabbedTitleEdit(
  */
 function splitAtFraction(text: string, fraction: number): [string, string] {
   const target = Math.round(text.length * fraction);
+  // Never inside an image or a link: a split on a space in an image's
+  // description put "AI](media/…/image83.png)" into a translated paragraph.
+  const guarded: Array<[number, number]> = [];
+  for (const m of text.matchAll(/!?\[[^\]]*\]\([^)]*\)/g)) {
+    guarded.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+  }
+  const inGuard = (i: number) => guarded.some(([a, b]) => i > a && i < b);
   let best = -1;
   let underscore = 0;
   let stars = 0;
@@ -305,7 +320,7 @@ function splitAtFraction(text: string, fraction: number): [string, string] {
     const ch = text[i];
     if (ch === "_") underscore++;
     else if (ch === "*") stars++;
-    else if (/\s/.test(ch) && underscore % 2 === 0 && stars % 4 === 0 && stars % 2 === 0) {
+    else if (/\s/.test(ch) && !inGuard(i) && underscore % 2 === 0 && stars % 4 === 0 && stars % 2 === 0) {
       if (best < 0 || Math.abs(i - target) < Math.abs(best - target)) best = i;
     }
   }
@@ -569,7 +584,11 @@ export function remapChaptersToParagraphEdits(
         continue;
       }
 
-      if (!entry.mappable) {
+      // A table cell is marked not mappable on import. A correction keeps
+      // that caution; a translation verifies the cell's text like any other
+      // paragraph (below) and writes into it, or a translated book kept its
+      // tables in the source language.
+      if (!entry.mappable && !options.wholeParagraphs) {
         covers(entry.docxParaIndex + drift);
         unmapped.push({
           reason: "not-mappable",
@@ -689,7 +708,9 @@ export function remapChaptersToParagraphEdits(
         const segments = e.wholeParagraph
           ? (allocateEmphasis(
               foldSegments(paragraph.nodes),
-              splitEmphasis(newMd),
+              // Emphasis markers kept, images and links not: an image's
+              // markdown reached the text of five paragraphs on a real book.
+              splitEmphasis(withoutImagesAndLinks(newMd)),
             ) ?? undefined)
           : undefined;
         edits.push({ paragraphIndex: paraIndex, chapterIndex, ...e, segments });

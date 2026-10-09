@@ -185,3 +185,41 @@ test("an export of the whole book is not trimmed, even past the last mapped para
   const part = remapChaptersToParagraphEdits(md2, map2, index, [{ original: md, edited: "# Et\n\nAfsnit 1." }]);
   assert.equal(part.partial, true);
 });
+
+// Found on the full book: a table's cells ("Den trygge gruppe", "Kritik
+// opleves som engagement") are marked not mappable on import, and the export
+// never wrote into them — a translated book with its tables in Danish. A cell
+// paragraph is verified against Word's text like any other, so a
+// translation writes into it.
+test("a translation writes into table cells too", async () => {
+  const cell = (t: string) => `<w:tc><w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc>`;
+  const input = await docx(`<w:tbl><w:tr>${cell("Den trygge gruppe")}${cell("Kritik opleves som engagement")}</w:tr></w:tbl>`);
+  const index = indexDocumentXml((await parts(input)).doc);
+  const md = "Den trygge gruppe\n\nKritik opleves som engagement";
+  const map = [
+    { docxParaIndex: 0, mdStart: 0, mdEnd: 17, mappable: false },
+    { docxParaIndex: 1, mdStart: 19, mdEnd: md.length, mappable: false },
+  ];
+  const { edits, unmapped } = remapChaptersToParagraphEdits(md, map, index, [
+    { original: md, edited: "The safe group\n\nCriticism is experienced as engagement" },
+  ], { wholeParagraphs: true });
+  assert.deepEqual(unmapped, []);
+  const out = await rewriteDocxText(input, edits, { doubtComments: true });
+  assert.deepEqual(texts((await parts(out.buffer)).doc), ["The safe group", "Criticism is experienced as engagement"]);
+});
+
+// Found on the full book: where the translation's italics were put back in the
+// author's own runs, an image's markdown reached the text —
+// "![…](media/…/image10.png)We have — as many philosophers…".
+test("an image or link in a translated paragraph never reaches its text", async () => {
+  const i = "<w:i/>";
+  const input = await docx(p(`${r("Vi har ")}${r("et valg", i)}${r(", som filosoffer har peget på.")}`));
+  const index = indexDocumentXml((await parts(input)).doc);
+  const md = "Vi har _et valg_, som filosoffer har peget på.";
+  const { edits } = remapChaptersToParagraphEdits(md, [{ docxParaIndex: 0, mdStart: 0, mdEnd: md.length, mappable: true }], index, [
+    { original: md, edited: "![A drawing](media/x/image10.png)We have _a choice_, as [philosophers](https://example.org) have pointed out." },
+  ], { wholeParagraphs: true });
+  const out = await rewriteDocxText(input, edits, { doubtComments: true });
+  const [text] = texts((await parts(out.buffer)).doc);
+  assert.equal(text, "We have a choice, as philosophers have pointed out.");
+});

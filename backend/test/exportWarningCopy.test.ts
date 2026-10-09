@@ -129,3 +129,11 @@ test("a complete translation with comments says it is complete, and how many com
 test("a complete translation with no doubts warns about nothing", () => {
   assert.equal(exportWarningFor({ skipped: 0, flattened: 0, comments: 0, isTranslation: true }), null);
 });
+
+test("when something was refused, the comment line does not claim the translation is whole", () => {
+  const v = exportWarningFor({ skipped: 5, flattened: 0, comments: 199, isTranslation: true });
+  assert.deepEqual(v?.parts, [
+    { key: "surgical_partial_translation", count: 5 },
+    { key: "surgical_translation_comments_only", count: 199 },
+  ]);
+});

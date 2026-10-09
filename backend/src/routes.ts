@@ -1870,7 +1870,16 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       // docId matters: image references resolve against it, so this must be
       // derived exactly as /upload derived it or the two would disagree.
       const fresh = await docxToMarkdownMapped(original.value.buffer, { docId });
-      if (fresh.paragraphMap.length > 0) {
+      // Only when the job's chapters are in it. A job made before an
+      // importer fix carries chapter text from the OLD import — before
+      // lists were imported, a chapter's text skips every list — and a fresh
+      // import holds none of it word for word, so every chapter would be
+      // "not found". Such a job exports from the import it was made from;
+      // the export's own realignment copes with that map's drift.
+      const freshHoldsJob = chapters.every(
+        (c) => c.original === c.edited || fresh.md.includes(c.original),
+      );
+      if (fresh.paragraphMap.length > 0 && freshHoldsJob) {
         remapMd = fresh.md;
         remapParagraphs = fresh.paragraphMap;
       }
