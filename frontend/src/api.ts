@@ -741,6 +741,7 @@ export async function getTranslationQuestions(req: {
   glossary: GlossaryRow[];
   authorNotes: string;
   listRows: ListRow[];
+  instructions: string;
   degraded: boolean;
 }> {
   try {
@@ -755,12 +756,20 @@ export async function getTranslationQuestions(req: {
       glossary: Array.isArray(data.glossary) ? data.glossary : [],
       authorNotes: typeof data.authorNotes === "string" ? data.authorNotes : "",
       listRows: Array.isArray(data.listRows) ? data.listRows : [],
+      instructions: typeof data.instructions === "string" ? data.instructions : "",
       degraded: data.degraded === true,
     };
   } catch {
     // Not even the backend answered: the author's own list still stands, as
     // free text the brief carries verbatim.
-    return { questions: [], glossary: [], authorNotes: req.termList ?? "", listRows: [], degraded: true };
+    return {
+      questions: [],
+      glossary: [],
+      authorNotes: req.termList ?? "",
+      listRows: [],
+      instructions: "",
+      degraded: true,
+    };
   }
 }
 

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 
 import {
   answeredTermsToSave,
+  briefNotes,
   overlayListRows,
   questionsOpenAfterList,
   defaultAnswers,
@@ -184,4 +185,12 @@ test("a question the edited list now answers is dropped", () => {
     questionsOpenAfterList(qs, [{ term: "scCs", rendering: "SCC", keep: false }]).map((q) => q.id),
     ["b", "c"],
   );
+});
+
+test("short notes ride verbatim; a long brief rides as Betty's condensed instructions", () => {
+  assert.equal(briefNotes("Use Sie.", ""), "Use Sie.");
+  const long = "Rule. ".repeat(2000);
+  assert.equal(briefNotes(long, "- Rule."), "- Rule.");
+  // Without her instructions, the start of the brief rather than all of it.
+  assert.equal(briefNotes(long, "").length, 8000);
 });

@@ -157,8 +157,9 @@ const FLUENCY_VERDICT_TOKENS = 560;
 
 /** Betty's questions before a translation (translationBrief.ts): a fixed
  *  prompt, at most 60 candidates, four ~300-word excerpts, up to 150 decided
- *  terms and the author's notes — whatever the book's length. */
-const BRIEF_QUESTIONS_INPUT_TOKENS = 6500;
+ *  terms and up to 30,000 characters of the author's notes — whatever the
+ *  book's length. */
+const BRIEF_QUESTIONS_INPUT_TOKENS = 14_000;
 
 /** The brief the answers become — the glossary, a few answers and the
  *  author's notes — rides in the notes of every translation stage of every
@@ -351,6 +352,9 @@ function estimateCorrectionsMode(
 
 function estimateTranslateMode(
   input: CloudEstimateInput,
+  /** Price Betty's questions call: once per JOB, before any task runs, so
+   *  in the quote but never in one task's progress budget. */
+  withBrief = true,
 ): { inputTokens: number; outputTokens: number } {
   const draftSystemTokens = estimateTokens(
     buildTranslationPrompt(
@@ -402,8 +406,10 @@ function estimateTranslateMode(
 
   // Betty's questions before the run — one call, priced twice for its one
   // retry. Paid by the author like the rest, so it belongs in the quote.
-  inputTokens += 2 * BRIEF_QUESTIONS_INPUT_TOKENS;
-  outputTokens += 2 * BRIEF_OUTPUT_TOKENS;
+  if (withBrief) {
+    inputTokens += 2 * BRIEF_QUESTIONS_INPUT_TOKENS;
+    outputTokens += 2 * BRIEF_OUTPUT_TOKENS;
+  }
 
   return { inputTokens: Math.ceil(inputTokens), outputTokens: Math.ceil(outputTokens) };
 }
@@ -494,7 +500,7 @@ export function estimateTaskOutputTokens(
   };
   const result =
     mode === "translate"
-      ? estimateTranslateMode(scoped)
+      ? estimateTranslateMode(scoped, false)
       : estimateCorrectionsMode(mode, scoped);
   return result.outputTokens;
 }

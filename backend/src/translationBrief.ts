@@ -299,8 +299,11 @@ export interface BriefQuestion {
 
 export const MAX_BRIEF_QUESTIONS = 5;
 export const MAX_GLOSSARY_ROWS = 40;
-/** A forty-row table and five questions. */
-export const BRIEF_OUTPUT_TOKENS = 2400;
+/** A forty-row table, five questions and condensed instructions. At 2,400
+ *  a long translator brief's answer was cut off mid-JSON on a real run. */
+export const BRIEF_OUTPUT_TOKENS = 4000;
+/** Betty's condensed instructions, as they ride in every chunk. */
+const MAX_INSTRUCTIONS_CHARS = 2000;
 
 /** One row of the table: a term, how it is rendered, or kept as written. */
 export interface GlossaryRow {
@@ -321,6 +324,8 @@ export type SavedGlossaryEntry = Omit<GlossaryRow, "saved">;
 export interface BriefParse {
   questions: BriefQuestion[];
   glossary: GlossaryRow[];
+  /** The author's notes, condensed by Betty into rules for every chunk. */
+  instructions?: string;
 }
 
 export interface BriefResult extends BriefParse {
@@ -330,6 +335,10 @@ export interface BriefResult extends BriefParse {
   /** Every row of the author's list, terms this book lacks included: the
    *  whole list is saved for the next translation in the language pair. */
   listRows: SavedGlossaryEntry[];
+  instructions: string;
+  /** Both of Betty's answers were unusable: the table holds only what was
+   *  decided before she read, and the app says so. */
+  degraded?: true;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -454,7 +463,12 @@ export function parseBriefResponse(raw: string, sourceText: string, lang = "en")
   if (!Array.isArray(o.questions)) return null;
   const questions = questionsFrom(o.questions, sourceText);
   const asked = new Set(questions.flatMap((q) => (q.term ? [q.term] : [])));
-  return { questions, glossary: glossaryFrom(o.glossary, sourceText, asked, lang) };
+  const instructions = str((o as { instructions?: unknown }).instructions)?.slice(0, MAX_INSTRUCTIONS_CHARS);
+  return {
+    questions,
+    glossary: glossaryFrom(o.glossary, sourceText, asked, lang),
+    ...(instructions ? { instructions } : {}),
+  };
 }
 
 /** How many saved (or listed) terms one book can bring into its table. */
@@ -566,6 +580,8 @@ export async function runBriefQuestions(
       glossary: merged.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r),
       authorNotes: list.rest,
       listRows: list.rows,
+      instructions: parsed?.instructions ?? "",
+      ...(parsed === null ? { degraded: true as const } : {}),
     };
   };
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -582,8 +598,9 @@ export async function runBriefQuestions(
 
 /** At most this many decided terms go to the model by name. */
 const MAX_DECIDED = 150;
-/** The author's notes the model reads; the brief carries them in full. */
-const MAX_NOTES_CHARS = 4000;
+/** The author's notes the model reads. At 4,000 a real translator brief's
+ *  term section — past the first four pages — never reached her. */
+const MAX_NOTES_CHARS = 30_000;
 
 /** One entry per term, ignoring case; the first wins. */
 function uniqueTerms(entries: SavedGlossaryEntry[]): SavedGlossaryEntry[] {

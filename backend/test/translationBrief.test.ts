@@ -497,3 +497,44 @@ test("Betty's own rows for such words are dropped too", () => {
     ["Services", "Data Processing Agreement"],
   );
 });
+
+// ── A long brief: read in full, condensed for every chunk ──
+
+test("Betty reads the author's notes in full, up to 30,000 characters", async () => {
+  let user = "";
+  const notes = "Keep the tone calm and supportive. ".repeat(600); // ~21,000 chars
+  await runBriefQuestions(
+    { text: DPA, manuscriptLang: "en", targetLang: "German", uiLang: "en", termList: notes },
+    { llm: async (_s, u) => ((user = u), '{"glossary": [], "questions": []}') },
+  );
+  assert.ok(JSON.parse(user).authorNotes.length > 20_000);
+});
+
+test("her condensed instructions come back with the answer", async () => {
+  const out = await runBriefQuestions(
+    { text: DPA, manuscriptLang: "en", targetLang: "German", uiLang: "en", termList: "Long notes here." },
+    {
+      llm: async () =>
+        JSON.stringify({ glossary: [], questions: [], instructions: "- Calm, supportive tone.\n- Never add clinical words." }),
+    },
+  );
+  assert.equal(out.instructions, "- Calm, supportive tone.\n- Never add clinical words.");
+  assert.equal(out.degraded, undefined);
+});
+
+test("two unusable answers are said to be so, not passed off as 'no questions'", async () => {
+  const out = await runBriefQuestions(
+    { text: DPA, manuscriptLang: "en", targetLang: "German", uiLang: "en" },
+    { llm: async () => '{"glossary": [{"term": "GDPR", "rendering": "DS' }, // cut off mid-answer
+  );
+  assert.equal(out.degraded, true);
+});
+
+test("the prompt asks for condensed instructions when there are notes", async () => {
+  let system = "";
+  await runBriefQuestions(
+    { text: DPA, manuscriptLang: "en", targetLang: "German", uiLang: "en", termList: "Some notes." },
+    { llm: async (s) => ((system = s), '{"glossary": [], "questions": []}') },
+  );
+  assert.match(system, /"instructions"/);
+});

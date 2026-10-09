@@ -6690,6 +6690,24 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Schließen, Zahlung verfällt",
     es: "Cerrar y perder el pago",
   },
+  tb_degraded_table: {
+    en: "Betty could not finish reading your text this time, so only your own terms are here.",
+    da: "Betty kunne ikke læse din tekst færdig denne gang, så kun dine egne begreber står her.",
+    de: "Betty konnte deinen Text diesmal nicht zu Ende lesen, daher stehen hier nur deine eigenen Begriffe.",
+    es: "Betty no ha podido terminar de leer tu texto esta vez, así que aquí solo están tus propios términos.",
+  },
+  tb_nothing_table: {
+    en: "Betty added nothing of her own to this table.",
+    da: "Betty har ikke tilføjet noget selv til denne tabel.",
+    de: "Betty hat dieser Tabelle nichts Eigenes hinzugefügt.",
+    es: "Betty no ha añadido nada propio a esta tabla.",
+  },
+  tb_ask_again: {
+    en: "Ask Betty again",
+    da: "Spørg Betty igen",
+    de: "Betty erneut fragen",
+    es: "Preguntar otra vez a Betty",
+  },
   tb_skip: {
     en: "skip — use Betty's judgement",
     da: "spring over — brug Bettys skøn",

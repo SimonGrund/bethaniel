@@ -5920,6 +5920,12 @@ summary.review-source::before {
   color: #9a3b2a;
 }
 
+.tq-inline {
+  margin: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .tq-saved--yours {
   background: #8b7355;
   color: #fffdf6;

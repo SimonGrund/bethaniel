@@ -57,8 +57,12 @@ export interface PendingTranslationBrief {
   /** What the author pasted or uploaded on the term-list card. */
   termList?: string;
   listDone?: boolean;
-  /** The list's free text, as the backend read it — verbatim in the brief. */
+  /** The list's free text, as the backend read it. */
   authorNotes?: string;
+  /** Betty's condensed rules from a long brief (see briefNotes). */
+  instructions?: string;
+  /** How many times Betty has been asked to read the text on this run. */
+  asks?: number;
   /** Every row of the author's list, kept for the next translation. */
   listRows?: { term: string; rendering: string; keep: boolean }[];
   /** The list as Betty read it; a different one on the card means the
@@ -199,4 +203,22 @@ export function overlayListRows(
 export function questionsOpenAfterList(questions: BriefQuestion[], rows: ListRow[]): BriefQuestion[] {
   const listed = new Set(rows.map((r) => r.term.toLowerCase()));
   return questions.filter((q) => !q.term || !listed.has(q.term.toLowerCase()));
+}
+
+/** Notes up to this length ride in every chunk as the author wrote them. */
+const VERBATIM_NOTES_CHARS = 2000;
+/** Without Betty's condensed rules, this much of a long brief rides. */
+const FALLBACK_NOTES_CHARS = 8000;
+
+/**
+ * The author's notes as they ride in every chunk's instructions. Short ones
+ * verbatim. A long translator brief — thirteen thousand characters on a real
+ * run — would cost every chunk thousands of tokens and outgrow the brief, so
+ * it rides as the compact rule list Betty wrote from it (she read all of it),
+ * or, when she could not, as its opening.
+ */
+export function briefNotes(authorNotes: string, instructions: string): string {
+  const notes = authorNotes.trim();
+  if (notes.length <= VERBATIM_NOTES_CHARS) return notes;
+  return instructions.trim() || notes.slice(0, FALLBACK_NOTES_CHARS);
 }

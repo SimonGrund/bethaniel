@@ -41,6 +41,7 @@ import { useStore } from "../store";
 import type { Lang } from "../types";
 import {
   answeredTermsToSave,
+  briefNotes,
   defaultAnswers,
   glossaryToSave,
   overlayListRows,
@@ -128,6 +129,8 @@ export default function TranslationQuestions({
           authorNotes: r.authorNotes,
           listRows: r.listRows,
           listAsked: sent,
+          instructions: r.instructions,
+          asks: (cur.asks ?? 0) + 1,
           degraded: r.degraded,
         });
         // The author went back and changed the list while Betty read it.
@@ -218,8 +221,9 @@ export default function TranslationQuestions({
   const submit = async (useSuggestions: boolean) => {
     if (!pending || submitting) return;
     const qs = questions ?? [];
-    // Before Betty has read the list, the list itself is the notes.
-    const notes = pending.authorNotes ?? pending.termList ?? "";
+    // Before Betty has read the list, the list itself is the notes; a long
+    // brief rides as the rules she condensed from it (briefNotes).
+    const notes = briefNotes(pending.authorNotes ?? pending.termList ?? "", pending.instructions ?? "");
     const brief = useSuggestions
       ? renderTranslationBrief("match", qs, defaultAnswers(qs), glossary, notes)
       : renderTranslationBrief(pending.tone, qs, pending.answers, glossary, notes);
@@ -273,6 +277,23 @@ export default function TranslationQuestions({
       listAsked: list,
     });
   }
+
+  // Her reading failed (cut off, or the connection dropped twice): read
+  // again, at most three reads per run — each one is paid for.
+  const MAX_ASKS = 3;
+  const canAskAgain = (pending?.asks ?? 1) < MAX_ASKS;
+  // Nothing of her own — no row and no question. Either her reading failed
+  // without saying so (a run saved before `degraded` existed), or she truly
+  // found nothing; asking again is worth offering either way.
+  const bettyAddedNothing =
+    questions !== null &&
+    questions.length === 0 &&
+    !glossary.some((r) => !r.author && !r.saved && !r.added);
+  const askAgain = () => {
+    const cur = useStore.getState().pendingTranslationBrief;
+    if (!cur || !canAskAgain) return;
+    setPending({ ...cur, questions: null, degraded: undefined, step: 2 });
+  };
 
   const forward = () => {
     if (onList) {
@@ -447,6 +468,16 @@ export default function TranslationQuestions({
             <p className="tq-why tq-why--lead">
               {t(glossary.length > 0 ? "tb_glossary_intro" : "tb_glossary_empty")}
             </p>
+            {(pending.degraded || bettyAddedNothing) && (
+              <p className={`tq-why tq-why--lead${pending.degraded ? " tq-error" : ""}`}>
+                {t(pending.degraded ? "tb_degraded_table" : "tb_nothing_table")}{" "}
+                {canAskAgain && (
+                  <button type="button" className="tq-add tq-inline" onClick={askAgain}>
+                    {t("tb_ask_again")}
+                  </button>
+                )}
+              </p>
+            )}
             {glossary.length > 0 && (
               <div className="tq-table" role="table" aria-label={t("tb_glossary_q")}>
                 <div className="tq-row tq-row--head" role="row">
