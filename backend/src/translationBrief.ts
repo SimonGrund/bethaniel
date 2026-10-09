@@ -14,7 +14,14 @@ import { parseJsonResponse } from "./llm.js";
 import { buildBriefQuestionsPrompt } from "./prompts.js";
 import type { LlmCall } from "./storyAnalysis.js";
 
-export type CandidateKind = "name" | "invented" | "honorific" | "unit" | "title";
+export type CandidateKind =
+  | "name"
+  | "invented"
+  | "honorific"
+  | "unit"
+  | "title"
+  | "phrase"
+  | "acronym";
 
 export interface BriefCandidate {
   term: string;
@@ -24,9 +31,11 @@ export interface BriefCandidate {
   example: string;
 }
 
-/** A name or invented word seen fewer times is not worth a question. */
+/** A name, invented word or phrase seen fewer times is not worth a question. */
 const MIN_REPEATS = 3;
-const MAX_CANDIDATES = 40;
+/** An acronym is rarer and almost always a term: twice is enough. */
+const MIN_ACRONYM_REPEATS = 2;
+const MAX_CANDIDATES = 60;
 const EXAMPLE_CHARS = 200;
 /** How far an example looks for its sentence's ends — a run-on paragraph
  *  with no full stop must not turn into a scan of the whole book. */
@@ -42,6 +51,32 @@ const HONORIFICS: Record<string, string[]> = {
   de: ["Herr", "Frau", "Fräulein", "Dr"],
   es: ["Señor", "Señora", "Señorita", "Don", "Doña", "Sr", "Sra", "Dr"],
   fr: ["Monsieur", "Madame", "Mademoiselle", "Mme", "Mlle", "Dr"],
+};
+
+/** Roman numerals are capitals too, and never a term ("Part II"). */
+const ROMAN = /^[IVXLCDM]+$/;
+
+/** Words that end a phrase rather than belong to one: the function words of
+ *  each language, plus the commonest time adverbs ("today", "now"), which
+ *  otherwise glue themselves to the end of every repeated noun phrase.
+ *  Words under three letters never count, so the shortest are left out. */
+const FUNCTION_WORDS: Record<string, string[]> = {
+  en: ("the and but for with from are was were been its this that these those his her " +
+    "their our not then than there here must will would can could should may has have had " +
+    "does did before after without under over into out about all any each more most some " +
+    "such only own same very just also today now again always never when where which who " +
+    "whom what while because").split(" "),
+  da: ("og at er en et den det de til af på med for som har var ikke der han hun jeg men " +
+    "om så fra sig skal kan vil efter før over under ved hos eller også her nu når hvor " +
+    "hvis fordi altid aldrig igen").split(" "),
+  de: ("der die das und ist ein eine einen dem den des von mit für auf nicht sich als " +
+    "auch sie wir ich bei nach vor über unter oder aber wenn noch nur wie hat war wird " +
+    "werden kann muss soll heute immer nie wieder weil").split(" "),
+  es: ("los las una del con por para que son sus como más pero este esta ese esa fue ser " +
+    "sin sobre entre cuando también debe hoy ahora siempre nunca porque").split(" "),
+  fr: ("les une des dans par pour sur avec sans que qui est sont pas cette ces son ses " +
+    "elle ils nous vous mais plus comme avant après sous doit aujourd hui toujours jamais " +
+    "parce").split(" "),
 };
 
 /** Imperial units: the ones a translation into a metric language has to
@@ -95,6 +130,10 @@ export function collectBriefCandidates(
   for (const m of text.matchAll(WORD_RE)) {
     const w = m[0];
     const i = m.index ?? 0;
+    if (w.length <= 6 && w === w.toUpperCase() && w !== w.toLowerCase()) {
+      if (!ROMAN.test(w)) bump("acronym", w, i);
+      continue;
+    }
     if (honorifics.has(w)) {
       bump("honorific", w, i);
       continue;
@@ -119,11 +158,71 @@ export function collectBriefCandidates(
     bump("title", inner, m.index ?? 0);
   }
 
-  const kept = [...tally.values()].filter(
-    (c) => (c.kind !== "name" && c.kind !== "invented") || c.count >= MIN_REPEATS,
-  );
+  for (const p of collectPhrases(text, base)) tally.set(`phrase|${p.term}`, p);
+
+  const kept = [...tally.values()].filter((c) => {
+    if (c.kind === "acronym") return c.count >= MIN_ACRONYM_REPEATS;
+    if (c.kind === "name" || c.kind === "invented" || c.kind === "phrase") return c.count >= MIN_REPEATS;
+    return true;
+  });
   kept.sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
   return kept.slice(0, MAX_CANDIDATES);
+}
+
+/**
+ * Two- and three-word runs of content words seen at least MIN_REPEATS times:
+ * the "due diligence" and "data controller" a professional text is made of,
+ * which no capital letter and no dictionary miss would find. A run ends at
+ * any punctuation or line break and at a function word. A phrase inside a
+ * longer one that is just as frequent is dropped — "load bearing" is only
+ * ever part of "load bearing wall". Counted case-insensitively, reported in
+ * the spelling the book uses most, so the term is verbatim in the text.
+ */
+function collectPhrases(text: string, base: string): BriefCandidate[] {
+  const stop = new Set(FUNCTION_WORDS[base] ?? FUNCTION_WORDS.en);
+  const grams = new Map<string, { count: number; forms: Map<string, number>; index: number }>();
+  let run: { w: string; start: number; end: number }[] = [];
+  let prevEnd = 0;
+  const flush = () => {
+    for (let n = 2; n <= 3; n++) {
+      for (let k = 0; k + n <= run.length; k++) {
+        const slice = run.slice(k, k + n);
+        const key = slice.map((t) => t.w.toLowerCase()).join(" ");
+        const form = slice.map((t) => t.w).join(" ");
+        const g = grams.get(key) ?? { count: 0, forms: new Map(), index: slice[0].start };
+        g.count++;
+        g.forms.set(form, (g.forms.get(form) ?? 0) + 1);
+        grams.set(key, g);
+      }
+    }
+    run = [];
+  };
+  for (const m of text.matchAll(WORD_RE)) {
+    const w = m[0];
+    const start = m.index ?? 0;
+    // Anything but spaces between two words — a comma, a full stop, a line
+    // break — ends the phrase.
+    if (/[^ \t]/.test(text.slice(prevEnd, start))) flush();
+    prevEnd = start + w.length;
+    if (w.length < 3 || stop.has(w.toLowerCase())) {
+      flush();
+      continue;
+    }
+    run.push({ w, start, end: prevEnd });
+  }
+  flush();
+
+  const frequent = [...grams].filter(([, g]) => g.count >= MIN_REPEATS);
+  const out: BriefCandidate[] = [];
+  for (const [key, g] of frequent) {
+    const covered = frequent.some(
+      ([other, o]) => other !== key && o.count >= g.count && ` ${other} `.includes(` ${key} `),
+    );
+    if (covered) continue;
+    const term = [...g.forms].sort((a, b) => b[1] - a[1])[0][0];
+    out.push({ term, kind: "phrase", count: g.count, example: exampleAt(text, g.index) });
+  }
+  return out;
 }
 
 /**

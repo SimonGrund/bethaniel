@@ -63,13 +63,13 @@ test("each candidate carries the sentence it first appeared in", () => {
   assert.equal(c?.example, "Then Kragehøj woke up.");
 });
 
-test("the list is ranked by count and capped at 40", () => {
-  const names = Array.from({ length: 50 }, (_, i) =>
+test("the list is ranked by count and capped at 60", () => {
+  const names = Array.from({ length: 70 }, (_, i) =>
     "Qa" + String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26)),
   );
   const text = "start " + names.map((n, i) => `and ${n} `.repeat(3 + (i % 5))).join("");
   const cs = collectBriefCandidates(text, "en");
-  assert.equal(cs.length, 40);
+  assert.equal(cs.length, 60);
   for (let i = 1; i < cs.length; i++) assert.ok(cs[i - 1].count >= cs[i].count);
 });
 
@@ -189,4 +189,37 @@ test("the brief goes first and wins; either side may be empty", () => {
   assert.equal(combineTranslationNotes("", " Use Oxford commas. "), "Use Oxford commas.");
   assert.equal(combineTranslationNotes(" B ", ""), "B");
   assert.equal(combineTranslationNotes("", ""), "");
+});
+
+// ── Professional vocabulary ──
+
+test("a repeated run of content words is a phrase; function words break it", () => {
+  const text =
+    "The buyer must complete due diligence before signing. Due diligence covers the accounts. " +
+    "Without due diligence, the data controller is liable. The data controller keeps records, " +
+    "and the data controller answers to the authority.";
+  const cs = collectBriefCandidates(text, "en");
+  assert.equal(find(cs, "due diligence", "phrase")?.count, 3);
+  assert.equal(find(cs, "data controller", "phrase")?.count, 3);
+  assert.equal(
+    cs.filter((c) => c.kind === "phrase").some((c) => /\b(the|before|is)\b/.test(c.term)),
+    false,
+  );
+});
+
+test("a longer phrase wins over the shorter one inside it", () => {
+  const text = Array.from({ length: 3 }, () => "We test the load bearing wall today.").join(" ");
+  const cs = collectBriefCandidates(text, "en");
+  assert.ok(find(cs, "load bearing wall", "phrase"));
+  assert.equal(find(cs, "load bearing", "phrase"), undefined);
+  assert.equal(find(cs, "bearing wall", "phrase"), undefined);
+});
+
+test("acronyms count from two uses; Roman numerals are not acronyms", () => {
+  const text = "Under GDPR the processor reports. GDPR applies here. In Part II and Part II again, the SLA is met once.";
+  const cs = collectBriefCandidates(text, "en");
+  assert.equal(find(cs, "GDPR", "acronym")?.count, 2);
+  assert.equal(find(cs, "II", "acronym"), undefined);
+  assert.equal(find(cs, "SLA", "acronym"), undefined, "once is not enough");
+  assert.equal(find(cs, "GDPR", "name"), undefined);
 });

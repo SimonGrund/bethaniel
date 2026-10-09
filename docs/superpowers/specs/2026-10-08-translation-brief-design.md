@@ -190,3 +190,35 @@ translation (primary), Skip (secondary). All fixed strings are added to
   cloud-only).
 - Editing the brief after the job starts.
 - Saving briefs across books.
+
+## Addendum (2026-10-09): the glossary table, and a glossary that is kept
+
+Asked for after the first real runs: a professional text has dozens of terms,
+and five questions cover five of them.
+
+- **Always a table.** After the tone card, before Betty's questions, one card
+  lists the book's terms with Betty's suggested rendering in an editable
+  field and a "keep as is" toggle; "+ Add a term" adds the author's own. It
+  appears even when Betty found nothing, so the author can still add terms.
+- **The model finds the terms.** The questions call returns
+  `{ glossary: [{ term, rendering, keep }], questions: [...] }`: up to 40
+  glossary rows (clear renderings) and up to 5 questions (real dilemmas). A
+  term is in one or the other; a glossary row whose term is also asked about
+  is dropped. Every term must appear verbatim in the book.
+- **Professional vocabulary reaches the candidates.** Candidate collection
+  adds `phrase` (a two- or three-word run with no function words, seen 3+
+  times, e.g. "due diligence") and `acronym` (2–6 capitals, seen 2+ times,
+  Roman numerals excluded). The candidate cap rises to 60.
+- **Kept per language pair.** When the run starts, the table is saved in
+  SQLite (`translation_glossary`: source language code, target language name,
+  term, rendering, keep). The next questions call in the same pair merges in
+  every saved term the book contains: the saved rendering replaces Betty's,
+  the row is marked as saved, and a saved term she missed is added. Cleared
+  with documents in the storage purge, because the terms come from the
+  author's manuscripts.
+- **The brief carries the table** as binding lines (`"term" → "rendering"`,
+  or `"term": keep as is`). The brief cap rises from 4,000 to 12,000
+  characters.
+- **Cost.** The questions call's output allowance rises to 2,400 tokens
+  (input allowance 4,500), and the estimate adds 900 tokens per chunk for the
+  glossary each translation stage reads.
