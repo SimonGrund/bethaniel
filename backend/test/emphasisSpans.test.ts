@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { splitEmphasis } from "../src/emphasisSpans.ts";
+import { foldSegments, splitEmphasis, visibleFormat } from "../src/emphasisSpans.ts";
 
 test("plain text is one unemphasised piece", () => {
   assert.deepEqual(splitEmphasis("Just a sentence."), [
@@ -91,4 +91,35 @@ test("an unclosed marker is left as text", () => {
 test("empty input gives no pieces at all", () => {
   assert.deepEqual(splitEmphasis(""), []);
   assert.deepEqual(splitEmphasis("   "), []);
+});
+
+// ── Formatting a reader cannot see is not emphasis ──
+// Seen on a typeset book converted to Word: nearly every word was its own run
+// with its own character spacing (w:spacing -2, 5, 10 …). Compared byte for
+// byte, every paragraph looked like mixed formatting and nearly every word
+// like an emphasised phrase — 458 "lost phrases" reported on one export.
+
+test("runs that differ only in spacing, kerning or proofing language fold together", () => {
+  const plain = (extra: string) => `<w:rPr><w:color w:val="231F20"/>${extra}</w:rPr>`;
+  const segments = foldSegments([
+    { kind: "t", text: "Håndbog i ", rPrXml: plain("") },
+    { kind: "t", text: "psykologisk", rPrXml: plain('<w:spacing w:val="-2"/>') },
+    { kind: "t", text: " ", rPrXml: plain('<w:spacing w:val="5"/><w:kern w:val="2"/>') },
+    { kind: "t", text: "tryghed", rPrXml: plain('<w:lang w:val="da-DK"/><w:noProof/>') },
+  ]);
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0].text, "Håndbog i psykologisk tryghed");
+  assert.equal(visibleFormat(plain('<w:spacing w:val="-2"/>')), visibleFormat(plain("")));
+});
+
+test("italic, bold, colour and size are still emphasis", () => {
+  const base = '<w:rPr><w:color w:val="231F20"/></w:rPr>';
+  for (const other of [
+    '<w:rPr><w:color w:val="231F20"/><w:i/></w:rPr>',
+    '<w:rPr><w:color w:val="231F20"/><w:b/></w:rPr>',
+    '<w:rPr><w:color w:val="7E9EA4"/></w:rPr>',
+    '<w:rPr><w:color w:val="231F20"/><w:sz w:val="18"/></w:rPr>',
+  ]) {
+    assert.notEqual(visibleFormat(other), visibleFormat(base), other);
+  }
 });

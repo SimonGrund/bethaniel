@@ -2286,6 +2286,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               bookLayout: /\.(epub|pdf)$/i.test(name),
             },
           },
+          isTranslation,
         );
         // Warn BEFORE handing the file over. A toast raised after the download
         // starts is covered by the system save dialog and gone by the time it

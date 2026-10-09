@@ -530,6 +530,8 @@ export async function exportDocxSurgical(
     notes?: { original: string; text: string }[][];
     options?: DocxExportOptions;
   },
+  /** A translation: every changed paragraph is replaced whole. */
+  translation?: boolean,
 ): Promise<{ blob: Blob; report: SurgicalReport }> {
   const res = await fetch(`${BASE}/api/export/docx-surgical`, {
     method: "POST",
@@ -537,7 +539,7 @@ export async function exportDocxSurgical(
     body: JSON.stringify(
       tracked
         ? { docId, chapters, tracked: true, notes: tracked.notes, options: tracked.options }
-        : { docId, chapters },
+        : { docId, chapters, translation: translation === true },
     ),
   });
   if (res.status === 409) {

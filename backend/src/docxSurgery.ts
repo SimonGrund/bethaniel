@@ -14,7 +14,7 @@
 // policy parameter — a guarantee you can switch off is not one.
 
 import JSZip from "jszip";
-import { foldSegments } from "./emphasisSpans.js";
+import { foldSegments, visibleFormat } from "./emphasisSpans.js";
 
 export interface TextNode {
   /** Ordinal of the containing <w:r> within its paragraph. */
@@ -472,12 +472,18 @@ export function planParagraphSplices(
 
     // Nodes the trimmed span touches. A zero-width insert attaches to the node
     // containing the insertion point.
-    const touched = p.nodes.filter((n) => {
+    let touched = p.nodes.filter((n) => {
       const nEnd = n.textStart + n.text.length;
       return e.start < nEnd && e.end > n.textStart
         ? true
         : e.start === e.end && e.start >= n.textStart && e.start <= nEnd;
     });
+    // An insertion where a text node meets a tab touches both; it belongs to
+    // the text. Seen on a contents line: "EPILOG<TAB>168" to "EPILOGUE" trims
+    // to "insert UE after EPILOG", which was refused as touching the tab.
+    if (e.start === e.end && touched.some((n) => n.kind !== "virtual")) {
+      touched = touched.filter((n) => n.kind !== "virtual");
+    }
 
     if (touched.length === 0) {
       skip(raw, "out-of-range");
@@ -491,7 +497,7 @@ export function planParagraphSplices(
     let allocation: string[] | null = null;
 
     if (touched.length > 1) {
-      const fmt = new Set(touched.map((n) => n.rPrXml));
+      const fmt = new Set(touched.map((n) => visibleFormat(n.rPrXml)));
       if (fmt.size > 1) {
         // A correction must not guess which formatting to keep — refusing is
         // the guarantee this export exists for. A translation has no such
@@ -525,8 +531,11 @@ export function planParagraphSplices(
           const byLength = new Map<string, number>();
           for (const n of touched)
             if (n.kind !== "virtual")
-              byLength.set(n.rPrXml, (byLength.get(n.rPrXml) ?? 0) + n.text.length);
-          let kept = touched[0]?.rPrXml;
+              byLength.set(
+                visibleFormat(n.rPrXml),
+                (byLength.get(visibleFormat(n.rPrXml)) ?? 0) + n.text.length,
+              );
+          let kept = visibleFormat(touched[0]?.rPrXml ?? "");
           let widest = -1;
           for (const [rPr, len] of byLength)
             if (len > widest) {
@@ -537,7 +546,7 @@ export function planParagraphSplices(
             paragraphIndex: p.index,
             before: p.text,
             emphasised: touched
-              .filter((n) => n.kind !== "virtual" && n.rPrXml !== kept)
+              .filter((n) => n.kind !== "virtual" && visibleFormat(n.rPrXml) !== kept)
               .map((n) => n.text.trim())
               .filter(Boolean),
           });
@@ -564,9 +573,11 @@ export function planParagraphSplices(
       if (!allocation) {
         insert = i === 0 ? e.replacement : "";
       } else {
-        const startsSegment = lastRPr === null || n.rPrXml !== lastRPr;
+        // Grouped exactly as foldSegments grouped them, or the allocation
+        // would land one segment off.
+        const startsSegment = lastRPr === null || visibleFormat(n.rPrXml) !== lastRPr;
         if (startsSegment) segmentIndex++;
-        lastRPr = n.rPrXml;
+        lastRPr = visibleFormat(n.rPrXml);
         insert = startsSegment ? (allocation[segmentIndex] ?? "") : "";
       }
 

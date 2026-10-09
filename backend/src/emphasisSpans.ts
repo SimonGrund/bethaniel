@@ -54,6 +54,23 @@ export function splitEmphasis(md: string): EmphasisPiece[] {
   return pieces.length === 1 && !pieces[0].text.trim() ? [] : pieces;
 }
 
+/**
+ * A run's formatting as a reader sees it: its <w:rPr> without the properties
+ * that are not emphasis. Character spacing (tracking), kerning, character
+ * scale, proofing language and the complex-script twins of size, bold and
+ * italic change nothing a reader would call formatting — but a typeset book
+ * converted to Word carries a different w:spacing on nearly every word, and
+ * compared byte for byte every paragraph looked like mixed formatting and
+ * nearly every word like an emphasised phrase. Every COMPARISON of run
+ * formatting goes through this; the bytes written back stay the run's own.
+ */
+export function visibleFormat(rPrXml: string): string {
+  return rPrXml.replace(
+    /<w:(?:spacing|kern|w|lang|noProof|szCs|bCs|iCs|webHidden|snapToGrid|fitText)\b[^>]*\/>/g,
+    "",
+  );
+}
+
 /** The part of a docx text node this module needs. Structural, so the module
  *  stays free of docxSurgery's types and can be tested on plain objects. */
 export interface RunLike {
@@ -83,7 +100,7 @@ export function foldSegments(nodes: readonly RunLike[]): Segment[] {
   for (const n of nodes) {
     if (n.kind === "virtual") continue;
     const last = segments[segments.length - 1];
-    if (last && last.rPrXml === n.rPrXml) last.text += n.text;
+    if (last && visibleFormat(last.rPrXml) === visibleFormat(n.rPrXml)) last.text += n.text;
     else segments.push({ rPrXml: n.rPrXml, text: n.text });
   }
   return segments;
@@ -117,10 +134,10 @@ export function allocateEmphasis(
   // entirely in italics, where there is nothing to tell apart.
   const baseIndex = pieces.findIndex((p) => !p.emphasised);
   if (baseIndex < 0) return null;
-  const base = segments[baseIndex].rPrXml;
+  const base = visibleFormat(segments[baseIndex].rPrXml);
 
   for (let i = 0; i < segments.length; i++) {
-    if ((segments[i].rPrXml !== base) !== pieces[i].emphasised) return null;
+    if ((visibleFormat(segments[i].rPrXml) !== base) !== pieces[i].emphasised) return null;
     if (pieces[i].text.length === 0) return null;
   }
   return pieces.map((p) => p.text);

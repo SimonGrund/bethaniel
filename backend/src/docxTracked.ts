@@ -29,6 +29,7 @@ import {
   type TextNode,
 } from "./docxSurgery.js";
 import { stripMarkdown } from "./docxRemap.js";
+import { visibleFormat } from "./emphasisSpans.js";
 
 export interface TrackedEdit extends ParagraphTextEdit {
   paragraphIndex: number;
@@ -272,7 +273,7 @@ function planParagraph(
       skip(e, "tracked-region");
       continue;
     }
-    if (new Set(nodes.map((n) => n.rPrXml)).size > 1) {
+    if (new Set(nodes.map((n) => visibleFormat(n.rPrXml))).size > 1) {
       skip(e, "mixed-formatting");
       continue;
     }

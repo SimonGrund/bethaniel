@@ -1796,10 +1796,12 @@ router.post("/export/docx", async (req: Request, res: Response) => {
 // plain export would be (`options`).
 router.post("/export/docx-surgical", async (req: Request, res: Response) => {
   try {
-    const { docId, chapters, tracked, notes, options } = req.body as {
+    const { docId, chapters, tracked, notes, options, translation } = req.body as {
       docId?: string;
       chapters?: Array<{ original: string; edited: string }>;
       tracked?: boolean;
+      /** Every changed paragraph is replaced whole (docxRemap RemapOptions). */
+      translation?: boolean;
       notes?: unknown;
       options?: Partial<DocxExportOptions>;
     };
@@ -1895,6 +1897,7 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       remapParagraphs,
       indexDocumentXml(xml),
       chapters,
+      { wholeParagraphs: translation === true },
     );
     const { buffer, applied, skipped, flattened, flattenedDetail } =
       await rewriteDocxText(original.value.buffer, edits);
