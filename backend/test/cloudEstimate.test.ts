@@ -278,8 +278,10 @@ test("a translate quote includes the brief questions call and its retry", () => 
     numPredict: 4096,
   };
   const translate = estimateCloudJob({ ...input, modes: ["translate"] }).perMode.translate;
-  assert.ok(translate.inputTokens >= 2 * 3500, `input ${translate.inputTokens}`);
-  assert.ok(translate.outputTokens >= 2 * 1200, `output ${translate.outputTokens}`);
+  // The questions call and its retry, plus the glossary each of the chunk's
+  // three translation stages reads (draft, polish, fluency review).
+  assert.ok(translate.inputTokens >= 2 * 4500 + 3 * 900, `input ${translate.inputTokens}`);
+  assert.ok(translate.outputTokens >= 2 * 2400, `output ${translate.outputTokens}`);
   const copy = estimateCloudJob({ ...input, modes: ["copy_edit"] }).perMode.copy_edit;
-  assert.ok(copy.outputTokens < 2 * 1200, "an edit does not pay for translation questions");
+  assert.ok(copy.outputTokens < 2 * 2400, "an edit does not pay for translation questions");
 });

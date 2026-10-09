@@ -274,7 +274,26 @@ export interface BriefQuestion {
 }
 
 export const MAX_BRIEF_QUESTIONS = 5;
-export const BRIEF_OUTPUT_TOKENS = 1200;
+export const MAX_GLOSSARY_ROWS = 40;
+/** A forty-row table and five questions. */
+export const BRIEF_OUTPUT_TOKENS = 2400;
+
+/** One row of the table: a term, how it is rendered, or kept as written. */
+export interface GlossaryRow {
+  term: string;
+  rendering: string;
+  keep: boolean;
+  /** Came from the author's saved glossary for this language pair. */
+  saved?: boolean;
+}
+
+/** What the saved glossary holds for one language pair (db.ts). */
+export type SavedGlossaryEntry = Omit<GlossaryRow, "saved">;
+
+export interface BriefResult {
+  questions: BriefQuestion[];
+  glossary: GlossaryRow[];
+}
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -324,10 +343,10 @@ function toQuestion(item: unknown, sourceText: string): BriefQuestion | null {
  * (not JSON, no `questions` array) and is worth one retry.
  */
 export function parseBriefQuestions(raw: string, sourceText: string): BriefQuestion[] | null {
-  const parsed = parseJsonResponse(raw);
-  if (!parsed || typeof parsed !== "object") return null;
-  const list = (parsed as { questions?: unknown }).questions;
-  if (!Array.isArray(list)) return null;
+  return parseBriefResponse(raw, sourceText)?.questions ?? null;
+}
+
+function questionsFrom(list: unknown[], sourceText: string): BriefQuestion[] {
   const out: BriefQuestion[] = [];
   const seen = new Set<string>();
   for (const item of list) {
@@ -336,6 +355,67 @@ export function parseBriefQuestions(raw: string, sourceText: string): BriefQuest
     seen.add(q.id);
     out.push(q);
     if (out.length === MAX_BRIEF_QUESTIONS) break;
+  }
+  return out;
+}
+
+function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): GlossaryRow[] {
+  if (!Array.isArray(list)) return [];
+  const out: GlossaryRow[] = [];
+  const seen = new Set<string>();
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const term = str(o.term);
+    // Verbatim in the book, once, and not already a question of its own.
+    if (!term || !sourceText.includes(term) || seen.has(term) || asked.has(term)) continue;
+    const keep = o.keep === true;
+    const rendering = keep ? term : str(o.rendering);
+    if (!rendering) continue;
+    seen.add(term);
+    out.push({ term, rendering, keep });
+    if (out.length === MAX_GLOSSARY_ROWS) break;
+  }
+  return out;
+}
+
+/**
+ * The whole answer: Betty's questions and her table. `null` when it could
+ * not be used at all (not JSON, no `questions` array) and is worth a retry;
+ * a missing or broken table on its own is just an empty one.
+ */
+export function parseBriefResponse(raw: string, sourceText: string): BriefResult | null {
+  const parsed = parseJsonResponse(raw);
+  if (!parsed || typeof parsed !== "object") return null;
+  const o = parsed as { questions?: unknown; glossary?: unknown };
+  if (!Array.isArray(o.questions)) return null;
+  const questions = questionsFrom(o.questions, sourceText);
+  const asked = new Set(questions.flatMap((q) => (q.term ? [q.term] : [])));
+  return { questions, glossary: glossaryFrom(o.glossary, sourceText, asked) };
+}
+
+/** How many saved terms one book can bring into its table. */
+const MAX_SAVED_ROWS = 100;
+
+/**
+ * The author's saved glossary for this language pair, laid over Betty's
+ * table: a saved term the book contains takes its saved rendering, and one
+ * she did not list is added. The author already decided these once.
+ */
+export function mergeSavedGlossary(
+  rows: GlossaryRow[],
+  saved: SavedGlossaryEntry[],
+  sourceText: string,
+): GlossaryRow[] {
+  const inBook = saved.filter((e) => e.term && sourceText.includes(e.term)).slice(0, MAX_SAVED_ROWS);
+  const byTerm = new Map(inBook.map((e) => [e.term, e]));
+  const out = rows.map((r) => {
+    const e = byTerm.get(r.term);
+    return e ? { term: r.term, rendering: e.rendering, keep: e.keep, saved: true } : r;
+  });
+  const listed = new Set(rows.map((r) => r.term));
+  for (const e of inBook) {
+    if (!listed.has(e.term)) out.push({ term: e.term, rendering: e.rendering, keep: e.keep, saved: true });
   }
   return out;
 }
@@ -352,6 +432,8 @@ export interface BriefRequest {
 export interface BriefDeps {
   llm: LlmCall;
   isKnownWord?: (word: string) => boolean;
+  /** The author's saved glossary for this source and target language. */
+  savedGlossary?: SavedGlossaryEntry[];
 }
 
 /**
@@ -363,7 +445,7 @@ export interface BriefDeps {
 export async function runBriefQuestions(
   req: BriefRequest,
   deps: BriefDeps,
-): Promise<BriefQuestion[]> {
+): Promise<BriefResult> {
   const candidates = collectBriefCandidates(req.text, req.manuscriptLang, deps.isKnownWord);
   const ui = baseLang(req.uiLang);
   const system = buildBriefQuestionsPrompt({
@@ -378,10 +460,12 @@ export async function runBriefQuestions(
         ? user
         : `${user}\n\nYOUR PREVIOUS RESPONSE WAS NOT VALID JSON IN THE REQUIRED SHAPE. Respond again with STRICT valid JSON only — no prose, no code fences.`;
     const raw = await deps.llm(system, payload, { maxTokens: BRIEF_OUTPUT_TOKENS });
-    const questions = parseBriefQuestions(raw, req.text);
-    if (questions !== null) return questions;
+    const result = parseBriefResponse(raw, req.text);
+    if (result !== null) {
+      return { ...result, glossary: mergeSavedGlossary(result.glossary, deps.savedGlossary ?? [], req.text) };
+    }
   }
-  return [];
+  return { questions: [], glossary: mergeSavedGlossary([], deps.savedGlossary ?? [], req.text) };
 }
 
 /**
@@ -395,4 +479,30 @@ export function combineTranslationNotes(brief: string, styleGuide: string): stri
   if (!b) return s;
   if (!s) return b;
   return `${b}\n\nSTYLE SHEET (the author's own notes — where they disagree with the brief above, the brief above wins):\n${s}`;
+}
+
+/** At most this many rows are saved from one run, each term and rendering
+ *  at most this long — the table is a list of terms, never a manuscript. */
+const MAX_SAVE_ROWS = 200;
+const MAX_TERM_CHARS = 200;
+
+/** The rows a run's table saves, from whatever the app sent: trimmed, one
+ *  per term, a kept term stored as itself. */
+export function glossaryRowsToSave(rows: unknown): SavedGlossaryEntry[] {
+  if (!Array.isArray(rows)) return [];
+  const out: SavedGlossaryEntry[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const term = str(o.term);
+    if (!term || term.length > MAX_TERM_CHARS || seen.has(term)) continue;
+    const keep = o.keep === true;
+    const rendering = keep ? term : str(o.rendering);
+    if (!rendering || rendering.length > MAX_TERM_CHARS) continue;
+    seen.add(term);
+    out.push({ term, rendering, keep });
+    if (out.length === MAX_SAVE_ROWS) break;
+  }
+  return out;
 }

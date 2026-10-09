@@ -225,8 +225,10 @@ export async function purge(opts: PurgeOptions): Promise<PurgeResult> {
     // this module's import graph so file-level tests don't need the native
     // binding. The .db file won't shrink on DELETE — a full purge below removes
     // it outright, and a documents-only purge leaves the freed pages for reuse.
-    const { deleteAllDocuments } = await import("./db.js");
+    const { deleteAllDocuments, deleteAllTranslationGlossaries } = await import("./db.js");
     deleteAllDocuments();
+    // The saved translation glossary is made of the manuscripts' own terms.
+    deleteAllTranslationGlossaries();
   }
 
   if (opts.settings) {

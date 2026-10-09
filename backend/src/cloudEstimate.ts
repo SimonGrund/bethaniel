@@ -156,9 +156,13 @@ function wordsToTokens(words: number): number {
 const FLUENCY_VERDICT_TOKENS = 560;
 
 /** Betty's questions before a translation (translationBrief.ts): a fixed
- *  prompt, at most 40 candidates and four ~300-word excerpts, whatever the
+ *  prompt, at most 60 candidates and four ~300-word excerpts, whatever the
  *  book's length. */
-const BRIEF_QUESTIONS_INPUT_TOKENS = 3500;
+const BRIEF_QUESTIONS_INPUT_TOKENS = 4500;
+
+/** The brief the answers become — up to forty glossary rows and a few
+ *  answers — rides in the notes of every translation stage of every chunk. */
+const BRIEF_NOTES_TOKENS = 900;
 
 /** Share of chunks the fluency reviewer sends back for a re-polish. One
  *  paragraph in fourteen was flagged on the GLM-5.2 EN->DA sample; this stays
@@ -372,14 +376,14 @@ function estimateTranslateMode(
     const translatedTokens = chunkTokens;
 
     // Draft translation.
-    inputTokens += numChunks * (draftSystemTokens + chunkTokens);
+    inputTokens += numChunks * (draftSystemTokens + BRIEF_NOTES_TOKENS + chunkTokens);
     outputTokens += numChunks * translatedTokens;
 
     // No DRAFT reviewer. The pass that scored the translation against its
     // source is gone, along with the re-translate calls its verdicts drove.
 
     // Upgrade/polish pass over the translated output.
-    inputTokens += numChunks * (upgradeSystemTokens + translatedTokens);
+    inputTokens += numChunks * (upgradeSystemTokens + BRIEF_NOTES_TOKENS + translatedTokens);
     outputTokens += numChunks * translatedTokens;
 
     // Fluency reviewer over draft-against-polish, plus the share of chunks it
@@ -387,7 +391,7 @@ function estimateTranslateMode(
     // check left after the draft reviewer went — so it is priced
     // unconditionally here too, and not behind input.reviewMode. Leaving it
     // out understated a translation quote by about 28%.
-    inputTokens += numChunks * (fluencySystemTokens + translatedTokens * 2);
+    inputTokens += numChunks * (fluencySystemTokens + BRIEF_NOTES_TOKENS + translatedTokens * 2);
     outputTokens += numChunks * FLUENCY_VERDICT_TOKENS;
     const repolishChunks = numChunks * ASSUMED_REPOLISH_RATE;
     inputTokens += repolishChunks * (upgradeSystemTokens + translatedTokens);

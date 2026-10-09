@@ -117,7 +117,12 @@ import {
   type CloudEstimateMode,
 } from "./cloudEstimate.js";
 import { buildConsistencyReport } from "./consistency.js";
-import { combineTranslationNotes, runBriefQuestions } from "./translationBrief.js";
+import {
+  combineTranslationNotes,
+  glossaryRowsToSave,
+  mergeSavedGlossary,
+  runBriefQuestions,
+} from "./translationBrief.js";
 
 /** The model id a Betty in the Cloud run is submitted under (EditTrigger). */
 const CLOUD_MODEL_ID = "custom:bethaniel-cloud";
@@ -160,6 +165,8 @@ import {
   saveStyleGuide,
   getStyleGuide,
   getThroughputProfiles,
+  getTranslationGlossary,
+  saveTranslationGlossary,
 } from "./db.js";
 import {
   submitTask,
@@ -824,7 +831,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // so this one string is all the wiring there is. Capped: it is a short
     // list of choices, never a manuscript.
     const translateNotes = combineTranslationNotes(
-      typeof translationBrief === "string" ? translationBrief.slice(0, 4000) : "",
+      typeof translationBrief === "string" ? translationBrief.slice(0, 12_000) : "",
       authorStyleGuide,
     );
 
@@ -2823,16 +2830,18 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
     return;
   }
   const manuscriptLang = typeof body.manuscriptLang === "string" ? body.manuscriptLang : "en";
+  const targetLang = typeof body.targetLang === "string" ? body.targetLang : "English";
+  const savedGlossary = getTranslationGlossary(manuscriptLang, targetLang);
   const ac = new AbortController();
   res.on("close", () => {
     if (!res.writableEnded) ac.abort();
   });
   try {
-    const questions = await runBriefQuestions(
+    const result = await runBriefQuestions(
       {
         text,
         manuscriptLang,
-        targetLang: typeof body.targetLang === "string" ? body.targetLang : "English",
+        targetLang,
         uiLang: typeof body.uiLang === "string" ? body.uiLang : "en",
       },
       {
@@ -2842,16 +2851,37 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
           return acc;
         },
         isKnownWord: getWordValidator(manuscriptLang) ?? undefined,
+        savedGlossary,
       },
     );
-    res.json({ questions });
+    res.json(result);
   } catch (err) {
     // The message only — never the text that was sent.
     console.warn(
       `[Brief] questions unavailable: ${err instanceof Error ? err.message : String(err)}`,
     );
-    res.json({ questions: [], degraded: true });
+    // The author's own saved terms still stand without the model.
+    res.json({
+      questions: [],
+      glossary: mergeSavedGlossary([], savedGlossary, text),
+      degraded: true,
+    });
   }
+});
+
+// The table the author settled, saved when the translation starts so the
+// next one in this language pair begins with it (db.ts).
+router.put("/translate/glossary", (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  const sourceLang = typeof body.sourceLang === "string" ? body.sourceLang.slice(0, 20) : "";
+  const targetLang = typeof body.targetLang === "string" ? body.targetLang.slice(0, 60) : "";
+  if (!sourceLang || !targetLang) {
+    res.status(400).json({ error: "sourceLang and targetLang are required" });
+    return;
+  }
+  const rows = glossaryRowsToSave(body.rows);
+  saveTranslationGlossary(sourceLang, targetLang, rows);
+  res.json({ saved: rows.length });
 });
 
 router.post("/cloud/estimate", async (req: Request, res: Response) => {

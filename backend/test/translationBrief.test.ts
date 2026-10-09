@@ -12,6 +12,9 @@ import {
   parseBriefQuestions,
   runBriefQuestions,
   combineTranslationNotes,
+  parseBriefResponse,
+  mergeSavedGlossary,
+  glossaryRowsToSave,
 } from "../src/translationBrief.ts";
 
 const find = (cs: { term: string; kind: string }[], term: string, kind: string) =>
@@ -142,7 +145,7 @@ test("the runner asks once when the first answer is good, in the interface langu
       },
     },
   );
-  assert.equal(out.length, 1);
+  assert.equal(out.questions.length, 1);
   assert.equal(calls.length, 1);
   assert.match(calls[0].system, /in Danish/);
   assert.match(calls[0].system, /into French/);
@@ -161,7 +164,7 @@ test("the runner retries once on a bad answer, then gives up with no questions",
       },
     },
   );
-  assert.equal(retried.length, 1);
+  assert.equal(retried.questions.length, 1);
   assert.equal(n, 2);
 
   let m = 0;
@@ -169,7 +172,7 @@ test("the runner retries once on a bad answer, then gives up with no questions",
     { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
     { llm: async () => (m++, "still nope") },
   );
-  assert.deepEqual(none, []);
+  assert.deepEqual(none, { questions: [], glossary: [] });
   assert.equal(m, 2);
 });
 
@@ -179,7 +182,7 @@ test("an interface language Betty does not speak falls back to English", async (
     { text: SOURCE, manuscriptLang: "en", targetLang: "German", uiLang: "fr" },
     { llm: async (s) => ((system = s), '{"questions": []}') },
   );
-  assert.match(system, /label" and every "why" in English/);
+  assert.match(system, /"label" and "why" in English/);
 });
 
 test("the brief goes first and wins; either side may be empty", () => {
@@ -222,4 +225,107 @@ test("acronyms count from two uses; Roman numerals are not acronyms", () => {
   assert.equal(find(cs, "II", "acronym"), undefined);
   assert.equal(find(cs, "SLA", "acronym"), undefined, "once is not enough");
   assert.equal(find(cs, "GDPR", "name"), undefined);
+});
+
+// ── The glossary table ──
+
+const BOOK = "The data controller signs. The data controller pays. Under GDPR, Kragehøj is a place. They loved Kragehøj.";
+
+test("the glossary comes back beside the questions, each row checked on its own", () => {
+  const raw = JSON.stringify({
+    glossary: [
+      { term: "data controller", rendering: "responsable du traitement", keep: false },
+      { term: "GDPR", rendering: "RGPD" },
+      { term: "Kragehøj", keep: true },
+      { term: "invented thing", rendering: "x" }, // not in the book
+      { term: "data controller", rendering: "duplicate" },
+      { term: "GDPR" }, // no rendering and not kept
+      "nonsense",
+    ],
+    questions: [],
+  });
+  const out = parseBriefResponse(raw, BOOK)!;
+  assert.deepEqual(out.glossary, [
+    { term: "data controller", rendering: "responsable du traitement", keep: false },
+    { term: "GDPR", rendering: "RGPD", keep: false },
+    { term: "Kragehøj", rendering: "Kragehøj", keep: true },
+  ]);
+});
+
+test("a term Betty asks about is not also in the table", () => {
+  const raw = JSON.stringify({
+    glossary: [{ term: "Kragehøj", rendering: "Corbeaumont" }],
+    questions: [q({ term: "Kragehøj" })],
+  });
+  const out = parseBriefResponse(raw, BOOK)!;
+  assert.equal(out.questions.length, 1);
+  assert.deepEqual(out.glossary, []);
+});
+
+test("an answer with questions but no glossary is still usable", () => {
+  const out = parseBriefResponse(JSON.stringify({ questions: [q()] }), BOOK);
+  assert.deepEqual(out?.glossary, []);
+  assert.equal(parseBriefResponse("no json here", BOOK), null);
+});
+
+test("the table holds at most forty rows", () => {
+  const terms = Array.from({ length: 45 }, (_, i) => `Term${String.fromCharCode(65 + (i % 26))}${i}`);
+  const book = terms.join(" ");
+  const raw = JSON.stringify({ glossary: terms.map((t) => ({ term: t, rendering: t })), questions: [] });
+  assert.equal(parseBriefResponse(raw, book)!.glossary.length, 40);
+});
+
+test("a saved rendering replaces Betty's, and a saved term she missed is added", () => {
+  const rows = [
+    { term: "data controller", rendering: "contrôleur", keep: false },
+    { term: "GDPR", rendering: "RGPD", keep: false },
+  ];
+  const saved = [
+    { term: "data controller", rendering: "responsable du traitement", keep: false },
+    { term: "Kragehøj", rendering: "Kragehøj", keep: true },
+    { term: "not in this book", rendering: "x", keep: false },
+  ];
+  assert.deepEqual(mergeSavedGlossary(rows, saved, BOOK), [
+    { term: "data controller", rendering: "responsable du traitement", keep: false, saved: true },
+    { term: "GDPR", rendering: "RGPD", keep: false },
+    { term: "Kragehøj", rendering: "Kragehøj", keep: true, saved: true },
+  ]);
+});
+
+test("the runner merges the saved glossary, even when the model's answer is unusable", async () => {
+  const saved = [{ term: "Kragehøj", rendering: "Kragehøj", keep: true }];
+  const out = await runBriefQuestions(
+    { text: BOOK, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
+    { llm: async () => "nope", savedGlossary: saved },
+  );
+  assert.deepEqual(out, { questions: [], glossary: [{ ...saved[0], saved: true }] });
+});
+
+test("the prompt asks for the table, rendered in the target language", async () => {
+  let system = "";
+  await runBriefQuestions(
+    { text: BOOK, manuscriptLang: "en", targetLang: "French", uiLang: "da" },
+    { llm: async (s) => ((system = s), '{"glossary": [], "questions": []}') },
+  );
+  assert.match(system, /"glossary"/);
+  assert.match(system, /rendering" is in French/);
+});
+
+test("what is saved is trimmed, deduplicated and bounded", () => {
+  const rows = glossaryRowsToSave([
+    { term: " GDPR ", rendering: " RGPD ", keep: false },
+    { term: "Kragehøj", rendering: "", keep: true },
+    { term: "GDPR", rendering: "again", keep: false },
+    { term: "", rendering: "x", keep: false },
+    { term: "no rendering", rendering: "  ", keep: false },
+    { term: "x".repeat(201), rendering: "y", keep: false },
+    "junk",
+  ]);
+  assert.deepEqual(rows, [
+    { term: "GDPR", rendering: "RGPD", keep: false },
+    { term: "Kragehøj", rendering: "Kragehøj", keep: true },
+  ]);
+  assert.deepEqual(glossaryRowsToSave("not an array"), []);
+  const many = Array.from({ length: 250 }, (_, i) => ({ term: `t${i}`, rendering: "r", keep: false }));
+  assert.equal(glossaryRowsToSave(many).length, 200);
 });

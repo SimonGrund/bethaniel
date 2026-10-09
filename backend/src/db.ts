@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { join } from "path";
 import type { DocumentMeta, TaskState } from "./types.js";
 import type { Lexicon } from "./lexicon.js";
+import type { SavedGlossaryEntry } from "./translationBrief.js";
 import {
   median,
   pushSample,
@@ -42,6 +43,15 @@ function getDb(): Database.Database {
       );
       CREATE INDEX IF NOT EXISTS idx_tasks_finished_at
         ON tasks (finished_at DESC);
+      CREATE TABLE IF NOT EXISTS translation_glossary (
+        source_lang TEXT NOT NULL,
+        target_lang TEXT NOT NULL,
+        term TEXT NOT NULL,
+        rendering TEXT NOT NULL,
+        keep INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (source_lang, target_lang, term)
+      );
       CREATE TABLE IF NOT EXISTS model_perf (
         model_file TEXT PRIMARY KEY,
         samples TEXT NOT NULL,
@@ -168,6 +178,43 @@ export function getStyleGuide(): string | null {
     .prepare("SELECT content FROM style_guides WHERE id = 'default'")
     .get() as Record<string, unknown> | undefined;
   return row ? (row.content as string) : null;
+}
+
+// ── Translation glossary ──
+// The table the author settled before a translation (translationBrief.ts),
+// kept per source and target language so the next book in the pair — a
+// sequel, a second edition — starts with those terms already decided.
+
+export function getTranslationGlossary(sourceLang: string, targetLang: string): SavedGlossaryEntry[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT term, rendering, keep FROM translation_glossary
+       WHERE source_lang = ? AND target_lang = ? ORDER BY updated_at DESC`,
+    )
+    .all(sourceLang, targetLang) as { term: string; rendering: string; keep: number }[];
+  return rows.map((r) => ({ term: r.term, rendering: r.rendering, keep: r.keep === 1 }));
+}
+
+export function saveTranslationGlossary(
+  sourceLang: string,
+  targetLang: string,
+  rows: SavedGlossaryEntry[],
+): void {
+  const d = getDb();
+  const upsert = d.prepare(
+    `INSERT OR REPLACE INTO translation_glossary
+       (source_lang, target_lang, term, rendering, keep, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  const now = Date.now();
+  d.transaction(() => {
+    for (const r of rows) upsert.run(sourceLang, targetLang, r.term, r.rendering, r.keep ? 1 : 0, now);
+  })();
+}
+
+/** With the documents: the terms come out of the author's manuscripts. */
+export function deleteAllTranslationGlossaries(): void {
+  getDb().prepare("DELETE FROM translation_glossary").run();
 }
 
 // ── Model throughput profiles ──

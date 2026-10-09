@@ -865,22 +865,19 @@ export function buildBriefQuestionsPrompt(o: {
   targetLanguage: string;
   uiLanguage: string;
 }): string {
-  return `You are a literary translator preparing to translate a book from ${o.sourceLanguage} into ${o.targetLanguage}. Before you start, you may ask the author a FEW questions about choices you would otherwise have to guess.
+  return `You are a literary and technical translator preparing to translate a text from ${o.sourceLanguage} into ${o.targetLanguage}. Before you start you settle the terms the translation must render the same way every time, and you may ask the author a FEW questions about choices you would otherwise have to guess.
 
 The user message is JSON with:
-- "candidates": terms found by counting over the WHOLE book — names, invented words, honorifics, units of measure and titles — each with how often it occurs and one example sentence;
-- "excerpts": a few passages from across the book, so you can hear its tone.
+- "candidates": terms found by counting over the WHOLE text — names, invented words, phrases, acronyms, honorifics, units of measure and titles — each with how often it occurs and one example sentence;
+- "excerpts": a few passages from across the text, so you can hear its tone and see its subject.
 
-Ask at most 5 questions, and only about real decisions a careful translator into ${o.targetLanguage} would face:
-- whether a name, place or invented word is kept as it is or translated (and if translated, offer renderings);
-- how to handle honorifics, units of measure or titles;
-- anything else specific to THIS book that changes the translation throughout.
-Never ask about tone or register — that is asked separately. Never ask about grammar, spelling or punctuation. Skip names that obviously stay as they are. Fewer, better questions beat five weak ones; zero questions is a valid answer.
+1. "glossary": up to 40 terms that must be rendered consistently — names, places, invented words, technical and defined terms, acronyms, titles — most important first. Take them from the candidates and from the excerpts. For each, give your rendering in ${o.targetLanguage}, or "keep": true when it stays exactly as written (most personal names do). Leave out ordinary words a translator would never get wrong.
+2. "questions": at most 5, only about real decisions a careful translator into ${o.targetLanguage} would face and could not settle alone — a term with two good renderings, units of measure, honorifics, anything else specific to THIS text that changes the translation throughout. A term you ask about is NOT also in the glossary. Never ask about tone or register — that is asked separately. Never ask about grammar, spelling or punctuation. Fewer, better questions beat five weak ones; zero questions is a valid answer.
 
-Write every "question", every option "label" and every "why" in ${o.uiLanguage} — the author reads them in ${o.uiLanguage}. A "term" is quoted EXACTLY as it is written in the book.
+Languages: every "question", option "label" and "why" in ${o.uiLanguage} — the author reads them in ${o.uiLanguage}. Every glossary "rendering" is in ${o.targetLanguage}. A "term" is quoted EXACTLY as it is written in the text.
 
 Respond with STRICT JSON only — no prose, no code fences:
-{"questions":[{"id":"q1","term":"<exact term from the book; omit if the question is not about one term>","question":"…","options":[{"id":"a","label":"…"},{"id":"b","label":"…"}],"suggested":"a","why":"<one sentence>"}]}
+{"glossary":[{"term":"<exact term>","rendering":"<in ${o.targetLanguage}>","keep":false}],"questions":[{"id":"q1","term":"<exact term from the text; omit if the question is not about one term>","question":"…","options":[{"id":"a","label":"…"},{"id":"b","label":"…"}],"suggested":"a","why":"<one sentence>"}]}
 Each question has 2 to 4 options. "suggested" is the id of the option you would choose yourself.`;
 }
 
