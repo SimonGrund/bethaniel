@@ -869,16 +869,17 @@ export function buildBriefQuestionsPrompt(o: {
 
 The user message is JSON with:
 - "candidates": terms found by counting over the WHOLE text — names, invented words, phrases, acronyms, honorifics, units of measure and titles — each with how often it occurs and one example sentence;
-- "excerpts": a few passages from across the text, so you can hear its tone and see its subject.
+- "excerpts": a few passages from across the text, so you can hear its tone and see its subject;
+- "decided": terms the author has already settled on an earlier translation. Do not list them and do not ask about them.
 
-1. "glossary": up to 40 terms that must be rendered consistently — names, places, invented words, technical and defined terms, acronyms, titles — most important first. Take them from the candidates and from the excerpts. For each, give your rendering in ${o.targetLanguage}, or "keep": true when it stays exactly as written (most personal names do). Leave out ordinary words a translator would never get wrong.
+1. "glossary": the terms that must be rendered the same way every time — names, places, invented words, technical and defined terms, acronyms, titles — most important first, at most 40. Take them from the candidates and from the excerpts. For each, give your rendering in ${o.targetLanguage}, or "keep": true when it stays exactly as written (most personal names do). Only list a term when a different or inconsistent rendering would be wrong; leave out ordinary words a translator would never get wrong ("processing", "in writing", "customer"). Do not pad the list: a short text may need five rows, a technical one thirty.
 2. "questions": at most 5, only about real decisions a careful translator into ${o.targetLanguage} would face and could not settle alone — a term with two good renderings, units of measure, honorifics, anything else specific to THIS text that changes the translation throughout. A term you ask about is NOT also in the glossary. Never ask about tone or register — that is asked separately. Never ask about grammar, spelling or punctuation. Fewer, better questions beat five weak ones; zero questions is a valid answer.
 
 Languages: every "question", option "label" and "why" in ${o.uiLanguage} — the author reads them in ${o.uiLanguage}. Every glossary "rendering" is in ${o.targetLanguage}. A "term" is quoted EXACTLY as it is written in the text.
 
 Respond with STRICT JSON only — no prose, no code fences:
-{"glossary":[{"term":"<exact term>","rendering":"<in ${o.targetLanguage}>","keep":false}],"questions":[{"id":"q1","term":"<exact term from the text; omit if the question is not about one term>","question":"…","options":[{"id":"a","label":"…"},{"id":"b","label":"…"}],"suggested":"a","why":"<one sentence>"}]}
-Each question has 2 to 4 options. "suggested" is the id of the option you would choose yourself.`;
+{"glossary":[{"term":"<exact term>","rendering":"<in ${o.targetLanguage}>","keep":false}],"questions":[{"id":"q1","term":"<exact term from the text; omit if the question is not about one term>","question":"…","options":[{"id":"a","label":"…","rendering":"<in ${o.targetLanguage}>"},{"id":"b","label":"…","rendering":"<in ${o.targetLanguage}>"}],"suggested":"a","why":"<one sentence>"}]}
+Each question has 2 to 4 options. "suggested" is the id of the option you would choose yourself. When a question is about a term, every option is a way to render it in ${o.targetLanguage}, never a word from another language, and carries "rendering": the exact text to use (the term itself to keep it), e.g. {"id":"a","label":"…","rendering":"…"}.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -6,7 +6,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  answeredTermsToSave,
   defaultAnswers,
+  glossaryToSave,
   renderTranslationBrief,
   type BriefQuestion,
 } from "../../frontend/src/translationBrief.ts";
@@ -53,4 +55,72 @@ test("an author's own answer is kept verbatim; an empty one falls back to Betty'
 
 test("by default every question takes Betty's suggestion", () => {
   assert.deepEqual(defaultAnswers(qs), { q1: { optionId: "a" }, q2: { optionId: "b" } });
+});
+
+// ── The glossary table ──
+
+test("the table goes into the brief as binding lines, kept terms as themselves", () => {
+  const brief = renderTranslationBrief("match", [], {}, [
+    { term: "data controller", rendering: "responsable du traitement", keep: false },
+    { term: "Kragehøj", rendering: "Kragehøj", keep: true },
+    { term: "empty", rendering: "  ", keep: false },
+  ]);
+  assert.match(brief, /GLOSSARY/);
+  assert.match(brief, /- "data controller" → "responsable du traitement"/);
+  assert.match(brief, /- "Kragehøj": keep exactly as written/);
+  assert.doesNotMatch(brief, /"empty"/);
+});
+
+test("a table alone is a brief; an empty table adds nothing", () => {
+  assert.notEqual(renderTranslationBrief("match", [], {}, [{ term: "GDPR", rendering: "RGPD", keep: false }]), "");
+  assert.equal(renderTranslationBrief("match", [], {}, []), "");
+});
+
+test("the rows worth saving are the filled-in ones", () => {
+  assert.deepEqual(
+    glossaryToSave([
+      { term: " GDPR ", rendering: " RGPD ", keep: false, saved: true },
+      { term: "", rendering: "x", keep: false },
+      { term: "half", rendering: "", keep: false },
+      { term: "Kragehøj", rendering: "", keep: true },
+    ]),
+    [
+      { term: "GDPR", rendering: "RGPD", keep: false },
+      { term: "Kragehøj", rendering: "Kragehøj", keep: true },
+    ],
+  );
+});
+
+// ── Answers to term questions are part of the glossary ──
+
+test("a term question's chosen rendering is said in the brief and saved", () => {
+  const tq: BriefQuestion[] = [
+    {
+      id: "q1",
+      term: "data controller",
+      question: "Verantwortlicher eller für die Verarbeitung Verantwortlicher?",
+      options: [
+        { id: "a", label: "Verantwortlicher (tysk standard)", rendering: "Verantwortlicher" },
+        { id: "b", label: "Den lange form", rendering: "für die Verarbeitung Verantwortlicher" },
+      ],
+      suggested: "a",
+      why: "",
+    },
+    { id: "q2", question: "Units?", options: [{ id: "a", label: "Keep" }, { id: "b", label: "Convert" }], suggested: "a", why: "" },
+    {
+      id: "q3",
+      term: "DPO",
+      question: "DSB?",
+      options: [{ id: "a", label: "DSB", rendering: "DSB" }, { id: "b", label: "DPO", rendering: "DPO" }],
+      suggested: "a",
+      why: "",
+    },
+  ];
+  const answers = { q1: { optionId: "b" }, q2: { optionId: "b" }, q3: { other: "Datenschutzbeauftragter" } };
+  const brief = renderTranslationBrief("match", tq, answers);
+  assert.match(brief, /→ Den lange form \(render as "für die Verarbeitung Verantwortlicher"\)/);
+  assert.deepEqual(answeredTermsToSave(tq, answers), [
+    { term: "data controller", rendering: "für die Verarbeitung Verantwortlicher", keep: false },
+    { term: "DPO", rendering: "Datenschutzbeauftragter", keep: false },
+  ]);
 });

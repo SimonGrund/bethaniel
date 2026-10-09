@@ -17,6 +17,8 @@ export type Tone = "match" | "softer" | "stricter";
 export interface BriefOption {
   id: string;
   label: string;
+  /** For a question about a term: the exact text it is rendered as. */
+  rendering?: string;
 }
 
 export interface BriefQuestion {
@@ -26,6 +28,16 @@ export interface BriefQuestion {
   options: BriefOption[];
   suggested: string;
   why: string;
+}
+
+/** One row of the glossary table. `saved`: from the author's glossary for
+ *  this language pair; `added`: typed in by the author on this run. */
+export interface GlossaryRow {
+  term: string;
+  rendering: string;
+  keep: boolean;
+  saved?: boolean;
+  added?: boolean;
 }
 
 /** One answer: an option, or the author's own words ("Other…"). */
@@ -40,6 +52,9 @@ export interface PendingTranslationBrief {
   questions: BriefQuestion[] | null;
   tone: Tone;
   answers: Record<string, BriefAnswer>;
+  /** Betty's table, as the author has edited it. Absent in a pending run
+   *  saved before the table existed. */
+  glossary?: GlossaryRow[];
   /** The questions call failed; only the tone question is on offer. */
   degraded?: boolean;
 }
@@ -55,18 +70,49 @@ export function defaultAnswers(questions: BriefQuestion[]): Record<string, Brief
   return Object.fromEntries(questions.map((q) => [q.id, { optionId: q.suggested }]));
 }
 
+function chosenOption(q: BriefQuestion, a: BriefAnswer | undefined) {
+  const id = a?.optionId ?? q.suggested;
+  return q.options.find((o) => o.id === id) ?? q.options.find((o) => o.id === q.suggested);
+}
+
 function answerText(q: BriefQuestion, a: BriefAnswer | undefined): string {
   const own = a?.other?.trim();
   if (own) return `"${own}"`;
-  const id = a?.optionId ?? q.suggested;
-  const opt = q.options.find((o) => o.id === id) ?? q.options.find((o) => o.id === q.suggested);
-  return opt?.label ?? "";
+  const opt = chosenOption(q, a);
+  if (!opt) return "";
+  // The label is in the author's language; the rendering is what the
+  // translation must actually say.
+  return q.term && opt.rendering ? `${opt.label} (render as "${opt.rendering}")` : opt.label;
+}
+
+/** The answers to questions about a term, as glossary rows — so the next
+ *  translation in this language pair does not ask them again. */
+export function answeredTermsToSave(
+  questions: BriefQuestion[],
+  answers: Record<string, BriefAnswer>,
+): { term: string; rendering: string; keep: boolean }[] {
+  return questions.flatMap((q) => {
+    if (!q.term) return [];
+    const a = answers[q.id];
+    const rendering = a?.other?.trim() || chosenOption(q, a)?.rendering;
+    return rendering ? [{ term: q.term, rendering, keep: rendering === q.term }] : [];
+  });
+}
+
+/** The rows worth keeping: a term, and either a rendering or "keep". */
+export function glossaryToSave(rows: GlossaryRow[]): { term: string; rendering: string; keep: boolean }[] {
+  return rows.flatMap((r) => {
+    const term = r.term.trim();
+    const rendering = r.keep ? term : r.rendering.trim();
+    return term && rendering ? [{ term, rendering, keep: r.keep }] : [];
+  });
 }
 
 export function renderTranslationBrief(
   tone: Tone,
   questions: BriefQuestion[],
   answers: Record<string, BriefAnswer>,
+  glossary: GlossaryRow[] = [],
 ): string {
   const lines: string[] = [];
   const toneLine = TONE_LINES[tone];
@@ -74,6 +120,13 @@ export function renderTranslationBrief(
   for (const q of questions) {
     const term = q.term ? `"${q.term}" — ` : "";
     lines.push(`- ${term}${q.question} → ${answerText(q, answers[q.id])}`);
+  }
+  const rows = glossaryToSave(glossary);
+  if (rows.length > 0) {
+    lines.push("GLOSSARY (binding — render each term exactly so, every time it occurs):");
+    for (const r of rows) {
+      lines.push(r.keep ? `- "${r.term}": keep exactly as written` : `- "${r.term}" → "${r.rendering}"`);
+    }
   }
   if (lines.length === 0) return "";
   return [

@@ -329,3 +329,39 @@ test("what is saved is trimmed, deduplicated and bounded", () => {
   const many = Array.from({ length: 250 }, (_, i) => ({ term: `t${i}`, rendering: "r", keep: false }));
   assert.equal(glossaryRowsToSave(many).length, 200);
 });
+
+// ── What is already decided stays decided ──
+
+test("an option keeps the exact rendering it stands for", () => {
+  const raw = JSON.stringify({
+    questions: [q({
+      options: [
+        { id: "a", label: "Behold som Kragehøj", rendering: "Kragehøj" },
+        { id: "b", label: "Oversæt", rendering: "  Corbeaumont " },
+        { id: "c", label: "Noget andet", rendering: 7 },
+      ],
+    })],
+  });
+  const opts = parseBriefResponse(raw, SOURCE)!.questions[0].options;
+  assert.deepEqual(opts, [
+    { id: "a", label: "Behold som Kragehøj", rendering: "Kragehøj" },
+    { id: "b", label: "Oversæt", rendering: "Corbeaumont" },
+    { id: "c", label: "Noget andet" },
+  ]);
+});
+
+test("a term the saved glossary already settles is not asked again, and the model is told", async () => {
+  let user = "";
+  const out = await runBriefQuestions(
+    { text: SOURCE, manuscriptLang: "en", targetLang: "French", uiLang: "en" },
+    {
+      llm: async (_s, u) => {
+        user = u;
+        return JSON.stringify({ questions: [q({ id: "x", term: "Kragehøj" }), q({ id: "y", term: undefined })] });
+      },
+      savedGlossary: [{ term: "kragehøj", rendering: "Kragehøj", keep: true }],
+    },
+  );
+  assert.deepEqual(out.questions.map((x) => x.id), ["y"]);
+  assert.match(user, /"decided"/);
+});

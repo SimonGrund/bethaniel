@@ -13,7 +13,7 @@ import type {
   Lexicon,
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
-import type { BriefQuestion } from "./translationBrief";
+import type { BriefQuestion, GlossaryRow } from "./translationBrief";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -732,21 +732,40 @@ export async function getTranslationQuestions(req: {
   targetLang: string;
   manuscriptLang: string;
   uiLang: string;
-}): Promise<{ questions: BriefQuestion[]; degraded: boolean }> {
+}): Promise<{ questions: BriefQuestion[]; glossary: GlossaryRow[]; degraded: boolean }> {
   try {
     const res = await apiFetch("/translate/brief/questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     });
-    if (!res.ok) return { questions: [], degraded: true };
     const data = await res.json();
     return {
       questions: Array.isArray(data.questions) ? data.questions : [],
+      glossary: Array.isArray(data.glossary) ? data.glossary : [],
       degraded: data.degraded === true,
     };
   } catch {
-    return { questions: [], degraded: true };
+    return { questions: [], glossary: [], degraded: true };
+  }
+}
+
+/** Keep the table the author settled, for the next translation in this
+ *  language pair. Best effort: a failure costs a pre-filled table, never
+ *  the run. */
+export async function saveTranslationGlossary(req: {
+  sourceLang: string;
+  targetLang: string;
+  rows: { term: string; rendering: string; keep: boolean }[];
+}): Promise<void> {
+  try {
+    await apiFetch("/translate/glossary", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+  } catch {
+    // Nothing to tell the author: the run goes ahead either way.
   }
 }
 

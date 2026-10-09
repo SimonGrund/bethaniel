@@ -260,6 +260,9 @@ export function sampleExcerpts(text: string, count = 4, words = 300): string[] {
 export interface BriefOption {
   id: string;
   label: string;
+  /** For a question about a term: the exact text this option renders it as,
+   *  in the target language — what the brief binds and the glossary keeps. */
+  rendering?: string;
 }
 
 export interface BriefQuestion {
@@ -324,7 +327,8 @@ function toQuestion(item: unknown, sourceText: string): BriefQuestion | null {
     const label = str((opt as Record<string, unknown>).label);
     if (!oid || !label || ids.has(oid)) return null;
     ids.add(oid);
-    options.push({ id: oid, label });
+    const rendering = str((opt as Record<string, unknown>).rendering);
+    options.push(rendering ? { id: oid, label, rendering } : { id: oid, label });
   }
   if (!ids.has(suggested)) return null;
   let term: string | undefined;
@@ -453,7 +457,16 @@ export async function runBriefQuestions(
     targetLanguage: req.targetLang,
     uiLanguage: UI_LANGS.has(ui) ? LANGUAGE_NAMES[ui] : "English",
   });
-  const user = JSON.stringify({ candidates, excerpts: sampleExcerpts(req.text) });
+  // What the author settled on an earlier translation in this language pair
+  // is not Betty's to ask about again (mergeSavedGlossary puts it in the table).
+  const lowerText = req.text.toLowerCase();
+  const saved = (deps.savedGlossary ?? []).filter((e) => lowerText.includes(e.term.toLowerCase()));
+  const decided = new Set(saved.map((e) => e.term.toLowerCase()));
+  const user = JSON.stringify({
+    candidates,
+    excerpts: sampleExcerpts(req.text),
+    decided: saved.map((e) => e.term),
+  });
   for (let attempt = 0; attempt < 2; attempt++) {
     const payload =
       attempt === 0
@@ -462,7 +475,10 @@ export async function runBriefQuestions(
     const raw = await deps.llm(system, payload, { maxTokens: BRIEF_OUTPUT_TOKENS });
     const result = parseBriefResponse(raw, req.text);
     if (result !== null) {
-      return { ...result, glossary: mergeSavedGlossary(result.glossary, deps.savedGlossary ?? [], req.text) };
+      return {
+        questions: result.questions.filter((q) => !q.term || !decided.has(q.term.toLowerCase())),
+        glossary: mergeSavedGlossary(result.glossary, deps.savedGlossary ?? [], req.text),
+      };
     }
   }
   return { questions: [], glossary: mergeSavedGlossary([], deps.savedGlossary ?? [], req.text) };

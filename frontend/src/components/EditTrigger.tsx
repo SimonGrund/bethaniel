@@ -237,6 +237,7 @@ export default function EditTrigger() {
         questions: null,
         tone: "match",
         answers: {},
+        glossary: [],
       });
       return;
     }

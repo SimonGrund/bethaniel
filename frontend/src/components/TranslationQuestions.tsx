@@ -11,6 +11,12 @@
 // no model, so it comes first and is answered while Betty is still reading;
 // by the time the author has chosen, her questions are usually there.
 //
+// Then the glossary: every term Betty found, with her rendering in an
+// editable field, always shown — a professional text has dozens of terms and
+// five questions cover five. It is saved per language pair when the run
+// starts, so the next book begins with these decided. Then her questions,
+// for the few real dilemmas.
+//
 // It cannot be dismissed: the run is paid for. Skip starts it on Betty's
 // suggestions, and if her questions could not be prepared the tone question
 // alone is enough to go on.
@@ -18,14 +24,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "../i18n";
-import { getTranslationQuestions } from "../api";
+import { getTranslationQuestions, saveTranslationGlossary } from "../api";
 import { useStore } from "../store";
 import type { Lang } from "../types";
 import {
+  answeredTermsToSave,
   defaultAnswers,
+  glossaryToSave,
   renderTranslationBrief,
   type BriefAnswer,
   type BriefQuestion,
+  type GlossaryRow,
   type Tone,
 } from "../translationBrief";
 
@@ -74,6 +83,7 @@ export default function TranslationQuestions({
           ...cur,
           questions: r.questions,
           answers: defaultAnswers(r.questions),
+          glossary: r.glossary,
           degraded: r.degraded,
         });
       })
@@ -84,20 +94,22 @@ export default function TranslationQuestions({
   }, [needsQuestions]);
 
   const questions: BriefQuestion[] | null = pending?.questions ?? null;
-  // Step 0 is the tone; 1..n are Betty's questions. While she is still
-  // reading, there is one more step: the wait.
-  const total = 1 + (questions?.length ?? 0);
+  const glossary: GlossaryRow[] = pending?.glossary ?? [];
+  // Step 0 is the tone, 1 the glossary, 2.. Betty's questions. While she is
+  // still reading, every step after the tone is the wait.
+  const total = 2 + (questions?.length ?? 0);
   const onLast = questions !== null && step === total - 1;
   const waiting = questions === null && step >= 1;
-  const done = questions !== null && step >= total; // only when there are none
-  const q = questions && step >= 1 ? questions[step - 1] : undefined;
+  const done = questions !== null && step >= total;
+  const onTable = questions !== null && step === 1;
+  const q = questions && step >= 2 ? questions[step - 2] : undefined;
 
   const answer: BriefAnswer | undefined = q
     ? (pending?.answers[q.id] ?? { optionId: q.suggested })
     : undefined;
   const ownAnswer = answer?.other !== undefined;
 
-  const choices: Choice[] = waiting || done
+  const choices: Choice[] = waiting || done || onTable
     ? []
     : q
     ? [
@@ -119,12 +131,36 @@ export default function TranslationQuestions({
     if (key === "__other") setTimeout(() => otherRef.current?.focus(), 0);
   };
 
+  const setRow = (i: number, row: GlossaryRow) => {
+    if (!pending) return;
+    const rows = [...glossary];
+    rows[i] = row;
+    setPending({ ...pending, glossary: rows });
+  };
+  const addRow = () => {
+    if (!pending) return;
+    setPending({ ...pending, glossary: [...glossary, { term: "", rendering: "", keep: false, added: true }] });
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>(".tq-cell-term");
+      inputs[inputs.length - 1]?.focus();
+    }, 0);
+  };
+
   const submit = async (useSuggestions: boolean) => {
     if (!pending || submitting) return;
     const qs = questions ?? [];
     const brief = useSuggestions
-      ? renderTranslationBrief("match", qs, defaultAnswers(qs))
-      : renderTranslationBrief(pending.tone, qs, pending.answers);
+      ? renderTranslationBrief("match", qs, defaultAnswers(qs), glossary)
+      : renderTranslationBrief(pending.tone, qs, pending.answers, glossary);
+    // Only a table the author went through is theirs to keep; Skip takes
+    // Betty's for this run and leaves the saved glossary as it was.
+    if (!useSuggestions) {
+      void saveTranslationGlossary({
+        sourceLang: manuscriptLang,
+        targetLang,
+        rows: [...glossaryToSave(glossary), ...answeredTermsToSave(qs, pending.answers)],
+      });
+    }
     setSubmitting(true);
     try {
       // EditTrigger clears the pending brief once the job is accepted; on a
@@ -184,7 +220,7 @@ export default function TranslationQuestions({
 
   return createPortal(
     <div className="tq" role="dialog" aria-modal="true" aria-label={t("tb_title")}>
-      <div className="tq-panel">
+      <div className={`tq-panel${onTable ? " tq-panel--wide" : ""}`}>
         <div className="tq-head">
           <span className="tq-title">{t("tb_title")}</span>
           {questions !== null && !done && (
@@ -209,6 +245,62 @@ export default function TranslationQuestions({
                 {t(pending.degraded ? "tb_degraded" : "tb_ready")}
               </p>
             )}
+          </div>
+        ) : onTable ? (
+          <div className="tq-card" key="glossary">
+            <p className="tq-question">{t("tb_glossary_q")}</p>
+            <p className="tq-why tq-why--lead">
+              {t(glossary.length > 0 ? "tb_glossary_intro" : "tb_glossary_empty")}
+            </p>
+            {glossary.length > 0 && (
+              <div className="tq-table" role="table" aria-label={t("tb_glossary_q")}>
+                <div className="tq-row tq-row--head" role="row">
+                  <span role="columnheader">{t("tb_glossary_term")}</span>
+                  <span role="columnheader">{t("tb_glossary_rendering")}</span>
+                  <span role="columnheader" />
+                </div>
+                {glossary.map((r, i) => (
+                  <div className={`tq-row${r.keep ? " is-kept" : ""}`} role="row" key={i}>
+                    {r.added ? (
+                      <input
+                        type="text"
+                        className="tq-cell-input tq-cell-term"
+                        value={r.term}
+                        maxLength={200}
+                        placeholder={t("tb_glossary_new_term")}
+                        aria-label={t("tb_glossary_term")}
+                        onChange={(e) => setRow(i, { ...r, term: e.target.value })}
+                      />
+                    ) : (
+                      <span className="tq-term-cell" role="cell">
+                        {r.term}
+                        {r.saved && <span className="tq-saved">{t("tb_glossary_saved")}</span>}
+                      </span>
+                    )}
+                    <input
+                      type="text"
+                      className="tq-cell-input"
+                      value={r.keep ? r.term : r.rendering}
+                      disabled={r.keep}
+                      maxLength={200}
+                      aria-label={`${t("tb_glossary_rendering")}: ${r.term}`}
+                      onChange={(e) => setRow(i, { ...r, rendering: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className={`tq-keep${r.keep ? " is-on" : ""}`}
+                      aria-pressed={r.keep}
+                      onClick={() => setRow(i, { ...r, keep: !r.keep })}
+                    >
+                      {t("tb_glossary_keep")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button type="button" className="tq-add" onClick={addRow}>
+              + {t("tb_glossary_add")}
+            </button>
           </div>
         ) : (
           <div className="tq-card" key={q ? q.id : "tone"}>
