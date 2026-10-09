@@ -124,3 +124,13 @@ test("a term question's chosen rendering is said in the brief and saved", () => 
     { term: "DPO", rendering: "Datenschutzbeauftragter", keep: false },
   ]);
 });
+
+test("a term added twice is saved once, the first row winning", () => {
+  assert.deepEqual(
+    glossaryToSave([
+      { term: "Nordlys Analytics ApS", rendering: "Nordlys Analytics ApS", keep: true },
+      { term: " Nordlys Analytics ApS ", rendering: "Nordlys", keep: false, added: true },
+    ]),
+    [{ term: "Nordlys Analytics ApS", rendering: "Nordlys Analytics ApS", keep: true }],
+  );
+});

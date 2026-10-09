@@ -101,10 +101,14 @@ export function answeredTermsToSave(
 
 /** The rows worth keeping: a term, and either a rendering or "keep". */
 export function glossaryToSave(rows: GlossaryRow[]): { term: string; rendering: string; keep: boolean }[] {
+  const seen = new Set<string>();
   return rows.flatMap((r) => {
     const term = r.term.trim();
     const rendering = r.keep ? term : r.rendering.trim();
-    return term && rendering ? [{ term, rendering, keep: r.keep }] : [];
+    // A term the author added again is the row already there.
+    if (!term || !rendering || seen.has(term)) return [];
+    seen.add(term);
+    return [{ term, rendering, keep: r.keep }];
   });
 }
 

@@ -5824,7 +5824,7 @@ summary.review-source::before {
   width: min(46rem, 100%);
 }
 
-.tq-why--lead {
+.tq-why.tq-why--lead {
   margin: -0.4rem 0 0.9rem;
 }
 
