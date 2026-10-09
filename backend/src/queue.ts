@@ -129,6 +129,7 @@ import {
   chunkRetryLimit,
   DraftRejectedError,
   MAX_OUTPUT_ATTEMPTS,
+  isTransientFetchError,
   isRateLimitError,
   retryWaitMs,
 } from "./retryPolicy.js";
@@ -159,33 +160,6 @@ function stripAiSignoff(text: string): string {
   } while (out !== prev);
 
   return out.trim();
-}
-
-/**
- * Detect transient network errors that warrant a retry. llama-server can drop
- * connections under load (cold model load races, KV-cache reallocations,
- * parallel-slot saturation) producing generic "fetch failed" / undici errors.
- */
-function isTransientFetchError(err: unknown): boolean {
-  if (!err) return false;
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  if (msg.includes("cancelled") || msg.includes("aborted")) return false;
-  // A rate limit is the most retryable failure there is — it says "later",
-  // not "no", and matches none of the network signatures below. See
-  // isRateLimitError in retryPolicy.ts for why that mattered.
-  if (isRateLimitError(err)) return true;
-  return (
-    msg.includes("fetch failed") ||
-    msg.includes("econnreset") ||
-    msg.includes("econnrefused") ||
-    msg.includes("socket hang up") ||
-    msg.includes("terminated") ||
-    msg.includes("network") ||
-    msg.includes("eof") ||
-    msg.includes("undici") ||
-    msg.includes("etimedout") ||
-    msg.includes("epipe")
-  );
 }
 
 /**

@@ -124,6 +124,7 @@ import {
   runBriefQuestions,
 } from "./translationBrief.js";
 import { parseTermList } from "./termList.js";
+import { withTransientRetry } from "./retryPolicy.js";
 import { extractTermListText } from "./termListFile.js";
 
 /** The model id a Betty in the Cloud run is submitted under (EditTrigger). */
@@ -2850,11 +2851,17 @@ router.post("/translate/brief/questions", async (req: Request, res: Response) =>
         styleGuide: typeof body.styleGuide === "string" ? body.styleGuide.slice(0, 200_000) : "",
       },
       {
-        llm: async (system, user) => {
-          let acc = "";
-          for await (const tok of analyzeStream(CLOUD_MODEL_ID, user, system, ac.signal)) acc += tok;
-          return acc;
-        },
+        // A dropped connection is retried; a refusal (out of credit, a bad
+        // key) is not, and ends in "no questions" below.
+        llm: (system, user) =>
+          withTransientRetry(
+            async () => {
+              let acc = "";
+              for await (const tok of analyzeStream(CLOUD_MODEL_ID, user, system, ac.signal)) acc += tok;
+              return acc;
+            },
+            { attempts: 3, signal: ac.signal },
+          ),
         isKnownWord: getWordValidator(manuscriptLang) ?? undefined,
         savedGlossary,
       },

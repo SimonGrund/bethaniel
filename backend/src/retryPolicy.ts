@@ -117,3 +117,50 @@ export function chunkRetryLimit(err: unknown, isTransient: boolean): number {
   if (isTransient) return MAX_TRANSIENT_ATTEMPTS;
   return 1;
 }
+
+/**
+ * Detect transient network errors that warrant a retry. llama-server can drop
+ * connections under load (cold model load races, KV-cache reallocations,
+ * parallel-slot saturation) producing generic "fetch failed" / undici errors.
+ */
+export function isTransientFetchError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes("cancelled") || msg.includes("aborted")) return false;
+  // A rate limit is the most retryable failure there is — it says "later",
+  // not "no", and matches none of the network signatures below. See
+  // isRateLimitError in retryPolicy.ts for why that mattered.
+  if (isRateLimitError(err)) return true;
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("econnreset") ||
+    msg.includes("econnrefused") ||
+    msg.includes("socket hang up") ||
+    msg.includes("terminated") ||
+    msg.includes("network") ||
+    msg.includes("eof") ||
+    msg.includes("undici") ||
+    msg.includes("etimedout") ||
+    msg.includes("epipe")
+  );
+}
+
+/**
+ * One model call, retried when the connection drops — the same signatures
+ * the chunk loop retries — and never after the caller has gone. For calls
+ * outside the chunk loop, such as Betty's questions before a translation: a
+ * call cut off mid-answer there used to cost the author her whole table.
+ */
+export async function withTransientRetry<T>(
+  fn: () => Promise<T>,
+  opts: { attempts: number; signal?: AbortSignal; waitMs?: (err: unknown, attempt: number) => number },
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (opts.signal?.aborted || attempt >= opts.attempts || !isTransientFetchError(err)) throw err;
+      await new Promise((r) => setTimeout(r, (opts.waitMs ?? retryWaitMs)(err, attempt)));
+    }
+  }
+}

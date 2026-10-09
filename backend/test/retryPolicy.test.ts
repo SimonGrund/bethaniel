@@ -14,6 +14,7 @@ import {
   shouldAutoRetry,
   isRateLimitError,
   retryWaitMs,
+  withTransientRetry,
 } from "../src/retryPolicy.ts";
 
 test("transient engine faults are retryable", () => {
@@ -167,4 +168,40 @@ test("DraftRejectedError carries its reason for the failure report", () => {
   assert.equal(err.reason, "echoed source");
   assert.equal(err.name, "DraftRejectedError");
   assert.ok(err instanceof Error);
+});
+
+// ── One model call, retried on a dropped connection ──
+// Seen on a real run: Betty's questions call was cut off mid-answer
+// ("terminated") and the author got none of her table or questions.
+
+test("withTransientRetry retries a dropped connection, then gives up", async () => {
+  let n = 0;
+  const ok = await withTransientRetry(async () => {
+    if (++n < 3) throw new Error("terminated");
+    return "answer";
+  }, { attempts: 3, waitMs: () => 0 });
+  assert.equal(ok, "answer");
+  assert.equal(n, 3);
+
+  let m = 0;
+  await assert.rejects(
+    withTransientRetry(async () => { m++; throw new Error("terminated"); }, { attempts: 3, waitMs: () => 0 }),
+    /terminated/,
+  );
+  assert.equal(m, 3);
+});
+
+test("withTransientRetry does not retry what a retry cannot fix", async () => {
+  let n = 0;
+  await assert.rejects(
+    withTransientRetry(async () => { n++; throw new Error("The API rejected your key (403)"); }, { attempts: 3, waitMs: () => 0 }),
+  );
+  assert.equal(n, 1);
+  const ac = new AbortController();
+  ac.abort();
+  let k = 0;
+  await assert.rejects(
+    withTransientRetry(async () => { k++; throw new Error("terminated"); }, { attempts: 3, waitMs: () => 0, signal: ac.signal }),
+  );
+  assert.equal(k, 1, "never after the caller has gone");
 });
