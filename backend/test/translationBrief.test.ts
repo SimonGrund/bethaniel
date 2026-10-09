@@ -365,3 +365,32 @@ test("a term the saved glossary already settles is not asked again, and the mode
   assert.deepEqual(out.questions.map((x) => x.id), ["y"]);
   assert.match(user, /"decided"/);
 });
+
+// ── Noise the real runs showed ──
+
+test("a modal verb ends a phrase", () => {
+  const text = Array.from({ length: 3 }, () => "The data processor shall act. ").join("");
+  const cs = collectBriefCandidates(text, "en");
+  assert.ok(find(cs, "data processor", "phrase"));
+  assert.equal(cs.some((c) => /shall/.test(c.term)), false);
+});
+
+test("a row that is another's plural is the same term", () => {
+  const book = "data subject, data subjects, data subjekter, Datenschutz";
+  const raw = JSON.stringify({
+    glossary: [
+      { term: "data subject", rendering: "betroffene Person" },
+      { term: "data subjects", rendering: "betroffene Personen" },
+      { term: "data subjekter", rendering: "x" }, // a longer ending is a different word
+    ],
+    questions: [],
+  });
+  assert.deepEqual(parseBriefResponse(raw, book)!.glossary.map((r) => r.term), ["data subject", "data subjekter"]);
+  // And a saved term covers its plural in Betty's table.
+  const merged = mergeSavedGlossary(
+    [{ term: "data subjects", rendering: "betroffene Personen", keep: false }],
+    [{ term: "data subject", rendering: "betroffene Person", keep: false }],
+    book,
+  );
+  assert.deepEqual(merged.map((r) => r.term), ["data subject"]);
+});

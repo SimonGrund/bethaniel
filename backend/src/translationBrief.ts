@@ -65,17 +65,17 @@ const FUNCTION_WORDS: Record<string, string[]> = {
     "their our not then than there here must will would can could should may has have had " +
     "does did before after without under over into out about all any each more most some " +
     "such only own same very just also today now again always never when where which who " +
-    "whom what while because").split(" "),
+    "whom what while because shall might").split(" "),
   da: ("og at er en et den det de til af på med for som har var ikke der han hun jeg men " +
     "om så fra sig skal kan vil efter før over under ved hos eller også her nu når hvor " +
     "hvis fordi altid aldrig igen").split(" "),
   de: ("der die das und ist ein eine einen dem den des von mit für auf nicht sich als " +
     "auch sie wir ich bei nach vor über unter oder aber wenn noch nur wie hat war wird " +
-    "werden kann muss soll heute immer nie wieder weil").split(" "),
+    "werden kann muss soll darf heute immer nie wieder weil").split(" "),
   es: ("los las una del con por para que son sus como más pero este esta ese esa fue ser " +
-    "sin sobre entre cuando también debe hoy ahora siempre nunca porque").split(" "),
+    "sin sobre entre cuando también debe puede deberá hoy ahora siempre nunca porque").split(" "),
   fr: ("les une des dans par pour sur avec sans que qui est sont pas cette ces son ses " +
-    "elle ils nous vous mais plus comme avant après sous doit aujourd hui toujours jamais " +
+    "elle ils nous vous mais plus comme avant après sous doit peut aujourd hui toujours jamais " +
     "parce").split(" "),
 };
 
@@ -363,6 +363,19 @@ function questionsFrom(list: unknown[], sourceText: string): BriefQuestion[] {
   return out;
 }
 
+/**
+ * The same term in another number: "data subject" / "data subjects",
+ * "Maßnahme" / "Maßnahmen", "begreb" / "begreber". One is the other plus an
+ * ending of at most two letters. Two rows for one term would let the
+ * translation render them differently, which is what a glossary prevents.
+ */
+function samePlural(a: string, b: string): boolean {
+  const [x, y] = [a.toLowerCase(), b.toLowerCase()];
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= 4 && long.startsWith(short) && long.length - short.length <= 2 && /^\p{L}+$/u.test(long.slice(short.length));
+}
+
 function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): GlossaryRow[] {
   if (!Array.isArray(list)) return [];
   const out: GlossaryRow[] = [];
@@ -373,6 +386,7 @@ function glossaryFrom(list: unknown, sourceText: string, asked: Set<string>): Gl
     const term = str(o.term);
     // Verbatim in the book, once, and not already a question of its own.
     if (!term || !sourceText.includes(term) || seen.has(term) || asked.has(term)) continue;
+    if (out.some((r) => samePlural(r.term, term))) continue;
     const keep = o.keep === true;
     const rendering = keep ? term : str(o.rendering);
     if (!rendering) continue;
@@ -412,12 +426,16 @@ export function mergeSavedGlossary(
   sourceText: string,
 ): GlossaryRow[] {
   const inBook = saved.filter((e) => e.term && sourceText.includes(e.term)).slice(0, MAX_SAVED_ROWS);
-  const byTerm = new Map(inBook.map((e) => [e.term, e]));
-  const out = rows.map((r) => {
-    const e = byTerm.get(r.term);
-    return e ? { term: r.term, rendering: e.rendering, keep: e.keep, saved: true } : r;
-  });
-  const listed = new Set(rows.map((r) => r.term));
+  const out: GlossaryRow[] = [];
+  const listed = new Set<string>();
+  for (const r of rows) {
+    // A saved entry for this term — or for it in the other number — wins.
+    const e = inBook.find((e) => e.term === r.term) ?? inBook.find((e) => samePlural(e.term, r.term));
+    const row = e ? { term: e.term, rendering: e.rendering, keep: e.keep, saved: true } : r;
+    if (listed.has(row.term)) continue;
+    listed.add(row.term);
+    out.push(row);
+  }
   for (const e of inBook) {
     if (!listed.has(e.term)) out.push({ term: e.term, rendering: e.rendering, keep: e.keep, saved: true });
   }
