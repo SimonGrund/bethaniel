@@ -238,6 +238,8 @@ export default function EditTrigger() {
         tone: "match",
         answers: {},
         glossary: [],
+        termList: "",
+        listDone: false,
       });
       return;
     }
@@ -852,6 +854,7 @@ export default function EditTrigger() {
           units={units.map((u) => u.original)}
           targetLang={targetLang}
           manuscriptLang={manuscriptLang}
+          styleGuide={styleGuide}
           onSubmit={runPaid}
         />
       )}

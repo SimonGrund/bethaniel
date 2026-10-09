@@ -45,6 +45,8 @@ const LANGS = {
     // instead of Betty's suggestion, so both are seen.
     translateFile: "texts/The Ferryman of Kragehøj.md",
     target: "French",
+    // Typed on the term-list card, so the clip shows Betty building on it.
+    termList: "Kragehøj = Kragehøj\nKeep the English feel of the dialogue.",
     tone: 2,
     picks: { 1: 1 },
   },
@@ -601,8 +603,8 @@ async function translateScene(page, frame, rec, lang, opts) {
     input.closest("form").requestSubmit();
   }, cred);
 
-  // Betty's questions. The tone card is up at once, answered while she reads.
-  await frame.waitForSelector(".tq-card", { timeout: 30_000 });
+  // The author's term list first: typed, or "I don't have one".
+  await frame.waitForSelector(".tq-list", { timeout: 30_000 });
   rec.mark("questions");
   const onPanel = async () =>
     focus(page, await rectOf(frame, ".tq-panel", { pad: 18 }), { maxScale: 1.2 });
@@ -619,6 +621,16 @@ async function translateScene(page, frame, rec, lang, opts) {
     );
   };
   await sleep(400);
+  await onPanel();
+  await sleep(2200);
+  if (lang.termList) {
+    await pointAndClick(page, frame, ".tq-list", { ms: 600 });
+    await frame.locator(".tq-list").pressSequentially(lang.termList, { delay: 45 });
+    await sleep(1200);
+  }
+  await nextCard();
+
+  // The tone, answered while Betty reads the book with the list in hand.
   await onPanel();
   await sleep(2600);
   await pointAndClick(page, frame, ".tq-option", { nth: lang.tone ?? 0, ms: 600 });

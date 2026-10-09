@@ -38,6 +38,8 @@ export interface GlossaryRow {
   keep: boolean;
   saved?: boolean;
   added?: boolean;
+  /** From the author's term list, notes or style-guide glossary. */
+  author?: boolean;
 }
 
 /** One answer: an option, or the author's own words ("Other…"). */
@@ -47,8 +49,16 @@ export interface BriefAnswer {
 }
 
 /** A paid translation waiting on its answers. `questions` is null while
- *  Betty is still reading the book. */
+ *  Betty is still reading the book; she starts once the term-list card is
+ *  done (`listDone`), so she reads the list with the book. */
 export interface PendingTranslationBrief {
+  /** What the author pasted or uploaded on the term-list card. */
+  termList?: string;
+  listDone?: boolean;
+  /** The list's free text, as the backend read it — verbatim in the brief. */
+  authorNotes?: string;
+  /** Every row of the author's list, kept for the next translation. */
+  listRows?: { term: string; rendering: string; keep: boolean }[];
   questions: BriefQuestion[] | null;
   tone: Tone;
   answers: Record<string, BriefAnswer>;
@@ -117,6 +127,7 @@ export function renderTranslationBrief(
   questions: BriefQuestion[],
   answers: Record<string, BriefAnswer>,
   glossary: GlossaryRow[] = [],
+  authorNotes = "",
 ): string {
   const lines: string[] = [];
   const toneLine = TONE_LINES[tone];
@@ -132,6 +143,8 @@ export function renderTranslationBrief(
       lines.push(r.keep ? `- "${r.term}": keep exactly as written` : `- "${r.term}" → "${r.rendering}"`);
     }
   }
+  const notes = authorNotes.trim();
+  if (notes) lines.push("AUTHOR'S NOTES (in their own words — follow them throughout):", notes);
   if (lines.length === 0) return "";
   return [
     "TRANSLATION BRIEF (the author's answers to the translator's questions — these override the style sheet):",

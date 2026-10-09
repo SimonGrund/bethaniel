@@ -134,3 +134,12 @@ test("a term added twice is saved once, the first row winning", () => {
     [{ term: "Nordlys Analytics ApS", rendering: "Nordlys Analytics ApS", keep: true }],
   );
 });
+
+// ── The author's own notes ──
+
+test("the author's notes go into the brief verbatim", () => {
+  const brief = renderTranslationBrief("match", [], {}, [], "Use formal Sie throughout.\nNever translate song titles.");
+  assert.match(brief, /AUTHOR'S NOTES/);
+  assert.match(brief, /Use formal Sie throughout\.\nNever translate song titles\./);
+  assert.equal(renderTranslationBrief("match", [], {}, [], "   "), "");
+});

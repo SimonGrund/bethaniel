@@ -11,6 +11,11 @@
 // no model, so it comes first and is answered while Betty is still reading;
 // by the time the author has chosen, her questions are usually there.
 //
+// It opens on the author's own term list — pasted, uploaded, or none — so
+// Betty reads it with the book: what it settles she never asks about, what
+// it leaves out she fills in and asks about. Her call starts when that card
+// is done, and the tone card covers the wait.
+//
 // Then the glossary: every term Betty found, with her rendering in an
 // editable field, always shown — a professional text has dozens of terms and
 // five questions cover five. It is saved per language pair when the run
@@ -24,7 +29,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "../i18n";
-import { getTranslationQuestions, saveTranslationGlossary } from "../api";
+import { extractTermList, getTranslationQuestions, saveTranslationGlossary } from "../api";
 import { useStore } from "../store";
 import type { Lang } from "../types";
 import {
@@ -56,26 +61,42 @@ export default function TranslationQuestions({
   units,
   targetLang,
   manuscriptLang,
+  styleGuide,
   onSubmit,
 }: {
   lang: Lang;
   units: string[];
   targetLang: string;
   manuscriptLang: string;
+  /** The author's style sheet: a glossary in it counts as decided. */
+  styleGuide?: string;
   onSubmit: (brief: string) => Promise<void>;
 }) {
   const t = useTranslation(lang);
   const pending = useStore((s) => s.pendingTranslationBrief);
   const setPending = useStore((s) => s.setPendingTranslationBrief);
-  const [step, setStep] = useState(0);
+  // A run saved before the list card existed already has its questions.
+  const listDone = pending?.listDone ?? pending?.questions != null;
+  const [step, setStep] = useState(() => (listDone ? 1 : 0));
   const [submitting, setSubmitting] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const otherRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const needsQuestions = pending !== null && pending.questions === null;
+  const needsQuestions = pending !== null && listDone && pending.questions === null;
   useEffect(() => {
     if (!needsQuestions || asking) return;
     asking = true;
-    void getTranslationQuestions({ units, targetLang, manuscriptLang, uiLang: lang })
+    const cur0 = useStore.getState().pendingTranslationBrief;
+    void getTranslationQuestions({
+      units,
+      targetLang,
+      manuscriptLang,
+      uiLang: lang,
+      termList: cur0?.termList ?? "",
+      styleGuide: styleGuide ?? "",
+    })
       .then((r) => {
         const cur = useStore.getState().pendingTranslationBrief;
         if (!cur) return;
@@ -84,6 +105,8 @@ export default function TranslationQuestions({
           questions: r.questions,
           answers: defaultAnswers(r.questions),
           glossary: r.glossary,
+          authorNotes: r.authorNotes,
+          listRows: r.listRows,
           degraded: r.degraded,
         });
       })
@@ -95,21 +118,24 @@ export default function TranslationQuestions({
 
   const questions: BriefQuestion[] | null = pending?.questions ?? null;
   const glossary: GlossaryRow[] = pending?.glossary ?? [];
-  // Step 0 is the tone, 1 the glossary, 2.. Betty's questions. While she is
-  // still reading, every step after the tone is the wait.
-  const total = 2 + (questions?.length ?? 0);
+  // Step 0 is the author's list, 1 the tone, 2 the glossary, 3.. Betty's
+  // questions. While she is still reading, every step after the tone is the
+  // wait.
+  const total = 3 + (questions?.length ?? 0);
+  const onList = step === 0;
   const onLast = questions !== null && step === total - 1;
-  const waiting = questions === null && step >= 1;
+  const waiting = questions === null && step >= 2;
   const done = questions !== null && step >= total;
-  const onTable = questions !== null && step === 1;
-  const q = questions && step >= 2 ? questions[step - 2] : undefined;
+  const onTable = questions !== null && step === 2;
+  const q = questions && step >= 3 ? questions[step - 3] : undefined;
+  const listText = pending?.termList ?? "";
 
   const answer: BriefAnswer | undefined = q
     ? (pending?.answers[q.id] ?? { optionId: q.suggested })
     : undefined;
   const ownAnswer = answer?.other !== undefined;
 
-  const choices: Choice[] = waiting || done || onTable
+  const choices: Choice[] = waiting || done || onTable || onList
     ? []
     : q
     ? [
@@ -146,19 +172,46 @@ export default function TranslationQuestions({
     }, 0);
   };
 
+  const onFile = async (file: File | undefined) => {
+    if (!file || !pending) return;
+    setReading(true);
+    setListError(null);
+    try {
+      const text = (await extractTermList(file, manuscriptLang, targetLang)).trim();
+      const cur = useStore.getState().pendingTranslationBrief;
+      if (cur) {
+        const before = (cur.termList ?? "").trim();
+        setPending({ ...cur, termList: before ? `${before}\n${text}` : text });
+      }
+    } catch (err) {
+      setListError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const submit = async (useSuggestions: boolean) => {
     if (!pending || submitting) return;
     const qs = questions ?? [];
+    // Before Betty has read the list, the list itself is the notes.
+    const notes = pending.authorNotes ?? pending.termList ?? "";
     const brief = useSuggestions
-      ? renderTranslationBrief("match", qs, defaultAnswers(qs), glossary)
-      : renderTranslationBrief(pending.tone, qs, pending.answers, glossary);
+      ? renderTranslationBrief("match", qs, defaultAnswers(qs), glossary, notes)
+      : renderTranslationBrief(pending.tone, qs, pending.answers, glossary, notes);
     // Only a table the author went through is theirs to keep; Skip takes
     // Betty's for this run and leaves the saved glossary as it was.
     if (!useSuggestions) {
       void saveTranslationGlossary({
         sourceLang: manuscriptLang,
         targetLang,
-        rows: [...glossaryToSave(glossary), ...answeredTermsToSave(qs, pending.answers)],
+        // The table first, so the author's edits win; then their answers;
+        // then the rest of their list, terms this book lacks included.
+        rows: [
+          ...glossaryToSave(glossary),
+          ...answeredTermsToSave(qs, pending.answers),
+          ...(pending.listRows ?? []),
+        ],
       });
     }
     setSubmitting(true);
@@ -172,10 +225,15 @@ export default function TranslationQuestions({
   };
 
   const forward = () => {
-    if (onLast || done) void submit(false);
+    if (onList) {
+      // Betty starts reading now, list in hand; the tone card covers it.
+      if (pending && !listDone) setPending({ ...pending, listDone: true });
+      setStep(1);
+    } else if (onLast || done) void submit(false);
     else if (!waiting) setStep((s) => s + 1);
   };
-  const back = () => setStep((s) => Math.max(0, s - 1));
+  // Once Betty has the list, it is not changed under her.
+  const back = () => setStep((s) => Math.max(listDone ? 1 : 0, s - 1));
 
   // The keys, read through a ref so the listener mounts once.
   const keysRef = useRef({ forward, back, choose, choices });
@@ -184,8 +242,11 @@ export default function TranslationQuestions({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLInputElement;
+      const inText = e.target instanceof HTMLTextAreaElement;
+      const typing = e.target instanceof HTMLInputElement || inText;
       const k = keysRef.current;
+      // In the list, Enter is a new line; ⌘/Ctrl+Enter goes on.
+      if (e.key === "Enter" && inText && !(e.metaKey || e.ctrlKey)) return;
       if (e.key === "Enter") {
         e.preventDefault();
         k.forward();
@@ -233,7 +294,41 @@ export default function TranslationQuestions({
           <div className="tq-bar-fill" style={{ width: `${progress}%` }} />
         </div>
 
-        {waiting || done ? (
+        {onList ? (
+          <div className="tq-card" key="list">
+            <p className="tq-question">{t("tb_list_q")}</p>
+            <p className="tq-why tq-why--lead">{t("tb_list_intro")}</p>
+            <textarea
+              className="tq-list"
+              value={listText}
+              rows={7}
+              maxLength={200_000}
+              placeholder={t("tb_list_placeholder")}
+              aria-label={t("tb_list_q")}
+              onChange={(e) => setPending({ ...pending, termList: e.target.value })}
+              autoFocus
+            />
+            <div className="tq-list-tools">
+              <button
+                type="button"
+                className="tq-add"
+                disabled={reading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {reading ? t("tb_list_reading") : `↑ ${t("tb_list_upload")}`}
+              </button>
+              <span className="tq-list-formats">{t("tb_list_formats")}</span>
+              <input
+                ref={fileRef}
+                type="file"
+                hidden
+                accept=".csv,.tsv,.txt,.md,.xlsx,.docx,.tbx,.xml"
+                onChange={(e) => void onFile(e.target.files?.[0])}
+              />
+            </div>
+            {listError && <p className="tq-why tq-error">{listError}</p>}
+          </div>
+        ) : waiting || done ? (
           <div className="tq-card tq-card--quiet" key="wait" role="status">
             {waiting ? (
               <>
@@ -274,7 +369,11 @@ export default function TranslationQuestions({
                     ) : (
                       <span className="tq-term-cell" role="cell">
                         {r.term}
-                        {r.saved && <span className="tq-saved">{t("tb_glossary_saved")}</span>}
+                        {r.author ? (
+                          <span className="tq-saved tq-saved--yours">{t("tb_glossary_yours")}</span>
+                        ) : (
+                          r.saved && <span className="tq-saved">{t("tb_glossary_saved")}</span>
+                        )}
                       </span>
                     )}
                     <input
@@ -344,7 +443,12 @@ export default function TranslationQuestions({
         )}
 
         <div className="tq-foot">
-          <button type="button" className="tq-back" onClick={back} disabled={step === 0}>
+          <button
+            type="button"
+            className="tq-back"
+            onClick={back}
+            disabled={step === 0 || (listDone && step === 1)}
+          >
             ←
           </button>
           <button
@@ -353,7 +457,13 @@ export default function TranslationQuestions({
             onClick={forward}
             disabled={waiting || submitting}
           >
-            {onLast || done ? t("tb_start") : t("tb_next")}
+            {onList
+              ? listText.trim()
+                ? t("tb_next")
+                : t("tb_list_none")
+              : onLast || done
+                ? t("tb_start")
+                : t("tb_next")}
           </button>
         </div>
         <p className="tq-keys">
@@ -362,16 +472,30 @@ export default function TranslationQuestions({
               <kbd>1</kbd>–<kbd>{choices.length}</kbd> {t("tb_keys_choose")} ·{" "}
             </>
           )}
-          <kbd>Enter</kbd> {t("tb_keys_next")} · <kbd>←</kbd> {t("tb_keys_back")}
-          <span className="tq-sep">·</span>
-          <button
-            type="button"
-            className="tq-skip"
-            onClick={() => void submit(true)}
-            disabled={submitting}
-          >
-            {t("tb_skip")}
-          </button>
+          {onList ? (
+            <>
+              <kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd> {t("tb_keys_next")}
+            </>
+          ) : (
+            <>
+              <kbd>Enter</kbd> {t("tb_keys_next")} · <kbd>←</kbd> {t("tb_keys_back")}
+            </>
+          )}
+          {/* Not on the list card: skipping there would drop a list the
+              author is still typing. */}
+          {!onList && (
+            <>
+              <span className="tq-sep">·</span>
+              <button
+                type="button"
+                className="tq-skip"
+                onClick={() => void submit(true)}
+                disabled={submitting}
+              >
+                {t("tb_skip")}
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>,

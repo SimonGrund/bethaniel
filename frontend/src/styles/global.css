@@ -5824,6 +5824,47 @@ summary.review-source::before {
   width: min(46rem, 100%);
 }
 
+.tq-list {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 9rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #2a2419;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.tq-list:focus {
+  outline: none;
+  border-color: #c9a860;
+}
+
+.tq-list-tools {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.tq-list-formats {
+  font-size: 0.75rem;
+  color: #8b7355;
+}
+
+.tq-error {
+  color: #9a3b2a;
+}
+
+.tq-saved--yours {
+  background: #8b7355;
+  color: #fffdf6;
+}
+
 .tq-why.tq-why--lead {
   margin: -0.4rem 0 0.9rem;
 }

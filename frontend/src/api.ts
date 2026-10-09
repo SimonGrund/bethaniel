@@ -727,12 +727,22 @@ export async function getCloudEstimate(
  * Betty's questions before a paid translation. Never throws: anything that
  * goes wrong is "no questions", and the author still gets the tone question.
  */
+type ListRow = { term: string; rendering: string; keep: boolean };
+
 export async function getTranslationQuestions(req: {
   units: string[];
   targetLang: string;
   manuscriptLang: string;
   uiLang: string;
-}): Promise<{ questions: BriefQuestion[]; glossary: GlossaryRow[]; degraded: boolean }> {
+  termList?: string;
+  styleGuide?: string;
+}): Promise<{
+  questions: BriefQuestion[];
+  glossary: GlossaryRow[];
+  authorNotes: string;
+  listRows: ListRow[];
+  degraded: boolean;
+}> {
   try {
     const res = await apiFetch("/translate/brief/questions", {
       method: "POST",
@@ -743,11 +753,30 @@ export async function getTranslationQuestions(req: {
     return {
       questions: Array.isArray(data.questions) ? data.questions : [],
       glossary: Array.isArray(data.glossary) ? data.glossary : [],
+      authorNotes: typeof data.authorNotes === "string" ? data.authorNotes : "",
+      listRows: Array.isArray(data.listRows) ? data.listRows : [],
       degraded: data.degraded === true,
     };
   } catch {
-    return { questions: [], glossary: [], degraded: true };
+    // Not even the backend answered: the author's own list still stands, as
+    // free text the brief carries verbatim.
+    return { questions: [], glossary: [], authorNotes: req.termList ?? "", listRows: [], degraded: true };
   }
+}
+
+/** A term-list file read into text for the paste field. */
+export async function extractTermList(
+  file: File,
+  sourceLang: string,
+  targetLang: string,
+): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("sourceLang", sourceLang);
+  form.append("targetLang", targetLang);
+  const res = await apiFetch("/translate/termlist/extract", { method: "POST", body: form });
+  const data = await res.json();
+  return typeof data.text === "string" ? data.text : "";
 }
 
 /** Keep the table the author settled, for the next translation in this
