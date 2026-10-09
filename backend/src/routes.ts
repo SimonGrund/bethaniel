@@ -1892,7 +1892,7 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       return;
     }
 
-    const { edits, unmapped, notes: translationNotes, scope } = remapChaptersToParagraphEdits(
+    const { edits, unmapped, notes: translationNotes, scope, partial } = remapChaptersToParagraphEdits(
       remapMd,
       remapParagraphs,
       indexDocumentXml(xml),
@@ -1906,9 +1906,10 @@ router.post("/export/docx-surgical", async (req: Request, res: Response) => {
       await rewriteDocxText(original.value.buffer, edits, {
         doubtComments: translation === true,
         comments: translation === true ? translationNotes : [],
-        // A translation of some chapters is those chapters, not the book with
-        // the rest still in the source language.
-        keepParagraphs: translation === true ? scope : undefined,
+        // The chapters that were worked on, not the whole book: a translation
+        // of two chapters is those two (not the rest in the source language),
+        // and so is an edit of two.
+        keepParagraphs: partial ? scope : undefined,
       });
     // Phrases, not paragraphs: one paragraph can hold two italic phrases, and
     // "2 paragraphs" would understate what the author has to put back.
@@ -1983,7 +1984,7 @@ async function sendTrackedExport(
     return;
   }
   const index = indexDocumentXml(xml);
-  const { edits, unmapped } = remapChaptersToParagraphEdits(
+  const { edits, unmapped, scope, partial } = remapChaptersToParagraphEdits(
     input.docMd,
     input.paragraphMap ?? mapMarkdownOntoDocx(input.docMd, index),
     index,
@@ -1997,6 +1998,8 @@ async function sendTrackedExport(
       initials: "B",
       // Word writes whole seconds.
       date: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      // The chapters that were reviewed, as in the clean export.
+      keepParagraphs: partial ? scope : undefined,
     },
   );
   res.setHeader(

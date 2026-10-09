@@ -47,6 +47,11 @@ export interface RemapResult {
   /** The Word paragraphs each chapter covers, first to last, in the order the
    *  chapters were given. A partial translation exports only these. */
   scope: Array<[number, number]>;
+  /** Some of the document's own text lies outside every chapter given: the
+   *  job covered part of the book, and the export is that part. False for a
+   *  whole-book job, whose export must keep even what no chapter reached (a
+   *  colophon, a closing image) after the last mapped paragraph. */
+  partial: boolean;
 }
 
 /** Shared words over all words, both sides lowercased: how alike two
@@ -447,6 +452,54 @@ export function remapChaptersToParagraphEdits(
   // How far the map has turned out to be off. Once one paragraph is found
   // thirteen further on, the next is looked for thirteen further on too.
   let drift = 0;
+
+  /**
+   * Where this block's text really is in the document: the paragraph the map
+   * names when it holds that text, else the nearest unclaimed one that does.
+   * The map pairs blocks and paragraphs in order, so ONE Word paragraph
+   * without a block of its own (a nested contents line, on the book this was
+   * found on) shifted every pair after it, and every paragraph from there to
+   * the end of the book failed to verify. Claims what it finds and keeps the
+   * drift. Also run for a paragraph with nothing to change, so the drift
+   * stays true and the chapter's scope starts where the chapter does.
+   */
+  const locate = (
+    entry: ParagraphMapEntry,
+    beforePlain: string,
+  ): { at: number; verdict: "exact" | "list" } | null => {
+    const named = entry.docxParaIndex;
+    const own = index.paragraphs[named];
+    let found: { at: number; verdict: "exact" | "list" } | null = null;
+    if (own && !claimed.has(named)) {
+      const v = verify(beforePlain, own.text);
+      if (v) found = { at: named, verdict: v };
+    }
+    if (!found) {
+      const expected = named + drift;
+      const order: number[] = [expected];
+      for (let d = 1; d <= REALIGN_WINDOW; d++) order.push(expected + d, expected - d);
+      for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected + d);
+      // Behind as well, for a translation: a pull quote or a text box that
+      // Word holds out of the text's order can put the paragraph back
+      // there, and a translation must be placed, not left out.
+      if (options.wholeParagraphs) for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected - d);
+      for (const i of order) {
+        const candidate = index.paragraphs[i];
+        if (!candidate || claimed.has(i)) continue;
+        const v = verify(beforePlain, candidate.text);
+        if (v) {
+          found = { at: i, verdict: v };
+          break;
+        }
+      }
+    }
+    if (found) {
+      claimed.add(found.at);
+      drift = found.at - named;
+      covers(found.at);
+    }
+    return found;
+  };
   const verify = (beforePlain: string, text: string): "exact" | "list" | null => {
     if (beforePlain === text || loose(beforePlain) === loose(text)) return "exact";
     if (
@@ -512,7 +565,7 @@ export function remapChaptersToParagraphEdits(
       // Nothing to apply, so nothing lost: a paragraph this export cannot map
       // is only worth reporting when a change was meant for it.
       if (stripMarkdown(oldMd) === stripMarkdown(newMd)) {
-        covers(entry.docxParaIndex + drift);
+        if (!entry.mappable || !locate(entry, stripMarkdown(oldMd))) covers(entry.docxParaIndex + drift);
         continue;
       }
 
@@ -531,40 +584,13 @@ export function remapChaptersToParagraphEdits(
 
       // Verify before acting. If the markdown we located does not match what
       // the docx actually holds, we do not understand this paragraph well
-      // enough to edit it — leave it exactly as the author wrote it.
-      //
-      // But first look a few paragraphs either side. The map pairs blocks and
-      // paragraphs in order, so ONE Word paragraph without a block of its own
-      // (a nested table-of-contents line, on the book this was found on)
-      // shifted every pair after it by one, and every paragraph from there to
-      // the end of the book failed this check and stayed untranslated. The
-      // nearest unclaimed paragraph holding exactly this text is the one.
-      let verdict = claimed.has(paraIndex) ? null : verify(beforePlain, paragraph.text);
-      if (!verdict) {
-        const expected = entry.docxParaIndex + drift;
-        const order: number[] = [expected];
-        for (let d = 1; d <= REALIGN_WINDOW; d++) order.push(expected + d, expected - d);
-        for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected + d);
-        // Behind as well, for a translation: a pull quote or a text box that
-        // Word holds out of the text's order can put the paragraph back
-        // there, and a translation must be placed, not left out.
-        if (options.wholeParagraphs) for (let d = REALIGN_WINDOW + 1; d <= REALIGN_REACH; d++) order.push(expected - d);
-        for (const i of order) {
-          const candidate = index.paragraphs[i];
-          if (!candidate || claimed.has(i)) continue;
-          const v = verify(beforePlain, candidate.text);
-          if (v) {
-            verdict = v;
-            paraIndex = i;
-            paragraph = candidate;
-            break;
-          }
-        }
-      }
-      if (verdict) {
-        claimed.add(paraIndex);
-        drift = paraIndex - entry.docxParaIndex;
-        covers(paraIndex);
+      // enough to edit it — leave it exactly as the author wrote it. (locate
+      // looks nearby first; see there.)
+      const located = locate(entry, beforePlain);
+      const verdict = located?.verdict ?? null;
+      if (located) {
+        paraIndex = located.at;
+        paragraph = index.paragraphs[paraIndex];
       }
       const matches = verdict === "exact";
 
@@ -698,7 +724,22 @@ export function remapChaptersToParagraphEdits(
       }
     }
   }
-  return { edits, unmapped, notes, scope: merged };
+  // Partial when a block of the document with text sits in no chapter.
+  const spans: Array<[number, number]> = [];
+  let from = 0;
+  for (const chapter of chapters) {
+    let at = docMd.indexOf(chapter.original, from);
+    if (at < 0) at = docMd.indexOf(chapter.original);
+    if (at < 0) continue;
+    spans.push([at, at + chapter.original.length]);
+    from = at + chapter.original.length;
+  }
+  const partial = paragraphMap.some(
+    (e) =>
+      stripMarkdown(docMd.slice(e.mdStart, e.mdEnd)).trim() !== "" &&
+      !spans.some(([a, b]) => e.mdStart >= a && e.mdEnd <= b),
+  );
+  return { edits, unmapped, notes, scope: merged, partial };
 }
 
 /**

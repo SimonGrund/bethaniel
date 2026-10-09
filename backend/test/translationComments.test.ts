@@ -156,3 +156,32 @@ test("a paragraph inside the chapter that Betty never saw gets a comment, not si
   assert.equal(notes[0].paragraphIndex, 1);
   assert.match(notes[0].text, /no translation/i);
 });
+
+// ── Edits too: the export is the chapters that were worked on ──
+
+test("a tracked-changes export of some chapters holds only those chapters", async () => {
+  const { rewriteDocxTracked } = await import("../src/docxTracked.ts");
+  const body = p(r("Kapitel et.")) + p(r("Kapitel to har en fejjl.")) + p(r("Kapitel tre.")) + `<w:sectPr/>`;
+  const out = await rewriteDocxTracked(
+    await docx(body),
+    [{ paragraphIndex: 1, start: 17, end: 22, replacement: "fejl" }],
+    { author: "Betty", initials: "B", date: "2026-10-09T00:00:00Z", keepParagraphs: [[1, 1]] },
+  );
+  const { doc } = await parts(out.buffer);
+  assert.equal(indexDocumentXml(doc).paragraphs.length, 1);
+  assert.match(doc, /<w:ins /);
+  assert.match(doc, /<w:sectPr\/>/);
+});
+
+test("an export of the whole book is not trimmed, even past the last mapped paragraph", () => {
+  const md = "# Et\n\nAfsnit et.";
+  const texts4 = ["Et", "Afsnit et.", "Kolofon kun i Word", ""];
+  const index = { xml: "", paragraphs: texts4.map((text, i) => ({ index: i, depth: 0, inTable: false, isEmpty: !text, isPageBreak: false, hasObject: false, sawTextElement: true, text, nodes: text ? [{ kind: "t", text, textStart: 0, rPrXml: "", runIndex: 0, xmlStart: 0, xmlEnd: 0, openTagEnd: 0, preserve: false }] : [] })) } as never;
+  const map = [{ docxParaIndex: 0, mdStart: 0, mdEnd: 4, mappable: true }, { docxParaIndex: 1, mdStart: 6, mdEnd: 16, mappable: true }];
+  const whole = remapChaptersToParagraphEdits(md, map, index, [{ original: md, edited: "# Et\n\nAfsnit 1." }]);
+  assert.equal(whole.partial, false);
+  const md2 = "# Et\n\nAfsnit et.\n\n# To\n\nAfsnit to.";
+  const map2 = [...map, { docxParaIndex: 2, mdStart: 18, mdEnd: 22, mappable: true }];
+  const part = remapChaptersToParagraphEdits(md2, map2, index, [{ original: md, edited: "# Et\n\nAfsnit 1." }]);
+  assert.equal(part.partial, true);
+});

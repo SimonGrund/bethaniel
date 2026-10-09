@@ -705,7 +705,7 @@ export interface RewriteOptions {
  * kept paragraph. A block with no paragraphs at all (a bookmark marker) is
  * kept; so is the body's own <w:sectPr>.
  */
-function trimBody(xml: string, keep: (paragraphIndex: number) => boolean): string {
+export function trimBody(xml: string, keep: (paragraphIndex: number) => boolean): string {
   const bodyOpen = xml.match(/<w:body\b[^>]*>/);
   if (!bodyOpen || bodyOpen.index === undefined) return xml;
   const paragraphs = indexDocumentXml(xml).paragraphs;

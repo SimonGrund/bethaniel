@@ -23,6 +23,7 @@ import JSZip from "jszip";
 import {
   excerpt,
   indexDocumentXml,
+  trimBody,
   type DocxParagraph,
   type ParagraphTextEdit,
   type SkippedEdit,
@@ -44,6 +45,9 @@ export interface TrackedOptions {
   initials: string;
   /** ISO 8601, as Word writes it. */
   date: string;
+  /** Keep only the top-level blocks holding a paragraph in these ranges
+   *  (docxRemap `scope`): an edit of some chapters exports those chapters. */
+  keepParagraphs?: Array<[number, number]>;
 }
 
 export type TrackedSkip = SkippedEdit;
@@ -432,7 +436,9 @@ export async function rewriteDocxTracked(
     applied += res.applied;
   }
 
-  const out = applySplices(xml, splices);
+  let out = applySplices(xml, splices);
+  const ranges = opts.keepParagraphs;
+  if (ranges && ranges.length > 0) out = trimBody(out, (i) => ranges.some(([a, b]) => i >= a && i <= b));
   zip.file("word/document.xml", out);
   await writeComments(zip, out, comments);
   const buffer = Buffer.from(
