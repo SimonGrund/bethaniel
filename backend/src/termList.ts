@@ -30,17 +30,35 @@ const MAX_CELL_CHARS = 80;
 /** A list is CSV when this share of its lines carries the delimiter. */
 const CSV_SHARE = 0.8;
 
-/** Column headings in the languages Betty works in. */
+/** Column headings in the languages Betty works in — including the
+ *  languages' own names ("Dansk → Engelsk") and a definitions table's
+ *  "Term / Definition for translators", which are headings, not rows. */
 const HEADER_WORDS = new Set(
   (
     "term terms source target translation translations rendering original word words " +
+    "definition definitions description meaning explanation note notes translator translators " +
     "english danish german spanish french en da de es fr " +
-    "begreb begreber ord oversættelse kilde mål " +
-    "begriff begriffe übersetzung quelle ziel " +
-    "término términos traducción origen destino " +
-    "terme termes traduction source cible"
+    "begreb begreber ord oversættelse oversættelser kilde mål forklaring definition " +
+    "dansk engelsk tysk fransk spansk " +
+    "begriff begriffe übersetzung quelle ziel erklärung deutsch englisch dänisch französisch spanisch " +
+    "término términos traducción origen destino definición inglés danés alemán francés español " +
+    "terme termes traduction source cible anglais danois allemand français espagnol " +
+    // the small words a heading joins them with
+    "for to and or til og eller für und oder para y o pour et ou"
   ).split(" "),
 );
+
+/** A list item's marker as Word and others export it: "•", "◦", "o", "-",
+ *  "1.", "a)". A line that opens with one, then a tab, is a bullet — prose —
+ *  not a term and its translation in two columns. Seen on a real run: every
+ *  bullet of a pasted translator brief became a row, and "o → Self-help"
+ *  reached the table because the letter o is in any book. */
+const BULLET = /^\s*(?:[•◦▪▫·‣⁃∙○●■□*–—-]|o|\d{1,3}[.)]|[a-zA-Z][.)])\s*$/;
+
+/** The same marker with what follows it: stripped before a line is read,
+ *  so "•<TAB>Arbejdskultur → workplace culture" is a row and
+ *  "•<TAB>the psychological accuracy," is still prose. */
+const BULLET_PREFIX = /^\s*(?:[•◦▪▫·‣⁃∙○●■□*–—-]|o|\d{1,3}[.)]|[a-zA-Z][.)])[\t ]+/;
 
 const KEEP_WORDS = /^(keep|behold|behalten|conservar|garder|x|yes|ja|sí|oui|true)$/i;
 const ARROW = /\s*(?:→|->|=>|=)\s*/;
@@ -58,7 +76,8 @@ function sentencey(s: string): boolean {
 function toRow(cells: string[]): SavedGlossaryEntry | null {
   const [rawTerm, rawRendering = "", flag = ""] = cells.map((c) => c.trim());
   const term = rawTerm;
-  if (!term || term.length > MAX_CELL_CHARS || words(term) > MAX_TERM_WORDS || sentencey(term)) return null;
+  if (BULLET.test(term)) return null;
+  if (!term || term.length < 2 || term.length > MAX_CELL_CHARS || words(term) > MAX_TERM_WORDS || sentencey(term)) return null;
   const keepFlag = KEEP_WORDS.test(flag);
   const rendering = rawRendering || (keepFlag ? term : "");
   if (!rendering || rendering.length > MAX_CELL_CHARS || words(rendering) > MAX_RENDERING_WORDS) return null;
@@ -114,7 +133,11 @@ function cellsOf(line: string, csv: string | null): string[] | null {
 
 function isHeader(cells: string[]): boolean {
   const filled = cells.map((c) => c.trim().toLowerCase()).filter(Boolean);
-  return filled.length >= 2 && filled.every((c) => HEADER_WORDS.has(c));
+  if (filled.length < 2) return false;
+  return filled.every((c) => {
+    const words = c.split(/[^\p{L}]+/u).filter(Boolean);
+    return words.length > 0 && words.every((w) => HEADER_WORDS.has(w));
+  });
 }
 
 export function parseTermList(text: string): ParsedTermList {
@@ -123,16 +146,12 @@ export function parseTermList(text: string): ParsedTermList {
   const rows: SavedGlossaryEntry[] = [];
   const seen = new Set<string>();
   const rest: string[] = [];
-  // Column headings can only be the first line that has columns — a Word
-  // file often opens with a paragraph above its table.
-  let firstColumns = true;
   lines.forEach((line) => {
-    const cells = cellsOf(line, csv);
+    const cells = cellsOf(line.replace(BULLET_PREFIX, ""), csv);
     if (cells && cells.length === 0) return; // rule line
-    if (cells && firstColumns) {
-      firstColumns = false;
-      if (isHeader(cells)) return;
-    }
+    // Headings anywhere: a pasted brief has several tables, and a Word file
+    // often opens with a paragraph above the first.
+    if (cells && isHeader(cells)) return;
     const row = cells && cells.length <= 3 ? toRow(cells) : null;
     if (!row) {
       rest.push(line.trim());

@@ -73,3 +73,56 @@ test("a list mixed with notes keeps both, and a term listed twice once", () => {
 test("an empty list is nothing", () => {
   assert.deepEqual(parseTermList("  \n\n "), { rows: [], rest: "" });
 });
+
+// Seen on a real run: a translator brief pasted from Word. Its bullets come
+// through as "•<TAB>text" and its sub-bullets as "o<TAB>text", which read as
+// two columns — every bullet became a "term", and "o → Self-help" survived
+// into the table because the letter o is in any book.
+test("Word bullets and numbered items are prose, not rows", () => {
+  const brief = [
+    "5. Terms that must remain consistent",
+    "•\tWorkplace Support Pyramid",
+    "•\tPsychological First Aid (PFA)",
+    "o\tSelf-help",
+    "o\tPeer support – one-to-one",
+    "◦\tsub item",
+    "1.\tFirst step",
+    "a)\tthe first option",
+    "-\tdash item",
+    "PFA\tPsykologisk førstehjælp",
+  ].join("\n");
+  const { rows, rest } = parseTermList(brief);
+  assert.deepEqual(rows, [{ term: "PFA", rendering: "Psykologisk førstehjælp", keep: false }]);
+  assert.match(rest, /Workplace Support Pyramid/);
+  assert.match(rest, /o\tSelf-help/);
+});
+
+test("a one-character term is no term", () => {
+  assert.deepEqual(parseTermList("x = y\nGDPR = DSGVO").rows, [{ term: "GDPR", rendering: "DSGVO", keep: false }]);
+});
+
+test("a bulleted 'term → translation' is a row; the bullet is not part of it", () => {
+  const { rows } = parseTermList(
+    "•\tAkkumuleret belastning → accumulated strain\n•\tArbejdskultur → workplace culture\n- GDPR = DSGVO\n•\tthe psychological accuracy,",
+  );
+  assert.deepEqual(rows, [
+    { term: "Akkumuleret belastning", rendering: "accumulated strain", keep: false },
+    { term: "Arbejdskultur", rendering: "workplace culture", keep: false },
+    { term: "GDPR", rendering: "DSGVO", keep: false },
+  ]);
+});
+
+test("column headings are headings wherever they stand", () => {
+  const { rows, rest } = parseTermList(
+    [
+      "Some notes first.",
+      "Term\tDefinition for translators",
+      "Psychological First Aid (PFA)\tShort-term practical, emotional, and structural support after a critical incident for everyone involved.",
+      "Faglige begreber og faste oversættelser",
+      "(Dansk → Engelsk)",
+      "•\tArbejdsfællesskab → workplace community",
+    ].join("\n"),
+  );
+  assert.deepEqual(rows, [{ term: "Arbejdsfællesskab", rendering: "workplace community", keep: false }]);
+  assert.match(rest, /Psychological First Aid \(PFA\)/, "a definition is a note, not a translation");
+});
