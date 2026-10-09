@@ -167,6 +167,17 @@ export function renderTranslationBrief(
 
 type ListRow = { term: string; rendering: string; keep: boolean };
 
+/** As written, or in its other number (at most a two-letter ending) — the
+ *  backend's occursIn in translationBrief.ts, kept in step. */
+function occursIn(lowerText: string, term: string): boolean {
+  const t = term.toLowerCase();
+  if (lowerText.includes(t)) return true;
+  for (const cut of [1, 2]) {
+    if (t.length - cut >= 4 && /\p{L}{1,2}$/u.test(t) && lowerText.includes(t.slice(0, -cut))) return true;
+  }
+  return false;
+}
+
 /**
  * The author went back to the list card and changed it after Betty had read
  * it. Rather than pay for her to read the book again, the new list's rows
@@ -186,7 +197,7 @@ export function overlayListRows(
   const listed: GlossaryRow[] = [];
   for (const r of newRows) {
     const k = r.term.toLowerCase();
-    if (seen.has(k) || !lowerText.includes(k)) continue;
+    if (seen.has(k) || !occursIn(lowerText, r.term)) continue;
     seen.add(k);
     listed.push({ term: r.term, rendering: r.rendering, keep: r.keep, author: true });
   }

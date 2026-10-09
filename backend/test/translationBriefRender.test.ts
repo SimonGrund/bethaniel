@@ -194,3 +194,8 @@ test("short notes ride verbatim; a long brief rides as Betty's condensed instruc
   // Without her instructions, the start of the brief rather than all of it.
   assert.equal(briefNotes(long, "").length, 8000);
 });
+
+test("an edited list's term counts as in the book in its other number too", () => {
+  const out = overlayListRows([], [], [{ term: "Belastende hændelser", rendering: "straining incidents", keep: false }], "efter en belastende hændelse");
+  assert.equal(out.length, 1);
+});

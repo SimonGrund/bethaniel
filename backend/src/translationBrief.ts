@@ -471,6 +471,21 @@ export function parseBriefResponse(raw: string, sourceText: string, lang = "en")
   };
 }
 
+/**
+ * Whether a listed term occurs in the book: as written, or in its other
+ * number — "Belastende hændelser" in a book that says "belastende hændelse",
+ * "contingency plan" in one that says "plans". The same at-most-two-letter
+ * ending samePlural allows; the shorter form must keep four letters.
+ */
+function occursIn(lowerText: string, term: string): boolean {
+  const t = term.toLowerCase();
+  if (lowerText.includes(t)) return true;
+  for (const cut of [1, 2]) {
+    if (t.length - cut >= 4 && /\p{L}{1,2}$/u.test(t) && lowerText.includes(t.slice(0, -cut))) return true;
+  }
+  return false;
+}
+
 /** How many saved (or listed) terms one book can bring into its table. */
 const MAX_SAVED_ROWS = 300;
 
@@ -488,7 +503,7 @@ export function mergeSavedGlossary(
 ): GlossaryRow[] {
   const lowerText = sourceText.toLowerCase();
   const inBook = saved
-    .filter((e) => e.term && lowerText.includes(e.term.toLowerCase()))
+    .filter((e) => e.term && occursIn(lowerText, e.term))
     .slice(0, MAX_SAVED_ROWS);
   const marked = (e: SavedGlossaryEntry): GlossaryRow =>
     mark === "author"
@@ -555,7 +570,7 @@ export async function runBriefQuestions(
   const list = parseTermList(req.termList ?? "");
   const sheetRows = parseTermList(req.styleGuide ?? "").rows;
   const lowerText = req.text.toLowerCase();
-  const inBook = (e: SavedGlossaryEntry) => lowerText.includes(e.term.toLowerCase());
+  const inBook = (e: SavedGlossaryEntry) => occursIn(lowerText, e.term);
   const author = uniqueTerms([...list.rows, ...sheetRows]).filter(inBook);
   const saved = (deps.savedGlossary ?? []).filter(inBook);
   const decidedEntries = uniqueTerms([...author, ...saved]).slice(0, MAX_DECIDED);

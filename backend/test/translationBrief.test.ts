@@ -538,3 +538,21 @@ test("the prompt asks for condensed instructions when there are notes", async ()
   );
   assert.match(system, /"instructions"/);
 });
+
+// Seen on a real run: the brief listed "Belastende hændelser" (plural) and
+// the text said "belastende hændelse" — the row was left out, and the
+// translator chose "distressing event" over the author's "straining incidents".
+test("a listed term counts as in the book when the book has it in the other number", async () => {
+  const book = "Efter en belastende hændelse taler vi sammen. En god beredskabsplan hjælper.";
+  const out = await runBriefQuestions(
+    {
+      text: book,
+      manuscriptLang: "da",
+      targetLang: "English",
+      uiLang: "da",
+      termList: "Belastende hændelser → straining incidents\nBeredskabsplaner → contingency plans\nKrisepsykolog → crisis psychologist",
+    },
+    { llm: async () => '{"glossary": [], "questions": []}' },
+  );
+  assert.deepEqual(out.glossary.map((r) => r.term), ["Belastende hændelser", "Beredskabsplaner"]);
+});
