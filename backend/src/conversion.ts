@@ -103,6 +103,7 @@ async function getDocxParagraphInfo(
     isEmpty: boolean;
     inTable: boolean;
     hasText: boolean;
+    text: string;
   }>
 > {
   try {
@@ -124,6 +125,7 @@ async function getDocxParagraphInfo(
       // to tell "a break marker on its own" from "a heading that starts a new
       // page", so it needs the visible text, not just the length.
       hasText: p.text.trim().length > 0,
+      text: p.text,
     }));
   } catch {
     return [];
@@ -174,6 +176,112 @@ export async function docxToMarkdown(
   opts: { docId?: string } = {},
 ): Promise<string> {
   return (await docxToMarkdownMapped(docxBuffer, opts)).md;
+}
+
+/**
+ * Mammoth's lists as one paragraph block per item, each carrying the
+ * markdown marker it should start with ("- ", "1. ", indented by nesting).
+ *
+ * The block pattern below picks paragraphs and headings out of the HTML,
+ * and a list item is neither: <li>…</li> matched nothing, so every list in
+ * every Word manuscript was dropped on import — never translated, edited
+ * or proofread — and, because Word's paragraphs and the HTML blocks are
+ * walked side by side, each dropped item shifted the map of every
+ * paragraph after it. One Word list paragraph is one <li>, so one block.
+ */
+export function flattenLists(html: string): string {
+  const out: string[] = [];
+  const stack: { ordered: boolean; n: number }[] = [];
+  let open = false;
+  const close = () => {
+    if (open) out.push("</p>");
+    open = false;
+  };
+  const re = /<(\/?)(ul|ol|li)\b[^>]*>/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    out.push(html.slice(last, m.index));
+    last = re.lastIndex;
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    if (tag === "ul" || tag === "ol") {
+      close();
+      if (closing) stack.pop();
+      else stack.push({ ordered: tag === "ol", n: 0 });
+    } else if (closing) {
+      close();
+    } else {
+      close();
+      const list = stack[stack.length - 1] ?? { ordered: false, n: 0 };
+      list.n += 1;
+      const indent = "  ".repeat(Math.max(0, stack.length - 1));
+      const marker = list.ordered ? `${list.n}. ` : "- ";
+      out.push(`<p data-md-prefix="${indent}${marker}">`);
+      open = true;
+    }
+  }
+  out.push(html.slice(last));
+  close();
+  return out.join("");
+}
+
+/** A paragraph's text as both sides can be compared on: no tags, no
+ *  entities, no soft hyphens, tabs and runs of space as one space. */
+function comparable(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\u00ad/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** How far a mismatched pairing looks for its real partner. */
+const PAIR_LOOKAHEAD = 3;
+
+/**
+ * Which of mammoth's blocks each Word paragraph gets, checked by text: the
+ * block index, or -1 for a paragraph mammoth wrote no block for. Blocks no
+ * paragraph claims are mammoth's own extras. Counting alone was wrong twice
+ * on one book — a decorative shape's paragraph and a figure's stray label
+ * letters each took the next paragraph's block, and every paragraph after
+ * was mapped one off. The same decision the import loop makes, as a pure
+ * function over texts.
+ */
+export function pairBlocksByText(paragraphs: string[], blocks: string[]): number[] {
+  const out: number[] = [];
+  let b = 0;
+  for (let i = 0; i < paragraphs.length; i++) {
+    const take = pairNext(paragraphs, i, blocks, b);
+    out.push(take);
+    if (take >= 0) b = take + 1;
+  }
+  return out;
+}
+
+/** The block paragraph `i` takes, given the next unclaimed one is `b`. */
+function pairNext(paragraphs: string[], i: number, blocks: string[], b: number): number {
+  if (b >= blocks.length) return -1;
+  const t = comparable(paragraphs[i]);
+  const block = comparable(blocks[b]);
+  if (block === t) return b;
+  // This paragraph's text a block or two on: the blocks between are extras.
+  for (let d = 1; d <= PAIR_LOOKAHEAD && b + d < blocks.length; d++) {
+    if (comparable(blocks[b + d]) === t) return b + d;
+  }
+  // The block is a later paragraph's: this one has no block of its own.
+  for (let d = 1; d <= PAIR_LOOKAHEAD && i + d < paragraphs.length; d++) {
+    if (comparable(paragraphs[i + d]) === block && block !== "") return -1;
+  }
+  // They differ in a way the comparison cannot see: pair them as before.
+  return b;
 }
 
 export async function docxToMarkdownMapped(
@@ -259,8 +367,13 @@ export async function docxToMarkdownMapped(
   // loses the distinction between an ordinary paragraph boundary and an
   // intentionally empty paragraph. Instead, preserve ordinary paragraphs as
   // single newlines and only emit a real blank line for explicit empty <p>s.
-  const blockRe = /<(p|h1|h2|h3)\b[^>]*>[\s\S]*?<\/\1>/gi;
-  const htmlBlocks = result.value.match(blockRe) ?? [];
+  // Headings 4–6 too: mammoth's default map emits them for Heading 4–6, and
+  // the pattern used to stop at h3, dropping them the way it dropped lists.
+  const blockRe = /<(p|h[1-6])\b[^>]*>[\s\S]*?<\/\1>/gi;
+  const htmlBlocks = flattenLists(result.value).match(blockRe) ?? [];
+  /** A list item's markdown marker, carried on its block (flattenLists). */
+  const prefixOf = (block: string | undefined) =>
+    block?.match(/^<p data-md-prefix="([^"]*)"/)?.[1] ?? "";
   const paragraphInfo = await getDocxParagraphInfo(docxBuffer);
 
   if (htmlBlocks.length === 0) {
@@ -307,6 +420,7 @@ export async function docxToMarkdownMapped(
     pendingEmptyParagraphs = 0;
   };
 
+  const paragraphTexts = paragraphInfo.map((q) => q.text);
   for (let docxParaIndex = 0; docxParaIndex < paragraphInfo.length; docxParaIndex++) {
     const info = paragraphInfo[docxParaIndex];
     if (info.isPageBreak) {
@@ -332,11 +446,36 @@ export async function docxToMarkdownMapped(
     } else if (info.isEmpty) {
       pendingEmptyParagraphs += 1;
       continue;
+    } else if (!info.hasText) {
+      // No visible text, but not empty: an object. A picture gets a block of
+      // its own (mammoth's <img>), a decorative shape gets none — and a
+      // paragraph with no text can never own a block that HAS text. Found on
+      // a book whose sidebars sit on a box drawn behind them: the box's
+      // paragraph took the sidebar heading's block, and every paragraph after
+      // it was mapped one off.
+      const next = htmlBlocks[blockIndex];
+      if (!next || next.replace(/<[^>]+>/g, "").trim() !== "") {
+        pendingEmptyParagraphs += 1;
+        continue;
+      }
     }
 
+    // Checked by text, not counted (pairBlocksByText): a paragraph mammoth
+    // wrote nothing for gives the block to the paragraph it belongs to, and
+    // blocks mammoth wrote that no paragraph has are kept, unmapped.
+    if (info.hasText && htmlBlocks[blockIndex]) {
+      const take = pairNext(paragraphTexts, docxParaIndex, htmlBlocks, blockIndex);
+      if (take < 0) continue;
+      for (; blockIndex < take; blockIndex++) {
+        const extra = turndown.turndown(htmlBlocks[blockIndex]).trim();
+        if (extra) appendBlock(prefixOf(htmlBlocks[blockIndex]) + stripMarkdownEscapes(extra));
+      }
+    }
     let mdBlock = htmlBlocks[blockIndex]
       ? turndown.turndown(htmlBlocks[blockIndex]).trim()
       : "";
+    // The marker goes on after turndown, so it is not escaped as text.
+    if (mdBlock) mdBlock = prefixOf(htmlBlocks[blockIndex]) + mdBlock;
     blockIndex += 1;
 
     if (mdBlock) {
@@ -365,7 +504,7 @@ export async function docxToMarkdownMapped(
   }
 
   for (; blockIndex < htmlBlocks.length; blockIndex++) {
-    const mdBlock = stripMarkdownEscapes(
+    const body = stripMarkdownEscapes(
       turndown
         .turndown(htmlBlocks[blockIndex])
         .trim()
@@ -373,7 +512,7 @@ export async function docxToMarkdownMapped(
         .map(normalizeDividerLine)
         .join("\n"),
     );
-    appendBlock(mdBlock);
+    appendBlock(body ? prefixOf(htmlBlocks[blockIndex]) + body : body);
   }
 
   return { md: text, paragraphMap };
