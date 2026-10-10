@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
 import type { BriefQuestion, GlossaryRow } from "./translationBrief";
+import type { ConsistencyQuestion } from "./houseStyleAnswers";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -976,4 +977,27 @@ export async function fetchLanguageToolDownloadStatus(): Promise<LanguageToolDow
   const res = await apiFetch("/languagetool/download/status");
   const data = await res.json();
   return data.download ?? null;
+}
+
+/**
+ * Where the manuscript disagrees with itself, for Betty to ask before an
+ * edit (backend/src/houseStyle.ts). Never throws: a failure is "nothing to
+ * ask", and the run goes ahead as it always did.
+ */
+export async function getHouseStyleQuestions(req: {
+  units: string[];
+  manuscriptLang: string;
+  styleGuide: string;
+}): Promise<ConsistencyQuestion[]> {
+  try {
+    const res = await apiFetch("/edits/house-style", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+    const data = await res.json();
+    return Array.isArray(data.questions) ? data.questions : [];
+  } catch {
+    return [];
+  }
 }

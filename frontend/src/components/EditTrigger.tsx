@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import CloudCheckoutModal from "./CloudCheckoutModal";
 import TranslationQuestions from "./TranslationQuestions";
+import EditQuestions, { type EditAnswers } from "./EditQuestions";
 import CloudCodeClaim from "./CloudCodeClaim";
 import DownloadBar from "./DownloadBar";
 import { estimateRun, formatEstimate } from "../runEstimate";
@@ -11,14 +12,29 @@ import { formatBytes, formatDuration, REFERENCE_WORDS } from "../modelCopy";
 import { useTranslation } from "../i18n";
 import {
   addToQueue,
+  getHouseStyleQuestions,
   getModelPerf,
+  updateStyleGuide,
 } from "../api";
+import {
+  mergeHouseStyle,
+  settingQuestions,
+  type EditQuestion,
+} from "../houseStyleAnswers";
 import { buildUnits } from "./ScopeSelection";
-import { DETERMINISTIC_MODES, frontCardFor } from "../types";
+import { DETERMINISTIC_MODES, frontCardFor, type TaskMode } from "../types";
 import CodeBalanceNote from "./CodeBalanceNote";
 import { refreshModelEnvironment } from "../useModelRuntime";
 import { useCloudPurchase } from "../cloudPurchase";
 import { formatPrice } from "../formatPrice";
+
+/** The modes Betty asks about house style for (EditQuestions). Not the
+ *  translation, which has its own questions, nor analysis. */
+const HOUSE_STYLE_MODES: TaskMode[] = ["copy_edit", "line_edit", "combined_edit", "proofread"];
+/** The settings a run only reads with the copy edit on (buildEditOptions):
+ *  without it, only the dialect matters, for the spell-checker. */
+const COPY_EDIT_SETTINGS = ["oxfordComma", "danishComma", "quoteStyle"];
+const MAX_HOUSE_STYLE_QUESTIONS = 5;
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -297,10 +313,63 @@ export default function EditTrigger() {
     manuscriptLang,
   ]);
 
+  // ── House style, asked before an edit (EditQuestions) ──
+  //
+  // Counted from the text and the upload's detection, no model: instant and
+  // free, so a cloud run asks before the checkout. Nothing to ask → the run
+  // goes ahead exactly as it did before.
+  const [houseStyle, setHouseStyle] = useState<{ questions: EditQuestion[]; cloud: boolean } | null>(null);
+  const [askingHouseStyle, setAskingHouseStyle] = useState(false);
+  const settledHouseStyle = useStore((s) => s.settledHouseStyle);
+  const askHouseStyle = async (cloud: boolean): Promise<boolean> => {
+    if (!doc || selectedModes.includes("translate")) return false;
+    if (!selectedModes.some((m) => HOUSE_STYLE_MODES.includes(m))) return false;
+    const prefix = `${doc.id}:`;
+    const settled = settledHouseStyle.filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
+    const settings = settingQuestions(doc.detected, copyEditOptions, settled).filter(
+      (q) => selectedModes.includes("copy_edit") || !COPY_EDIT_SETTINGS.includes(q.setting),
+    );
+    setAskingHouseStyle(true);
+    try {
+      const consistency = await getHouseStyleQuestions({
+        units: units.map((u) => u.original),
+        manuscriptLang,
+        styleGuide: styleGuide ?? "",
+      });
+      const questions = [...settings, ...consistency].slice(0, MAX_HOUSE_STYLE_QUESTIONS);
+      if (questions.length === 0) return false;
+      setHouseStyle({ questions, cloud });
+      return true;
+    } finally {
+      setAskingHouseStyle(false);
+    }
+  };
+  const houseStyleDone = async ({ options, lines, settled }: EditAnswers) => {
+    const cloud = houseStyle?.cloud ?? false;
+    setHouseStyle(null);
+    const s = useStore.getState();
+    for (const [key, val] of Object.entries(options)) {
+      s.setCopyEditOption(key as keyof typeof options, val as never);
+    }
+    if (doc) s.settleHouseStyle(settled.map((id) => `${doc.id}:${id}`));
+    if (lines.length > 0) {
+      const guide = mergeHouseStyle(s.styleGuide ?? "", lines, t("hs_heading"));
+      s.setStyleGuide(guide);
+      // The guide is the author's; a failed save still runs with the lines.
+      void updateStyleGuide(guide).catch(() => {});
+    }
+    proceed(cloud);
+  };
+  const proceed = (cloud: boolean) => {
+    if (cloud) setCloudConfirmOpen(true);
+    else void handleClickRef.current();
+  };
+
   // Two steps, deliberately. The button opens the confirmation; only the
   // confirmation — after the terms are ticked — opens Stripe.
-  const handleRunInCloud = () => {
-    if (!cloudEstimate) return;
+  const handleRunInCloud = async () => {
+    if (!cloudEstimate || askingHouseStyle) return;
+    if (await askHouseStyle(true)) return;
     setCloudConfirmOpen(true);
   };
 
@@ -311,6 +380,9 @@ export default function EditTrigger() {
   };
 
   const buildEditOptions = () => {
+    // Read now, not from the render: the house-style answers set these a
+    // moment before the run is submitted, before a re-render.
+    const { copyEditOptions } = useStore.getState();
     const opts: Record<string, boolean | string> = {};
     if (selectedModes.includes("copy_edit")) {
       Object.assign(opts, copyEditOptions);
@@ -348,7 +420,7 @@ export default function EditTrigger() {
         wordsPerChunk,
         overlapParagraphs,
         parallel,
-        styleGuide: styleGuide || undefined,
+        styleGuide: useStore.getState().styleGuide || undefined,
         editOptions: buildEditOptions(),
         targetLang: selectedModes.includes("translate")
           ? targetLang
@@ -471,7 +543,10 @@ export default function EditTrigger() {
       setModelIntroOpen(true);
       return;
     }
-    void handleClick();
+    if (askingHouseStyle) return;
+    void askHouseStyle(false).then((asked) => {
+      if (!asked) void handleClick();
+    });
   };
 
   // Reveal the latest-run results (hidden while a setup menu is open) and jump
@@ -847,6 +922,21 @@ export default function EditTrigger() {
             {t("cloud_wait_cancel", "Didn't pay? Cancel")}
           </button>
         </p>
+      )}
+      {houseStyle && (
+        <EditQuestions
+          lang={lang}
+          questions={houseStyle.questions}
+          copyEditOptions={copyEditOptions}
+          cloud={houseStyle.cloud}
+          onFinish={(a) => void houseStyleDone(a)}
+          onSkip={() => {
+            const cloud = houseStyle.cloud;
+            setHouseStyle(null);
+            proceed(cloud);
+          }}
+          onClose={() => setHouseStyle(null)}
+        />
       )}
       {pendingTranslationBrief && doc && (
         <TranslationQuestions

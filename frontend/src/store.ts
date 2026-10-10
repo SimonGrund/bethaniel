@@ -474,6 +474,11 @@ interface AppState {
    *  "keep going" answer should survive a restart. */
   dismissedAdvice: string[];
   dismissAdvice: (key: string) => void;
+  /** House-style settings Betty has asked about, keyed "<docId>:<setting>"
+   *  (houseStyleAnswers.ts). Persisted: an answer that kept the default
+   *  value leaves no other trace, and she would ask it again. */
+  settledHouseStyle: string[];
+  settleHouseStyle: (keys: string[]) => void;
 
   /** Whether the grammar layer is installed. Null until the check lands.
    *  Kept separate from `languageToolAdvice` so the answer can be *known*
@@ -1248,6 +1253,11 @@ export const useStore = create<AppState>()(
             ? state.dismissedAdvice
             : [...state.dismissedAdvice, key],
         })),
+      settledHouseStyle: [],
+      settleHouseStyle: (keys) =>
+        set((state) => ({
+          settledHouseStyle: [...new Set([...state.settledHouseStyle, ...keys])],
+        })),
 
       languageToolAvailable: null,
       setLanguageToolAvailable: (languageToolAvailable) =>
@@ -1457,6 +1467,7 @@ export const useStore = create<AppState>()(
         hasSeenIntro: state.hasSeenIntro,
         hasSeenModelIntro: state.hasSeenModelIntro,
         dismissedAdvice: state.dismissedAdvice,
+        settledHouseStyle: state.settledHouseStyle,
         advancedMode: state.advancedMode,
         showExperimental: state.showExperimental,
         wizardStep: state.wizardStep,
