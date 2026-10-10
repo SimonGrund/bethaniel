@@ -289,7 +289,8 @@ export default function EditTrigger() {
         reviewMode,
         styleComplianceAgent,
         extraPass,
-        styleGuide: styleGuide || undefined,
+        // A translation does not read the edit style guide (routes.ts).
+        styleGuide: selectedModes.includes("translate") ? undefined : styleGuide || undefined,
         manuscriptLang,
         code: promoCode.trim() || undefined,
       });
@@ -955,7 +956,6 @@ export default function EditTrigger() {
           units={units.map((u) => u.original)}
           targetLang={targetLang}
           manuscriptLang={manuscriptLang}
-          styleGuide={styleGuide}
           onSubmit={runPaid}
         />
       )}

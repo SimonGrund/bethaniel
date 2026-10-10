@@ -3,7 +3,7 @@
 // After an author pays for a translation, Betty reads the book and asks a
 // handful of questions a translator would otherwise guess at — keep a name or
 // translate it, what to do with "Mr", miles or a book title — and the answers
-// bind every stage of the run (see combineTranslationNotes and /queue/add).
+// bind every stage of the run (see /queue/add).
 //
 // The model never reads the whole book for this. The candidates are counted
 // here, deterministically, over every word of it, so a name that lives only
@@ -626,19 +626,6 @@ function uniqueTerms(entries: SavedGlossaryEntry[]): SavedGlossaryEntry[] {
     seen.add(k);
     return true;
   });
-}
-
-/**
- * What a translate task reads as its notes: the author's answers first, then
- * their style sheet. The brief is the newer, translation-specific choice, so
- * it wins where the two disagree.
- */
-export function combineTranslationNotes(brief: string, styleGuide: string): string {
-  const b = brief.trim();
-  const s = styleGuide.trim();
-  if (!b) return s;
-  if (!s) return b;
-  return `${b}\n\nSTYLE SHEET (the author's own notes — where they disagree with the brief above, the brief above wins):\n${s}`;
 }
 
 /** At most this many rows are saved from one run, each term and rendering

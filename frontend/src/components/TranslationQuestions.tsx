@@ -71,15 +71,12 @@ export default function TranslationQuestions({
   units,
   targetLang,
   manuscriptLang,
-  styleGuide,
   onSubmit,
 }: {
   lang: Lang;
   units: string[];
   targetLang: string;
   manuscriptLang: string;
-  /** The author's style sheet: a glossary in it counts as decided. */
-  styleGuide?: string;
   onSubmit: (brief: string) => Promise<void>;
 }) {
   const t = useTranslation(lang);
@@ -116,7 +113,6 @@ export default function TranslationQuestions({
       manuscriptLang,
       uiLang: lang,
       termList: sent,
-      styleGuide: styleGuide ?? "",
     })
       .then((r) => {
         const cur = useStore.getState().pendingTranslationBrief;

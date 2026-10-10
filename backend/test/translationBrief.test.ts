@@ -11,7 +11,6 @@ import {
   sampleExcerpts,
   parseBriefQuestions,
   runBriefQuestions,
-  combineTranslationNotes,
   parseBriefResponse,
   mergeSavedGlossary,
   glossaryRowsToSave,
@@ -184,15 +183,6 @@ test("an interface language Betty does not speak falls back to English", async (
     { llm: async (s) => ((system = s), '{"questions": []}') },
   );
   assert.match(system, /"label" and "why" in English/);
-});
-
-test("the brief goes first and wins; either side may be empty", () => {
-  const both = combineTranslationNotes("TRANSLATION BRIEF:\n- x", "Use Oxford commas.");
-  assert.ok(both.indexOf("TRANSLATION BRIEF") < both.indexOf("Oxford"));
-  assert.match(both, /brief above wins/);
-  assert.equal(combineTranslationNotes("", " Use Oxford commas. "), "Use Oxford commas.");
-  assert.equal(combineTranslationNotes(" B ", ""), "B");
-  assert.equal(combineTranslationNotes("", ""), "");
 });
 
 // ── Professional vocabulary ──

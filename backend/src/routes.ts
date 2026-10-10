@@ -118,7 +118,6 @@ import {
 } from "./cloudEstimate.js";
 import { buildConsistencyReport } from "./consistency.js";
 import {
-  combineTranslationNotes,
   glossaryRowsToSave,
   mergeSavedGlossary,
   runBriefQuestions,
@@ -830,14 +829,15 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       .join("\n\n");
     const hasAuthorSheet = authorStyleGuide.trim().length > 0;
     // A paid translation's brief (translationBrief.ts): the author's answers
-    // to Betty's questions, ahead of their own sheet. Every translation stage
-    // reads the task's styleGuide — draft, polish, fluency review, retries —
-    // so this one string is all the wiring there is. Capped: it is a short
-    // list of choices, never a manuscript.
-    const translateNotes = combineTranslationNotes(
-      typeof translationBrief === "string" ? translationBrief.slice(0, 20_000) : "",
-      authorStyleGuide,
-    );
+    // to Betty's questions and their own list and notes. Every translation
+    // stage reads the task's styleGuide — draft, polish, fluency review,
+    // retries — so this one string is all the wiring there is. It is the
+    // translation's only guide: the edit style guide is about the SOURCE
+    // language ("write grey, not gray", "spell out numbers"), and the house-
+    // style questions before an edit add lines like that to it. Capped: it
+    // is a short list of choices, never a manuscript.
+    const translateNotes =
+      typeof translationBrief === "string" ? translationBrief.slice(0, 20_000).trim() : "";
 
     // Update concurrency
     // ── Concurrency ──
