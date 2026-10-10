@@ -111,6 +111,38 @@ export async function createCheckoutSession(
 }
 
 /**
+ * The receipt Stripe keeps for a paid Checkout session, as a link the buyer
+ * can open, save or print. Read from the session with its payment's charge
+ * expanded; null when there is none (an unpaid or free session). Pure.
+ */
+export function receiptUrlOf(session: unknown): string | null {
+  const s = session as { payment_intent?: { latest_charge?: { receipt_url?: unknown } | string | null } | string | null };
+  const pi = s?.payment_intent;
+  const charge = pi && typeof pi === "object" ? pi.latest_charge : null;
+  const url = charge && typeof charge === "object" ? charge.receipt_url : null;
+  return typeof url === "string" && url.startsWith("https://") ? url : null;
+}
+
+/**
+ * The receipt link for a Checkout session. Needs the restricted key to read
+ * Checkout Sessions, PaymentIntents and Charges; without that, or for any
+ * other failure, null — the page then says the receipt is in their email.
+ */
+export async function fetchReceiptUrl(env: Env, sessionId: string): Promise<string | null> {
+  if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) return null;
+  try {
+    const res = await fetch(
+      `${STRIPE_API_BASE}/checkout/sessions/${sessionId}?expand[]=payment_intent.latest_charge`,
+      { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } },
+    );
+    if (!res.ok) return null;
+    return receiptUrlOf(await res.json());
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Reverse a payment in full.
  *
  * Idempotency-Key is keyed on the payment intent, so the same refund can

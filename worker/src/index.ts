@@ -51,6 +51,7 @@ import {
 import {
   assertPaymentsAllowed,
   createCheckoutSession,
+  fetchReceiptUrl,
   refundPayment,
   verifyAndParseStripeWebhook,
 } from "./stripe";
@@ -811,6 +812,14 @@ export default {
       if (url.pathname === "/v1/success" && request.method === "GET") {
         const sessionId = url.searchParams.get("session_id") ?? "";
         return html(renderSuccessPage(sessionId));
+      }
+
+      // The buyer's receipt, for the success page's link. Stripe's own page:
+      // they can save or print it. Keyed by the Checkout session id, which
+      // only the buyer's browser has.
+      if (url.pathname === "/v1/receipt" && request.method === "GET") {
+        const sessionId = url.searchParams.get("session_id") ?? "";
+        return json({ url: await fetchReceiptUrl(env, sessionId) });
       }
 
       if (url.pathname === "/v1/cancelled" && request.method === "GET") {

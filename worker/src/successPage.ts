@@ -74,6 +74,11 @@ export function renderSuccessPage(sessionId: string): string {
     <button id="copy-btn" type="button">Copy code</button>
   </div>
 
+  <p class="receipt" id="receipt" style="display:none">
+    <a id="receipt-link" href="#" target="_blank" rel="noopener">Your receipt</a>
+    — Stripe's page; save or print it for your records.
+  </p>
+
   <p class="error" id="error-text">
     Something went wrong activating your credit. Your payment went through, so
     nothing is lost — email
@@ -106,6 +111,19 @@ export function renderSuccessPage(sessionId: string): string {
     };
   }
 
+  // The receipt link, once the payment is through. Best effort: without it
+  // the receipt is still in the buyer's email.
+  function showReceipt() {
+    fetch("/v1/receipt?session_id=" + encodeURIComponent(sessionId))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data || !data.url) return;
+        document.getElementById("receipt-link").href = data.url;
+        document.getElementById("receipt").style.display = "block";
+      })
+      .catch(function () {});
+  }
+
   function showError() {
     document.getElementById("spinner").style.display = "none";
     document.getElementById("status-text").style.display = "none";
@@ -120,6 +138,7 @@ export function renderSuccessPage(sessionId: string): string {
         if (data.status === "issued" && data.token) {
           claimed = true;
           showCode(data.token);
+          showReceipt();
           // Best-effort auto-open — silently does nothing if no handler is
           // registered for the scheme, which is why the code above is always
           // shown regardless of whether this works.
