@@ -17,6 +17,8 @@ import {
   failActiveTasks,
 } from "./queue.js";
 import { closeDb } from "./db.js";
+import { ensureGpuEngine } from "./gpuEngineManager.js";
+import { listModels } from "./llm.js";
 import { shutdownLlamaServer } from "./llamaServer.js";
 import { shutdownLanguageTool } from "./languageToolServer.js";
 import { setLogIo, getLogSnapshot, appendLog } from "./logBus.js";
@@ -118,6 +120,17 @@ async function start() {
     const url = `http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`;
     console.log(`[Bethaniel] Ready at ${url}`);
   });
+
+  // An install that already has a local model gets its GPU engine now; one
+  // without gets it with the model download (routes.ts). Delayed so the
+  // GPU detection's PowerShell does not compete with the first screen.
+  setTimeout(() => {
+    void listModels()
+      .then((models) => {
+        if (models.length > 0) void ensureGpuEngine();
+      })
+      .catch(() => {});
+  }, 10_000);
 }
 
 async function shutdown() {

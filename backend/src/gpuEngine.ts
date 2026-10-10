@@ -1,12 +1,11 @@
-// ── On-demand CUDA engine download (Windows) ──
+// ── Installing a GPU engine (Windows) ──
 //
-// The bundled Windows llama-server build has no GPU backend at all — shipping
-// the CUDA build (well over 1 GB once its cuBLAS/cuDART runtime is included)
-// in every installer would bloat non-NVIDIA installs for no benefit. Instead,
-// when an NVIDIA GPU is detected and no CUDA build is present yet, main.ts
-// downloads one into userData in the background (survives app updates, needs
-// no elevated permissions) via downloadCudaEngine() below. Pure Node — no
-// Electron API dependency — so it can run standalone under tsx for testing.
+// The bundled Windows llama-server has no GPU backend: shipping the CUDA
+// build (well over 1 GB with its cuBLAS/cuDART runtime) or the Vulkan build
+// in every installer would bloat every machine without the card. Instead the
+// one this machine can use (gpuDetect.ts) is fetched into userData — it
+// survives app updates and needs no elevated permissions — and tested before
+// it is used (gpuEngineManager.ts). Pure Node, so it runs under tsx too.
 
 import * as fs from "fs";
 import * as path from "path";
@@ -28,19 +27,32 @@ export interface LlamaManifestAsset {
   cudaRuntimeDlls?: CudaRuntimeDllAsset[];
 }
 
-export function hasCudaEngineInstalled(finalDir: string): boolean {
+export function hasEngineInstalled(finalDir: string): boolean {
   return fs.existsSync(path.join(finalDir, "llama-server.exe"));
 }
 
-async function downloadToFile(url: string, destPath: string): Promise<void> {
+async function downloadToFile(
+  url: string,
+  destPath: string,
+  onBytes?: (n: number) => void,
+): Promise<void> {
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok || !res.body) {
     throw new Error(`HTTP ${res.status} for ${url}`);
   }
-  await pipeline(
-    Readable.fromWeb(res.body as import("stream/web").ReadableStream),
-    fs.createWriteStream(destPath),
-  );
+  const body = Readable.fromWeb(res.body as import("stream/web").ReadableStream);
+  if (onBytes) body.on("data", (chunk: Buffer) => onBytes(chunk.length));
+  await pipeline(body, fs.createWriteStream(destPath));
+}
+
+/** The size of a download, from its headers; 0 when the server will not say. */
+async function contentLength(url: string): Promise<number> {
+  try {
+    const res = await fetch(url, { method: "HEAD", redirect: "follow" });
+    return Number(res.headers.get("content-length")) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 function sha256File(filePath: string): Promise<string> {
@@ -191,54 +203,50 @@ async function extractZipVerified(
 }
 
 /**
- * Downloads the pinned CUDA-enabled llama-server build + its CUDA runtime
- * DLLs (cudart/cublas — not bundled in the llama.cpp release; NVIDIA
- * distributes them as pip wheels, which are plain zips) and installs them
- * into `finalDir`. All work happens under `tmpDir` first; `finalDir` is only
- * ever replaced by an atomic rename once every step has succeeded, so a
- * crash or failed download never leaves a half-installed engine behind.
- *
- * Returns true if a fresh install happened, false if one was already present
- * (no-op). Throws on any download/extract/verify failure — callers should
- * catch and keep using the existing (CPU) build.
+ * Downloads a pinned llama-server build (CUDA or Vulkan) and, for CUDA, its
+ * runtime DLLs (cudart/cublas — not in the llama.cpp release; NVIDIA
+ * distributes them as pip wheels, which are plain zips), and installs them
+ * into `finalDir`. Everything happens under `tmpDir` first; `finalDir` is
+ * only replaced by a rename once every step has succeeded, so a failed
+ * download never leaves a half-installed engine behind. Throws on any
+ * failure — the caller keeps the CPU build.
  */
-export async function downloadCudaEngine(opts: {
-  manifestPath: string;
+export async function installEngine(opts: {
+  asset: LlamaManifestAsset;
   finalDir: string;
   tmpDir: string;
   log?: (message: string) => void;
-}): Promise<boolean> {
-  const { manifestPath, finalDir, tmpDir } = opts;
+  /** Bytes so far and in all, across every file. */
+  onProgress?: (bytes: number, total: number) => void;
+}): Promise<void> {
+  const { asset, finalDir, tmpDir } = opts;
   const log = opts.log ?? (() => {});
-
-  if (hasCudaEngineInstalled(finalDir)) return false;
-  if (!fs.existsSync(manifestPath)) {
-    throw new Error(`manifest not found: ${manifestPath}`);
-  }
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-  const asset: LlamaManifestAsset | undefined =
-    manifest?.assets?.["win32-x64-cuda"];
-  if (!asset) throw new Error("no win32-x64-cuda entry in manifest");
+  const urls = [asset.url, ...(asset.cudaRuntimeDlls ?? []).map((d) => d.url)];
+  const total = (await Promise.all(urls.map(contentLength))).reduce((a, b) => a + b, 0);
+  let bytes = 0;
+  const onBytes = (n: number) => {
+    bytes += n;
+    opts.onProgress?.(bytes, Math.max(total, bytes));
+  };
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  // 1. llama-server (CUDA build)
+  // 1. llama-server
   log(`downloading ${asset.url} ...`);
-  const llamaZip = path.join(tmpDir, "llama-cuda.zip");
-  await downloadToFile(asset.url, llamaZip);
+  const llamaZip = path.join(tmpDir, "llama.zip");
+  await downloadToFile(asset.url, llamaZip, onBytes);
+  if (asset.sha256) {
+    const actual = await sha256File(llamaZip);
+    if (actual !== asset.sha256) throw new Error(`SHA-256 mismatch for ${asset.url}`);
+  }
   const llamaExtractDir = path.join(tmpDir, "llama-extracted");
-  const llamaFound = await extractZipVerified(llamaZip, llamaExtractDir, [
-    asset.binary,
-  ]);
+  const llamaFound = await extractZipVerified(llamaZip, llamaExtractDir, [asset.binary]);
   const serverExe = llamaFound.get(asset.binary)!;
   const stagedDir = path.join(tmpDir, "staged");
   fs.mkdirSync(stagedDir, { recursive: true });
   for (const entry of fs.readdirSync(path.dirname(serverExe))) {
-    fs.cpSync(
-      path.join(path.dirname(serverExe), entry),
-      path.join(stagedDir, entry),
-    );
+    fs.cpSync(path.join(path.dirname(serverExe), entry), path.join(stagedDir, entry), { recursive: true });
   }
 
   // 2. CUDA runtime DLLs (cudart/cublas). Pulled as single zip entries (see
@@ -248,13 +256,11 @@ export async function downloadCudaEngine(opts: {
   for (const dll of asset.cudaRuntimeDlls ?? []) {
     log(`downloading ${dll.url} ...`);
     const wheelPath = path.join(tmpDir, path.basename(dll.url));
-    await downloadToFile(dll.url, wheelPath);
+    await downloadToFile(dll.url, wheelPath, onBytes);
     if (dll.sha256) {
       const actual = await sha256File(wheelPath);
       if (actual !== dll.sha256) {
-        throw new Error(
-          `SHA-256 mismatch for ${dll.url}: expected ${dll.sha256}, got ${actual}`,
-        );
+        throw new Error(`SHA-256 mismatch for ${dll.url}: expected ${dll.sha256}, got ${actual}`);
       }
     }
     for (const dllRelPath of dll.dllPaths) {
@@ -269,5 +275,4 @@ export async function downloadCudaEngine(opts: {
   fs.renameSync(stagedDir, finalDir);
   fs.rmSync(tmpDir, { recursive: true, force: true });
   log(`installed at ${finalDir}`);
-  return true;
 }

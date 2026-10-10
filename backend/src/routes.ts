@@ -126,6 +126,7 @@ import {
 import { parseTermList } from "./termList.js";
 import { houseStyleQuestions } from "./houseStyle.js";
 import { writeXlsx } from "./xlsxWriter.js";
+import { ensureGpuEngine, getGpuEngineStatus } from "./gpuEngineManager.js";
 import { withTransientRetry } from "./retryPolicy.js";
 import { extractTermListText } from "./termListFile.js";
 
@@ -2545,6 +2546,10 @@ router.post("/models/download", async (req: Request, res: Response) => {
 
   // ── GGUF models (HTTP download) ──
 
+  // The engine for this machine's GPU comes with the model: fetched beside
+  // it, tested, and switched to (gpuEngineManager.ts). Never throws.
+  void ensureGpuEngine();
+
   // Already downloaded?
   const destPath = join(MODELS_DIR_PATH, entry.fileName);
   try {
@@ -2745,7 +2750,7 @@ router.get("/models/download/status", async (_req: Request, res: Response) => {
       status: "paused",
     });
   }
-  res.json({ downloads });
+  res.json({ downloads, gpuEngine: getGpuEngineStatus() });
 });
 
 // ── Custom Betty (custom GGUF) configuration ──

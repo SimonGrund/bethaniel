@@ -11856,3 +11856,25 @@ summary.review-source::before {
   min-height: 0;
   margin-bottom: 0.9rem;
 }
+
+/* The GPU engine's setup, beside the model download (GpuEngineNote). */
+.gpu-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 6px;
+  background: #fdfaf0;
+  color: #2a2419;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.gpu-note-ready {
+  border-color: #9cbf8a;
+}
+.gpu-note-dismiss {
+  align-self: flex-start;
+  font-size: 0.8rem;
+}

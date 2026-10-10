@@ -7118,6 +7118,55 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Jeder Vorschlag aus den Korrektorat-, Lektorats- und Schlussdurchgängen, die die App noch aufbewahrt (deine letzten Läufe), je eine Zeile mit dem Lauf, aus dem er stammt, und deiner Entscheidung. Die Datei enthält die bearbeiteten Stellen deines Textes — teile sie nur mit jemandem, dem du sie geben willst.",
     es: "Todas las sugerencias de las correcciones, ediciones y lecturas finales que la app aún conserva (tus ejecuciones más recientes), una fila cada una, con la ejecución de la que viene y lo que hiciste con ella. Contiene los pasajes editados de tu texto: compártelo solo con quien quieras.",
   },
+  // ── The GPU engine's setup (GpuEngineNote.tsx) ──
+  gpu_setup_downloading: {
+    en: "Setting Betty up to run on your {gpu} — {percent}%. Much faster than the processor.",
+    da: "Gør Betty klar til at køre på dit {gpu} — {percent}%. Meget hurtigere end processoren.",
+    de: "Betty wird für Ihre {gpu} eingerichtet — {percent}%. Viel schneller als der Prozessor.",
+    es: "Preparando a Betty para funcionar en tu {gpu}: {percent}%. Mucho más rápido que el procesador.",
+  },
+  gpu_setup_testing: {
+    en: "Testing Betty on your {gpu}…",
+    da: "Tester Betty på dit {gpu}…",
+    de: "Betty wird auf Ihrer {gpu} getestet…",
+    es: "Probando a Betty en tu {gpu}…",
+  },
+  gpu_setup_ready: {
+    en: "Betty now runs on your {gpu}.",
+    da: "Betty kører nu på dit {gpu}.",
+    de: "Betty läuft jetzt auf Ihrer {gpu}.",
+    es: "Betty ya funciona en tu {gpu}.",
+  },
+  gpu_needs_driver: {
+    en: "Your NVIDIA graphics card could make Betty much faster, but NVIDIA's driver is not installed. Install it, then restart Betty. Until then she runs on the processor.",
+    da: "Dit NVIDIA-grafikkort kunne gøre Betty meget hurtigere, men NVIDIAs driver er ikke installeret. Installér den, og genstart Betty. Indtil da kører hun på processoren.",
+    de: "Ihre NVIDIA-Grafikkarte könnte Betty viel schneller machen, aber der NVIDIA-Treiber ist nicht installiert. Installieren Sie ihn und starten Sie Betty neu. Bis dahin läuft sie auf dem Prozessor.",
+    es: "Tu tarjeta gráfica NVIDIA podría hacer a Betty mucho más rápida, pero el controlador de NVIDIA no está instalado. Instálalo y reinicia Betty. Hasta entonces funciona en el procesador.",
+  },
+  gpu_driver_link: {
+    en: "Get NVIDIA's driver",
+    da: "Hent NVIDIAs driver",
+    de: "NVIDIA-Treiber holen",
+    es: "Descargar el controlador de NVIDIA",
+  },
+  gpu_setup_failed: {
+    en: "Betty could not be set up to run on your {gpu}, so she runs on the processor. Everything works — just more slowly.",
+    da: "Betty kunne ikke sættes op til at køre på dit {gpu}, så hun kører på processoren. Alt virker — bare langsommere.",
+    de: "Betty konnte nicht für Ihre {gpu} eingerichtet werden und läuft deshalb auf dem Prozessor. Alles funktioniert — nur langsamer.",
+    es: "No se pudo preparar a Betty para tu {gpu}, así que funciona en el procesador. Todo funciona, solo que más despacio.",
+  },
+  gpu_your_card: {
+    en: "graphics card",
+    da: "grafikkort",
+    de: "Grafikkarte",
+    es: "tarjeta gráfica",
+  },
+  gpu_note_dismiss: {
+    en: "Don't show again",
+    da: "Vis ikke igen",
+    de: "Nicht mehr anzeigen",
+    es: "No volver a mostrar",
+  },
 };
 
 export function useTranslation(lang: Lang) {

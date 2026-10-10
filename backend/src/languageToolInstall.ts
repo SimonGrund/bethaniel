@@ -6,7 +6,7 @@
 // gracefully, grammar checks just don't run. A user on a build that skipped
 // it (or missing a system Java before that fix existed) has no way to get it
 // short of reinstalling. This lets them fetch it themselves, on demand, from
-// inside the running app — mirrors electron/gpuEngine.ts's on-demand CUDA
+// inside the running app — mirrors backend/src/gpuEngine.ts's on-demand CUDA
 // engine download (atomic install, retried/verified zip extraction).
 
 import * as fs from "fs";
@@ -60,7 +60,7 @@ function jreTarget(): { os: string; arch: string; kind: "zip" | "tar.gz" } {
 /** Extracts a zip/tar.gz, verifying the destination actually got populated
  *  and retrying a few times — Windows' Expand-Archive has been observed
  *  exiting 0 having extracted nothing (transient file-lock/AV-scan race
- *  right after a download finishes; see electron/gpuEngine.ts). Destination
+ *  right after a download finishes; see backend/src/gpuEngine.ts). Destination
  *  names are kept short deliberately: LanguageTool's resource tree nests
  *  fairly deep, and a long destination risks Windows' ~260-char MAX_PATH. */
 async function extractVerified(

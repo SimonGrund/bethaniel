@@ -57,14 +57,12 @@ function resolveLlamaBin(): string {
 
   // On Linux with an NVIDIA GPU, prefer the Vulkan build (vendor-neutral, needs
   // no CUDA toolkit) over the CPU build so models offload to VRAM by default.
-  // On Windows the default bundled build has no GPU backend at all, so an
-  // NVIDIA GPU means preferring the CUDA build instead.
+  // On Windows the bundled build is CPU-only; a GPU engine is fetched, tested
+  // and switched to by gpuEngineManager.ts (setEngineBinary below).
   const archDirs =
     process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
       ? ["linux-x64-vulkan", platformArch]
-      : process.platform === "win32" && hasNvidiaGpu()
-        ? ["win32-x64-cuda", platformArch]
-        : [platformArch];
+      : [platformArch];
 
   // Resource roots (dev + packaged)
   const roots = [
@@ -107,7 +105,9 @@ function missingBinaryHint(): string {
   }
 }
 
-const LLAMA_BIN = resolveLlamaBin();
+let LLAMA_BIN = resolveLlamaBin();
+/** A new binary is waiting for the engine to go idle (setEngineBinary). */
+let binaryChangePending = false;
 /**
  * The port llama-server listens on.
  *
@@ -397,7 +397,7 @@ let stopPromise: Promise<void> | null = null;
  * rather than assumed from hardware presence — a GPU can be present while
  * the bundled/downloaded build still has no matching backend (see the
  * Windows CPU-only-by-default build and its on-demand CUDA download in
- * electron/gpuEngine.ts). Reset to "unknown" on every fresh spawn.
+ * backend/src/gpuEngine.ts). Reset to "unknown" on every fresh spawn.
  */
 let detectedDevice: "gpu" | "cpu" | "unknown" = "unknown";
 // llama.cpp labels devices by backend in its `device_info:` block. The names
@@ -1366,6 +1366,26 @@ export function beginEngineRequest(): void {
 
 export function endEngineRequest(): void {
   activeRequests = Math.max(0, activeRequests - 1);
+  if (binaryChangePending && activeRequests === 0 && unloadCurrentModel()) binaryChangePending = false;
+}
+
+/** The llama-server binary the next engine starts from. */
+export function getEngineBinary(): string {
+  return LLAMA_BIN;
+}
+
+/**
+ * Start the engine from another binary — a GPU build that has just been
+ * installed and tested (gpuEngineManager.ts). A running engine is stopped
+ * once nothing is streaming from it, so the next request loads the model on
+ * the GPU; a busy one finishes what it is doing first.
+ */
+export function setEngineBinary(bin: string): void {
+  if (bin === LLAMA_BIN) return;
+  LLAMA_BIN = bin;
+  console.log(`[llama-server] Engine binary is now ${bin}`);
+  if (!childProcess || unloadCurrentModel()) return;
+  binaryChangePending = true;
 }
 
 /** Graceful shutdown — called on process exit. */

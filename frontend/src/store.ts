@@ -27,6 +27,7 @@ import type {
   RunStats,
   LanguageToolDownload,
   EngineDeviceStatus,
+  GpuEngineStatus,
   DetectedSettings,
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
@@ -445,6 +446,9 @@ interface AppState {
    *  GET /api/engine/status. Null until the first fetch lands. */
   engineDevice: EngineDeviceStatus | null;
   setEngineDevice: (s: EngineDeviceStatus | null) => void;
+  /** The GPU engine's setup, from `engine:gpu` and the download status. */
+  gpuEngine: GpuEngineStatus | null;
+  setGpuEngine: (s: GpuEngineStatus | null) => void;
   /** Ceiling for the parallel-jobs slider — hardware- or provider-derived. */
   maxParallel: number;
   setMaxParallel: (n: number) => void;
@@ -1226,6 +1230,8 @@ export const useStore = create<AppState>()(
       setRunStats: (runStats) => set({ runStats }),
       engineDevice: null,
       setEngineDevice: (engineDevice) => set({ engineDevice }),
+      gpuEngine: null,
+      setGpuEngine: (gpuEngine) => set({ gpuEngine }),
       setModelEnvLoaded: (modelEnvLoaded) => set({ modelEnvLoaded }),
       maxParallel: DEFAULT_MAX_PARALLEL,
       setMaxParallel: (maxParallel) => set({ maxParallel }),

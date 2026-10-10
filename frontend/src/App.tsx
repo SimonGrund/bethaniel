@@ -36,6 +36,7 @@ import type {
   RunStats,
   LanguageToolDownload,
   EngineDeviceStatus,
+  GpuEngineStatus,
   Lexicon,
 } from "./types";
 import "./styles/global.css";
@@ -234,12 +235,18 @@ export default function App() {
       setEngineDevice(d);
     });
 
+    // Setting up the engine for this machine's GPU (GpuEngineNote).
+    socket.on("engine:gpu", (d: GpuEngineStatus) => {
+      useStore.getState().setGpuEngine(d);
+    });
+
     // Re-sync any in-flight downloads (covers a full page reload — the backend
     // keeps downloading regardless).
     fetch(`${BASE}/api/models/download/status`)
       .then((r) => r.json())
-      .then((d: { downloads?: DownloadProgress[] }) => {
+      .then((d: { downloads?: DownloadProgress[]; gpuEngine?: GpuEngineStatus }) => {
         for (const dl of d.downloads ?? []) setDownloadProgress(dl);
+        if (d.gpuEngine) useStore.getState().setGpuEngine(d.gpuEngine);
       })
       .catch(() => {});
     fetchLanguageToolDownloadStatus()
@@ -264,6 +271,7 @@ export default function App() {
       socket.off("model:perf-advice");
       socket.off("languagetool:download");
       socket.off("engine:device");
+      socket.off("engine:gpu");
     };
   }, [
     setTasks,

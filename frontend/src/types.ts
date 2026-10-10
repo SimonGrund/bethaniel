@@ -583,6 +583,16 @@ export interface LanguageToolDownload {
 }
 
 /** GET /api/engine/status — is the running llama-server using the GPU? */
+/** Getting Betty onto this machine's GPU (backend/src/gpuEngineManager.ts). */
+export interface GpuEngineStatus {
+  state: "checking" | "not-needed" | "needs-driver" | "downloading" | "testing" | "ready" | "failed";
+  engine?: "cuda" | "vulkan";
+  gpu?: string;
+  bytes?: number;
+  total?: number;
+  error?: string;
+}
+
 export interface EngineDeviceStatus {
   device: "gpu" | "cpu" | "unknown";
   running: boolean;

@@ -10,7 +10,6 @@ import {
   dialog,
   ipcMain,
   Menu,
-  Notification,
   powerSaveBlocker,
 } from "electron";
 import { ChildProcess, fork, execFileSync } from "child_process";
@@ -19,7 +18,6 @@ import * as fs from "fs";
 import * as http from "http";
 import * as net from "net";
 import { autoUpdater } from "electron-updater";
-import { downloadCudaEngine, hasCudaEngineInstalled } from "./gpuEngine";
 import { installVerdict, type InstallMarker } from "./updateInstallMarker";
 
 // ── Betty in the Cloud: bethaniel:// protocol handoff ──
@@ -387,21 +385,15 @@ function findLlamaBin(): string {
 
   // On Linux with an NVIDIA GPU, prefer the Vulkan build so models offload
   // to VRAM by default. Falls back gracefully to the CPU build otherwise.
-  // On Windows the default bundled build has no GPU backend at all, so an
-  // NVIDIA GPU means preferring the CUDA build instead.
+  // On Windows this is always the bundled CPU build: a GPU engine is fetched,
+  // tested and switched to by the backend (backend/src/gpuEngineManager.ts),
+  // which is told where engines live through BETHANIEL_ENGINE_DIR.
   const archDirs =
     process.platform === "linux" && process.arch === "x64" && hasNvidiaGpu()
       ? ["linux-x64-vulkan", platformArch]
-      : process.platform === "win32" && hasNvidiaGpu()
-        ? ["win32-x64-cuda", platformArch]
-        : [platformArch];
+      : [platformArch];
 
   for (const arch of archDirs) {
-    // Downloaded on demand (Windows CUDA build — see maybeDownloadCudaEngine):
-    // userData/engine/<arch>/llama-server.exe
-    const downloaded = path.join(userDataPath("engine", arch), binaryName);
-    if (fs.existsSync(downloaded)) return downloaded;
-
     // In packaged builds: resources/llama/<arch>/llama-server
     const packaged = path.join(
       process.resourcesPath,
@@ -428,63 +420,12 @@ function findLlamaBin(): string {
   return binaryName;
 }
 
-// ── On-demand CUDA engine download (Windows) ──
-//
-// The bundled Windows build has no GPU backend at all — shipping the CUDA
-// build (well over 1 GB once its cuBLAS/cuDART runtime is included) in every
-// installer would bloat non-NVIDIA installs for no benefit. Instead: when an
-// NVIDIA GPU is detected and no CUDA build is present yet, download one into
-// userData in the background (survives app updates, needs no elevated
-// permissions) — see gpuEngine.ts. It's picked up the next time the app
-// starts — this never blocks or interrupts the current session, and any
-// failure just leaves the existing CPU build in place.
-
+// The pinned llama.cpp manifest: which GPU engine builds the backend may
+// fetch for Windows (backend/src/gpuEngineManager.ts).
 function llamaManifestPath(): string {
   return IS_DEV
     ? path.resolve(__dirname, "..", "..", "scripts", "llama-manifest.json")
     : path.join(process.resourcesPath, "llama-manifest.json");
-}
-
-function cudaEngineFinalDir(): string {
-  return userDataPath("engine", "win32-x64-cuda");
-}
-
-/** Never throws — logs and leaves the existing (CPU) build in place on any failure. */
-async function maybeDownloadCudaEngine(): Promise<void> {
-  try {
-    if (process.platform !== "win32") return;
-    const finalDir = cudaEngineFinalDir();
-    if (hasCudaEngineInstalled(finalDir)) return;
-    if (!hasNvidiaGpu()) return;
-    // Already resolvable via a bundled/dev copy (e.g. manually dropped in)?
-    if (findLlamaBin().includes("win32-x64-cuda")) return;
-
-    console.log(
-      "[gpu-engine] NVIDIA GPU detected — downloading the CUDA-accelerated engine in the background (one-time, applies after next restart)...",
-    );
-    const installed = await downloadCudaEngine({
-      manifestPath: llamaManifestPath(),
-      finalDir,
-      tmpDir: userDataPath("engine", ".download-tmp"),
-      log: (m) => console.log(`[gpu-engine] ${m}`),
-    });
-    if (!installed) return;
-
-    console.log(
-      "[gpu-engine] CUDA-accelerated engine installed. It will be used starting next launch.",
-    );
-    if (Notification.isSupported()) {
-      new Notification({
-        title: "Bethaniel",
-        body: "GPU acceleration is ready — restart Bethaniel to use it.",
-      }).show();
-    }
-  } catch (err) {
-    console.error(
-      "[gpu-engine] CUDA engine download failed (will keep using the CPU build):",
-      err instanceof Error ? err.message : err,
-    );
-  }
 }
 
 /**
@@ -1106,6 +1047,11 @@ app.whenReady().then(async () => {
     DATA_DIR: userDataPath("data"),
     MODELS_DIR: userDataPath("models"),
     LLAMA_BIN: llamaBin,
+    // Where the backend installs a GPU engine for this machine, and the
+    // manifest saying which builds exist (backend/src/gpuEngineManager.ts).
+    // userData, so it survives app updates and needs no admin rights.
+    BETHANIEL_ENGINE_DIR: userDataPath("engine"),
+    LLAMA_MANIFEST: llamaManifestPath(),
     // No LLAMA_PORT / LLAMA_BASE_URL: the engine's port is the backend's to
     // choose, at the moment it launches the engine. Picking one here — minutes
     // earlier, out of the range the OS reassigns at will — looked like a
@@ -1224,7 +1170,6 @@ app.whenReady().then(async () => {
 
   // Kick off the on-demand CUDA engine download (Windows + NVIDIA GPU only,
   // no-op otherwise) well after launch so it never competes with startup.
-  setTimeout(() => void maybeDownloadCudaEngine(), 10_000);
 
   // Open external links in the default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

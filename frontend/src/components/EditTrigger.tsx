@@ -7,6 +7,7 @@ import TranslationQuestions from "./TranslationQuestions";
 import EditQuestions, { type EditAnswers } from "./EditQuestions";
 import CloudCodeClaim from "./CloudCodeClaim";
 import DownloadBar from "./DownloadBar";
+import GpuEngineNote from "./GpuEngineNote";
 import { estimateRun, formatEstimate } from "../runEstimate";
 import { formatBytes, formatDuration, REFERENCE_WORDS } from "../modelCopy";
 import { useTranslation } from "../i18n";
@@ -692,6 +693,7 @@ export default function EditTrigger() {
       )}
 
       {activeDownload && <DownloadBar download={activeDownload} />}
+      <GpuEngineNote />
 
       {/* One step, two ways to take it. The two slabs side by side read as a
           sequence — do this, then that — which is exactly wrong: they are the
