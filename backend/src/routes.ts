@@ -124,6 +124,7 @@ import {
   runBriefQuestions,
 } from "./translationBrief.js";
 import { parseTermList } from "./termList.js";
+import { houseStyleQuestions } from "./houseStyle.js";
 import { withTransientRetry } from "./retryPolicy.js";
 import { extractTermListText } from "./termListFile.js";
 
@@ -2840,6 +2841,29 @@ function authorCountry(): string {
     return "";
   }
 }
+
+// ── House style: Betty's questions before an edit ──
+// Counted from the manuscript, no model (houseStyle.ts): where the text
+// disagrees with itself, which form is the author's. Asked before a local
+// run and before a cloud checkout alike.
+router.post("/edits/house-style", (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  const units: string[] = Array.isArray(body.units)
+    ? body.units.filter((u: unknown): u is string => typeof u === "string")
+    : [];
+  const text = units.join("\n\n");
+  if (!text.trim()) {
+    res.json({ questions: [] });
+    return;
+  }
+  res.json({
+    questions: houseStyleQuestions(
+      text,
+      typeof body.manuscriptLang === "string" ? body.manuscriptLang : "en",
+      typeof body.styleGuide === "string" ? body.styleGuide : "",
+    ),
+  });
+});
 
 // ── Translation brief: Betty's questions before a paid translation ──
 // Called right after the credential is claimed, on that credential: the
