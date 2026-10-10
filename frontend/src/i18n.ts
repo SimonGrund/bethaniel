@@ -7002,6 +7002,37 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Gedankenstriche: so lassen, wie sie sind.",
     es: "Rayas: déjalas como están.",
   },
+  // ── Settings → Export my reviews (HeaderSettingsMenu.tsx) ──
+  reviews_export: {
+    en: "Export my reviews (Excel)",
+    da: "Eksportér mine gennemgange (Excel)",
+    de: "Meine Durchsichten exportieren (Excel)",
+    es: "Exportar mis revisiones (Excel)",
+  },
+  reviews_export_busy: {
+    en: "Gathering your reviews…",
+    da: "Samler dine gennemgange…",
+    de: "Sammle deine Durchsichten…",
+    es: "Reuniendo tus revisiones…",
+  },
+  reviews_export_none: {
+    en: "No reviews on this machine yet",
+    da: "Ingen gennemgange på denne maskine endnu",
+    de: "Noch keine Durchsichten auf diesem Rechner",
+    es: "Aún no hay revisiones en este equipo",
+  },
+  reviews_export_failed: {
+    en: "The export failed — try again",
+    da: "Eksporten mislykkedes — prøv igen",
+    de: "Der Export ist fehlgeschlagen — versuche es erneut",
+    es: "La exportación falló; inténtalo de nuevo",
+  },
+  reviews_export_hint: {
+    en: "Every suggestion from your copy edits, line edits and readthroughs, with what you did about it. It contains the edited passages of your text — share it only with someone you mean to.",
+    da: "Alle forslag fra dine korrektur- og sproglige redigeringer og gennemlæsninger, med hvad du gjorde ved dem. Filen indeholder de redigerede passager af din tekst — del den kun med nogen, du har tænkt dig at dele den med.",
+    de: "Jeder Vorschlag aus deinen Korrektorat-, Lektorats- und Schlussdurchgängen, mit deiner Entscheidung. Die Datei enthält die bearbeiteten Stellen deines Textes — teile sie nur mit jemandem, dem du sie geben willst.",
+    es: "Todas las sugerencias de tus correcciones, ediciones y lecturas finales, con lo que hiciste con ellas. Contiene los pasajes editados de tu texto: compártelo solo con quien quieras.",
+  },
 };
 
 export function useTranslation(lang: Lang) {

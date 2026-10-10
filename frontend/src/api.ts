@@ -1001,3 +1001,13 @@ export async function getHouseStyleQuestions(req: {
     return [];
   }
 }
+
+/** The review table (reviewTable.ts) as an .xlsx file. */
+export async function reviewsXlsx(rows: string[][]): Promise<Blob> {
+  const res = await apiFetch("/reviews/xlsx", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows }),
+  });
+  return res.blob();
+}

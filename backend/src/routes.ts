@@ -124,6 +124,7 @@ import {
 } from "./translationBrief.js";
 import { parseTermList } from "./termList.js";
 import { houseStyleQuestions } from "./houseStyle.js";
+import { writeXlsx } from "./xlsxWriter.js";
 import { withTransientRetry } from "./retryPolicy.js";
 import { extractTermListText } from "./termListFile.js";
 
@@ -2846,6 +2847,23 @@ function authorCountry(): string {
 // Counted from the manuscript, no model (houseStyle.ts): where the text
 // disagrees with itself, which form is the author's. Asked before a local
 // run and before a cloud checkout alike.
+// ── Reviews as a spreadsheet (Settings → Export my reviews) ──
+//
+// The app joins the suggestions with the author's answers (reviewTable.ts);
+// this only turns the rows into an .xlsx. Nothing is stored or sent anywhere.
+router.post("/reviews/xlsx", async (req: Request, res: Response) => {
+  const rows: unknown = req.body?.rows;
+  if (!Array.isArray(rows) || !rows.every((r) => Array.isArray(r))) {
+    res.status(400).json({ error: "rows must be an array of rows" });
+    return;
+  }
+  const clean = (rows as unknown[][]).map((r) => r.map((c) => (c == null ? "" : String(c))));
+  const buf = await writeXlsx(clean, "Reviews");
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", 'attachment; filename="reviews.xlsx"');
+  res.send(buf);
+});
+
 router.post("/edits/house-style", (req: Request, res: Response) => {
   const body = req.body ?? {};
   const units: string[] = Array.isArray(body.units)

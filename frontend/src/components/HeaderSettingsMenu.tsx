@@ -11,6 +11,9 @@ import { settingsRowFor, isQueueBusy } from "../updateStatus";
 import { getUpdateBridge } from "../updateBridge";
 import { useTranslation } from "../i18n";
 import StorageSettings from "./StorageSettings";
+import { fetchTaskResult, reviewsXlsx } from "../api";
+import { REVIEW_MODES, reviewTable } from "../reviewTable";
+import type { TaskResult } from "../types";
 import Modal from "./Modal";
 
 export default function HeaderSettingsMenu() {
@@ -74,6 +77,47 @@ export default function HeaderSettingsMenu() {
     // a selection still inside the drawer keeps it on screen (App.tsx).
     if (next) setWizardStep("edits");
     setOpen(false);
+  };
+
+  // ── Export my reviews ──
+  // Every copy-edit suggestion on this machine with what the author did, as
+  // a spreadsheet they can choose to send to the developer. The menu stays
+  // open while it is gathered, so the row can say how it went.
+  const [reviewsState, setReviewsState] = useState<"idle" | "busy" | "none" | "failed">("idle");
+  const exportReviews = async () => {
+    if (reviewsState === "busy") return;
+    setReviewsState("busy");
+    try {
+      const s = useStore.getState();
+      const reviewTasks = Object.values(s.tasks).filter(
+        (x) => x.status === "done" && REVIEW_MODES.includes(x.mode),
+      );
+      // A result already in the app carries the author's own fixes; the
+      // rest are read from the backend.
+      const results: Record<string, TaskResult> = {};
+      for (const x of reviewTasks) {
+        const r = x.result ?? (await fetchTaskResult(x.id).catch(() => null));
+        if (r) results[x.id] = r;
+      }
+      const rows = reviewTable(reviewTasks, results, s.acceptedCorrections, s.decisionLog);
+      if (rows.length <= 1) {
+        setReviewsState("none");
+        setTimeout(() => setReviewsState("idle"), 4000);
+        return;
+      }
+      const blob = await reviewsXlsx(rows);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Bethaniel reviews ${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setReviewsState("idle");
+      setOpen(false);
+    } catch {
+      setReviewsState("failed");
+      setTimeout(() => setReviewsState("idle"), 4000);
+    }
   };
 
   const updateStatus = useStore((s) => s.updateStatus);
@@ -160,6 +204,24 @@ export default function HeaderSettingsMenu() {
             }}
           >
             {t("storage_title")}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="header-settings-item"
+            title={t("reviews_export_hint")}
+            disabled={reviewsState === "busy"}
+            onClick={() => void exportReviews()}
+          >
+            {t(
+              reviewsState === "busy"
+                ? "reviews_export_busy"
+                : reviewsState === "none"
+                  ? "reviews_export_none"
+                  : reviewsState === "failed"
+                    ? "reviews_export_failed"
+                    : "reviews_export",
+            )}
           </button>
           {updateBridge && (
             <div className="header-settings-update">
