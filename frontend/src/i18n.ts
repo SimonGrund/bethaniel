@@ -7113,10 +7113,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "La exportación falló; inténtalo de nuevo",
   },
   reviews_export_hint: {
-    en: "Every suggestion from your copy edits, line edits and readthroughs, with what you did about it. It contains the edited passages of your text — share it only with someone you mean to.",
-    da: "Alle forslag fra dine korrektur- og sproglige redigeringer og gennemlæsninger, med hvad du gjorde ved dem. Filen indeholder de redigerede passager af din tekst — del den kun med nogen, du har tænkt dig at dele den med.",
-    de: "Jeder Vorschlag aus deinen Korrektorat-, Lektorats- und Schlussdurchgängen, mit deiner Entscheidung. Die Datei enthält die bearbeiteten Stellen deines Textes — teile sie nur mit jemandem, dem du sie geben willst.",
-    es: "Todas las sugerencias de tus correcciones, ediciones y lecturas finales, con lo que hiciste con ellas. Contiene los pasajes editados de tu texto: compártelo solo con quien quieras.",
+    en: "Every suggestion from the copy edits, line edits and readthroughs this app still keeps (your most recent runs), one row each, marked with the run it came from, and what you did about it. It contains the edited passages of your text — share it only with someone you mean to.",
+    da: "Alle forslag fra de korrekturer, redigeringer og gennemlæsninger, appen stadig gemmer (dine seneste kørsler), en række hver, mærket med kørslen, og hvad du gjorde ved dem. Filen indeholder de redigerede passager af din tekst — del den kun med nogen, du har tænkt dig at dele den med.",
+    de: "Jeder Vorschlag aus den Korrektorat-, Lektorats- und Schlussdurchgängen, die die App noch aufbewahrt (deine letzten Läufe), je eine Zeile mit dem Lauf, aus dem er stammt, und deiner Entscheidung. Die Datei enthält die bearbeiteten Stellen deines Textes — teile sie nur mit jemandem, dem du sie geben willst.",
+    es: "Todas las sugerencias de las correcciones, ediciones y lecturas finales que la app aún conserva (tus ejecuciones más recientes), una fila cada una, con la ejecución de la que viene y lo que hiciste con ella. Contiene los pasajes editados de tu texto: compártelo solo con quien quieras.",
   },
 };
 

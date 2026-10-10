@@ -72,3 +72,32 @@ test("one row per suggestion of an edit task, with its context and the reviewer'
   assert.equal(second[col("Finished")], "2026-10-10");
   assert.ok(rows.every((r) => r.length === REVIEW_HEADER.length));
 });
+
+test("each row says which run it came from, and runs are kept apart and in order", () => {
+  const at = (h: number) => new Date(2026, 9, 10, h, 5).getTime();
+  const t = (id: string, jobId: string, submittedAt: number, unitIndex: number) => ({
+    ...task(id),
+    jobId,
+    submittedAt,
+    unitIndex,
+    name: `Chapter ${unitIndex + 1}`,
+  });
+  const r = result([{ id: "c", original: "to to", corrected: "to" }]);
+  const rows = reviewTable(
+    // The later run first, and its chapters out of order.
+    [t("b2", "bbbbbbbb-2", at(15), 1), t("b1", "bbbbbbbb-2", at(15), 0), t("a1", "aaaaaaaa-1", at(9), 0)],
+    { a1: r, b1: r, b2: r },
+    {},
+    [],
+  );
+  const run = REVIEW_HEADER.indexOf("Run");
+  const chapter = REVIEW_HEADER.indexOf("Chapter");
+  assert.deepEqual(
+    rows.slice(1).map((x) => [x[run], x[chapter]]),
+    [
+      ["2026-10-10 09:05 · aaaaaaaa", "Chapter 1"],
+      ["2026-10-10 15:05 · bbbbbbbb", "Chapter 1"],
+      ["2026-10-10 15:05 · bbbbbbbb", "Chapter 2"],
+    ],
+  );
+});
