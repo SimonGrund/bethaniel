@@ -127,7 +127,7 @@ Key components map 1-to-1 to wizard steps:
 - `ModelSelector` — hardware detection, catalog, model download/install
 - `ModeSelector` — task mode selection (copy edit / line edit / analysis / translate)
 - `ManuscriptUpload` — DOCX/MD upload, chapter detection, scope selection
-- `StyleGuideEditor` — optional style guide upload or text entry
+- `EditQuestions` — before an edit (Run or Run in Cloud, before checkout): names & terms to skim and accept, Betty's house-style questions (`houseStyle.ts`, counted, no model), and the author's own instructions. It is the only place the style guide and the names list are edited; the answers become settings or style-guide lines (`houseStyleAnswers.ts`)
 - `EditTrigger` — launch jobs, chapter scoping, advanced settings
 - `ReviewExport` — correction accept/dismiss, diff view, Markdown/DOCX export
 - `BettyWorking` — live queue progress view

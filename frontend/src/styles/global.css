@@ -11842,3 +11842,17 @@ summary.review-source::before {
   padding: 0;
   font-size: 0.85rem;
 }
+
+/* The names list as a card of Betty's pre-edit questions: the card is the frame. */
+.lexicon-panel.lexicon-panel--bare {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+/* The lines from Betty's answers: as tall as they are, not a writing field. */
+.tq-list.tq-list--short {
+  min-height: 0;
+  margin-bottom: 0.9rem;
+}

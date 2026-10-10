@@ -13,7 +13,6 @@ import {
 import type { DocumentMeta } from "../types";
 import Modal from "./Modal";
 import ScopeSelection, { shortChapterLabel } from "./ScopeSelection";
-import StyleGuideButton from "./StyleGuideButton";
 import ManuscriptSettings from "./ManuscriptSettings";
 import { frontCardFor } from "../types";
 
@@ -424,11 +423,6 @@ export default function ManuscriptUpload() {
             <ManuscriptSettings card={frontCardFor(selectedModes)!} />
           )}
 
-          {/* The names & terms Betty just read off this manuscript, and the
-              style sheet: offered here, with the manuscript they describe, as
-              well as in the task's settings. Right after an upload is when
-              an author wants to see what was found. */}
-          <StyleGuideButton />
         </aside>
       )}
     </section>

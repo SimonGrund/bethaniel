@@ -25,7 +25,12 @@ const GROUPS: { kind: LexiconKind; key: string }[] = [
   { kind: "word", key: "lexicon_group_words" },
 ];
 
-export default function LexiconPanel() {
+export default function LexiconPanel({ bare = false }: {
+  /** Inside a card of Betty's pre-edit questions (EditQuestions): no frame
+   *  of its own, and not marked reviewed on sight — there the author
+   *  accepts it by going on. */
+  bare?: boolean;
+} = {}) {
   const lang = useStore((s) => s.lang);
   const docId = useStore((s) => s.document?.id ?? null);
   const lexicon = useStore((s) => s.lexicon);
@@ -42,8 +47,8 @@ export default function LexiconPanel() {
 
   // Opening the list is reviewing it: the button outside stops asking.
   useEffect(() => {
-    markLexiconReviewed();
-  }, [markLexiconReviewed]);
+    if (!bare) markLexiconReviewed();
+  }, [bare, markLexiconReviewed]);
 
   // Save what changed, once it stops changing. The first render's value is
   // what the server already has, so it is remembered rather than re-sent.
@@ -62,6 +67,17 @@ export default function LexiconPanel() {
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [docId, lexicon]);
+  // Closing within the delay used to drop the last change: the timer above
+  // is cleared on unmount. Whatever is unsaved goes now instead.
+  const latest = useRef(lexicon);
+  latest.current = lexicon;
+  useEffect(
+    () => () => {
+      const l = latest.current;
+      if (docId && l && l !== lastSaved.current) void putLexicon(docId, l).catch(() => {});
+    },
+    [docId],
+  );
 
   const terms = lexicon?.terms ?? [];
   const enabled = terms.filter((x) => x.enabled).length;
@@ -113,7 +129,7 @@ export default function LexiconPanel() {
   );
 
   return (
-    <section className="lexicon-panel">
+    <section className={`lexicon-panel${bare ? " lexicon-panel--bare" : ""}`}>
       <div className="lexicon-header">
         <h3 className="lexicon-title">
           {t("lexicon_title")}

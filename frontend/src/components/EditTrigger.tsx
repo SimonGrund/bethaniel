@@ -14,6 +14,7 @@ import {
   addToQueue,
   getHouseStyleQuestions,
   getModelPerf,
+  putLexicon,
   updateStyleGuide,
 } from "../api";
 import {
@@ -313,12 +314,16 @@ export default function EditTrigger() {
     manuscriptLang,
   ]);
 
-  // ── House style, asked before an edit (EditQuestions) ──
+  // ── The style guide, set up before an edit (EditQuestions) ──
   //
-  // Counted from the text and the upload's detection, no model: instant and
-  // free, so a cloud run asks before the checkout. Nothing to ask → the run
-  // goes ahead exactly as it did before.
-  const [houseStyle, setHouseStyle] = useState<{ questions: EditQuestion[]; cloud: boolean } | null>(null);
+  // Names & terms, Betty's house-style questions and the author's own
+  // instructions, every time an edit starts — this is where the style guide
+  // lives now. The questions are counted from the text and the upload's
+  // detection, no model: instant and free, so a cloud run asks before the
+  // checkout.
+  const [houseStyle, setHouseStyle] = useState<
+    { questions: EditQuestion[]; names: boolean; cloud: boolean } | null
+  >(null);
   const [askingHouseStyle, setAskingHouseStyle] = useState(false);
   const settledHouseStyle = useStore((s) => s.settledHouseStyle);
   const askHouseStyle = async (cloud: boolean): Promise<boolean> => {
@@ -337,14 +342,14 @@ export default function EditTrigger() {
         styleGuide: styleGuide ?? "",
       });
       const questions = [...settings, ...consistency].slice(0, MAX_HOUSE_STYLE_QUESTIONS);
-      if (questions.length === 0) return false;
-      setHouseStyle({ questions, cloud });
+      const names = (useStore.getState().lexicon?.terms.length ?? 0) > 0;
+      setHouseStyle({ questions, names, cloud });
       return true;
     } finally {
       setAskingHouseStyle(false);
     }
   };
-  const houseStyleDone = async ({ options, lines, settled }: EditAnswers) => {
+  const houseStyleDone = async ({ options, lines, guide, settled }: EditAnswers) => {
     const cloud = houseStyle?.cloud ?? false;
     setHouseStyle(null);
     const s = useStore.getState();
@@ -352,15 +357,19 @@ export default function EditTrigger() {
       s.setCopyEditOption(key as keyof typeof options, val as never);
     }
     if (doc) s.settleHouseStyle(settled.map((id) => `${doc.id}:${id}`));
-    if (lines.length > 0) {
-      const guide = mergeHouseStyle(s.styleGuide ?? "", lines, t("hs_heading"));
-      s.setStyleGuide(guide);
-      // The guide is the author's; a failed save still runs with the lines.
-      void updateStyleGuide(guide).catch(() => {});
+    const merged = mergeHouseStyle(guide, lines, t("hs_heading"));
+    if (merged !== s.styleGuide) {
+      s.setStyleGuide(merged);
+      // The run carries the guide itself; a failed save still runs with it.
+      void updateStyleGuide(merged).catch(() => {});
     }
-    proceed(cloud);
+    await proceed(cloud);
   };
-  const proceed = (cloud: boolean) => {
+  // The run reads the names list from the server, so it is saved first: a
+  // tick changed a moment ago would otherwise miss this run.
+  const proceed = async (cloud: boolean) => {
+    const lexicon = useStore.getState().lexicon;
+    if (doc && lexicon) await putLexicon(doc.id, lexicon).catch(() => {});
     if (cloud) setCloudConfirmOpen(true);
     else void handleClickRef.current();
   };
@@ -926,14 +935,16 @@ export default function EditTrigger() {
       {houseStyle && (
         <EditQuestions
           lang={lang}
+          names={houseStyle.names}
           questions={houseStyle.questions}
+          guide={styleGuide}
           copyEditOptions={copyEditOptions}
           cloud={houseStyle.cloud}
           onFinish={(a) => void houseStyleDone(a)}
           onSkip={() => {
             const cloud = houseStyle.cloud;
             setHouseStyle(null);
-            proceed(cloud);
+            void proceed(cloud);
           }}
           onClose={() => setHouseStyle(null)}
         />
