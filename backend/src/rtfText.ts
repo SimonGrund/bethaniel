@@ -386,3 +386,101 @@ export function rewriteRtf(
   }
   return { rtf, applied, skipped };
 }
+
+// ── Whole paragraphs, for a translation ──
+//
+// A translation replaces every word of a paragraph, so it can never fit
+// inside one stretch the way a correction does. It is written into a COPY of
+// the project (scrivener.ts, translateIntoCopy), and here the paragraph's
+// stretches are reused rather than parsed and rebuilt: the new text goes
+// into the stretches already there and the rest are emptied, so every
+// control word — fonts, sizes, italic switches, the paragraph's style — is
+// still the author's own.
+
+export interface RtfParagraphReplacement {
+  paragraphIndex: number;
+  /** The new text, plain. */
+  text: string;
+  /** The new text per run of formatting, when the translation's emphasis was
+   *  matched to the paragraph's (emphasisSpans.ts) — one part per run. */
+  segments?: string[];
+}
+
+/** One run of formatting: consecutive stretches with the same emphasis. */
+function formatRuns(nodes: RtfTextNode[]): { fmt: string; nodes: RtfTextNode[]; length: number }[] {
+  const runs: { fmt: string; nodes: RtfTextNode[]; length: number }[] = [];
+  for (const n of nodes) {
+    const fmt = `${n.italic ? "i" : ""}${n.bold ? "b" : ""}`;
+    const last = runs[runs.length - 1];
+    if (last && last.fmt === fmt) {
+      last.nodes.push(n);
+      last.length += n.text.length;
+    } else runs.push({ fmt, nodes: [n], length: n.text.length });
+  }
+  return runs;
+}
+
+/** The emphasis the text index reports for a stretch, as a run's "format". */
+export function rtfNodeFormat(n: Pick<RtfTextNode, "italic" | "bold">): string {
+  return `${n.italic ? "i" : ""}${n.bold ? "b" : ""}`;
+}
+
+/**
+ * Replace whole paragraphs' text. With `segments` matching the paragraph's
+ * runs of formatting, each run gets its own part and the emphasis lands on
+ * the translated words. Otherwise the text goes into the formatting that
+ * covers most of the paragraph and the rest is emptied — the paragraph is
+ * translated, its emphasis flattened, and counted as such.
+ */
+export function replaceRtfParagraphs(
+  src: string,
+  reps: RtfParagraphReplacement[],
+): {
+  rtf: string;
+  applied: number;
+  flattened: number;
+  skipped: { paragraphIndex: number; reason: "unmappable-paragraph" | "no-text" }[];
+} {
+  const paragraphs = indexRtf(src);
+  const skipped: { paragraphIndex: number; reason: "unmappable-paragraph" | "no-text" }[] = [];
+  const splices: { start: number; end: number; text: string }[] = [];
+  let applied = 0;
+  let flattened = 0;
+  // A line break the paragraph keeps cannot be placed in the new text, so a
+  // break inside the translation becomes a space.
+  const flat = (s: string) => s.replace(/[\n\t]+/g, " ");
+
+  for (const r of reps) {
+    const p = paragraphs[r.paragraphIndex];
+    if (!p) {
+      skipped.push({ paragraphIndex: r.paragraphIndex, reason: "unmappable-paragraph" });
+      continue;
+    }
+    // A field's result (a hyperlink's text) is left as it is.
+    const nodes = p.nodes.filter((n) => !n.inField);
+    if (nodes.length === 0) {
+      skipped.push({ paragraphIndex: r.paragraphIndex, reason: "no-text" });
+      continue;
+    }
+    const runs = formatRuns(nodes);
+    const fill = new Map<RtfTextNode, string>(nodes.map((n) => [n, ""]));
+    if (r.segments && r.segments.length === runs.length) {
+      runs.forEach((run, i) => fill.set(run.nodes[0], flat(r.segments![i])));
+    } else {
+      const widest = runs.reduce((a, b) => (b.length > a.length ? b : a));
+      fill.set(widest.nodes[0], flat(r.text));
+      if (runs.length > 1) flattened++;
+    }
+    for (const [node, text] of fill) {
+      let encoded = encodeRtfText(text, node.uc);
+      if (/\d/.test(src[node.start - 1] ?? "") && /^\d/.test(encoded)) encoded = " " + encoded;
+      splices.push({ start: node.start, end: node.end, text: encoded });
+    }
+    applied++;
+  }
+  let rtf = src;
+  for (const s of splices.sort((a, b) => b.start - a.start)) {
+    rtf = rtf.slice(0, s.start) + s.text + rtf.slice(s.end);
+  }
+  return { rtf, applied, flattened, skipped };
+}

@@ -147,6 +147,35 @@ export async function scrivenerWriteBack(
   return body as ScrivenerWriteBackReport;
 }
 
+export interface ScrivenerTranslationCopyReport {
+  projectDir: string;
+  projectName: string;
+  paragraphs: number;
+  flattened: number;
+  untranslated: number;
+  untranslatedDetail: { reason: string; detail: string }[];
+  toCheck: string[];
+}
+
+/** A translation of the linked project, into a copy of it beside the
+ *  original (backend scrivener.ts, translateIntoCopy). */
+export async function scrivenerTranslateCopy(
+  docId: string,
+  chapters: { original: string; edited: string }[],
+  language: string,
+): Promise<ScrivenerTranslationCopyReport> {
+  const res = await fetch(`${BASE}/api/scrivener/translate-copy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ docId, chapters, language }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ScrivenerRefusal(body.error ?? "The translation could not be written", body.reason ?? "error", body.detail);
+  }
+  return body as ScrivenerTranslationCopyReport;
+}
+
 // ── Model downloads ──
 /** Stop the transfer and keep the partial file; starting the same download
  *  again resumes it. */

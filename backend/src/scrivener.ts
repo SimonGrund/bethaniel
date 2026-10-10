@@ -44,7 +44,15 @@ import type { ParagraphMapEntry } from "./conversion.js";
 import type { DocxTextIndex } from "./docxSurgery.js";
 import { remapChaptersToParagraphEdits, stripMarkdown } from "./docxRemap.js";
 import { widenToWords } from "./docxTracked.js";
-import { indexRtf, rewriteRtf, type RtfEdit, type RtfParagraph } from "./rtfText.js";
+import {
+  indexRtf,
+  replaceRtfParagraphs,
+  rewriteRtf,
+  rtfNodeFormat,
+  type RtfEdit,
+  type RtfParagraph,
+  type RtfParagraphReplacement,
+} from "./rtfText.js";
 
 export class ScrivenerError extends Error {
   constructor(
@@ -395,7 +403,7 @@ export function replaceBinderTitle(xml: string, uuid: string, from: string, to: 
  * it as it was: the .scrivx is the project.
  */
 async function syncAutosaveTitles(
-  link: ScrivenerLink,
+  link: Pick<ScrivenerLink, "projectDir">,
   changes: { uuid: string; from: string; to: string }[],
 ): Promise<void> {
   const autosave = path.join(link.projectDir, "Files", "binder.autosave");
@@ -677,5 +685,194 @@ export async function writeBack(
 
   link.writtenAt = Date.now();
   link.backupDir = backupDir;
+  return report;
+}
+
+// ── A translation, into a copy of the project ──
+//
+// A translation replaces every paragraph, so it never goes into the
+// author's project: that is their manuscript, in their language, and they
+// keep working in it. Betty copies the whole project beside it — "Novel
+// (French).scriv", renamed through as Scrivener's own Save As does — and
+// translates the copy. The original is only read.
+//
+// Inside each paragraph the stretches of text are reused (rtfText.ts,
+// replaceRtfParagraphs): fonts, sizes and styles stay the author's, and the
+// translation's emphasis lands on its runs when the shapes agree, exactly as
+// in the .docx export.
+
+export interface TranslationCopyReport {
+  /** The new project. */
+  projectDir: string;
+  projectName: string;
+  /** Paragraphs and chapter titles translated. */
+  paragraphs: number;
+  /** Paragraphs translated with their emphasis flattened. */
+  flattened: number;
+  /** Paragraphs of the book the translation could not be placed in. */
+  untranslated: number;
+  untranslatedDetail: { reason: string; detail: string }[];
+  /** Doubts to look at in Scrivener: a translation placed by similarity, or
+   *  one whose paragraph was not found. The .docx export makes these Word
+   *  comments; here they are listed. */
+  toCheck: string[];
+}
+
+/** A file-system-safe "Novel (French)", numbered past any copy already there. */
+async function freshCopyDir(link: ScrivenerLink, language: string): Promise<{ dir: string; name: string }> {
+  const lang = language.replace(/[\\/:*?"<>|]/g, "").trim() || "Translation";
+  const parent = path.dirname(link.projectDir);
+  for (let n = 1; ; n++) {
+    const name = `${link.projectName} (${lang})${n > 1 ? ` ${n}` : ""}`;
+    const dir = path.join(parent, `${name}.scriv`);
+    try {
+      await fs.access(dir);
+    } catch {
+      return { dir, name };
+    }
+  }
+}
+
+export async function translateIntoCopy(
+  link: ScrivenerLink,
+  docMd: string,
+  chapters: { original: string; edited: string }[],
+  language: string,
+): Promise<TranslationCopyReport> {
+  try {
+    await fs.access(path.join(link.projectDir, link.scrivx));
+  } catch {
+    throw new ScrivenerError(`The project is no longer at ${link.projectDir}.`, "not-found");
+  }
+  // A copy of a project Scrivener is writing could catch it half saved.
+  if (await isProjectOpen(link.projectDir)) {
+    throw new ScrivenerError(
+      "The project is open in Scrivener. Close it there first, so Betty copies it as it is saved.",
+      "project-open",
+    );
+  }
+  // The translation is of the text Betty read; a scene changed since would
+  // have it written over words it never translated.
+  const changed = await changedScenes(link);
+  if (changed.length > 0) {
+    throw new ScrivenerError(
+      "These scenes were changed in Scrivener after Betty read them, so her translation no longer matches them. Link the project again and translate the new text.",
+      "changed-since-link",
+      changed,
+    );
+  }
+
+  const sources = new Map<string, string>();
+  for (const s of link.scenes) {
+    sources.set(s.uuid, (await fs.readFile(contentPath(link.projectDir, s.uuid))).toString("latin1"));
+  }
+  const indexed = new Map([...sources].map(([uuid, src]) => [uuid, indexRtf(src)]));
+  // As in writeBack, but with each paragraph's stretches as runs, so the
+  // remap can match the translation's emphasis to them.
+  const index: DocxTextIndex = {
+    xml: "",
+    paragraphs: link.paragraphs.map((p, i) => ({
+      index: i,
+      depth: 0,
+      inTable: false,
+      isEmpty: false,
+      isPageBreak: false,
+      hasObject: false,
+      sawTextElement: true,
+      text:
+        p.title !== undefined ? p.title : manuscriptPlain(indexed.get(p.uuid)?.[p.index]?.text ?? ""),
+      nodes: (p.title !== undefined ? [] : (indexed.get(p.uuid)?.[p.index]?.nodes ?? []))
+        .filter((n) => !n.inField)
+        .map((n) => ({ rPrXml: rtfNodeFormat(n), text: n.text, kind: "text" })) as never,
+    })),
+  };
+  const { edits, unmapped, notes } = remapChaptersToParagraphEdits(docMd, link.map, index, chapters, {
+    wholeParagraphs: true,
+  });
+
+  const perScene = new Map<string, RtfParagraphReplacement[]>();
+  const titleChanges: { uuid: string; from: string; to: string }[] = [];
+  for (const e of edits) {
+    const where = link.paragraphs[e.paragraphIndex];
+    if (!where) continue;
+    const before = index.paragraphs[e.paragraphIndex].text;
+    const text = before.slice(0, e.start) + e.replacement + before.slice(e.end);
+    if (where.title !== undefined) {
+      if (text.trim() && text !== where.title) titleChanges.push({ uuid: where.uuid, from: where.title, to: text.replace(/\s+/g, " ").trim() });
+      continue;
+    }
+    const list = perScene.get(where.uuid) ?? [];
+    list.push({ paragraphIndex: where.index, text, segments: e.segments });
+    perScene.set(where.uuid, list);
+  }
+
+  const report: TranslationCopyReport = {
+    projectDir: "",
+    projectName: "",
+    paragraphs: 0,
+    flattened: 0,
+    untranslated: unmapped.length,
+    untranslatedDetail: unmapped.slice(0, 20).map((u) => ({ reason: u.reason, detail: u.detail })),
+    toCheck: notes.slice(0, 50).map((n) => n.text),
+  };
+  const writes: { uuid: string; rtf: string }[] = [];
+  for (const [uuid, list] of perScene) {
+    const res = replaceRtfParagraphs(sources.get(uuid)!, list);
+    report.paragraphs += res.applied;
+    report.flattened += res.flattened;
+    report.untranslated += res.skipped.length;
+    if (res.applied > 0) writes.push({ uuid, rtf: res.rtf });
+  }
+
+  // The copy, renamed through: the folder and the .scrivx inside it.
+  const { dir, name } = await freshCopyDir(link, language);
+  await fs.cp(link.projectDir, dir, { recursive: true, errorOnExist: true, force: false });
+  await fs.rm(path.join(dir, "Files", "user.lock"), { force: true });
+  const scrivxPath = path.join(dir, `${name}.scrivx`);
+  await fs.rename(path.join(dir, link.scrivx), scrivxPath);
+  report.projectDir = dir;
+  report.projectName = name;
+
+  const newSums = new Map<string, string>();
+  for (const w of writes) {
+    const bytes = Buffer.from(w.rtf, "latin1");
+    await fs.writeFile(contentPath(dir, w.uuid), bytes);
+    newSums.set(`${w.uuid}/content.rtf`.toLowerCase(), sha1(bytes));
+  }
+  const sumsPath = path.join(dir, "Files", "Data", "docs.checksum");
+  try {
+    const sums = await fs.readFile(sumsPath, "utf8");
+    await fs.writeFile(
+      sumsPath,
+      sums
+        .split(/(\r?\n)/)
+        .map((line) => {
+          const eq = line.indexOf("=");
+          const sum = newSums.get((eq > 0 ? line.slice(0, eq) : "").toLowerCase());
+          return sum ? `${line.slice(0, eq)}=${sum}` : line;
+        })
+        .join(""),
+      "utf8",
+    );
+  } catch {
+    // An older 3.x project without the file has nothing to keep true.
+  }
+
+  if (titleChanges.length > 0) {
+    let scrivx = await fs.readFile(scrivxPath, "utf8");
+    const written: typeof titleChanges = [];
+    for (const c of titleChanges) {
+      const next = /[\r\n]/.test(c.to) ? null : replaceBinderTitle(scrivx, c.uuid, c.from, c.to);
+      if (next === null) {
+        report.untranslated++;
+        continue;
+      }
+      scrivx = next;
+      written.push(c);
+      report.paragraphs++;
+    }
+    await fs.writeFile(scrivxPath, scrivx, "utf8");
+    await syncAutosaveTitles({ projectDir: dir }, written);
+  }
   return report;
 }

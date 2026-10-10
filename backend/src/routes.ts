@@ -45,6 +45,7 @@ import {
   readProject,
   saveLink,
   ScrivenerError,
+  translateIntoCopy,
   writeBack,
 } from "./scrivener.js";
 import { pickScrivenerProject } from "./nativePicker.js";
@@ -541,6 +542,31 @@ router.post("/scrivener/writeback", async (req: Request, res: Response) => {
     // The link remembers the write (and its backup), so it is not repeated.
     if (!dryRun && link.writtenAt) await saveLink(MEDIA_DIR, docId, link);
     res.json(report);
+  } catch (err) {
+    sendScrivenerError(res, err);
+  }
+});
+
+// A translation of a linked project, into a copy of it beside the original
+// (scrivener.ts, translateIntoCopy). The original is only read.
+router.post("/scrivener/translate-copy", async (req: Request, res: Response) => {
+  try {
+    const { docId, chapters, language } = req.body as {
+      docId?: string;
+      chapters?: Array<{ original: string; edited: string }>;
+      language?: string;
+    };
+    if (typeof docId !== "string" || !Array.isArray(chapters) || typeof language !== "string") {
+      res.status(400).json({ error: "docId, chapters and language are required" });
+      return;
+    }
+    const doc = getDocument(docId);
+    const link = await loadLink(MEDIA_DIR, docId);
+    if (!doc || !link) {
+      res.status(404).json({ error: "This manuscript is not linked to a Scrivener project.", reason: "not-linked" });
+      return;
+    }
+    res.json(await translateIntoCopy(link, doc.md, chapters, language));
   } catch (err) {
     sendScrivenerError(res, err);
   }

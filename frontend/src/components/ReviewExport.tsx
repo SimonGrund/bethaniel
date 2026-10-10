@@ -6,6 +6,7 @@ import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
 import ReviewDeck, { buildDeck, countUndecided } from "./ReviewDeck";
 import ScrivenerWriteBack from "./ScrivenerWriteBack";
+import ScrivenerTranslationCopy from "./ScrivenerTranslationCopy";
 import ReviewFocus from "./ReviewFocus";
 import { useTranslation } from "../i18n";
 import {
@@ -3290,6 +3291,20 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                 }
               />
             ) : null;
+          // A translation of a linked project goes into a copy of it.
+          const scrivenerTranslationCopy =
+            scrivenerDocId && isTranslateJob ? (
+              <ScrivenerTranslationCopy
+                docId={scrivenerDocId}
+                language={exportTargetLang ?? ""}
+                disabled={!editResultsReady || exportBusy}
+                getPairs={() =>
+                  Promise.resolve(
+                    buildChapterPairs(exportEntries, useStore.getState().acceptedCorrections, {}),
+                  )
+                }
+              />
+            ) : null;
           const allEditCorrections = editTasks.flatMap(([tid, task]) =>
             (task.result?.corrections ?? [])
               .filter((c) => c.id)
@@ -4539,6 +4554,9 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                                 )}
                           </span>
                         </button>
+                        {/* A linked Scrivener project goes back into Scrivener,
+                            never to Word: no Word review for it. */}
+                        {!scrivenerDocId && (<>
                         <span className="run-or">{t("run_or")}</span>
                         {/* The same suggestions handed to Word, each a
                             tracked change with Betty's comment. */}
@@ -4572,6 +4590,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             {exportingDocx ? t("review_word_busy") : t("review_word_meta")}
                           </span>
                         </button>
+                        </>)}
                       </div>
                     )}
                     <ReviewFocus
@@ -4616,7 +4635,8 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                         doneSlot={
                           <>
                             {scrivenerWriteBack}
-                            {trackedToggle}
+                            {!scrivenerDocId && trackedToggle}
+                            {!scrivenerDocId && (
                             <button
                               type="button"
                               className="btn-primary"
@@ -4632,6 +4652,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                               )}
                               {exportButtonLabel}
                             </button>
+                            )}
                           </>
                         }
                       />
@@ -5126,6 +5147,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       the other twelve helps nobody — the point of the warning
                       is that the file is worth having and partly in the wrong
                       language. */}
+                  {/* A linked Scrivener project: the translation goes into a
+                      copy of it, and that is the only way out — Word and
+                      EPUB are not offered for it. */}
+                  {scrivenerTranslationCopy}
+                  {!scrivenerDocId && (<>
                   <button
                     type="button"
                     className="btn-primary translation-done__download"
@@ -5186,6 +5212,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                       {t("auto_format_ebook")}
                     </button>
                   </div>
+                  </>)}
                 </div>
               )}
 
@@ -5225,8 +5252,11 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
 
                   {scrivenerWriteBack}
 
-                  {trackedToggle}
+                  {/* A linked Scrivener project is exported into Scrivener
+                      only: Word and EPUB are not offered for it. */}
+                  {!scrivenerDocId && trackedToggle}
 
+                  {!scrivenerDocId && (
                   <button
                     className="btn-primary btn-small export-row__go"
                     disabled={!exportReady}
@@ -5241,6 +5271,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                   >
                     {exportButtonLabel}
                   </button>
+                  )}
 
                   <div className="export-row__cog">
                     <button
@@ -5294,6 +5325,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </div>
                           </div>
                         )}
+                        {!scrivenerDocId && (<>
                         <div className="export-options__group">
                           <span className="export-options__label">
                             {t("export_format", "Format")}
@@ -5336,6 +5368,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                             </button>
                           </div>
                         </div>
+                        </>)}
                         {/* Accepting the whole run is a setting of what gets
                             exported, not a step of its own — and as a loose link
                             on the bar it read like one. */}

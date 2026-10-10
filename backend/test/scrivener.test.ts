@@ -14,7 +14,7 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 
-import { readProject, writeBack, ScrivenerError } from "../src/scrivener.ts";
+import { readProject, translateIntoCopy, writeBack, ScrivenerError } from "../src/scrivener.ts";
 
 const HEAD =
   "{\\rtf1\\ansi\\ansicpg1252\\uc1\\deff0\r\n{\\fonttbl{\\f0\\fmodern\\fcharset0\\fprq2 SitkaText;}}\r\n" +
@@ -280,4 +280,90 @@ test("a folder that is not a Scrivener project is refused", async () => {
     readProject(root),
     (e: unknown) => e instanceof ScrivenerError && e.reason === "not-a-project",
   );
+});
+
+// ── A translation goes into a copy ──
+//
+// A translation replaces every paragraph, so it is never written over the
+// author's project: Betty copies it beside the original as "Novel
+// (French).scriv" and translates the copy, whole paragraphs at a time.
+
+const FRENCH =
+  "# Le Début\n\nVoici la scène 1. Les gens vont se battre.\n\n" +
+  "# Part One\n\nEt maintenant le monde est présenté…\n\nDeuxième paragraphe.\n\n" +
+  "# Chapitre Deux\n\nBienvenue au chapitre 2 !";
+
+async function snapshot(dir: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const walk = async (d: string) => {
+    for (const e of await fs.readdir(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) await walk(f);
+      else out[path.relative(dir, f)] = sha1(await fs.readFile(f));
+    }
+  };
+  await walk(dir);
+  return out;
+}
+
+test("a translation is written into a copy beside the project; the project is untouched", async () => {
+  const { root, dir } = await makeProject();
+  const { md, link } = await readProject(dir);
+  const before = await snapshot(dir);
+  const report = await translateIntoCopy(link, md, [{ original: md, edited: FRENCH }], "French");
+
+  assert.deepEqual(await snapshot(dir), before, "not one byte of the original changed");
+  assert.equal(report.projectDir, path.join(root, "Novel (French).scriv"));
+  const copy = report.projectDir;
+  // Renamed through and through, as Scrivener's own Save As does.
+  assert.ok((await fs.readdir(copy)).includes("Novel (French).scrivx"));
+  assert.ok(!(await fs.readdir(copy)).includes("Novel.scrivx"));
+
+  const { md: translated } = await readProject(copy);
+  assert.equal(translated, FRENCH);
+  // The formatting codes are the original's: only the words differ.
+  assert.ok((await contentOf(copy, S1)).startsWith(HEAD + "{\\f0\\fs24\\b0\\i0 Voici"));
+  // The checksum file in the copy is true for every changed file.
+  const sums = await fs.readFile(path.join(copy, "Files", "Data", "docs.checksum"), "utf8");
+  assert.ok(sums.includes(`${S1}/content.rtf=${sha1(await fs.readFile(path.join(copy, "Files", "Data", S1, "content.rtf")))}`));
+  assert.equal(report.paragraphs, 6);
+  assert.equal(report.flattened, 0);
+  // The original's link is not spent: the edit review can still write back.
+  assert.equal(link.writtenAt, undefined);
+});
+
+test("emphasis lands on the translated words when the shapes agree", async () => {
+  const { dir } = await makeProject();
+  const scene = `${HEAD}{\\f0\\fs24 She read {\\i The Hobbit} and {\\b laughed}, the end.}}`;
+  await fs.writeFile(path.join(dir, "Files", "Data", S1, "content.rtf"), Buffer.from(scene, "latin1"));
+  const { md, link } = await readProject(dir);
+  const fr = md.replace("She read *The Hobbit* and **laughed**, the end.", "Elle a lu *Le Hobbit* et **a ri**, la fin.");
+  const report = await translateIntoCopy(link, md, [{ original: md, edited: fr }], "French");
+  assert.equal(
+    await contentOf(report.projectDir, S1),
+    `${HEAD}{\\f0\\fs24 Elle a lu {\\i Le Hobbit} et {\\b a ri}, la fin.}}`,
+  );
+  // Shapes that disagree: translated, and the emphasis flattened and counted.
+  const flat = md.replace("She read *The Hobbit* and **laughed**, the end.", "Elle a lu Le Hobbit et a ri, la fin.");
+  const again = await translateIntoCopy(link, md, [{ original: md, edited: flat }], "French");
+  assert.equal(again.projectDir, path.join(path.dirname(dir), "Novel (French) 2.scriv"), "an earlier copy is never overwritten");
+  assert.equal(again.flattened, 1);
+  assert.match(await contentOf(again.projectDir, S1), /Elle a lu Le Hobbit et a ri, la fin\./);
+});
+
+test("no copy is made while the project is open, or changed since Betty read it", async () => {
+  const { root, dir } = await makeProject();
+  const { md, link } = await readProject(dir);
+  await fs.writeFile(path.join(dir, "Files", "user.lock"), "");
+  await assert.rejects(
+    translateIntoCopy(link, md, [{ original: md, edited: FRENCH }], "French"),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "project-open",
+  );
+  await fs.rm(path.join(dir, "Files", "user.lock"));
+  await fs.writeFile(path.join(dir, "Files", "Data", S3, "content.rtf"), Buffer.from(rtf("Newer words."), "latin1"));
+  await assert.rejects(
+    translateIntoCopy(link, md, [{ original: md, edited: FRENCH }], "French"),
+    (e: unknown) => e instanceof ScrivenerError && e.reason === "changed-since-link",
+  );
+  assert.ok(!(await fs.readdir(root)).some((f) => f.includes("French")));
 });
