@@ -1,6 +1,7 @@
 // ── API routes ──
 
 import { isWordAnywhere } from "./wordKnowledge.js";
+import { recurringUnknownWords } from "./noiseGates.js";
 import { Router, Request, Response } from "express";
 import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
@@ -1208,6 +1209,20 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       const consistentTerms = collectConsistentTerms(
         (units as EditUnit[]).map((u) => stripPagebreaks(u.original)),
       );
+      // Words no dictionary knows that the book uses three times or more:
+      // the author's, so no "unknown word" card is raised for them
+      // (noiseGates.ts). Asked with the speller's own question.
+      const recurringUnknown =
+        currentMode === "translate"
+          ? []
+          : recurringUnknownWords(
+              (units as EditUnit[]).map((u) => stripPagebreaks(u.original)),
+              getWordValidator(manuscriptLang ?? "en", {
+                englishDialect:
+                  (taskEditOptions as { englishDialect?: string } | undefined)?.englishDialect ??
+                  "american",
+              }),
+            );
       for (const [unitIndex, unit] of (units as EditUnit[]).entries()) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
@@ -1247,11 +1262,18 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           spellCheck: resolveKnob("spellCheck", spellCheck),
           retextCheck: resolveKnob("retextCheck", retextCheck),
           consistentTerms,
+          recurringUnknownWords: recurringUnknown,
           unitIndex,
           protectedTerms: currentMode === "translate" ? undefined : protectedTerms ?? undefined,
           grammarCheck: resolveKnob("grammarCheck", grammarCheck),
+          // Not on a local model: on Local Betty the agent wrote the sheet's
+          // words into unrelated sentences and was right about one card in
+          // ten (houseStyleRules.ts). Its one reliable job, the "write X,
+          // not Y" lines, is done by code for every model.
           styleComplianceAgent:
-            resolveKnob("styleComplianceAgent", styleComplianceAgent) && hasAuthorSheet,
+            resolveKnob("styleComplianceAgent", styleComplianceAgent) &&
+            hasAuthorSheet &&
+            isApiModel(model || defaultModelFileName()),
           // Off unless the client asks or a preset opts in: the UI always
           // sends it explicitly; headless/API callers that omit both shouldn't
           // get surprise 2× runs. A cloud job can never turn it on.

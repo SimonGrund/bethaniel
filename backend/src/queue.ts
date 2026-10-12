@@ -69,6 +69,7 @@ import {
   partitionUnlocatable,
 } from "./correctionHygiene.js";
 import { gateProtectedTerms } from "./lexicon.js";
+import { dropRecurringUnknowns, dropSentenceStartLowercasing } from "./noiseGates.js";
 import type { ProtectedTerms } from "./lexicon.js";
 import {
   classifyPublicationBlocking,
@@ -331,6 +332,8 @@ interface JobData {
   /** Names and invented terms spelled the same way across the manuscript,
    *  so a scan does not call them misspellings (correctionSeverity.ts). */
   consistentTerms?: string[];
+  /** Unknown words the manuscript uses three times or more (noiseGates.ts). */
+  recurringUnknownWords?: string[];
   /** The document's confirmed names & terms (lexicon.ts). A correction
    *  that would change one is dropped before any reviewer sees it. */
   protectedTerms?: ProtectedTerms;
@@ -2154,6 +2157,26 @@ async function processJob(job: JobData): Promise<void> {
                 }
               }
 
+              // ── The author's "write X, not Y" lines, as find-and-replace
+              // (houseStyleRules.ts). Pre-approved: the author decided them.
+              if (job.styleGuide) {
+                const { parseHouseStyleRules, getHouseStyleCorrections } = await import(
+                  "./houseStyleRules.js"
+                );
+                const rules = parseHouseStyleRules(job.styleGuide);
+                const houseCs = rules.length ? getHouseStyleCorrections(chunk.body, rules) : [];
+                if (houseCs.length > 0) {
+                  spellCorrections = [...spellCorrections, ...houseCs];
+                  appendLog({
+                    level: "info",
+                    source: "engine",
+                    taskId,
+                    message: `house style produced ${houseCs.length} corrections in chunk ${chunkLabel}`,
+                    model,
+                  });
+                }
+              }
+
               // ── LanguageTool: grammar/punctuation via a local server. Runs
               // only when available (jar + Java bundled); degrades to a no-op
               // otherwise. A failure here must never break the chunk.
@@ -2599,7 +2622,26 @@ async function processJob(job: JobData): Promise<void> {
           // — "Petran" → "Petra", however plausible — is not proposed at
           // all; it is listed as left alone, so nothing vanishes silently.
           const gate = gateProtectedTerms(merged, job.protectedTerms);
-          const cs: Correction[] = gate.kept;
+          // Two shapes that are never right, whoever proposed them: a capital
+          // taken off a sentence's first word, and "no dictionary knows this"
+          // for a word the book uses again and again (noiseGates.ts).
+          const caseGate = dropSentenceStartLowercasing(gate.kept, chunk.body);
+          const unknownGate = dropRecurringUnknowns(
+            caseGate.kept,
+            new Set(job.recurringUnknownWords ?? []),
+          );
+          const cs: Correction[] = unknownGate.kept;
+          const noise = [...caseGate.dropped, ...unknownGate.dropped];
+          if (noise.length > 0) {
+            skipped.push(...noise.map(({ correction, why }) => ({ ...correction, reason: why })));
+            appendLog({
+              level: "info",
+              source: "engine",
+              taskId,
+              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly.`,
+              model,
+            });
+          }
           if (gate.dropped.length > 0) {
             skipped.push(
               ...gate.dropped.map(({ correction, term }) => ({
@@ -3437,6 +3479,7 @@ export async function submitTask(
       units: data.units,
       correctionsDigest: data.correctionsDigest,
       consistentTerms: data.consistentTerms,
+      recurringUnknownWords: data.recurringUnknownWords,
       protectedTerms: data.protectedTerms,
       unitIndex: data.unitIndex,
     },
@@ -3637,6 +3680,7 @@ export async function retryTask(id: string): Promise<string> {
     // A retry is the same job: the manuscript's vocabulary rides along, or
     // the second attempt judges names the first one was told to leave alone.
     consistentTerms: spec.consistentTerms,
+    recurringUnknownWords: spec.recurringUnknownWords,
     protectedTerms: spec.protectedTerms,
     unitIndex: spec.unitIndex,
     resumeState,

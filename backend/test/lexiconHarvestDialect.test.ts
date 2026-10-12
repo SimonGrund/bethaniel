@@ -20,12 +20,21 @@ function bookWith(word: string, times: number): string {
 test("a word only en_GB knows is not harvested as a coinage", async () => {
   await initSpellchecker();
   const isWord = isWordAnywhere("en", "american")!;
-  const lex = harvestLexicon(bookWith("Tobias", 12), { lang: "en", isWord });
+  const lex = harvestLexicon(bookWith("colour", 12), { lang: "en", isWord });
   assert.equal(
-    lex.terms.some((t) => t.term === "Tobias"),
+    lex.terms.some((t) => t.term === "colour"),
     false,
-    "en_GB knows Tobias, so it is not the author's coinage",
+    "en_GB knows colour: spelling for the dialect pass, not the author's coinage",
   );
+});
+
+test("a name the dictionary knows is listed when the book capitalises it every time", async () => {
+  // It used to be left off — "nothing will call it a typo" — but something
+  // does: "Tobias" → "To bias". See BOOK_TERM_MIN_MIDCAP in lexicon.ts.
+  await initSpellchecker();
+  const isWord = isWordAnywhere("en", "american")!;
+  const lex = harvestLexicon(bookWith("Tobias", 12), { lang: "en", isWord });
+  assert.equal(lex.terms.find((t) => t.term === "Tobias")?.kind, "name");
 });
 
 test("a word neither English knows still is", async () => {

@@ -343,6 +343,9 @@ export interface TaskRetrySpec {
   /** Text evaluator: recurring-habit digest from a finished edit job. */
   correctionsDigest?: CorrectionsDigest;
   consistentTerms?: string[];
+  /** Words no dictionary knows that the manuscript uses three times or
+   *  more: no "unknown word" finding is raised for them (noiseGates.ts). */
+  recurringUnknownWords?: string[];
   /** The document's enabled lexicon, for the gate (queue.ts). */
   protectedTerms?: ProtectedTerms;
   unitIndex?: number;

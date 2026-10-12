@@ -79,6 +79,30 @@ export interface HarvestOptions {
  * times is still swallowed. The near-miss rule covers that tail.
  */
 const DEFAULT_MIN_COUNT = 5;
+
+/**
+ * A dictionary word the book has made a term of: capitalised mid-sentence
+ * at least this often, and nearly every time it appears mid-sentence.
+ *
+ * "Nothing will call 'Grace' a typo" was the reason a dictionary word was
+ * never listed. Something does: measured on a real fantasy novel, the
+ * editor lowercased "Givers" and "Taker", and LanguageTool split
+ * "Blackskull" into "Black skull" — words the book capitalises every time
+ * (Taker 45 of 45, Givers 29 of 29, Blackskull 52 of 52). A word the book
+ * writes both ways — "Giving" the power and "giving" the verb, 48 to 13 —
+ * stays off the list: which use is which is the author's call, not a count.
+ * Not in a language that capitalises every noun, where the count says
+ * nothing.
+ */
+const BOOK_TERM_MIN_MIDCAP = 5;
+const BOOK_TERM_MIN_SHARE = 0.9;
+
+function bookCapitalises(s: { midCap: number; midLower: number }): boolean {
+  return (
+    s.midCap >= BOOK_TERM_MIN_MIDCAP &&
+    s.midCap >= BOOK_TERM_MIN_SHARE * (s.midCap + s.midLower)
+  );
+}
 const DEFAULT_MAX_TERMS = 400;
 
 /**
@@ -136,6 +160,8 @@ interface TokenStats {
   forms: Map<string, number>;
   /** capitalised AND not opening a sentence */
   midCap: number;
+  /** lowercase AND not opening a sentence */
+  midLower: number;
   total: number;
 }
 
@@ -319,12 +345,13 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
       const key = w.toLowerCase();
       let s = stats.get(key);
       if (!s) {
-        s = { forms: new Map(), midCap: 0, total: 0 };
+        s = { forms: new Map(), midCap: 0, midLower: 0, total: 0 };
         stats.set(key, s);
       }
       s.forms.set(w, (s.forms.get(w) ?? 0) + 1);
       s.total++;
       if (cap && !initial) s.midCap++;
+      else if (!cap && !initial) s.midLower++;
     }
 
     // Phrase run bookkeeping.
@@ -369,7 +396,7 @@ export function harvestLexicon(md: string, opts: HarvestOptions = {}): Lexicon {
       // The exception is a pronoun the book has made a name of — see
       // PRONOUN_CLASS — which is never a title or an honorific.
       if (HONORIFICS.has(key)) continue;
-      if (inDictionary === true && !pronounName) continue;
+      if (inDictionary === true && !pronounName && !(!nounCaps && bookCapitalises(s))) continue;
       if (inDictionary === null && nounCaps) continue;
       const t: LexiconTerm = {
         term: canonical,

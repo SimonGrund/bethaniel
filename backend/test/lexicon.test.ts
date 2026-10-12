@@ -264,3 +264,26 @@ test("protectedTermsOf honours enabled and splits phrases; parseLexicon rejects 
   assert.doesNotMatch(block, /Petran/);
   assert.equal(buildLexiconSheetBlock(null), "");
 });
+
+test("a dictionary word the book capitalises every time is a term; one it writes both ways is not", () => {
+  // Measured on a real novel: the editor lowercased "Givers" and LanguageTool
+  // split "Blackskull" — words the book never writes any other way.
+  const dict = new Set(["the", "givers", "giving", "came", "and", "a", "was", "her", "she", "kept", "on", "black", "skull", "blackskull"]);
+  const isW = (w: string) => dict.has(w.toLowerCase());
+  const lines: string[] = [];
+  for (let i = 0; i < 6; i++) lines.push(`She saw the Givers and the Blackskull came on.`);
+  // Giving: four times the power, four times the verb.
+  for (let i = 0; i < 4; i++) lines.push(`Her Giving was a gift. She kept giving bread.`);
+  const lex = harvestLexicon(lines.join("\n\n"), { lang: "en", isWord: isW, minCount: 3 });
+  const terms = lex.terms.map((t) => t.term);
+  assert.ok(terms.includes("Givers"), "capitalised 6 of 6 mid-sentence");
+  assert.ok(terms.includes("Blackskull"));
+  assert.ok(!terms.includes("Giving"), "4 of 8: the author's call, not a count");
+  // In German every noun is capitalised; the count says nothing there.
+  const de = harvestLexicon("Sie sah den Hund. ".repeat(6), {
+    lang: "de",
+    isWord: (w) => ["sie", "sah", "den", "hund"].includes(w.toLowerCase()),
+    minCount: 3,
+  });
+  assert.ok(!de.terms.some((t) => t.term === "Hund"));
+});
