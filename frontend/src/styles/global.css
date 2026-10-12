@@ -2693,64 +2693,184 @@ summary.review-source::before {
   background: #f6f1e6;
 }
 
+/* The third answer sits between the two verdicts and is quieter than
+   either: most cards are decided by Dismiss or Accept. */
+.deck-actions .deck-btn-edit {
+  flex: 0.7;
+}
+
+.deck-btn-edit {
+  background: none;
+  color: #4a3f2f;
+  border-color: #d9c9a8;
+}
+
+.deck-btn-edit:hover {
+  background: #f6f1e6;
+  border-color: #b9a06a;
+}
+
+.deck-edit {
+  margin-top: 0.9rem;
+}
+
+.deck-edit-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: #4a4335;
+}
+
+.deck-edit-field {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d9c9a8;
+  border-radius: 4px;
+  background: #fffdf7;
+  color: #14100a;
+  resize: vertical;
+}
+
+.deck-edit-field:focus {
+  outline: 2px solid #b9a06a;
+  outline-offset: 1px;
+}
+
+.deck-edit-was {
+  margin: 0.35rem 0 0;
+  color: #8b7355;
+}
+
+.deck-edit-was span {
+  color: #4a3f2f;
+}
+
+.deck-edit .deck-actions {
+  margin-top: 0.7rem;
+}
+
+/* "More context": the suggestions after this one, read-only. Set apart
+   from the card's own text so it is never mistaken for what is answered. */
+.deck-upcoming {
+  margin-top: 0.8rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #d9c9a8;
+  /* Focus mode zeroes the buttons' own top margin; the gap is kept here. */
+  margin-bottom: 0.9rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.deck-upcoming-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b7355;
+}
+
+.deck-upcoming-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #3a3226;
+}
+
+.deck-upcoming-item + .deck-upcoming-item {
+  margin-top: 0.35rem;
+}
+
 .deck-card-done {
   text-align: center;
 }
 
-/* The "same change elsewhere" offer, as a line above the next card. It
-   follows an answer rather than interrupting one: the card has gone, the
-   next is up, and this is a footnote the author may take or leave. */
+/* The "same change elsewhere" offer, as a step of the deck: its own card,
+   the change at the top, every place it would also be made listed under it
+   in its sentence, each ticked so one can be left out. */
+.deck-card-interlude {
+  animation: deck-notice-in 0.2s ease-out;
+}
+
 @keyframes deck-notice-in {
   from { opacity: 0; transform: translateY(-0.4rem); }
   to { opacity: 1; transform: none; }
 }
 
-.deck-notice {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem 1rem;
-  flex-wrap: wrap;
-  margin: 0 0 0.7rem;
-  padding: 0.55rem 0.8rem;
-  border: 1px solid #e3d7bd;
-  border-left: 3px solid #8b7355;
-  border-radius: 6px;
-  background: #faf6ec;
-  font-size: 0.88rem;
-  color: #4a3f2f;
-  animation: deck-notice-in 0.2s ease-out;
+.same-change-step__head {
+  margin: 0 0 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b7355;
 }
 
-.deck-notice-accept {
-  border-left-color: #2d4a1a;
-  background: #f3f7ee;
-}
-
-.deck-notice-dismiss {
-  border-left-color: #b5482f;
-  background: #f9f1ed;
-}
-
-.deck-notice-text {
-  flex: 1 1 18rem;
+.same-change-step__diff {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
   line-height: 1.5;
 }
 
-.deck-notice-diff {
-  font-family: var(--serif, Georgia, serif);
-  font-size: 0.95rem;
+.same-change-step__body {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  color: #4a3f2f;
 }
 
-.deck-notice .same-change__lexicon {
-  flex: 1 1 100%;
-  margin: 0;
+.same-change-step__places {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  border-top: 1px dashed #d9c9a8;
 }
 
-.deck-notice-actions {
+.same-change-step__places li {
+  border-bottom: 1px dashed #d9c9a8;
+}
+
+.same-change-step__place {
   display: flex;
-  gap: 0.4rem;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.2rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #14100a;
+  cursor: pointer;
+}
+
+.same-change-step__place input {
+  margin-top: 0.3rem;
+  accent-color: #2a2419;
   flex: none;
-  margin-left: auto;
+}
+
+/* An unticked place stays a card of its own; it reads as set aside. */
+.same-change-step__place:has(input:not(:checked)) {
+  color: #8b7355;
+}
+
+.same-change-step__chapter {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b7355;
+}
+
+.deck-card-interlude .same-change__lexicon {
+  margin: 0 0 0.6rem;
 }
 
 .deck-done-actions {

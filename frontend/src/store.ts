@@ -4,6 +4,7 @@
 
 import type { UpdateStatus } from "./updateStatus";
 import { recordDecisions, type Decision, type DeckStep } from "./decisionLog";
+import { applyAuthorFixes, withAuthorFix, withoutAuthorFix, type AuthorFixes } from "./authorFixes";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
@@ -337,6 +338,10 @@ interface AppState {
    * applyAccepted splices it on export like any other.
    */
   amendCorrection: (taskId: string, correctionId: string, corrected: string) => void;
+  /** The author's own text per correction, persisted and laid over every
+   *  result as it arrives — see authorFixes.ts for why the result alone
+   *  cannot hold it. */
+  authorFixes: AuthorFixes;
   /**
    * Withdraw every fix-less finding for one word, across every task in this
    * review — what "add to dictionary" means in the moment. The word is the
@@ -814,7 +819,7 @@ export const useStore = create<AppState>()(
           for (const [tid, result] of Object.entries(results)) {
             const task = tasks[tid];
             if (!task) continue;
-            tasks[tid] = { ...task, result };
+            tasks[tid] = { ...task, result: applyAuthorFixes(result, state.authorFixes[tid]) };
             // Nothing is ticked on arrival. Every suggestion — the ones
             // Betty stands behind included — goes through the reviewer,
             // where "Betty would accept this" is the hint on the card, not
@@ -876,24 +881,16 @@ export const useStore = create<AppState>()(
             },
           };
         }),
+      authorFixes: {},
       amendCorrection: (taskId, correctionId, corrected) =>
         set((state) => {
           const task = state.tasks[taskId];
           if (!task?.result) return state;
+          // The reason changes with it: this is no longer Betty's
+          // suggestion (or a word reported without a guess), it is the
+          // author's own fix — see withAuthorFix.
           const corrections = task.result.corrections.map((c) =>
-            c.id === correctionId
-              ? // The reason changes with it: this is no longer a word
-                // reported without a guess, it is the author's own fix. The
-                // reviewReason goes too — "no replacement is proposed" is
-                // false the moment the author proposes one.
-                {
-                  ...c,
-                  corrected,
-                  reason: "author-correction",
-                  flagged: false,
-                  reviewReason: undefined,
-                }
-              : c,
+            c.id === correctionId ? withAuthorFix(c, corrected) : c,
           );
           const accepted = new Set(state.acceptedCorrections[taskId] ?? []);
           accepted.add(correctionId);
@@ -901,6 +898,10 @@ export const useStore = create<AppState>()(
             tasks: {
               ...state.tasks,
               [taskId]: { ...task, result: { ...task.result, corrections } },
+            },
+            authorFixes: {
+              ...state.authorFixes,
+              [taskId]: { ...state.authorFixes[taskId], [correctionId]: corrected },
             },
             acceptedCorrections: {
               ...state.acceptedCorrections,
@@ -1003,6 +1004,7 @@ export const useStore = create<AppState>()(
           deckPostponed: [],
           deckHistory: [],
           reviewCursor: {},
+          authorFixes: {},
         }),
       undoDecision: (taskIds) => {
         const state = get();
@@ -1014,6 +1016,32 @@ export const useStore = create<AppState>()(
         if (last.wasAccepted) state.acceptCorrection(last.taskId, last.correctionId);
         else state.dismissCorrection(last.taskId, last.correctionId);
         set((st) => ({ decisionLog: st.decisionLog.filter((_, i) => i !== at) }));
+        // Back on a card the author wrote over brings Betty's suggestion
+        // back with it: the card returns as it was before it was answered.
+        const fixes = get().authorFixes[last.taskId];
+        if (fixes && last.correctionId in fixes) {
+          set((st) => {
+            const { [last.correctionId]: _gone, ...restFixes } = st.authorFixes[last.taskId] ?? {};
+            const task = st.tasks[last.taskId];
+            return {
+              authorFixes: { ...st.authorFixes, [last.taskId]: restFixes },
+              tasks: task?.result
+                ? {
+                    ...st.tasks,
+                    [last.taskId]: {
+                      ...task,
+                      result: {
+                        ...task.result,
+                        corrections: task.result.corrections.map((c) =>
+                          c.id === last.correctionId ? withoutAuthorFix(c) : c,
+                        ),
+                      },
+                    },
+                  }
+                : st.tasks,
+            };
+          });
+        }
         return { taskId: last.taskId, correctionId: last.correctionId };
       },
       acceptAll: (taskId) =>
@@ -1488,6 +1516,7 @@ export const useStore = create<AppState>()(
         // costs nothing. Keyed by task id, so old runs keep theirs.
         acceptedCorrections: state.acceptedCorrections,
         decisionLog: state.decisionLog,
+        authorFixes: state.authorFixes,
         deckPostponed: state.deckPostponed,
         deckHistory: state.deckHistory,
         reviewCursor: state.reviewCursor,

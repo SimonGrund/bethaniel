@@ -73,6 +73,35 @@ test("one row per suggestion of an edit task, with its context and the reviewer'
   assert.ok(rows.every((r) => r.length === REVIEW_HEADER.length));
 });
 
+test("the author's own text sits beside Betty's suggestion, with her reason", () => {
+  const rows = reviewTable(
+    [task("t1")],
+    {
+      t1: result([
+        {
+          id: "c1",
+          original: "to to",
+          corrected: "on to",
+          reason: "author-correction",
+          suggested: "to",
+          suggestedReason: "duplicated word",
+        },
+        { id: "c2", original: "grey", corrected: "gray" },
+      ]),
+    },
+    { t1: new Set(["c1"]) },
+    [{ taskId: "t1", correctionId: "c1", wasAccepted: false }],
+  );
+  const col = (name: string) => REVIEW_HEADER.indexOf(name);
+  const [, own, plain] = rows;
+  assert.equal(own[col("Suggestion")], "to");
+  assert.equal(own[col("Author's own text")], "on to");
+  assert.equal(own[col("Editor's reason")], "duplicated word");
+  assert.equal(own[col("Response")], "accepted (author's own fix)");
+  assert.equal(plain[col("Suggestion")], "gray");
+  assert.equal(plain[col("Author's own text")], "");
+});
+
 test("each row says which run it came from, and runs are kept apart and in order", () => {
   const at = (h: number) => new Date(2026, 9, 10, h, 5).getTime();
   const t = (id: string, jobId: string, submittedAt: number, unitIndex: number) => ({

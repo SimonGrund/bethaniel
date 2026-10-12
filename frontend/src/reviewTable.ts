@@ -10,6 +10,7 @@
 
 import type { Decision } from "./decisionLog";
 import type { Correction, TaskResult } from "./types";
+import { AUTHOR_FIX_REASON } from "./authorFixes";
 
 /** The modes whose results are suggestions the author reviews. */
 export const REVIEW_MODES = ["copy_edit", "line_edit", "combined_edit", "proofread"];
@@ -22,6 +23,7 @@ export const REVIEW_HEADER = [
   "Kind",
   "Original",
   "Suggestion",
+  "Author's own text",
   "Context",
   "Editor's reason",
   "Reviewer score (1-5)",
@@ -65,7 +67,7 @@ export function reviewResponse(
 ): string {
   const id = c.id ?? "";
   if (id && accepted?.has(id)) {
-    return c.reason === "author-correction" ? "accepted (author's own fix)" : "accepted";
+    return c.reason === AUTHOR_FIX_REASON ? "accepted (author's own fix)" : "accepted";
   }
   if (id && accepted && [...accepted].some((k) => k.startsWith(`${id}:`))) return "partly accepted";
   return answered ? "dismissed" : "not answered";
@@ -127,6 +129,7 @@ export function reviewTable(
     const r = results[t.id];
     for (const c of r.corrections ?? []) {
       const wasAnswered = answered.has(`${t.id}\u0000${c.id ?? ""}`);
+      const ownText = c.reason === AUTHOR_FIX_REASON;
       rows.push([
         runStart(t),
         t.source,
@@ -134,9 +137,12 @@ export function reviewTable(
         t.mode,
         c.editType ?? "",
         c.original,
-        c.corrected,
+        // Betty's proposal, and beside it what the author wrote instead —
+        // the pair shows what she got nearly right.
+        ownText ? (c.suggested ?? "") : c.corrected,
+        ownText ? c.corrected : "",
         contextOf(r.originalText ?? "", c.original),
-        c.reason ?? "",
+        (ownText ? c.suggestedReason : c.reason) ?? "",
         c.confidence !== undefined ? String(c.confidence) : "",
         c.reviewReason ?? "",
         yes(c.flagged),

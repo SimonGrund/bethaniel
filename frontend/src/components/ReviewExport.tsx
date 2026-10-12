@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { inTextOrder, locateInText } from "../textLocate";
 import Modal from "./Modal";
-import ReviewDeck, { buildDeck, countUndecided } from "./ReviewDeck";
+import ReviewDeck, { buildDeck, countUndecided, type DeckInterlude } from "./ReviewDeck";
+import { compactContext } from "../deckContext";
 import ScrivenerWriteBack from "./ScrivenerWriteBack";
 import ScrivenerTranslationCopy from "./ScrivenerTranslationCopy";
 import ReviewFocus from "./ReviewFocus";
@@ -172,6 +173,12 @@ function changeKey(c: { original: string; corrected: string }): string {
     else if (p.type === "ins") ins.push(p.text);
   }
   return `${dels.join("").trim()}\u0000${ins.join("").trim()}`;
+}
+
+/** The "same change" strings come in two: "in one more place" and "in
+ *  {n} more places", rather than "{n} more time(s)". */
+function plural<K extends string>(key: K, n: number): K | `${K}_one` {
+  return n === 1 ? `${key}_one` : key;
 }
 
 /** The one capitalised, non-dictionary-looking word a correction removes —
@@ -1985,7 +1992,19 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     action: "accept" | "dismiss";
     original: string;
     corrected: string;
-    others: { tid: string; id: string }[];
+    others: {
+      tid: string;
+      id: string;
+      /** Where it is, so the author can see each place before saying yes. */
+      chapter: string;
+      /** Its own span: the same change, not always the same words around it. */
+      original: string;
+      corrected: string;
+      before: string;
+      after: string;
+    }[];
+    /** Places the author unticked: those keep their own card. */
+    leftOut: Set<string>;
     /** A dismissed fix that changed a name-shaped word: offer to list it. */
     lexiconTerm?: string;
   } | null>(null);
@@ -2001,21 +2020,127 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
     // Answered, not just switched on or off: logged the way the deck logs a
     // single answer, so its count moves by all N and the cards do not come
     // round again. One Back takes the whole batch back.
+    // The unticked places are not answered; they come round as cards.
+    const chosen = sameChange.others.filter((o) => !sameChange.leftOut.has(`${o.tid}\u0000${o.id}`));
+    if (chosen.length === 0) {
+      sameChangeKeep();
+      return;
+    }
     decideMany(
-      sameChange.others.map(({ tid, id }) => ({ taskId: tid, correctionId: id })),
+      chosen.map(({ tid, id }) => ({ taskId: tid, correctionId: id })),
       sameChange.action,
     );
     setToast({
       msg: t(
-        sameChange.action === "accept" ? "same_change_done_accept" : "same_change_done_dismiss",
-      ).replace("{n}", String(sameChange.others.length)),
+        plural(
+          sameChange.action === "accept" ? "same_change_done_accept" : "same_change_done_dismiss",
+          chosen.length,
+        ),
+      ).replace("{n}", String(chosen.length)),
       kind: sameChange.action,
     });
     sameChangeKeep();
   };
-  /** The "same change elsewhere" offer: as a dialog (the chapter lists), or
-   *  as one line above the deck's next card (the focus view). */
-  const renderSameChange = (inline: boolean) => {
+  const toggleSameChangePlace = (key: string) =>
+    setSameChange((sc) => {
+      if (!sc) return sc;
+      const leftOut = new Set(sc.leftOut);
+      if (leftOut.has(key)) leftOut.delete(key);
+      else leftOut.add(key);
+      return { ...sc, leftOut };
+    });
+  /**
+   * The offer as a step of the review deck: its own card, between the answer
+   * that raised it and the next suggestion. It used to be a line above the
+   * next card, which read as part of that card and showed none of the places
+   * it would change. Now every place is listed in its sentence, ticked, and
+   * the author can untick one that should stay a card of its own.
+   */
+  const sameChangeInterlude = (): DeckInterlude | null => {
+    if (!sameChange) return null;
+    const chosen = sameChange.others.length - sameChange.leftOut.size;
+    const accept = sameChange.action === "accept";
+    return {
+      onApply: sameChangeApplyAll,
+      onSkip: sameChangeKeep,
+      node: (
+        <div className="same-change-step" key={`${sameChange.original}→${sameChange.corrected}`}>
+          <p className="same-change-step__head">
+            {t(plural("same_change_title", sameChange.others.length)).replace(
+              "{n}",
+              String(sameChange.others.length),
+            )}
+          </p>
+          <p className="same-change-step__diff">
+            <InlineDiff before={sameChange.original} after={sameChange.corrected} />
+          </p>
+          <p className="same-change-step__body">
+            {t("same_change_step_body")}
+          </p>
+          <ul className="same-change-step__places">
+            {sameChange.others.map((o) => {
+              const key = `${o.tid}\u0000${o.id}`;
+              return (
+                <li key={key}>
+                  <label className="same-change-step__place">
+                    <input
+                      type="checkbox"
+                      checked={!sameChange.leftOut.has(key)}
+                      onChange={() => toggleSameChangePlace(key)}
+                    />
+                    <span>
+                      <span className="same-change-step__chapter">{o.chapter}</span>
+                      <span className="correction-diff">
+                        {o.before && <span className="correction-context">{o.before} </span>}
+                        <InlineDiff before={o.original} after={o.corrected} />
+                        {o.after && <span className="correction-context"> {o.after}</span>}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+          {sameChange.lexiconTerm && (
+            <label className="option-check same-change__lexicon">
+              <input
+                type="checkbox"
+                checked={sameChangeAddTerm}
+                onChange={(e) => setSameChangeAddTerm(e.target.checked)}
+              />
+              <span>{t("lexicon_offer_checkbox").replace("{term}", sameChange.lexiconTerm)}</span>
+            </label>
+          )}
+          <div className="deck-actions">
+            <button
+              type="button"
+              className="deck-btn deck-btn-dismiss"
+              onClick={sameChangeKeep}
+              title={`${t("same_change_one")} — ←`}
+            >
+              {t("same_change_one")}
+            </button>
+            <button
+              type="button"
+              className="deck-btn deck-btn-accept"
+              onClick={sameChangeApplyAll}
+              disabled={chosen === 0}
+              title={`${t(plural(accept ? "same_change_these_accept" : "same_change_these_dismiss", chosen)).replace("{n}", String(chosen))} — →`}
+            >
+              <span className="deck-btn-mark" aria-hidden="true">{accept ? "✓" : "✕"}</span>
+              {t(plural(accept ? "same_change_these_accept" : "same_change_these_dismiss", chosen)).replace(
+                "{n}",
+                String(chosen),
+              )}
+            </button>
+          </div>
+        </div>
+      ),
+    };
+  };
+  /** The "same change elsewhere" offer as a dialog, for the chapter lists.
+   *  In the deck it is a step of its own — see sameChangeInterlude. */
+  const renderSameChange = () => {
     if (!sameChange) return null;
     const n = String(sameChange.others.length);
     const lexicon = sameChange.lexiconTerm && (
@@ -2029,48 +2154,25 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
       </label>
     );
     const allLabel = t(
-      sameChange.action === "accept" ? "same_change_all_accept" : "same_change_all_dismiss",
+      plural(
+        sameChange.action === "accept" ? "same_change_all_accept" : "same_change_all_dismiss",
+        sameChange.others.length,
+      ),
     ).replace("{n}", n);
-    if (inline) {
-      return (
-        <div
-          className={`deck-notice deck-notice-${sameChange.action}`}
-          role="status"
-          key={`${sameChange.original}→${sameChange.corrected}`}
-        >
-          <span className="deck-notice-text">
-            <span className="deck-notice-diff">
-              <InlineDiff before={sameChange.original} after={sameChange.corrected} />
-            </span>{" "}
-            {t(
-              sameChange.action === "accept"
-                ? "same_change_inline_accept"
-                : "same_change_inline_dismiss",
-            ).replace("{n}", n)}
-          </span>
-          {lexicon}
-          <span className="deck-notice-actions">
-            <button type="button" className="btn-secondary btn-small" onClick={sameChangeKeep}>
-              {t("same_change_one")}
-            </button>
-            <button type="button" className="btn-primary btn-small" onClick={sameChangeApplyAll}>
-              {allLabel}
-            </button>
-          </span>
-        </div>
-      );
-    }
     return (
       <>
         <h2 id="same-change-title" className="same-change__title">
-          {t("same_change_title").replace("{n}", n)}
+          {t(plural("same_change_title", sameChange.others.length)).replace("{n}", n)}
         </h2>
         <p className="same-change__diff">
           <InlineDiff before={sameChange.original} after={sameChange.corrected} />
         </p>
         <p className="model-confirm-text">
           {t(
-            sameChange.action === "accept" ? "same_change_body_accept" : "same_change_body_dismiss",
+            plural(
+              sameChange.action === "accept" ? "same_change_body_accept" : "same_change_body_dismiss",
+              sameChange.others.length,
+            ),
           ).replace("{n}", n)}
         </p>
         {lexicon}
@@ -2681,17 +2783,16 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
         </div>
       )}
 
-      {/* In the focus view the offer is a line above the next card, not a
-          dialog over it: the answer has been given and the card has gone;
-          the question is a footnote to it, and the next card is already
-          up. Outside the focus view (the chapter lists) it stays a dialog. */}
+      {/* In the focus view the offer is a step of the deck itself (see
+          sameChangeInterlude). Outside it (the chapter lists) it stays a
+          dialog. */}
       <Modal
         open={sameChange !== null && focusJid === null}
         onClose={() => setSameChange(null)}
         labelledBy="same-change-title"
         className="same-change"
       >
-        {sameChange && focusJid === null && renderSameChange(false)}
+        {sameChange && focusJid === null && renderSameChange()}
       </Modal>
 
       <Modal
@@ -3172,7 +3273,12 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
             // dismissal toast offers the term again on its own.)
             setSameChange(null);
             const key = changeKey(c);
-            const isOn = (otid: string, id: string) => {
+            // A change of punctuation alone is never "the same change": the
+            // key drops the words around it, so every added comma in the book
+            // shared one key, and whether a comma belongs depends on exactly
+            // those words. Each stays a card of its own.
+            const punctuationOnly = !/[\p{L}\p{N}]/u.test(key);
+            const isOn =(otid: string, id: string) => {
               const set = acceptedCorrections[otid] ?? new Set<string>();
               return set.has(id) || [...set].some((k) => k.startsWith(`${id}:`));
             };
@@ -3180,13 +3286,25 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               (task.result?.corrections ?? [])
                 .filter(
                   (x) =>
+                    !punctuationOnly &&
                     x.id &&
                     !(otid === fromTid && x.id === c.id) &&
                     x.reason !== "dialect" &&
                     changeKey(x) === key &&
                     isOn(otid, x.id) !== (action === "accept"),
                 )
-                .map((x) => ({ tid: otid, id: x.id as string })),
+                .map((x) => {
+                  const ctx = compactContext(x.original, task.result?.originalText ?? "");
+                  return {
+                    tid: otid,
+                    id: x.id as string,
+                    chapter: task.name,
+                    original: x.original,
+                    corrected: x.corrected,
+                    before: ctx.before,
+                    after: ctx.after,
+                  };
+                }),
             );
             const lexiconTerm =
               action === "dismiss" ? lexiconOfferFor(fromTid, c) ?? undefined : undefined;
@@ -3204,7 +3322,14 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
               return;
             }
             setSameChangeAddTerm(false);
-            setSameChange({ action, original: c.original, corrected: c.corrected, others, lexiconTerm });
+            setSameChange({
+              action,
+              original: c.original,
+              corrected: c.corrected,
+              others,
+              leftOut: new Set(),
+              lexiconTerm,
+            });
           };
           // The deck takes over the reading for an edit job once its results
           // are in. A publication scan has its own report, and a translation
@@ -4631,7 +4756,7 @@ export default function ReviewExport({ isOldResults }: { isOldResults?: boolean 
                           setReviewCursor(jid, tid);
                         }}
                         onDecide={(action, tid, c) => offerSameChange(action, tid, c)}
-                        notice={focusJid === jid ? renderSameChange(true) : null}
+                        interlude={focusJid === jid ? sameChangeInterlude() : null}
                         doneSlot={
                           <>
                             {scrivenerWriteBack}

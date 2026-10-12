@@ -13,6 +13,7 @@ import { useTranslation } from "../i18n";
 import StorageSettings from "./StorageSettings";
 import { fetchTaskResult, reviewsXlsx } from "../api";
 import { REVIEW_MODES, reviewTable } from "../reviewTable";
+import { applyAuthorFixes } from "../authorFixes";
 import type { TaskResult } from "../types";
 import Modal from "./Modal";
 
@@ -93,11 +94,11 @@ export default function HeaderSettingsMenu() {
         (x) => x.status === "done" && REVIEW_MODES.includes(x.mode),
       );
       // A result already in the app carries the author's own fixes; the
-      // rest are read from the backend.
+      // rest are read from the backend, and the fixes laid over them.
       const results: Record<string, TaskResult> = {};
       for (const x of reviewTasks) {
         const r = x.result ?? (await fetchTaskResult(x.id).catch(() => null));
-        if (r) results[x.id] = r;
+        if (r) results[x.id] = applyAuthorFixes(r, s.authorFixes[x.id]);
       }
       const rows = reviewTable(reviewTasks, results, s.acceptedCorrections, s.decisionLog);
       if (rows.length <= 1) {

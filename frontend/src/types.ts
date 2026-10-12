@@ -427,6 +427,10 @@ export interface Correction {
   /** A deterministic fix confirmed by an editor agent, applied without the
    *  reviewer (backend/src/types.ts). */
   preApproved?: boolean;
+  /** Set on the app's side only, when the author wrote their own text over
+   *  this suggestion (authorFixes.ts): what Betty proposed, and why. */
+  suggested?: string;
+  suggestedReason?: string;
   /**
    * The PRECISION PASS's own 1-5 score, kept separately from `confidence`.
    * The pass was removed in September 2026; results saved before then still

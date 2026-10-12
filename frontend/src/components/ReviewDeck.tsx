@@ -28,6 +28,15 @@ import { dropCoveredFindings } from "../coveredFindings";
 import { InlineDiff } from "./ReviewExport";
 import { compactContext, extendedContext } from "../deckContext";
 
+/** A step between two cards that is not a suggestion — "the same change
+ *  elsewhere" — shown in the top card's place and answered with the same
+ *  keys: → applies it, ← declines it. */
+export interface DeckInterlude {
+  node: React.ReactNode;
+  onApply: () => void;
+  onSkip: () => void;
+}
+
 export interface DeckItem {
   taskId: string;
   taskName: string;
@@ -93,6 +102,8 @@ export function countUndecided(
 }
 
 const LEAVE_MS = 260;
+/** How many of the suggestions after this one "More context" lists. */
+const UPCOMING = 3;
 /** Certainty under which the line says Betty is unsure rather than would accept. */
 const UNSURE_BELOW = 70;
 /** The settings menu's "always show the explanation", remembered across
@@ -113,7 +124,7 @@ export default function ReviewDeck({
   onChapterChange,
   onDecide,
   doneSlot,
-  notice,
+  interlude,
   restartToken = 0,
   jumpControl,
 }: {
@@ -127,8 +138,9 @@ export default function ReviewDeck({
   onDecide?: (action: "accept" | "dismiss", taskId: string, correction: Correction) => void;
   /** What sits under the finished-deck text: the export button, in focus. */
   doneSlot?: React.ReactNode;
-  /** A line above the stack, after an answer: "do the same elsewhere?" */
-  notice?: React.ReactNode;
+  /** A step of its own after an answer: "do the same elsewhere?" While it
+   *  is up, it is the card, and the next suggestion waits behind it. */
+  interlude?: DeckInterlude | null;
   /** Bump to start over from the first card, answered ones included. */
   restartToken?: number;
   /** The jump-to control, offered in the settings menu. */
@@ -144,6 +156,9 @@ export default function ReviewDeck({
   /** What the author has typed into the "correct to" field of the top card.
    *  Keyed by correction id so moving through the deck does not carry it. */
   const [typedFix, setTypedFix] = useState<Record<string, string>>({});
+  /** The card whose own-text field is open (Edit). Per card, like the
+   *  context: the next card arrives with its two usual answers. */
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   /** The card showing a paragraph either side. Per card: the wider view is
    *  for the one suggestion that needs it, not the next forty. */
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -192,6 +207,19 @@ export default function ReviewDeck({
     [entries, showAllSuggestions],
   );
   const heldBack = useMemo(() => countHeldBack(entries), [entries]);
+  /** What the field holds for this card: what was typed, or — for a card
+   *  with a proposal — Betty's text to edit from. */
+  const fieldValue = (item: DeckItem) => {
+    const id = item.correction.id ?? "";
+    if (id in typedFix) return typedFix[id];
+    const c = item.correction;
+    return c.corrected === c.original ? "" : c.corrected;
+  };
+  /** Whether the field holds an answer: something, and not the original. */
+  const canApply = (item: DeckItem) => {
+    const value = fieldValue(item).trim();
+    return !!value && value !== item.correction.original.trim();
+  };
   /**
    * The author typed a replacement.
    *
@@ -203,8 +231,15 @@ export default function ReviewDeck({
   const applyTypedFix = (item: DeckItem) => {
     const id = item.correction.id;
     if (!id || leaving) return;
-    const value = (typedFix[id] ?? "").trim();
-    if (!value || value === item.correction.original.trim()) return;
+    if (!canApply(item)) return;
+    const value = fieldValue(item).trim();
+    const unfixable = item.correction.corrected === item.correction.original;
+    setEditingKey(null);
+    // Betty's text, untouched: that is Accept, not the author's own fix.
+    if (!unfixable && value === item.correction.corrected.trim()) {
+      decide(item, "accept");
+      return;
+    }
     amendCorrection(item.taskId, id, value);
     setTypedFix((m) => {
       const next = { ...m };
@@ -215,7 +250,10 @@ export default function ReviewDeck({
     setLeaving({ key, action: "accept" });
     leaveTimer.current = setTimeout(() => {
       decideCorrection(item.taskId, id, "accept");
-      onDecide?.("accept", item.taskId, item.correction);
+      // "The same change elsewhere" would offer Betty's text at the twins of
+      // a suggestion the author has just rewritten. Only a finding that
+      // proposed nothing has no text of Betty's to offer.
+      if (unfixable) onDecide?.("accept", item.taskId, item.correction);
       setLeaving(null);
     }, LEAVE_MS);
   };
@@ -271,6 +309,11 @@ export default function ReviewDeck({
   }, [deck, fresh, cursorTaskId, postponed]);
 
   const top = remaining[0] ?? null;
+  // The next few in the same chapter, for "More context". In deck order,
+  // which within a chapter is text order — the doubted ones after the rest.
+  const upcoming = top
+    ? remaining.slice(1).filter((item) => item.taskId === top.taskId).slice(0, UPCOMING)
+    : [];
   const total = deck.length;
   const done = total - remaining.length;
 
@@ -307,6 +350,9 @@ export default function ReviewDeck({
   };
   const back = () => {
     if (leaving) return;
+    // Back from the interlude takes back the answer that raised it; the
+    // offer goes with it.
+    interlude?.onSkip();
     deckBack(jobTaskIds);
   };
 
@@ -321,6 +367,19 @@ export default function ReviewDeck({
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (interlude) {
+        if (e.key === "ArrowRight" || e.key === "Enter") {
+          e.preventDefault();
+          interlude.onApply();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          interlude.onSkip();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          back();
+        }
+        return;
+      }
       if (!top) return;
       // A finding that proposes nothing has no verdict to give: accepting it
       // would change the text not at all and dismissing it would throw the
@@ -332,7 +391,11 @@ export default function ReviewDeck({
       if (topUnfixable && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
         return;
       }
-      if (e.key === "ArrowRight") {
+      if (e.key === "e" || e.key === "E") {
+        if (topUnfixable) return;
+        e.preventDefault();
+        setEditingKey(keyOf(top));
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
         decide(top, "accept");
       } else if (e.key === "ArrowLeft") {
@@ -349,7 +412,7 @@ export default function ReviewDeck({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [top, leaving, history, remaining.length]);
+  }, [top, leaving, history, remaining.length, interlude]);
 
   if (total === 0) return null;
 
@@ -358,6 +421,7 @@ export default function ReviewDeck({
     const isTop = position === 0;
     const isLeaving = leaving?.key === key;
     const expanded = isTop && expandedKey === key;
+    const editing = isTop && editingKey === key;
     const whyOpen = isTop && autoWhy !== (whyToggledKey === key);
     // Compact by default: the change's own sentence, inside its paragraph,
     // line breaks flattened — so the buttons never leave the screen. See
@@ -404,7 +468,7 @@ export default function ReviewDeck({
       (() => {
         const wide = extendedContext(item.correction.original, item.originalText);
         const narrow = expanded ? compactContext(item.correction.original, item.originalText) : ctx;
-        return wide.before !== narrow.before || wide.after !== narrow.after;
+        return upcoming.length > 0 || wide.before !== narrow.before || wide.after !== narrow.after;
       })();
     return (
       <div
@@ -486,6 +550,33 @@ export default function ReviewDeck({
           </span>
         </div>
         {whyOpen && reason && <p className="deck-reason">{reason}</p>}
+        {expanded && upcoming.length > 0 && (
+          // A change that only works if the next sentence changes too: the
+          // author needs to see what Betty proposes there before answering
+          // this one. Read-only — each is answered in its turn.
+          <div className="deck-upcoming">
+            <p className="deck-upcoming-title">{t("deck_upcoming")}</p>
+            <ol className="deck-upcoming-list">
+              {upcoming.map((next) => {
+                const nctx = compactContext(next.correction.original, next.originalText);
+                const nUnfixable = next.correction.corrected === next.correction.original;
+                return (
+                  <li key={keyOf(next)} className="deck-upcoming-item">
+                    <span className="correction-diff">
+                      {nctx.before && <span className="correction-context">{nctx.before} </span>}
+                      {nUnfixable ? (
+                        <mark className="deck-unfixable-word">{next.correction.original}</mark>
+                      ) : (
+                        <InlineDiff before={next.correction.original} after={next.correction.corrected} />
+                      )}
+                      {nctx.after && <span className="correction-context"> {nctx.after}</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
         {isTop && unfixable && (
           // Accept and dismiss are both wrong here: accepting changes nothing
           // and dismissing throws away a real finding. What the author wants
@@ -511,7 +602,7 @@ export default function ReviewDeck({
                 {t("unfixable_correct_to")}
                 <input
                   type="text"
-                  value={typedFix[item.correction.id ?? ""] ?? ""}
+                  value={fieldValue(item)}
                   placeholder={item.correction.original.trim()}
                   onChange={(e) =>
                     setTypedFix((m) => ({
@@ -533,11 +624,7 @@ export default function ReviewDeck({
               <button
                 type="button"
                 className="deck-btn deck-btn-accept"
-                disabled={
-                  !(typedFix[item.correction.id ?? ""] ?? "").trim() ||
-                  (typedFix[item.correction.id ?? ""] ?? "").trim() ===
-                    item.correction.original.trim()
-                }
+                disabled={!canApply(item)}
                 onClick={() => applyTypedFix(item)}
               >
                 {t("unfixable_apply")}
@@ -545,7 +632,61 @@ export default function ReviewDeck({
             </span>
           </div>
         )}
-        {isTop && !unfixable && (
+        {isTop && !unfixable && editing && (
+          // The third answer: the author agrees something should change, but
+          // not to this. They start from Betty's text and write their own.
+          <div className="deck-edit">
+            <label className="deck-edit-label" htmlFor={`deck-edit-${item.correction.id}`}>
+              {t("deck_edit_label")}
+            </label>
+            <textarea
+              id={`deck-edit-${item.correction.id}`}
+              className="deck-edit-field"
+              autoFocus
+              rows={Math.min(6, Math.max(1, Math.ceil(fieldValue(item).length / 70)))}
+              value={fieldValue(item)}
+              onChange={(e) =>
+                setTypedFix((m) => ({ ...m, [item.correction.id ?? ""]: e.target.value }))
+              }
+              // The deck answers the arrow keys globally; while the field has
+              // focus those are cursor keys, not verdicts.
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  applyTypedFix(item);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditingKey(null);
+                }
+              }}
+            />
+            <p className="deck-edit-was small-note">
+              {t("deck_edit_original")} <span>{item.correction.original}</span>
+            </p>
+            <div className="deck-actions">
+              <button
+                type="button"
+                className="deck-btn deck-btn-dismiss"
+                onClick={() => setEditingKey(null)}
+                title={`${t("deck_edit_cancel")} — Esc`}
+              >
+                {t("deck_edit_cancel")}
+              </button>
+              <button
+                type="button"
+                className="deck-btn deck-btn-accept"
+                disabled={!canApply(item)}
+                onClick={() => applyTypedFix(item)}
+                title={`${t("deck_edit_apply")} — Enter`}
+              >
+                <span className="deck-btn-mark" aria-hidden="true">✓</span>
+                {t("deck_edit_apply")}
+              </button>
+            </div>
+          </div>
+        )}
+        {isTop && !unfixable && !editing && (
           <>
           <div className="deck-actions">
             <button
@@ -556,6 +697,15 @@ export default function ReviewDeck({
             >
               <span className="deck-btn-mark" aria-hidden="true">✕</span>
               {t("deck_dismiss")}
+            </button>
+            <button
+              type="button"
+              className="deck-btn deck-btn-edit"
+              onClick={() => setEditingKey(key)}
+              title={`${t("deck_edit")} — E`}
+            >
+              <span className="deck-btn-mark" aria-hidden="true">✎</span>
+              {t("deck_edit")}
             </button>
             <button
               type="button"
@@ -710,11 +860,13 @@ export default function ReviewDeck({
         <div className="deck-bar-fill" style={{ width: `${bookProgress.percent}%` }} />
       </div>
 
-      {notice}
-
       <div className="deck-stack">
-        {shown.map((item, i) => renderCard(item, i))}
-        {!top && (
+        {interlude ? (
+          <div className="deck-card deck-card-top deck-card-interlude">{interlude.node}</div>
+        ) : (
+          shown.map((item, i) => renderCard(item, i))
+        )}
+        {!top && !interlude && (
           <div className="deck-card deck-card-top deck-card-done">
             <p className="deck-done-text">{t("deck_done_text").replace("{n}", String(total))}</p>
             {doneSlot && <div className="deck-done-actions">{doneSlot}</div>}
@@ -722,7 +874,7 @@ export default function ReviewDeck({
         )}
       </div>
 
-      {top && history.length === 0 && (
+      {top && !interlude && history.length === 0 && (
         // A card with no fix to accept advertises only the keys that work on
         // it. Listing Dismiss and Accept there would promise two answers it
         // does not take — see the ArrowLeft/ArrowRight guard above.
@@ -733,13 +885,13 @@ export default function ReviewDeck({
             </>
           ) : (
             <>
-              <kbd>←</kbd> {t("deck_dismiss")} · <kbd>→</kbd> {t("deck_accept")} ·{" "}
+              <kbd>←</kbd> {t("deck_dismiss")} · <kbd>E</kbd> {t("deck_edit")} · <kbd>→</kbd> {t("deck_accept")} ·{" "}
               <kbd>↑</kbd> {t("deck_back")} · <kbd>↓</kbd> {t("deck_later")}
             </>
           )}
         </p>
       )}
-      {top && chapterLeft === 1 && nextChapter && (
+      {top && !interlude && chapterLeft === 1 && nextChapter && (
         <p className="deck-next small-note">{t("deck_next_chapter").replace("{name}", nextChapter)}</p>
       )}
     </section>
