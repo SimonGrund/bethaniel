@@ -81,7 +81,8 @@ test("counting what would be held back", () => {
     { confidence: 2 },
     {},
   ];
-  assert.equal(countRejected(cs), 2);
+  // A hosted run holds back the 1s and, since October 2026, the 2s.
+  assert.equal(countRejected(cs), 3);
   assert.equal(countRejected([]), 0);
 });
 
@@ -138,19 +139,28 @@ test("the reviewer's kind is read off the task's model", () => {
   assert.equal(reviewerKindOf(undefined), "hosted");
 });
 
-test("a local run holds back everything under 4; a hosted one only the 1s", () => {
+test("a local run holds back everything under 4; a hosted one its 1s and 2s", () => {
   for (const score of [1, 2, 3]) assert.equal(heldBack({ confidence: score }, "local"), true);
   for (const score of [4, 5]) assert.equal(heldBack({ confidence: score }, "local"), false);
-  assert.equal(heldBack({ confidence: 1 }, "hosted"), true);
-  for (const score of [2, 3, 4, 5]) assert.equal(heldBack({ confidence: score }, "hosted"), false);
+  for (const score of [1, 2]) assert.equal(heldBack({ confidence: score }, "hosted"), true);
+  for (const score of [3, 4, 5]) assert.equal(heldBack({ confidence: score }, "hosted"), false);
   // Never scored: not a verdict, so not held back.
   assert.equal(heldBack({}, "local"), false);
   assert.equal(countRejected([{ confidence: 1 }, { confidence: 2 }, { confidence: 3 }, { confidence: 4 }], "local"), 3);
-  assert.equal(countRejected([{ confidence: 1 }, { confidence: 2 }, { confidence: 3 }, { confidence: 4 }]), 1);
+  assert.equal(countRejected([{ confidence: 1 }, { confidence: 2 }, { confidence: 3 }, { confidence: 4 }]), 2);
 });
 
-test("a hosted reviewer's 2s and 3s are optional polish; a local run has none", () => {
-  assert.equal(optionalPolish({ confidence: 2 }, "hosted"), true);
+test("a local run holds back its line edits whatever they scored; a hosted one does not", () => {
+  // Re-measured on the same novel: Local Betty's 4-5 line edits were 3 right,
+  // 3 neutral, 10 wrong.
+  assert.equal(heldBack({ confidence: 5, editType: "line" }, "local"), true);
+  assert.equal(heldBack({ editType: "line" }, "local"), true);
+  assert.equal(heldBack({ confidence: 5, editType: "copy" }, "local"), false);
+  assert.equal(heldBack({ confidence: 5, editType: "line" }, "hosted"), false);
+});
+
+test("a hosted reviewer's 3s are optional polish; its 2s are held back; a local run has none", () => {
+  assert.equal(optionalPolish({ confidence: 2 }, "hosted"), false);
   assert.equal(optionalPolish({ confidence: 3 }, "hosted"), true);
   assert.equal(optionalPolish({ confidence: 4 }, "hosted"), false);
   assert.equal(optionalPolish({ confidence: 1 }, "hosted"), false);

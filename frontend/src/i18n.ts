@@ -4233,16 +4233,16 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
 
   // ── The suggestions the reviewer rejected outright ──
   deck_heldback: {
-    en: "{n} suggestions are hidden — Betty's reviewer doubted them, and when suggestions like these were checked on a real book, about three in four were wrong.",
-    da: "{n} forslag er skjult — Bettys bedømmer tvivlede på dem, og da forslag som disse blev efterprøvet på en rigtig bog, var omkring tre ud af fire forkerte.",
-    de: "{n} Vorschläge sind ausgeblendet — Bettys Prüfer zweifelte an ihnen, und als solche Vorschläge an einem echten Buch geprüft wurden, waren etwa drei von vier falsch.",
-    es: "{n} sugerencias están ocultas — el revisor de Betty dudó de ellas, y cuando se comprobaron sugerencias así en un libro real, unas tres de cada cuatro eran incorrectas.",
+    en: "{n} suggestions are hidden — when suggestions like these were checked on a real book, only about one in six was right.",
+    da: "{n} forslag er skjult — da forslag som disse blev efterprøvet på en rigtig bog, var kun omkring ét ud af seks rigtigt.",
+    de: "{n} Vorschläge sind ausgeblendet — als solche Vorschläge an einem echten Buch geprüft wurden, war nur etwa einer von sechs richtig.",
+    es: "{n} sugerencias están ocultas — cuando se comprobaron sugerencias así en un libro real, solo una de cada seis, más o menos, era correcta.",
   },
   deck_heldback_shown: {
-    en: "Showing the {n} suggestions Betty's reviewer doubted, along with the rest.",
-    da: "Viser de {n} forslag, som Bettys bedømmer tvivlede på, sammen med resten.",
-    de: "Zeigt die {n} Vorschläge, an denen Bettys Prüfer zweifelte, zusammen mit den übrigen.",
-    es: "Mostrando las {n} sugerencias de las que dudó el revisor de Betty, junto con el resto.",
+    en: "Showing the {n} hidden suggestions, along with the rest.",
+    da: "Viser de {n} skjulte forslag sammen med resten.",
+    de: "Zeigt die {n} ausgeblendeten Vorschläge zusammen mit den übrigen.",
+    es: "Mostrando las {n} sugerencias ocultas, junto con el resto.",
   },
   deck_heldback_show: {
     en: "Show them anyway",
@@ -4453,10 +4453,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Mostrar siempre la explicación de Betty",
   },
   deck_setting_show_heldback: {
-    en: "Show the {n} suggestions Betty doubted",
-    da: "Vis de {n} forslag, Betty tvivlede på",
-    de: "Die {n} Vorschläge anzeigen, an denen Betty zweifelte",
-    es: "Mostrar las {n} sugerencias de las que Betty dudó",
+    en: "Show the {n} hidden suggestions",
+    da: "Vis de {n} skjulte forslag",
+    de: "Die {n} ausgeblendeten Vorschläge anzeigen",
+    es: "Mostrar las {n} sugerencias ocultas",
   },
   deck_came_back: {
     en: "Put off earlier — back for an answer.",

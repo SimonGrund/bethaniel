@@ -37,11 +37,25 @@
 //
 // The small local reviewer separates 1-3 from 4-5 and nothing finer: its 2s
 // and 3s are as wrong as its 1s, so on a local run everything under 4 is held
-// back. The cloud reviewer's 2s and 3s are mostly harmless taste — "short
-// moment" against "brief moment" — so they are kept, but after everything
-// else in the job, as optional polish. An External Betty key is a large
+// back. The cloud reviewer's 2s and 3s were mostly harmless taste — "short
+// moment" against "brief moment" — so they were kept, but after everything
+// else in the job, as optional polish (the 2s no longer are; see below). An External Betty key is a large
 // hosted model too and is treated like the cloud. Thirty cards a bucket is
 // about ±15 points: the gaps above are real, ten-point differences are not.
+//
+// Re-measured the same evening on a fresh v2.50 run of the same novel (the
+// reviewer now names a problem before giving a stylistic change a 4):
+//
+//              cloud                  local
+//   score 4-5  70 / 19 / 11           22 / 38 / 40
+//   score 3    13 / 63 / 23           20 / 57 / 23
+//   score 2    17 / 37 / 47           13 / 33 / 53
+//
+// The cloud's 2s had become mostly deleted words and broken sentences, so a
+// hosted run now holds back 1s and 2s and keeps only its 3s as polish. And a
+// local reviewer's 4-5 LINE edits were 3 right / 3 neutral / 10 wrong —
+// rewritten tenses, cut images, comma splices — so a local run holds back its
+// line edits whatever they scored; its copy edits stand on their score.
 //
 // The planted-error benchmark put score 2 at about one in two. A finished
 // book has far fewer real errors than a planted fixture, which is why the
@@ -77,21 +91,25 @@ export function reviewerKindOf(model: string | null | undefined): ReviewerKind {
 /** The lowest score a local reviewer's suggestion needs to be shown. */
 const LOCAL_SHOWN_FROM = 4;
 
+/** The highest score a hosted reviewer's suggestion is held back at. */
+const HOSTED_HELD_THROUGH = 2;
+
 /** Held back by default: shown only when the author asks for everything. */
-export function heldBack(c: Pick<Correction, "confidence">, kind: ReviewerKind): boolean {
+export function heldBack(c: Pick<Correction, "confidence" | "editType">, kind: ReviewerKind): boolean {
+  if (kind === "local" && c.editType === "line") return true;
   if (c.confidence == null) return false;
-  return kind === "local" ? c.confidence < LOCAL_SHOWN_FROM : reviewerRejected(c);
+  return kind === "local" ? c.confidence < LOCAL_SHOWN_FROM : c.confidence <= HOSTED_HELD_THROUGH;
 }
 
-/** Kept, but after every other suggestion in the job: a hosted reviewer's 2s
- *  and 3s, which measured as mostly harmless matters of taste. */
+/** Kept, but after every other suggestion in the job: a hosted reviewer's 3s,
+ *  which measured as mostly harmless matters of taste. */
 export function optionalPolish(c: Pick<Correction, "confidence">, kind: ReviewerKind): boolean {
-  return kind === "hosted" && (c.confidence === 2 || c.confidence === 3);
+  return kind === "hosted" && c.confidence === 3;
 }
 
 /** How many of these the deck would hold back. */
 export function countRejected(
-  corrections: Pick<Correction, "confidence">[],
+  corrections: Pick<Correction, "confidence" | "editType">[],
   kind: ReviewerKind = "hosted",
 ): number {
   return corrections.filter((c) => heldBack(c, kind)).length;

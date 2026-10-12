@@ -18,12 +18,14 @@
  *
  * DEFINITIONS (copy edit only — the page is about finding errors):
  *
- *   shown      a correction the author is actually shown. Betty holds back
- *              one the reviewer scored 1 (displayed as 10%, or 18% when the
- *              removed precision pass disagreed, on older results): it is
- *              right about 6% of the time.
- *              See frontend/src/deckProgress.ts. Everything below counts
- *              shown corrections only.
+ *   shown      a correction the author is actually shown. What Betty holds
+ *              back depends on whose reviewer scored it (deckProgress.ts,
+ *              measured blind on a real novel, October 2026): a local run
+ *              shows copy edits scored 4-5 only, a hosted one (cloud,
+ *              External Betty) hides its 1s and 2s and shows its 3s last, as
+ *              optional polish — counted here as shown, with their number reported
+ *              beside "held back". Everything below counts shown
+ *              corrections only.
  *   surfaced   a shown correction landed on the planted error's span, right
  *              fix or not — the author's attention is drawn to it.
  *              Percent of planted errors.
@@ -60,6 +62,7 @@ import {
   type WordChecks,
 } from "../backend/src/benchScoring.js";
 import { getWordValidator, initSpellchecker } from "../backend/src/spellcheck.js";
+import { heldBack as deckHoldsBack, optionalPolish, reviewerKindOf, type ReviewerKind } from "../frontend/src/deckProgress.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -82,7 +85,7 @@ const ROWS = [
 type RowName = (typeof ROWS)[number];
 const rowOf = (cat: string): RowName => (cat === "spelling" ? "misspelling" : (cat as RowName));
 
-interface Correction { original: string; corrected: string; flagged?: boolean; confidence?: number; reason?: string }
+interface Correction { original: string; corrected: string; flagged?: boolean; confidence?: number; reason?: string; editType?: "copy" | "line" }
 interface Row {
   model: string;
   file: string;
@@ -95,10 +98,11 @@ interface Row {
   runDate?: string;
 }
 
-/** Held back by default: the reviewer's 1 (deckProgress.ts) — except a
- *  dialect conversion, which is a setting the author chose and is applied as
- *  chosen whatever the reviewer scored (ReviewExport.tsx). */
-const shown = (c: Correction) => c.reason === "dialect" || c.confidence !== 1;
+/** Not held back by the deck (deckProgress.ts) — or a dialect conversion,
+ *  which is a setting the author chose and is applied as chosen whatever the
+ *  reviewer scored (ReviewExport.tsx). The benchmark labels a cloud model
+ *  "custom:bethaniel-cloud (deepseek-v4-flash)", which reads as hosted. */
+const shown = (c: Correction, kind: ReviewerKind) => c.reason === "dialect" || !deckHoldsBack(c, kind);
 
 const checksCache = new Map<string, WordChecks | null>();
 function checksFor(lang: string): WordChecks | null {
@@ -126,7 +130,7 @@ function summarise(rows: Row[]) {
   const commaKinds = new Map<string, Tally>();
   const byLanguage = new Map<string, Tally>();
   const missingByLanguage = new Map<string, Tally>();
-  let wrongFix = 0, damaging = 0, heldBack = 0, shownTotal = 0;
+  let wrongFix = 0, damaging = 0, heldBack = 0, shownTotal = 0, polish = 0;
   let textWords = 0, cleanWords = 0, copyWords = 0, copyMs = 0, erroredRuns = 0;
 
   const falseAlarm = (c: Correction, lang: string) => {
@@ -140,9 +144,11 @@ function summarise(rows: Row[]) {
     const [fixture] = r.file.replace(/\.md$/, "").split("_");
     const lang = LANG[fixture] ?? "en";
     const text = readFileSync(join(SAMPLE_DIR, r.file), "utf-8");
-    const visible = r.corrections.filter(shown);
+    const kind = reviewerKindOf(r.model);
+    const visible = r.corrections.filter((c) => shown(c, kind));
     heldBack += r.corrections.length - visible.length;
     shownTotal += visible.length;
+    polish += visible.filter((c) => c.reason !== "dialect" && optionalPolish(c, kind)).length;
     textWords += words(text);
 
     if (r.variant === "correct") {
@@ -210,6 +216,7 @@ function summarise(rows: Row[]) {
     wrongSuggestions: { total: wrongFix, damaging, damagingPct: pct(damaging, wrongFix) },
     words: { checked: textWords, clean: cleanWords },
     heldBack: { corrections: heldBack, ofAll: pct(heldBack, heldBack + shownTotal) },
+    optionalPolish: { corrections: polish, ofShown: pct(polish, shownTotal) },
     speed: { wordsPerMinute: copyMs > 0 ? Math.round(copyWords / (copyMs / 60000)) : null },
     runsWithErrors: erroredRuns,
   };
@@ -249,7 +256,7 @@ async function main() {
     for (const [k, t] of Object.entries(e.commasByKind)) line(`    ${k}`, t);
     console.log(`by language: ${Object.entries(e.byLanguage).map(([k, t]) => `${k} ${t.surfacedPct}%/${t.correctFixOfSurfacedPct}%`).join(" · ")}`);
     console.log(`missing words: ${Object.entries(e.missingWordByLanguage).map(([k, t]) => `${k} ${t.surfacedPct}%/${t.correctFixOfSurfacedPct}%`).join(" · ")}`);
-    console.log(`wrong suggestions ${e.wrongSuggestions.total}, damaging ${e.wrongSuggestions.damaging} (${e.wrongSuggestions.damagingPct}%) · held back ${e.heldBack.corrections} (${e.heldBack.ofAll}%) · ${e.speed.wordsPerMinute} words/min · runs with errors ${e.runsWithErrors}`);
+    console.log(`wrong suggestions ${e.wrongSuggestions.total}, damaging ${e.wrongSuggestions.damaging} (${e.wrongSuggestions.damagingPct}%) · held back ${e.heldBack.corrections} (${e.heldBack.ofAll}%), optional polish ${e.optionalPolish.corrections} · ${e.speed.wordsPerMinute} words/min · runs with errors ${e.runsWithErrors}`);
   }
 }
 
