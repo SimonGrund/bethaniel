@@ -22,7 +22,13 @@ import { useTranslation } from "../i18n";
 import { certaintyPercent, flagKindOf, isReliable } from "../types";
 import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
-import { countRejected, progressOf, reviewerRejected } from "../deckProgress";
+import {
+  countRejected,
+  heldBack,
+  optionalPolish,
+  progressOf,
+  reviewerKindOf,
+} from "../deckProgress";
 import { putLexicon } from "../api";
 import { dropCoveredFindings } from "../coveredFindings";
 import { InlineDiff } from "./ReviewExport";
@@ -42,23 +48,28 @@ export interface DeckItem {
   taskName: string;
   correction: Correction;
   originalText: string;
+  /** A hosted reviewer's 2 or 3: kept, after everything else, as polish. */
+  optional?: boolean;
 }
 
 /** The deck's order: chapters as given (manuscript order), each chapter's
- *  suggestions by position in its text, the doubted ones after the rest.
+ *  suggestions by position in its text, the doubted ones after the rest —
+ *  and, after every chapter, a hosted reviewer's optional polish.
  *
- *  `showAll` includes the ones the reviewer rejected outright, which are held
- *  back by default. They were 61% of the deck on two real books and right
- *  about one time in twenty — see deckProgress.ts for the count and the
- *  reason the neighbouring bucket is NOT held back with them. */
+ *  What is held back, and what counts as polish, depends on whose reviewer
+ *  scored the run: measured on one real novel, the small local reviewer's 2s
+ *  and 3s were as wrong as its 1s, the cloud's mostly harmless taste. See
+ *  deckProgress.ts for the table. `showAll` includes the held-back ones. */
 export function buildDeck(
   entries: [string, TaskState][],
   showAll = false,
 ): DeckItem[] {
   const items: DeckItem[] = [];
+  const polish: DeckItem[] = [];
   for (const [taskId, task] of entries) {
     const result = task.result;
     if (!result) continue;
+    const kind = reviewerKindOf(task.model);
     // A no-fix finding on a word another suggestion already fixes is the
     // same question twice; results saved before the backend dropped these
     // still carry them.
@@ -67,16 +78,24 @@ export function buildDeck(
       result.corrections.filter((c) => c.id && c.reason !== "dialect"),
     );
     const visible = inTextOrder(
-      answerable.filter((c) => showAll || !reviewerRejected(c)),
+      answerable.filter((c) => showAll || !heldBack(c, kind)),
       result.originalText,
     );
-    const main = visible.filter((c) => flagKindOf(c) !== "doubted");
-    const doubted = visible.filter((c) => flagKindOf(c) === "doubted");
-    for (const correction of [...main, ...doubted]) {
-      items.push({ taskId, taskName: task.name, correction, originalText: result.originalText });
-    }
+    const later = visible.filter((c) => optionalPolish(c, kind));
+    const rest = visible.filter((c) => !optionalPolish(c, kind));
+    const main = rest.filter((c) => flagKindOf(c) !== "doubted");
+    const doubted = rest.filter((c) => flagKindOf(c) === "doubted");
+    const item = (correction: Correction): DeckItem => ({
+      taskId,
+      taskName: task.name,
+      correction,
+      originalText: result.originalText,
+      optional: optionalPolish(correction, kind) || undefined,
+    });
+    items.push(...[...main, ...doubted].map(item));
+    polish.push(...later.map(item));
   }
-  return items;
+  return [...items, ...polish];
 }
 
 /** How many suggestions this job holds back, across every chapter. */
@@ -84,7 +103,10 @@ export function countHeldBack(entries: [string, TaskState][]): number {
   let n = 0;
   for (const [, task] of entries) {
     const cs = task.result?.corrections ?? [];
-    n += countRejected(cs.filter((c) => c.id && c.reason !== "dialect"));
+    n += countRejected(
+      cs.filter((c) => c.id && c.reason !== "dialect"),
+      reviewerKindOf(task.model),
+    );
   }
   return n;
 }
@@ -450,12 +472,14 @@ export default function ReviewDeck({
     // all; dismiss would throw away a real finding.
     const unfixable = item.correction.corrected === item.correction.original;
     const pct = certaintyPercent(item.correction);
-    const hint = !isReliable(item.correction)
+    const hint = item.optional
+      ? t("deck_betty_optional")
+      : !isReliable(item.correction)
       ? t("deck_betty_would_leave")
       : pct !== null && pct < UNSURE_BELOW
         ? t("deck_betty_unsure")
         : t("deck_betty_would_accept");
-    const tone = pct === null ? "none" : pct >= UNSURE_BELOW ? "sure" : pct >= 45 ? "mid" : "low";
+    const tone = item.optional ? "mid" : pct === null ? "none" : pct >= UNSURE_BELOW ? "sure" : pct >= 45 ? "mid" : "low";
     const reason = item.correction.reviewReason
       ? `“${item.correction.reviewReason}”`
       : kind === "doubted"

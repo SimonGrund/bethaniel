@@ -15,9 +15,10 @@
 //    unclenched. A word written the same way again and again is the
 //    author's, and the finding proposes no fix, so it can only be dismissed.
 //    The lexicon (lexicon.ts) protects coinages from five uses up; these are
-//    the ones under that bar and the ones it never saw. A repeated typo is
-//    not lost by this: the dictionary's guesses (reason "spell-check") are
-//    untouched — only the no-guess finding is withheld.
+//    the ones under that bar and the ones it never saw. A spelling GUESS on
+//    such a word is dropped too, but only when it cannot be a repeated typo:
+//    the word is capitalised, or the guess only splits it or recases it
+//    (`guessOnOwnWord`). "definately" written three times keeps its guess.
 //
 // Both run where gateProtectedTerms runs (queue.ts), on every source at once,
 // and hand back what they drop so it is listed as left alone, not lost.
@@ -105,13 +106,43 @@ export function recurringUnknownWords(
   return out.sort();
 }
 
+/** The spelling sources: Hunspell's guesses and LanguageTool's spelling rule. */
+const SPELLING_GUESS = new Set(["spell-check", "spell-check-uncommon", "grammar:typos"]);
+
+const fold = (w: string) => w.toLowerCase().replace(/’/g, "'");
+
+/**
+ * A spelling guess on one of the book's own recurring words that cannot be a
+ * repeated typo: the word is capitalised (a name — Blackskull → Black skull,
+ * Tua’na → Tua’NBA), the guess only splits it (darkwood → dark wood,
+ * drylands → dry lands), or only changes its case. Measured on the same
+ * novel, cloud and local: 34 of 38 sampled spelling-rule suggestions were
+ * wrong, nearly all of these shapes. A lowercase word the author misspells
+ * the same way three times ("definately") still gets its guess.
+ */
+function guessOnOwnWord(c: Correction, recurring: ReadonlySet<string>): boolean {
+  const after = new Set(words(c.corrected).map((x) => x.w));
+  for (const { w } of words(c.original)) {
+    if (after.has(w) || !recurring.has(fold(w))) continue;
+    const joined = c.corrected.replace(/[\s-]+/g, "");
+    const capitalised = isUpper(w[0]);
+    const onlySplit = joined.toLowerCase().includes(w.toLowerCase());
+    const onlyCase = words(c.corrected).some((x) => x.w.toLowerCase() === w.toLowerCase());
+    if (capitalised || onlySplit || onlyCase) return true;
+  }
+  return false;
+}
+
 export function dropRecurringUnknowns(cs: Correction[], recurring: ReadonlySet<string>): NoiseGateResult {
   if (recurring.size === 0) return { kept: cs, dropped: [] };
+  const folded = new Set([...recurring].map(fold));
   const kept: Correction[] = [];
   const dropped: NoiseGateResult["dropped"] = [];
   for (const c of cs) {
-    if (c.reason === "spell-check-unknown" && recurring.has(bare(c.original))) {
+    if (c.reason === "spell-check-unknown" && folded.has(fold(bare(c.original)))) {
       dropped.push({ correction: c, why: "left alone: the manuscript uses this word three times or more" });
+    } else if (SPELLING_GUESS.has(c.reason ?? "") && !c.preApproved && guessOnOwnWord(c, folded)) {
+      dropped.push({ correction: c, why: "left alone: a spelling guess on a word the manuscript uses three times or more" });
     } else kept.push(c);
   }
   return { kept, dropped };

@@ -22,12 +22,30 @@
 // Six of six sampled 1s were plainly wrong. So a reviewer's 1 is held back by
 // default, and an author who wants the whole list can ask for it.
 //
-// Score 2 is NOT held back, though `flagKindOf` calls it "doubted" too. It
-// displays as 45% and reads like a coin flip rather than noise — `the East`
-// against `the east`, `woodsmoke` against `wood smoke`, `a whole lot` against
-// `a lot`. Those are real questions, and the author is the one who answers
-// them. Hiding a bucket that is right half the time would be a different and
-// worse change, so the line is drawn at the score, not at the flag.
+// Which other scores to hold back depends on WHICH reviewer gave them. That
+// was measured on 12 October 2026: the same 85k-word novel edited by Local
+// Betty (Qwen3.5-4B) and by Betty in the Cloud (DeepSeek-V4-Flash), 30
+// suggestions per score from each, judged blind (score, note and run hidden)
+// as right / neutral / wrong, in percent:
+//
+//              cloud                  local
+//   score 5    60 / 27 / 13           23 / 37 / 40
+//   score 4    37 / 53 / 10           33 / 40 / 27
+//   score 3    20 / 53 / 27            0 / 44 / 56   (only 9 in the run)
+//   score 2    20 / 60 / 20           10 / 20 / 70
+//   score 1    20 /  3 / 77           13 /  7 / 80
+//
+// The small local reviewer separates 1-3 from 4-5 and nothing finer: its 2s
+// and 3s are as wrong as its 1s, so on a local run everything under 4 is held
+// back. The cloud reviewer's 2s and 3s are mostly harmless taste — "short
+// moment" against "brief moment" — so they are kept, but after everything
+// else in the job, as optional polish. An External Betty key is a large
+// hosted model too and is treated like the cloud. Thirty cards a bucket is
+// about ±15 points: the gaps above are real, ten-point differences are not.
+//
+// The planted-error benchmark put score 2 at about one in two. A finished
+// book has far fewer real errors than a planted fixture, which is why the
+// same score means less on one.
 
 import type { Correction } from "./types";
 
@@ -46,11 +64,37 @@ export function reviewerRejected(c: Pick<Correction, "confidence">): boolean {
   return c.confidence === REVIEWER_REJECTED_SCORE;
 }
 
+/** Whose scores these are: the small model on this machine, or a large
+ *  hosted one (Betty in the Cloud, External Betty). A result without a model
+ *  is read as hosted, which holds back only the 1s, as before. */
+export type ReviewerKind = "local" | "hosted";
+
+export function reviewerKindOf(model: string | null | undefined): ReviewerKind {
+  if (!model) return "hosted";
+  return model.startsWith("custom:") && !model.startsWith("custom:gguf") ? "hosted" : "local";
+}
+
+/** The lowest score a local reviewer's suggestion needs to be shown. */
+const LOCAL_SHOWN_FROM = 4;
+
+/** Held back by default: shown only when the author asks for everything. */
+export function heldBack(c: Pick<Correction, "confidence">, kind: ReviewerKind): boolean {
+  if (c.confidence == null) return false;
+  return kind === "local" ? c.confidence < LOCAL_SHOWN_FROM : reviewerRejected(c);
+}
+
+/** Kept, but after every other suggestion in the job: a hosted reviewer's 2s
+ *  and 3s, which measured as mostly harmless matters of taste. */
+export function optionalPolish(c: Pick<Correction, "confidence">, kind: ReviewerKind): boolean {
+  return kind === "hosted" && (c.confidence === 2 || c.confidence === 3);
+}
+
 /** How many of these the deck would hold back. */
 export function countRejected(
   corrections: Pick<Correction, "confidence">[],
+  kind: ReviewerKind = "hosted",
 ): number {
-  return corrections.filter(reviewerRejected).length;
+  return corrections.filter((c) => heldBack(c, kind)).length;
 }
 
 export interface Progress {

@@ -31,6 +31,7 @@ import type {
   GpuEngineStatus,
   DetectedSettings,
 } from "./types";
+import { heldBack, optionalPolish, reviewerKindOf } from "./deckProgress";
 import type { CodeBalance } from "./codeBalanceNote";
 import type { PendingTranslationBrief } from "./translationBrief";
 import type { SheetDecision } from "./styleSheetDecisions";
@@ -1076,10 +1077,13 @@ export const useStore = create<AppState>()(
           // and, on results saved before that pass was removed, doubted by
           // the precision pass alone) measure as reliable as
           // unflagged work, so excluding them made "accept all" quietly drop
-          // most of what Betty got right.
+          // most of what Betty got right. Nor what the deck holds back or
+          // leaves for last as optional polish (deckProgress.ts): accepting
+          // all must not accept what the author was never shown.
+          const kind = reviewerKindOf(task.model);
           const ids = new Set(
             task.result.corrections
-              .filter(isReliable)
+              .filter((c) => isReliable(c) && !heldBack(c, kind) && !optionalPolish(c, kind))
               .map((c) => c.id ?? "")
               .filter(Boolean),
           );
@@ -1103,10 +1107,11 @@ export const useStore = create<AppState>()(
           for (const tid of taskIds) {
             const task = state.tasks[tid];
             if (!task?.result) continue;
-            // Same rule as acceptAll: only the doubted bucket is skipped.
+            // Same rule as acceptAll.
+            const kind = reviewerKindOf(task.model);
             const ids = new Set(
               task.result.corrections
-                .filter(isReliable)
+                .filter((c) => isReliable(c) && !heldBack(c, kind) && !optionalPolish(c, kind))
                 .map((c) => c.id ?? "")
                 .filter(Boolean),
             );

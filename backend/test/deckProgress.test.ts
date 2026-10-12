@@ -12,6 +12,10 @@
 // Hiding a bucket that is right half the time would be a worse change than
 // the one being fixed, so these tests pin both halves of that line.
 //
+// That held for a hosted reviewer. Measured on one real novel in October
+// 2026, the small local reviewer's 2s and 3s were as wrong as its 1s, so a
+// local run now holds back everything under 4 (the tests at the end).
+//
 // Pure, and tested from here because the frontend has no test runner.
 
 import { test } from "node:test";
@@ -19,7 +23,10 @@ import assert from "node:assert/strict";
 
 import {
   countRejected,
+  heldBack,
+  optionalPolish,
   progressOf,
+  reviewerKindOf,
   reviewerRejected,
   REVIEWER_REJECTED_SCORE,
 } from "../../frontend/src/deckProgress.ts";
@@ -118,4 +125,34 @@ test("nonsense in cannot produce nonsense out", () => {
   assert.equal(progressOf(500, 400).percent, 100);
   assert.equal(progressOf(-3, 400).percent, 0);
   assert.equal(progressOf(5, -1).percent, 100);
+});
+
+// ── Whose reviewer it was (measured 12 October 2026, deckProgress.ts) ──
+
+test("the reviewer's kind is read off the task's model", () => {
+  assert.equal(reviewerKindOf("Qwen3.5-4B-Q4_K_M.gguf"), "local");
+  assert.equal(reviewerKindOf("custom:gguf"), "local");
+  assert.equal(reviewerKindOf("custom:bethaniel-cloud"), "hosted");
+  assert.equal(reviewerKindOf("custom:deepseek-chat"), "hosted");
+  // Older results without a model keep the old rule.
+  assert.equal(reviewerKindOf(undefined), "hosted");
+});
+
+test("a local run holds back everything under 4; a hosted one only the 1s", () => {
+  for (const score of [1, 2, 3]) assert.equal(heldBack({ confidence: score }, "local"), true);
+  for (const score of [4, 5]) assert.equal(heldBack({ confidence: score }, "local"), false);
+  assert.equal(heldBack({ confidence: 1 }, "hosted"), true);
+  for (const score of [2, 3, 4, 5]) assert.equal(heldBack({ confidence: score }, "hosted"), false);
+  // Never scored: not a verdict, so not held back.
+  assert.equal(heldBack({}, "local"), false);
+  assert.equal(countRejected([{ confidence: 1 }, { confidence: 2 }, { confidence: 3 }, { confidence: 4 }], "local"), 3);
+  assert.equal(countRejected([{ confidence: 1 }, { confidence: 2 }, { confidence: 3 }, { confidence: 4 }]), 1);
+});
+
+test("a hosted reviewer's 2s and 3s are optional polish; a local run has none", () => {
+  assert.equal(optionalPolish({ confidence: 2 }, "hosted"), true);
+  assert.equal(optionalPolish({ confidence: 3 }, "hosted"), true);
+  assert.equal(optionalPolish({ confidence: 4 }, "hosted"), false);
+  assert.equal(optionalPolish({ confidence: 1 }, "hosted"), false);
+  assert.equal(optionalPolish({ confidence: 2 }, "local"), false);
 });

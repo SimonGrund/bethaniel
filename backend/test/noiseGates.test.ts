@@ -77,3 +77,28 @@ test("only the no-guess finding is withheld for them, never a fix", () => {
     ["coliseum", "outsail"],
   );
 });
+
+test("a spelling guess on the book's own recurring word is dropped when it cannot be a repeated typo", () => {
+  const recurring = new Set(["blackskull", "tua’na", "darkwood", "definately"]);
+  const { kept, dropped } = dropRecurringUnknowns(
+    [
+      // A name: capitalised.
+      { original: "of Blackskull,", corrected: "of Black skull,", reason: "grammar:typos" },
+      { original: "Tua’na has", corrected: "Tua’NBA has", reason: "grammar:typos" },
+      // Only split.
+      { original: "darkwood facades", corrected: "dark wood facades", reason: "grammar:typos" },
+      // A lowercase word written wrongly three times keeps its guess.
+      { original: "definately", corrected: "definitely", reason: "spell-check" },
+      // A pre-approved fix is the author's or confirmed twice.
+      { original: "Blackskull", corrected: "Black skull", reason: "spell-check", preApproved: true },
+      // Not a spelling source.
+      { original: "Blackskull", corrected: "Black skull", reason: "copy" },
+    ],
+    recurring,
+  );
+  assert.equal(dropped.length, 3);
+  assert.deepEqual(
+    kept.map((c) => c.corrected),
+    ["definitely", "Black skull", "Black skull"],
+  );
+});
