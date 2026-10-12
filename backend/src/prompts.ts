@@ -1322,6 +1322,21 @@ export function buildLanguageEnhanceAdvicePrompt(manuscriptLang?: string): strin
 // REVIEWER — second-pass critical review of editor corrections
 // ═══════════════════════════════════════════════════════════════════
 
+/**
+ * What separates a 4 from a 3 for anything that is not an outright error.
+ *
+ * Measured blind on a real 85k-word novel (October 2026): the cloud
+ * reviewer gave 4 to 241 line edits, and of those sampled one was right,
+ * eleven were harmless taste ("looked at it" → "studied it", "weaponry" →
+ * "weapons", an optional comma) and two were wrong. Its rubric said "4:
+ * likely correct — reasonable change", and a synonym swap is reasonable.
+ * The deck shows a hosted reviewer's 3s after everything else as optional
+ * polish and hides a local reviewer's (deckProgress.ts), so the line between
+ * 3 and 4 is the line between "worth the author's time" and "taste".
+ */
+const TASTE_RULE = `
+WHAT A 4 OR 5 MEANS FOR A STYLISTIC CHANGE: before scoring a line edit — or an optional comma, hyphen or word choice — 4 or 5, name the PROBLEM in the ORIGINAL in your reason: an ambiguity, a clumsy repetition, a tangled sentence, a misused word, a rhythm that trips the reader. If the original was fine and the change is merely different — a synonym swap, a reordering, a trimmed word, a comma that was optional — score it 3: a matter of taste the author may take or leave. On polished prose most line edits are 3.`;
+
 export function buildReviewerPrompt(
   styleGuide?: string,
   mode: TaskMode = "copy_edit",
@@ -1360,6 +1375,7 @@ Common LINE-EDIT mistakes to flag:
 - Flattening the author's distinctive voice into generic "good writing"
 - Changing meaning, plot, or character action; making the prose blander or wordier
 - A rewrite that is merely a lateral change, no better than the original (score 2-3)
+${TASTE_RULE}
 
 IMPORTANT: Hyphenated compound adjectives (e.g. "well-known author") are standard grammar — adding a hyphen to form a compound modifier before a noun is VALID; do NOT flag it as "adding punctuation." Score 4-5 unless the hyphen creates confusion.`;
   } else if (isLine) {
@@ -1372,7 +1388,8 @@ Common line-edit mistakes to flag:
 - Changing the meaning, plot, or character action
 - Making the prose blander, wordier, or more clichéd than the original
 - A purely lateral rewrite that is no better than the original (score 2-3)
-- Suggestions that contradict the author's stated preferences (see style sheet, if any)`;
+- Suggestions that contradict the author's stated preferences (see style sheet, if any)
+${TASTE_RULE}`;
   } else {
     p += `
 
