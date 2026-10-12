@@ -70,7 +70,7 @@ import {
   reviewCorrectionsStream,
   parseReviewScores,
 } from "./llm.js";
-import { findNewSuspectWords, getWordValidator } from "./spellcheck.js";
+import { findNewSuspectWords, getWordValidator, isSentenceInitial } from "./spellcheck.js";
 import {
   buildLexiconSheetBlock,
   harvestLexicon,
@@ -126,6 +126,7 @@ import {
 } from "./translationBrief.js";
 import { parseTermList } from "./termList.js";
 import { houseStyleQuestions } from "./houseStyle.js";
+import { readStyleSheet, ruleEvidence, sheetJob } from "./styleSheetRules.js";
 import { writeXlsx } from "./xlsxWriter.js";
 import { ensureGpuEngine, getGpuEngineStatus } from "./gpuEngineManager.js";
 import { withTransientRetry } from "./retryPolicy.js";
@@ -722,6 +723,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
       styleComplianceAgent,
       extraPass,
       runMode,
+      sheetRules,
     } = req.body;
 
     // Run-mode preset (speed). Fills any knob the caller
@@ -850,8 +852,19 @@ router.post("/queue/add", async (req: Request, res: Response) => {
     // Kept apart from the author's text where the difference matters — the
     // style-compliance agent is an extra model call the author opts into by
     // writing a sheet, and a harvested list must not opt them in.
-    const authorStyleGuide: string = typeof styleGuide === "string" ? styleGuide : "";
-    const protectedTerms = protectedTermsOf(doc.lexicon);
+    // The author's own words, with the statements they confirmed as rules
+    // taken out: those are enforced by code (styleSheetRules.ts), and told
+    // to the editor as well they were what made it write "Take" over "bolt".
+    const sheet = sheetJob(typeof styleGuide === "string" ? styleGuide : "", sheetRules);
+    const authorStyleGuide: string = sheet.guide;
+    const lexiconTerms = protectedTermsOf(doc.lexicon);
+    const protectedTerms =
+      sheet.keep.length > 0
+        ? {
+            words: [...new Set([...(lexiconTerms?.words ?? []), ...sheet.keep.filter((t) => !/\s/.test(t))])],
+            phrases: [...new Set([...(lexiconTerms?.phrases ?? []), ...sheet.keep.filter((t) => /\s/.test(t))])],
+          }
+        : lexiconTerms;
     const lexiconBlock = buildLexiconSheetBlock(protectedTerms);
     const promptStyleGuide = [authorStyleGuide.trim(), lexiconBlock]
       .filter(Boolean)
@@ -1263,6 +1276,10 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           retextCheck: resolveKnob("retextCheck", retextCheck),
           consistentTerms,
           recurringUnknownWords: recurringUnknown,
+          sheetReplace: sheet.replace.length ? sheet.replace : undefined,
+          casingTerms: sheet.casing.length ? sheet.casing : undefined,
+          dialogueSpeakers: sheet.speakers.length ? sheet.speakers : undefined,
+          sheetFixes: sheet.fixes.length ? sheet.fixes : undefined,
           unitIndex,
           protectedTerms: currentMode === "translate" ? undefined : protectedTerms ?? undefined,
           grammarCheck: resolveKnob("grammarCheck", grammarCheck),
@@ -2934,6 +2951,56 @@ router.post("/edits/house-style", (req: Request, res: Response) => {
       typeof body.styleGuide === "string" ? body.styleGuide : "",
     ),
   });
+});
+
+// ── The author's style sheet, read into rules (styleSheetRules.ts) ──
+// Asked of the model that will run the job — Local Betty before a local
+// run, the cloud credential after a cloud run is paid for — one small
+// question per statement Betty has not read before (`known`). Never fails
+// the author: a statement the model could not read is a note, and a note is
+// the sheet as it always was.
+router.post("/edits/style-sheet/read", async (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  const units: string[] = Array.isArray(body.units)
+    ? body.units.filter((u: unknown): u is string => typeof u === "string")
+    : [];
+  const book = units.join("\n\n");
+  const sheet = typeof body.styleGuide === "string" ? body.styleGuide.slice(0, 200_000) : "";
+  const model = typeof body.model === "string" && body.model ? body.model : defaultModelFileName();
+  const known = new Set(
+    Array.isArray(body.known) ? body.known.filter((k: unknown): k is string => typeof k === "string") : [],
+  );
+  const doc = typeof body.docId === "string" ? getDocument(body.docId) : null;
+  // The names the dialogue card offers: the book's own, most used first.
+  const names = (doc?.lexicon?.terms ?? [])
+    .filter((t) => t.enabled && t.kind === "name")
+    .map((t) => ({ term: t.term, count: t.count }));
+  const ac = new AbortController();
+  res.on("close", () => {
+    if (!res.writableEnded) ac.abort();
+  });
+  try {
+    const rules = await readStyleSheet(sheet, book, {
+      llm: (system, user) =>
+        withTransientRetry(
+          async () => {
+            let acc = "";
+            for await (const tok of analyzeStream(model, user, system, ac.signal)) acc += tok;
+            return acc;
+          },
+          { attempts: 2, signal: ac.signal },
+        ),
+      skip: (statement) => known.has(statement),
+    });
+    res.json({
+      rules: rules.map((r) => ({ ...r, evidence: ruleEvidence(r, book, isSentenceInitial, names) })),
+    });
+  } catch (err) {
+    console.warn(
+      `[StyleSheet] read failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    res.json({ rules: [], degraded: true });
+  }
 });
 
 // ── Translation brief: Betty's questions before a paid translation ──

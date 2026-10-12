@@ -29,6 +29,8 @@ import CodeBalanceNote from "./CodeBalanceNote";
 import { refreshModelEnvironment } from "../useModelRuntime";
 import { useCloudPurchase } from "../cloudPurchase";
 import { formatPrice } from "../formatPrice";
+import StyleSheetQuestions from "./StyleSheetQuestions";
+import { rulesForRun } from "../styleSheetDecisions";
 
 /** The modes Betty asks about house style for (EditQuestions). Not the
  *  translation, which has its own questions, nor analysis. */
@@ -261,6 +263,13 @@ export default function EditTrigger() {
       });
       return;
     }
+    // An edit with a style sheet: Betty reads it on the paid credential
+    // first (StyleSheetQuestions), and the run is submitted from there.
+    const s = useStore.getState();
+    if (s.styleGuide.trim() && s.selectedModes.some((m) => HOUSE_STYLE_MODES.includes(m))) {
+      s.setPendingSheetRead(true);
+      return;
+    }
     await runPaid();
   });
 
@@ -373,7 +382,16 @@ export default function EditTrigger() {
     const lexicon = useStore.getState().lexicon;
     if (doc && lexicon) await putLexicon(doc.id, lexicon).catch(() => {});
     if (cloud) setCloudConfirmOpen(true);
+    // A local run reads the style sheet now, with the model that will run
+    // it; a cloud run does after the payment (pendingSheetRead).
+    else if (useStore.getState().styleGuide.trim()) setReadingSheet(true);
     else void handleClickRef.current();
+  };
+  const [readingSheet, setReadingSheet] = useState(false);
+  const pendingSheetRead = useStore((s) => s.pendingSheetRead);
+  const paidSheetDone = () => {
+    useStore.getState().setPendingSheetRead(false);
+    void runPaid();
   };
 
   // Two steps, deliberately. The button opens the confirmation; only the
@@ -450,6 +468,10 @@ export default function EditTrigger() {
         styleComplianceAgent,
         extraPass,
         runMode,
+        sheetRules: rulesForRun(
+          useStore.getState().sheetDecisions[doc.id],
+          useStore.getState().styleGuide,
+        ),
       });
       if (taskIds.warnings.length > 0) {
         alert(`⚠️ ${t("perf_warning")}\n\n${taskIds.warnings.join("\n\n")}`);
@@ -950,6 +972,30 @@ export default function EditTrigger() {
             void proceed(cloud);
           }}
           onClose={() => setHouseStyle(null)}
+        />
+      )}
+      {doc && (readingSheet || pendingSheetRead) && (
+        <StyleSheetQuestions
+          lang={lang}
+          docId={doc.id}
+          units={units.map((u) => u.original)}
+          guide={styleGuide}
+          model={pendingSheetRead ? "custom:bethaniel-cloud" : model}
+          manuscriptLang={manuscriptLang}
+          cloud={pendingSheetRead}
+          onDone={() => {
+            if (pendingSheetRead) paidSheetDone();
+            else {
+              setReadingSheet(false);
+              void handleClickRef.current();
+            }
+          }}
+          // A paid run starts anyway, with what was decided before; a local
+          // one is simply not started, like the questions before it.
+          onClose={() => {
+            if (pendingSheetRead) paidSheetDone();
+            else setReadingSheet(false);
+          }}
         />
       )}
       {pendingTranslationBrief && doc && (

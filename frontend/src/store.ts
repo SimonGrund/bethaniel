@@ -33,6 +33,7 @@ import type {
 } from "./types";
 import type { CodeBalance } from "./codeBalanceNote";
 import type { PendingTranslationBrief } from "./translationBrief";
+import type { SheetDecision } from "./styleSheetDecisions";
 import {
   DEFAULT_COPY_EDIT_OPTIONS,
   DEFAULT_LINE_EDIT_OPTIONS,
@@ -257,6 +258,15 @@ interface AppState {
    *  bought, and closing the app must not lose the run. */
   pendingTranslationBrief: PendingTranslationBrief | null;
   setPendingTranslationBrief: (p: PendingTranslationBrief | null) => void;
+  /** The author's answers about Betty's reading of their style sheet, per
+   *  document, keyed by statement (styleSheetDecisions.ts). */
+  sheetDecisions: Record<string, Record<string, SheetDecision>>;
+  saveSheetDecisions: (docId: string, decisions: SheetDecision[]) => void;
+  /** A paid cloud edit waiting for Betty to read the style sheet — the read
+   *  happens after payment, on the paid credential. Persisted: the payment
+   *  is spent, and a restart must come back to it. */
+  pendingSheetRead: boolean;
+  setPendingSheetRead: (b: boolean) => void;
 
   /**
    * The author's promo code, and what it has left.
@@ -789,6 +799,19 @@ export const useStore = create<AppState>()(
 
       pendingTranslationBrief: null,
       setPendingTranslationBrief: (pendingTranslationBrief) => set({ pendingTranslationBrief }),
+      sheetDecisions: {},
+      saveSheetDecisions: (docId, decisions) =>
+        set((st) => ({
+          sheetDecisions: {
+            ...st.sheetDecisions,
+            [docId]: {
+              ...st.sheetDecisions[docId],
+              ...Object.fromEntries(decisions.map((d) => [d.source, d])),
+            },
+          },
+        })),
+      pendingSheetRead: false,
+      setPendingSheetRead: (pendingSheetRead) => set({ pendingSheetRead }),
 
       promoCode: "",
       setPromoCode: (promoCode) => set({ promoCode }),
@@ -1466,6 +1489,8 @@ export const useStore = create<AppState>()(
         lineEditOptions: state.lineEditOptions,
         targetLang: state.targetLang,
         pendingTranslationBrief: state.pendingTranslationBrief,
+        sheetDecisions: state.sheetDecisions,
+        pendingSheetRead: state.pendingSheetRead,
         manuscriptLang: state.manuscriptLang,
         wordsPerChunk: state.wordsPerChunk,
         overlapParagraphs: state.overlapParagraphs,

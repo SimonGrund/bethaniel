@@ -23,3 +23,7 @@ electron/resources/languagetool/*
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Engine and LanguageTool downloaded by the dev backend
+backend/engine/
+backend/languagetool/

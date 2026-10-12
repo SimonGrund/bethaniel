@@ -15,6 +15,7 @@ import type {
 import type { CodeBalance } from "./codeBalanceNote";
 import type { BriefQuestion, GlossaryRow } from "./translationBrief";
 import type { ConsistencyQuestion } from "./houseStyleAnswers";
+import type { ConfirmedSheetRule, SheetRuleView } from "./styleSheetDecisions";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -326,6 +327,8 @@ export async function addToQueue(params: {
   styleComplianceAgent?: boolean;
   extraPass?: boolean;
   runMode?: string;
+  /** The style-sheet rules the author confirmed (styleSheetDecisions.ts). */
+  sheetRules?: ConfirmedSheetRule[];
 }): Promise<{ taskIds: string[]; jobId: string; warnings: string[] }> {
   const res = await apiFetch("/queue/add", {
     method: "POST",
@@ -1026,6 +1029,37 @@ export async function getHouseStyleQuestions(req: {
     });
     const data = await res.json();
     return Array.isArray(data.questions) ? data.questions : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The author's style sheet read into rules (backend/src/styleSheetRules.ts),
+ * by the model that will run the job. `known` are the statements already
+ * decided, not read again. Never throws: a failure is "nothing to ask", and
+ * the sheet goes to the editor as written.
+ */
+export async function readStyleSheet(
+  req: {
+    docId: string;
+    units: string[];
+    styleGuide: string;
+    model: string;
+    known: string[];
+    manuscriptLang: string;
+  },
+  signal?: AbortSignal,
+): Promise<SheetRuleView[]> {
+  try {
+    const res = await apiFetch("/edits/style-sheet/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal,
+    });
+    const data = await res.json();
+    return Array.isArray(data.rules) ? data.rules : [];
   } catch {
     return [];
   }

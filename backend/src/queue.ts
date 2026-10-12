@@ -70,6 +70,7 @@ import {
 } from "./correctionHygiene.js";
 import { gateProtectedTerms } from "./lexicon.js";
 import { dropRecurringUnknowns, dropSentenceStartLowercasing } from "./noiseGates.js";
+import { dropCasingChanges, dropDialogueEdits, sheetFixCorrections } from "./sheetGates.js";
 import type { ProtectedTerms } from "./lexicon.js";
 import {
   classifyPublicationBlocking,
@@ -334,6 +335,13 @@ interface JobData {
   consistentTerms?: string[];
   /** Unknown words the manuscript uses three times or more (noiseGates.ts). */
   recurringUnknownWords?: string[];
+  /** The author's confirmed style-sheet rules (styleSheetRules.ts), enforced
+   *  by code: "write X, not Y", words whose capital is the author's, the
+   *  characters whose speech is left alone, and the spellings they ticked. */
+  sheetReplace?: { prefer: string; avoid: string[] }[];
+  casingTerms?: string[];
+  dialogueSpeakers?: string[];
+  sheetFixes?: { original: string; corrected: string }[];
   /** The document's confirmed names & terms (lexicon.ts). A correction
    *  that would change one is dropped before any reviewer sees it. */
   protectedTerms?: ProtectedTerms;
@@ -2159,12 +2167,17 @@ async function processJob(job: JobData): Promise<void> {
 
               // ── The author's "write X, not Y" lines, as find-and-replace
               // (houseStyleRules.ts). Pre-approved: the author decided them.
-              if (job.styleGuide) {
+              // The style sheet's confirmed rules join them, with the
+              // spellings the author ticked (styleSheetRules.ts).
+              if (job.styleGuide || job.sheetReplace?.length || job.sheetFixes?.length) {
                 const { parseHouseStyleRules, getHouseStyleCorrections } = await import(
                   "./houseStyleRules.js"
                 );
-                const rules = parseHouseStyleRules(job.styleGuide);
-                const houseCs = rules.length ? getHouseStyleCorrections(chunk.body, rules) : [];
+                const rules = [...parseHouseStyleRules(job.styleGuide ?? ""), ...(job.sheetReplace ?? [])];
+                const houseCs = [
+                  ...(rules.length ? getHouseStyleCorrections(chunk.body, rules) : []),
+                  ...sheetFixCorrections(chunk.body, job.sheetFixes ?? []),
+                ];
                 if (houseCs.length > 0) {
                   spellCorrections = [...spellCorrections, ...houseCs];
                   appendLog({
@@ -2630,15 +2643,23 @@ async function processJob(job: JobData): Promise<void> {
             caseGate.kept,
             new Set(job.recurringUnknownWords ?? []),
           );
-          const cs: Correction[] = unknownGate.kept;
-          const noise = [...caseGate.dropped, ...unknownGate.dropped];
+          // The author's confirmed style-sheet rules (sheetGates.ts).
+          const casingGate = dropCasingChanges(unknownGate.kept, job.casingTerms ?? []);
+          const speechGate = dropDialogueEdits(casingGate.kept, chunk.body, job.dialogueSpeakers ?? []);
+          const cs: Correction[] = speechGate.kept;
+          const noise = [
+            ...caseGate.dropped,
+            ...unknownGate.dropped,
+            ...casingGate.dropped,
+            ...speechGate.dropped,
+          ];
           if (noise.length > 0) {
             skipped.push(...noise.map(({ correction, why }) => ({ ...correction, reason: why })));
             appendLog({
               level: "info",
               source: "engine",
               taskId,
-              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly.`,
+              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly, ${casingGate.dropped.length + speechGate.dropped.length} went against the style sheet's rules.`,
               model,
             });
           }
@@ -3480,6 +3501,10 @@ export async function submitTask(
       correctionsDigest: data.correctionsDigest,
       consistentTerms: data.consistentTerms,
       recurringUnknownWords: data.recurringUnknownWords,
+      sheetReplace: data.sheetReplace,
+      casingTerms: data.casingTerms,
+      dialogueSpeakers: data.dialogueSpeakers,
+      sheetFixes: data.sheetFixes,
       protectedTerms: data.protectedTerms,
       unitIndex: data.unitIndex,
     },
@@ -3681,6 +3706,10 @@ export async function retryTask(id: string): Promise<string> {
     // the second attempt judges names the first one was told to leave alone.
     consistentTerms: spec.consistentTerms,
     recurringUnknownWords: spec.recurringUnknownWords,
+    sheetReplace: spec.sheetReplace,
+    casingTerms: spec.casingTerms,
+    dialogueSpeakers: spec.dialogueSpeakers,
+    sheetFixes: spec.sheetFixes,
     protectedTerms: spec.protectedTerms,
     unitIndex: spec.unitIndex,
     resumeState,
