@@ -17,7 +17,7 @@
 // has no test runner.
 
 import { adjustSeamPunctuation, findAllOccurrences } from "./correctionApply";
-import { certaintyPercent, isReliable } from "./types";
+import { isReliable, reviewerScore } from "./types";
 import type { Correction } from "./types";
 
 /**
@@ -74,7 +74,7 @@ export interface NoteStrings {
   wouldAccept: string;
   unsure: string;
   wouldLeave: string;
-  /** "{pct}% sure" */
+  /** "score {score}/5" */
   sure: string;
   /** Said on a suggestion the author already accepted in Betty. */
   accepted: string;
@@ -82,8 +82,8 @@ export interface NoteStrings {
   also: string;
 }
 
-/** Below this, Betty is unsure — the deck's own line (ReviewDeck.tsx). */
-const UNSURE_BELOW = 70;
+/** Below this score, Betty is unsure — the deck's own line (ReviewDeck.tsx). */
+const UNSURE_BELOW = 4;
 
 /**
  * The comment on one suggestion: why Betty proposed it, how sure she is, and
@@ -96,17 +96,17 @@ export function noteFor(
   s: NoteStrings,
   alsoSuggested: Correction[] = [],
 ): string {
-  const pct = certaintyPercent(c);
+  const score = reviewerScore(c);
   const hint = !isReliable(c)
     ? s.wouldLeave
-    : pct !== null && pct < UNSURE_BELOW
+    : score !== null && score < UNSURE_BELOW
       ? s.unsure
       : s.wouldAccept;
   // The argument first: it is what the author reads to decide. How sure Betty
   // is follows it, as a verdict on the argument rather than a preface to it.
   const lines: string[] = [];
   if (c.reviewReason?.trim()) lines.push(c.reviewReason.trim());
-  lines.push(pct !== null ? `${hint} (${s.sure.replace("{pct}", String(pct))})` : hint);
+  lines.push(score !== null ? `${hint} (${s.sure.replace("{score}", String(score))})` : hint);
   if (accepted) lines.push(s.accepted);
   for (const other of alsoSuggested) {
     lines.push(s.also.replace("{change}", `“${other.original}” → “${other.corrected}”`));

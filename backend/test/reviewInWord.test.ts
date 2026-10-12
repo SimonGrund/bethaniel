@@ -17,7 +17,7 @@ const S = {
   wouldAccept: "Betty would accept this",
   unsure: "Betty is unsure of this one",
   wouldLeave: "Betty would leave this",
-  sure: "{pct}% sure",
+  sure: "score {score}/5",
   accepted: "You accepted this in Betty.",
   also: "Betty also suggested: {change}",
 };
@@ -60,8 +60,8 @@ test("a finding with no fix changes nothing", () => {
 test("the comment gives the reason first, then how sure Betty is", () => {
   assert.equal(
     noteFor(c("a", "b", { confidence: 5, reviewReason: "Common misspelling." }), false, S),
-    // A top score reads 82%: the calibrated figure the deck card shows.
-    "Common misspelling.\nBetty would accept this (82% sure)",
+    // The reviewer's own score, as the deck card shows it.
+    "Common misspelling.\nBetty would accept this (score 5/5)",
   );
 });
 

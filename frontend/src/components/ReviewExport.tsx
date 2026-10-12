@@ -36,7 +36,7 @@ import type { TaskState, Correction, LanguageAnalysisReport, LanguageEnhanceResu
 import {
   ANALYSIS_MODES,
   EDIT_MODES,
-  certaintyPercent,
+  reviewerScore,
   flagKindOf,
   isReliable,
 } from "../types";
@@ -354,9 +354,9 @@ export function VerdictBadge({
   const lang = useStore((s) => s.lang);
   const t = useTranslation(lang);
   const kind = flagKindOf(correction);
-  const pct = certaintyPercent(correction);
+  const score = reviewerScore(correction);
 
-  if (kind === "unreviewed" || kind === "unchecked" || pct === null) {
+  if (kind === "unreviewed" || kind === "unchecked" || score === null) {
     const state = kind === "unreviewed" ? "unreviewed" : "unchecked";
     const why = state === "unreviewed" ? t("flag_unreviewed_why") : t("flag_unchecked_why");
     return (
@@ -369,10 +369,8 @@ export function VerdictBadge({
     );
   }
 
-  const icon = pct >= 80 ? "🟢" : pct >= 60 ? "🟡" : pct >= 40 ? "🟠" : pct >= 20 ? "🔴" : "⛔";
-  // The reviewer's argument, and why a doubted one is doubted. The line
-  // saying how the percentage was arrived at is gone: it was arithmetic
-  // about the badge, not about the sentence.
+  const icon = ["⛔", "🔴", "🟠", "🟡", "🟢"][score - 1];
+  // The reviewer's argument, and why a doubted one is doubted.
   const doubt = kind === "doubted" ? t("flag_doubted_why") : "";
   const reviewerSaid = correction.reviewReason ? `“${correction.reviewReason}”` : "";
   const tip = [doubt, reviewerSaid].filter(Boolean).join("\n\n");
@@ -383,9 +381,9 @@ export function VerdictBadge({
       // The styled tooltip only. A native title beside it showed the same
       // words twice, a beat apart.
       data-tip={tip || undefined}
-      aria-label={t("verdict_aria").replace("{pct}", String(pct))}
+      aria-label={t("verdict_aria").replace("{score}", String(score))}
     >
-      {icon} {pct}%
+      {icon} {score}/5
       {!compact && kind === "doubted" && correction.reviewReason ? ` — ${correction.reviewReason}` : ""}
     </span>
   );

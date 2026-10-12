@@ -2384,10 +2384,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "El recuento se hace en este ordenador de todos modos. En la nube, el informe recibe además notas sobre mostrar y contar —tus propias líneas citadas, nunca reescritas— y un párrafo sobre cómo fortalecer tu escritura.",
   },
   verdict_aria: {
-    en: "{pct} percent certain",
-    da: "{pct} procent sikker",
-    de: "{pct} Prozent sicher",
-    es: "{pct} por ciento de certeza",
+    en: "Reviewer score {score} of 5",
+    da: "Bedømmelse {score} ud af 5",
+    de: "Wertung {score} von 5",
+    es: "Puntuación {score} de 5",
   },
   chapter_select_placeholder: {
     en: "Choose a chapter to review…",
@@ -4410,11 +4410,11 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Betty schlägt vor",
     es: "Betty sugiere",
   },
-  deck_suggests_pct: {
-    en: "Betty suggests · {pct}% sure",
-    da: "Betty foreslår · {pct}% sikker",
-    de: "Betty schlägt vor · {pct}% sicher",
-    es: "Betty sugiere · {pct}% segura",
+  deck_suggests_score: {
+    en: "Betty suggests · score {score}/5",
+    da: "Betty foreslår · score {score}/5",
+    de: "Betty schlägt vor · Wertung {score}/5",
+    es: "Betty sugiere · puntuación {score}/5",
   },
   deck_more_context: {
     en: "More context",
@@ -5493,10 +5493,10 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "Carga el manuscrito de esta ejecución para revisarlo en Word.",
   },
   review_word_sure: {
-    en: "{pct}% sure",
-    da: "{pct}% sikker",
-    de: "zu {pct}% sicher",
-    es: "{pct}% segura",
+    en: "score {score}/5",
+    da: "score {score}/5",
+    de: "Wertung {score}/5",
+    es: "puntuación {score}/5",
   },
   review_word_accepted: {
     en: "You accepted this in Betty.",

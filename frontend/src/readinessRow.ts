@@ -16,7 +16,7 @@
 // that reads, so it is the form all three use — from these functions, so a
 // later edit to one cannot quietly leave the others behind.
 
-import { certaintyPercent, flagKindOf, type Correction } from "./types";
+import { flagKindOf, reviewerScore, type Correction } from "./types";
 
 export interface ReportIssue {
   location: string;
@@ -73,13 +73,13 @@ export function sourceOf(
   else if (reason.startsWith("retext:"))
     source = `${t("rr_src_text")} · ${reason.slice(7).replace(/-/g, " ")}`;
   else source = t("rr_src_betty");
-  const pct = certaintyPercent(c);
+  const score = reviewerScore(c);
   const kind = flagKindOf(c);
   const tail =
     kind === "unreviewed" || kind === "unchecked"
       ? t("flag_unchecked")
-      : pct !== null
-        ? `${pct}%`
+      : score !== null
+        ? `${score}/5`
         : "";
   return tail ? `${source} · ${tail}` : source;
 }

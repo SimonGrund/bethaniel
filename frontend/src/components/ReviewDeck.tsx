@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useStore } from "../store";
 import { useTranslation } from "../i18n";
-import { certaintyPercent, flagKindOf, isReliable } from "../types";
+import { flagKindOf, isReliable, reviewerScore } from "../types";
 import type { Correction, TaskState } from "../types";
 import { inTextOrder } from "../textLocate";
 import {
@@ -126,8 +126,8 @@ export function countUndecided(
 const LEAVE_MS = 260;
 /** How many of the suggestions after this one "More context" lists. */
 const UPCOMING = 3;
-/** Certainty under which the line says Betty is unsure rather than would accept. */
-const UNSURE_BELOW = 70;
+/** Score under which the line says Betty is unsure rather than would accept. */
+const UNSURE_BELOW = 4;
 /** The settings menu's "always show the explanation", remembered across
  *  sessions. Off by default: most cards are decided on the sentence alone. */
 const AUTO_WHY_KEY = "bethaniel.deck.autoWhy";
@@ -471,15 +471,15 @@ export default function ReviewDeck({
     // A finding that proposes nothing. Accept would change the text not at
     // all; dismiss would throw away a real finding.
     const unfixable = item.correction.corrected === item.correction.original;
-    const pct = certaintyPercent(item.correction);
+    const score = reviewerScore(item.correction);
     const hint = item.optional
       ? t("deck_betty_optional")
       : !isReliable(item.correction)
       ? t("deck_betty_would_leave")
-      : pct !== null && pct < UNSURE_BELOW
+      : score !== null && score < UNSURE_BELOW
         ? t("deck_betty_unsure")
         : t("deck_betty_would_accept");
-    const tone = item.optional ? "mid" : pct === null ? "none" : pct >= UNSURE_BELOW ? "sure" : pct >= 45 ? "mid" : "low";
+    const tone = item.optional ? "mid" : score === null ? "none" : score >= UNSURE_BELOW ? "sure" : score >= 2 ? "mid" : "low";
     const reason = item.correction.reviewReason
       ? `“${item.correction.reviewReason}”`
       : kind === "doubted"
@@ -521,9 +521,9 @@ export default function ReviewDeck({
         <div className="deck-card-head">
           <span className="deck-suggests" title={hint}>
             <span className={`deck-dot deck-dot-${tone}`} aria-hidden="true" />
-            {pct === null
+            {score === null
               ? `${t("deck_suggests")} · ${t(kind === "unreviewed" ? "flag_unreviewed" : "flag_unchecked")}`
-              : t("deck_suggests_pct").replace("{pct}", String(pct))}
+              : t("deck_suggests_score").replace("{score}", String(score))}
           </span>
           {isTop && (
             <span className="deck-card-toggles">

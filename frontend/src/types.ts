@@ -406,6 +406,19 @@ export function certaintyPercent(c: {
 }
 
 /**
+ * The reviewer's own score, 1-5, as the author sees it. The cards used to
+ * print `certaintyPercent` instead, but a percentage is a claim about how
+ * often the score is right, and that was measured on one fixture: on a
+ * finished novel (October 2026, deckProgress.ts) the same score meant very
+ * different things for a local and a hosted reviewer. The score itself is
+ * what the reviewer said; the deck decides what to do with it.
+ */
+export function reviewerScore(c: { confidence?: number }): number | null {
+  if (c.confidence == null) return null;
+  return Math.max(1, Math.min(5, Math.round(c.confidence)));
+}
+
+/**
  * Whether Betty is confident enough to tick this on the author's behalf.
  * Everything except the bucket a reviewer actually scored low, and the bucket
  * no reviewer ever saw — Betty cannot stand behind a verdict it never reached.

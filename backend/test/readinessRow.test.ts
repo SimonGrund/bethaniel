@@ -61,33 +61,33 @@ test("line breaks in the passage collapse to single spaces", () => {
 const correction = (over: Partial<Correction>): Correction =>
   ({ original: "a", corrected: "b", ...over }) as Correction;
 
-// `confidence` is the reviewer's 1-5 score, not a percentage — 5 reads as 82%.
+// `confidence` is the reviewer's 1-5 score, shown as it is: 5 reads as 5/5.
 test("a finding names the checker that made it", () => {
   assert.equal(
     sourceOf(correction({ reason: "spell-check", confidence: 5 }), t),
-    "rr_src_dictionary · 82%",
+    "rr_src_dictionary · 5/5",
   );
   assert.equal(
     sourceOf(correction({ reason: "grammar:UPPERCASE_SENTENCE_START", confidence: 4 }), t),
-    "rr_src_grammar · UPPERCASE SENTENCE START · 70%",
+    "rr_src_grammar · UPPERCASE SENTENCE START · 4/5",
   );
   assert.equal(
     sourceOf(correction({ reason: "retext:doubled-word", confidence: 4 }), t),
-    "rr_src_text · doubled word · 70%",
+    "rr_src_text · doubled word · 4/5",
   );
 });
 
 test("anything else is Betty's own reading", () => {
-  // "Betty · 82%" — the row from the report the panel now mirrors.
+  // "Betty · 5/5" — the row from the report the panel now mirrors.
   assert.equal(
     sourceOf(correction({ reason: "punctuation", confidence: 5 }), t),
-    "rr_src_betty · 82%",
+    "rr_src_betty · 5/5",
   );
 });
 
 test("an unreviewed correction says so instead of showing a score", () => {
-  // A percentage no reviewer produced would be a number the reader trusts for
+  // A score no reviewer produced would be a number the reader trusts for
   // no reason.
   const out = sourceOf(correction({ reason: "punctuation" }), t);
-  assert.ok(!out.includes("%"), `expected no percentage, got ${out}`);
+  assert.ok(!out.includes("/5"), `expected no score, got ${out}`);
 });
