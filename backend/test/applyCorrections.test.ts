@@ -335,3 +335,27 @@ test("a name dropped entirely is still caught", () => {
   assert.equal(applied.length, 0);
   assert.match(skipped[0]?.reason ?? "", /proper noun/i);
 });
+
+test("the same change with and without context: the smaller edit is the one applied", () => {
+  // LanguageTool pads its fix with the words around it; Hunspell does not.
+  // The text is the same either way, but the card shown is the one applied,
+  // and it must carry the source that found the typo.
+  const text = "Han bandt det med et bånnd. Det holdt.";
+  const [out, applied, skipped] = applyCorrections(text, [
+    { original: "et bånnd.", corrected: "et bånd.", reason: "grammar:typos" },
+    { original: "bånnd", corrected: "bånd", reason: "spell-check" },
+  ]);
+  assert.equal(out, "Han bandt det med et bånd. Det holdt.");
+  assert.deepEqual(applied.map((c) => c.reason), ["spell-check"]);
+  assert.match(skipped[0].reason ?? "", /same change as a smaller edit/);
+});
+
+test("a larger edit that changes more than the smaller one still wins", () => {
+  const text = "Han bandt det med et bånnd. Det holdt.";
+  const [out, applied] = applyCorrections(text, [
+    { original: "et bånnd.", corrected: "et stærkt bånd.", reason: "copy" },
+    { original: "bånnd", corrected: "bånd", reason: "spell-check" },
+  ]);
+  assert.equal(out, "Han bandt det med et stærkt bånd. Det holdt.");
+  assert.deepEqual(applied.map((c) => c.reason), ["copy"]);
+});

@@ -2028,6 +2028,20 @@ function typographicClass(ch: string): string {
  *
  * Returns [newText, applied, skipped].
  */
+/** Does `inner`, a span inside `outer`, make exactly the change `outer`
+ *  makes — `outer` being the same fix with untouched words around it? */
+function sameChangeInside(
+  inner: { pos: number; original: string; corrected: string },
+  outer: { pos: number; original: string; corrected: string },
+): boolean {
+  const at = inner.pos - outer.pos;
+  if (at < 0 || at + inner.original.length > outer.original.length) return false;
+  return (
+    outer.original.slice(0, at) + inner.corrected + outer.original.slice(at + inner.original.length) ===
+    outer.corrected
+  );
+}
+
 export function applyCorrections(
   text: string,
   corrections: Correction[],
@@ -2179,6 +2193,25 @@ export function applyCorrections(
     );
     if (!clash) {
       chosen.push(item);
+      continue;
+    }
+    // The same change, once with context and once without: LanguageTool
+    // pads its fix with the words around it ("et bånnd." → "et bånd."),
+    // Hunspell does not ("bånnd" → "bånd"). The text comes out identical
+    // either way, but the card shown is the one applied — and taking the
+    // larger one credited LanguageTool with every typo Hunspell also found,
+    // so holding LanguageTool's guesses back hid Hunspell's (Danish fixtures,
+    // October 2026). The smaller one carries the source that found it.
+    if (
+      !overlapSkipped.has(clash.correction) &&
+      sameChangeInside(item, clash)
+    ) {
+      chosen[chosen.indexOf(clash)] = item;
+      overlapSkipped.add(clash.correction);
+      skipped.push({
+        ...clash.correction,
+        reason: "the same change as a smaller edit (that one was applied)",
+      });
       continue;
     }
     if (overlapSkipped.has(item.correction)) continue;
