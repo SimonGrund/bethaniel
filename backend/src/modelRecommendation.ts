@@ -1,7 +1,10 @@
-// ── Is this machine worth running Betty on? ──
+// ── Which Local Betty, and is this machine worth running her on? ──
 //
-// There is one local model, so the question is not "which Betty" but "how
-// long will Local Betty take here, and is that a wait worth having".
+// There are two local models, and the user never chooses between them: a
+// strong machine gets the larger one (Gemma 4 12B), everything else the 4B.
+// Both are called Local Betty everywhere but the advanced model settings.
+// After that the question is "how long will she take here, and is that a
+// wait worth having".
 //
 // The answer has two layers:
 //
@@ -19,12 +22,13 @@
 
 import {
   MODEL_CATALOG,
+  getLargeLocalEntry,
   getLocalEntry,
   type ModelCatalogEntry,
 } from "./modelCatalog.js";
 
-/** The bundled local tier. */
-export const LOCAL_TIERS = ["small"] as const;
+/** The local tiers: the 4B ("small") and the larger model ("big"). */
+export const LOCAL_TIERS = ["small", "big"] as const;
 export type LocalTier = (typeof LOCAL_TIERS)[number];
 
 export interface HardwareInfo {
@@ -154,6 +158,45 @@ export function expectedWordsPerSec(hw: HardwareInfo): number {
   return CPU_WORDS_PER_SEC;
 }
 
+/**
+ * The larger model's speed against the table above, which is the 4B's.
+ * Decode is bandwidth-bound and its weights are 2.5x the 4B's, which would
+ * say 0.4; on the RTX 5090 it measured faster than the 4B on a whole novel
+ * (15 min against 18 — the pipeline's other passes dominate there). Taken
+ * between the two, and replaced by the measured rate after the first job.
+ */
+export const LARGE_MODEL_SPEED_FACTOR = 0.6;
+
+/**
+ * Whether this machine should run the larger model. Only where it fits with
+ * room to spare and stays fast — a run that takes an evening is worse than a
+ * smaller model's, whatever it finds:
+ *
+ *   - an NVIDIA card with 16 GB or more (a 4080-class card up): 7.1 GB of
+ *     weights plus the KV cache offloads whole, and the table above gives
+ *     the 4B 35+ words/s there, so the larger model stays above 20;
+ *   - an Apple Max or Ultra chip with 32 GB or more of unified memory;
+ *   - and in every case the RAM the catalog entry asks for.
+ *
+ * Measured only on the RTX 5090 so far; the bands are where the 4B's own
+ * table puts a card fast enough to carry 2.5x the weights.
+ */
+export function runsLargeModel(hw: HardwareInfo, entry: ModelCatalogEntry | undefined = getLargeLocalEntry()): boolean {
+  if (!entry) return false;
+  if (effectiveRamGb(hw) < minRamFor(entry, hw)) return false;
+  if (hw.appleSilicon) {
+    const v = appleChipVariant(hw.gpu.name);
+    return v === "max" || v === "ultra";
+  }
+  return hw.gpu.vendor === "nvidia" && hw.gpu.vramGb != null && hw.gpu.vramGb >= 16;
+}
+
+/** Words/s to expect from a given local model here. */
+export function expectedWordsPerSecFor(hw: HardwareInfo, entry: ModelCatalogEntry): number {
+  const base = expectedWordsPerSec(hw);
+  return entry.tier === "big" ? Math.max(CPU_WORDS_PER_SEC, Math.floor(base * LARGE_MODEL_SPEED_FACTOR)) : base;
+}
+
 // ── RAM gate ─────────────────────────────────────────────────────────────
 
 /** Minimum RAM this entry needs on this machine (Apple Silicon has its own figure). */
@@ -222,21 +265,38 @@ export function isTrusted(profile: ThroughputProfile | undefined): boolean {
 }
 
 /**
- * The local model, and what to expect from it here.
+ * The local model for this machine, and what to expect from it here.
  *
  * `profiles` maps a local tier to what has actually been measured for it.
  * Tiers never run are simply absent, which is the common case on first launch.
- * There is no longer a tier walk: the only downloadable model is the small
- * one, so the recommendation is always that, and the interesting output is
- * the speed to expect and whether that is slow enough to say so.
+ * A strong machine gets the larger model (runsLargeModel) — unless it has
+ * measured too slow here, in which case the answer steps down to the 4B and
+ * says why. Everything else gets the 4B, and the interesting output is the
+ * speed to expect and whether that is slow enough to say so.
  */
 export function recommendModel(
   hw: HardwareInfo,
   profiles: Partial<Record<LocalTier, ThroughputProfile>> = {},
 ): Recommendation {
-  const entry = getLocalEntry();
+  const large = getLargeLocalEntry();
+  if (large && runsLargeModel(hw, large)) {
+    const lp = profiles.big;
+    if (!(isTrusted(lp) && lp!.medianTps < FLOOR_TPS)) return recommendFor(hw, large, lp);
+    const small = recommendFor(hw, getLocalEntry(), profiles.small);
+    return {
+      ...small,
+      advice: { kind: "downgrade", from: "big", to: "small", medianTps: lp!.medianTps, wordsPerSec: lp!.wordsPerSec },
+    };
+  }
+  return recommendFor(hw, getLocalEntry(), profiles.small);
+}
+
+function recommendFor(
+  hw: HardwareInfo,
+  entry: ModelCatalogEntry,
+  profile: ThroughputProfile | undefined,
+): Recommendation {
   const tier = entry.tier as LocalTier;
-  const profile = profiles[tier];
   const measured = isTrusted(profile);
 
   // A measured job rate beats the table, and it is the same unit the estimate
@@ -245,7 +305,7 @@ export function recommendModel(
   const wordsPerSec =
     measured && profile!.wordsPerSec && profile!.wordsPerSec > 0
       ? profile!.wordsPerSec
-      : expectedWordsPerSec(hw);
+      : expectedWordsPerSecFor(hw, entry);
 
   let advice: Advice | null = null;
   if (measured && profile!.medianTps < FLOOR_TPS) {

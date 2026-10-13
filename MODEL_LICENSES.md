@@ -47,6 +47,31 @@ limitations under the License.
 
 ---
 
+## 2. Local Betty on a strong machine — Gemma 4 12B (Q4_K_M)
+
+Downloaded instead of the model above on a machine strong enough to run it
+well (an NVIDIA card with 16 GB or more, or an Apple Max/Ultra chip with 32 GB
+or more); the app calls it Local Betty too.
+
+| Field             | Value                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| In-app name       | Local Betty ("larger, for strong machines" in the advanced model settings)            |
+| Model family      | Gemma 4                                                                               |
+| Parameter count   | 12 B                                                                                  |
+| Quantization      | Q4_K_M GGUF                                                                           |
+| Original model    | [google/gemma-4-12B-it](https://huggingface.co/google/gemma-4-12B-it)                 |
+| Original authors  | Google DeepMind                                                                       |
+| GGUF source       | [unsloth/gemma-4-12b-it-GGUF](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF)     |
+| GGUF quantized by | Unsloth AI                                                                            |
+| License           | [Apache License 2.0](https://ai.google.dev/gemma/docs/gemma_4_license) (Gemma 4 license page) |
+
+Google publishes Gemma's [terms of use](https://ai.google.dev/gemma/terms) and
+[prohibited use policy](https://ai.google.dev/gemma/prohibited_use_policy)
+alongside the license; Bethaniel's use — editing the author's own manuscript on
+their own machine — is within both.
+
+---
+
 ## Apache License 2.0 — Key Terms Summary
 
 The full license text is reproduced below. In plain language, Apache 2.0 means:
@@ -60,8 +85,8 @@ The full license text is reproduced below. In plain language, Apache 2.0 means:
 - **If you modify** the model weights (e.g., fine-tune, further quantize), you
   must mark those changes clearly — you may not represent the modified weights as
   the unmodified originals.
-- **No trademark rights** are granted. You may not use "Qwen" or its logo to
-  endorse a derived product without written permission.
+- **No trademark rights** are granted. You may not use "Qwen", "Gemma" or
+  their logos to endorse a derived product without written permission.
 - **No warranty is given.** The models are provided "AS IS".
 
 ### Full License Text

@@ -515,11 +515,16 @@ export default function EditTrigger() {
   // anything and a second one later. One ask, at one moment.
   const needsLocalModel =
     !countingOnly && modelEnvLoaded && !isApiModel && installed.length === 0;
-  // The one bundled model. Read from the catalog rather than the
-  // recommendation so the download button exists even when the
-  // recommendation request failed — a fresh install with nothing to click
-  // is exactly the failure this button is for.
-  const localEntry = catalog.find((e) => e.source === "gguf") ?? null;
+  // The local model this machine should run — the larger one on a strong
+  // machine (modelRecommendation.ts), named Local Betty either way. Falls
+  // back to the catalog's baseline model so the download button exists even
+  // when the recommendation request failed — a fresh install with nothing to
+  // click is exactly the failure this button is for.
+  const localEntry =
+    catalog.find((e) => e.source === "gguf" && e.fileName === recommendation?.fileName) ??
+    catalog.find((e) => e.source === "gguf" && e.tier === "small") ??
+    catalog.find((e) => e.source === "gguf") ??
+    null;
   // The Run button becomes the download button while nothing local is on
   // disk and no download is in flight. Enabled before a manuscript is
   // loaded: the download is the first thing a fresh install needs.

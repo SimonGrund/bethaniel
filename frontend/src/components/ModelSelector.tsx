@@ -456,7 +456,10 @@ export default function ModelSelector() {
                   <span className="model-card-icon" aria-hidden="true">
                     {modelIcon(entry.fileName, entry.tier)}
                   </span>
-                  <span className="model-card-name">{entry.name}</span>
+                  <span className="model-card-name">
+                    {entry.name}
+                    {entry.variant && ` (${t("model_variant_" + entry.variant)})`}
+                  </span>
                   <span className="model-card-desc">
                     {t(
                       "model_desc_" + entry.id.replace(/[.\-]/g, "_"),

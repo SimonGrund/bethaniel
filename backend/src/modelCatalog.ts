@@ -10,6 +10,9 @@ export interface ModelCatalogEntry {
   tier: "small" | "big" | "custom";
   name: string;
   description: string;
+  /** Shown only in the advanced model settings, beside the name, to tell
+   *  two entries apart that the rest of the app calls by the same name. */
+  variant?: string;
   fileName: string;
   /** "gguf" = download from url, "ollama" = pull via Ollama API, "api" = external API model, "custom_gguf" = user-specified GGUF file path */
   source: "gguf" | "ollama" | "api" | "custom_gguf";
@@ -75,6 +78,29 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     sizeBytes: 2_830_000_000,
     minRamGb: 8,
     minRamAppleSiliconGb: 8,
+    defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
+  },
+  // The same Betty for a strong machine: the user never chooses between
+  // these two — recommendModel (modelRecommendation.ts) picks one from the
+  // hardware, and only the advanced model settings show both. Measured
+  // October 2026 as the only model on a machine, against the 4B above:
+  // planted fixtures 78% of errors found (4B 68%, missing words 70% vs 37%),
+  // and on the author's two novels, judged blind, 49% / 46% of the cards
+  // shown right against 26% / 30%. Apache 2.0, from Google's own release.
+  {
+    id: "gemma-4-12b",
+    tier: "big",
+    name: "Local Betty",
+    variant: "large",
+    description:
+      "Runs on your own machine. Nothing you write leaves it.",
+    fileName: "gemma-4-12b-it-Q4_K_M.gguf",
+    source: "gguf",
+    url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf",
+    sha256: "",
+    sizeBytes: 7_121_861_440,
+    minRamGb: 16,
+    minRamAppleSiliconGb: 32,
     defaults: { ...COMMON_DEFAULTS, system: BASE_SYSTEM_PROMPT },
   },
   {
@@ -220,11 +246,19 @@ export function getPreferredOrder(): string[] {
     .map((e) => e.fileName);
 }
 
-/** The one bundled model the app offers to download and run locally. */
+/**
+ * The local model every supported machine can run: the one offered when
+ * nothing better is known about the hardware.
+ */
 export function getLocalEntry(): ModelCatalogEntry {
-  const entry = MODEL_CATALOG.find((e) => e.source === "gguf" && !e.deprecated);
+  const entry = MODEL_CATALOG.find((e) => e.source === "gguf" && e.tier === "small" && !e.deprecated);
   if (!entry) throw new Error("catalog has no downloadable local model");
   return entry;
+}
+
+/** The larger local model, for machines strong enough to run it well. */
+export function getLargeLocalEntry(): ModelCatalogEntry | undefined {
+  return MODEL_CATALOG.find((e) => e.source === "gguf" && e.tier === "big" && !e.deprecated);
 }
 
 /** Whether this catalog entry is obtained via Ollama (vs. direct GGUF download). */

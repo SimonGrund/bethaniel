@@ -626,6 +626,9 @@ export interface CatalogEntry {
   tier: string;
   name: string;
   description: string;
+  /** Shown only in the advanced model settings ("large"): two local
+   *  entries share the name Local Betty everywhere else. */
+  variant?: string;
   fileName: string;
   source: "gguf" | "ollama" | "api" | "custom_gguf";
   sizeBytes: number;

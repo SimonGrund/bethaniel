@@ -2890,6 +2890,20 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     de: "Läuft auf Ihrem eigenen Rechner. Nichts, was Sie schreiben, verlässt ihn.",
     es: "Funciona en tu propio equipo. Nada de lo que escribes sale de él.",
   },
+  model_desc_gemma_4_12b: {
+    en: "Runs on your own machine. Nothing you write leaves it.",
+    da: "Kører på din egen maskine. Intet, du skriver, forlader den.",
+    de: "Läuft auf Ihrem eigenen Rechner. Nichts, was Sie schreiben, verlässt ihn.",
+    es: "Funciona en tu propio equipo. Nada de lo que escribes sale de él.",
+  },
+  // Only in the advanced model settings: the rest of the app calls both
+  // local models Local Betty and picks one from the hardware.
+  model_variant_large: {
+    en: "larger, for strong machines",
+    da: "større, til stærke maskiner",
+    de: "größer, für leistungsstarke Rechner",
+    es: "más grande, para equipos potentes",
+  },
   no_models_warning: {
     en: "No models installed. Download one from the initial setup.",
     da: "Ingen modeller installeret. Download én fra den indledende opsætning.",

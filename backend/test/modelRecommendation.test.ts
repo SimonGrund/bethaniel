@@ -1,9 +1,8 @@
 // Tests for the "is this machine worth running Betty on?" table.
 //
-// There is one local model, so the decision this module used to make (which
-// tier) has collapsed into a speed expectation:
-// how many manuscript words a second this hardware should manage, and whether
-// that is slow enough to say so. The bug the original table replaced still
+// Two local models, picked from the hardware (a strong machine gets the
+// larger one), then a speed expectation: how many manuscript words a second
+// this hardware should manage, and whether that is slow enough to say so. The bug the original table replaced still
 // matters as an assertion: a 32 GB CPU-only laptop must not be promised a
 // fast run just because the model fits.
 
@@ -14,7 +13,9 @@ import {
   appleChipVariant,
   expectedFreeVramMib,
   expectedWordsPerSec,
+  expectedWordsPerSecFor,
   getAllowedTiers,
+  runsLargeModel,
   isTrusted,
   median,
   pushSample,
@@ -27,7 +28,7 @@ import {
   REFERENCE_WORDS,
   type HardwareInfo,
 } from "../src/modelRecommendation.ts";
-import { getLocalEntry, MODEL_CATALOG } from "../src/modelCatalog.ts";
+import { getLargeLocalEntry, getLocalEntry, MODEL_CATALOG } from "../src/modelCatalog.ts";
 import { fitsInVram } from "../src/llamaServer.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -88,13 +89,53 @@ test("appleChipVariant rejects non-Apple and missing names", () => {
 
 // ── The catalog the table is built on ────────────────────────────────────
 
-test("exactly one bundled model is offered", () => {
+test("two local models, both called Local Betty: the baseline and a larger one", () => {
   const offered = MODEL_CATALOG.filter((e) => e.source === "gguf" && !e.deprecated);
-  assert.equal(offered.length, 1);
-  assert.equal(offered[0].tier, "small");
-  assert.equal(offered[0].name, "Local Betty");
-  assert.equal(MODEL_CATALOG.filter((e) => e.source === "gguf").length, 1);
-  assert.equal(getLocalEntry().id, offered[0].id);
+  assert.deepEqual(offered.map((e) => e.tier).sort(), ["big", "small"]);
+  for (const e of offered) assert.equal(e.name, "Local Betty");
+  assert.equal(getLocalEntry().tier, "small");
+  assert.equal(getLargeLocalEntry()!.tier, "big");
+  // Only the advanced settings tell them apart.
+  assert.equal(getLocalEntry().variant, undefined);
+  assert.equal(getLargeLocalEntry()!.variant, "large");
+});
+
+// ── Which Local Betty this machine gets ──────────────────────────────────
+
+test("a strong machine gets the larger model; everything else the 4B", () => {
+  assert.equal(runsLargeModel(nvidia(32)), true);
+  assert.equal(runsLargeModel(nvidia(24)), true);
+  assert.equal(runsLargeModel(nvidia(16)), true);
+  assert.equal(runsLargeModel(nvidia(12)), false);
+  assert.equal(runsLargeModel(nvidia(8)), false);
+  assert.equal(runsLargeModel(apple("Apple M4 Max", 36)), true);
+  assert.equal(runsLargeModel(apple("Apple M2 Ultra", 64)), true);
+  assert.equal(runsLargeModel(apple("Apple M4 Max", 24)), false);
+  assert.equal(runsLargeModel(apple("Apple M3 Pro", 36)), false);
+  assert.equal(runsLargeModel(apple("Apple M1", 16)), false);
+  assert.equal(runsLargeModel(hw({ totalRamGb: 64 })), false);
+  // A big card in a machine short of RAM still gets the 4B.
+  assert.equal(runsLargeModel(nvidia(24, 8)), false);
+  assert.equal(recommendModel(nvidia(32)).entry.tier, "big");
+  assert.equal(recommendModel(nvidia(12)).entry.tier, "small");
+  assert.equal(recommendModel(hw()).entry.tier, "small");
+});
+
+test("the larger model is promised less speed than the 4B on the same card", () => {
+  const big = getLargeLocalEntry()!;
+  assert.ok(expectedWordsPerSecFor(nvidia(32), big) < expectedWordsPerSec(nvidia(32)));
+  assert.equal(recommendModel(nvidia(32)).wordsPerSec, expectedWordsPerSecFor(nvidia(32), big));
+  assert.equal(expectedWordsPerSecFor(nvidia(32), getLocalEntry()), expectedWordsPerSec(nvidia(32)));
+});
+
+test("a larger model that measured too slow steps the machine down to the 4B, and says so", () => {
+  const rec = recommendModel(nvidia(24), { big: measured(FLOOR_TPS - 1) });
+  assert.equal(rec.entry.tier, "small");
+  assert.equal(rec.advice?.kind, "downgrade");
+  assert.equal(rec.advice?.from, "big");
+  assert.equal(rec.advice?.to, "small");
+  // Measured fast enough: it stays.
+  assert.equal(recommendModel(nvidia(24), { big: measured(FLOOR_TPS + 10) }).entry.tier, "big");
 });
 
 // ── Layer 1: expected speed from hardware class ─────────────────────────
@@ -166,18 +207,18 @@ test("a CPU-only machine is slow however much RAM it has", () => {
 
 test("getAllowedTiers deduplicates the shared custom tier", () => {
   const tiers = getAllowedTiers(hw({ totalRamGb: 64 }));
-  assert.deepEqual([...tiers].sort(), ["custom", "small"]);
+  assert.deepEqual([...tiers].sort(), ["big", "custom", "small"]);
   assert.equal(new Set(tiers).size, tiers.length);
 });
 
 // ── Layer 2: measured throughput ─────────────────────────────────────────
 
-test("the recommendation is always the local model, with the table's speed until measured", () => {
-  const rec = recommendModel(nvidia(32));
+test("below the larger model's bar it is the 4B, with the table's speed until measured", () => {
+  const rec = recommendModel(nvidia(12));
   assert.equal(rec.entry.id, getLocalEntry().id);
   assert.equal(rec.tier, "small");
   assert.equal(rec.basis, "estimated");
-  assert.equal(rec.wordsPerSec, 80);
+  assert.equal(rec.wordsPerSec, expectedWordsPerSec(nvidia(12)));
   assert.equal(rec.advice, null);
 });
 
@@ -193,17 +234,17 @@ test("a trusted profile without a job rate is measured, but keeps the table's sp
   // Profiles recorded before job-level rates existed have a median but no
   // words/second; "measured" is honest about the basis, and the estimate
   // still has a number to work from.
-  const rec = recommendModel(nvidia(24), { small: measured(40) });
+  const rec = recommendModel(nvidia(12), { small: measured(40) });
   assert.equal(rec.basis, "measured");
-  assert.equal(rec.wordsPerSec, expectedWordsPerSec(nvidia(24)));
+  assert.equal(rec.wordsPerSec, expectedWordsPerSec(nvidia(12)));
 });
 
 test("warm-up noise never counts as a measurement", () => {
-  const rec = recommendModel(nvidia(32), {
+  const rec = recommendModel(nvidia(12), {
     small: { medianTps: 2, samples: MIN_SAMPLES - 1, wordsPerSec: 0.3 },
   });
   assert.equal(rec.basis, "estimated");
-  assert.equal(rec.wordsPerSec, 80);
+  assert.equal(rec.wordsPerSec, expectedWordsPerSec(nvidia(12)));
   assert.equal(rec.advice, null);
 });
 

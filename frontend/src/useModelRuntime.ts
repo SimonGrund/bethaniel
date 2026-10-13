@@ -143,7 +143,11 @@ export async function refreshModelEnvironment(): Promise<void> {
     // button and nothing to click — so stand in for it with the catalog's
     // local model and the flat CPU expectation. Wrong about the speed at
     // worst; never wrong about which file to download.
-    const local = env.catalog.find((e) => e.source === "gguf");
+    // The baseline model: without the recommendation nothing says this
+    // machine is strong enough for the larger one.
+    const local =
+      env.catalog.find((e) => e.source === "gguf" && e.tier === "small") ??
+      env.catalog.find((e) => e.source === "gguf");
     if (local) {
       s.setRecommendation({
         modelId: local.id,
