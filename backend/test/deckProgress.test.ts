@@ -159,12 +159,15 @@ test("a local run holds back its line edits whatever they scored; a hosted one d
   assert.equal(heldBack({ confidence: 5, editType: "line" }, "hosted"), false);
 });
 
-test("LanguageTool's spelling guesses are held back whatever they scored, unless pre-approved", () => {
+test("LanguageTool's spelling guess on a capitalised word is held back; on a lowercase one it stands", () => {
+  const name = { original: "Henning Larson –", corrected: "Henning Larsen –" };
+  const typo = { original: "the recieved letter", corrected: "the received letter" };
   for (const kind of ["local", "hosted"] as const) {
-    assert.equal(heldBack({ confidence: 5, reason: "grammar:typos" }, kind), true);
-    assert.equal(heldBack({ confidence: 5, reason: "grammar:typos", preApproved: true }, kind), false);
+    assert.equal(heldBack({ confidence: 5, reason: "grammar:typos", ...name }, kind), true);
+    assert.equal(heldBack({ confidence: 5, reason: "grammar:typos", ...typo }, kind), false);
+    assert.equal(heldBack({ confidence: 5, reason: "grammar:typos", preApproved: true, ...name }, kind), false);
     // Hunspell's guesses are another source and keep their score.
-    assert.equal(heldBack({ confidence: 5, reason: "spell-check" }, kind), false);
+    assert.equal(heldBack({ confidence: 5, reason: "spell-check", ...name }, kind), false);
   }
 });
 

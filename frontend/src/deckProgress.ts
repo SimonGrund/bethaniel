@@ -95,21 +95,38 @@ const LOCAL_SHOWN_FROM = 4;
 const HOSTED_HELD_THROUGH = 2;
 
 /**
- * LanguageTool's spelling rule. Its guesses were wrong about nine times in
- * ten on both of the author's books, whatever the reviewer scored them: 34 of
- * 38 sampled in the English novel, 11 of 15 at score 4-5 in the Danish one —
- * names respelled (Hella Joof → Joos, FCK → FUCK), a number changed, Swedish
- * "corrected" into Danish. Hunspell's own guesses are a separate source and
- * are not held back by this.
+ * LanguageTool's spelling rule, on a capitalised word. It knows only its own
+ * word list, so on a finished book nearly everything it flags is a name:
+ * Henning Larson → Larsen, Fitness World → Word, Laketown → Lake town,
+ * Orgrim → Or grim. Its guesses were wrong about nine times in ten on both of
+ * the author's books. But on the planted-error fixtures the same rule is what
+ * finds most real typos — holding all of it back took Local Betty's
+ * misspellings from 89% found to 29% — and those are lowercase: only 19 of
+ * its 237 right answers there were on a capitalised word. So only those are
+ * held back. (English inside Danish dialogue is the foreign-word gate's, in
+ * backend/src/noiseGates.ts.)
  */
 const LANGUAGETOOL_SPELLING = "grammar:typos";
 
+function changesCapitalisedWord(c: Pick<Correction, "original" | "corrected">): boolean {
+  const words = c.original.match(/\p{L}[\p{L}\p{M}’'-]*/gu) ?? [];
+  return words.some((w) => !c.corrected.includes(w) && w[0] !== w[0].toLowerCase());
+}
+
 /** Held back by default: shown only when the author asks for everything. */
 export function heldBack(
-  c: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved">,
+  c: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved"> &
+    Partial<Pick<Correction, "original" | "corrected">>,
   kind: ReviewerKind,
 ): boolean {
-  if (c.reason === LANGUAGETOOL_SPELLING && !c.preApproved) return true;
+  if (
+    c.reason === LANGUAGETOOL_SPELLING &&
+    !c.preApproved &&
+    c.original != null &&
+    c.corrected != null &&
+    changesCapitalisedWord({ original: c.original, corrected: c.corrected })
+  )
+    return true;
   if (kind === "local" && c.editType === "line") return true;
   if (c.confidence == null) return false;
   return kind === "local" ? c.confidence < LOCAL_SHOWN_FROM : c.confidence <= HOSTED_HELD_THROUGH;
@@ -123,7 +140,8 @@ export function optionalPolish(c: Pick<Correction, "confidence">, kind: Reviewer
 
 /** How many of these the deck would hold back. */
 export function countRejected(
-  corrections: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved">[],
+  corrections: (Pick<Correction, "confidence" | "editType" | "reason" | "preApproved"> &
+    Partial<Pick<Correction, "original" | "corrected">>)[],
   kind: ReviewerKind = "hosted",
 ): number {
   return corrections.filter((c) => heldBack(c, kind)).length;
