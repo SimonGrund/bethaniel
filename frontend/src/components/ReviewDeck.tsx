@@ -31,7 +31,7 @@ import {
 } from "../deckProgress";
 import { putLexicon } from "../api";
 import { dropCoveredFindings } from "../coveredFindings";
-import { InlineDiff } from "./ReviewExport";
+import { DeckPassage } from "./DeckPassage";
 import { compactContext, extendedContext } from "../deckContext";
 
 /** A step between two cards that is not a suggestion — "the same change
@@ -552,27 +552,13 @@ export default function ReviewDeck({
           )}
         </div>
         <div className={`deck-card-body${expanded ? " deck-card-body-expanded" : ""}`}>
-          <span className="correction-diff">
-            {ctx.before && (
-              <span className="correction-context">
-                {ctx.before}
-                {ctx.before.endsWith("\n") ? "" : " "}
-              </span>
-            )}
-            {unfixable ? (
-              // Nothing is proposed, so there is nothing to diff. The word
-              // itself is the finding.
-              <mark className="deck-unfixable-word">{item.correction.original}</mark>
-            ) : (
-              <InlineDiff before={item.correction.original} after={item.correction.corrected} />
-            )}
-            {ctx.after && (
-              <span className="correction-context">
-                {ctx.after.startsWith("\n") ? "" : " "}
-                {ctx.after}
-              </span>
-            )}
-          </span>
+          <DeckPassage
+            before={ctx.before ? ctx.before + (ctx.before.endsWith("\n") ? "" : " ") : ""}
+            original={item.correction.original}
+            corrected={item.correction.corrected}
+            unfixable={unfixable}
+            after={ctx.after ? (ctx.after.startsWith("\n") ? "" : " ") + ctx.after : ""}
+          />
         </div>
         {whyOpen && reason && <p className="deck-reason">{reason}</p>}
         {expanded && upcoming.length > 0 && (
@@ -587,15 +573,13 @@ export default function ReviewDeck({
                 const nUnfixable = next.correction.corrected === next.correction.original;
                 return (
                   <li key={keyOf(next)} className="deck-upcoming-item">
-                    <span className="correction-diff">
-                      {nctx.before && <span className="correction-context">{nctx.before} </span>}
-                      {nUnfixable ? (
-                        <mark className="deck-unfixable-word">{next.correction.original}</mark>
-                      ) : (
-                        <InlineDiff before={next.correction.original} after={next.correction.corrected} />
-                      )}
-                      {nctx.after && <span className="correction-context"> {nctx.after}</span>}
-                    </span>
+                    <DeckPassage
+                      before={nctx.before ? nctx.before + " " : ""}
+                      original={next.correction.original}
+                      corrected={next.correction.corrected}
+                      unfixable={nUnfixable}
+                      after={nctx.after ? " " + nctx.after : ""}
+                    />
                   </li>
                 );
               })}
@@ -922,3 +906,4 @@ export default function ReviewDeck({
     </section>
   );
 }
+
