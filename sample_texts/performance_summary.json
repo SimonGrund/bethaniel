@@ -1,56 +1,56 @@
 {
-  "generated": "2026-10-12T21:58:33.274Z",
+  "generated": "2026-10-13T13:31:43.131Z",
   "definitions": "see the header of scripts/performance-summary.ts",
   "engines": {
     "local": {
       "model": "Qwen3.5-4B-Q4_K_M.gguf",
-      "measured": "2026-10-12",
+      "measured": "2026-10-13",
       "table": {
         "misspelling": {
           "planted": 342,
-          "surfaced": 303,
-          "correctFix": 270,
-          "falseAlarms": 21,
-          "surfacedPct": 88.6,
-          "correctFixOfSurfacedPct": 89.1
+          "surfaced": 312,
+          "correctFix": 291,
+          "falseAlarms": 11,
+          "surfacedPct": 91.2,
+          "correctFixOfSurfacedPct": 93.3
         },
         "wordChoice": {
           "planted": 117,
-          "surfaced": 70,
-          "correctFix": 60,
-          "falseAlarms": 25,
-          "surfacedPct": 59.8,
-          "correctFixOfSurfacedPct": 85.7
+          "surfaced": 69,
+          "correctFix": 58,
+          "falseAlarms": 22,
+          "surfacedPct": 59,
+          "correctFixOfSurfacedPct": 84.1
         },
         "dialect": {
           "planted": 15,
           "surfaced": 14,
-          "correctFix": 12,
+          "correctFix": 11,
           "falseAlarms": 4,
           "surfacedPct": 93.3,
-          "correctFixOfSurfacedPct": 85.7
+          "correctFixOfSurfacedPct": 78.6
         },
         "capitalization": {
           "planted": 51,
-          "surfaced": 33,
+          "surfaced": 34,
           "correctFix": 31,
           "falseAlarms": 4,
-          "surfacedPct": 64.7,
-          "correctFixOfSurfacedPct": 93.9
+          "surfacedPct": 66.7,
+          "correctFixOfSurfacedPct": 91.2
         },
         "duplicateWord": {
           "planted": 19,
           "surfaced": 17,
-          "correctFix": 16,
+          "correctFix": 15,
           "falseAlarms": 4,
           "surfacedPct": 89.5,
-          "correctFixOfSurfacedPct": 94.1
+          "correctFixOfSurfacedPct": 88.2
         },
         "punctuation": {
           "planted": 14,
           "surfaced": 1,
           "correctFix": 1,
-          "falseAlarms": 2,
+          "falseAlarms": 4,
           "surfacedPct": 7.1,
           "correctFixOfSurfacedPct": 100
         },
@@ -58,42 +58,42 @@
           "planted": 257,
           "surfaced": 68,
           "correctFix": 66,
-          "falseAlarms": 59,
+          "falseAlarms": 53,
           "surfacedPct": 26.5,
           "correctFixOfSurfacedPct": 97.1
         },
         "missingWord": {
           "planted": 106,
-          "surfaced": 37,
-          "correctFix": 27,
-          "falseAlarms": 7,
-          "surfacedPct": 34.9,
-          "correctFixOfSurfacedPct": 73
+          "surfaced": 39,
+          "correctFix": 31,
+          "falseAlarms": 8,
+          "surfacedPct": 36.8,
+          "correctFixOfSurfacedPct": 79.5
         },
         "other": {
           "planted": 69,
-          "surfaced": 13,
-          "correctFix": 10,
-          "falseAlarms": 20,
-          "surfacedPct": 18.8,
-          "correctFixOfSurfacedPct": 76.9
+          "surfaced": 14,
+          "correctFix": 11,
+          "falseAlarms": 19,
+          "surfacedPct": 20.3,
+          "correctFixOfSurfacedPct": 78.6
         }
       },
       "all": {
         "planted": 990,
-        "surfaced": 556,
-        "correctFix": 493,
-        "falseAlarms": 146,
-        "surfacedPct": 56.2,
-        "correctFixOfSurfacedPct": 88.7
+        "surfaced": 568,
+        "correctFix": 515,
+        "falseAlarms": 129,
+        "surfacedPct": 57.4,
+        "correctFixOfSurfacedPct": 90.7
       },
       "allExceptCommas": {
         "planted": 733,
-        "surfaced": 488,
-        "correctFix": 427,
-        "falseAlarms": 87,
-        "surfacedPct": 66.6,
-        "correctFixOfSurfacedPct": 87.5
+        "surfaced": 500,
+        "correctFix": 449,
+        "falseAlarms": 76,
+        "surfacedPct": 68.2,
+        "correctFixOfSurfacedPct": 89.8
       },
       "commasByBucket": {
         "rule-governed": {
@@ -190,19 +190,19 @@
       "byLanguage": {
         "da": {
           "planted": 126,
-          "surfaced": 40,
-          "correctFix": 38,
+          "surfaced": 43,
+          "correctFix": 42,
           "falseAlarms": 0,
-          "surfacedPct": 31.7,
-          "correctFixOfSurfacedPct": 95
+          "surfacedPct": 34.1,
+          "correctFixOfSurfacedPct": 97.7
         },
         "en": {
           "planted": 369,
-          "surfaced": 232,
-          "correctFix": 201,
+          "surfaced": 236,
+          "correctFix": 217,
           "falseAlarms": 0,
-          "surfacedPct": 62.9,
-          "correctFixOfSurfacedPct": 86.6
+          "surfacedPct": 64,
+          "correctFixOfSurfacedPct": 91.9
         },
         "de": {
           "planted": 132,
@@ -214,104 +214,104 @@
         },
         "es": {
           "planted": 124,
-          "surfaced": 70,
-          "correctFix": 67,
+          "surfaced": 71,
+          "correctFix": 66,
           "falseAlarms": 0,
-          "surfacedPct": 56.5,
-          "correctFixOfSurfacedPct": 95.7
+          "surfacedPct": 57.3,
+          "correctFixOfSurfacedPct": 93
         },
         "fr": {
           "planted": 133,
-          "surfaced": 97,
-          "correctFix": 84,
+          "surfaced": 99,
+          "correctFix": 83,
           "falseAlarms": 0,
-          "surfacedPct": 72.9,
-          "correctFixOfSurfacedPct": 86.6
+          "surfacedPct": 74.4,
+          "correctFixOfSurfacedPct": 83.8
         }
       },
       "missingWordByLanguage": {
         "en": {
           "planted": 29,
-          "surfaced": 14,
-          "correctFix": 11,
+          "surfaced": 16,
+          "correctFix": 14,
           "falseAlarms": 0,
-          "surfacedPct": 48.3,
-          "correctFixOfSurfacedPct": 78.6
+          "surfacedPct": 55.2,
+          "correctFixOfSurfacedPct": 87.5
         },
         "da": {
           "planted": 18,
-          "surfaced": 5,
-          "correctFix": 5,
+          "surfaced": 6,
+          "correctFix": 6,
           "falseAlarms": 0,
-          "surfacedPct": 27.8,
+          "surfacedPct": 33.3,
           "correctFixOfSurfacedPct": 100
         },
         "de": {
           "planted": 20,
-          "surfaced": 3,
+          "surfaced": 4,
           "correctFix": 2,
           "falseAlarms": 0,
-          "surfacedPct": 15,
-          "correctFixOfSurfacedPct": 66.7
+          "surfacedPct": 20,
+          "correctFixOfSurfacedPct": 50
         },
         "es": {
           "planted": 20,
-          "surfaced": 8,
-          "correctFix": 6,
+          "surfaced": 4,
+          "correctFix": 4,
           "falseAlarms": 0,
-          "surfacedPct": 40,
-          "correctFixOfSurfacedPct": 75
+          "surfacedPct": 20,
+          "correctFixOfSurfacedPct": 100
         },
         "fr": {
           "planted": 19,
-          "surfaced": 7,
-          "correctFix": 3,
+          "surfaced": 9,
+          "correctFix": 5,
           "falseAlarms": 0,
-          "surfacedPct": 36.8,
-          "correctFixOfSurfacedPct": 42.9
+          "surfacedPct": 47.4,
+          "correctFixOfSurfacedPct": 55.6
         }
       },
       "wrongSuggestions": {
-        "total": 74,
+        "total": 60,
         "damaging": 4,
-        "damagingPct": 5.4
+        "damagingPct": 6.7
       },
       "words": {
         "checked": 57783,
         "clean": 28932
       },
       "heldBack": {
-        "corrections": 331,
-        "ofAll": 31.7
+        "corrections": 325,
+        "ofAll": 31.6
       },
       "optionalPolish": {
         "corrections": 0,
         "ofShown": 0
       },
       "speed": {
-        "wordsPerMinute": 1948
+        "wordsPerMinute": 2479
       },
       "runsWithErrors": 0
     },
-    "cloud": {
-      "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
-      "measured": "2026-10-12",
+    "large": {
+      "model": "gemma-4-12b-it-Q4_K_M.gguf",
+      "measured": "2026-10-13",
       "table": {
         "misspelling": {
           "planted": 342,
-          "surfaced": 314,
-          "correctFix": 293,
-          "falseAlarms": 19,
-          "surfacedPct": 91.8,
-          "correctFixOfSurfacedPct": 93.3
+          "surfaced": 318,
+          "correctFix": 302,
+          "falseAlarms": 4,
+          "surfacedPct": 93,
+          "correctFixOfSurfacedPct": 95
         },
         "wordChoice": {
           "planted": 117,
-          "surfaced": 96,
-          "correctFix": 75,
-          "falseAlarms": 18,
-          "surfacedPct": 82.1,
-          "correctFixOfSurfacedPct": 78.1
+          "surfaced": 83,
+          "correctFix": 65,
+          "falseAlarms": 27,
+          "surfacedPct": 70.9,
+          "correctFixOfSurfacedPct": 78.3
         },
         "dialect": {
           "planted": 15,
@@ -323,142 +323,142 @@
         },
         "capitalization": {
           "planted": 51,
-          "surfaced": 46,
+          "surfaced": 42,
           "correctFix": 28,
-          "falseAlarms": 2,
-          "surfacedPct": 90.2,
-          "correctFixOfSurfacedPct": 60.9
+          "falseAlarms": 4,
+          "surfacedPct": 82.4,
+          "correctFixOfSurfacedPct": 66.7
         },
         "duplicateWord": {
           "planted": 19,
           "surfaced": 19,
           "correctFix": 17,
-          "falseAlarms": 1,
+          "falseAlarms": 4,
           "surfacedPct": 100,
           "correctFixOfSurfacedPct": 89.5
         },
         "punctuation": {
           "planted": 14,
-          "surfaced": 4,
-          "correctFix": 4,
-          "falseAlarms": 3,
-          "surfacedPct": 28.6,
+          "surfaced": 2,
+          "correctFix": 2,
+          "falseAlarms": 4,
+          "surfacedPct": 14.3,
           "correctFixOfSurfacedPct": 100
         },
         "comma": {
           "planted": 257,
-          "surfaced": 90,
-          "correctFix": 86,
-          "falseAlarms": 42,
-          "surfacedPct": 35,
-          "correctFixOfSurfacedPct": 95.6
+          "surfaced": 76,
+          "correctFix": 70,
+          "falseAlarms": 45,
+          "surfacedPct": 29.6,
+          "correctFixOfSurfacedPct": 92.1
         },
         "missingWord": {
           "planted": 106,
-          "surfaced": 86,
-          "correctFix": 80,
-          "falseAlarms": 18,
-          "surfacedPct": 81.1,
-          "correctFixOfSurfacedPct": 93
+          "surfaced": 75,
+          "correctFix": 69,
+          "falseAlarms": 31,
+          "surfacedPct": 70.8,
+          "correctFixOfSurfacedPct": 92
         },
         "other": {
           "planted": 69,
           "surfaced": 14,
-          "correctFix": 12,
-          "falseAlarms": 3,
+          "correctFix": 11,
+          "falseAlarms": 10,
           "surfacedPct": 20.3,
-          "correctFixOfSurfacedPct": 85.7
+          "correctFixOfSurfacedPct": 78.6
         }
       },
       "all": {
         "planted": 990,
-        "surfaced": 682,
-        "correctFix": 606,
-        "falseAlarms": 111,
-        "surfacedPct": 68.9,
-        "correctFixOfSurfacedPct": 88.9
+        "surfaced": 642,
+        "correctFix": 575,
+        "falseAlarms": 134,
+        "surfacedPct": 64.8,
+        "correctFixOfSurfacedPct": 89.6
       },
       "allExceptCommas": {
         "planted": 733,
-        "surfaced": 592,
-        "correctFix": 520,
-        "falseAlarms": 69,
-        "surfacedPct": 80.8,
-        "correctFixOfSurfacedPct": 87.8
+        "surfaced": 566,
+        "correctFix": 505,
+        "falseAlarms": 89,
+        "surfacedPct": 77.2,
+        "correctFixOfSurfacedPct": 89.2
       },
       "commasByBucket": {
         "rule-governed": {
           "planted": 78,
-          "surfaced": 25,
-          "correctFix": 24,
+          "surfaced": 37,
+          "correctFix": 36,
           "falseAlarms": 0,
-          "surfacedPct": 32.1,
-          "correctFixOfSurfacedPct": 96
+          "surfacedPct": 47.4,
+          "correctFixOfSurfacedPct": 97.3
         },
         "contested": {
           "planted": 28,
-          "surfaced": 17,
-          "correctFix": 17,
+          "surfaced": 1,
+          "correctFix": 0,
           "falseAlarms": 0,
-          "surfacedPct": 60.7,
-          "correctFixOfSurfacedPct": 100
+          "surfacedPct": 3.6,
+          "correctFixOfSurfacedPct": 0
         },
         "discretionary": {
           "planted": 151,
-          "surfaced": 48,
-          "correctFix": 45,
+          "surfaced": 38,
+          "correctFix": 34,
           "falseAlarms": 0,
-          "surfacedPct": 31.8,
-          "correctFixOfSurfacedPct": 93.8
+          "surfacedPct": 25.2,
+          "correctFixOfSurfacedPct": 89.5
         }
       },
       "commasByKind": {
         "seriesInner": {
           "planted": 18,
-          "surfaced": 5,
-          "correctFix": 4,
+          "surfaced": 6,
+          "correctFix": 5,
           "falseAlarms": 0,
-          "surfacedPct": 27.8,
-          "correctFixOfSurfacedPct": 80
+          "surfacedPct": 33.3,
+          "correctFixOfSurfacedPct": 83.3
         },
         "subordDa": {
           "planted": 28,
-          "surfaced": 17,
-          "correctFix": 17,
+          "surfaced": 1,
+          "correctFix": 0,
           "falseAlarms": 0,
-          "surfacedPct": 60.7,
-          "correctFixOfSurfacedPct": 100
+          "surfacedPct": 3.6,
+          "correctFixOfSurfacedPct": 0
         },
         "seriesOxford": {
           "planted": 23,
-          "surfaced": 6,
-          "correctFix": 6,
+          "surfaced": 4,
+          "correctFix": 4,
           "falseAlarms": 0,
-          "surfacedPct": 26.1,
+          "surfacedPct": 17.4,
           "correctFixOfSurfacedPct": 100
         },
         "coordClause": {
           "planted": 38,
-          "surfaced": 12,
-          "correctFix": 12,
+          "surfaced": 11,
+          "correctFix": 11,
           "falseAlarms": 0,
-          "surfacedPct": 31.6,
+          "surfacedPct": 28.9,
           "correctFixOfSurfacedPct": 100
         },
         "freeAdjunct": {
           "planted": 90,
-          "surfaced": 30,
-          "correctFix": 27,
+          "surfaced": 23,
+          "correctFix": 19,
           "falseAlarms": 0,
-          "surfacedPct": 33.3,
-          "correctFixOfSurfacedPct": 90
+          "surfacedPct": 25.6,
+          "correctFixOfSurfacedPct": 82.6
         },
         "subordDe": {
           "planted": 34,
-          "surfaced": 16,
-          "correctFix": 16,
+          "surfaced": 27,
+          "correctFix": 27,
           "falseAlarms": 0,
-          "surfacedPct": 47.1,
+          "surfacedPct": 79.4,
           "correctFixOfSurfacedPct": 100
         },
         "spurious": {
@@ -481,61 +481,352 @@
       "byLanguage": {
         "da": {
           "planted": 126,
-          "surfaced": 75,
-          "correctFix": 66,
+          "surfaced": 42,
+          "correctFix": 33,
           "falseAlarms": 0,
-          "surfacedPct": 59.5,
-          "correctFixOfSurfacedPct": 88
+          "surfacedPct": 33.3,
+          "correctFixOfSurfacedPct": 78.6
         },
         "en": {
           "planted": 369,
-          "surfaced": 246,
-          "correctFix": 211,
+          "surfaced": 244,
+          "correctFix": 224,
           "falseAlarms": 0,
-          "surfacedPct": 66.7,
-          "correctFixOfSurfacedPct": 85.8
+          "surfacedPct": 66.1,
+          "correctFixOfSurfacedPct": 91.8
         },
         "de": {
           "planted": 132,
-          "surfaced": 80,
-          "correctFix": 71,
+          "surfaced": 98,
+          "correctFix": 90,
           "falseAlarms": 0,
-          "surfacedPct": 60.6,
-          "correctFixOfSurfacedPct": 88.8
+          "surfacedPct": 74.2,
+          "correctFixOfSurfacedPct": 91.8
         },
         "es": {
           "planted": 124,
-          "surfaced": 83,
-          "correctFix": 74,
+          "surfaced": 78,
+          "correctFix": 67,
           "falseAlarms": 0,
-          "surfacedPct": 66.9,
-          "correctFixOfSurfacedPct": 89.2
+          "surfacedPct": 62.9,
+          "correctFixOfSurfacedPct": 85.9
         },
         "fr": {
           "planted": 133,
-          "surfaced": 112,
-          "correctFix": 104,
+          "surfaced": 105,
+          "correctFix": 92,
           "falseAlarms": 0,
-          "surfacedPct": 84.2,
-          "correctFixOfSurfacedPct": 92.9
+          "surfacedPct": 78.9,
+          "correctFixOfSurfacedPct": 87.6
         }
       },
       "missingWordByLanguage": {
         "en": {
           "planted": 29,
-          "surfaced": 24,
+          "surfaced": 25,
+          "correctFix": 24,
+          "falseAlarms": 0,
+          "surfacedPct": 86.2,
+          "correctFixOfSurfacedPct": 96
+        },
+        "da": {
+          "planted": 18,
+          "surfaced": 9,
+          "correctFix": 8,
+          "falseAlarms": 0,
+          "surfacedPct": 50,
+          "correctFixOfSurfacedPct": 88.9
+        },
+        "de": {
+          "planted": 20,
+          "surfaced": 14,
+          "correctFix": 14,
+          "falseAlarms": 0,
+          "surfacedPct": 70,
+          "correctFixOfSurfacedPct": 100
+        },
+        "es": {
+          "planted": 20,
+          "surfaced": 13,
+          "correctFix": 11,
+          "falseAlarms": 0,
+          "surfacedPct": 65,
+          "correctFixOfSurfacedPct": 84.6
+        },
+        "fr": {
+          "planted": 19,
+          "surfaced": 14,
+          "correctFix": 12,
+          "falseAlarms": 0,
+          "surfacedPct": 73.7,
+          "correctFixOfSurfacedPct": 85.7
+        }
+      },
+      "wrongSuggestions": {
+        "total": 74,
+        "damaging": 8,
+        "damagingPct": 10.8
+      },
+      "words": {
+        "checked": 57783,
+        "clean": 28932
+      },
+      "heldBack": {
+        "corrections": 265,
+        "ofAll": 25.3
+      },
+      "optionalPolish": {
+        "corrections": 0,
+        "ofShown": 0
+      },
+      "speed": {
+        "wordsPerMinute": 2295
+      },
+      "runsWithErrors": 0
+    },
+    "cloud": {
+      "model": "custom:bethaniel-cloud (deepseek-v4-flash)",
+      "measured": "2026-10-13",
+      "table": {
+        "misspelling": {
+          "planted": 342,
+          "surfaced": 331,
+          "correctFix": 315,
+          "falseAlarms": 3,
+          "surfacedPct": 96.8,
+          "correctFixOfSurfacedPct": 95.2
+        },
+        "wordChoice": {
+          "planted": 117,
+          "surfaced": 92,
+          "correctFix": 74,
+          "falseAlarms": 17,
+          "surfacedPct": 78.6,
+          "correctFixOfSurfacedPct": 80.4
+        },
+        "dialect": {
+          "planted": 15,
+          "surfaced": 13,
+          "correctFix": 11,
+          "falseAlarms": 5,
+          "surfacedPct": 86.7,
+          "correctFixOfSurfacedPct": 84.6
+        },
+        "capitalization": {
+          "planted": 51,
+          "surfaced": 45,
+          "correctFix": 27,
+          "falseAlarms": 3,
+          "surfacedPct": 88.2,
+          "correctFixOfSurfacedPct": 60
+        },
+        "duplicateWord": {
+          "planted": 19,
+          "surfaced": 19,
+          "correctFix": 15,
+          "falseAlarms": 1,
+          "surfacedPct": 100,
+          "correctFixOfSurfacedPct": 78.9
+        },
+        "punctuation": {
+          "planted": 14,
+          "surfaced": 4,
+          "correctFix": 4,
+          "falseAlarms": 4,
+          "surfacedPct": 28.6,
+          "correctFixOfSurfacedPct": 100
+        },
+        "comma": {
+          "planted": 257,
+          "surfaced": 70,
+          "correctFix": 63,
+          "falseAlarms": 31,
+          "surfacedPct": 27.2,
+          "correctFixOfSurfacedPct": 90
+        },
+        "missingWord": {
+          "planted": 106,
+          "surfaced": 88,
+          "correctFix": 82,
+          "falseAlarms": 20,
+          "surfacedPct": 83,
+          "correctFixOfSurfacedPct": 93.2
+        },
+        "other": {
+          "planted": 69,
+          "surfaced": 14,
+          "correctFix": 10,
+          "falseAlarms": 5,
+          "surfacedPct": 20.3,
+          "correctFixOfSurfacedPct": 71.4
+        }
+      },
+      "all": {
+        "planted": 990,
+        "surfaced": 676,
+        "correctFix": 601,
+        "falseAlarms": 89,
+        "surfacedPct": 68.3,
+        "correctFixOfSurfacedPct": 88.9
+      },
+      "allExceptCommas": {
+        "planted": 733,
+        "surfaced": 606,
+        "correctFix": 538,
+        "falseAlarms": 58,
+        "surfacedPct": 82.7,
+        "correctFixOfSurfacedPct": 88.8
+      },
+      "commasByBucket": {
+        "rule-governed": {
+          "planted": 78,
+          "surfaced": 25,
           "correctFix": 22,
           "falseAlarms": 0,
-          "surfacedPct": 82.8,
-          "correctFixOfSurfacedPct": 91.7
+          "surfacedPct": 32.1,
+          "correctFixOfSurfacedPct": 88
+        },
+        "contested": {
+          "planted": 28,
+          "surfaced": 17,
+          "correctFix": 15,
+          "falseAlarms": 0,
+          "surfacedPct": 60.7,
+          "correctFixOfSurfacedPct": 88.2
+        },
+        "discretionary": {
+          "planted": 151,
+          "surfaced": 28,
+          "correctFix": 26,
+          "falseAlarms": 0,
+          "surfacedPct": 18.5,
+          "correctFixOfSurfacedPct": 92.9
+        }
+      },
+      "commasByKind": {
+        "seriesInner": {
+          "planted": 18,
+          "surfaced": 7,
+          "correctFix": 4,
+          "falseAlarms": 0,
+          "surfacedPct": 38.9,
+          "correctFixOfSurfacedPct": 57.1
+        },
+        "subordDa": {
+          "planted": 28,
+          "surfaced": 17,
+          "correctFix": 15,
+          "falseAlarms": 0,
+          "surfacedPct": 60.7,
+          "correctFixOfSurfacedPct": 88.2
+        },
+        "seriesOxford": {
+          "planted": 23,
+          "surfaced": 4,
+          "correctFix": 4,
+          "falseAlarms": 0,
+          "surfacedPct": 17.4,
+          "correctFixOfSurfacedPct": 100
+        },
+        "coordClause": {
+          "planted": 38,
+          "surfaced": 4,
+          "correctFix": 4,
+          "falseAlarms": 0,
+          "surfacedPct": 10.5,
+          "correctFixOfSurfacedPct": 100
+        },
+        "freeAdjunct": {
+          "planted": 90,
+          "surfaced": 20,
+          "correctFix": 18,
+          "falseAlarms": 0,
+          "surfacedPct": 22.2,
+          "correctFixOfSurfacedPct": 90
+        },
+        "subordDe": {
+          "planted": 34,
+          "surfaced": 16,
+          "correctFix": 16,
+          "falseAlarms": 0,
+          "surfacedPct": 47.1,
+          "correctFixOfSurfacedPct": 100
+        },
+        "spurious": {
+          "planted": 20,
+          "surfaced": 2,
+          "correctFix": 2,
+          "falseAlarms": 0,
+          "surfacedPct": 10,
+          "correctFixOfSurfacedPct": 100
+        },
+        "relativeEn": {
+          "planted": 6,
+          "surfaced": 0,
+          "correctFix": 0,
+          "falseAlarms": 0,
+          "surfacedPct": 0,
+          "correctFixOfSurfacedPct": null
+        }
+      },
+      "byLanguage": {
+        "da": {
+          "planted": 126,
+          "surfaced": 73,
+          "correctFix": 60,
+          "falseAlarms": 0,
+          "surfacedPct": 57.9,
+          "correctFixOfSurfacedPct": 82.2
+        },
+        "en": {
+          "planted": 369,
+          "surfaced": 245,
+          "correctFix": 219,
+          "falseAlarms": 0,
+          "surfacedPct": 66.4,
+          "correctFixOfSurfacedPct": 89.4
+        },
+        "de": {
+          "planted": 132,
+          "surfaced": 81,
+          "correctFix": 72,
+          "falseAlarms": 0,
+          "surfacedPct": 61.4,
+          "correctFixOfSurfacedPct": 88.9
+        },
+        "es": {
+          "planted": 124,
+          "surfaced": 80,
+          "correctFix": 70,
+          "falseAlarms": 0,
+          "surfacedPct": 64.5,
+          "correctFixOfSurfacedPct": 87.5
+        },
+        "fr": {
+          "planted": 133,
+          "surfaced": 109,
+          "correctFix": 98,
+          "falseAlarms": 0,
+          "surfacedPct": 82,
+          "correctFixOfSurfacedPct": 89.9
+        }
+      },
+      "missingWordByLanguage": {
+        "en": {
+          "planted": 29,
+          "surfaced": 25,
+          "correctFix": 23,
+          "falseAlarms": 0,
+          "surfacedPct": 86.2,
+          "correctFixOfSurfacedPct": 92
         },
         "da": {
           "planted": 18,
           "surfaced": 12,
-          "correctFix": 10,
+          "correctFix": 11,
           "falseAlarms": 0,
           "surfacedPct": 66.7,
-          "correctFixOfSurfacedPct": 83.3
+          "correctFixOfSurfacedPct": 91.7
         },
         "de": {
           "planted": 20,
@@ -555,32 +846,32 @@
         },
         "fr": {
           "planted": 19,
-          "surfaced": 15,
+          "surfaced": 16,
           "correctFix": 15,
           "falseAlarms": 0,
-          "surfacedPct": 78.9,
-          "correctFixOfSurfacedPct": 100
+          "surfacedPct": 84.2,
+          "correctFixOfSurfacedPct": 93.8
         }
       },
       "wrongSuggestions": {
-        "total": 79,
+        "total": 71,
         "damaging": 8,
-        "damagingPct": 10.1
+        "damagingPct": 11.3
       },
       "words": {
         "checked": 57783,
         "clean": 28932
       },
       "heldBack": {
-        "corrections": 250,
-        "ofAll": 23.9
+        "corrections": 206,
+        "ofAll": 21.3
       },
       "optionalPolish": {
         "corrections": 0,
         "ofShown": 0
       },
       "speed": {
-        "wordsPerMinute": 960
+        "wordsPerMinute": 1240
       },
       "runsWithErrors": 0
     }
