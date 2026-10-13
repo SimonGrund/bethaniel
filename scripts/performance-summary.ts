@@ -102,7 +102,7 @@ interface Row {
  *  which is a setting the author chose and is applied as chosen whatever the
  *  reviewer scored (ReviewExport.tsx). The benchmark labels a cloud model
  *  "custom:bethaniel-cloud (deepseek-v4-flash)", which reads as hosted. */
-const shown = (c: Correction, kind: ReviewerKind) => c.reason === "dialect" || !deckHoldsBack(c, kind);
+const shown = (c: Correction, kind: ReviewerKind, lang: string) => c.reason === "dialect" || !deckHoldsBack(c, kind, lang);
 
 const checksCache = new Map<string, WordChecks | null>();
 function checksFor(lang: string): WordChecks | null {
@@ -145,7 +145,7 @@ function summarise(rows: Row[]) {
     const lang = LANG[fixture] ?? "en";
     const text = readFileSync(join(SAMPLE_DIR, r.file), "utf-8");
     const kind = reviewerKindOf(r.model);
-    const visible = r.corrections.filter((c) => shown(c, kind));
+    const visible = r.corrections.filter((c) => shown(c, kind, lang));
     heldBack += r.corrections.length - visible.length;
     shownTotal += visible.length;
     polish += visible.filter((c) => c.reason !== "dialect" && optionalPolish(c, kind)).length;

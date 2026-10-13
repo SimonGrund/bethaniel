@@ -78,7 +78,7 @@ export function buildDeck(
       result.corrections.filter((c) => c.id && c.reason !== "dialect"),
     );
     const visible = inTextOrder(
-      answerable.filter((c) => showAll || !heldBack(c, kind)),
+      answerable.filter((c) => showAll || !heldBack(c, kind, task.manuscriptLang)),
       result.originalText,
     );
     const later = visible.filter((c) => optionalPolish(c, kind));
@@ -106,6 +106,7 @@ export function countHeldBack(entries: [string, TaskState][]): number {
     n += countRejected(
       cs.filter((c) => c.id && c.reason !== "dialect"),
       reviewerKindOf(task.model),
+      task.manuscriptLang,
     );
   }
   return n;

@@ -171,6 +171,18 @@ test("LanguageTool's spelling guess on a capitalised word is held back; on a low
   }
 });
 
+test("on a Danish book every LanguageTool spelling guess is held back; elsewhere only capitalised ones", () => {
+  const typo = { original: "et bånnd.", corrected: "et bånd.", reason: "grammar:typos" };
+  for (const kind of ["local", "hosted"] as const) {
+    assert.equal(heldBack({ confidence: 5, ...typo }, kind, "da"), true);
+    assert.equal(heldBack({ confidence: 5, ...typo }, kind, "en"), false);
+    assert.equal(heldBack({ confidence: 5, ...typo }, kind), false);
+    assert.equal(heldBack({ confidence: 5, preApproved: true, ...typo }, kind, "da"), false);
+    // Hunspell's card for the same typo stands.
+    assert.equal(heldBack({ confidence: 5, original: "bånnd", corrected: "bånd", reason: "spell-check" }, kind, "da"), false);
+  }
+});
+
 test("a hosted reviewer's 3s are optional polish; its 2s are held back; a local run has none", () => {
   assert.equal(optionalPolish({ confidence: 2 }, "hosted"), false);
   assert.equal(optionalPolish({ confidence: 3 }, "hosted"), true);

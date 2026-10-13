@@ -113,18 +113,33 @@ function changesCapitalisedWord(c: Pick<Correction, "original" | "corrected">): 
   return words.some((w) => !c.corrected.includes(w) && w[0] !== w[0].toLowerCase());
 }
 
+/**
+ * Books whose LanguageTool spelling guesses are held back on lowercase words
+ * too. Danish builds compounds freely and the author's Danish novel quotes
+ * English slang, so its lowercase guesses there were 10 right to 15 wrong
+ * (ghosted → steghed, pladderromantiske → efterromantiske, mega → mage). On
+ * the Danish planted fixtures this costs nothing — 73% of misspellings found
+ * with or without it — because Hunspell finds the same typos and, since
+ * applyCorrections keeps the smaller of two identical edits, its card is the
+ * one shown. (Before that fix the same rule cost 65% → 8%: LanguageTool's
+ * padded card had been standing in for Hunspell's.)
+ */
+const LANGUAGETOOL_SPELLING_HELD_IN = new Set(["da"]);
+
 /** Held back by default: shown only when the author asks for everything. */
 export function heldBack(
   c: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved"> &
     Partial<Pick<Correction, "original" | "corrected">>,
   kind: ReviewerKind,
+  lang?: string,
 ): boolean {
   if (
     c.reason === LANGUAGETOOL_SPELLING &&
     !c.preApproved &&
-    c.original != null &&
-    c.corrected != null &&
-    changesCapitalisedWord({ original: c.original, corrected: c.corrected })
+    ((lang != null && LANGUAGETOOL_SPELLING_HELD_IN.has(lang)) ||
+      (c.original != null &&
+        c.corrected != null &&
+        changesCapitalisedWord({ original: c.original, corrected: c.corrected })))
   )
     return true;
   if (kind === "local" && c.editType === "line") return true;
@@ -143,8 +158,9 @@ export function countRejected(
   corrections: (Pick<Correction, "confidence" | "editType" | "reason" | "preApproved"> &
     Partial<Pick<Correction, "original" | "corrected">>)[],
   kind: ReviewerKind = "hosted",
+  lang?: string,
 ): number {
-  return corrections.filter((c) => heldBack(c, kind)).length;
+  return corrections.filter((c) => heldBack(c, kind, lang)).length;
 }
 
 export interface Progress {

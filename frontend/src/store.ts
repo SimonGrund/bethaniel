@@ -1083,7 +1083,7 @@ export const useStore = create<AppState>()(
           const kind = reviewerKindOf(task.model);
           const ids = new Set(
             task.result.corrections
-              .filter((c) => isReliable(c) && !heldBack(c, kind) && !optionalPolish(c, kind))
+              .filter((c) => isReliable(c) && !heldBack(c, kind, task.manuscriptLang) && !optionalPolish(c, kind))
               .map((c) => c.id ?? "")
               .filter(Boolean),
           );
@@ -1111,7 +1111,7 @@ export const useStore = create<AppState>()(
             const kind = reviewerKindOf(task.model);
             const ids = new Set(
               task.result.corrections
-                .filter((c) => isReliable(c) && !heldBack(c, kind) && !optionalPolish(c, kind))
+                .filter((c) => isReliable(c) && !heldBack(c, kind, task.manuscriptLang) && !optionalPolish(c, kind))
                 .map((c) => c.id ?? "")
                 .filter(Boolean),
             );
