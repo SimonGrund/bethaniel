@@ -20,7 +20,10 @@
 //    the word is capitalised, or the guess only splits it or recases it
 //    (`guessOnOwnWord`). "definately" written three times keeps its guess.
 //
-// Both run where gateProtectedTerms runs (queue.ts), on every source at once,
+// 3. A spelling guess on a word from another language — English inside
+//    Danish dialogue (`foreignWords`, `dropForeignWordGuesses`).
+//
+// All run where gateProtectedTerms runs (queue.ts), on every source at once,
 // and hand back what they drop so it is listed as left alone, not lost.
 //
 // Pure; tested from backend/test/noiseGates.test.ts.
@@ -131,6 +134,75 @@ function guessOnOwnWord(c: Correction, recurring: ReadonlySet<string>): boolean 
     if (capitalised || onlySplit || onlyCase) return true;
   }
   return false;
+}
+
+/**
+ * Words written in another language: unknown to the book's own dictionary,
+ * known to one of the others the app ships, lower-cased (a capital is a name,
+ * which the term gates handle), at least `minLen` letters — and with another
+ * such word within three words of it in the same paragraph. Measured on the
+ * author's Danish novel (October 2026): the Danish speller and LanguageTool
+ * "fixed" English and Swedish inside Danish dialogue — harsh → hash,
+ * insurance → assurance, conditions → konditions, till → til — and were wrong
+ * every time.
+ *
+ * The neighbour is what keeps a typo out. Danish and German dictionaries
+ * build compounds, so a lone misspelling is often "a word" in one of them:
+ * "suprise" passes the Danish dictionary, "wich" the German one. A phrase in
+ * another language has company; a typo in the book's own does not. On the
+ * same two books it kept 89 English words from Danish dialogue, gave up 20
+ * lone ones (hookup, wingman), and found nothing in the English novel.
+ */
+export function foreignWords(
+  texts: string[],
+  isOwnWord: ((w: string) => boolean) | null,
+  otherLanguages: ((w: string) => boolean)[],
+  minLen = 4,
+): string[] {
+  if (!isOwnWord || otherLanguages.length === 0) return [];
+  const verdict = new Map<string, boolean>();
+  const isCandidate = (w: string) => {
+    const k = fold(w);
+    let v = verdict.get(k);
+    if (v === undefined) {
+      v = !isOwnWord(k) && otherLanguages.some((known) => known(k));
+      verdict.set(k, v);
+    }
+    return v;
+  };
+  const out = new Set<string>();
+  for (const t of texts) {
+    for (const para of t.split(/\n+/)) {
+      const ws = [...para.matchAll(/\p{L}+/gu)].map((m) => m[0]);
+      const cand = ws.map(isCandidate);
+      ws.forEach((w, i) => {
+        if (!cand[i] || w.length < minLen || isUpper(w[0])) return;
+        const near = cand.slice(Math.max(0, i - 3), i).some(Boolean) || cand.slice(i + 1, i + 4).some(Boolean);
+        if (near) out.add(fold(w));
+      });
+    }
+  }
+  return [...out].sort();
+}
+
+/** Every speller verdict on a word: a guess, or "no dictionary knows it". */
+const SPELLING_FINDING = new Set([...SPELLING_GUESS, "spell-check-unknown"]);
+
+export function dropForeignWordGuesses(cs: Correction[], foreign: ReadonlySet<string>): NoiseGateResult {
+  if (foreign.size === 0) return { kept: cs, dropped: [] };
+  const kept: Correction[] = [];
+  const dropped: NoiseGateResult["dropped"] = [];
+  for (const c of cs) {
+    const after = new Set(words(c.corrected).map((x) => fold(x.w)));
+    const onForeign =
+      SPELLING_FINDING.has(c.reason ?? "") &&
+      !c.preApproved &&
+      words(c.original).some(({ w }) => foreign.has(fold(w)) && (c.reason === "spell-check-unknown" || !after.has(fold(w))));
+    if (onForeign) {
+      dropped.push({ correction: c, why: "left alone: a word from another language, spelled as that language spells it" });
+    } else kept.push(c);
+  }
+  return { kept, dropped };
 }
 
 export function dropRecurringUnknowns(cs: Correction[], recurring: ReadonlySet<string>): NoiseGateResult {

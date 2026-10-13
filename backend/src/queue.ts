@@ -69,7 +69,7 @@ import {
   partitionUnlocatable,
 } from "./correctionHygiene.js";
 import { gateProtectedTerms } from "./lexicon.js";
-import { dropRecurringUnknowns, dropSentenceStartLowercasing } from "./noiseGates.js";
+import { dropForeignWordGuesses, dropRecurringUnknowns, dropSentenceStartLowercasing } from "./noiseGates.js";
 import { dropCasingChanges, dropDialogueEdits, sheetFixCorrections } from "./sheetGates.js";
 import type { ProtectedTerms } from "./lexicon.js";
 import {
@@ -223,6 +223,10 @@ async function runReviewerAgentWithRetry(opts: {
   taskId: string;
   chunkLabel: string;
   agentLabel: string;
+  /** When no batch got through, throw the last failure instead of returning
+   *  nothing. The edit reviewer wants the cause on the task; the translation
+   *  stage keeps its draft on an empty answer and must not throw. */
+  throwWhenNoneScored?: boolean;
 }): Promise<Map<number, ReviewScore>> {
   // One call per batch rather than one call for the chunk. Asking a model to
   // score more corrections than its context can answer about does not produce
@@ -236,6 +240,9 @@ async function runReviewerAgentWithRetry(opts: {
     opts.reviewerPrompt,
   );
   const merged = new Map<number, ReviewScore>();
+  // Why the last batch failed, so a run where none got through reports the
+  // cause ("out of credit") rather than only that it failed.
+  let lastFailure: unknown = null;
 
   for (const [start, end] of batches) {
     const slice = opts.cs.slice(start, end);
@@ -278,6 +285,7 @@ async function runReviewerAgentWithRetry(opts: {
       },
     ).catch((err) => {
       if (opts.signal.aborted) throw err;
+      lastFailure = err;
       // One batch failing must not cost the verdicts of every other batch.
       appendLog({
         level: "warn",
@@ -295,6 +303,7 @@ async function runReviewerAgentWithRetry(opts: {
     }
   }
 
+  if (opts.throwWhenNoneScored && merged.size === 0 && lastFailure) throw lastFailure;
   return merged;
 }
 
@@ -335,6 +344,8 @@ interface JobData {
   consistentTerms?: string[];
   /** Unknown words the manuscript uses three times or more (noiseGates.ts). */
   recurringUnknownWords?: string[];
+  /** Words in another language the book quotes (noiseGates.ts). */
+  foreignWords?: string[];
   /** The author's confirmed style-sheet rules (styleSheetRules.ts), enforced
    *  by code: "write X, not Y", words whose capital is the author's, the
    *  characters whose speech is left alone, and the spellings they ticked. */
@@ -1809,8 +1820,18 @@ async function processJob(job: JobData): Promise<void> {
         // Reviewer exhausted its retries. Applying unvetted corrections is how
         // corrupted text reaches the manuscript, so apply NOTHING: keep the
         // chunk text unchanged and surface every correction as flagged so the
-        // user can accept/dismiss them manually. Deliberately not pushed to
-        // errors[] — the result is usable, the task stays "done".
+        // user can accept/dismiss them manually.
+        //
+        // And say so on the task. It used to stay "done" with nothing in
+        // errors[], and on a cloud job whose budget ran out at the reviewer
+        // (October 2026) that was a whole book of unscored suggestions shown
+        // as a finished, reviewed run. A chapter ending in "error" keeps its
+        // output, exactly as a failed editor chunk does, and tells the author
+        // to re-run it.
+        const why = err instanceof Error ? err.message : String(err);
+        errors.push(
+          `chunk ${pr.chunkLabel}: the reviewer could not run — ${why}. Its ${pr.cs.length} suggestions are unscored, and none were applied.`,
+        );
         appendLog({
           level: "warn",
           source: "engine",
@@ -1823,6 +1844,7 @@ async function processJob(job: JobData): Promise<void> {
           corrections.push({
             ...c,
             flagged: true,
+            ...(c.preApproved ? {} : { unreviewed: true }),
             reviewReason: "reviewer unavailable — not auto-applied",
             chunk: `Chunk ${pr.chunkLabel}`,
             id: uuidv4(),
@@ -2643,13 +2665,18 @@ async function processJob(job: JobData): Promise<void> {
             caseGate.kept,
             new Set(job.recurringUnknownWords ?? []),
           );
+          const foreignGate = dropForeignWordGuesses(
+            unknownGate.kept,
+            new Set(job.foreignWords ?? []),
+          );
           // The author's confirmed style-sheet rules (sheetGates.ts).
-          const casingGate = dropCasingChanges(unknownGate.kept, job.casingTerms ?? []);
+          const casingGate = dropCasingChanges(foreignGate.kept, job.casingTerms ?? []);
           const speechGate = dropDialogueEdits(casingGate.kept, chunk.body, job.dialogueSpeakers ?? []);
           const cs: Correction[] = speechGate.kept;
           const noise = [
             ...caseGate.dropped,
             ...unknownGate.dropped,
+            ...foreignGate.dropped,
             ...casingGate.dropped,
             ...speechGate.dropped,
           ];
@@ -2659,7 +2686,7 @@ async function processJob(job: JobData): Promise<void> {
               level: "info",
               source: "engine",
               taskId,
-              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly, ${casingGate.dropped.length + speechGate.dropped.length} went against the style sheet's rules.`,
+              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly, ${foreignGate.dropped.length} were spelling guesses on words from another language, ${casingGate.dropped.length + speechGate.dropped.length} went against the style sheet's rules.`,
               model,
             });
           }
@@ -2745,6 +2772,7 @@ async function processJob(job: JobData): Promise<void> {
                 taskId,
                 chunkLabel,
                 agentLabel: "Reviewer agent",
+                throwWhenNoneScored: true,
               }));
               if (scores.size === 0)
                 throw new Error(
@@ -3501,6 +3529,7 @@ export async function submitTask(
       correctionsDigest: data.correctionsDigest,
       consistentTerms: data.consistentTerms,
       recurringUnknownWords: data.recurringUnknownWords,
+      foreignWords: data.foreignWords,
       sheetReplace: data.sheetReplace,
       casingTerms: data.casingTerms,
       dialogueSpeakers: data.dialogueSpeakers,
@@ -3706,6 +3735,7 @@ export async function retryTask(id: string): Promise<string> {
     // the second attempt judges names the first one was told to leave alone.
     consistentTerms: spec.consistentTerms,
     recurringUnknownWords: spec.recurringUnknownWords,
+    foreignWords: spec.foreignWords,
     sheetReplace: spec.sheetReplace,
     casingTerms: spec.casingTerms,
     dialogueSpeakers: spec.dialogueSpeakers,

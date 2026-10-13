@@ -8,7 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  dropForeignWordGuesses,
   dropRecurringUnknowns,
+  foreignWords,
   dropSentenceStartLowercasing,
   lowercasesSentenceStart,
   recurringUnknownWords,
@@ -101,4 +103,45 @@ test("a spelling guess on the book's own recurring word is dropped when it canno
     kept.map((c) => c.corrected),
     ["definitely", "Black skull", "Black skull"],
   );
+});
+
+// ── Words from another language ──
+
+// Stand-in dictionaries: the book's own (Danish) and one other (English).
+const danish = (w: string) => ["han", "sagde", "det", "var", "en", "god", "dag", "hun", "kom", "hjem"].includes(w);
+const english = (w: string) => ["harsh", "conditions", "under", "these", "insurance", "wich", "good"].includes(w);
+
+test("a phrase in another language is foreign; a lone look-alike is not", () => {
+  const book = [
+    "“Under these harsh conditions,” sagde han.",
+    // A single word another dictionary happens to know, with no company:
+    // this is how a typo looks ("wich" is German), so it keeps its guess.
+    "Hun kom hjem wich en god dag.",
+  ];
+  // "Under" opens the quote with a capital, so it is skipped like a name —
+  // but it still counts as company for the words after it.
+  assert.deepEqual(foreignWords(book, danish, [english]), ["conditions", "harsh", "these"]);
+  // Capitalised words are names, and short ones are words somewhere.
+  assert.deepEqual(foreignWords(["Insurance conditions"], danish, [english]), ["conditions"]);
+  assert.deepEqual(foreignWords(book, null, [english]), []);
+});
+
+test("a spelling guess on a foreign word is dropped; anything else on it is kept", () => {
+  const foreign = new Set(["harsh", "conditions"]);
+  const { kept, dropped } = dropForeignWordGuesses(
+    [
+      { original: "harsh", corrected: "hash", reason: "spell-check" },
+      { original: "harsh conditions", corrected: "harsh konditions", reason: "grammar:typos" },
+      { original: "conditions", corrected: "conditions", reason: "spell-check-unknown" },
+      // The editor's own change is not a speller's guess.
+      { original: "harsh", corrected: "hard", reason: "copy" },
+      // Pre-approved stays.
+      { original: "harsh", corrected: "hash", reason: "spell-check", preApproved: true },
+      // A guess on a word that is not foreign.
+      { original: "dga", corrected: "dag", reason: "spell-check" },
+    ],
+    foreign,
+  );
+  assert.equal(dropped.length, 3);
+  assert.deepEqual(kept.map((c) => c.corrected), ["hard", "hash", "dag"]);
 });

@@ -94,8 +94,22 @@ const LOCAL_SHOWN_FROM = 4;
 /** The highest score a hosted reviewer's suggestion is held back at. */
 const HOSTED_HELD_THROUGH = 2;
 
+/**
+ * LanguageTool's spelling rule. Its guesses were wrong about nine times in
+ * ten on both of the author's books, whatever the reviewer scored them: 34 of
+ * 38 sampled in the English novel, 11 of 15 at score 4-5 in the Danish one —
+ * names respelled (Hella Joof → Joos, FCK → FUCK), a number changed, Swedish
+ * "corrected" into Danish. Hunspell's own guesses are a separate source and
+ * are not held back by this.
+ */
+const LANGUAGETOOL_SPELLING = "grammar:typos";
+
 /** Held back by default: shown only when the author asks for everything. */
-export function heldBack(c: Pick<Correction, "confidence" | "editType">, kind: ReviewerKind): boolean {
+export function heldBack(
+  c: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved">,
+  kind: ReviewerKind,
+): boolean {
+  if (c.reason === LANGUAGETOOL_SPELLING && !c.preApproved) return true;
   if (kind === "local" && c.editType === "line") return true;
   if (c.confidence == null) return false;
   return kind === "local" ? c.confidence < LOCAL_SHOWN_FROM : c.confidence <= HOSTED_HELD_THROUGH;
@@ -109,7 +123,7 @@ export function optionalPolish(c: Pick<Correction, "confidence">, kind: Reviewer
 
 /** How many of these the deck would hold back. */
 export function countRejected(
-  corrections: Pick<Correction, "confidence" | "editType">[],
+  corrections: Pick<Correction, "confidence" | "editType" | "reason" | "preApproved">[],
   kind: ReviewerKind = "hosted",
 ): number {
   return corrections.filter((c) => heldBack(c, kind)).length;

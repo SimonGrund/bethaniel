@@ -346,6 +346,9 @@ export interface TaskRetrySpec {
   /** Words no dictionary knows that the manuscript uses three times or
    *  more: no "unknown word" finding is raised for them (noiseGates.ts). */
   recurringUnknownWords?: string[];
+  /** Words in another language the book quotes — English in Danish
+   *  dialogue: no spelling guess is raised on them (noiseGates.ts). */
+  foreignWords?: string[];
   /** The author's confirmed style-sheet rules (styleSheetRules.ts), enforced
    *  by code: "write X, not Y", words whose capital is the author's, the
    *  characters whose speech is left alone, and the spellings they ticked. */

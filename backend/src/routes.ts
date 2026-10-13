@@ -1,7 +1,7 @@
 // ── API routes ──
 
 import { isWordAnywhere } from "./wordKnowledge.js";
-import { recurringUnknownWords } from "./noiseGates.js";
+import { foreignWords, recurringUnknownWords } from "./noiseGates.js";
 import { Router, Request, Response } from "express";
 import type { Server as SocketServer } from "socket.io";
 import multer from "multer";
@@ -1236,6 +1236,28 @@ router.post("/queue/add", async (req: Request, res: Response) => {
                   "american",
               }),
             );
+      // English quoted in Danish dialogue and the like: the speller of the
+      // book's language must not "correct" it (noiseGates.ts).
+      const lang = manuscriptLang ?? "en";
+      const foreign =
+        currentMode === "translate"
+          ? []
+          : foreignWords(
+              (units as EditUnit[]).map((u) => stripPagebreaks(u.original)),
+              getWordValidator(lang, {
+                englishDialect:
+                  (taskEditOptions as { englishDialect?: string } | undefined)?.englishDialect ??
+                  "american",
+              }),
+              (["en", "da", "de", "es", "fr"] as const)
+                .filter((l) => l !== lang)
+                .flatMap((l) =>
+                  l === "en"
+                    ? [getWordValidator("en", { englishDialect: "american" }), getWordValidator("en", { englishDialect: "british" })]
+                    : [getWordValidator(l)],
+                )
+                .filter((f): f is (w: string) => boolean => f !== null),
+            );
       for (const [unitIndex, unit] of (units as EditUnit[]).entries()) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
@@ -1276,6 +1298,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           retextCheck: resolveKnob("retextCheck", retextCheck),
           consistentTerms,
           recurringUnknownWords: recurringUnknown,
+          foreignWords: foreign,
           sheetReplace: sheet.replace.length ? sheet.replace : undefined,
           casingTerms: sheet.casing.length ? sheet.casing : undefined,
           dialogueSpeakers: sheet.speakers.length ? sheet.speakers : undefined,
