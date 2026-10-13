@@ -438,12 +438,19 @@ export async function findMissingWords(
       if (signal?.aborted) throw err;
     }
     if (!keep) continue;
+    // A suggestion, not a pre-approved fix. Pre-approval is for what is
+    // always true or the author's own decision (house style, a chosen
+    // dialect, doubled punctuation); this is a model's verdict. Judged blind
+    // on the author's two novels (October 2026), the pre-approved missing
+    // words were 55% right / 9% wrong from the 4B, but 29% right / 32% wrong
+    // from Gemma 4 12B, which finds far more of them ("However alarming this
+    // was" → "However alarming as this was"). The reviewer does not score
+    // them either — it cannot judge an insertion (see the header) — so they
+    // reach the author unscored and are never applied on their own.
     corrections.push({
       original: c.original,
       corrected: c.corrected,
       reason: "missing-word",
-      preApproved: true,
-      confidence: 5,
       editType: "copy",
     });
   }

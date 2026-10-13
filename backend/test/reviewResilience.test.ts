@@ -173,3 +173,21 @@ test("aggregateReviewScores: a preApproved correction is not flagged below thres
   assert.deepEqual(verdict, { flaggedCount: 0, unscoredCount: 0 });
 });
 
+
+test("a missing word is shown unscored and unapplied, and is not a reviewer failure", () => {
+  const cs: Correction[] = [
+    { original: "look each other", corrected: "look for each other", reason: "missing-word" },
+    { original: "teh", corrected: "the", reason: "spell-check" },
+  ];
+  const { flaggedCount, unscoredCount } = aggregateReviewScores(
+    cs,
+    [new Map([[1, { confidence: 5, reason: "typo" }]])],
+    3,
+  );
+  assert.equal(cs[0].flagged, true);
+  assert.equal(cs[0].unreviewed, true);
+  assert.equal(cs[0].confidence, undefined);
+  assert.equal(cs[1].flagged, undefined);
+  assert.equal(unscoredCount, 0);
+  assert.equal(flaggedCount, 0);
+});

@@ -169,13 +169,14 @@ function scripted(verdict: string, solo: Record<"A" | "B", string> = { A: "YES",
 }
 const TEXT = "Probably, that means they expect us to look each other in the same place.";
 
-test("a B verdict keeps the fix, pre-approved and tagged", async () => {
+test("a B verdict keeps the fix as a tagged suggestion, never pre-approved", async () => {
   const r = await findMissingWords(TEXT, "en", scripted("B"));
   assert.equal(r.corrections.length, 1);
   const c = r.corrections[0];
   assert.equal(c.corrected, "look for each other");
   assert.equal(c.reason, "missing-word");
-  assert.equal(c.preApproved, true);
+  assert.equal(c.preApproved, undefined);
+  assert.equal(c.confidence, undefined);
   assert.equal(c.editType, "copy");
 });
 
@@ -233,14 +234,13 @@ test("an editor correction making the same insertion is dropped; others stay", (
   );
 });
 
-test("a confirmed missing word blocks publication", () => {
+test("a suggested missing word does not block publication on its own", () => {
   const c = {
     original: "look each other",
     corrected: "look for each other",
     reason: "missing-word",
-    preApproved: true,
   };
-  assert.equal(classifyPublicationBlocking(c, "proofread", { text: TEXT }), true);
+  assert.equal(classifyPublicationBlocking(c, "proofread", { text: TEXT }), false);
 });
 
 test("the cloud quote prices the check where it runs, and only there", () => {

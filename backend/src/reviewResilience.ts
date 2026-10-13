@@ -126,6 +126,13 @@ export function aggregateReviewScores(
       if (c.confidence === undefined) c.confidence = 5;
       continue;
     }
+    // A missing word is never sent to the reviewer (queue.ts): shown to the
+    // author unscored and unapplied, not counted as a reviewer failure.
+    if (c.reason === "missing-word") {
+      c.flagged = true;
+      c.unreviewed = true;
+      continue;
+    }
 
     let minConfidence = Infinity;
     let minReason = "";

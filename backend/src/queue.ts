@@ -2762,11 +2762,17 @@ async function processJob(job: JobData): Promise<void> {
             // min-confidence merge below was comparing a value with itself.
             // The fan-out, the survivor accounting and the "N agents" logging
             // all described work that was never done.
+            // Missing words are kept out of the reviewer's list: it cannot
+            // judge an insertion, and showing it one disturbed its other
+            // verdicts (missingWords.ts). Its scores are mapped back onto the
+            // full list by position.
+            const reviewedAt = cs.flatMap((c, i) => (c.reason === "missing-word" ? [] : [i]));
             const reviewPromise = (async () => {
+              if (reviewedAt.length === 0) return [new Map<number, ReviewScore>()];
               const scores = await inUsagePass(tokenUsage, "reviewer", () => runReviewerAgentWithRetry({
                 model,
                 chunkText: chunk.body,
-                cs,
+                cs: reviewedAt.map((i) => cs[i]),
                 reviewerPrompt,
                 signal: ac.signal,
                 taskId,
@@ -2778,7 +2784,7 @@ async function processJob(job: JobData): Promise<void> {
                 throw new Error(
                   `Reviewer failed after ${REVIEWER_MAX_ATTEMPTS} attempts`,
                 );
-              return [scores];
+              return [new Map([...scores].map(([k, v]) => [reviewedAt[k], v]))];
             })();
 
             pendingReview = {
