@@ -320,9 +320,9 @@ async function commitUsage(
   // a rejection would otherwise skip every step below it.
   //
   // The step that matters is the ledger commit: a reservation that is never
-  // committed or released is never freed (reservations have no TTL), so it
-  // silently shrinks the balance of a credential the author has already paid
-  // for, for the rest of its seven-day life. Letting a failed daily-ceiling
+  // committed or released stays held until the ledger expires it as orphaned
+  // (RESERVATION_TTL_MS, 30 minutes), shrinking the balance of a credential
+  // the author has already paid for in the meantime. Letting a failed daily-ceiling
   // settlement take it down with it traded a self-correcting problem for a
   // permanent one.
 
@@ -340,17 +340,26 @@ async function commitUsage(
   }
 
   try {
-    await ledger.fetch("https://ledger/commit", {
+    const res = await ledger.fetch("https://ledger/commit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reservationId, actualTokens }),
     });
+    // fetch does not throw on a refusal, so a refused commit used to pass
+    // here in silence. The ledger expires an orphaned hold after
+    // RESERVATION_TTL_MS, but this should never happen and must be seen.
+    if (!res.ok) {
+      console.error(
+        `[proxy] LEDGER COMMIT REFUSED (${res.status}) for ${tokenHash.slice(0, 12)} — ` +
+          `reservation ${reservationId} (${actualTokens} tokens) stays held until it expires`,
+      );
+    }
   } catch (err) {
     // Nothing else can free this reservation. Loud, because the effect is
     // invisible to the author until their credential runs short.
     console.error(
       `[proxy] LEDGER COMMIT FAILED for ${tokenHash.slice(0, 12)} — reservation ` +
-        `${reservationId} (${actualTokens} tokens) is leaked for the credential's lifetime:`,
+        `${reservationId} (${actualTokens} tokens) stays held until it expires (RESERVATION_TTL_MS):`,
       err,
     );
   }

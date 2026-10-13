@@ -27,7 +27,22 @@ interface LedgerState {
 interface Reservation {
   id: string;
   amount: number;
+  /** When the hold was taken (ms). Legacy holds stored without one are
+   *  stamped when the ledger loads them. */
+  at: number;
 }
+
+/**
+ * How long a hold may stand before it is taken to be orphaned and released.
+ *
+ * A hold is settled by the proxy's commit or release once its upstream call
+ * ends. Nothing upstream runs anywhere near this long (a chunk takes 60-240s),
+ * so a hold this old is one whose settlement never arrived — and without an
+ * expiry it would shrink a paid credential for the rest of its life. Measured
+ * 13 October 2026 on a test credential: 1,359,317 tokens stuck in holds with
+ * nothing running, a third of a 4.27M budget, which is what ran it dry.
+ */
+export const RESERVATION_TTL_MS = 30 * 60 * 1000;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 // Per-credential burst ceiling, sized for a real multi-chapter job.
@@ -142,10 +157,14 @@ export class CredentialLedger {
       const stored = await this.state.storage.get<LedgerState>("ledger");
       if (stored) this.ledger = stored;
       const storedReservations =
-        await this.state.storage.get<Record<string, number>>("reservations");
+        await this.state.storage.get<Record<string, number | { amount: number; at: number }>>("reservations");
       if (storedReservations) {
-        for (const [id, amount] of Object.entries(storedReservations)) {
-          this.reservations.set(id, { id, amount });
+        const loadedAt = Date.now();
+        for (const [id, held] of Object.entries(storedReservations)) {
+          // Holds written before they carried a time are stamped now, so
+          // ones already orphaned expire RESERVATION_TTL_MS after this load.
+          const r = typeof held === "number" ? { amount: held, at: loadedAt } : held;
+          this.reservations.set(id, { id, amount: r.amount, at: r.at });
         }
       }
     });
@@ -153,9 +172,24 @@ export class CredentialLedger {
 
   private async persist(): Promise<void> {
     await this.state.storage.put("ledger", this.ledger);
-    const reservationsObj: Record<string, number> = {};
-    for (const r of this.reservations.values()) reservationsObj[r.id] = r.amount;
+    const reservationsObj: Record<string, { amount: number; at: number }> = {};
+    for (const r of this.reservations.values()) reservationsObj[r.id] = { amount: r.amount, at: r.at };
     await this.state.storage.put("reservations", reservationsObj);
+  }
+
+  /** Release holds whose settlement never arrived (RESERVATION_TTL_MS). */
+  private releaseOrphanedHolds(now: number): boolean {
+    let released = 0;
+    for (const r of this.reservations.values()) {
+      if (now - r.at <= RESERVATION_TTL_MS) continue;
+      this.ledger.reserved -= r.amount;
+      released += r.amount;
+      this.reservations.delete(r.id);
+    }
+    if (released === 0) return false;
+    this.ledger.reserved = Math.max(0, this.ledger.reserved);
+    console.warn(`[ledger] released ${released} tokens of orphaned holds`);
+    return true;
   }
 
   private rateLimited(): boolean {
@@ -189,15 +223,20 @@ export class CredentialLedger {
       return jsonResponse({ ok: false, reason: "not_initialized" }, 404);
     }
 
-    if (this.rateLimited()) {
-      return jsonResponse({ ok: false, reason: "rate_limited" }, 429);
-    }
-
     if (this.ledger.status !== "active" || new Date(this.ledger.expiresAt) < new Date()) {
       return jsonResponse({ ok: false, reason: "inactive_or_expired" }, 403);
     }
 
     if (url.pathname === "/reserve" && request.method === "POST") {
+      // Only taking new holds is paced. Settling one — commit, release — and
+      // reading the balance must always get through: a refused commit is a
+      // hold that is never freed, and the proxy settles in the background
+      // where nothing retries it. Pacing them as well is what leaked holds
+      // under a burst of short calls.
+      if (this.rateLimited()) {
+        return jsonResponse({ ok: false, reason: "rate_limited" }, 429);
+      }
+      if (this.releaseOrphanedHolds(Date.now())) await this.persist();
       const { holdTokens } = (await request.json()) as { holdTokens: number };
       const remaining =
         spendCeiling(this.ledger.budgetTotal) -
@@ -210,7 +249,7 @@ export class CredentialLedger {
         );
       }
       const id = crypto.randomUUID();
-      this.reservations.set(id, { id, amount: holdTokens });
+      this.reservations.set(id, { id, amount: holdTokens, at: Date.now() });
       this.ledger.reserved += holdTokens;
       await this.persist();
       return jsonResponse({ ok: true, reservationId: id });
@@ -245,6 +284,7 @@ export class CredentialLedger {
     }
 
     if (url.pathname === "/status" && request.method === "GET") {
+      if (this.releaseOrphanedHolds(Date.now())) await this.persist();
       return jsonResponse({
         ok: true,
         budgetTotal: this.ledger.budgetTotal,
