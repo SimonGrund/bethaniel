@@ -1,3 +1,12 @@
+/**
+ * A blank line between paragraphs, with Windows line endings as well as
+ * Unix ones. An uploaded .md or .txt is read as written, and a split on
+ * /\n\n+/ found no paragraph break at all in \r\n text: quote repair then
+ * proposed the whole chunk as one "paragraph" (11,382 characters, October
+ * 2026), which overflowed the reviewer's context.
+ */
+export const PARAGRAPH_BREAK = /\r?\n(?:[ \t]*\r?\n)+/;
+
 // ── Text chunking with paragraph overlap — ported from book_editor.py ──
 
 import type { ChunkData } from "./types.js";

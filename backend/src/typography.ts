@@ -34,6 +34,7 @@
 
 import type { Correction } from "./types.js";
 import type { QuoteStyle } from "./quoteMarks.js";
+import { PARAGRAPH_BREAK } from "./chunking.js";
 
 /** Curly or straight, the same two answers quotation marks have. */
 export type ApostropheStyle = QuoteStyle;
@@ -343,7 +344,7 @@ export function getTypographyCorrections(
   const ellipsis = detectEllipsisStyle(text);
   const out: Correction[] = [];
 
-  for (const paragraph of text.split(/\n\n+/)) {
+  for (const paragraph of text.split(PARAGRAPH_BREAK)) {
     if (!paragraph.trim()) continue;
     let fixed = paragraph;
     if (apostrophe) fixed = repairApostrophes(fixed, apostrophe);

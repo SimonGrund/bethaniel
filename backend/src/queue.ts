@@ -2762,11 +2762,12 @@ async function processJob(job: JobData): Promise<void> {
             // min-confidence merge below was comparing a value with itself.
             // The fan-out, the survivor accounting and the "N agents" logging
             // all described work that was never done.
-            // Missing words are kept out of the reviewer's list: it cannot
-            // judge an insertion, and showing it one disturbed its other
-            // verdicts (missingWords.ts). Its scores are mapped back onto the
-            // full list by position.
-            const reviewedAt = cs.flatMap((c, i) => (c.reason === "missing-word" ? [] : [i]));
+            // Kept out of the reviewer's list: missing words, which it cannot
+            // judge (missingWords.ts), and pre-approved fixes, whose score is
+            // ignored anyway (reviewResilience.ts) — sending them only cost
+            // tokens, and a whole-chunk one overflowed the context. Its scores
+            // are mapped back onto the full list by position.
+            const reviewedAt = cs.flatMap((c, i) => (c.reason === "missing-word" || c.preApproved ? [] : [i]));
             const reviewPromise = (async () => {
               if (reviewedAt.length === 0) return [new Map<number, ReviewScore>()];
               const scores = await inUsagePass(tokenUsage, "reviewer", () => runReviewerAgentWithRetry({

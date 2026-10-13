@@ -25,6 +25,7 @@ import {
   resolveConvention,
   type QuoteStyle,
 } from "./quoteMarks.js";
+import { PARAGRAPH_BREAK } from "./chunking.js";
 
 /** Words of context kept either side, so the pair can be located in the text. */
 const CONTEXT_CHARS = 32;
@@ -86,7 +87,7 @@ export function getQuoteCorrections(
 
   const out: Correction[] = [];
 
-  for (const paragraph of text.split(/\n\n+/)) {
+  for (const paragraph of text.split(PARAGRAPH_BREAK)) {
     const marks = readMarks(paragraph, convention);
     if (marks.length === 0) continue;
     // An odd number of marks means the paragraph is genuinely unbalanced —

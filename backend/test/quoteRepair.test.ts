@@ -238,3 +238,15 @@ test("apostrophes are never touched", () => {
   const text = `${"“Yes,” she said. ".repeat(10)}\n\nIt’s Bria’s ‘thing’.`;
   assert.equal(styleCs(text).length, 0);
 });
+
+test("Windows line endings still separate paragraphs: one correction per paragraph, never the whole text", () => {
+  // An uploaded .md or .txt keeps its \r\n line endings. Split on /\n\n+/,
+  // the whole chunk read as one paragraph and came back as a single
+  // 11,382-character "correction" that overflowed the reviewer's context.
+  const crlf = CURLY_CONTEXT.replace(/\n\n/g, "\r\n\r\n");
+  const text = `${crlf}\r\n\r\n"We can try," Aaron said with a shrug.`;
+  const cs = getQuoteCorrections(text);
+  assert.equal(cs.length, 1, JSON.stringify(cs));
+  assert.equal(cs[0].original, `"We can try," Aaron said with a shrug.`);
+  assert.ok(text.includes(cs[0].original));
+});

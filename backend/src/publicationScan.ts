@@ -52,6 +52,7 @@ import type {
   StructuralScanReport,
 } from "./types.js";
 import { findPunctuationPairs, pairExcerpt } from "./punctuationPairs.js";
+import { PARAGRAPH_BREAK } from "./chunking.js";
 
 export interface ScanUnit {
   name: string;
@@ -469,7 +470,7 @@ function findRepetitions(units: ScanUnit[]): {
   const findings: DraftFinding[] = [];
   const reported = new Set<string>();
   for (const [unitIndex, u] of units.entries()) {
-    for (const para of u.original.split(/\n\n+/)) {
+    for (const para of u.original.split(PARAGRAPH_BREAK)) {
       const span = repeatedSpan(para);
       if (!span) continue;
       const excerpt = excerptOf(para);
@@ -633,7 +634,7 @@ function unbalancedParagraphs(
   body: string,
   convention: QuoteConvention,
 ): QuoteRunFinding[] {
-  const paragraphs = body.split(/\n\n+/);
+  const paragraphs = body.split(PARAGRAPH_BREAK);
   const out: QuoteRunFinding[] = [];
   let i = 0;
   while (i < paragraphs.length) {
@@ -764,7 +765,7 @@ function findQuoteStyle(
   const wanted = convention.style;
   const findings: DraftFinding[] = [];
   for (const [unitIndex, u] of units.entries()) {
-    for (const paragraph of u.original.split(/\n\n+/)) {
+    for (const paragraph of u.original.split(PARAGRAPH_BREAK)) {
       const text = paragraph.trim();
       if (!text) continue;
       const offStyle = readMarks(text, convention).filter((m) =>
