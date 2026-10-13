@@ -118,12 +118,15 @@ test("a phrase in another language is foreign; a lone look-alike is not", () => 
     // this is how a typo looks ("wich" is German), so it keeps its guess.
     "Hun kom hjem wich en god dag.",
   ];
-  // "Under" opens the quote with a capital, so it is skipped like a name —
-  // but it still counts as company for the words after it.
-  assert.deepEqual(foreignWords(book, danish, [english]), ["conditions", "harsh", "these"]);
-  // Capitalised words are names, and short ones are words somewhere.
-  assert.deepEqual(foreignWords(["Insurance conditions"], danish, [english]), ["conditions"]);
+  // "Under" opens the quoted sentence, so its capital is not a name's.
+  assert.deepEqual(foreignWords(book, danish, [english]), ["conditions", "harsh", "these", "under"]);
+  // A capital mid-sentence is a name; short words are words somewhere.
+  assert.deepEqual(foreignWords(["Hun kom med Insurance conditions"], danish, [english]), ["conditions"]);
   assert.deepEqual(foreignWords(book, null, [english]), []);
+  // A capital that only opens a sentence is not a name.
+  assert.deepEqual(foreignWords(["Hun kom hjem. Harsh conditions, sagde han."], danish, [english]), ["conditions", "harsh"]);
+  // Mid-sentence, a capital is a name and is left to the term gates.
+  assert.deepEqual(foreignWords(["Hun kom hjem med Harsh conditions."], danish, [english]), ["conditions"]);
 });
 
 test("a spelling guess on a foreign word is dropped; anything else on it is kept", () => {

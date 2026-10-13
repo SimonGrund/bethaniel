@@ -138,8 +138,9 @@ function guessOnOwnWord(c: Correction, recurring: ReadonlySet<string>): boolean 
 
 /**
  * Words written in another language: unknown to the book's own dictionary,
- * known to one of the others the app ships, lower-cased (a capital is a name,
- * which the term gates handle), at least `minLen` letters — and with another
+ * known to one of the others the app ships, lower-cased or capitalised only
+ * because they open a sentence (any other capital is a name, which the term
+ * gates handle), at least `minLen` letters — and with another
  * such word within three words of it in the same paragraph. Measured on the
  * author's Danish novel (October 2026): the Danish speller and LanguageTool
  * "fixed" English and Swedish inside Danish dialogue — harsh → hash,
@@ -173,10 +174,14 @@ export function foreignWords(
   const out = new Set<string>();
   for (const t of texts) {
     for (const para of t.split(/\n+/)) {
-      const ws = [...para.matchAll(/\p{L}+/gu)].map((m) => m[0]);
+      const ms = [...para.matchAll(/\p{L}+/gu)];
+      const ws = ms.map((m) => m[0]);
       const cand = ws.map(isCandidate);
       ws.forEach((w, i) => {
-        if (!cand[i] || w.length < minLen || isUpper(w[0])) return;
+        // A capital that only opens a sentence is not a name: "Nope.",
+        // "Basically, …" in Danish dialogue were respelled Noe and Basilica.
+        if (!cand[i] || w.length < minLen) return;
+        if (isUpper(w[0]) && !isSentenceInitial(para, ms[i].index!)) return;
         const near = cand.slice(Math.max(0, i - 3), i).some(Boolean) || cand.slice(i + 1, i + 4).some(Boolean);
         if (near) out.add(fold(w));
       });
