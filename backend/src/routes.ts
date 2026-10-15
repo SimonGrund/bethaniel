@@ -130,6 +130,7 @@ import { readStyleSheet, ruleEvidence, sheetJob } from "./styleSheetRules.js";
 import { writeXlsx } from "./xlsxWriter.js";
 import { ensureGpuEngine, getGpuEngineStatus } from "./gpuEngineManager.js";
 import { withTransientRetry } from "./retryPolicy.js";
+import { installId } from "./installId.js";
 import { extractTermListText } from "./termListFile.js";
 
 /** The model id a Betty in the Cloud run is submitted under (EditTrigger). */
@@ -3219,6 +3220,9 @@ router.post("/cloud/estimate", async (req: Request, res: Response) => {
         // elsewhere. Sent even when empty — the field's presence is what
         // tells the Worker this app can show a currency other than euros.
         country: authorCountry(),
+        // A random id for this install, so a code limited per install
+        // (max_uses_per_install) can be counted. See installId.ts.
+        installId: installId(),
       }),
     });
     if (!quoteRes.ok) {
@@ -3301,7 +3305,7 @@ router.post("/cloud/code", async (req: Request, res: Response) => {
     const codeRes = await fetch(`${workerBaseUrl}/v1/code`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, installId: installId() }),
     });
     if (!codeRes.ok) {
       res.json({ known: false });

@@ -19,7 +19,11 @@ CREATE TABLE IF NOT EXISTS quotes (
   -- language analysis). Names the line item on the receipt.
   product TEXT NOT NULL DEFAULT 'edit',
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  -- The app install that asked, for codes limited per install (see
+  -- promo_install_uses). NULL from apps that send none. Added by:
+  --   ALTER TABLE quotes ADD COLUMN install_id TEXT;
+  install_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS credentials (
@@ -109,10 +113,36 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   products TEXT,
   created_at TEXT NOT NULL,
   expires_at TEXT,                   -- NULL = never
-  status TEXT NOT NULL DEFAULT 'active'  -- active | void
+  status TEXT NOT NULL DEFAULT 'active',  -- active | void
+  -- How many times one app install may use the code. NULL = no limit, which
+  -- is every code minted before this column. A code with a limit is refused
+  -- to an app that sends no install id (one from before v2.52), since it
+  -- could not be counted. Added by:
+  --   ALTER TABLE promo_codes ADD COLUMN max_uses_per_install INTEGER;
+  max_uses_per_install INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_campaign ON promo_codes(campaign);
+
+-- One row per job a code paid for on a given app install, for
+-- max_uses_per_install. Written when the credential is minted — in
+-- /v1/checkout for a free code, in the Stripe webhook for a paid one — and
+-- never at checkout start, because an author who closes the payment page has
+-- bought nothing and must be able to try again. session_id makes the webhook's
+-- write idempotent under Stripe's retries.
+--
+-- The install id is a random UUID the app keeps in its data folder: it says
+-- nothing about who the author is, and deleting the folder (or reinstalling)
+-- makes a new one. That is the known way round the limit; it stops casual
+-- reuse, not a determined author.
+CREATE TABLE IF NOT EXISTS promo_install_uses (
+  session_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  install_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_install ON promo_install_uses(code, install_id);
 
 -- Chunks that failed twice on a paid job.
 --

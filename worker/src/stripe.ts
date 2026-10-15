@@ -61,6 +61,8 @@ export async function createCheckoutSession(
     currency?: PriceCurrency;
     product?: CloudProduct;
     promoCode?: string | null;
+    /** The app install, for a code limited per install. */
+    installId?: string | null;
   },
 ): Promise<CheckoutSessionResult> {
   // Backstop: every call site is covered even if one forgets the early check.
@@ -89,6 +91,8 @@ export async function createCheckoutSession(
     // the quote itself is deleted once it expires.
     "metadata[product]": opts.product ?? "edit",
     ...(opts.promoCode ? { "metadata[promoCode]": opts.promoCode } : {}),
+    // Read back by the webhook to count a per-install code's use once paid.
+    ...(opts.promoCode && opts.installId ? { "metadata[installId]": opts.installId } : {}),
   });
 
   const res = await fetch(`${STRIPE_API_BASE}/checkout/sessions`, {
@@ -193,6 +197,8 @@ export interface StripeCheckoutCompletedEvent {
   /** From the session metadata; absent on sessions created before 2026-09-30. */
   product: string | null;
   promoCode: string | null;
+  /** The app install, set when a code was used; absent before v2.52. */
+  installId: string | null;
 }
 
 /** Verify the Stripe-Signature header and, if valid and the event is a
@@ -275,6 +281,7 @@ export async function verifyAndParseStripeWebhook(
     currency: session.currency ?? null,
     product: session.metadata?.product ?? null,
     promoCode: session.metadata?.promoCode ?? null,
+    installId: session.metadata?.installId ?? null,
   };
 }
 

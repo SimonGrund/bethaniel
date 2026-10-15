@@ -36,6 +36,7 @@ export interface PromoInsert {
   discount_cents: number | null;
   max_uses: number;
   max_uses_per_product: number | null;
+  max_uses_per_install: number | null;
   max_words: number | null;
   products: string | null;
   created_at: string;
@@ -105,6 +106,11 @@ export function validateMint(body: unknown, now: Date, siteOnly: boolean): Resul
     return { ok: false, error: "max_uses_per_product: a whole number from 1 to max_uses" };
   }
 
+  const perInstall = b.max_uses_per_install == null ? null : intIn(b.max_uses_per_install, 1, maxUses);
+  if (b.max_uses_per_install != null && perInstall === null) {
+    return { ok: false, error: "max_uses_per_install: a whole number from 1 to max_uses" };
+  }
+
   const maxWords = b.max_words == null ? null : intIn(b.max_words, 1, MAX_WORDS);
   if (b.max_words != null && maxWords === null) return { ok: false, error: "max_words: a positive whole number" };
 
@@ -141,6 +147,7 @@ export function validateMint(body: unknown, now: Date, siteOnly: boolean): Resul
       discount_cents: cents,
       max_uses: maxUses,
       max_uses_per_product: perProduct,
+      max_uses_per_install: perInstall,
       max_words: maxWords,
       products,
       created_at: createdAt,

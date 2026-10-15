@@ -11,6 +11,7 @@ import type { Env } from "./env";
 import {
   CLOUD_PRODUCTS,
   codeBalance,
+  installRefusal,
   priceJob,
   currencyForCountry,
   PRICE_CURRENCIES,
@@ -24,6 +25,11 @@ import {
   parseProductUses,
   parseProducts,
   redeemPromo,
+  countInstallUses,
+  parseInstallId,
+  recordInstallUse,
+  promoInstallLimit,
+  releaseInstallUse,
   releasePromo,
   findQuote,
   insertCredential,
@@ -201,6 +207,23 @@ function describeMaintenance(s: MaintenanceSummary): string {
     `${s.expiredQuotes} expired quote(s), refunded ${s.refunded}, flagged ${s.flagged} for review` +
     (s.saturations.length ? `, RATE CEILING HIT in ${s.saturations.length} minute(s)` : "")
   );
+}
+
+/**
+ * Whether a quote's install may still use its code, re-read at checkout.
+ * `limit` is the code's per-install limit (null: none). Shares its wording
+ * with the quote through installRefusal.
+ */
+async function installLimitFor(
+  env: Env,
+  code: string,
+  installId: string | null,
+): Promise<{ ok: true; limit: number | null } | { ok: false; error: string }> {
+  const limit = await promoInstallLimit(env, code);
+  if (limit == null) return { ok: true, limit: null };
+  const uses = installId ? await countInstallUses(env, code, installId) : null;
+  const refusal = installRefusal(code, limit, uses);
+  return refusal ? { ok: false, error: refusal } : { ok: true, limit };
 }
 
 export default {
@@ -436,7 +459,10 @@ export default {
       // spends nothing, writes nothing, and takes no quote row — the use is
       // still taken only by redeemPromo at checkout.
       if (url.pathname === "/v1/code" && request.method === "POST") {
-        const { code } = (await request.json()) as { code?: string };
+        const { code, installId: rawInstallId } = (await request.json()) as {
+          code?: string;
+          installId?: string;
+        };
         if (typeof code !== "string" || !code.trim()) {
           return json({ error: "code is required" }, 400);
         }
@@ -451,16 +477,24 @@ export default {
           }
           return json({ known: false });
         }
-        return json({ known: true, ...codeBalance(row) });
+        const installId = parseInstallId(rawInstallId);
+        const installUses =
+          row.max_uses_per_install != null && installId
+            ? await countInstallUses(env, row.code, installId)
+            : null;
+        return json({ known: true, ...codeBalance(row, installUses) });
       }
 
       if (url.pathname === "/v1/quote" && request.method === "POST") {
-        const { estimatedTokens, words, code, product, country } =
+        const { estimatedTokens, words, code, product, country, installId: rawInstallId } =
           (await request.json()) as {
             estimatedTokens: number;
             words?: number;
             code?: string;
             product?: string;
+            /** A random UUID the app keeps, for codes limited per install.
+             *  Sent by apps from v2.52 on. */
+            installId?: string;
             /** Where the author is (ISO 3166 alpha-2), which picks the
              *  currency. Sent by apps from v2.42 on — see below. */
             country?: string;
@@ -517,6 +551,11 @@ export default {
         // spend a single-use code, or an author who asks twice loses it. The
         // use is taken at /v1/checkout, atomically.
         const promoRow = code ? await findPromo(env, code) : null;
+        const installId = parseInstallId(rawInstallId);
+        const installUses =
+          promoRow?.max_uses_per_install != null && installId
+            ? await countInstallUses(env, promoRow.code, installId)
+            : null;
         // The currency follows the country the app reports, which is the
         // region set in the author's operating system. An app that sends the
         // field but could not read a region gets Cloudflare's reading of the
@@ -544,6 +583,8 @@ export default {
                 maxUsesPerProduct: promoRow.max_uses_per_product,
                 productUses: parseProductUses(promoRow),
                 products: parseProducts(promoRow),
+                maxUsesPerInstall: promoRow.max_uses_per_install ?? null,
+                installUses,
               }
             : null,
         );
@@ -556,6 +597,7 @@ export default {
           quote.appliedCode ?? null,
           quote.product,
           { priceCents: quote.priceCents, currency: quote.currency },
+          installId,
         );
         return json({
           quoteId,
@@ -582,7 +624,7 @@ export default {
           // quote happens immediately before checkout, so a note that went
           // stale while another machine spent the code is corrected before
           // anyone pays.
-          codeBalance: promoRow ? codeBalance(promoRow) : undefined,
+          codeBalance: promoRow ? codeBalance(promoRow, installUses) : undefined,
         });
       }
 
@@ -625,6 +667,26 @@ export default {
           const redeemed = quote.promo_code
             ? await redeemPromo(env, quote.promo_code, quoteProduct)
             : false;
+          // Then the install's use, under its own guard. The quote checked it,
+          // but a second free checkout from the same install may have landed
+          // since; the loser hands the code's use back.
+          const syntheticSessionId = `promo_${quote.id}`;
+          if (redeemed && quote.promo_code) {
+            const installLimit = await installLimitFor(env, quote.promo_code, quote.install_id ?? null);
+            if (!installLimit.ok) {
+              await releasePromo(env, quote.promo_code, quoteProduct);
+              return json({ error: installLimit.error }, 409);
+            }
+            if (installLimit.limit != null && quote.install_id) {
+              const recorded = await recordInstallUse(
+                env, quote.promo_code, quote.install_id, syntheticSessionId, installLimit.limit,
+              );
+              if (!recorded) {
+                await releasePromo(env, quote.promo_code, quoteProduct);
+                return json({ error: `${quote.promo_code} has already been used on this computer.` }, 409);
+              }
+            }
+          }
           if (!redeemed) {
             return json(
               {
@@ -643,9 +705,8 @@ export default {
           ).toISOString();
           // No Stripe session exists, but the column is UNIQUE and NOT NULL and
           // is what makes webhook delivery idempotent. A synthetic id keyed to
-          // the quote preserves both: replaying this endpoint with the same
-          // quote collides instead of minting twice.
-          const syntheticSessionId = `promo_${quote.id}`;
+          // the quote (syntheticSessionId, above) preserves both: replaying
+          // this endpoint with the same quote collides instead of minting twice.
           const already = await findCredentialByStripeSession(
             env,
             syntheticSessionId,
@@ -692,6 +753,7 @@ export default {
             );
           } catch (err) {
             if (quote.promo_code) await releasePromo(env, quote.promo_code, quoteProduct);
+            await releaseInstallUse(env, syntheticSessionId);
             throw err;
           }
           // Same shape the app already handles after a paid checkout.
@@ -709,6 +771,11 @@ export default {
         // A partial discount still goes through Stripe at the reduced amount,
         // and the code is spent only once that session is created.
         if (quote.promo_code) {
+          // Checked again here, not recorded: the install's use is written by
+          // the webhook once the author has paid, so closing the payment page
+          // costs them nothing.
+          const installLimit = await installLimitFor(env, quote.promo_code, quote.install_id ?? null);
+          if (!installLimit.ok) return json({ error: installLimit.error }, 409);
           const redeemed = await redeemPromo(env, quote.promo_code, quoteProduct);
           if (!redeemed) {
             return json(
@@ -730,6 +797,7 @@ export default {
             currency: chargeCurrency,
             product: quoteProduct,
             promoCode: quote.promo_code,
+            installId: quote.install_id ?? null,
           });
         } catch (err) {
           // The use was taken a few lines above and bought nothing. Without
@@ -775,6 +843,14 @@ export default {
           const quote = await findQuote(env, event.quoteId).catch(() => null);
           product = quote?.product ?? null;
           promoCode = promoCode ?? quote?.promo_code ?? null;
+        }
+
+        // The install's use of a per-install code, recorded now that the job
+        // is paid for. Unconditional: a payment is never refused after the
+        // fact. Idempotent on the session id, so a retried delivery that got
+        // this far before failing does not count twice.
+        if (promoCode && event.installId) {
+          await recordInstallUse(env, promoCode, event.installId, event.sessionId, null);
         }
 
         await insertCredential(env, {

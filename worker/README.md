@@ -27,6 +27,13 @@ the deploy checklist.
    ```
    npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN max_uses_per_product INTEGER; ALTER TABLE promo_codes ADD COLUMN product_uses TEXT NOT NULL DEFAULT '{}'"
    ```
+   A database that predates PER-INSTALL limits needs a column on each table
+   and one new table. Add them BEFORE deploying the Worker that reads them:
+   without `quotes.install_id` every /v1/quote fails its insert, and without
+   `promo_codes.max_uses_per_install` every mint does:
+   ```
+   npx wrangler d1 execute bethaniel-cloud --remote --command "ALTER TABLE promo_codes ADD COLUMN max_uses_per_install INTEGER; ALTER TABLE quotes ADD COLUMN install_id TEXT; CREATE TABLE IF NOT EXISTS promo_install_uses (session_id TEXT PRIMARY KEY, code TEXT NOT NULL, install_id TEXT NOT NULL, created_at TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_promo_install ON promo_install_uses(code, install_id)"
+   ```
    And a database that predates promo PRODUCT SCOPING needs one more. This
    one is safe to add late — NULL reads as "every product", so a Worker that
    does not know the column and a database that does are both fine — but the
@@ -376,6 +383,19 @@ for the same thing) with an explicit "not currently supported", so
   has left. A quote against an exhausted product is refused with a reason
   the author can read, and the checkout re-checks it under the same guarded
   `UPDATE` that keeps the total race-safe.
+- **A code can be limited per app install.** `max_uses_per_install` (mint
+  field and column; NULL = no limit) caps how many jobs one install of the
+  app can use the code for — 1 for "once per person" on a code printed in an
+  ad. The app (v2.52 on) sends `installId`, a random UUID it keeps in its
+  data folder (`backend/src/installId.ts`), with `/v1/quote` and `/v1/code`.
+  A use is counted in `promo_install_uses` only once a credential exists — at
+  `/v1/checkout` for a free code, in the Stripe webhook for a paid one (the
+  id rides in the session metadata) — so an author who closes the payment
+  page can try again. An app that sends no id cannot be counted, so a code
+  with a limit is refused to it with "update the app"; do not set the limit
+  on a code until the release that sends the id is out. Deleting the app's
+  data folder makes a new install, and the Worker API is public, so this
+  stops casual reuse, not a determined author.
 - Two things that will waste your afternoon if you do not know them:
   `wrangler dev` does NOT reload `[vars]` edits — restart it after changing
   `PROVIDER_MODEL` or you will benchmark the old model. And

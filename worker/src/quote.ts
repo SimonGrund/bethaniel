@@ -28,6 +28,33 @@ export interface PromoTerms {
    * outcome than an open one.
    */
   products?: readonly string[];
+  /** Uses allowed per app install; null or absent means no such limit. */
+  maxUsesPerInstall?: number | null;
+  /**
+   * Jobs this code has already paid for on the asking install — or null when
+   * the app sent no install id (one from before v2.52), which a code with a
+   * per-install limit refuses, because it cannot be counted.
+   */
+  installUses?: number | null;
+}
+
+/** Why a code with a per-install limit is refused, or null if it is not.
+ *  One function, so the price and the task cards cannot disagree. */
+export function installRefusal(
+  code: string,
+  limit: number | null | undefined,
+  installUses: number | null | undefined,
+): string | null {
+  if (limit == null) return null;
+  if (installUses == null) {
+    return `${code} needs the latest version of Bethaniel. Update the app to use it.`;
+  }
+  if (installUses >= limit) {
+    return limit === 1
+      ? `${code} has already been used on this computer.`
+      : `${code} has already been used ${limit} times on this computer.`;
+  }
+  return null;
 }
 
 /** What is being bought. The three front cards — an edit, a final
@@ -86,8 +113,17 @@ export interface CodeBalance {
   runsLeft: Record<CloudProduct, number>;
 }
 
-export function codeBalance(row: PromoRow): CodeBalance {
-  const pool = Math.max(0, row.max_uses - row.uses);
+export function codeBalance(row: PromoRow, installUses: number | null = null): CodeBalance {
+  // A per-install limit caps the pool for this install. An app with no
+  // install id cannot use such a code at all, so its cards offer nothing.
+  const perInstall = row.max_uses_per_install ?? null;
+  const pool = Math.max(
+    0,
+    Math.min(
+      row.max_uses - row.uses,
+      perInstall == null ? Infinity : installUses == null ? 0 : perInstall - installUses,
+    ),
+  );
   const perProduct = row.max_uses_per_product;
   const taken = parseProductUses(row);
   // A product the code does not cover has no runs on it, whatever the pool
@@ -338,6 +374,10 @@ export function priceJob(
       codeRejectedReason: `${promo.code} covers up to ${promo.maxWords.toLocaleString("en")} words; this job is ${words.toLocaleString("en")}.`,
     };
   }
+
+  // Once per install (or N times): the same check the cards are told about.
+  const perInstall = installRefusal(promo.code, promo.maxUsesPerInstall, promo.installUses);
+  if (perInstall) return { ...undiscounted, codeRejectedReason: perInstall };
 
   // A code minted as "one of each" is refused for a product it has already
   // paid for, here at quote time so the author reads why instead of meeting

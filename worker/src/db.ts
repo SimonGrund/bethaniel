@@ -21,6 +21,8 @@ export interface QuoteRow {
   product: string;
   created_at: string;
   expires_at: string;
+  /** The app install that asked; NULL from an app that sends none. */
+  install_id?: string | null;
 }
 
 export interface CredentialRow {
@@ -51,12 +53,13 @@ export async function insertQuote(
     priceCents: priceEurCents,
     currency: "eur",
   },
+  installId: string | null = null,
 ): Promise<void> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS);
   await env.DB.prepare(
-    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, price_cents, currency, promo_code, product, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (id, estimated_tokens, price_eur_cents, price_cents, currency, promo_code, product, created_at, expires_at, install_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       id,
@@ -68,6 +71,7 @@ export async function insertQuote(
       product,
       now.toISOString(),
       expiresAt.toISOString(),
+      installId,
     )
     .run();
 }
@@ -327,6 +331,8 @@ export interface PromoRow {
   created_at: string;
   expires_at: string | null;
   status: string;
+  /** Uses allowed per app install. NULL (or absent, before the column) = no limit. */
+  max_uses_per_install?: number | null;
 }
 
 /** The per-product tally as an object. A row written before the column
@@ -460,6 +466,74 @@ export async function redeemPromo(env: Env, code: string, product: CloudProduct)
     .bind(code.trim().toUpperCase(), product, new Date().toISOString())
     .run();
   return (res.meta?.changes ?? 0) > 0;
+}
+
+// ── Uses per app install ──
+
+/** An install id as the app makes it: a random UUID. Anything else counts
+ *  as no id at all. */
+const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function parseInstallId(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const id = v.trim().toLowerCase();
+  return INSTALL_ID.test(id) ? id : null;
+}
+
+/** Jobs this install has already had paid for by the code. */
+export async function countInstallUses(env: Env, code: string, installId: string): Promise<number> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM promo_install_uses WHERE code = ? AND install_id = ?`,
+  )
+    .bind(code.trim().toUpperCase(), installId)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/**
+ * Record that a code paid for a job on this install.
+ *
+ * With `limit`, the insert carries its own guard — the same shape as
+ * redeemPromo — so two free checkouts racing from one install cannot both
+ * take the last use; returns false when the install had none left. Without
+ * one it always records (the Stripe webhook: the author has paid, and a
+ * payment is never refused after the fact). Idempotent on session_id.
+ */
+export async function recordInstallUse(
+  env: Env,
+  code: string,
+  installId: string,
+  sessionId: string,
+  limit: number | null,
+): Promise<boolean> {
+  const res = await env.DB.prepare(
+    `INSERT OR IGNORE INTO promo_install_uses (session_id, code, install_id, created_at)
+     SELECT ?1, ?2, ?3, ?4
+      WHERE ?5 IS NULL
+         OR (SELECT COUNT(*) FROM promo_install_uses WHERE code = ?2 AND install_id = ?3) < ?5`,
+  )
+    .bind(sessionId, code.trim().toUpperCase(), installId, new Date().toISOString(), limit)
+    .run();
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+/** A code's per-install limit, read whatever state the code is in. Not
+ *  through findPromo, which hides a code once its last use is taken — and
+ *  the free checkout asks right after taking it. */
+export async function promoInstallLimit(env: Env, code: string): Promise<number | null> {
+  const row = await env.DB.prepare(
+    `SELECT max_uses_per_install FROM promo_codes WHERE code = ?`,
+  )
+    .bind(code.trim().toUpperCase())
+    .first<{ max_uses_per_install: number | null }>();
+  return row?.max_uses_per_install ?? null;
+}
+
+/** Undo recordInstallUse for a job that was never minted after all. */
+export async function releaseInstallUse(env: Env, sessionId: string): Promise<void> {
+  await env.DB.prepare(`DELETE FROM promo_install_uses WHERE session_id = ?`)
+    .bind(sessionId)
+    .run();
 }
 
 // ── Failure reports ────────────────────────────────────────────────────────
@@ -613,11 +687,12 @@ export async function insertPromoCodes(
     env.DB.prepare(
       `INSERT OR IGNORE INTO promo_codes
          (code, campaign, discount_pct, discount_cents, max_uses, max_uses_per_product,
-          max_words, products, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          max_words, products, created_at, expires_at, max_uses_per_install)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       r.code, r.campaign, r.discount_pct, r.discount_cents, r.max_uses,
       r.max_uses_per_product, r.max_words, r.products, r.created_at, r.expires_at,
+      r.max_uses_per_install,
     ),
   );
   const results = await env.DB.batch(stmts);

@@ -38,6 +38,7 @@ test("a well-formed mint becomes rows the table's own way", () => {
     discount_cents: null,
     max_uses: 1,
     max_uses_per_product: null,
+    max_uses_per_install: null,
     max_words: null,
     products: '["edit","readthrough"]',
     created_at: "2026-09-30T12:00:00Z",
