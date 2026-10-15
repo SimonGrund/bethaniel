@@ -164,26 +164,27 @@ export function bandPrice(env: Env, product: CloudProduct, currency: PriceCurren
     return product === "enhance"
       ? read(env.PRICE_ENHANCE_USD_CENTS, 249)
       : product === "translate"
-        ? read(env.PRICE_TRANSLATE_USD_CENTS, 1399)
+        ? read(env.PRICE_TRANSLATE_USD_CENTS, 200)
         : read(env.PRICE_TIER_USD_CENTS, 599);
   }
   if (currency === "dkk") {
     return product === "enhance"
       ? read(env.PRICE_ENHANCE_DKK_ORE, 1500)
       : product === "translate"
-        ? read(env.PRICE_TRANSLATE_DKK_ORE, 8900)
+        ? read(env.PRICE_TRANSLATE_DKK_ORE, 1000)
         : read(env.PRICE_TIER_DKK_ORE, 3900);
   }
-  // Translation has its own band price. It runs on a much dearer model than
-  // the edits — GLM-5.2 at EUR 1.80/5.50 per million against deepseek-v4-flash
-  // at EUR 0.40/0.80 — and a 100k-word translation costs about EUR 3.76 in
-  // provider tokens, reviewer included, where an edit of the same book costs
-  // cents. Sold in the edit band it would have cleared the markup policy on
-  // paper and almost nothing in practice.
+  // Translation has its own band, both narrower and dearer per word. It runs
+  // on a much dearer model than the edits — GLM-5.2 at EUR 1.80/5.50 per
+  // million against deepseek-v4-flash at EUR 0.40/0.80 — and a 100k-word
+  // translation costs about EUR 3.76 in provider tokens, reviewer included,
+  // where an edit of the same book costs cents. Its band is
+  // translateBandWords (10,000) rather than the edits' 100,000, so the price
+  // follows the manuscript instead of charging a short story for a novel.
   return product === "enhance"
     ? read(env.PRICE_ENHANCE_EUR_CENTS, 200)
     : product === "translate"
-      ? read(env.PRICE_TRANSLATE_EUR_CENTS, 1200)
+      ? read(env.PRICE_TRANSLATE_EUR_CENTS, 150)
       : read(env.PRICE_TIER_EUR_CENTS, 500);
 }
 
@@ -209,6 +210,19 @@ export interface PriceQuote {
   appliedCode?: string;
   /** Set when a code was offered but does not cover a job this size. */
   codeRejectedReason?: string;
+}
+
+/**
+ * Words per band of a product. Translation is sold in bands of 10,000 words
+ * (PRICE_TRANSLATE_WORDS), so its price scales with the manuscript — $2 per
+ * 10,000 words — where the edits keep their 100,000-word band. A flat band
+ * that wide made a 5,000-word story pay what a novel pays, which is tolerable
+ * at EUR 5 and was not at EUR 12.
+ */
+export function bandWords(env: Env, product: CloudProduct): number {
+  return product === "translate"
+    ? Number(env.PRICE_TRANSLATE_WORDS) || 10_000
+    : Number(env.PRICE_TIER_WORDS) || 100_000;
 }
 
 /**
@@ -289,12 +303,13 @@ export function priceJob(
   const impliedWords = Math.ceil(tokens / tokensPerWord);
   const words = Math.max(claimedWords, impliedWords);
 
-  const bandWords = Number(env.PRICE_TIER_WORDS) || 100_000;
+  const band = bandWords(env, product);
   const eurBand = bandPrice(env, product, "eur");
   const localBand = bandPrice(env, product, currency);
 
-  // Bands are whole: 1 word and 100,000 words are both one band.
-  const tiers = Math.max(1, Math.ceil(words / bandWords));
+  // Bands are whole: 1 word and 100,000 words are both one band (10,000 for
+  // a translation).
+  const tiers = Math.max(1, Math.ceil(words / band));
   const fullPriceEurCents = tiers * eurBand;
   const fullPriceCents = tiers * localBand;
   const base = { product, tokens, words, tiers, currency, fullPriceCents, fullPriceEurCents };

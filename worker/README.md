@@ -294,12 +294,13 @@ for the same thing) with an explicit "not currently supported", so
   against 76.7 overall and five points on Danish. Hence the split; the 70B
   was later replaced by GLM-5.2 on the same side of it. Read
   `docs/language-quality-roadmap.md` §5 before changing either model.
-- **Translation has its own price band.** `PRICE_TRANSLATE_EUR_CENTS`
-  (EUR 12 per band of `PRICE_TIER_WORDS`) rather than the EUR 5 edit band:
-  GLM-5.2 plus the fluency reviewer costs about EUR 3.76 in provider tokens
-  per 100,000 words, where the same book copy-edited costs cents, and EUR 12
-  is what holds the 3× markup across one and two bands. The derivation is in
-  `wrangler.toml` above the variable.
+- **Translation has its own price band.** `PRICE_TRANSLATE_WORDS` (10,000)
+  costs `PRICE_TRANSLATE_EUR_CENTS` (EUR 1.50; $2, 10 kr.), so a translation
+  scales with the manuscript rather than sitting in the 100,000-word edit
+  band: GLM-5.2 plus the fluency reviewer costs about EUR 0.38 in provider
+  tokens per 10,000 words, where the same text copy-edited costs cents, and
+  EUR 1.50 a band is 4x that. It was a flat EUR 12 per 100,000 words until
+  October 2026. The derivation is in `wrangler.toml` above the variable.
 - **Pricing is flat word bands, not cost-plus.** `PRICE_TIER_WORDS` (100,000)
   costs `PRICE_TIER_EUR_CENTS` (EUR 5); two bands cost double, and so on. A
   100,000-word novel and a 3,000-word story both sit in band one and pay the

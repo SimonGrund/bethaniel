@@ -38,7 +38,10 @@ export interface Env {
   PRICE_TIER_EUR_CENTS?: string;
   /** Price of one band of the enhanced language analysis, in EUR cents. */
   PRICE_ENHANCE_EUR_CENTS?: string;
-  /** Price per band for a translation. Its own knob because translation runs
+  /** Words per translation band (default 10,000) — translation is priced
+   *  per 10,000 words, not per edit band. See bandWords in quote.ts. */
+  PRICE_TRANSLATE_WORDS?: string;
+  /** Price per translation band. Its own knob because translation runs
    *  on a dearer model than the edits — see priceJob in quote.ts. */
   PRICE_TRANSLATE_EUR_CENTS?: string;
   /** The same three bands in US dollars, in cents. Charged to an app that

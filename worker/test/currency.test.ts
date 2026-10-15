@@ -14,13 +14,14 @@ import type { Env } from "../src/env.ts";
 const env = {
   PRICE_TIER_WORDS: "100000",
   PRICE_TIER_EUR_CENTS: "500",
-  PRICE_TRANSLATE_EUR_CENTS: "1200",
+  PRICE_TRANSLATE_WORDS: "10000",
+  PRICE_TRANSLATE_EUR_CENTS: "150",
   PRICE_ENHANCE_EUR_CENTS: "200",
   PRICE_TIER_USD_CENTS: "599",
-  PRICE_TRANSLATE_USD_CENTS: "1399",
+  PRICE_TRANSLATE_USD_CENTS: "200",
   PRICE_ENHANCE_USD_CENTS: "249",
   PRICE_TIER_DKK_ORE: "3900",
-  PRICE_TRANSLATE_DKK_ORE: "8900",
+  PRICE_TRANSLATE_DKK_ORE: "1000",
   PRICE_ENHANCE_DKK_ORE: "1500",
 } as unknown as Env;
 
@@ -35,10 +36,10 @@ test("the United States pays in dollars, the Danish realm in kroner, the rest in
 test("each product has its own band in each currency", () => {
   assert.equal(bandPrice(env, "edit", "usd"), 599);
   assert.equal(bandPrice(env, "readthrough", "usd"), 599);
-  assert.equal(bandPrice(env, "translate", "usd"), 1399);
+  assert.equal(bandPrice(env, "translate", "usd"), 200);
   assert.equal(bandPrice(env, "enhance", "usd"), 249);
   assert.equal(bandPrice(env, "edit", "dkk"), 3900);
-  assert.equal(bandPrice(env, "translate", "dkk"), 8900);
+  assert.equal(bandPrice(env, "translate", "dkk"), 1000);
   assert.equal(bandPrice(env, "enhance", "dkk"), 1500);
   assert.equal(bandPrice(env, "edit", "eur"), 500);
 });
@@ -46,7 +47,7 @@ test("each product has its own band in each currency", () => {
 test("an unset var sells at the published price, never at zero", () => {
   const bare = { PRICE_TIER_WORDS: "100000" } as unknown as Env;
   assert.equal(bandPrice(bare, "edit", "usd"), 599);
-  assert.equal(bandPrice(bare, "translate", "dkk"), 8900);
+  assert.equal(bandPrice(bare, "translate", "dkk"), 1000);
   assert.equal(bandPrice(bare, "enhance", "eur"), 200);
 });
 

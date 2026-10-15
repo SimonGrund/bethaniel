@@ -183,17 +183,18 @@ PRICE_TIER_EUR_CENTS = "500"
 # The enhanced language analysis reads a sample of the book, not the book, so
 # it is sold per band at a fraction of an edit. Same bands, its own price.
 PRICE_ENHANCE_EUR_CENTS = "200"
-# Translation has its own band, dearer than an edit's. It is the one product
-# that still needs a large model: GLM-5.2 plus the fluency reviewer costs about
-# EUR 3.76 in provider tokens for a 100,000-word book, where the same book
-# copy-edited costs cents. In the EUR 5 edit band that cleared the 3x markup on
-# paper and almost nothing in practice.
+# Translation has its own band: 10,000 words rather than 100,000, and dearer
+# per word than an edit. It is the one product that still needs a large model:
+# GLM-5.2 plus the fluency reviewer costs about EUR 3.76 in provider tokens for
+# a 100,000-word book (EUR 0.38 per 10,000), where the same book copy-edited
+# costs cents.
 #
-# EUR 12 holds the policy across the whole range, which EUR 10 did not once the
-# reviewer came back: 3.19x at 100,000 words and 3.29x at 200,000 (the worst
-# case, being two bands of a book that nearly needs three). Two bands — any
-# novel over 100,000 words — therefore cost EUR 24.
-PRICE_TRANSLATE_EUR_CENTS = "1200"
+# Until October 2026 it was one flat EUR 12 band of 100,000 words, so a
+# 5,000-word story paid what a novel paid. It now scales with the manuscript at
+# $2 per 10,000 words (EUR 1.50, 10 kr.): EUR 1.50 a band is 4x the provider
+# cost, and a 100,000-word novel comes to EUR 15 / $20 / 100 kr.
+PRICE_TRANSLATE_WORDS = "10000"
+PRICE_TRANSLATE_EUR_CENTS = "150"
 # ── The same bands in dollars and kroner ──
 #
 # An app from v2.42 on reports the author's country (the region set in their
@@ -206,14 +207,14 @@ PRICE_TRANSLATE_EUR_CENTS = "1200"
 # Rounded from EUR 1 = USD 1.17 = DKK 7.46 (September 2026), to the nearest
 # price that looks like a price. Kroner in øre, as Stripe counts them.
 #   edit / readthrough   EUR 5    $5.99  (EUR 5.12)    39 kr. (EUR 5.23)
-#   translation          EUR 12   $13.99 (EUR 11.96)   89 kr. (EUR 11.93)
+#   translation /10k wds EUR 1.50 $2.00  (EUR 1.71)     10 kr. (EUR 1.34)
 #   enhanced analysis    EUR 2    $2.49  (EUR 2.13)    15 kr. (EUR 2.01)
 # Revisit them if the exchange rate moves by more than a few per cent.
 PRICE_TIER_USD_CENTS = "599"
-PRICE_TRANSLATE_USD_CENTS = "1399"
+PRICE_TRANSLATE_USD_CENTS = "200"
 PRICE_ENHANCE_USD_CENTS = "249"
 PRICE_TIER_DKK_ORE = "3900"
-PRICE_TRANSLATE_DKK_ORE = "8900"
+PRICE_TRANSLATE_DKK_ORE = "1000"
 PRICE_ENHANCE_DKK_ORE = "1500"
 
 # Kept for the cost model in globalMeter.ts, which still reasons in tokens.

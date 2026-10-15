@@ -15,7 +15,8 @@ import type { Env } from "../src/env.ts";
 const env = {
   PRICE_TIER_WORDS: "100000",
   PRICE_TIER_EUR_CENTS: "500",
-  PRICE_TRANSLATE_EUR_CENTS: "1200",
+  PRICE_TRANSLATE_WORDS: "10000",
+  PRICE_TRANSLATE_EUR_CENTS: "150",
 } as unknown as Env;
 
 test("anything up to the band size costs one band", () => {
@@ -177,38 +178,57 @@ test("the two edit-shaped cards are priced alike; translation is not", () => {
   // an edit of the same book costs cents. One band for both would have cleared
   // the 3x markup on paper and almost nothing in practice.
   const priceOf = (product: "edit" | "readthrough" | "translate") => {
-    const q = priceJob(env, { estimatedTokens: 800_000, words: 50_000, product });
+    const q = priceJob(env, { estimatedTokens: 160_000, words: 10_000, product });
     assert.equal(q.product, product);
     assert.equal(q.tiers, 1);
     return q.priceEurCents;
   };
   assert.equal(priceOf("edit"), 500);
   assert.equal(priceOf("readthrough"), 500);
-  assert.equal(priceOf("translate"), 1200);
-
-  // Two bands of translation is double, not a new rate: a >100k-word novel
-  // pays EUR 24.
+  // A translation is one band per 10,000 words, not one per 100,000.
+  assert.equal(priceOf("translate"), 150);
+  // $2 per 10,000 words: a 100,000-word novel is ten bands, EUR 15, and a
+  // 5,000-word story is one, rather than paying what the novel pays.
   assert.equal(
-    priceJob(env, { estimatedTokens: 1_600_000, words: 150_000, product: "translate" })
+    priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" })
       .priceEurCents,
-    2400,
+    1500,
+  );
+  assert.equal(
+    priceJob(env, { estimatedTokens: 80_000, words: 5_000, product: "translate" }).tiers,
+    1,
+  );
+  assert.equal(
+    priceJob(env, { estimatedTokens: 1_600_000, words: 85_001, product: "translate" }).tiers,
+    9,
   );
 
   // Same guard on every one of them: translation's heavier token count still
   // sits well inside the ceiling, so it is never repriced by it.
-  assert.equal(priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" }).tiers, 1);
+  assert.equal(priceJob(env, { estimatedTokens: 1_610_000, words: 100_000, product: "translate" }).tiers, 10);
 });
 
-test("a deployment missing the translate price does not undercharge", () => {
+test("translation scales with the manuscript in every currency", () => {
+  const usd = { ...env, PRICE_TRANSLATE_USD_CENTS: "200" } as unknown as Env;
+  const q = priceJob(usd, { estimatedTokens: 1_000_000, words: 62_000, product: "translate", currency: "usd" });
+  assert.equal(q.tiers, 7);
+  assert.equal(q.priceCents, 1400);
+});
+
+test("a deployment missing the translate vars does not undercharge", () => {
   // The code fallback has to match what wrangler.toml actually sets. It did
   // not for one commit, and the only thing that noticed was this file: a
   // Worker deployed without the var would have sold translations at the old
   // EUR 10 while the app quoted them, silently, at a margin under policy.
+  // The band size falls back too — to 10,000 words, not the edits' 100,000.
   const bare = { PRICE_TIER_WORDS: "100000" } as unknown as Env;
+  const q = priceJob(bare, { estimatedTokens: 800_000, words: 50_000, product: "translate" });
+  assert.equal(q.tiers, 5);
+  assert.equal(q.priceEurCents, 5 * 150);
   assert.equal(
-    priceJob(bare, { estimatedTokens: 800_000, words: 50_000, product: "translate" })
-      .priceEurCents,
-    1200,
+    priceJob(bare, { estimatedTokens: 800_000, words: 50_000, product: "translate", currency: "usd" })
+      .priceCents,
+    1000,
   );
 });
 
@@ -218,7 +238,7 @@ test("a per-product cap refuses a product the code has already paid for, and say
     productUses: { translate: 1 },
   };
   const q = priceJob(env, { estimatedTokens: 1e6, words: 50_000, product: "translate" }, oneOfEach);
-  assert.equal(q.priceEurCents, 1200, "full translation price, not free");
+  assert.equal(q.priceEurCents, 5 * 150, "full translation price, not free");
   assert.equal(q.appliedCode, undefined);
   assert.match(q.codeRejectedReason ?? "", /FOURRUNS/);
   assert.match(q.codeRejectedReason ?? "", /a translation/);
@@ -282,7 +302,7 @@ test("a scoped code pays for a product it covers", () => {
 
 test("and refuses one it does not, with the full price and a reason", () => {
   const q = priceJob(env, { estimatedTokens: 50_000, words: 40_000, product: "translate" }, scoped);
-  assert.equal(q.priceEurCents, 1200, "the author still gets a price");
+  assert.equal(q.priceEurCents, 4 * 150, "the author still gets a price");
   assert.equal(q.appliedCode, undefined);
   assert.match(q.codeRejectedReason ?? "", /LANCE100K/);
   assert.match(q.codeRejectedReason ?? "", /translation/);
