@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   status TEXT NOT NULL DEFAULT 'active',  -- active | void
   -- How many times one app install may use the code. NULL = no limit, which
   -- is every code minted before this column. A code with a limit is refused
-  -- to an app that sends no install id (one from before v2.52), since it
+  -- to an app that sends no install id (one from before v2.53), since it
   -- could not be counted. Added by:
   --   ALTER TABLE promo_codes ADD COLUMN max_uses_per_install INTEGER;
   max_uses_per_install INTEGER

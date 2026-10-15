@@ -493,7 +493,7 @@ export default {
             code?: string;
             product?: string;
             /** A random UUID the app keeps, for codes limited per install.
-             *  Sent by apps from v2.52 on. */
+             *  Sent by apps from v2.53 on. */
             installId?: string;
             /** Where the author is (ISO 3166 alpha-2), which picks the
              *  currency. Sent by apps from v2.42 on — see below. */

@@ -197,7 +197,7 @@ export interface StripeCheckoutCompletedEvent {
   /** From the session metadata; absent on sessions created before 2026-09-30. */
   product: string | null;
   promoCode: string | null;
-  /** The app install, set when a code was used; absent before v2.52. */
+  /** The app install, set when a code was used; absent before v2.53. */
   installId: string | null;
 }
 

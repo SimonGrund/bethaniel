@@ -386,7 +386,7 @@ for the same thing) with an explicit "not currently supported", so
 - **A code can be limited per app install.** `max_uses_per_install` (mint
   field and column; NULL = no limit) caps how many jobs one install of the
   app can use the code for — 1 for "once per person" on a code printed in an
-  ad. The app (v2.52 on) sends `installId`, a random UUID it keeps in its
+  ad. The app (v2.53 on) sends `installId`, a random UUID it keeps in its
   data folder (`backend/src/installId.ts`), with `/v1/quote` and `/v1/code`.
   A use is counted in `promo_install_uses` only once a credential exists — at
   `/v1/checkout` for a free code, in the Stripe webhook for a paid one (the

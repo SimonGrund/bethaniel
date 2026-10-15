@@ -32,7 +32,7 @@ export interface PromoTerms {
   maxUsesPerInstall?: number | null;
   /**
    * Jobs this code has already paid for on the asking install — or null when
-   * the app sent no install id (one from before v2.52), which a code with a
+   * the app sent no install id (one from before v2.53), which a code with a
    * per-install limit refuses, because it cannot be counted.
    */
   installUses?: number | null;
