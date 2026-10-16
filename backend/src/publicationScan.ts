@@ -28,6 +28,7 @@
 // and content cut off mid-sentence (a proxy for a missing page). Mirrors the
 // philosophy of consistency.ts — fast, offline, no model required.
 
+import { stripNonProse } from "./nonProse.js";
 import { createHash } from "crypto";
 import { splitIntoParagraphs } from "./chunking.js";
 import { detectDialect } from "./dialect.js";
@@ -1097,12 +1098,23 @@ export interface PublicationScanOptions {
    * 60/40 book is a guess.
    */
   quoteStyle?: QuoteStyle;
+  /** The manuscript's table-cell texts (nonProse.ts). */
+  tableParagraphs?: string[];
 }
 
 export function buildPublicationScan(
   units: ScanUnit[],
   options?: PublicationScanOptions,
 ): StructuralScanReport {
+  // The checks that read sentences read prose only: a table cell or a
+  // contents line is not a sentence, and each one was a finding — an
+  // unclosed quote, a doubled mark, a "truncated" chapter ending in a table
+  // (nonProse.ts). The checks about the chapters themselves — empty, out of
+  // numbering — still see everything, so a chapter that IS a table is not
+  // called empty.
+  const all = units;
+  const cells = new Set(options?.tableParagraphs ?? []);
+  units = all.map((u) => ({ ...u, original: stripNonProse(u.original, cells) }));
   const { findings: dupFindings } = findDuplicates(units);
   const { findings: repFindings, reported } = findRepetitions(units);
   // Read once, off the whole book: a chapter of pure narration has no quotes
@@ -1126,8 +1138,8 @@ export function buildPublicationScan(
   const findings: StructuralFinding[] = [
     ...dupFindings,
     ...repFindings,
-    ...findEmptyChapters(units),
-    ...findNumberingIssues(units),
+    ...findEmptyChapters(all),
+    ...findNumberingIssues(all),
     ...findTruncation(units, reported, convention),
     ...findQuoteStyle(units, convention),
     ...findTypography(units, convention.style),
@@ -1179,7 +1191,7 @@ export function buildPublicationScan(
 
   return {
     title: "Publication readiness scan",
-    chaptersScanned: units.length,
+    chaptersScanned: all.length,
     summary,
     findings,
     checks,

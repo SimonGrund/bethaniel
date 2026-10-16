@@ -959,6 +959,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
         )
         .trim();
 
+    // A .docx's table cells: prose to no check (nonProse.ts). Read from the
+    // map kept with the original, so a book uploaded before this works too.
+    const storedOriginal = await loadOriginalDocx(doc.id);
+    const tableParagraphs = storedOriginal.ok
+      ? tableParagraphTexts(doc.md, storedOriginal.value.paragraphMap)
+      : [];
     for (const currentMode of effectiveModes) {
       // ── Publication readiness scan: one deterministic task over the whole
       // manuscript (no LLM). Chapters travel together so cross-chapter checks
@@ -992,6 +998,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           // author declared. Omitting these left the scan guessing by majority
           // vote, and advising against the author's own setting.
           editOptions,
+          tableParagraphs: tableParagraphs.length ? tableParagraphs : undefined,
         });
         taskIds.push(taskId);
         continue;
@@ -1267,12 +1274,6 @@ router.post("/queue/add", async (req: Request, res: Response) => {
                 )
                 .filter((f): f is (w: string) => boolean => f !== null),
             );
-      // A .docx's table cells: prose to no check (nonProse.ts). Read from the
-      // map kept with the original, so a book uploaded before this works too.
-      const storedOriginal = currentMode === "translate" ? null : await loadOriginalDocx(doc.id);
-      const tableParagraphs = storedOriginal?.ok
-        ? tableParagraphTexts(doc.md, storedOriginal.value.paragraphMap)
-        : [];
       for (const [unitIndex, unit] of (units as EditUnit[]).entries()) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
@@ -1314,7 +1315,8 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           consistentTerms,
           recurringUnknownWords: recurringUnknown,
           foreignWords: foreign,
-          tableParagraphs: tableParagraphs.length ? tableParagraphs : undefined,
+          tableParagraphs:
+            currentMode !== "translate" && tableParagraphs.length ? tableParagraphs : undefined,
           sheetReplace: sheet.replace.length ? sheet.replace : undefined,
           casingTerms: sheet.casing.length ? sheet.casing : undefined,
           dialogueSpeakers: sheet.speakers.length ? sheet.speakers : undefined,

@@ -46,3 +46,22 @@ test("the author's own rules apply in a table too", () => {
   const r = dropNonProseEdits([c("Mother", "Mum", "house-style")], "Mother", new Set(["Mother"]));
   assert.equal(r.kept.length, 1);
 });
+
+test("the publication scan reads prose only, but a chapter that is a table is not empty", async () => {
+  const { buildPublicationScan } = await import("../src/publicationScan.ts");
+  const prose = "She walked to the harbour and watched the boats come in. ".repeat(20).trim();
+  const cell = "Mother,, aged 40";
+  const units = [
+    { name: "Chapter 1", original: `${prose}\n\n${cell}` },
+    { name: "Chapter 2", original: prose.replace("harbour", "quay") },
+  ];
+  const without = buildPublicationScan(units);
+  assert.ok(without.findings.some((f) => f.check === "punctuation_pair"));
+  const withCells = buildPublicationScan(units, { tableParagraphs: [cell] });
+  assert.ok(!withCells.findings.some((f) => f.check === "punctuation_pair"));
+  assert.equal(withCells.chaptersScanned, 2);
+
+  const table = { name: "Cast", original: Array.from({ length: 60 }, (_, i) => `Person ${i}`).join("\n\n") };
+  const r = buildPublicationScan([units[1], table], { tableParagraphs: table.original.split("\n\n") });
+  assert.ok(!r.findings.some((f) => f.check === "empty_chapter" && f.location === "Cast"));
+});

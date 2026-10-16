@@ -67,6 +67,22 @@ export function nonProseRanges(text: string, tableTexts: Set<string>): [number, 
   return out;
 }
 
+/** `text` without its table cells and contents lines, paragraph breaks kept
+ *  — what the publication scan's prose checks read. */
+export function stripNonProse(text: string, tableTexts: Set<string>): string {
+  const ranges = nonProseRanges(text, tableTexts);
+  if (ranges.length === 0) return text;
+  let out = "";
+  let at = 0;
+  for (const [s, e] of ranges.sort((a, b) => a[0] - b[0])) {
+    if (s < at) continue;
+    out += text.slice(at, s);
+    at = e;
+  }
+  out += text.slice(at);
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** Corrections the author made themselves (a style-sheet or house-style
  *  rule) are theirs to apply wherever they asked. */
 const AUTHORS = new Set(["house-style", "style-sheet"]);

@@ -1292,6 +1292,7 @@ async function processPublicationScanJob(
         // So the English dialect check can stand down on a manuscript that is
         // not in English.
         manuscriptLang: job.manuscriptLang,
+        tableParagraphs: job.tableParagraphs,
         // The style the author declared. Without it the scan falls back to
         // the manuscript's own majority, which on a 60/40 book is a guess.
         quoteStyle:
