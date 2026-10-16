@@ -30,14 +30,19 @@ export function tableParagraphTexts(md: string, map: ParagraphMapEntry[]): strin
 
 /** One line of a contents page: a whole internal link (Word's TOC field), or
  *  a short title ending in a page number after a tab, leader dots or a
- *  space. The last shape is ordinary prose too ("Room 101") — so a line only
- *  counts inside a run of them (CONTENTS_RUN). */
+ *  space. The last shapes are ordinary prose too ("Room 101") — so a line
+ *  only counts inside a run of them (CONTENTS_RUN). */
 function looksLikeContentsLine(p: string): boolean {
   const t = p.trim();
   if (!t || t.includes("\n")) return false;
   if (/^(?:[-*]\s+|\d+\\?\.\s+)?\[[^\]]+\]\(#[^)]*\)$/.test(t)) return true;
-  if (t.split(/\s+/).length > 12) return false;
-  return /\p{L}/u.test(t) && /(?:\t|\.{3,}|…+|\s)\s*(?:\d{1,4}|[ivxlc]{1,7})$/iu.test(t);
+  if (t.split(/\s+/).length > 12 || !/\p{L}/u.test(t)) return false;
+  if (/(?:\t|\.{3,}|…+)\s*(?:\d{1,4}|[ivxlc]{1,7})$/iu.test(t)) return true;
+  // A page number after a plain space: the title before it must be more than
+  // one word, or every "Chapter 12" heading is a contents line too — and the
+  // book's real first heading, straight after its contents page, joined it.
+  const m = /^(.*\S)\s+(?:\d{1,4}|[ivxlc]{1,7})$/iu.exec(t);
+  return !!m && m[1].trim().split(/\s+/).length >= 2;
 }
 
 /** Consecutive contents lines it takes to call them a contents page. */

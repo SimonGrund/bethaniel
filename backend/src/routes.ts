@@ -248,6 +248,8 @@ router.post(
       // media into MEDIA_DIR/<docId>/ and the markdown can reference it.
       const docId = uuidv4();
       let md: string;
+      // A .docx's table cells, so a contents table is not read as chapters.
+      let tableCells = new Set<string>();
 
       const lower = fileName.toLowerCase();
       if (lower.endsWith(".docx")) {
@@ -255,6 +257,7 @@ router.post(
         // user's own file rather than rebuild an approximation of it.
         const mapped = await docxToMarkdownMapped(req.file.buffer, { docId });
         md = mapped.md;
+        tableCells = new Set(tableParagraphTexts(md, mapped.paragraphMap));
         await saveOriginalDocx(docId, req.file.buffer, mapped.paragraphMap);
       } else if (lower.endsWith(".epub")) {
         // Real text, in spine order — no geometry to infer, unlike a PDF.
@@ -284,7 +287,7 @@ router.post(
         md = joinLineEndHyphens(req.file.buffer.toString("utf-8"));
       }
 
-      const chapters = findChapters(md);
+      const chapters = findChapters(md, tableCells);
       const wordCount = md.split(/\s+/).filter(Boolean).length;
       // The manuscript answers the language / dialect / comma questions the
       // wizard is about to ask. Deterministic and cheap (no model, no

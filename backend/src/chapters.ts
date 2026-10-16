@@ -1,6 +1,7 @@
 // ── Chapter detection — ported from ui.py ──
 
 import type { Chapter } from "./types.js";
+import { nonProseRanges } from "./nonProse.js";
 
 const PAGEBREAK_MARKER = "<!-- PAGEBREAK -->";
 
@@ -174,11 +175,64 @@ function mergeShortChapters(text: string, chapters: Chapter[]): Chapter[] {
   return out;
 }
 
-export function findChapters(text: string): Chapter[] {
-  return mergeShortChapters(text, detectChapters(text));
+/**
+ * `tableTexts`: a .docx's table-cell paragraphs (nonProse.ts), so a contents
+ * page laid out as a table is not read as chapter headings either.
+ */
+export function findChapters(text: string, tableTexts: Set<string> = new Set()): Chapter[] {
+  return mergeShortChapters(text, detectChapters(text, tableTexts));
 }
 
-function detectChapters(text: string): Chapter[] {
+/** Headings in a row this long, with nothing but whitespace between them,
+ *  are a contents list rather than chapters. */
+const CONTENTS_HEADING_RUN = 3;
+
+/**
+ * Drop the heading matches that are a contents page, not chapters.
+ *
+ * A contents page lists every chapter title, so each of its lines matched
+ * the same pattern as the chapter it names — and with page numbers, leader
+ * dots or a table around it, the chapter-word pattern took "Chapter 1 ....
+ * 5" as a heading. Two kinds go: a match inside what nonProse.ts calls a
+ * contents page or a table cell, and a run of headings with no text between
+ * them (a contents list with no page numbers). A page-break match is never
+ * dropped by the second rule: its heading is the line after it.
+ */
+function dropContentsMatches<T extends { index: number; full: string }>(
+  text: string,
+  matches: T[],
+  tableTexts: Set<string>,
+  isPageBreak: boolean,
+): T[] {
+  const ranges = nonProseRanges(text, tableTexts);
+  const lineOf = (m: T) => {
+    const lead = m.full.length - m.full.trimStart().length;
+    return m.index + lead;
+  };
+  let kept = matches.filter((m) => {
+    const at = lineOf(m);
+    return !ranges.some(([s, e]) => at >= s && at < e);
+  });
+  if (isPageBreak) return kept;
+  const bare = kept.map((m, i) => {
+    const next = kept[i + 1];
+    if (!next) return false;
+    return text.slice(m.index + m.full.length, next.index).trim() === "";
+  });
+  const drop = new Set<number>();
+  for (let i = 0; i < kept.length; ) {
+    let j = i;
+    while (j < kept.length && bare[j]) j++;
+    // kept[i..j] are headings with nothing between them; the last one (j)
+    // may still begin a real chapter only if it is not itself a list entry.
+    if (j - i + 1 >= CONTENTS_HEADING_RUN) for (let k = i; k < j; k++) drop.add(k);
+    i = j + 1;
+  }
+  kept = kept.filter((_, i) => !drop.has(i));
+  return kept;
+}
+
+function detectChapters(text: string, tableTexts: Set<string>): Chapter[] {
   // ── Phase 1: targeted patterns (page-break, ATX heading, chapter-word, special section).
   // Run all of them and pick the one with the MOST matches. Otherwise a docx
   // with explicit "Chapter X" headings but only some chapters separated by
@@ -194,7 +248,7 @@ function detectChapters(text: string): Chapter[] {
   for (let pi = 0; pi < TARGETED_END; pi++) {
     const pat = CHAPTER_PATTERNS[pi];
     pat.lastIndex = 0;
-    const matches: PatternHit[] = [];
+    let matches: PatternHit[] = [];
     let m: RegExpExecArray | null;
     while ((m = pat.exec(text)) !== null) {
       if (m[0].trim().length <= 120) {
@@ -205,6 +259,7 @@ function detectChapters(text: string): Chapter[] {
         });
       }
     }
+    matches = dropContentsMatches(text, matches, tableTexts, pi === 0);
     const valid =
       matches.length >= 2 || (matches.length === 1 && matches[0].index > 0);
     if (valid && matches.length > bestMatches.length) {
@@ -221,7 +276,7 @@ function detectChapters(text: string): Chapter[] {
   for (let pi = TARGETED_END; pi < CHAPTER_PATTERNS.length; pi++) {
     const pat = CHAPTER_PATTERNS[pi];
     pat.lastIndex = 0;
-    const matches: PatternHit[] = [];
+    let matches: PatternHit[] = [];
     let m: RegExpExecArray | null;
     while ((m = pat.exec(text)) !== null) {
       if (m[0].trim().length <= 120) {
@@ -232,6 +287,7 @@ function detectChapters(text: string): Chapter[] {
         });
       }
     }
+    matches = dropContentsMatches(text, matches, tableTexts, false);
     if (matches.length >= 2 || (matches.length === 1 && matches[0].index > 0)) {
       return buildChaptersFromMatches(text, matches);
     }
