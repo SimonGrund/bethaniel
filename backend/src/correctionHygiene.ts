@@ -893,7 +893,7 @@ export function dropCoveredFindings(
 // shortest unique span (CORRECTIONS_JSON_FORMAT rule 3); this enforces it
 // deterministically instead, so it holds for every model and provider.
 
-/** Spans this short are already surgical — nothing to gain from splitting. */
+/** Spans this short are already surgical: never trimmed, only split in two. */
 const ALREADY_MINIMAL_WORDS = 6;
 /** Unchanged text shorter than this does not separate two edits. */
 const MIN_GAP_CHARS = 12;
@@ -901,6 +901,8 @@ const MIN_GAP_CHARS = 12;
 const MAX_EXPAND_WORDS = 8;
 /** A single correction should never explode into more than this many. */
 const MAX_PIECES = 8;
+/** A letter or a digit: what makes a change more than punctuation. */
+const WORDISH_RE = /[\p{L}\p{N}]/u;
 
 export interface NarrowResult {
   kept: Correction[];
@@ -960,13 +962,26 @@ function narrowOne(
     if (inNew) n += p.value.length;
   }
 
-  // Group changed segments separated by only a short run of unchanged text.
+  // Group changed segments separated by only a short run of unchanged text —
+  // unless one side is a mark and nothing else (a comma added, a full stop
+  // made a semicolon) with a whole unchanged word between them. A mark does
+  // not depend on the wording beside it, and kept together the author had to
+  // take "sine kaffe" → "sin kaffe," whole, both fixes on one card.
   const groups: { oStart: number; oEnd: number; nStart: number; nEnd: number }[] =
     [];
+  const marksOnly = (g: { oStart: number; oEnd: number; nStart: number; nEnd: number }) =>
+    !WORDISH_RE.test(c.original.slice(g.oStart, g.oEnd)) &&
+    !WORDISH_RE.test(c.corrected.slice(g.nStart, g.nEnd));
   for (const s of segs) {
     if (!s.changed) continue;
     const last = groups[groups.length - 1];
-    if (last && s.oStart - last.oEnd < MIN_GAP_CHARS) {
+    const gap = last ? c.original.slice(last.oEnd, s.oStart) : "";
+    const separate =
+      last &&
+      WORDISH_RE.test(gap) &&
+      /\s/.test(gap) &&
+      (marksOnly(last) || marksOnly(s));
+    if (last && !separate && s.oStart - last.oEnd < MIN_GAP_CHARS) {
       last.oEnd = Math.max(last.oEnd, s.oEnd);
       last.nEnd = Math.max(last.nEnd, s.nEnd);
     } else {
@@ -1079,12 +1094,12 @@ export function narrowCorrectionSpans(
   let split = 0;
 
   for (const c of corrections) {
-    if (wordCount(c.original) <= ALREADY_MINIMAL_WORDS) {
-      kept.push(c);
-      continue;
-    }
+    // A short span is already narrow enough; it is only worth touching when
+    // it holds two separate fixes (narrowOne's grouping), and then only split,
+    // never trimmed.
+    const short = wordCount(c.original) <= ALREADY_MINIMAL_WORDS;
     const pieces = narrowOne(contextText, c);
-    if (!pieces) {
+    if (!pieces || (short && pieces.length < 2)) {
       kept.push(c);
       continue;
     }

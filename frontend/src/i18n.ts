@@ -238,16 +238,19 @@ const TRANSLATIONS: Record<string, Record<Lang, string>> = {
     es: "No se pudo leer ese archivo.",
   },
   upload_prompt: {
-    // Names every format Betty accepts, and which two to prefer. .docx and
-    // .epub both carry real structure; the PDF path has to reconstruct
-    // paragraphs, emphasis and headings from glyph geometry
-    // (backend/src/pdfToMarkdown.ts), so it is the lossiest of the three and
-    // is accepted rather than recommended. Extensions stay lower-case — an
-    // extension is not a proper noun.
-    en: "Upload a .docx, .epub, or .pdf. Recommended formats are .docx and .epub",
-    da: "Upload en .docx, .epub eller .pdf. Anbefalede formater er .docx og .epub",
-    de: "Laden Sie eine .docx, .epub oder .pdf hoch. Empfohlene Formate sind .docx und .epub",
-    es: "Sube un .docx, .epub o .pdf. Los formatos recomendados son .docx y .epub",
+    // Names every format Betty accepts. PDF is refused (routes.ts /upload):
+    // rebuilding text from glyph geometry produced false corrections.
+    // Extensions stay lower-case — an extension is not a proper noun.
+    en: "Upload a .docx or .epub file.",
+    da: "Upload en .docx- eller .epub-fil.",
+    de: "Laden Sie eine .docx- oder .epub-Datei hoch.",
+    es: "Sube un archivo .docx o .epub.",
+  },
+  upload_pdf_blocked: {
+    en: "PDF files cannot be uploaded — Betty misreads too much of them. Export the manuscript as .docx or .epub and upload that instead.",
+    da: "PDF-filer kan ikke uploades — Betty læser for meget af dem forkert. Eksportér manuskriptet som .docx eller .epub, og upload det i stedet.",
+    de: "PDF-Dateien können nicht hochgeladen werden — Betty liest zu viel davon falsch. Exportieren Sie das Manuskript als .docx oder .epub und laden Sie stattdessen das hoch.",
+    es: "No se pueden subir archivos PDF: Betty lee mal demasiado de ellos. Exporta el manuscrito como .docx o .epub y súbelo en su lugar.",
   },
   lbl_file: {
     en: "file",

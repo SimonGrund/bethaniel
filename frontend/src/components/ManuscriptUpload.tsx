@@ -135,6 +135,13 @@ export default function ManuscriptUpload() {
 
   const handleUpload = useCallback(
     async (file: File) => {
+      // PDF import is switched off (see routes.ts /upload); a dropped file
+      // skips the picker's filter, so say why here rather than in English
+      // from the server.
+      if (/\.pdf$/i.test(file.name)) {
+        setUploadError(t("upload_pdf_blocked"));
+        return;
+      }
       setUploading(true);
       setUploadError(null);
       try {
@@ -199,7 +206,7 @@ export default function ManuscriptUpload() {
             <input
               ref={fileRef}
               type="file"
-              accept=".docx,.epub,.pdf,.md,.markdown"
+              accept=".docx,.epub,.md,.markdown"
               style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -268,7 +275,7 @@ export default function ManuscriptUpload() {
           <input
             ref={fileRef}
             type="file"
-            accept=".docx,.epub,.pdf,.md,.markdown"
+            accept=".docx,.epub,.md,.markdown"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

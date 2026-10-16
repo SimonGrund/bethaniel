@@ -1,6 +1,6 @@
 // ── Review & Export — Stage IV ──
 
-import { diffTokens, diffWords } from "../wordDiff";
+import { diffTokens, diffWords, whitespaceMark } from "../wordDiff";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { inTextOrder, locateInText } from "../textLocate";
@@ -161,19 +161,13 @@ export function InlineDiff({ before, after }: { before: string; after: string })
   return (
     <span className="correction-diff">
       {parts.map((p, i) => {
-        if (p.type === "del")
-          return (
-            <span key={i} className="word-del">
-              {p.text}
-            </span>
-          );
-        if (p.type === "ins")
-          return (
-            <span key={i} className="word-ins">
-              {p.text}
-            </span>
-          );
-        return <span key={i}>{p.text}</span>;
+        if (p.type === "equal") return <span key={i}>{p.text}</span>;
+        const mark = whitespaceMark(p.text);
+        return (
+          <span key={i} className={`word-${p.type}${mark ? " word-space" : ""}`}>
+            {mark ?? p.text}
+          </span>
+        );
       })}
     </span>
   );

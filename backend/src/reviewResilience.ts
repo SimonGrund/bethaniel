@@ -93,6 +93,22 @@ export function flagUnanchoredCorrections(
   return flaggedCount;
 }
 
+/**
+ * Corrections the reviewer is never shown (queue.ts), each for its own
+ * reason: a pre-approved fix, whose score is ignored anyway; a missing word,
+ * an insertion it cannot judge (missingWords.ts); and a withheld guess — an
+ * unknown word reported with `corrected === original` on purpose. Shown that
+ * last one, the reviewer could only ever answer "no actual change made", and
+ * that verdict reached the author as Betty correcting a word into itself.
+ */
+export function skipsReviewer(c: Correction): boolean {
+  return (
+    !!c.preApproved ||
+    c.reason === "missing-word" ||
+    (c.reason === "spell-check-unknown" && c.corrected === c.original)
+  );
+}
+
 export interface ReviewVerdict {
   flaggedCount: number;
   unscoredCount: number;
@@ -131,6 +147,12 @@ export function aggregateReviewScores(
     if (c.reason === "missing-word") {
       c.flagged = true;
       c.unreviewed = true;
+      continue;
+    }
+    // A withheld guess is never sent either: the word is the finding, and
+    // the author decides it (keep it, or type the fix). No score, no verdict.
+    if (skipsReviewer(c)) {
+      c.flagged = true;
       continue;
     }
 

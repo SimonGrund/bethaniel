@@ -56,11 +56,12 @@ import { formatEbookMarkdown } from "./ebook.js";
 import { detectSettings } from "./detectSettings.js";
 import { findChapters, PAGEBREAK_MARKER } from "./chapters.js";
 import {
-  pdfToMarkdown,
   ScannedPdfError,
   PdfReadError,
   GarbledPdfError,
 } from "./pdfToMarkdown.js";
+import { joinLineEndHyphens } from "./lineEndHyphens.js";
+import { tableParagraphTexts } from "./nonProse.js";
 import { epubToMarkdown, InvalidEpubError } from "./epubToMarkdown.js";
 import {
   analyzeStream,
@@ -257,23 +258,30 @@ router.post(
         await saveOriginalDocx(docId, req.file.buffer, mapped.paragraphMap);
       } else if (lower.endsWith(".epub")) {
         // Real text, in spine order — no geometry to infer, unlike a PDF.
-        md = await epubToMarkdown(req.file.buffer);
+        md = joinLineEndHyphens(await epubToMarkdown(req.file.buffer));
       } else if (lower.endsWith(".pdf")) {
-        // No original is kept: a PDF has no text flow to write corrections back
-        // into, so there is nothing surgical export could do with it.
-        md = await pdfToMarkdown(req.file.buffer);
+        // Refused (October 2026). Rebuilding a text flow from glyph geometry
+        // (pdfToMarkdown.ts) left line-end hyphens, flattened tables and
+        // contents pages in the text, and every one came back as a false
+        // correction. The reader is kept for when it can be trusted again.
+        res.status(400).json({
+          error:
+            "PDF files cannot be uploaded. Export the manuscript as .docx or .epub and upload that instead.",
+          reason: "pdf-blocked",
+        });
+        return;
       } else if (looksBinary(req.file.buffer)) {
         // Anything else is read as text. Without this a .pdf renamed .txt, or
         // any binary at all, became thousands of "words" of mojibake that were
         // then sent to the model as a manuscript.
         res.status(400).json({
           error:
-            "This file is not text. Upload a .docx, .epub, .pdf, .md or .txt file.",
+            "This file is not text. Upload a .docx, .epub, .md or .txt file.",
           reason: "not-text",
         });
         return;
       } else {
-        md = req.file.buffer.toString("utf-8");
+        md = joinLineEndHyphens(req.file.buffer.toString("utf-8"));
       }
 
       const chapters = findChapters(md);
@@ -1259,6 +1267,12 @@ router.post("/queue/add", async (req: Request, res: Response) => {
                 )
                 .filter((f): f is (w: string) => boolean => f !== null),
             );
+      // A .docx's table cells: prose to no check (nonProse.ts). Read from the
+      // map kept with the original, so a book uploaded before this works too.
+      const storedOriginal = currentMode === "translate" ? null : await loadOriginalDocx(doc.id);
+      const tableParagraphs = storedOriginal?.ok
+        ? tableParagraphTexts(doc.md, storedOriginal.value.paragraphMap)
+        : [];
       for (const [unitIndex, unit] of (units as EditUnit[]).entries()) {
         const text = stripPagebreaks(unit.original);
         const modeLabel =
@@ -1300,6 +1314,7 @@ router.post("/queue/add", async (req: Request, res: Response) => {
           consistentTerms,
           recurringUnknownWords: recurringUnknown,
           foreignWords: foreign,
+          tableParagraphs: tableParagraphs.length ? tableParagraphs : undefined,
           sheetReplace: sheet.replace.length ? sheet.replace : undefined,
           casingTerms: sheet.casing.length ? sheet.casing : undefined,
           dialogueSpeakers: sheet.speakers.length ? sheet.speakers : undefined,

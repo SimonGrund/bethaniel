@@ -10,6 +10,18 @@ export function diffWords(text: string): string[] {
 }
 
 /**
+ * What a change that is only whitespace looks like on the page: "␣" for each
+ * space, "↵" for each line break; null when the text is not all whitespace.
+ * Struck through and padded, a deleted space drew a red pill with a dash in
+ * it — read as a hyphen, and worst exactly where a space is swapped for a
+ * hyphen ("line break" → "line-break"), where it looked like nothing changed.
+ */
+export function whitespaceMark(text: string): string | null {
+  if (!text || /\S/.test(text)) return null;
+  return text.replace(/\r?\n/g, "↵").replace(/[^\S\n]/g, "␣");
+}
+
+/**
  * True minimal word-level diff via LCS (dynamic programming), not a greedy
  * "look ahead" heuristic. The greedy version degenerates on a long passage
  * with several SCATTERED changes of the same token (e.g. two "?"→"." swaps

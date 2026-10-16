@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { runWithRetry, aggregateReviewScores } from "../src/reviewResilience.ts";
+import { runWithRetry, aggregateReviewScores, skipsReviewer } from "../src/reviewResilience.ts";
 import type { Correction } from "../src/types.ts";
 
 const noBackoff = () => 0;
@@ -188,6 +188,26 @@ test("a missing word is shown unscored and unapplied, and is not a reviewer fail
   assert.equal(cs[0].unreviewed, true);
   assert.equal(cs[0].confidence, undefined);
   assert.equal(cs[1].flagged, undefined);
+  assert.equal(unscoredCount, 0);
+  assert.equal(flaggedCount, 0);
+});
+
+test("an unknown word with no guess never reaches the reviewer, and carries no verdict", () => {
+  // From a real run: the reviewer, shown "dagjob" → "dagjob", answered
+  // "Identical replacement — no actual change made." and the card read as
+  // Betty correcting a word into itself.
+  const withheld: Correction = { original: "dagjob", corrected: "dagjob", reason: "spell-check-unknown" };
+  const guessed: Correction = { original: "dagjb", corrected: "dagjob", reason: "spell-check-unknown" };
+  assert.equal(skipsReviewer(withheld), true);
+  assert.equal(skipsReviewer(guessed), false);
+  assert.equal(skipsReviewer({ original: "a", corrected: "b", reason: "missing-word" }), true);
+  assert.equal(skipsReviewer({ original: "a", corrected: "b", preApproved: true }), true);
+
+  const cs = [withheld];
+  const { flaggedCount, unscoredCount } = aggregateReviewScores(cs, [new Map()], 3);
+  assert.equal(cs[0].flagged, true);
+  assert.equal(cs[0].confidence, undefined);
+  assert.equal(cs[0].reviewReason, undefined);
   assert.equal(unscoredCount, 0);
   assert.equal(flaggedCount, 0);
 });

@@ -480,8 +480,14 @@ export default function ReviewDeck({
       : score !== null && score < UNSURE_BELOW
         ? t("deck_betty_unsure")
         : t("deck_betty_would_accept");
-    const tone = item.optional ? "mid" : score === null ? "none" : score >= UNSURE_BELOW ? "sure" : score >= 2 ? "mid" : "low";
-    const reason = item.correction.reviewReason
+    const tone = unfixable ? "none" : item.optional ? "mid" : score === null ? "none" : score >= UNSURE_BELOW ? "sure" : score >= 2 ? "mid" : "low";
+    // An unknown word proposes nothing, so a reviewer's verdict on it is
+    // only ever "no actual change made" — read as Betty correcting a word
+    // into itself. Results saved before the reviewer stopped seeing these
+    // still carry that verdict; the card explains the finding instead.
+    const reason = unfixable
+      ? t("unfixable_why")
+      : item.correction.reviewReason
       ? `“${item.correction.reviewReason}”`
       : kind === "doubted"
         ? t("flag_doubted_why")
@@ -520,9 +526,11 @@ export default function ReviewDeck({
             things most cards do not need — more of the text, and the
             reviewer's reason — one click away instead of always open. */}
         <div className="deck-card-head">
-          <span className="deck-suggests" title={hint}>
+          <span className="deck-suggests" title={unfixable ? undefined : hint}>
             <span className={`deck-dot deck-dot-${tone}`} aria-hidden="true" />
-            {score === null
+            {unfixable
+              ? t("unfixable_label")
+              : score === null
               ? `${t("deck_suggests")} · ${t(kind === "unreviewed" ? "flag_unreviewed" : "flag_unchecked")}`
               : t("deck_suggests_score").replace("{score}", String(score))}
           </span>

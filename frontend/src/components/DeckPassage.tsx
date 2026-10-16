@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { diffTokens, diffWords } from "../wordDiff";
+import { diffTokens, diffWords, whitespaceMark } from "../wordDiff";
 import { emphasisRuns, type Segment } from "../inlineEmphasis";
 
 /**
@@ -48,9 +48,14 @@ export function DeckPassage({
           case "context":
             return <span key={i} className="correction-context">{inner}</span>;
           case "del":
-            return <span key={i} className="word-del">{inner}</span>;
-          case "ins":
-            return <span key={i} className="word-ins">{inner}</span>;
+          case "ins": {
+            const mark = whitespaceMark(r.text);
+            return mark ? (
+              <span key={i} className={`word-${r.kind} word-space`}>{mark}</span>
+            ) : (
+              <span key={i} className={`word-${r.kind}`}>{inner}</span>
+            );
+          }
           case "mark":
             return <mark key={i} className="deck-unfixable-word">{inner}</mark>;
           default:

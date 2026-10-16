@@ -152,3 +152,30 @@ test("two edits split even when the second's word is what the first one introduc
     ],
   );
 });
+
+// From a real Danish run: a word fix and a comma on one card, so the author
+// could take neither without the other.
+test("a short span holding a word fix and a separate comma becomes two cards", () => {
+  const text = "Han drak sine kaffe og så ud ad vinduet. Kaffen var kold.";
+  const r = narrowCorrectionSpans(text, [c("drak sine kaffe og", "drak sin kaffe, og")]);
+  assert.equal(r.kept.length, 2, JSON.stringify(r.kept));
+  let out = text;
+  for (const k of r.kept) {
+    assert.equal(text.split(k.original).length - 1, 1, `ambiguous: ${k.original}`);
+    out = out.replace(k.original, k.corrected);
+  }
+  assert.equal(out, "Han drak sin kaffe, og så ud ad vinduet. Kaffen var kold.");
+});
+
+test("two commas a word apart in a short span are two cards", () => {
+  const text = "Han tegnede en krusedulle han kan lide det. Det er sjovt.";
+  const r = narrowCorrectionSpans(text, [c("krusedulle han kan lide", "krusedulle, han kan, lide")]);
+  assert.equal(r.kept.length, 2, JSON.stringify(r.kept));
+});
+
+test("a short rewording with two word changes stays one card", () => {
+  const text = "and his heart thundered in his chest";
+  const one = c("and his heart thundered", "his heart thundering");
+  const r = narrowCorrectionSpans(text, [one]);
+  assert.deepEqual(r.kept, [one]);
+});

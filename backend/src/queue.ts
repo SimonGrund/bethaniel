@@ -55,6 +55,7 @@ import {
 import {
   runWithRetry,
   aggregateReviewScores,
+  skipsReviewer,
   flagUnanchoredCorrections,
 } from "./reviewResilience.js";
 import { mergeAnalysisParts } from "./analysisMerge.js";
@@ -69,6 +70,7 @@ import {
   partitionUnlocatable,
 } from "./correctionHygiene.js";
 import { gateProtectedTerms } from "./lexicon.js";
+import { dropNonProseEdits } from "./nonProse.js";
 import { dropForeignWordGuesses, dropRecurringUnknowns, dropSentenceStartLowercasing } from "./noiseGates.js";
 import { dropCasingChanges, dropDialogueEdits, sheetFixCorrections } from "./sheetGates.js";
 import type { ProtectedTerms } from "./lexicon.js";
@@ -353,6 +355,8 @@ interface JobData {
   casingTerms?: string[];
   dialogueSpeakers?: string[];
   sheetFixes?: { original: string; corrected: string }[];
+  /** Table-cell paragraph texts: no suggestion inside one (nonProse.ts). */
+  tableParagraphs?: string[];
   /** The document's confirmed names & terms (lexicon.ts). A correction
    *  that would change one is dropped before any reviewer sees it. */
   protectedTerms?: ProtectedTerms;
@@ -2672,13 +2676,16 @@ async function processJob(job: JobData): Promise<void> {
           // The author's confirmed style-sheet rules (sheetGates.ts).
           const casingGate = dropCasingChanges(foreignGate.kept, job.casingTerms ?? []);
           const speechGate = dropDialogueEdits(casingGate.kept, chunk.body, job.dialogueSpeakers ?? []);
-          const cs: Correction[] = speechGate.kept;
+          // Table cells and contents pages are not prose (nonProse.ts).
+          const tableGate = dropNonProseEdits(speechGate.kept, chunk.body, new Set(job.tableParagraphs ?? []));
+          const cs: Correction[] = tableGate.kept;
           const noise = [
             ...caseGate.dropped,
             ...unknownGate.dropped,
             ...foreignGate.dropped,
             ...casingGate.dropped,
             ...speechGate.dropped,
+            ...tableGate.dropped,
           ];
           if (noise.length > 0) {
             skipped.push(...noise.map(({ correction, why }) => ({ ...correction, reason: why })));
@@ -2686,7 +2693,7 @@ async function processJob(job: JobData): Promise<void> {
               level: "info",
               source: "engine",
               taskId,
-              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly, ${foreignGate.dropped.length} were spelling guesses on words from another language, ${casingGate.dropped.length + speechGate.dropped.length} went against the style sheet's rules.`,
+              message: `Chunk ${chunkLabel}: ${noise.length} correction(s) left alone — ${caseGate.dropped.length} would lowercase a sentence start, ${unknownGate.dropped.length} were unknown words the book uses repeatedly, ${foreignGate.dropped.length} were spelling guesses on words from another language, ${casingGate.dropped.length + speechGate.dropped.length} went against the style sheet's rules, ${tableGate.dropped.length} were in a table or a contents page.`,
               model,
             });
           }
@@ -2767,7 +2774,7 @@ async function processJob(job: JobData): Promise<void> {
             // ignored anyway (reviewResilience.ts) — sending them only cost
             // tokens, and a whole-chunk one overflowed the context. Its scores
             // are mapped back onto the full list by position.
-            const reviewedAt = cs.flatMap((c, i) => (c.reason === "missing-word" || c.preApproved ? [] : [i]));
+            const reviewedAt = cs.flatMap((c, i) => (skipsReviewer(c) ? [] : [i]));
             const reviewPromise = (async () => {
               if (reviewedAt.length === 0) return [new Map<number, ReviewScore>()];
               const scores = await inUsagePass(tokenUsage, "reviewer", () => runReviewerAgentWithRetry({
@@ -3541,6 +3548,7 @@ export async function submitTask(
       casingTerms: data.casingTerms,
       dialogueSpeakers: data.dialogueSpeakers,
       sheetFixes: data.sheetFixes,
+      tableParagraphs: data.tableParagraphs,
       protectedTerms: data.protectedTerms,
       unitIndex: data.unitIndex,
     },
@@ -3747,6 +3755,7 @@ export async function retryTask(id: string): Promise<string> {
     casingTerms: spec.casingTerms,
     dialogueSpeakers: spec.dialogueSpeakers,
     sheetFixes: spec.sheetFixes,
+    tableParagraphs: spec.tableParagraphs,
     protectedTerms: spec.protectedTerms,
     unitIndex: spec.unitIndex,
     resumeState,

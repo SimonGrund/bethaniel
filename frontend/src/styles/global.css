@@ -1585,6 +1585,14 @@ h4 {
   /* No opacity: it was fading the one word the reader has to judge. */
 }
 
+/* A change that is only whitespace, drawn as ␣ / ↵ (wordDiff.ts). No
+   strike: a struck space is a dash, and reads as a hyphen. */
+.word-space {
+  text-decoration: none;
+  font-weight: 400;
+  padding: 1px 2px;
+}
+
 .correction-card {
   background: #fdfaf0;
   border: 1px solid #d9c9a8;

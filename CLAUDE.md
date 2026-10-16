@@ -91,7 +91,9 @@ In development, Vite runs separately on :5173; the backend on :4000 still serves
 | `termListFile.ts` | A term-list upload (CSV, Excel via JSZip, Word tables via mammoth, TBX by language, text) read into tab-separated lines for the paste field, so the author sees what was read and `termList.ts` does the rest |
 | `analysisMerge.ts` | Merge per-chapter analysis results (characters, locations, timeline) across chunks |
 | `chapters.ts` | Detect chapter headings, split manuscript into `EditUnit[]`; folds sub-50-word sections (title pages, stray headings) into the chapter they belong to |
-| `pdfToMarkdown.ts` | PDF → Markdown via pdfjs — reconstructs paragraphs, emphasis and headings from glyph geometry. Import only; refuses scans |
+| `pdfToMarkdown.ts` | PDF → Markdown via pdfjs — reconstructs paragraphs, emphasis and headings from glyph geometry. **Not reachable: `/upload` refuses .pdf (October 2026)** — line-end hyphens and flattened tables came back as false corrections. Kept for if it is re-enabled |
+| `lineEndHyphens.ts` | Rejoins a word broken across a line ("exam-⏎ple" → "exam-ple", hyphen kept) on .epub/.md/.txt import, so no check corrects each half. Not on .docx, whose paragraph map records offsets |
+| `nonProse.ts` | Table cells (a .docx's unmappable paragraphs, read from the stored map at job time) and contents pages (runs of internal-link lines or "Title …… 5" lines) are not prose: a gate in queue.ts drops suggestions inside them. A table cell's fix could not be exported into the Word file anyway |
 | `uploadFileName.ts` | Undoes multer 1.x's Latin-1 reading of multipart file names, so "Havnsø.md" is not shown (and exported) as "HavnsÃ¸.md" |
 | `conversion.ts` | DOCX ↔ Markdown (mammoth for import, `mdToDocx.ts` for export) |
 | `mdBlocks.ts` | Markdown → block structure, shared by the DOCX and EPUB/HTML paths so they cannot drift |

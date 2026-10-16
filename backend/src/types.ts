@@ -356,6 +356,10 @@ export interface TaskRetrySpec {
   casingTerms?: string[];
   dialogueSpeakers?: string[];
   sheetFixes?: { original: string; corrected: string }[];
+  /** The text of the manuscript's table cells (a .docx's unmappable
+   *  paragraphs). No suggestion is raised inside one, nor inside a contents
+   *  page (nonProse.ts). */
+  tableParagraphs?: string[];
   /** The document's enabled lexicon, for the gate (queue.ts). */
   protectedTerms?: ProtectedTerms;
   unitIndex?: number;
